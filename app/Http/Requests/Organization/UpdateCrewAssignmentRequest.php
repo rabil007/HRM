@@ -4,6 +4,8 @@ namespace App\Http\Requests\Organization;
 
 use App\Models\CrewAssignment;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -84,6 +86,13 @@ class UpdateCrewAssignmentRequest extends FormRequest
 
             $assignment = $this->existingAssignment();
             $companyId = (int) $this->attributes->get('current_company_id');
+
+            $this->assertExpectedJoinNotAfterPlannedSignOff($validator, $assignment, $companyId);
+
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
             $clientId = $this->nullableInt($this->input('client_id'));
             $vesselId = $this->nullableInt($this->input('vessel_id'));
 
@@ -124,6 +133,29 @@ class UpdateCrewAssignmentRequest extends FormRequest
                 $vesselId,
             );
         });
+    }
+
+    private function assertExpectedJoinNotAfterPlannedSignOff(
+        Validator $validator,
+        ?CrewAssignment $assignment,
+        int $companyId,
+    ): void {
+        if ($assignment === null || ! $this->filled('planned_join_at') || $assignment->planned_signoff_at === null) {
+            return;
+        }
+
+        $timezone = CompanyTimezone::forCompanyId($companyId);
+        $joinDate = Carbon::parse((string) $this->input('planned_join_at'), $timezone)
+            ->timezone($timezone)
+            ->toDateString();
+        $signoffDate = $assignment->planned_signoff_at->copy()->timezone($timezone)->toDateString();
+
+        if ($joinDate > $signoffDate) {
+            $validator->errors()->add(
+                'planned_join_at',
+                'Expected Vessel Join cannot be after the existing Planned Sign-Off. Update the sign-off plan through the appropriate movement or planning workflow first.',
+            );
+        }
     }
 
     private function existingAssignment(): ?CrewAssignment

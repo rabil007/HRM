@@ -608,3 +608,116 @@ test('19. normal edit payload updates expected vessel join and ignores planned s
         ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
         ->and($fresh->planned_travel_at?->toDateString())->toBe('2026-11-05');
 });
+
+test('20. expected vessel join before existing planned sign-off is allowed', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Join Before Signoff Vessel');
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-08-01',
+        'planned_signoff_at' => '2026-11-01',
+        'remarks' => 'Keep remarks',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-15',
+            'remarks' => 'Keep remarks',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    expect($assignment->fresh()->planned_join_at?->toDateString())->toBe('2026-10-15')
+        ->and($assignment->fresh()->planned_signoff_at?->toDateString())->toBe('2026-11-01');
+});
+
+test('21. expected vessel join equal to existing planned sign-off is allowed', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Join Equal Signoff Vessel');
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-08-01',
+        'planned_signoff_at' => '2026-11-01',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-11-01',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    expect($assignment->fresh()->planned_join_at?->toDateString())->toBe('2026-11-01')
+        ->and($assignment->fresh()->planned_signoff_at?->toDateString())->toBe('2026-11-01');
+});
+
+test('22. expected vessel join after existing planned sign-off is rejected and preserves stored values', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Join After Signoff Vessel');
+    $client = Client::query()->create(['name' => 'Join After Signoff Client '.Str::uuid(), 'is_active' => true]);
+    $vessel->update(['client_id' => $client->id]);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'client_id' => $client->id,
+        'planned_join_at' => '2026-08-01',
+        'planned_signoff_at' => '2026-11-01',
+        'planned_travel_at' => '2026-11-05',
+        'remarks' => 'Original remarks',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.edit', $assignment))
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'client_id' => $client->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-12-01',
+            'remarks' => 'Should not persist',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.edit', $assignment))
+        ->assertSessionHasErrors('planned_join_at');
+
+    $fresh = $assignment->fresh();
+
+    expect($fresh->rank_id)->toBe($rank->id)
+        ->and($fresh->client_id)->toBe($client->id)
+        ->and($fresh->vessel_id)->toBe($vessel->id)
+        ->and($fresh->planned_join_at?->toDateString())->toBe('2026-08-01')
+        ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
+        ->and($fresh->planned_travel_at?->toDateString())->toBe('2026-11-05')
+        ->and($fresh->remarks)->toBe('Original remarks');
+});
+
+test('23. expected vessel join may be updated when planned sign-off is absent', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Join Without Signoff Vessel');
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-08-01',
+        'remarks' => 'No sign-off yet',
+    ], $user->id);
+
+    expect($assignment->planned_signoff_at)->toBeNull();
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-12-01',
+            'remarks' => 'No sign-off yet',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    expect($assignment->fresh()->planned_join_at?->toDateString())->toBe('2026-12-01')
+        ->and($assignment->fresh()->planned_signoff_at)->toBeNull();
+});

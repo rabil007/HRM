@@ -207,10 +207,12 @@ test('omitted assignment start date uses company-local now', function () {
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
 
     expect($assignment->started_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
-        ->and($assignment->currentPhase?->actual_start_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00');
+        ->and($assignment->currentPhase?->actual_start_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
+        ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue()
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
 });
 
-test('supplied assignment start date and time is parsed in the company timezone', function () {
+test('crafted stage started at cannot backdate a normal web start assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = actingCrewStarter();
     expect($company->timezone)->toBe('Asia/Dubai');
     Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00', 'Asia/Dubai'));
@@ -219,45 +221,66 @@ test('supplied assignment start date and time is parsed in the company timezone'
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'stage_started_at' => '2026-09-15T10:30',
+            'stage_started_at' => '2026-09-14T10:30',
         ])
         ->assertRedirect();
 
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
 
-    expect($assignment->started_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 06:30:00')
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
-        ->and($assignment->currentPhase?->actual_start_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 06:30:00');
+    expect($assignment->started_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
+        ->and($assignment->currentPhase?->actual_start_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
+        ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
 });
 
-test('date-only stage started at is rejected', function () {
-    ['user' => $user, 'employee' => $employee] = actingCrewStarter();
-
-    $this->actingAs($user)
-        ->from(route('organization.crew-assignments.create'))
-        ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'start',
-            'employee_id' => $employee->id,
-            'stage_started_at' => '2026-09-15',
-        ])
-        ->assertRedirect(route('organization.crew-assignments.create'))
-        ->assertSessionHasErrors('stage_started_at');
-});
-
-test('future stage started at is rejected', function () {
-    ['user' => $user, 'employee' => $employee, 'company' => $company] = actingCrewStarter();
+test('crafted future stage started at cannot affect a normal web start assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = actingCrewStarter();
     Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00', $company->timezone));
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.create'))
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
             'current_stage' => 'p0',
             'stage_started_at' => '2026-09-16T08:00',
         ])
-        ->assertRedirect(route('organization.crew-assignments.create'))
-        ->assertSessionHasErrors('stage_started_at');
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00')
+        ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
+});
+
+test('service start assignment still accepts an explicit historical timestamp', function () {
+    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+    Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00', $company->timezone));
+
+    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'current_stage' => 'p1',
+        'stage_started_at' => '2026-09-14 10:30:00',
+    ], $user->id);
+
+    expect($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-14 10:30')
+        ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
+});
+
+test('service rejects date-only stage started at', function () {
+    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+
+    expect(fn () => app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'stage_started_at' => '2026-09-15',
+    ], $user->id))->toThrow(CrewMovementException::class, 'Assignment start date and time must include a time.');
+});
+
+test('service rejects future stage started at', function () {
+    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+    Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00', $company->timezone));
+
+    expect(fn () => app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'stage_started_at' => '2026-09-16 08:00:00',
+    ], $user->id))->toThrow(CrewMovementException::class, 'Assignment start date and time cannot be in the future.');
 });
 
 test('direct start stages create only the selected phase', function (string $stage, CrewPhaseCode $expected) {

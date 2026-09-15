@@ -92,8 +92,9 @@ export default function CrewAssignmentEdit({
                                 Movement Actions.
                             </p>
                             <p>
-                                Eligible changes automatically update the linked
-                                Planning bar.
+                                If this assignment has an eligible linked
+                                Planning record, saving may synchronize Vessel,
+                                Rank, or Expected Vessel Join changes.
                             </p>
                         </div>
                     </div>
@@ -108,14 +109,13 @@ export default function CrewAssignmentEdit({
                             />
                             <div className="space-y-1 text-sm text-amber-900 dark:text-amber-100">
                                 <p className="font-medium">
-                                    These changes will update the linked
-                                    Planning bar
+                                    Linked Planning may be updated
                                 </p>
                                 <p className="text-amber-800/90 dark:text-amber-200/90">
-                                    Vessel, rank, or Expected Vessel Join differ
-                                    from the saved assignment. Saving will
-                                    create or update the linked Planning Gantt
-                                    bar to match.
+                                    Vessel, Rank, or Expected Vessel Join
+                                    changed. If this assignment has an eligible
+                                    linked Planning record, saving will
+                                    synchronize those changes.
                                 </p>
                             </div>
                         </div>

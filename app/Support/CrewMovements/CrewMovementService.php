@@ -113,6 +113,10 @@ final class CrewMovementService
      * phases are never invented. Tour of Duty and Sea Service are not created
      * for pre-P4 starts. Join Vessel remains the only way to enter P4.
      *
+     * `stage_started_at` is optional for controlled callers (tests and later
+     * Bulk Add / historical import). When omitted, company-local `now()` is used.
+     * The normal web Store endpoint does not forward a client-supplied timestamp.
+     *
      * @param  array<string, mixed>  $attributes
      */
     public function startAssignment(

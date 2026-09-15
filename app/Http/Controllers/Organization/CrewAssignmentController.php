@@ -179,7 +179,6 @@ class CrewAssignmentController extends Controller
                         'vessel_id' => $validated['vessel_id'] ?? null,
                         'planned_join_at' => $validated['planned_join_at'] ?? null,
                         'current_stage' => $validated['current_stage'] ?? null,
-                        'stage_started_at' => $validated['stage_started_at'] ?? null,
                         'remarks' => $validated['remarks'] ?? null,
                     ],
                     $request->user()?->id,

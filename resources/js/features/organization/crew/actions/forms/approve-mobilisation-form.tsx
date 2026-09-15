@@ -19,10 +19,6 @@ export function ApproveMobilisationForm({
         missing.push('Rank is not set yet.');
     }
 
-    if (!context.planned_travel_at) {
-        missing.push('Planned travel home is not set.');
-    }
-
     if (!context.planned_join_at) {
         missing.push('Expected vessel join is not set.');
     }
@@ -42,15 +38,7 @@ export function ApproveMobilisationForm({
                 </div>
                 <div>
                     <span className="text-muted-foreground">
-                        Planned travel:{' '}
-                    </span>
-                    <span className="font-medium">
-                        {formatDisplayDate(context.planned_travel_at)}
-                    </span>
-                </div>
-                <div>
-                    <span className="text-muted-foreground">
-                        Expected join:{' '}
+                        Expected Vessel Join:{' '}
                     </span>
                     <span className="font-medium">
                         {formatDisplayDate(context.planned_join_at)}

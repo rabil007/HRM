@@ -137,7 +137,7 @@ Default current assignment stage is **P1 Travel In**. Operations may optionally 
 
 Prior phases are **never invented**. A P1 start has only P1 in the timeline.
 
-The create form does **not** collect Assignment Start Date & Time. Start uses company-local submit time. If a caller still supplies `stage_started_at` (tests or later Bulk Add), it is parsed in the company timezone, date-only values are rejected, and future timestamps are rejected.
+The create form does **not** collect Assignment Start Date & Time. Normal `/organization/crew/create` Start Assignment always uses company-local server submit time (`now()` in the company timezone). The Store request and controller do **not** accept, validate, or forward a client-supplied `stage_started_at`; crafted timestamps cannot backdate or future-date a normal web start. `CrewMovementService::startAssignment()` may still accept an explicit timestamp internally for tests and later controlled Bulk Add / historical import.
 
 Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those columns remain on the assignment for P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. Normal Edit Assignment does not expose or mutate them.
 
@@ -159,11 +159,11 @@ Existing Draft assignments remain operable.
 
 ### Edit Assignment
 
-The edit form updates assignment master data and Expected Vessel Join (`planned_join_at`) plus remarks. Current Assignment Stage is read-only context. The form does **not** expose Assignment Start Date & Time, Planned Sign-Off, Planned Travel Home, or editable actual movement timestamps. Stored `planned_signoff_at` / `planned_travel_at` remain on the record and continue to be owned by P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. The update request accepts only `rank_id`, `client_id`, `vessel_id`, `planned_join_at`, and `remarks`. It does not accept `started_at`, `current_stage`, phase `actual_start_at` / `actual_end_at`, `planned_signoff_at`, or `planned_travel_at`. Omitting those fields preserves existing stored values. Historical/actual movement corrections remain on Movement Actions and Request Correction. Correcting P1 Travel In updates that phase `actual_start_at` and does **not** rewrite `CrewAssignment.started_at`.
+The edit form updates assignment master data and Expected Vessel Join (`planned_join_at`) plus remarks. Current Assignment Stage is read-only context. The form does **not** expose Assignment Start Date & Time, Planned Sign-Off, Planned Travel Home, or editable actual movement timestamps. Stored `planned_signoff_at` / `planned_travel_at` remain on the record and continue to be owned by P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. The update request accepts only `rank_id`, `client_id`, `vessel_id`, `planned_join_at`, and `remarks`. It does not accept `started_at`, `current_stage`, phase `actual_start_at` / `actual_end_at`, `planned_signoff_at`, or `planned_travel_at`. Omitting those fields preserves existing stored values. If Expected Vessel Join is submitted and an existing Planned Sign-Off is present, the join date cannot be after that sign-off date (company-local calendar dates). The update does not silently change or clear Planned Sign-Off. Historical/actual movement corrections remain on Movement Actions and Request Correction. Correcting P1 Travel In updates that phase `actual_start_at` and does **not** rewrite `CrewAssignment.started_at`.
 
 ### Start Travel (`approve_mobilisation`)
 
-User-facing label is **Start Travel**. The persisted action value remains `approve_mobilisation` for historical activities, tests, and old Draft records.
+User-facing label is **Start Travel**. The persisted action value remains `approve_mobilisation` for historical activities, tests, and old Draft records. The Start Travel form does **not** depend on Planned Travel Home; that forecast belongs to later P5 → P6 Travel Home / history workflows.
 
 | Case | Behaviour |
 |------|-----------|

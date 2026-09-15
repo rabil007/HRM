@@ -6,8 +6,6 @@ use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Enums\CrewPhaseCode;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
-use App\Support\Settings\CompanyTimezone;
-use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -96,7 +94,6 @@ class StoreCrewAssignmentRequest extends FormRequest
                     CrewPhaseCode::directStartPhases(),
                 )),
             ],
-            'stage_started_at' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -128,42 +125,6 @@ class StoreCrewAssignmentRequest extends FormRequest
                 $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
             );
-
-            if ($this->submissionIntent() !== CrewAssignmentSubmissionIntent::Start) {
-                return;
-            }
-
-            $raw = trim((string) $this->input('stage_started_at', ''));
-
-            if ($raw === '') {
-                return;
-            }
-
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
-                $validator->errors()->add(
-                    'stage_started_at',
-                    'Assignment start date and time must include a time. Midnight is not assumed.',
-                );
-
-                return;
-            }
-
-            $timezone = CompanyTimezone::forCompanyId($companyId);
-
-            try {
-                $startedAt = Carbon::parse($raw, $timezone);
-            } catch (\Throwable) {
-                $validator->errors()->add('stage_started_at', 'Enter a valid assignment start date and time.');
-
-                return;
-            }
-
-            if ($startedAt->gt(now($timezone))) {
-                $validator->errors()->add(
-                    'stage_started_at',
-                    'Assignment start date and time cannot be in the future. Future mobilisation belongs in Crew Planning.',
-                );
-            }
         });
     }
 
