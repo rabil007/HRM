@@ -8,6 +8,8 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Support\CrewMovements\CrewDateProvenance;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewResource;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use Carbon\CarbonImmutable;
 
@@ -382,4 +384,66 @@ test('planned window locates missing actual start as a zero-day warning only', f
             ->where('employees.0.assignments.0.phases.0.warnings.0.code', CrewTimelineWarningCode::MissingActualStart->value)
             ->where('employees.0.total_payable_days', 0)
             ->where('employees.0.onsite_days', 0));
+});
+
+test('crew payroll review formats phase actual dates in the company timezone', function () {
+    config(['app.timezone' => 'UTC']);
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    grantDateProvenancePermissions($fixtures);
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+
+    $phase = CrewAssignmentPhase::query()->create([
+        'company_id' => $fixtures['assignment']->company_id,
+        'crew_assignment_id' => $fixtures['assignment']->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => CarbonImmutable::parse('2026-09-16 01:30:00', 'Asia/Dubai'),
+        'actual_end_at' => CarbonImmutable::parse('2026-09-16 18:00:00', 'Asia/Dubai'),
+    ]);
+
+    $preparation = CrewTimesheetPreparation::factory()
+        ->forPeriod($fixtures['period'])
+        ->create();
+
+    CrewTimesheetPreparationLine::factory()
+        ->forPreparation($preparation)
+        ->forAssignment($fixtures['assignment'], $phase)
+        ->create([
+            'pay_category' => CrewTimesheetPayCategory::Onsite,
+            'from_date' => '2026-09-16',
+            'to_date' => '2026-09-16',
+            'days' => 1,
+            'source_actual_start_at' => '2026-09-16 01:30:00',
+            'source_actual_end_at' => '2026-09-16 18:00:00',
+        ]);
+
+    $loaded = app(CrewTimesheetPreparationReviewQuery::class)->findForReview(
+        $fixtures['period'],
+        (int) $preparation->id,
+        (int) $fixtures['company']->id,
+    );
+
+    $payload = app(CrewTimesheetPreparationReviewResource::class)->toArray(
+        $fixtures['period'],
+        $loaded,
+    );
+
+    $loadedPhase = $loaded->lines->first()?->phase;
+
+    expect(\App\Support\Settings\CompanyTimezone::forCompanyId((int) $fixtures['company']->id))
+        ->toBe('Asia/Dubai')
+        ->and($loaded->company_id)->toBe($fixtures['company']->id)
+        ->and(CrewDateProvenance::phaseActual($loadedPhase, 'UTC')['start'])
+        ->toBe('2026-09-15')
+        ->and(CrewDateProvenance::phaseActual($loadedPhase, 'Asia/Dubai')['start'])
+        ->toBe('2026-09-16');
+
+    expect($payload['employees'][0]['assignments'][0]['phases'][0]['actual_start'])
+        ->toBe('2026-09-16')
+        ->and($payload['employees'][0]['assignments'][0]['phases'][0]['actual_end'])
+        ->toBe('2026-09-16')
+        ->and($payload['employees'][0]['total_payable_days'])->toBe(1.0)
+        ->and($payload['employees'][0]['onsite_days'])->toBe(1.0);
 });

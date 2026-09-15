@@ -14,6 +14,7 @@ use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\PayrollPeriod;
 use App\Support\CrewMovements\CrewDateProvenance;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Support\Collection;
 
 final class CrewTimesheetPreparationReviewResource
@@ -36,7 +37,13 @@ final class CrewTimesheetPreparationReviewResource
             fn (CrewTimesheetPreparationLine $line): bool => $line->warning_code === CrewTimelineWarningCode::CrossCompanyReference->value,
         );
 
-        $employees = $this->employeeSummaries($preparation, $period, $hasPreparationCrossCompany);
+        $companyTimezone = CompanyTimezone::forCompanyId((int) $preparation->company_id);
+        $employees = $this->employeeSummaries(
+            $preparation,
+            $period,
+            $companyTimezone,
+            $hasPreparationCrossCompany,
+        );
         $summary = $this->summaryTotals($employees, $hasPreparationCrossCompany);
         $warningBreakdown = $this->warningBreakdown($employees);
 
@@ -93,6 +100,7 @@ final class CrewTimesheetPreparationReviewResource
     private function employeeSummaries(
         CrewTimesheetPreparation $preparation,
         PayrollPeriod $period,
+        string $companyTimezone,
         bool $hasPreparationCrossCompany = false,
     ): array {
         $prepLines = $this->preparationLines($preparation);
@@ -119,7 +127,7 @@ final class CrewTimesheetPreparationReviewResource
         foreach ($linesByEmployee as $employeeId => $employeeLines) {
             /** @var Collection<int, CrewTimesheetPreparationLine> $employeeLines */
             $first = $employeeLines->first();
-            $assignments = $this->assignmentSummaries($employeeLines);
+            $assignments = $this->assignmentSummaries($employeeLines, $companyTimezone);
             $flatLines = $employeeLines
                 ->map(fn (CrewTimesheetPreparationLine $line): array => $this->flatLinePayload($line))
                 ->values()
@@ -255,7 +263,7 @@ final class CrewTimesheetPreparationReviewResource
      * @param  Collection<int, CrewTimesheetPreparationLine>  $employeeLines
      * @return list<array<string, mixed>>
      */
-    private function assignmentSummaries(Collection $employeeLines): array
+    private function assignmentSummaries(Collection $employeeLines, string $companyTimezone): array
     {
         /** @var Collection<int|string, Collection<int, CrewTimesheetPreparationLine>> $byAssignment */
         $byAssignment = $employeeLines->groupBy(
@@ -267,7 +275,7 @@ final class CrewTimesheetPreparationReviewResource
         foreach ($byAssignment as $assignmentId => $assignmentLines) {
             /** @var Collection<int, CrewTimesheetPreparationLine> $assignmentLines */
             $assignment = $assignmentLines->first()?->assignment;
-            $phases = $this->phaseSummaries($assignmentLines);
+            $phases = $this->phaseSummaries($assignmentLines, $companyTimezone);
 
             $assignments[] = [
                 'id' => $assignmentId > 0 ? (int) $assignmentId : null,
@@ -296,7 +304,7 @@ final class CrewTimesheetPreparationReviewResource
      * @param  Collection<int, CrewTimesheetPreparationLine>  $assignmentLines
      * @return list<array<string, mixed>>
      */
-    private function phaseSummaries(Collection $assignmentLines): array
+    private function phaseSummaries(Collection $assignmentLines, string $companyTimezone): array
     {
         /** @var Collection<string, Collection<int, CrewTimesheetPreparationLine>> $byPhase */
         $byPhase = $assignmentLines->groupBy(
@@ -313,7 +321,7 @@ final class CrewTimesheetPreparationReviewResource
 
         foreach ($byPhase as $phaseLines) {
             /** @var Collection<int, CrewTimesheetPreparationLine> $phaseLines */
-            $phases[] = $this->phasePayload($phaseLines);
+            $phases[] = $this->phasePayload($phaseLines, $companyTimezone);
         }
 
         usort($phases, function (array $left, array $right): int {
@@ -357,7 +365,7 @@ final class CrewTimesheetPreparationReviewResource
      * @param  Collection<int, CrewTimesheetPreparationLine>  $phaseLines
      * @return array<string, mixed>
      */
-    private function phasePayload(Collection $phaseLines): array
+    private function phasePayload(Collection $phaseLines, string $companyTimezone): array
     {
         $first = $phaseLines->first();
         $phase = $first?->phase;
@@ -437,8 +445,7 @@ final class CrewTimesheetPreparationReviewResource
         }
 
         $phaseCode = $phase?->phase_code ?? $first?->phase_code;
-        $timezone = (string) config('app.timezone', 'UTC');
-        $actual = CrewDateProvenance::phaseActual($phase, $timezone);
+        $actual = CrewDateProvenance::phaseActual($phase, $companyTimezone);
 
         $hasWarningOnlyRanges = $phaseLines->contains(
             fn (CrewTimesheetPreparationLine $line): bool => $line->warning_code !== null && (float) $line->days <= 0,

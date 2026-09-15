@@ -10,6 +10,12 @@ import {
     getEmployeeStatusContainerClass,
 } from '@/features/organization/crew/components/crew-employee-operational-status';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import {
+    applyClientChange,
+    applyVesselChange,
+    filterVesselsForClient,
+    selectedVesselIsLegacyUnassigned,
+} from '@/features/organization/crew/lib/crew-assignment-client-vessel';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type {
     ActiveOnVesselAssignment,
@@ -123,61 +129,28 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
         form.setData(key, value ? Number(value) : null);
     };
 
-    const vesselsForClient = formOptions.vessels.filter((vessel) => {
-        if (form.data.vessel_id !== null && vessel.id === form.data.vessel_id) {
-            return true;
-        }
+    const vesselsForClient = filterVesselsForClient(
+        formOptions.vessels,
+        form.data.client_id,
+        form.data.vessel_id,
+    );
 
-        if (vessel.client_id == null) {
-            return false;
-        }
-
-        if (form.data.client_id === null) {
-            return true;
-        }
-
-        return vessel.client_id === form.data.client_id;
-    });
-
-    const selectedVesselIsLegacyUnassigned =
-        form.data.vessel_id !== null &&
-        formOptions.vessels.some(
-            (vessel) =>
-                vessel.id === form.data.vessel_id && vessel.client_id == null,
-        );
+    const legacyUnassigned = selectedVesselIsLegacyUnassigned(
+        formOptions.vessels,
+        form.data.vessel_id,
+    );
 
     const setClientId = (value: string): void => {
-        const nextClientId = value ? Number(value) : null;
-        const selectedVessel = formOptions.vessels.find(
-            (vessel) => vessel.id === form.data.vessel_id,
-        );
-        const vesselMatches =
-            selectedVessel != null &&
-            selectedVessel.is_active !== false &&
-            selectedVessel.client_id != null &&
-            nextClientId !== null &&
-            selectedVessel.client_id === nextClientId;
-
         form.setData({
             ...form.data,
-            client_id: nextClientId,
-            vessel_id: vesselMatches ? form.data.vessel_id : null,
+            ...applyClientChange(form.data, formOptions, value),
         });
     };
 
     const setVesselId = (value: string): void => {
-        const nextVesselId = value ? Number(value) : null;
-        const selectedVessel = formOptions.vessels.find(
-            (vessel) => vessel.id === nextVesselId,
-        );
-
         form.setData({
             ...form.data,
-            vessel_id: nextVesselId,
-            client_id:
-                selectedVessel?.client_id != null
-                    ? selectedVessel.client_id
-                    : form.data.client_id,
+            ...applyVesselChange(form.data, formOptions, value),
         });
     };
 
@@ -395,7 +368,7 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                                 No vessels are assigned to this client.
                             </p>
                         ) : null}
-                        {selectedVesselIsLegacyUnassigned ? (
+                        {legacyUnassigned ? (
                             <p className="text-xs text-muted-foreground">
                                 This vessel has no current client assignment.
                                 Map the vessel before changing the

@@ -1,4 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
+import type { ReactElement } from 'react';
+import { useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     dataTableActionsCellClass,
@@ -30,7 +32,7 @@ import type {
 import { MOBILE_OPERATIONAL_LIST_CLASS } from '@/lib/mobile-operational-list';
 import { cn } from '@/lib/utils';
 
-export type BulkAddCrewRowState = BulkAddCrewRow & { key: string };
+export type CrewMemberRowState = BulkAddCrewRow & { key: string };
 
 function lookupByEmployeeId<T>(
     map: Record<string, T> | undefined,
@@ -43,86 +45,111 @@ function lookupByEmployeeId<T>(
     return map[String(employeeId)] ?? null;
 }
 
-export function BulkAddCrewRows({
+export function CrewMembersSection({
     rows,
     formOptions,
     errors,
+    compact,
     onAddRow,
     onRemoveRow,
     onChangeRow,
 }: {
-    rows: BulkAddCrewRowState[];
+    rows: CrewMemberRowState[];
     formOptions: CrewAssignmentCreateFormOptions;
     errors: Record<string, string | undefined>;
+    compact: boolean;
     onAddRow: () => void;
     onRemoveRow: (index: number) => void;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
-}) {
+}): ReactElement {
     const selectedEmployeeIds = new Set(
         rows
             .map((row) => row.employee_id)
             .filter((id): id is number => id != null),
     );
-
     const crewError = bulkFieldError(errors, 'crew');
 
     return (
         <section className="space-y-4">
             <div>
                 <h2 className="text-sm font-semibold tracking-tight">
-                    Crew members
+                    Crew Members
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                    Rank defaults from the employee profile and can be changed
-                    per row.
+                    {compact
+                        ? 'Rank defaults from the employee profile and can be changed per row.'
+                        : 'Assign who this mobilisation cycle belongs to.'}
                 </p>
             </div>
 
             {crewError ? <InputError message={crewError} /> : null}
 
-            <div className="hidden md:block">
-                <OrganizationDataTable minWidth="min-w-[720px]" compact>
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead>Employee</DataTableHead>
-                            <DataTableHead>Rank</DataTableHead>
-                            <DataTableHead>Operational Status</DataTableHead>
-                            <DataTableHead className="w-16">
-                                <span className="sr-only">Remove</span>
-                            </DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
+            {!compact && rows[0] ? (
+                <SingleCrewMemberCard
+                    row={rows[0]}
+                    formOptions={formOptions}
+                    errors={errors}
+                    selectedEmployeeIds={selectedEmployeeIds}
+                    onChangeRow={onChangeRow}
+                />
+            ) : (
+                <>
+                    <div className="hidden md:block">
+                        <OrganizationDataTable minWidth="min-w-[720px]" compact>
+                            <TableHeader>
+                                <DataTableHeaderRow>
+                                    <DataTableHead>Employee</DataTableHead>
+                                    <DataTableHead>Rank</DataTableHead>
+                                    <DataTableHead>
+                                        Operational Status
+                                    </DataTableHead>
+                                    <DataTableHead className="w-16">
+                                        <span className="sr-only">Remove</span>
+                                    </DataTableHead>
+                                </DataTableHeaderRow>
+                            </TableHeader>
+                            <TableBody>
+                                {rows.map((row, index) => (
+                                    <BulkDesktopRow
+                                        key={row.key}
+                                        index={index}
+                                        row={row}
+                                        formOptions={formOptions}
+                                        errors={errors}
+                                        selectedEmployeeIds={
+                                            selectedEmployeeIds
+                                        }
+                                        canRemove={rows.length > 1}
+                                        onChangeRow={onChangeRow}
+                                        onRemoveRow={onRemoveRow}
+                                    />
+                                ))}
+                            </TableBody>
+                        </OrganizationDataTable>
+                    </div>
+
+                    <div
+                        className={cn(
+                            MOBILE_OPERATIONAL_LIST_CLASS,
+                            'space-y-3',
+                        )}
+                    >
                         {rows.map((row, index) => (
-                            <BulkAddDesktopRow
+                            <BulkMobileCard
                                 key={row.key}
                                 index={index}
                                 row={row}
                                 formOptions={formOptions}
                                 errors={errors}
                                 selectedEmployeeIds={selectedEmployeeIds}
+                                canRemove={rows.length > 1}
                                 onChangeRow={onChangeRow}
                                 onRemoveRow={onRemoveRow}
                             />
                         ))}
-                    </TableBody>
-                </OrganizationDataTable>
-            </div>
-
-            <div className={cn(MOBILE_OPERATIONAL_LIST_CLASS, 'space-y-3')}>
-                {rows.map((row, index) => (
-                    <BulkAddMobileCard
-                        key={row.key}
-                        index={index}
-                        row={row}
-                        formOptions={formOptions}
-                        errors={errors}
-                        selectedEmployeeIds={selectedEmployeeIds}
-                        onChangeRow={onChangeRow}
-                        onRemoveRow={onRemoveRow}
-                    />
-                ))}
-            </div>
+                    </div>
+                </>
+            )}
 
             <Button
                 type="button"
@@ -131,29 +158,164 @@ export function BulkAddCrewRows({
                 onClick={onAddRow}
             >
                 <Plus className="h-4 w-4" />
-                Add Crew Member
+                Add Another Crew Member
             </Button>
         </section>
     );
 }
 
-function BulkAddDesktopRow({
-    index,
+function SingleCrewMemberCard({
     row,
     formOptions,
     errors,
     selectedEmployeeIds,
     onChangeRow,
-    onRemoveRow,
 }: {
-    index: number;
-    row: BulkAddCrewRowState;
+    row: CrewMemberRowState;
     formOptions: CrewAssignmentCreateFormOptions;
     errors: Record<string, string | undefined>;
     selectedEmployeeIds: Set<number>;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
+}): ReactElement {
+    const [rankDefaultedFromProfile, setRankDefaultedFromProfile] =
+        useState(false);
+    const status = lookupByEmployeeId(
+        formOptions.employee_status_by_employee,
+        row.employee_id,
+    );
+    const activeOnVessel = lookupByEmployeeId(
+        formOptions.active_on_vessel_by_employee,
+        row.employee_id,
+    );
+    const employeeError = bulkFieldError(errors, 'employee_id');
+    const rankError = bulkFieldError(errors, 'rank_id');
+    const selectedEmployee = formOptions.employees.find(
+        (employee) => employee.id === row.employee_id,
+    );
+    const profileRankName =
+        selectedEmployee?.rank_id != null
+            ? (formOptions.ranks.find(
+                  (rank) => rank.id === selectedEmployee.rank_id,
+              )?.name ?? null)
+            : null;
+    const employeeContainerClass = status
+        ? getEmployeeStatusContainerClass(status.status)
+        : 'border-border/60 bg-muted/10';
+    const companyTimezone = formOptions.company_timezone ?? 'UTC';
+
+    return (
+        <div
+            className={cn(
+                'space-y-4 rounded-xl border p-4 transition-colors',
+                employeeContainerClass,
+            )}
+        >
+            <div className="space-y-2">
+                <Label htmlFor="crew-employee">Employee *</Label>
+                <EmployeeSelect
+                    index={0}
+                    row={row}
+                    formOptions={formOptions}
+                    selectedEmployeeIds={selectedEmployeeIds}
+                    onChangeRow={(index, nextRow) => {
+                        const employee = formOptions.employees.find(
+                            (item) => item.id === nextRow.employee_id,
+                        );
+                        const defaultRankId = employee?.rank_id ?? null;
+                        const shouldUseProfileRank =
+                            defaultRankId !== null &&
+                            (rankDefaultedFromProfile || row.rank_id === null);
+                        const nextRankId = shouldUseProfileRank
+                            ? defaultRankId
+                            : rankDefaultedFromProfile
+                              ? null
+                              : row.rank_id;
+
+                        onChangeRow(index, {
+                            employee_id: nextRow.employee_id,
+                            rank_id: nextRankId,
+                        });
+                        setRankDefaultedFromProfile(shouldUseProfileRank);
+                    }}
+                    error={employeeError}
+                />
+                {selectedEmployee ? (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                        {selectedEmployee.employee_no ? (
+                            <p>
+                                Employee number:{' '}
+                                <span className="font-medium text-foreground">
+                                    {selectedEmployee.employee_no}
+                                </span>
+                            </p>
+                        ) : null}
+                        {profileRankName ? (
+                            <p>
+                                Default rank:{' '}
+                                <span className="font-medium text-foreground">
+                                    {profileRankName}
+                                </span>
+                            </p>
+                        ) : null}
+                    </div>
+                ) : null}
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="crew-rank">
+                    Rank{' '}
+                    <span className="font-normal text-muted-foreground">
+                        (optional until vessel joining)
+                    </span>
+                </Label>
+                <RankSelect
+                    index={0}
+                    row={row}
+                    formOptions={formOptions}
+                    onChangeRow={(index, nextRow) => {
+                        onChangeRow(index, nextRow);
+                        setRankDefaultedFromProfile(false);
+                    }}
+                    error={rankError}
+                />
+                {rankDefaultedFromProfile ? (
+                    <p className="text-xs font-medium text-sky-700 dark:text-sky-300">
+                        Defaulted from employee profile
+                    </p>
+                ) : null}
+                <InputError message={rankError} />
+            </div>
+
+            {status ? (
+                <CrewEmployeeOperationalStatus
+                    status={status}
+                    activeOnVessel={activeOnVessel}
+                    companyTimezone={companyTimezone}
+                />
+            ) : null}
+        </div>
+    );
+}
+
+function BulkDesktopRow({
+    index,
+    row,
+    formOptions,
+    errors,
+    selectedEmployeeIds,
+    canRemove,
+    onChangeRow,
+    onRemoveRow,
+}: {
+    index: number;
+    row: CrewMemberRowState;
+    formOptions: CrewAssignmentCreateFormOptions;
+    errors: Record<string, string | undefined>;
+    selectedEmployeeIds: Set<number>;
+    canRemove: boolean;
+    onChangeRow: (index: number, row: BulkAddCrewRow) => void;
     onRemoveRow: (index: number) => void;
-}) {
+}): ReactElement {
     const status = lookupByEmployeeId(
         formOptions.employee_status_by_employee,
         row.employee_id,
@@ -164,8 +326,6 @@ function BulkAddDesktopRow({
     );
     const blocked = bulkRowIsBlocked(status);
     const blockReason = bulkRowBlockReason(status, activeOnVessel);
-    const employeeError = bulkFieldError(errors, `crew.${index}.employee_id`);
-    const rankError = bulkFieldError(errors, `crew.${index}.rank_id`);
 
     return (
         <TableRow
@@ -181,7 +341,7 @@ function BulkAddDesktopRow({
                     formOptions={formOptions}
                     selectedEmployeeIds={selectedEmployeeIds}
                     onChangeRow={onChangeRow}
-                    error={employeeError}
+                    error={bulkFieldError(errors, `crew.${index}.employee_id`)}
                 />
             </td>
             <td className={dataTableCellClass()}>
@@ -190,7 +350,7 @@ function BulkAddDesktopRow({
                     row={row}
                     formOptions={formOptions}
                     onChangeRow={onChangeRow}
-                    error={rankError}
+                    error={bulkFieldError(errors, `crew.${index}.rank_id`)}
                 />
             </td>
             <td className={dataTableCellClass()}>
@@ -203,29 +363,33 @@ function BulkAddDesktopRow({
                 />
             </td>
             <td className={dataTableActionsCellClass()}>
-                <RemoveRowButton index={index} onRemoveRow={onRemoveRow} />
+                {canRemove ? (
+                    <RemoveRowButton index={index} onRemoveRow={onRemoveRow} />
+                ) : null}
             </td>
         </TableRow>
     );
 }
 
-function BulkAddMobileCard({
+function BulkMobileCard({
     index,
     row,
     formOptions,
     errors,
     selectedEmployeeIds,
+    canRemove,
     onChangeRow,
     onRemoveRow,
 }: {
     index: number;
-    row: BulkAddCrewRowState;
+    row: CrewMemberRowState;
     formOptions: CrewAssignmentCreateFormOptions;
     errors: Record<string, string | undefined>;
     selectedEmployeeIds: Set<number>;
+    canRemove: boolean;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
     onRemoveRow: (index: number) => void;
-}) {
+}): ReactElement {
     const status = lookupByEmployeeId(
         formOptions.employee_status_by_employee,
         row.employee_id,
@@ -236,8 +400,6 @@ function BulkAddMobileCard({
     );
     const blocked = bulkRowIsBlocked(status);
     const blockReason = bulkRowBlockReason(status, activeOnVessel);
-    const employeeError = bulkFieldError(errors, `crew.${index}.employee_id`);
-    const rankError = bulkFieldError(errors, `crew.${index}.rank_id`);
 
     return (
         <div
@@ -254,7 +416,9 @@ function BulkAddMobileCard({
                 <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                     Crew member {index + 1}
                 </p>
-                <RemoveRowButton index={index} onRemoveRow={onRemoveRow} />
+                {canRemove ? (
+                    <RemoveRowButton index={index} onRemoveRow={onRemoveRow} />
+                ) : null}
             </div>
 
             <div className="space-y-2">
@@ -265,7 +429,7 @@ function BulkAddMobileCard({
                     formOptions={formOptions}
                     selectedEmployeeIds={selectedEmployeeIds}
                     onChangeRow={onChangeRow}
-                    error={employeeError}
+                    error={bulkFieldError(errors, `crew.${index}.employee_id`)}
                 />
             </div>
 
@@ -276,7 +440,7 @@ function BulkAddMobileCard({
                     row={row}
                     formOptions={formOptions}
                     onChangeRow={onChangeRow}
-                    error={rankError}
+                    error={bulkFieldError(errors, `crew.${index}.rank_id`)}
                 />
             </div>
 
@@ -299,12 +463,12 @@ function EmployeeSelect({
     error,
 }: {
     index: number;
-    row: BulkAddCrewRowState;
+    row: CrewMemberRowState;
     formOptions: CrewAssignmentCreateFormOptions;
     selectedEmployeeIds: Set<number>;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
     error?: string;
-}) {
+}): ReactElement {
     return (
         <div className="space-y-1.5">
             <AppSelect
@@ -356,11 +520,11 @@ function RankSelect({
     error,
 }: {
     index: number;
-    row: BulkAddCrewRowState;
+    row: CrewMemberRowState;
     formOptions: CrewAssignmentCreateFormOptions;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
     error?: string;
-}) {
+}): ReactElement {
     return (
         <div className="space-y-1.5">
             <AppSelect
@@ -399,7 +563,7 @@ function OperationalStatusCell({
     companyTimezone?: string;
     blockReason: string | null;
     compact?: boolean;
-}) {
+}): ReactElement {
     if (!status) {
         return (
             <p className="text-xs text-muted-foreground">Select an employee</p>
@@ -441,7 +605,7 @@ function RemoveRowButton({
 }: {
     index: number;
     onRemoveRow: (index: number) => void;
-}) {
+}): ReactElement {
     return (
         <Button
             type="button"

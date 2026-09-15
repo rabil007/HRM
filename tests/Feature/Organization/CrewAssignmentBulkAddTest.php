@@ -57,14 +57,44 @@ function bulkAddPayload(array $overrides = []): array
     ], $overrides);
 }
 
-test('user with create and movement permission can open bulk add', function () {
+function unifiedBulkCreateUrl(): string
+{
+    return route('organization.crew-assignments.create', ['mode' => 'bulk']);
+}
+
+test('unified create defaults to one crew row', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->where('initial_row_count', 1));
+});
+
+test('legacy bulk create route redirects to unified create in bulk mode', function () {
     ['user' => $user] = actingBulkAddCrewUser();
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl());
+});
+
+test('user with create and movement permission can open bulk mode on unified create', function () {
+    ['user' => $user] = actingBulkAddCrewUser();
+
+    $this->actingAs($user)
+        ->get(unifiedBulkCreateUrl())
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/crew/bulk-create')
+            ->component('organization/crew/create')
+            ->where('initial_row_count', 2)
             ->where('can.start', true)
             ->where('can.create', true)
             ->where('can.perform_movement', true));
@@ -79,7 +109,7 @@ test('bulk add page is forbidden without assignments create permission', functio
     $user->update(['current_company_id' => $company->id]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-assignments.bulk-create'))
+        ->get(unifiedBulkCreateUrl())
         ->assertForbidden();
 
     $this->actingAs($user)
@@ -89,7 +119,7 @@ test('bulk add page is forbidden without assignments create permission', functio
         ->assertForbidden();
 });
 
-test('bulk add page is forbidden without movement permission', function () {
+test('bulk mode create page is available with create permission but bulk store requires movement permission', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
@@ -98,8 +128,12 @@ test('bulk add page is forbidden without movement permission', function () {
     $user->update(['current_company_id' => $company->id]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-assignments.bulk-create'))
-        ->assertForbidden();
+        ->get(unifiedBulkCreateUrl())
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->where('can.create', true)
+            ->where('can.start', false));
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
@@ -275,14 +309,14 @@ test('duplicate employee ids in a bulk batch are rejected', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingBulkAddCrewUser();
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [
                 ['employee_id' => $employee->id, 'rank_id' => $rank->id],
                 ['employee_id' => $employee->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('crew.1.employee_id');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -292,11 +326,11 @@ test('empty crew list is rejected', function () {
     ['user' => $user, 'company' => $company] = actingBulkAddCrewUser();
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('crew');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -307,13 +341,13 @@ test('cross-company employee cannot be bulk added', function () {
     ['employee' => $foreignEmployee] = makeCrewAssignmentFixtures();
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [
                 ['employee_id' => $foreignEmployee->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('crew.0.employee_id');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -326,13 +360,13 @@ test('inactive employee cannot be bulk added', function () {
     ]);
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [
                 ['employee_id' => $inactive->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('crew.0.employee_id');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -344,14 +378,14 @@ test('cross-company vessel cannot be used in bulk add', function () {
     $foreignVessel = makeCrewMovementVessel('Foreign Vessel', $otherCompany);
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'vessel_id' => $foreignVessel->id,
             'crew' => [
                 ['employee_id' => $employee->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('vessel_id');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -364,7 +398,7 @@ test('mismatched client and vessel relationship is rejected', function () {
     $vessel = makeCrewMovementVessel('Client A Vessel', $company, $clientA);
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'client_id' => $clientB->id,
             'vessel_id' => $vessel->id,
@@ -372,7 +406,7 @@ test('mismatched client and vessel relationship is rejected', function () {
                 ['employee_id' => $employee->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('client_id');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -382,14 +416,14 @@ test('direct payable start stages are rejected from bulk add', function (string 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingBulkAddCrewUser();
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'current_stage' => $stage,
             'crew' => [
                 ['employee_id' => $employee->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('current_stage');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -430,7 +464,7 @@ test('an employee with an active assignment blocks the whole bulk batch', functi
     $existingUpdatedAt = $existing->updated_at?->toDateTimeString();
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'vessel_id' => $vessel->id,
             'crew' => [
@@ -438,7 +472,7 @@ test('an employee with an active assignment blocks the whole bulk batch', functi
                 ['employee_id' => $blocked->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('crew.1.employee_id');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1)
@@ -456,7 +490,7 @@ test('a valid first row still rolls back when a later bulk row is blocked', func
     makeActiveOnVesselAssignment($company, $blocked, $rank, $vessel);
 
     $this->actingAs($user)
-        ->from(route('organization.crew-assignments.bulk-create'))
+        ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'vessel_id' => $vessel->id,
             'crew' => [
@@ -465,7 +499,7 @@ test('a valid first row still rolls back when a later bulk row is blocked', func
                 ['employee_id' => $blocked->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(route('organization.crew-assignments.bulk-create'))
+        ->assertRedirect(unifiedBulkCreateUrl())
         ->assertSessionHasErrors('crew.2.employee_id');
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1)
@@ -483,10 +517,11 @@ test('bulk add create page keeps restricted operational details hidden without v
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-assignments.bulk-create'))
+        ->get(unifiedBulkCreateUrl())
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/crew/bulk-create')
+            ->component('organization/crew/create')
+            ->where('initial_row_count', 2)
             ->where("form_options.employee_status_by_employee.{$employee->id}.has_active_assignment", true)
             ->where("form_options.employee_status_by_employee.{$employee->id}.assignment_id", null)
             ->where("form_options.employee_status_by_employee.{$employee->id}.assignment_no", null)

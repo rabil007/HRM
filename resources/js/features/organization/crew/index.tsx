@@ -43,7 +43,6 @@ import {
 } from '@/lib/mobile-operational-list';
 import type { SavedView } from '@/lib/saved-views';
 import {
-    bulkCreate,
     create as createAssignment,
     edit as editAssignment,
     index as crewAssignmentsIndex,
@@ -207,7 +206,13 @@ export function CurrentCrewContent({
                         {can.start ? (
                             <Button
                                 variant="outline"
-                                onClick={() => router.visit(bulkCreate.url())}
+                                onClick={() =>
+                                    router.visit(
+                                        createAssignment.url({
+                                            query: { mode: 'bulk' },
+                                        }),
+                                    )
+                                }
                             >
                                 <Users className="h-4 w-4" />
                                 Bulk Add Crew
@@ -359,7 +364,11 @@ export function CurrentCrewContent({
                                     <Button
                                         variant="outline"
                                         onClick={() =>
-                                            router.visit(bulkCreate.url())
+                                            router.visit(
+                                                createAssignment.url({
+                                                    query: { mode: 'bulk' },
+                                                }),
+                                            )
                                         }
                                     >
                                         <Users className="h-4 w-4" />
