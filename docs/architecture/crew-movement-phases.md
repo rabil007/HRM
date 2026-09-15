@@ -75,16 +75,24 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 
 ## P0–P6
 
-| Code | Label |
-|------|-------|
-| P0 | Pre-Mobilisation |
-| P1 | Travel In |
-| P2A | Join Standby |
-| P2B | Training |
-| P3 | Ready to Join |
-| P4 | On Vessel |
-| P5 | Demobilisation Standby |
-| P6 | Home / Redeployment |
+| Code | Label | User-facing meaning |
+|------|-------|---------------------|
+| P0 | Pre-Mobilisation | Preparing the crew member before travel. |
+| P1 | Travel In | Travelling to the joining location. |
+| P2A | Join Standby | Waiting or staying in hotel/accommodation before joining the vessel. |
+| P2B | Training | Completing required training before joining. |
+| P3 | Ready to Join | Cleared and ready to board the vessel. |
+| P4 | On Vessel | Currently onboard the vessel. |
+| P5 | Demobilisation Standby | Disembarked and waiting or staying in hotel/accommodation for onward or home travel. |
+| P6 | Home / Redeployment | Returned home or moving toward the next assignment. |
+
+These sentences are UI copy only (`crew-phase-descriptions.ts`). They do not change codes, transitions, or timestamps.
+
+**Standby** in Crew Operations means the employee is waiting between movements, typically staying in a hotel or other accommodation. It is not only a system status.
+
+- **P0** is preparation before travel, not boarding.
+- **P2A Join Standby** is waiting/staying in hotel/accommodation before joining.
+- **P5 Demobilisation Standby** is after disembarkation, waiting/staying in hotel/accommodation for onward or home travel.
 
 ## Crew Planning vs Crew Assignment
 
@@ -118,21 +126,16 @@ Requires `crew_operations.assignments.create` **and** `crew_operations.movements
 Creates:
 
 - `CrewAssignment.status = Active`
-- `started_at` = Stage Started At (company timezone)
-- one Active starting phase (`sequence = 1`, `actual_start_at` = Stage Started At)
+- `started_at` = company-local submit time (`now()` in the company timezone)
+- one Active starting phase (`sequence = 1`, `actual_start_at` = the same submit timestamp)
 - `source` remains the existing manual source
 - `planned_join_at` stores **Expected Vessel Join** (forecast only)
 
-Default current stage is **P0 Pre-Mobilisation**. Operations may also start directly at **P1**, **P2A**, or **P3**. Direct start at P2B, P4, P5, or P6 is rejected. Join Vessel remains the only way to enter P4.
+Default current assignment stage is **P1 Travel In**. Operations may optionally start at **P0 Pre-Mobilisation**. Direct start at P2A, P2B, P3, P4, P5, or P6 is rejected so payable Join Standby history is not skipped (P0/P1 are payroll-excluded; P2A/P2B/P3 are Sign-On Standby). Join Vessel remains the only way to enter P4. Redeploy may still start later phases on a new linked assignment.
 
-Prior phases are **never invented**. A direct P2A start has only P2A in the timeline.
+Prior phases are **never invented**. A P1 start has only P1 in the timeline.
 
-Stage Started At is an actual operational timestamp:
-
-- required for `start`
-- parsed in the active company timezone (not the browser timezone)
-- date-only values are rejected (midnight is not assumed)
-- future timestamps are rejected (those belong in Crew Planning)
+The create form does **not** collect Assignment Start Date & Time. Start uses company-local submit time. If a caller still supplies `stage_started_at` (tests or later Bulk Add), it is parsed in the company timezone, date-only values are rejected, and future timestamps are rejected.
 
 Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those columns remain for edit/show, P4 Plan Sign-Off, and other legitimate flows.
 
@@ -148,9 +151,13 @@ Keeps the previous Draft semantics:
 
 - `CrewAssignment.status = Draft`, `started_at = null`
 - Planned P0 with `actual_start_at = null`
-- Current Stage / Stage Started At are not required
+- Current Assignment Stage is not required; start timestamps are not collected
 
 Existing Draft assignments remain operable.
+
+### Edit Assignment
+
+The edit form updates assignment details and expected dates (`planned_join_at` as Expected Vessel Join, planned sign-off, planned travel, master data, remarks). Current Assignment Stage and Assignment Start Date & Time are read-only context. The update request does not accept `started_at`, `current_stage`, or phase `actual_start_at` / `actual_end_at`. Historical/actual movement corrections remain on Movement Actions and Request Correction.
 
 ### Start Travel (`approve_mobilisation`)
 

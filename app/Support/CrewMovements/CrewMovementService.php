@@ -1218,14 +1218,14 @@ final class CrewMovementService
         $raw = trim((string) ($attributes['current_stage'] ?? $attributes['starting_phase'] ?? ''));
 
         if ($raw === '') {
-            return CrewPhaseCode::PreMobilisation;
+            return CrewPhaseCode::TravelIn;
         }
 
         $code = CrewPhaseCode::tryFrom($raw);
 
         if ($code === null || ! $code->allowsDirectStart()) {
             throw CrewMovementException::make(
-                'Assignments cannot start directly in this stage. Join Vessel remains the only way to enter On Vessel.',
+                'Assignments cannot start directly in this stage. Start at Travel In or Pre-Mobilisation so payable join-standby history is recorded.',
                 'invalid_start_stage',
             );
         }
@@ -1241,15 +1241,12 @@ final class CrewMovementService
         $raw = trim((string) ($attributes['stage_started_at'] ?? ''));
 
         if ($raw === '') {
-            throw CrewMovementException::make(
-                'Stage started at is required when starting an assignment.',
-                'stage_started_at_required',
-            );
+            return now($this->companyTimezone($companyId));
         }
 
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
             throw CrewMovementException::make(
-                'Stage started at must include a time. Midnight is not assumed.',
+                'Assignment start date and time must include a time. Midnight is not assumed.',
                 'stage_started_at_missing_time',
             );
         }
@@ -1259,7 +1256,7 @@ final class CrewMovementService
 
         if ($startedAt->gt(now($timezone))) {
             throw CrewMovementException::make(
-                'Stage started at cannot be in the future. Future mobilisation belongs in Crew Planning.',
+                'Assignment start date and time cannot be in the future. Future mobilisation belongs in Crew Planning.',
                 'stage_started_at_in_future',
             );
         }

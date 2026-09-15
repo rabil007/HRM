@@ -14,11 +14,14 @@ Operational checklist after deploying Crew Movement changes.
 
 - [ ] Open Crew Assignments → Start Assignment
 - [ ] Create form loads employees, ranks, vessels, clients, and operational status
-- [ ] Start Assignment for an active company employee at P0 with Stage Started At
-- [ ] Assignment is Active with Active P0 (not Draft + Planned P0)
+- [ ] Start Assignment defaults to P1 Travel In and records start as company-local submit time (no start datetime field)
+- [ ] Optional P0 Pre-Mobilisation start still works
+- [ ] P2A/P3 cannot be chosen as the initial assignment stage
+- [ ] Assignment is Active with Active P1 (or Active P0 when chosen), not Draft + Planned P0
 - [ ] Assignment number format `CA-{YEAR}-{######}`
 - [ ] Save as Draft still creates Draft + Planned P0
 - [ ] Expected Vessel Join stores in `planned_join_at`
+- [ ] Edit Assignment shows Current Assignment Stage and Assignment Start Date & Time as read-only; changing them requires Movement Actions or Request Correction
 
 ## 3. Standard lifecycle
 

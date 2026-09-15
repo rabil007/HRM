@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { CrewAssignmentFormFields } from '@/features/organization/crew/components/crew-assignment-form-fields';
-import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import type {
     CrewAssignmentDetail,
     CrewAssignmentFormData,
@@ -78,23 +77,10 @@ export default function CrewAssignmentEdit({
                 <DetailsHeader
                     kicker="Crew Assignments"
                     title={`Edit ${assignment.assignment_no}`}
-                    description="Update planning and master-data fields. Phase changes use Movement Actions."
+                    description="Update assignment details and expected dates here. Actual movement dates and phase changes are managed through Movement Actions."
                     backHref={showAssignment.url(assignment.id)}
                     backLabel="Back to Assignment"
                 />
-
-                {assignment.current_phase ? (
-                    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-                        <span className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
-                            Current phase
-                        </span>
-                        <CrewPhaseBadge
-                            code={assignment.current_phase.code}
-                            label={assignment.current_phase.label}
-                            status={assignment.current_phase.status}
-                        />
-                    </div>
-                ) : null}
 
                 <div className="mb-6 rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
                     <div className="flex gap-3">
@@ -104,12 +90,9 @@ export default function CrewAssignmentEdit({
                         />
                         <div className="space-y-1 text-sm text-sky-900 dark:text-sky-100">
                             <p>
-                                You are editing planning and master-data fields
-                                only.
-                            </p>
-                            <p>
-                                Phase changes must be recorded through Movement
-                                Actions.
+                                Update assignment details and expected dates
+                                here. Actual movement dates and phase changes
+                                are managed through Movement Actions.
                             </p>
                             <p>
                                 Eligible changes automatically update the linked
@@ -132,10 +115,10 @@ export default function CrewAssignmentEdit({
                                     Planning bar
                                 </p>
                                 <p className="text-amber-800/90 dark:text-amber-200/90">
-                                    Vessel, rank, planned join, or planned
-                                    sign-off differ from the saved assignment.
-                                    Saving will create or update the linked
-                                    Planning Gantt bar to match.
+                                    Vessel, rank, Expected Vessel Join, or
+                                    planned sign-off differ from the saved
+                                    assignment. Saving will create or update the
+                                    linked Planning Gantt bar to match.
                                 </p>
                             </div>
                         </div>
@@ -150,6 +133,8 @@ export default function CrewAssignmentEdit({
                                 formOptions={form_options}
                                 lockEmployee
                                 employeeLabel={employeeLabel}
+                                currentPhase={assignment.current_phase}
+                                assignmentStartedAt={assignment.started_at}
                             />
 
                             <div className="flex flex-wrap gap-3 border-t border-border/60 pt-6">

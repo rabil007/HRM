@@ -28,6 +28,7 @@ import { CrewMobilisationReadinessBadge } from '@/features/organization/crew/com
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
+import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import {
     crewQuickDetailModel,
     relativePlanDate,
@@ -142,6 +143,7 @@ function QuickDetailContent({
     const model = crewQuickDetailModel(assignment, can);
     const context = assignment.movement_context;
     const phase = assignment.current_phase;
+    const phaseDescription = crewPhaseDescription(phase?.code);
     const isOnVessel = phase?.code === 'p4' && !model.finished;
     const documentsHref =
         can.view_documents && assignment.employee
@@ -274,6 +276,11 @@ function QuickDetailContent({
                         ) : (
                             <span className="text-sm">Not recorded</span>
                         )}
+                        {phaseDescription ? (
+                            <p className="text-xs text-muted-foreground">
+                                {phaseDescription}
+                            </p>
+                        ) : null}
                         <p className="text-xs text-muted-foreground">
                             {formatDaysInPhase(assignment.days_in_phase)}
                         </p>

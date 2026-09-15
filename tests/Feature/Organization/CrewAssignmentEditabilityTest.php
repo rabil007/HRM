@@ -489,3 +489,35 @@ test('17. partial update preserves omitted fields without nulling them', functio
         ->and($fresh->client_id)->toBe($client->id)
         ->and($fresh->planned_join_at->toDateString())->toBe('2026-08-01');
 });
+
+test('18. edit assignment cannot mutate started_at phase or actual movement timestamps', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Actuals Guard Vessel');
+
+    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::TravelIn);
+    $originalStartedAt = $assignment->started_at?->copy();
+    $originalPhaseStart = $assignment->currentPhase?->actual_start_at?->copy();
+    $originalPhaseId = $assignment->current_phase_id;
+    $originalPhaseCode = $assignment->currentPhase?->phase_code;
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'planned_join_at' => '2026-10-01',
+            'started_at' => '2026-02-01 00:00:00',
+            'current_stage' => 'p3',
+            'stage_started_at' => '2026-02-01T00:00',
+            'actual_start_at' => '2026-02-01 00:00:00',
+            'actual_end_at' => '2026-02-02 00:00:00',
+            'current_phase_id' => 999999,
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $fresh = $assignment->fresh(['currentPhase']);
+
+    expect($fresh->planned_join_at?->toDateString())->toBe('2026-10-01')
+        ->and($fresh->started_at?->equalTo($originalStartedAt))->toBeTrue()
+        ->and($fresh->current_phase_id)->toBe($originalPhaseId)
+        ->and($fresh->currentPhase?->phase_code)->toBe($originalPhaseCode)
+        ->and($fresh->currentPhase?->actual_start_at?->equalTo($originalPhaseStart))->toBeTrue()
+        ->and($fresh->currentPhase?->actual_end_at)->toBeNull();
+});

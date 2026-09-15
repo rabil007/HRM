@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type {
     CorrectionsSummary,
     CrewAssignmentDetail,
@@ -181,7 +182,10 @@ export function CrewAssignmentOperationalSummary({
                     }
                     detail={
                         assignment.current_phase
-                            ? `${assignment.current_phase.code.toUpperCase()} · ${assignment.current_phase.label}`
+                            ? (crewPhaseDescription(
+                                  assignment.current_phase.code,
+                              ) ??
+                              `${assignment.current_phase.code.toUpperCase()} · ${assignment.current_phase.label}`)
                             : 'No current phase recorded'
                     }
                     icon={History}

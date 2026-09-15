@@ -295,7 +295,7 @@ export interface CrewAssignmentFormData {
     remarks: string;
 }
 
-export type CrewAssignmentStartStage = 'p0' | 'p1' | 'p2a' | 'p3';
+export type CrewAssignmentStartStage = 'p0' | 'p1';
 
 export interface CrewAssignmentCreateFormData {
     employee_id: number | null;
@@ -304,7 +304,6 @@ export interface CrewAssignmentCreateFormData {
     vessel_id: number | null;
     planned_join_at: string;
     current_stage: CrewAssignmentStartStage;
-    stage_started_at: string;
     submission_intent: 'start' | 'draft';
     remarks: string;
 }
@@ -313,10 +312,8 @@ export const CREW_DIRECT_START_STAGES: Array<{
     value: CrewAssignmentStartStage;
     label: string;
 }> = [
-    { value: 'p0', label: 'P0 Pre-Mobilisation' },
-    { value: 'p1', label: 'P1 Travel In' },
-    { value: 'p2a', label: 'P2A Join Standby' },
-    { value: 'p3', label: 'P3 Ready to Join' },
+    { value: 'p1', label: 'P1 · Travel In' },
+    { value: 'p0', label: 'P0 · Pre-Mobilisation' },
 ];
 
 export interface CrewAssignmentFormOptions {

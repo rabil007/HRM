@@ -47,10 +47,11 @@ enum CrewPhaseCode: string
     }
 
     /**
-     * Phases that Operations may record as the first known stage when starting an assignment.
+     * Phases Operations may choose as the first known stage on manual Start Assignment.
      *
-     * P2B, P4, P5, and P6 cannot be used as a direct start. Join Vessel remains the only
-     * way to enter On Vessel.
+     * Limited to P0 and P1 so payable Join Standby (P2A/P2B/P3) history is not skipped.
+     * Redeploy and Join Vessel remain the paths into later phases. Join Vessel is still
+     * the only way to enter On Vessel.
      *
      * @return list<self>
      */
@@ -59,8 +60,6 @@ enum CrewPhaseCode: string
         return [
             self::PreMobilisation,
             self::TravelIn,
-            self::JoinStandby,
-            self::ReadyToJoin,
         ];
     }
 

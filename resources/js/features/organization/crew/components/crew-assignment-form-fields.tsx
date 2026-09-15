@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +9,8 @@ import {
     CrewEmployeeOperationalStatus,
     getEmployeeStatusContainerClass,
 } from '@/features/organization/crew/components/crew-employee-operational-status';
-import { datetimeLocalInTimezone } from '@/features/organization/crew/lib/quick-detail';
+import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type {
     ActiveOnVesselAssignment,
     CrewAssignmentCreateFormOptions,
@@ -19,6 +19,7 @@ import type {
     EmployeeOperationalStatus,
 } from '@/features/organization/crew/types';
 import { CREW_DIRECT_START_STAGES } from '@/features/organization/crew/types';
+import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 type CrewSharedFormFields = {
@@ -31,7 +32,6 @@ type CrewSharedFormFields = {
     planned_signoff_at?: string;
     planned_travel_at?: string;
     current_stage?: CrewAssignmentStartStage;
-    stage_started_at?: string;
 };
 
 type CrewFormBag<T extends CrewSharedFormFields> = {
@@ -52,6 +52,8 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
     activeOnVessel,
     mode = 'edit',
     showStartFields = mode === 'create',
+    currentPhase = null,
+    assignmentStartedAt = null,
 }: {
     form: CrewFormBag<T>;
     formOptions: CrewAssignmentFormOptions | CrewAssignmentCreateFormOptions;
@@ -61,6 +63,13 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
     activeOnVessel?: ActiveOnVesselAssignment | null;
     mode?: 'create' | 'edit';
     showStartFields?: boolean;
+    currentPhase?: {
+        code: string;
+        label: string;
+        status?: string;
+        started_at?: string | null;
+    } | null;
+    assignmentStartedAt?: string | null;
 }): ReactElement {
     const [rankDefaultedFromProfile, setRankDefaultedFromProfile] =
         useState(false);
@@ -425,21 +434,15 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                 <section className="space-y-4">
                     <div>
                         <h3 className="text-sm font-semibold tracking-tight">
-                            Operation
+                            Assignment Details
                         </h3>
                         <p className="text-xs text-muted-foreground">
                             Expected Vessel Join is a target only. Actual vessel
-                            joining is confirmed later through Join Vessel.
+                            joining is recorded later through Join Vessel.
                         </p>
                     </div>
 
-                    <div
-                        className={
-                            showStartFields
-                                ? 'grid gap-4 md:grid-cols-3'
-                                : 'grid gap-4 md:grid-cols-2'
-                        }
-                    >
+                    <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="planned_join_at">
                                 Expected Vessel Join{' '}
@@ -461,97 +464,54 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                                 }
                             />
                             <p className="text-xs text-muted-foreground">
-                                Expected date the employee should join the
-                                vessel. Actual vessel joining is confirmed later
-                                through Join Vessel.
+                                Expected date the crew member should join the
+                                vessel. Actual joining is recorded later through
+                                Join Vessel.
                             </p>
                             <InputError message={form.errors.planned_join_at} />
                         </div>
                         {showStartFields ? (
-                            <>
-                                <div className="space-y-2">
-                                    <Label htmlFor="current_stage">
-                                        Current Stage *
-                                    </Label>
-                                    <AppSelect
-                                        value={form.data.current_stage ?? 'p0'}
-                                        onValueChange={(value) =>
-                                            form.setData(
-                                                'current_stage',
-                                                (value ||
-                                                    'p0') as CrewAssignmentStartStage,
-                                            )
-                                        }
-                                        variant="dark"
-                                        placeholder="Select stage..."
-                                    >
-                                        {CREW_DIRECT_START_STAGES.map(
-                                            (stage) => (
-                                                <AppSelectItem
-                                                    key={stage.value}
-                                                    value={stage.value}
-                                                >
-                                                    {stage.label}
-                                                </AppSelectItem>
-                                            ),
-                                        )}
-                                    </AppSelect>
-                                    <InputError
-                                        message={
-                                            'current_stage' in form.errors
-                                                ? form.errors.current_stage
-                                                : undefined
-                                        }
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="stage_started_at">
-                                        Stage Started At *
-                                    </Label>
-                                    <Input
-                                        id="stage_started_at"
-                                        type="datetime-local"
-                                        className="h-11"
-                                        value={form.data.stage_started_at ?? ''}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'stage_started_at',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className="text-xs text-muted-foreground">
-                                            Actual operational start in the
-                                            company timezone.
-                                        </p>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-auto px-2 py-1 text-xs"
-                                            onClick={() =>
-                                                form.setData(
-                                                    'stage_started_at',
-                                                    datetimeLocalInTimezone(
-                                                        new Date(),
-                                                        companyTimezone,
-                                                    ),
-                                                )
-                                            }
+                            <div className="space-y-2">
+                                <Label htmlFor="current_stage">
+                                    Current Assignment Stage *
+                                </Label>
+                                <AppSelect
+                                    value={form.data.current_stage ?? 'p1'}
+                                    onValueChange={(value) =>
+                                        form.setData(
+                                            'current_stage',
+                                            (value ||
+                                                'p1') as CrewAssignmentStartStage,
+                                        )
+                                    }
+                                    variant="dark"
+                                    placeholder="Select stage..."
+                                >
+                                    {CREW_DIRECT_START_STAGES.map((stage) => (
+                                        <AppSelectItem
+                                            key={stage.value}
+                                            value={stage.value}
                                         >
-                                            Use current time
-                                        </Button>
-                                    </div>
-                                    <InputError
-                                        message={
-                                            'stage_started_at' in form.errors
-                                                ? form.errors.stage_started_at
-                                                : undefined
-                                        }
-                                    />
-                                </div>
-                            </>
+                                            {stage.label}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                                <p
+                                    id="current-stage-description"
+                                    className="text-xs text-muted-foreground"
+                                >
+                                    {crewPhaseDescription(
+                                        form.data.current_stage ?? 'p1',
+                                    )}
+                                </p>
+                                <InputError
+                                    message={
+                                        'current_stage' in form.errors
+                                            ? form.errors.current_stage
+                                            : undefined
+                                    }
+                                />
+                            </div>
                         ) : null}
                     </div>
                 </section>
@@ -559,15 +519,54 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                 <section className="space-y-4">
                     <div>
                         <h3 className="text-sm font-semibold tracking-tight">
-                            Planned dates{' '}
-                            <span className="font-normal text-muted-foreground">
-                                (optional)
-                            </span>
+                            Assignment Details
                         </h3>
                         <p className="text-xs text-muted-foreground">
-                            Planned Sign-Off is a forecast only. Actual leaving
-                            is recorded through Confirm Disembarkation.
+                            Update assignment details and expected dates here.
+                            Actual movement dates and phase changes are managed
+                            through Movement Actions.
                         </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Current Assignment Stage</Label>
+                            {currentPhase ? (
+                                <div className="flex min-h-11 flex-col justify-center gap-1 rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+                                    <CrewPhaseBadge
+                                        code={currentPhase.code}
+                                        label={currentPhase.label}
+                                        status={currentPhase.status}
+                                    />
+                                    {crewPhaseDescription(currentPhase.code) ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            {crewPhaseDescription(
+                                                currentPhase.code,
+                                            )}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <p className="flex h-11 items-center rounded-md border border-border/70 bg-muted/20 px-3 text-sm text-muted-foreground">
+                                    Not recorded
+                                </p>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Assignment Start Date & Time</Label>
+                            <p className="flex h-11 items-center rounded-md border border-border/70 bg-muted/20 px-3 text-sm">
+                                {currentPhase?.started_at || assignmentStartedAt
+                                    ? formatDisplayDateTime12h(
+                                          currentPhase?.started_at ??
+                                              assignmentStartedAt,
+                                      )
+                                    : 'Not started'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Read-only. Change actual times through Movement
+                                Actions or Request Correction.
+                            </p>
+                        </div>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-3">
@@ -592,9 +591,9 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                                 }
                             />
                             <p className="text-xs text-muted-foreground">
-                                Expected date the employee should join the
-                                vessel. Actual vessel joining is confirmed later
-                                through Join Vessel.
+                                Expected date the crew member should join the
+                                vessel. Actual joining is recorded later through
+                                Join Vessel.
                             </p>
                             <InputError message={form.errors.planned_join_at} />
                         </div>
@@ -685,7 +684,6 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                     ) : null}
                 </section>
             )}
-
             <section className="space-y-2">
                 <Label htmlFor="remarks">
                     Remarks{' '}

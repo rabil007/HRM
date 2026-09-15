@@ -1,6 +1,7 @@
 import { ArrowRight, Route } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { CrewPhaseGuide } from '@/features/organization/crew/components/crew-phase-guide';
 import { cn } from '@/lib/utils';
 
 export type CrewPhasePipelineItem = {
@@ -49,9 +50,12 @@ export function CrewPhasePipeline({
                         Select a phase to filter the operating board
                     </p>
                 </div>
-                <Badge variant="outline" className="w-fit rounded-full">
-                    {total} active assignments
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                    <CrewPhaseGuide />
+                    <Badge variant="outline" className="w-fit rounded-full">
+                        {total} active assignments
+                    </Badge>
+                </div>
             </div>
 
             <div className="overflow-x-auto px-3 py-4">

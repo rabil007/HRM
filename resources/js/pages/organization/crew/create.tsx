@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Info } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
@@ -9,7 +9,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewAssignmentFormFields } from '@/features/organization/crew/components/crew-assignment-form-fields';
-import { datetimeLocalInTimezone } from '@/features/organization/crew/lib/quick-detail';
 import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
 import type {
     CrewAssignmentCreateFormData,
@@ -31,19 +30,13 @@ export default function CrewAssignmentCreate({
     can: CrewAssignmentPagePermissions;
 }) {
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
-    const companyTimezone = form_options.company_timezone || 'UTC';
-    const defaultStageStartedAt = useMemo(
-        () => datetimeLocalInTimezone(new Date(), companyTimezone),
-        [companyTimezone],
-    );
     const form = useForm<CrewAssignmentCreateFormData & { error?: never }>({
         employee_id: null,
         rank_id: null,
         client_id: null,
         vessel_id: null,
         planned_join_at: '',
-        current_stage: 'p0',
-        stage_started_at: defaultStageStartedAt,
+        current_stage: 'p1',
         submission_intent: can.start ? 'start' : 'draft',
         remarks: '',
     });
@@ -99,8 +92,6 @@ export default function CrewAssignmentCreate({
         form.transform((data) => ({
             ...data,
             submission_intent: intent,
-            stage_started_at:
-                intent === 'start' ? data.stage_started_at : undefined,
             current_stage: intent === 'start' ? data.current_stage : undefined,
         }));
         form.post(storeAssignment.url(), {

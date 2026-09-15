@@ -49,7 +49,7 @@ class StoreCrewAssignmentRequest extends FormRequest
 
         if ($intent === CrewAssignmentSubmissionIntent::Start->value
             && ($this->input('current_stage') === null || $this->input('current_stage') === '')) {
-            $merge['current_stage'] = CrewPhaseCode::PreMobilisation->value;
+            $merge['current_stage'] = CrewPhaseCode::TravelIn->value;
         }
 
         if (($clientId === null || $clientId === '')
@@ -96,11 +96,7 @@ class StoreCrewAssignmentRequest extends FormRequest
                     CrewPhaseCode::directStartPhases(),
                 )),
             ],
-            'stage_started_at' => [
-                Rule::requiredIf($isStart),
-                'nullable',
-                'string',
-            ],
+            'stage_started_at' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -111,8 +107,7 @@ class StoreCrewAssignmentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'current_stage.in' => 'Assignments cannot start directly in this stage. Join Vessel remains the only way to enter On Vessel.',
-            'stage_started_at.required' => 'Stage started at is required when starting an assignment.',
+            'current_stage.in' => 'Assignments cannot start directly in this stage. Start at Travel In or Pre-Mobilisation so payable join-standby history is recorded.',
         ];
     }
 
@@ -147,7 +142,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
                 $validator->errors()->add(
                     'stage_started_at',
-                    'Stage started at must include a time. Midnight is not assumed.',
+                    'Assignment start date and time must include a time. Midnight is not assumed.',
                 );
 
                 return;
@@ -158,7 +153,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             try {
                 $startedAt = Carbon::parse($raw, $timezone);
             } catch (\Throwable) {
-                $validator->errors()->add('stage_started_at', 'Enter a valid date and time for Stage Started At.');
+                $validator->errors()->add('stage_started_at', 'Enter a valid assignment start date and time.');
 
                 return;
             }
@@ -166,7 +161,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             if ($startedAt->gt(now($timezone))) {
                 $validator->errors()->add(
                     'stage_started_at',
-                    'Stage started at cannot be in the future. Future mobilisation belongs in Crew Planning.',
+                    'Assignment start date and time cannot be in the future. Future mobilisation belongs in Crew Planning.',
                 );
             }
         });
