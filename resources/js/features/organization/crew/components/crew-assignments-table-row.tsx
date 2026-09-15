@@ -83,8 +83,16 @@ export function CrewAssignmentsTableRow({
                 />
             </TableCell>
 
-            <TableCell className={dataTableCellClass()}>
-                <span className="font-medium text-foreground">
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'w-[160px] max-w-[160px] overflow-hidden',
+                )}
+            >
+                <span
+                    className="block truncate font-medium text-foreground"
+                    title={assignment.vessel?.name ?? undefined}
+                >
                     {assignment.vessel?.name ?? '—'}
                 </span>
                 {assignment.client?.name ? (
