@@ -3,7 +3,7 @@
         "cursor",
         "gemini"
     ],
-    "guidelines": false,
+    "guidelines": true,
     "mcp": true,
     "nightwatch_mcp": false,
     "sail": false,
