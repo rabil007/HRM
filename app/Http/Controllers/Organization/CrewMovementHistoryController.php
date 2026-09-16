@@ -43,7 +43,7 @@ class CrewMovementHistoryController extends Controller
                 'statuses' => collect(CrewAssignmentStatus::cases())
                     ->map(fn (CrewAssignmentStatus $status) => ['value' => $status->value, 'label' => $status->label()])
                     ->all(),
-                'phases' => collect(CrewPhaseCode::cases())
+                'phases' => collect(CrewPhaseCode::normalVisiblePhases())
                     ->map(fn (CrewPhaseCode $phase) => ['value' => $phase->value, 'label' => $phase->label()])
                     ->all(),
                 'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
@@ -71,7 +71,7 @@ class CrewMovementHistoryController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = CrewMovementHistoryFilters::fromRequest($request);
         $query = new CrewMovementHistoryQuery($companyId, $filters, $this->companyTimezone($companyId));
-        $export = new CrewMovementHistoryExport($query->exportQuery());
+        $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
         $filename = 'crew-movement-history-'.now()->toDateString();
         $format = strtolower((string) $request->query('format', 'xlsx'));
 

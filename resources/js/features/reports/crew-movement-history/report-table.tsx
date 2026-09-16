@@ -347,13 +347,12 @@ function PhaseDetail({ phase }: { phase: PhaseRecord }) {
 }
 
 function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
-    const phases: PhaseRecord[] = [
+    const normalPhases: PhaseRecord[] = [
         {
             code: 'P0',
             label: 'Pre-Mobilisation',
             summary: row.pre_mobilisation,
         },
-        { code: 'P1', label: 'Travel In', summary: row.travel_in },
         { code: 'P2A', label: 'Join Standby', summary: row.join_standby },
         {
             code: 'P2B',
@@ -361,7 +360,6 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
             summary: row.training,
             details: row.training.details,
         },
-        { code: 'P3', label: 'Ready to Join', summary: row.ready_to_join },
         { code: 'P4', label: 'On Vessel', summary: row.on_vessel },
         { code: 'P5', label: 'Demob Standby', summary: row.demob_standby },
         {
@@ -370,6 +368,19 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
             summary: row.home_redeploy,
         },
     ];
+
+    const legacyPhases: PhaseRecord[] = [
+        {
+            code: 'P1',
+            label: 'Travel In',
+            summary: row.travel_in,
+        },
+        {
+            code: 'P3',
+            label: 'Ready to Join',
+            summary: row.ready_to_join,
+        },
+    ].filter((phase) => phase.summary.periods.length > 0);
 
     return (
         <div
@@ -478,11 +489,6 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         Planned movement
                     </h3>
                     <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                        <DetailField
-                            label="Planned travel in"
-                            value={formatDisplayDate(row.planned_travel_in)}
-                            hint={row.planned_travel_in_origin_label}
-                        />
                         {row.planned_arrival ? (
                             <DetailField
                                 label="Planned arrival"
@@ -575,15 +581,42 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         Complete phase timeline
                     </h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Every recorded period is shown in sequence. Repeated
-                        standby or training periods remain separate.
+                        Modern phases are always shown. Legacy P1/P3 periods
+                        appear only when they were actually recorded.
                     </p>
                 </div>
                 <div className="space-y-3">
-                    {phases.map((phase) => (
+                    {normalPhases.map((phase) => (
                         <PhaseDetail key={phase.code} phase={phase} />
                     ))}
                 </div>
+                {legacyPhases.length > 0 ? (
+                    <section className="mt-5 space-y-3">
+                        <div>
+                            <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                                Legacy recorded phases
+                            </h4>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Historical Travel In or Ready to Join movement
+                                recorded before the modern workflow.
+                            </p>
+                        </div>
+                        {legacyPhases.map((phase) => (
+                            <PhaseDetail key={phase.code} phase={phase} />
+                        ))}
+                        {row.planned_travel_in ? (
+                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
+                                <DetailField
+                                    label="Legacy planned travel in"
+                                    value={formatDisplayDate(
+                                        row.planned_travel_in,
+                                    )}
+                                    hint={row.planned_travel_in_origin_label}
+                                />
+                            </div>
+                        ) : null}
+                    </section>
+                ) : null}
             </section>
 
             <div className="grid gap-4 xl:grid-cols-2">

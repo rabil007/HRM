@@ -12,19 +12,36 @@ Each row represents one `CrewAssignment`. Planned assignment dates come from the
 
 The report excludes soft-deleted phases through the standard `phases` relationship. It does not create, update, or delete operational data.
 
+## Modern and legacy phases
+
+The normal report timeline shows only modern product-facing phases:
+
+- P0 Pre-Mobilisation
+- P2A Join Standby
+- P2B Training
+- P4 On Vessel
+- P5 Demobilisation Standby
+- P6 Home / Redeployment
+
+Legacy phases P1 Travel In and P3 Ready to Join are not rendered as permanent empty placeholders. When an assignment actually recorded legacy movement, the UI shows a separate **Legacy recorded phases** section containing only the recorded P1/P3 periods.
+
+Current Phase filters offer the same modern phase list. Bookmarked legacy `current_phase=p1` or `current_phase=p3` query values remain supported by the backend filter when present.
+
 ## Date mapping
 
 | Report value | Source |
 |---|---|
-| Planned Travel In | First P1 `planned_start_at`, when recorded |
+| Planned Arrival | Assignment `planned_arrival_at` |
 | Planned Join | Assignment `planned_join_at` |
 | Planned Sign-Off | Assignment `planned_signoff_at` |
 | Planned Travel Home | Assignment `planned_travel_at` |
-| Arrival Date | P1 `actual_end_at` |
+| Actual Arrival | `CrewArrivalResolver` — first P2A `actual_start_at`, with legacy fallback to completed P1 `actual_end_at` |
 | Actual Join | First P4 `actual_start_at` |
 | Actual Disembarkation | Completed P4 `actual_end_at` |
 | Assignment Started | Assignment `started_at` |
 | Assignment Closed | Assignment `closed_at` |
+
+Planned Travel In is no longer part of the normal modern planned-movement presentation. When legacy P1 data exists, its planned start may appear in the legacy section or export only.
 
 Planned Sign-Off is never presented as Actual Disembarkation.
 
@@ -58,5 +75,7 @@ Both report routes enforce their permission independently. Company scoping is al
 ## Export
 
 Excel and CSV exports contain one row per assignment. Repeated phase periods and training details use semicolon-separated plain text. Correction metadata columns are included for approved corrections. Filenames use `crew-movement-history-YYYY-MM-DD`.
+
+Modern exports omit empty legacy columns such as Planned Travel In, P1 From/To/Days, and Ready From/To/Days. When the filtered export result set contains actual legacy P1 or P3 movement, additional **Legacy …** columns are appended after Actual Arrival so historical data is preserved without misleading empty columns on modern-only exports.
 
 See also [Crew Movement Corrections](../architecture/crew-movement-corrections.md).

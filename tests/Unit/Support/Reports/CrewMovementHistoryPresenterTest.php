@@ -181,6 +181,7 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
     );
 
     expect($row['planned_travel_in'])->toBe('2026-01-02')
+        ->and($row['has_legacy_phases'])->toBeTrue()
         ->and($row['planned_travel_home'])->toBe('2026-02-12')
         ->and($row['pre_mobilisation']['from'])->toBe('2026-01-01')
         ->and($row['travel_in']['to'])->toBe('2026-01-04')
@@ -263,4 +264,48 @@ test('it exposes approved correction metadata without treating pending as offici
         ->and($row['correction_count'])->toBe(1)
         ->and($row['last_corrected_at'])->toBe('2026-07-10')
         ->and($row['has_pending_corrections'])->toBeTrue();
+});
+
+test('modern assignments without legacy phases do not expose legacy placeholders', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'planned_arrival_at' => '2026-08-20',
+            'planned_join_at' => '2026-08-22',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-08-10',
+        'actual_end_at' => '2026-08-12',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-08-12',
+        'actual_end_at' => null,
+    ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh([
+            'company',
+            'employee',
+            'rank',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+        ]),
+    );
+
+    expect($row['has_legacy_phases'])->toBeFalse()
+        ->and($row['travel_in']['periods'])->toBe([])
+        ->and($row['ready_to_join']['periods'])->toBe([])
+        ->and($row['planned_arrival'])->toBe('2026-08-20')
+        ->and($row['actual_arrival'])->toBe('2026-08-12');
 });

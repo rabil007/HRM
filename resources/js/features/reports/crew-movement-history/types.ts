@@ -79,6 +79,7 @@ export type CrewMovementHistoryRow = {
     planned_travel_home: string | null;
     planned_travel_home_origin?: string | null;
     planned_travel_home_origin_label?: string | null;
+    has_legacy_phases: boolean;
     pre_mobilisation: FlattenedPhaseSummary;
     travel_in: FlattenedPhaseSummary;
     join_standby: PhaseSummary;

@@ -117,9 +117,12 @@ test('report exposes repeated phases and authoritative p4 dates in one row', fun
                     'source',
                     'source_label',
                     'planned_travel_in',
+                    'planned_arrival',
+                    'actual_arrival',
                     'planned_join',
                     'planned_signoff',
                     'planned_travel_home',
+                    'has_legacy_phases',
                     'pre_mobilisation.periods',
                     'travel_in.periods',
                     'join_standby.periods',
@@ -166,9 +169,42 @@ test('report exposes repeated phases and authoritative p4 dates in one row', fun
             ->where('assignments.0.payroll_days.onsite.total_days', 2)
             ->where('assignments.0.payroll_days.sign_off_standby.total_days', 0)
             ->where('assignments.0.payroll_days.total_days', 11)
-            ->where('assignments.0.planned_signoff', '2026-09-01'));
+            ->where('assignments.0.planned_signoff', '2026-09-01')
+            ->where('assignments.0.has_legacy_phases', false));
 
     CarbonImmutable::setTestNow();
+});
+
+test('report filter options exclude legacy current phases and legacy rows are flagged', function () {
+    ['user' => $user, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+
+    $legacyAssignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create(['assignment_no' => 'CA-LEGACY-001']);
+
+    CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-03',
+        'actual_end_at' => '2026-01-04',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', ['search' => 'CA-LEGACY-001']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('filter_options.phases', 6)
+            ->where('filter_options.phases', fn ($phases) => collect($phases)->pluck('value')->all() === [
+                'p0',
+                'p2a',
+                'p2b',
+                'p4',
+                'p5',
+                'p6',
+            ])
+            ->where('assignments.0.has_legacy_phases', true)
+            ->where('assignments.0.travel_in.periods.0.start', '2026-01-03'));
 });
 
 test('report supports filters sorting pagination and needs attention', function () {

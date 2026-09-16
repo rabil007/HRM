@@ -1,6 +1,5 @@
-import { crewPhaseCopy } from './crew-phase-descriptions.ts';
-import { CREW_PHASE_LABELS } from '../types.ts';
-import type { PhaseTimelineItem } from '../types.ts';
+import { crewPhaseCopy } from './crew-phase-descriptions';
+import type { PhaseTimelineItem } from '../types';
 
 export const NORMAL_VISIBLE_CREW_PHASES = [
     'p0',
@@ -100,10 +99,14 @@ export function normalVisiblePhaseFilterOptions(): Array<{
     value: string;
     label: string;
 }> {
-    return NORMAL_VISIBLE_CREW_PHASES.map((code) => ({
-        value: code,
-        label: `${code.toUpperCase()} · ${CREW_PHASE_LABELS[code] ?? code}`,
-    }));
+    return NORMAL_VISIBLE_CREW_PHASES.map((code) => {
+        const copy = crewPhaseCopy(code);
+
+        return {
+            value: code,
+            label: `${code.toUpperCase()} · ${copy?.label ?? code}`,
+        };
+    });
 }
 
 function completedPhaseCodes(timeline: PhaseTimelineItem[]): Set<string> {

@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Exports\CrewMovementHistoryExport;
 use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryQuery;
 use Maatwebsite\Excel\Facades\Excel;
@@ -76,18 +79,68 @@ test('export has clear headings and one mapped row per crew assignment', functio
         new CrewMovementHistoryFilters,
         $company->timezone,
     );
-    $export = new CrewMovementHistoryExport($query->exportQuery());
+    $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
     $assignment = $query->exportQuery()->whereKey($active->id)->firstOrFail();
 
     expect($export->headings())
         ->toContain(
             'Assignment No',
+            'Planned Arrival',
             'Planned Sign-Off',
-            'Actual Disembarkation',
+            'Actual Arrival',
             'Join Standby Periods',
             'Training Details',
             'Needs Attention',
         )
+        ->not->toContain(
+            'Planned Travel In',
+            'P1 From',
+            'Ready From',
+            'Legacy Travel In Periods',
+        )
         ->and($export->map($assignment)[0])->toBe('CA-EXPORT-ACTIVE')
         ->and($export->query()->count())->toBe(2);
+});
+
+test('export adds legacy columns only when the filtered result set contains legacy phases', function () {
+    ['company' => $company, 'employee' => $employee] = makeCrewMovementHistoryExportFixture();
+
+    $legacyAssignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create(['assignment_no' => 'CA-EXPORT-LEGACY']);
+
+    CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'planned_start_at' => '2026-01-02',
+        'actual_start_at' => '2026-01-03',
+        'actual_end_at' => '2026-01-04',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
+        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-04',
+        'actual_end_at' => '2026-01-10',
+    ]);
+
+    $query = new CrewMovementHistoryQuery(
+        $company->id,
+        new CrewMovementHistoryFilters(search: 'CA-EXPORT-LEGACY'),
+        $company->timezone,
+    );
+    $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
+    $assignment = $query->exportQuery()->whereKey($legacyAssignment->id)->firstOrFail();
+
+    expect($export->headings())->toContain(
+        'Legacy Planned Travel In',
+        'Legacy Travel In Periods',
+        'Legacy Ready To Join Periods',
+    );
+
+    $mapped = $export->map($assignment);
+    expect($mapped[0])->toBe('CA-EXPORT-LEGACY')
+        ->and($mapped)->toContain('03 Jan 2026', '04 Jan 2026');
 });

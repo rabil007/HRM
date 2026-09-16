@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use Carbon\CarbonImmutable;
@@ -16,7 +17,27 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
     /**
      * @param  Builder<CrewAssignment>  $query
      */
-    public function __construct(private readonly Builder $query) {}
+    public function __construct(
+        private readonly Builder $query,
+        private readonly bool $includesLegacyColumns = false,
+    ) {}
+
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     */
+    public static function forQuery(Builder $query): self
+    {
+        $includesLegacyColumns = (clone $query)
+            ->whereHas('phases', function (Builder $phaseQuery): void {
+                $phaseQuery->whereIn('phase_code', [
+                    CrewPhaseCode::TravelIn->value,
+                    CrewPhaseCode::ReadyToJoin->value,
+                ]);
+            })
+            ->exists();
+
+        return new self($query, $includesLegacyColumns);
+    }
 
     public function query(): Builder
     {
@@ -28,7 +49,7 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
      */
     public function headings(): array
     {
-        return [
+        $headings = [
             'Assignment No',
             'Employee No',
             'Employee Name',
@@ -38,27 +59,26 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             'Status',
             'Current Phase',
             'Source',
-            'Planned Travel In',
             'Planned Arrival',
             'Planned Join',
             'Planned Sign-Off',
             'Planned Travel Home',
             'Actual Arrival',
+        ];
+
+        if ($this->includesLegacyColumns) {
+            $headings = array_merge($headings, $this->legacyHeadings());
+        }
+
+        return array_merge($headings, [
             'P0 From',
             'P0 To',
             'P0 Days',
-            'P1 From',
-            'Arrival Date',
-            'P1 Days',
             'Join Standby Periods',
             'Join Standby Days',
             'Training Periods',
             'Training Days',
             'Training Details',
-            'Ready Periods',
-            'Ready From',
-            'Ready To',
-            'Ready Days',
             'On-Vessel Periods',
             'Actual Join',
             'Actual Disembarkation',
@@ -80,7 +100,7 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             'Has Corrections',
             'Correction Count',
             'Last Corrected At',
-        ];
+        ]);
     }
 
     /**
@@ -91,7 +111,7 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
     {
         $row = CrewMovementHistoryPresenter::toArray($assignment);
 
-        return [
+        $mapped = [
             $row['assignment_no'],
             $row['employee']['employee_no'],
             $row['employee']['name'],
@@ -101,27 +121,26 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             $row['status_label'],
             $row['current_phase']['label'] ?? null,
             $row['source_label'],
-            $this->date($row['planned_travel_in']),
             $this->date($row['planned_arrival']),
             $this->date($row['planned_join']),
             $this->date($row['planned_signoff']),
             $this->date($row['planned_travel_home']),
             $this->date($row['actual_arrival']),
+        ];
+
+        if ($this->includesLegacyColumns) {
+            $mapped = array_merge($mapped, $this->legacyValues($row));
+        }
+
+        return array_merge($mapped, [
             $this->date($row['pre_mobilisation']['from']),
             $this->end($row['pre_mobilisation']),
             $row['pre_mobilisation']['total_days'],
-            $this->date($row['travel_in']['from']),
-            $this->end($row['travel_in']),
-            $row['travel_in']['total_days'],
             $this->periods($row['join_standby']['periods']),
             $row['join_standby']['total_days'],
             $this->periods($row['training']['periods']),
             $row['training']['total_days'],
             implode('; ', $row['training']['details']),
-            $this->periods($row['ready_to_join']['periods']),
-            $this->date($row['ready_to_join']['from']),
-            $this->end($row['ready_to_join']),
-            $row['ready_to_join']['total_days'],
             $this->periods($row['on_vessel']['periods']),
             $this->date($row['on_vessel']['actual_join']),
             $this->end($row['on_vessel']),
@@ -143,6 +162,43 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             ($row['has_corrections'] ?? false) ? 'Yes' : 'No',
             $row['correction_count'] ?? 0,
             $this->date($row['last_corrected_at'] ?? null),
+        ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function legacyHeadings(): array
+    {
+        return [
+            'Legacy Planned Travel In',
+            'Legacy Travel In Periods',
+            'Legacy Travel In From',
+            'Legacy Travel In To/Arrival',
+            'Legacy Travel In Days',
+            'Legacy Ready To Join Periods',
+            'Legacy Ready From',
+            'Legacy Ready To',
+            'Legacy Ready Days',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return list<mixed>
+     */
+    private function legacyValues(array $row): array
+    {
+        return [
+            $this->date($row['planned_travel_in']),
+            $this->periods($row['travel_in']['periods']),
+            $this->date($row['travel_in']['from']),
+            $this->end($row['travel_in']),
+            $row['travel_in']['total_days'],
+            $this->periods($row['ready_to_join']['periods']),
+            $this->date($row['ready_to_join']['from']),
+            $this->end($row['ready_to_join']),
+            $row['ready_to_join']['total_days'],
         ];
     }
 

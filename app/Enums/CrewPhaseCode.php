@@ -66,4 +66,37 @@ enum CrewPhaseCode: string
     {
         return in_array($this, self::directStartPhases(), true);
     }
+
+    public function isLegacy(): bool
+    {
+        return in_array($this, self::legacyPhases(), true);
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function legacyPhases(): array
+    {
+        return [
+            self::TravelIn,
+            self::ReadyToJoin,
+        ];
+    }
+
+    /**
+     * Normal product-facing phases for filters and report timelines.
+     *
+     * @return list<self>
+     */
+    public static function normalVisiblePhases(): array
+    {
+        return [
+            self::PreMobilisation,
+            self::JoinStandby,
+            self::Training,
+            self::OnVessel,
+            self::DemobStandby,
+            self::HomeRedeploy,
+        ];
+    }
 }

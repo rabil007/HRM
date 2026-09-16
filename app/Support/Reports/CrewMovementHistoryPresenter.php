@@ -69,6 +69,8 @@ final class CrewMovementHistoryPresenter
             $assignment,
             $timezone,
         );
+        $travelIn = self::flatten($summaries[CrewPhaseCode::TravelIn->value]);
+        $readyToJoin = self::flatten($summaries[CrewPhaseCode::ReadyToJoin->value]);
 
         return [
             'id' => $assignment->id,
@@ -115,14 +117,15 @@ final class CrewMovementHistoryPresenter
             'planned_travel_home_origin' => $plannedTravelHome['origin'],
             'planned_travel_home_origin_label' => $plannedTravelHome['origin_label'],
             'phases' => $summaries,
+            'has_legacy_phases' => $travelIn['periods'] !== [] || $readyToJoin['periods'] !== [],
             'pre_mobilisation' => self::flatten($summaries[CrewPhaseCode::PreMobilisation->value]),
-            'travel_in' => self::flatten($summaries[CrewPhaseCode::TravelIn->value]),
+            'travel_in' => $travelIn,
             'join_standby' => $summaries[CrewPhaseCode::JoinStandby->value],
             'training' => [
                 ...$training,
                 'details' => self::trainingDetails($phases),
             ],
-            'ready_to_join' => self::flatten($summaries[CrewPhaseCode::ReadyToJoin->value]),
+            'ready_to_join' => $readyToJoin,
             'on_vessel' => [
                 ...$onVessel,
                 'actual_join' => $onVessel['periods'][0]['start'] ?? null,
