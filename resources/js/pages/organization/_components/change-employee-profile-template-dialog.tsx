@@ -104,11 +104,10 @@ export function ChangeEmployeeProfileTemplateDialog({
                         </p>
                     ) : (
                         <div className="space-y-1.5">
-                            <Label htmlFor="new-profile-template">
+                            <Label className="text-xs text-muted-foreground">
                                 New template
                             </Label>
                             <AppSelect
-                                id="new-profile-template"
                                 value={selectedTemplateId}
                                 onValueChange={setSelectedTemplateId}
                                 placeholder="Select template"
