@@ -10,6 +10,10 @@ final class CurrentCrewRequestFilters
 
     public const VIEW_VESSEL = 'vessel';
 
+    public const VIEW_PRE_JOIN_HOTEL = 'pre_join_hotel';
+
+    public const VIEW_POST_SIGNOFF_HOTEL = 'post_signoff_hotel';
+
     /**
      * @return array<string, mixed>
      */
@@ -69,8 +73,33 @@ final class CurrentCrewRequestFilters
 
     public static function view(Request $request): string
     {
-        return $request->query('view') === self::VIEW_VESSEL
-            ? self::VIEW_VESSEL
-            : self::VIEW_CREW;
+        return self::normalizeView((string) $request->query('view', self::VIEW_CREW));
+    }
+
+    public static function normalizeView(string $view): string
+    {
+        return match ($view) {
+            self::VIEW_VESSEL,
+            self::VIEW_PRE_JOIN_HOTEL,
+            self::VIEW_POST_SIGNOFF_HOTEL => $view,
+            default => self::VIEW_CREW,
+        };
+    }
+
+    public static function isOperationalLocationView(string $view): bool
+    {
+        return in_array($view, [
+            self::VIEW_VESSEL,
+            self::VIEW_PRE_JOIN_HOTEL,
+            self::VIEW_POST_SIGNOFF_HOTEL,
+        ], true);
+    }
+
+    public static function isOperationalListView(string $view): bool
+    {
+        return in_array($view, [
+            self::VIEW_PRE_JOIN_HOTEL,
+            self::VIEW_POST_SIGNOFF_HOTEL,
+        ], true);
     }
 }

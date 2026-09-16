@@ -23,7 +23,9 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | Surface | URL | Meaning |
 |---------|-----|---------|
 | **Crew Assignments → Crew View** (default) | `/organization/crew` or `?view=crew` | Employee/assignment-oriented current assignments (Draft/Active unless filtered to history) |
-| **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew |
+| **Crew Assignments → Pre-Join Hotel** | `/organization/crew?view=pre_join_hotel` | Active assignments whose **current** phase is P2A, P2B, or P3 (hotel/standby before vessel joining) |
+| **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew (active P4) |
+| **Crew Assignments → Post-Sign-Off Hotel** | `/organization/crew?view=post_signoff_hotel` | Active assignments whose **current** phase is P5 (demobilisation standby after disembarkation) |
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel manning and movements (Gantt) |
 | **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
 | **Crew Planning → Relief Desk** | `/organization/crew-planning?view=relief` | Operational desk of active P4 crew with upcoming/overdue/missing Planned Sign-Off, derived relief status, and mobilisation readiness |
@@ -47,6 +49,28 @@ That rule is shared by Crew Assignments Vessel View, Crew Planning Onboard by Ve
 `planned_signoff_at` on an active P4 row is an operational forecast only. It does not disembark the employee.
 
 Both pages consume the same crew-domain roster (`OnboardByVesselBoard` / `CurrentCrewVesselQuery`). Parent rows are vessels. Each page loads the complete filtered onboard roster for those vessels — assignments are never paginated first.
+
+### Current Crew operational cards
+
+The Crew Assignments index uses summary cards as the primary operational navigation surface (no separate top-level Crew History / Crew On-Site toggle).
+
+| Card | Meaning |
+|------|---------|
+| **Active Assignments** | Default operational queue (Draft/Active unless status/history filters widen the board) |
+| **Needs Attention** | Existing movement-attention filter (`movement_attention=1`) |
+| **Pre-Join Hotel** | Active assignments with current phase **P2A + P2B + P3** |
+| **Crew On-Site** | Vessel View (`view=vessel`) — active **P4** crew grouped by vessel |
+| **Post-Sign-Off Hotel** | Active assignments with current phase **P5** |
+
+**P0 Pre-Mobilisation** is no longer a dashboard summary card. It remains available through **Filters → Current Phase** and other detailed filters.
+
+**Hotel** in this UI is an operational grouping only. It is **not**:
+
+- a new Crew phase
+- accommodation booking data
+- a Payroll category (Payroll still maps P2A/P2B/P3 to Sign-On Standby and P5 to Sign-Off Standby)
+
+Operational hotel/on-site views enforce `CrewAssignment.status = Active` and match **current** phase only — completed historical phases never appear in these cards or views, even when `include_completed=1` is present in the URL.
 
 ### Export intent
 

@@ -9,8 +9,9 @@ import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 export type CrewSummaryFilter =
     | ''
     | 'attention'
-    | 'on_vessel'
-    | 'pre_mobilisation';
+    | 'pre_join_hotel'
+    | 'crew_on_site'
+    | 'post_signoff_hotel';
 
 function cleanParams(
     params: Record<string, string | number | boolean | null | undefined>,
@@ -48,6 +49,10 @@ const PARTIAL_ONLY = [
     'can',
 ] as const;
 
+function viewParam(view: CurrentCrewView): string | undefined {
+    return view === 'crew' ? undefined : view;
+}
+
 export function useCrewIndexFilters({
     url,
     initialSearch,
@@ -65,7 +70,7 @@ export function useCrewIndexFilters({
 
     const baseParams = useCallback(
         () => ({
-            view: view === 'vessel' ? 'vessel' : undefined,
+            view: viewParam(view),
             search: initialSearch || undefined,
             phase: initialFilters.phase || undefined,
             status: initialFilters.status || undefined,
@@ -131,6 +136,7 @@ export function useCrewIndexFilters({
         (filter: CrewSummaryFilter) => {
             const next = {
                 ...baseParams(),
+                view: undefined as string | undefined,
                 phase: undefined as string | undefined,
                 movement_attention: undefined as boolean | undefined,
                 page: 1,
@@ -138,10 +144,12 @@ export function useCrewIndexFilters({
 
             if (filter === 'attention') {
                 next.movement_attention = true;
-            } else if (filter === 'on_vessel') {
-                next.phase = 'p4';
-            } else if (filter === 'pre_mobilisation') {
-                next.phase = 'p0';
+            } else if (filter === 'pre_join_hotel') {
+                next.view = 'pre_join_hotel';
+            } else if (filter === 'crew_on_site') {
+                next.view = 'vessel';
+            } else if (filter === 'post_signoff_hotel') {
+                next.view = 'post_signoff_hotel';
             }
 
             visit(next);
@@ -152,7 +160,7 @@ export function useCrewIndexFilters({
     const onSheetFiltersChange = useCallback(
         (next: CrewAssignmentFilters) => {
             visit({
-                view: view === 'vessel' ? 'vessel' : undefined,
+                view: viewParam(view),
                 search: initialSearch || undefined,
                 phase: next.phase || undefined,
                 status: next.status || undefined,
@@ -181,7 +189,7 @@ export function useCrewIndexFilters({
 
     const onResetFilters = useCallback(() => {
         visit({
-            view: view === 'vessel' ? 'vessel' : undefined,
+            view: viewParam(view),
             search: initialSearch || undefined,
             per_page: perPage,
             page: 1,
@@ -198,17 +206,6 @@ export function useCrewIndexFilters({
         [baseParams, visit],
     );
 
-    const onViewChange = useCallback(
-        (nextView: CurrentCrewView) => {
-            visit({
-                ...baseParams(),
-                view: nextView === 'vessel' ? 'vessel' : undefined,
-                page: 1,
-            });
-        },
-        [baseParams, visit],
-    );
-
     return {
         searchInput,
         isSearching,
@@ -217,6 +214,5 @@ export function useCrewIndexFilters({
         onSheetFiltersChange,
         onResetFilters,
         onPageChange,
-        onViewChange,
     };
 }

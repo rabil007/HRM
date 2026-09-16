@@ -394,6 +394,9 @@ export interface CrewAssignmentSummary {
     total: number;
     needs_attention: number;
     by_phase: Record<string, number>;
+    pre_join_hotel: number;
+    crew_on_site: number;
+    post_signoff_hotel: number;
 }
 
 export type CrewFilterOption = {
@@ -419,7 +422,11 @@ export interface CrewAssignmentFilterOptions {
     relief_risks?: CrewFilterOption[];
 }
 
-export type CurrentCrewView = 'crew' | 'vessel';
+export type CurrentCrewView =
+    | 'crew'
+    | 'pre_join_hotel'
+    | 'vessel'
+    | 'post_signoff_hotel';
 
 export interface CurrentCrewVesselRow {
     id: number;

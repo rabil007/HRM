@@ -20,7 +20,6 @@ import { CrewAssignmentQuickDetailSheet } from '@/features/organization/crew/com
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
-import { CurrentCrewViewSwitcher } from '@/features/organization/crew/components/current-crew-view-switcher';
 import { OnboardByVesselBoard } from '@/features/organization/crew/onboard-by-vessel/onboard-by-vessel-board';
 import { onboardSelectionResetKey } from '@/features/organization/crew/onboard-by-vessel/selection-reset-key';
 import type {
@@ -76,20 +75,98 @@ function normalizeFilters(
 
 function resolveActiveSummaryFilter(
     filters: CrewAssignmentFilters,
+    view: CurrentCrewView,
 ): CrewSummaryFilter {
     if (filters.movement_attention) {
         return 'attention';
     }
 
-    if (filters.phase === 'p4') {
-        return 'on_vessel';
+    if (view === 'vessel') {
+        return 'crew_on_site';
     }
 
-    if (filters.phase === 'p0') {
-        return 'pre_mobilisation';
+    if (view === 'pre_join_hotel') {
+        return 'pre_join_hotel';
+    }
+
+    if (view === 'post_signoff_hotel') {
+        return 'post_signoff_hotel';
     }
 
     return '';
+}
+
+function queueSectionCopy(
+    view: CurrentCrewView,
+    filters: CrewAssignmentFilters,
+): { title: string; description: string } {
+    if (filters.movement_attention) {
+        return {
+            title: 'Assignments needing attention',
+            description:
+                'Search, filter, or open a crew record for quick action.',
+        };
+    }
+
+    if (view === 'pre_join_hotel') {
+        return {
+            title: 'Pre-Join Hotel crew',
+            description:
+                'Active crew in Join Standby, Training, or Ready to Join.',
+        };
+    }
+
+    if (view === 'vessel') {
+        return {
+            title: 'Crew On-Site',
+            description: 'Vessel-grouped roster of active P4 onboard crew.',
+        };
+    }
+
+    if (view === 'post_signoff_hotel') {
+        return {
+            title: 'Post-Sign-Off Hotel crew',
+            description: 'Active crew in Demobilisation Standby.',
+        };
+    }
+
+    return {
+        title: 'Assignment queue',
+        description: 'Search, filter, or open a crew record for quick action.',
+    };
+}
+
+function listEmptyStateCopy(
+    view: CurrentCrewView,
+    hasActiveQuery: boolean,
+): { title: string; description: string } {
+    if (hasActiveQuery) {
+        return {
+            title: 'No matching crew assignments',
+            description: 'Try clearing search or filters to widen the board.',
+        };
+    }
+
+    if (view === 'pre_join_hotel') {
+        return {
+            title: 'No crew in pre-join hotel',
+            description:
+                'No crew are currently in Join Standby, Training, or Ready to Join.',
+        };
+    }
+
+    if (view === 'post_signoff_hotel') {
+        return {
+            title: 'No crew in post-sign-off hotel',
+            description: 'No crew are currently in Demobilisation Standby.',
+        };
+    }
+
+    return {
+        title: 'No active crew assignments',
+        description:
+            'Start a crew assignment to begin operational movement tracking.',
+    };
 }
 
 export function CurrentCrewContent({
@@ -126,8 +203,12 @@ export function CurrentCrewContent({
     );
     const quickDetailAssignment = assignments[quickDetailIndex] ?? null;
     const filters = useMemo(() => normalizeFilters(rawFilters), [rawFilters]);
-    const activeSummaryFilter = resolveActiveSummaryFilter(filters);
-    const currentView: CurrentCrewView = view === 'vessel' ? 'vessel' : 'crew';
+    const currentView: CurrentCrewView = view ?? 'crew';
+    const activeSummaryFilter = resolveActiveSummaryFilter(
+        filters,
+        currentView,
+    );
+    const queueCopy = queueSectionCopy(currentView, filters);
 
     const {
         searchInput,
@@ -137,7 +218,6 @@ export function CurrentCrewContent({
         onSheetFiltersChange,
         onResetFilters,
         onPageChange,
-        onViewChange,
     } = useCrewIndexFilters({
         url: crewAssignmentsIndex.url(),
         initialSearch,
@@ -187,22 +267,14 @@ export function CurrentCrewContent({
                 title="Crew Assignments"
                 description="Track mobilisation, vessel joins, and demobilisation in one operational board."
                 right={
-                    <div className="flex flex-wrap items-center gap-2">
-                        <CurrentCrewViewSwitcher
-                            value={currentView}
-                            onChange={onViewChange}
-                        />
-                        {can.create ? (
-                            <Button
-                                onClick={() =>
-                                    router.visit(createAssignment.url())
-                                }
-                            >
-                                <Plus className="h-4 w-4" />
-                                Start Assignment
-                            </Button>
-                        ) : null}
-                    </div>
+                    can.create ? (
+                        <Button
+                            onClick={() => router.visit(createAssignment.url())}
+                        >
+                            <Plus className="h-4 w-4" />
+                            Start Assignment
+                        </Button>
+                    ) : null
                 }
             />
 
@@ -212,7 +284,7 @@ export function CurrentCrewContent({
                         id="crew-health"
                         className="text-sm font-semibold text-foreground"
                     >
-                        Assignment health
+                        Crew Operations overview
                     </h2>
                     <p className="text-xs text-muted-foreground">
                         Select a card to focus the operating board.
@@ -228,10 +300,10 @@ export function CurrentCrewContent({
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h2 className="text-sm font-semibold text-foreground">
-                        Assignment queue
+                        {queueCopy.title}
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                        Search, filter, or open a crew record for quick action.
+                        {queueCopy.description}
                     </p>
                 </div>
                 <span className="text-xs font-medium text-muted-foreground tabular-nums">
@@ -313,14 +385,11 @@ export function CurrentCrewContent({
                         <Ship className="mx-auto mb-3 size-8 text-muted-foreground/50" />
                     }
                     title={
-                        hasActiveQuery
-                            ? 'No matching crew assignments'
-                            : 'No active crew assignments'
+                        listEmptyStateCopy(currentView, hasActiveQuery).title
                     }
                     description={
-                        hasActiveQuery
-                            ? 'Try clearing search or filters to widen the board.'
-                            : 'Start a crew assignment to begin operational movement tracking.'
+                        listEmptyStateCopy(currentView, hasActiveQuery)
+                            .description
                     }
                     action={
                         !hasActiveQuery && can.create ? (

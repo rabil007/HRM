@@ -73,7 +73,7 @@ class CrewAssignmentController extends Controller
             $vessels = $vesselPaginator->items();
             $pagination = $this->paginationMeta($vesselPaginator);
         } else {
-            $paginator = CurrentCrewQuery::paginate($companyId, $filters);
+            $paginator = CurrentCrewQuery::paginate($companyId, $filters, $view);
             $assignments = $paginator->through(
                 fn (CrewAssignment $assignment) => CrewAssignmentPresenter::listItem($assignment, $request->user()),
             )->items();

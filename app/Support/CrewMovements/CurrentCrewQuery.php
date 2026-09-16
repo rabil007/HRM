@@ -3,6 +3,7 @@
 namespace App\Support\CrewMovements;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewPhaseCode;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
 use App\Enums\CrewTourStatus;
@@ -25,25 +26,33 @@ class CurrentCrewQuery
     /**
      * @param  array<string, mixed>  $filters
      */
-    public static function paginate(int $companyId, array $filters = []): LengthAwarePaginator
-    {
+    public static function paginate(
+        int $companyId,
+        array $filters = [],
+        string $view = CurrentCrewRequestFilters::VIEW_CREW,
+    ): LengthAwarePaginator {
+        $view = CurrentCrewRequestFilters::normalizeView($view);
         $query = CrewAssignment::query()
             ->where('company_id', $companyId);
 
-        $includeCompleted = filter_var($filters['include_completed'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $statusFilter = $filters['status'] ?? null;
+        if (CurrentCrewRequestFilters::isOperationalListView($view)) {
+            self::applyOperationalListView($query, $companyId, $view);
+        } else {
+            $includeCompleted = filter_var($filters['include_completed'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $statusFilter = $filters['status'] ?? null;
 
-        if ($statusFilter !== null && $statusFilter !== '') {
-            $query->where('status', CrewAssignmentStatus::tryFrom((string) $statusFilter));
-        } elseif (! $includeCompleted) {
-            $query->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active]);
-        }
+            if ($statusFilter !== null && $statusFilter !== '') {
+                $query->where('status', CrewAssignmentStatus::tryFrom((string) $statusFilter));
+            } elseif (! $includeCompleted) {
+                $query->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active]);
+            }
 
-        self::constrainOperationalEmployees($query, $companyId, $includeCompleted, $statusFilter);
+            self::constrainOperationalEmployees($query, $companyId, $includeCompleted, $statusFilter);
 
-        if (! empty($filters['phase'])) {
-            $phase = (string) $filters['phase'];
-            $query->whereHas('currentPhase', fn (Builder $p) => $p->where('phase_code', $phase));
+            if (! empty($filters['phase'])) {
+                $phase = (string) $filters['phase'];
+                $query->whereHas('currentPhase', fn (Builder $p) => $p->where('phase_code', $phase));
+            }
         }
 
         self::applySharedFilters($query, $companyId, $filters);
@@ -333,5 +342,28 @@ class CurrentCrewQuery
         }
 
         ActiveEmployeeConstraint::whereHas($query, $companyId);
+    }
+
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     */
+    private static function applyOperationalListView(Builder $query, int $companyId, string $view): void
+    {
+        $query->where('status', CrewAssignmentStatus::Active);
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
+
+        $query->whereHas('currentPhase', function (Builder $phase) use ($view): void {
+            if ($view === CurrentCrewRequestFilters::VIEW_PRE_JOIN_HOTEL) {
+                $phase->whereIn('phase_code', [
+                    CrewPhaseCode::JoinStandby,
+                    CrewPhaseCode::Training,
+                    CrewPhaseCode::ReadyToJoin,
+                ]);
+
+                return;
+            }
+
+            $phase->where('phase_code', CrewPhaseCode::DemobStandby);
+        });
     }
 }

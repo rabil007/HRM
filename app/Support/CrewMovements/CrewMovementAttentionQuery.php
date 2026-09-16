@@ -244,7 +244,10 @@ class CrewMovementAttentionQuery
      * @return array{
      *     total: int,
      *     needs_attention: int,
-     *     by_phase: array<string, int>
+     *     by_phase: array<string, int>,
+     *     pre_join_hotel: int,
+     *     crew_on_site: int,
+     *     post_signoff_hotel: int
      * }
      */
     public static function summaryCounts(int $companyId): array
@@ -264,10 +267,43 @@ class CrewMovementAttentionQuery
             $byPhase[$phaseCode] = ($byPhase[$phaseCode] ?? 0) + 1;
         }
 
+        $activeQuery = CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->where('status', CrewAssignmentStatus::Active);
+
+        ActiveEmployeeConstraint::whereHas($activeQuery, $companyId);
+
+        $activeAssignments = self::candidates($companyId, $activeQuery);
+
+        $preJoinHotelPhases = [
+            CrewPhaseCode::JoinStandby->value,
+            CrewPhaseCode::Training->value,
+            CrewPhaseCode::ReadyToJoin->value,
+        ];
+
+        $preJoinHotel = $activeAssignments->filter(
+            fn (CrewAssignment $assignment): bool => in_array(
+                $assignment->currentPhase?->phase_code?->value,
+                $preJoinHotelPhases,
+                true,
+            ),
+        )->count();
+
+        $crewOnSite = $activeAssignments->filter(
+            fn (CrewAssignment $assignment): bool => $assignment->currentPhase?->phase_code === CrewPhaseCode::OnVessel,
+        )->count();
+
+        $postSignoffHotel = $activeAssignments->filter(
+            fn (CrewAssignment $assignment): bool => $assignment->currentPhase?->phase_code === CrewPhaseCode::DemobStandby,
+        )->count();
+
         return [
             'total' => $assignments->count(),
             'needs_attention' => self::needingAttention($assignments)->count(),
             'by_phase' => $byPhase,
+            'pre_join_hotel' => $preJoinHotel,
+            'crew_on_site' => $crewOnSite,
+            'post_signoff_hotel' => $postSignoffHotel,
         ];
     }
 
