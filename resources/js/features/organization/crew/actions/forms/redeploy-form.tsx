@@ -185,11 +185,7 @@ export function RedeployForm({
                             next.planned_signoff_override_reason = '';
                             next.planned_signoff_at = '';
                         } else {
-                            if (
-                                !['p1', 'p2a', 'p4'].includes(
-                                    startingPhase,
-                                )
-                            ) {
+                            if (!['p1', 'p2a', 'p4'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
                                 next.rank_id = context.rank_id;
                                 next.client_id = context.client_id;

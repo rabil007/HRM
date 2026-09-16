@@ -11,7 +11,6 @@ use App\Models\CrewMovementCorrection;
 use App\Models\EmployeeSeaService;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
-use App\Support\CrewMovements\CrewMovementService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -255,16 +254,21 @@ test('approving a p1 start correction updates the phase but does not rewrite ass
         'crew_operations.corrections.approve',
     ]);
 
-    $assignment = app(CrewMovementService::class)->startAssignment(
-        $fixtures['company']->id,
-        $fixtures['employee']->id,
+    $vessel = makeCrewMovementVessel('P1 Correction Approval');
+    $assignment = makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $vessel,
+        CrewPhaseCode::TravelIn,
         [
-            'rank_id' => $fixtures['rank']->id,
-            'current_stage' => 'p1',
-            'stage_started_at' => '2026-09-15 08:00:00',
+            'started_at' => '2026-09-15 08:00:00',
         ],
-        $requester->id,
     );
+    $assignment->currentPhase->update([
+        'actual_start_at' => '2026-09-15 08:00:00',
+    ]);
+    $assignment = $assignment->fresh(['currentPhase']);
 
     $phase = $assignment->currentPhase;
     $originalStartedAt = $assignment->started_at?->copy();

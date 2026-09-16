@@ -601,7 +601,7 @@ test('p4 still does not expose normal cancel', function () {
             'occurred_at' => '2026-01-10 08:00:00',
             'reason' => 'Should fail on vessel',
         ])
-        ->assertSessionHasErrors('error');
+        ->assertSessionHasErrors('action');
 });
 
 test('void creates company-aware activity audit', function () {

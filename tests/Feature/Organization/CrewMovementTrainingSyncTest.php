@@ -139,7 +139,7 @@ test('completing p2b training with sync toggle ON and individual skip unchecked 
     // User unchecks individual sync
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
         'sync_training_to_employee_training' => false,
     ], $user->id);
 
@@ -251,7 +251,7 @@ test('planned vs actual completion date maps to actual completion date in compan
     // Actual completion occurred on March 8
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-08 16:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
 
     $synced = EmployeeTraining::query()
@@ -348,7 +348,7 @@ test('repeated p2b phases in same assignment create distinct employee trainings'
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-08 12:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
 
     $trainings = EmployeeTraining::query()
