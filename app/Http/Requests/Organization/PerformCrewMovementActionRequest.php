@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTravelHomeCompletionIntent;
 use App\Models\CrewAssignment;
+use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
@@ -176,7 +178,32 @@ class PerformCrewMovementActionRequest extends FormRequest
             ])),
         ];
 
+        if ($action === 'record_arrival') {
+            $baseRules['accommodation_status'] = [
+                'nullable',
+                'string',
+                Rule::in(CrewAccommodationStatus::values()),
+            ];
+            $baseRules['hotel_id'] = [
+                Rule::requiredIf(fn () => $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value),
+                'nullable',
+                'integer',
+                Rule::exists('hotels', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ];
+            $baseRules['room_type_id'] = [
+                'nullable',
+                'integer',
+                Rule::exists('room_types', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ];
+            $baseRules['check_in_date'] = [
+                Rule::requiredIf(fn () => $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value),
+                'nullable',
+                'date',
+            ];
+        }
+
         if ($action === 'join_vessel') {
+            $baseRules['check_out_date'] = ['nullable', 'date'];
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
@@ -373,6 +400,63 @@ class PerformCrewMovementActionRequest extends FormRequest
                         'Travel In arrivals must transition to Join Standby.',
                     );
                 }
+
+                if ($this->filled('accommodation_status') && $occurredAt !== null) {
+                    $checkInDate = $this->input('check_in_date')
+                        ? Carbon::parse((string) $this->input('check_in_date'), $timezone)->startOfDay()
+                        : null;
+
+                    if (
+                        $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value
+                        && $checkInDate !== null
+                        && $checkInDate->lt($occurredAt->copy()->timezone($timezone)->startOfDay())
+                    ) {
+                        $validator->errors()->add(
+                            'check_in_date',
+                            'Hotel check-in cannot be before the actual arrival date.',
+                        );
+                    }
+                }
+            }
+
+            if ($action === 'join_vessel') {
+                $accommodation = app(CrewAccommodationService::class);
+                $openStays = $accommodation->openPreJoinHotelStays($assignment);
+
+                if ($openStays->count() > 1) {
+                    $validator->errors()->add(
+                        'check_out_date',
+                        'Multiple open pre-join hotel stays were found. Resolve accommodation data before joining the vessel.',
+                    );
+                }
+
+                $openStay = $openStays->first();
+
+                if ($openStay !== null) {
+                    if (! $this->filled('check_out_date')) {
+                        $validator->errors()->add(
+                            'check_out_date',
+                            'Hotel check-out date is required before joining the vessel.',
+                        );
+                    } elseif ($occurredAt !== null) {
+                        $checkOutDate = Carbon::parse((string) $this->input('check_out_date'), $timezone)->startOfDay();
+                        $joinLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+                        if ($openStay->check_in_date !== null && $checkOutDate->lt($openStay->check_in_date)) {
+                            $validator->errors()->add(
+                                'check_out_date',
+                                'Hotel check-out cannot be before check-in.',
+                            );
+                        }
+
+                        if ($checkOutDate->gt($joinLocalDate)) {
+                            $validator->errors()->add(
+                                'check_out_date',
+                                'Hotel check-out cannot be after the actual vessel join date.',
+                            );
+                        }
+                    }
+                }
             }
 
             if ($action === 'redeploy' && $this->filled('planned_arrival_at') && $this->filled('planned_join_at')) {
@@ -567,6 +651,9 @@ class PerformCrewMovementActionRequest extends FormRequest
             'rank_id.required' => 'Please select the rank served onboard.',
             'starting_phase.required' => 'Please choose the starting phase for redeployment.',
             'starting_phase.in' => 'The selected starting phase is not valid for redeployment.',
+            'hotel_id.required' => 'Please select a hotel.',
+            'check_in_date.required' => 'Please enter the hotel check-in date.',
+            'check_out_date.required' => 'Please enter the hotel check-out date.',
         ];
     }
 }

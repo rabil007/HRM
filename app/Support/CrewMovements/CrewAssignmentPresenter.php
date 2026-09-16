@@ -8,6 +8,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\User;
+use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use Carbon\CarbonInterface;
 
@@ -247,6 +248,7 @@ class CrewAssignmentPresenter
                     ])
                     ->all()
                 : [],
+            'accommodation' => app(CrewAccommodationService::class)->assignmentAccommodationSummary($assignment, $timezone),
             'movement_context' => [
                 ...self::movementContext($assignment, $tourProgress),
                 'active_on_vessel_elsewhere' => self::activeOnVesselElsewhere($assignment, $user),
@@ -308,8 +310,23 @@ class CrewAssignmentPresenter
             'training_started_at' => self::formatDateTime($trainingPhase?->actual_start_at, $timezone),
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,
+            'pre_join_accommodation' => self::preJoinAccommodationContext($assignment, $timezone),
             ...$tourProgress,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function preJoinAccommodationContext(CrewAssignment $assignment, string $timezone): ?array
+    {
+        $currentCode = $assignment->currentPhase?->phase_code;
+
+        if (! in_array($currentCode, [CrewPhaseCode::JoinStandby, CrewPhaseCode::Training, CrewPhaseCode::ReadyToJoin], true)) {
+            return null;
+        }
+
+        return app(CrewAccommodationService::class)->preJoinContext($assignment, $timezone);
     }
 
     /**

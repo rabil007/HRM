@@ -31,6 +31,33 @@ export type ActiveOnVesselAssignment = {
     can_transfer?: boolean;
 };
 
+export type CrewPreJoinAccommodationContext = {
+    status: 'open_hotel' | 'no_accommodation' | 'missing';
+    stay_id: number | null;
+    hotel_id: number | null;
+    hotel_name: string | null;
+    room_type_id: number | null;
+    room_type_name: string | null;
+    check_in_date: string | null;
+    check_out_date: string | null;
+    stay_days: number | null;
+    warning: string | null;
+};
+
+export type CrewAccommodationSummaryItem = {
+    id: number;
+    stay_type: string;
+    stay_type_label: string;
+    accommodation_status: string;
+    accommodation_status_label: string;
+    hotel_name: string | null;
+    room_type_name: string | null;
+    check_in_date: string | null;
+    check_out_date: string | null;
+    is_open: boolean;
+    stay_days: number | null;
+};
+
 export type CrewMovementContext = {
     assignment_id: number;
     assignment_no: string;
@@ -63,6 +90,7 @@ export type CrewMovementContext = {
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
+    pre_join_accommodation?: CrewPreJoinAccommodationContext;
     active_on_vessel_elsewhere?: ActiveOnVesselAssignment | null;
 } & CrewTourProgressFields;
 
@@ -231,6 +259,7 @@ export interface CrewAssignmentDetail
         vessel_name: string | null;
         started_at: string | null;
     }>;
+    accommodation?: CrewAccommodationSummaryItem[];
     movement_context: CrewMovementContext;
 }
 
@@ -347,6 +376,8 @@ export interface CrewAssignmentFormOptions {
     }>;
     clients: Array<{ id: number; name: string }>;
     courses: Array<{ id: number; name: string }>;
+    hotels?: Array<{ id: number; name: string }>;
+    room_types?: Array<{ id: number; name: string }>;
 }
 
 export interface EmployeeOperationalStatus {
@@ -618,4 +649,10 @@ export interface CrewMovementActionFormData {
         | 'manual_override';
     planned_signoff_override_reason: string;
     completion_intent: 'close' | 'redeploy' | '';
+    accommodation_status: 'hotel' | 'no_accommodation' | '';
+    hotel_id: number | null;
+    room_type_id: number | null;
+    check_in_date: string;
+    check_out_date: string;
+    no_hotel_accommodation: boolean;
 }

@@ -17,6 +17,7 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\MasterData\ClientAssignmentRules;
@@ -44,6 +45,7 @@ final class CrewMovementService
         private CrewTourOfDutyResolver $tourOfDutyResolver = new CrewTourOfDutyResolver,
         private CrewJoinVesselSignoffApplier $signoffApplier = new CrewJoinVesselSignoffApplier,
         private SyncCrewTrainingToEmployeeTraining $trainingSync = new SyncCrewTrainingToEmployeeTraining,
+        private CrewAccommodationService $accommodation = new CrewAccommodationService,
     ) {}
 
     /**
@@ -293,8 +295,23 @@ final class CrewMovementService
         }
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
+        $this->accommodation->validatePreJoinCheckInPayload($assignment, $payload, $occurredAt);
 
-        return $this->completeAndOpenNext($assignment, $current, $nextCode, $occurredAt, $actorId);
+        $assignment = $this->completeAndOpenNext($assignment, $current, $nextCode, $occurredAt, $actorId);
+        $assignment->unsetRelation('currentPhase');
+        $assignment->load('currentPhase');
+        $startedFromPhase = $assignment->currentPhase;
+
+        if ($startedFromPhase === null) {
+            throw CrewMovementException::make(
+                'Record arrival could not determine the new Join Standby phase.',
+                'missing_join_standby_phase',
+            );
+        }
+
+        $this->accommodation->recordPreJoinCheckIn($assignment, $payload, $startedFromPhase, $actorId);
+
+        return $assignment;
     }
 
     /**
@@ -525,6 +542,9 @@ final class CrewMovementService
             payload: $payload,
             existingPlannedSignoff: $assignment->planned_signoff_at,
         );
+
+        $this->accommodation->validatePreJoinCheckOutPayload($assignment, $payload, $occurredAt);
+        $this->accommodation->recordPreJoinCheckOut($assignment, $payload, $actorId);
 
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 

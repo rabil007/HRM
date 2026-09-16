@@ -24,12 +24,14 @@ export function MovementOccurredAtField({
     inputRef,
     id = 'movement-occurred-at',
     min,
+    onValueChange,
 }: {
     form: InertiaFormProps<CrewMovementActionFormData>;
     label: string;
     inputRef?: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
     id?: string;
     min?: string;
+    onValueChange?: (value: string) => void;
 }): ReactElement {
     return (
         <div className="space-y-2">
@@ -42,9 +44,11 @@ export function MovementOccurredAtField({
                 type="datetime-local"
                 value={form.data.occurred_at}
                 min={min}
-                onChange={(event) =>
-                    form.setData('occurred_at', event.target.value)
-                }
+                onChange={(event) => {
+                    const value = event.target.value;
+                    form.setData('occurred_at', value);
+                    onValueChange?.(value);
+                }}
                 required
                 aria-required="true"
             />

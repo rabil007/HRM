@@ -57,8 +57,15 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Start Assignment from Draft P0 → Active P0 (`approve_mobilisation`; user-facing label **Start Assignment**)
 - [ ] Active P0 cannot Start Assignment again; progression is **Record Arrival**
 - [ ] Record Arrival from Active P0 → P2A Join Standby at one exact timestamp (`P0.actual_end_at = P2A.actual_start_at`)
+- [ ] Record Arrival default path records hotel accommodation (Hotel, optional Room Type, Check-in Date defaulting to Actual Arrival local date)
+- [ ] Record Arrival **No hotel accommodation** creates explicit `pre_join` / `no_accommodation` stay with no hotel/date fields
+- [ ] Record Arrival rejects foreign/inactive Hotel or Room Type and invalid check-in before Actual Arrival
 - [ ] Active P0 Record Arrival does not offer P3 selector (P2A only)
 - [ ] Join Vessel from P2A → P4 (optional planned sign-off only)
+- [ ] Join Vessel with open pre-join hotel stay requires Hotel Check-out Date and closes the stay atomically
+- [ ] Join Vessel with explicit `no_accommodation` proceeds without checkout fields
+- [ ] Join Vessel with missing legacy accommodation shows warning but remains allowed
+- [ ] P2A → P2B → P2A training loop keeps the same open pre-join hotel stay until Join Vessel
 - [ ] Plan Sign-Off updates plan without leaving P4
 - [ ] Confirm Disembarkation → P5
 - [ ] Return Home (default **Return Home & Close Assignment**) → P6 recorded + assignment **Completed** with `closed_at` = actual return-home timestamp

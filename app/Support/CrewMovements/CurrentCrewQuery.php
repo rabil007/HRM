@@ -85,6 +85,7 @@ class CurrentCrewQuery
 
         self::attachReliefReadiness($paginator->getCollection(), $companyId);
         self::attachMobilisationReadiness($paginator->getCollection(), $companyId);
+        self::attachPreJoinAccommodation($paginator->getCollection());
 
         return $paginator;
     }
@@ -223,6 +224,26 @@ class CurrentCrewQuery
     public static function attachMobilisationReadiness(Collection $assignments, int $companyId, ?User $user = null): void
     {
         (new CrewMobilisationReadinessResolver)->attachForAssignments($assignments, $companyId, $user);
+    }
+
+    /**
+     * @param  Collection<int, CrewAssignment>  $assignments
+     */
+    public static function attachPreJoinAccommodation(Collection $assignments): void
+    {
+        $preJoinAssignments = $assignments->filter(function (CrewAssignment $assignment): bool {
+            return in_array($assignment->currentPhase?->phase_code, [
+                CrewPhaseCode::JoinStandby,
+                CrewPhaseCode::Training,
+                CrewPhaseCode::ReadyToJoin,
+            ], true);
+        });
+
+        if ($preJoinAssignments->isEmpty()) {
+            return;
+        }
+
+        $preJoinAssignments->load(['accommodationStays.hotel', 'accommodationStays.roomType']);
     }
 
     /**

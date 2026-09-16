@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import InputError from '@/components/input-error';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -22,9 +23,22 @@ export function JoinVesselForm({
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
     const joinDate = form.data.occurred_at.slice(0, 10);
+    const preJoinAccommodation = context.pre_join_accommodation;
     const selectedRank = formOptions?.ranks.find(
         (rank) => rank.id === form.data.rank_id,
     );
+
+    const syncCheckOutDate = (occurredAt: string): void => {
+        if (preJoinAccommodation?.status !== 'open_hotel') {
+            return;
+        }
+
+        const nextJoinDate = occurredAt.slice(0, 10);
+
+        if (nextJoinDate) {
+            form.setData('check_out_date', nextJoinDate);
+        }
+    };
 
     const vesselsForClient = (formOptions?.vessels ?? []).filter((vessel) => {
         if (vessel.client_id == null) {
@@ -118,11 +132,84 @@ export function JoinVesselForm({
                 </div>
             </div>
 
+            {preJoinAccommodation?.status === 'open_hotel' ? (
+                <div className="space-y-4 rounded-lg border border-border/60 p-4">
+                    <div>
+                        <h3 className="text-sm font-semibold">
+                            Current Accommodation
+                        </h3>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                        <div className="font-medium">
+                            {preJoinAccommodation.hotel_name ?? 'Hotel'}
+                        </div>
+                        {preJoinAccommodation.room_type_name ? (
+                            <div className="text-muted-foreground">
+                                {preJoinAccommodation.room_type_name}
+                            </div>
+                        ) : null}
+                        <div className="text-muted-foreground">
+                            Checked in{' '}
+                            {formatDisplayDate(
+                                preJoinAccommodation.check_in_date,
+                            )}
+                        </div>
+                        {preJoinAccommodation.stay_days !== null ? (
+                            <div className="text-muted-foreground">
+                                Stay {preJoinAccommodation.stay_days} day
+                                {preJoinAccommodation.stay_days === 1
+                                    ? ''
+                                    : 's'}
+                            </div>
+                        ) : null}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="movement-check-out-date">
+                            Hotel Check-out Date{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="movement-check-out-date"
+                            type="date"
+                            value={form.data.check_out_date}
+                            onChange={(event) =>
+                                form.setData(
+                                    'check_out_date',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                        <InputError message={form.errors.check_out_date} />
+                    </div>
+                </div>
+            ) : null}
+
+            {preJoinAccommodation?.status === 'no_accommodation' ? (
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-sm">
+                    <div className="font-medium">Accommodation</div>
+                    <p className="mt-1 text-muted-foreground">
+                        No hotel accommodation recorded.
+                    </p>
+                </div>
+            ) : null}
+
+            {preJoinAccommodation?.status === 'missing' &&
+            preJoinAccommodation.warning ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+                    {preJoinAccommodation.warning}
+                </div>
+            ) : null}
+
             {config.occurredAtLabel ? (
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
-                    inputRef={firstFieldRef}
+                    inputRef={
+                        preJoinAccommodation?.status === 'open_hotel'
+                            ? undefined
+                            : firstFieldRef
+                    }
+                    onValueChange={syncCheckOutDate}
                 />
             ) : null}
 

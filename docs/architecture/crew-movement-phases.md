@@ -121,17 +121,26 @@ Accommodation master data (Settings → **Hotels**, **Room Types**) is company-s
 
 Missing accommodation is **not** persisted as a status. It will later be derived when an assignment is in active P2A/P5, has no accommodation stay, and has no explicit `no_accommodation` record.
 
-### Planned accommodation integration (not yet implemented)
+### Accommodation integration
 
 | PR | Movement action | Accommodation behaviour |
 |----|---------------|-------------------------|
-| PR 2 | Record Arrival | Pre-join hotel check-in |
-| PR 2 | Join Vessel | Pre-join hotel check-out |
+| PR 2 | Record Arrival | Pre-join hotel check-in or explicit `no_accommodation` |
+| PR 2 | Join Vessel | Pre-join hotel check-out for open hotel stays |
 | PR 3 | Confirm Disembarkation | Post-sign-off hotel check-in |
 | PR 3 | Return Home | Post-sign-off hotel check-out |
 | PR 3 | Return Home & Close Assignment | Post-sign-off checkout integration with assignment closure |
 
-PR 1 does **not** change Current Crew hotel views, movement dialogs, occupancy dashboards, or assignment accommodation-history UI.
+**PR 2 (implemented):**
+
+- **Record Arrival** creates a `pre_join` `CrewAccommodationStay` inside the same `CrewMovementService` transaction as the P0/P1 → P2A movement. Normal web UI defaults to hotel accommodation; operators may check **No hotel accommodation** to persist an explicit `no_accommodation` decision.
+- **Join Vessel** closes the current open `pre_join` hotel stay (`check_out_date IS NULL`) in the same transaction as the P2A/P3 → P4 movement. Explicit `no_accommodation` records are left unchanged. Legacy assignments with neither an open hotel stay nor a `no_accommodation` decision remain joinable; the Join Vessel dialog shows a non-blocking missing-accommodation warning and does **not** invent accommodation data.
+- P2A ↔ P2B training loops do **not** close pre-join hotel stays. Accommodation lifetime is tied to the open `pre_join` hotel stay, not to every P2 phase occurrence.
+- `started_from_phase_id` on a new pre-join stay references the active **P2A Join Standby** phase opened by Record Arrival.
+- Omitting accommodation fields on Record Arrival remains backward compatible for legacy API callers: movement succeeds and no accommodation stay is created.
+- Crew Assignment show exposes read-only pre-join accommodation history/context when stays exist.
+
+PR 1 did **not** change Current Crew hotel views or occupancy dashboards. PR 2 adds movement-dialog and assignment-show accommodation context only.
 
 ## P0–P6
 

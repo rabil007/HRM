@@ -163,6 +163,16 @@ function buildInitialForm(
         ),
         planned_signoff_override_reason: '',
         completion_intent: action === 'travel_home' ? 'close' : '',
+        accommodation_status: action === 'record_arrival' ? 'hotel' : '',
+        hotel_id: null,
+        room_type_id: null,
+        check_in_date:
+            action === 'record_arrival'
+                ? defaultDateTimeLocal().slice(0, 10)
+                : '',
+        check_out_date:
+            action === 'join_vessel' ? defaultDateTimeLocal().slice(0, 10) : '',
+        no_hotel_accommodation: false,
     };
 
     return action === 'transfer_vessel'
@@ -317,6 +327,39 @@ export function MovementActionDialog({
                 payload,
                 action,
             ) as CrewMovementActionFormData;
+
+            if (action === 'record_arrival') {
+                if (payload.no_hotel_accommodation) {
+                    payload.accommodation_status = 'no_accommodation';
+                    payload.hotel_id = null;
+                    payload.room_type_id = null;
+                    payload.check_in_date = '';
+                } else {
+                    payload.accommodation_status = 'hotel';
+                }
+
+                delete (payload as { no_hotel_accommodation?: boolean })
+                    .no_hotel_accommodation;
+            }
+
+            if (action === 'join_vessel') {
+                if (
+                    movementContext.pre_join_accommodation?.status !==
+                    'open_hotel'
+                ) {
+                    delete (payload as { check_out_date?: string })
+                        .check_out_date;
+                }
+
+                delete (payload as { accommodation_status?: string })
+                    .accommodation_status;
+                delete (payload as { hotel_id?: number | null }).hotel_id;
+                delete (payload as { room_type_id?: number | null })
+                    .room_type_id;
+                delete (payload as { check_in_date?: string }).check_in_date;
+                delete (payload as { no_hotel_accommodation?: boolean })
+                    .no_hotel_accommodation;
+            }
 
             return payload;
         });

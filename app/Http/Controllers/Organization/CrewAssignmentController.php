@@ -15,7 +15,9 @@ use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
@@ -114,13 +116,7 @@ class CrewAssignmentController extends Controller
             'filters' => CurrentCrewRequestFilters::inertiaFilters($filters, $view),
             'summary' => $summary,
             'filter_options' => $filterOptions,
-            'form_options' => [
-                'employees' => [],
-                'ranks' => $this->activeRanksWithTour($companyId),
-                'vessels' => $this->activeVessels($companyId),
-                'clients' => $this->activeClients(),
-                'courses' => $this->activeCourses(),
-            ],
+            'form_options' => $this->movementFormOptions($companyId),
             'can' => CrewAssignmentPagePermissions::for($request->user()),
             'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Crew),
         ]);
@@ -279,6 +275,8 @@ class CrewAssignmentController extends Controller
             'client',
             'vessel',
             'currentPhase',
+            'accommodationStays.hotel',
+            'accommodationStays.roomType',
             'phases.pendingCorrections',
             'phases.corrections' => fn ($query) => $query->where('status', 'approved')->latest('decided_at'),
             'phases.employeeTraining:id,source_crew_assignment_phase_id',
@@ -306,13 +304,7 @@ class CrewAssignmentController extends Controller
             'assignment' => $detail,
             'corrections' => $corrections,
             'recent_activity' => $recentActivity,
-            'form_options' => [
-                'employees' => [],
-                'ranks' => $this->activeRanksWithTour($companyId),
-                'vessels' => $this->activeVessels($companyId),
-                'clients' => $this->activeClients(),
-                'courses' => $this->activeCourses(),
-            ],
+            'form_options' => $this->movementFormOptions($companyId),
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }
@@ -565,6 +557,60 @@ class CrewAssignmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (Course $course) => ['id' => $course->id, 'name' => $course->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{
+     *     employees: list<array<string, mixed>>,
+     *     ranks: list<array<string, mixed>>,
+     *     vessels: list<array<string, mixed>>,
+     *     clients: list<array<string, mixed>>,
+     *     courses: list<array<string, mixed>>,
+     *     hotels: list<array{id: int, name: string}>,
+     *     room_types: list<array{id: int, name: string}>
+     * }
+     */
+    private function movementFormOptions(int $companyId): array
+    {
+        return [
+            'employees' => [],
+            'ranks' => $this->activeRanksWithTour($companyId),
+            'vessels' => $this->activeVessels($companyId),
+            'clients' => $this->activeClients(),
+            'courses' => $this->activeCourses(),
+            'hotels' => $this->activeHotels($companyId),
+            'room_types' => $this->activeRoomTypes($companyId),
+        ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeHotels(int $companyId): array
+    {
+        return Hotel::query()
+            ->forCompany($companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Hotel $hotel) => ['id' => $hotel->id, 'name' => $hotel->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeRoomTypes(int $companyId): array
+    {
+        return RoomType::query()
+            ->forCompany($companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (RoomType $roomType) => ['id' => $roomType->id, 'name' => $roomType->name])
             ->values()
             ->all();
     }

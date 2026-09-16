@@ -18,6 +18,7 @@ import { ApplyTourOfDutyDialog } from '@/features/organization/crew/actions/appl
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
 import type { VesselTransferPrefill } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
+import { CrewAssignmentAccommodationCard } from '@/features/organization/crew/components/crew-assignment-accommodation-card';
 import { CrewAssignmentOperationalSummary } from '@/features/organization/crew/components/crew-assignment-operational-summary';
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewMobilisationReadinessCard } from '@/features/organization/crew/components/crew-mobilisation-readiness-card';
@@ -273,6 +274,13 @@ export default function CrewAssignmentShow({
                     assignment={assignment}
                     corrections={corrections}
                 />
+
+                {assignment.accommodation &&
+                assignment.accommodation.length > 0 ? (
+                    <CrewAssignmentAccommodationCard
+                        items={assignment.accommodation}
+                    />
+                ) : null}
 
                 {corrections ? (
                     <PendingCorrectionBanner corrections={corrections} />
