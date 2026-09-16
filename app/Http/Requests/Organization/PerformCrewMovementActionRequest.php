@@ -202,6 +202,36 @@ class PerformCrewMovementActionRequest extends FormRequest
             ];
         }
 
+        if ($action === 'confirm_disembarkation') {
+            $baseRules['accommodation_status'] = [
+                Rule::excludeIf(fn () => $this->input('next_phase') !== CrewPhaseCode::DemobStandby->value),
+                'nullable',
+                'string',
+                Rule::in(CrewAccommodationStatus::values()),
+            ];
+            $baseRules['hotel_id'] = [
+                Rule::excludeIf(fn () => $this->input('next_phase') !== CrewPhaseCode::DemobStandby->value),
+                Rule::requiredIf(fn () => $this->input('next_phase') === CrewPhaseCode::DemobStandby->value
+                    && $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value),
+                'nullable',
+                'integer',
+                Rule::exists('hotels', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ];
+            $baseRules['room_type_id'] = [
+                Rule::excludeIf(fn () => $this->input('next_phase') !== CrewPhaseCode::DemobStandby->value),
+                'nullable',
+                'integer',
+                Rule::exists('room_types', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ];
+            $baseRules['check_in_date'] = [
+                Rule::excludeIf(fn () => $this->input('next_phase') !== CrewPhaseCode::DemobStandby->value),
+                Rule::requiredIf(fn () => $this->input('next_phase') === CrewPhaseCode::DemobStandby->value
+                    && $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value),
+                'nullable',
+                'date',
+            ];
+        }
+
         if ($action === 'join_vessel') {
             $baseRules['check_out_date'] = ['nullable', 'date'];
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
@@ -312,6 +342,7 @@ class PerformCrewMovementActionRequest extends FormRequest
 
         if ($action === 'travel_home') {
             $baseRules['planned_travel_at'] = ['nullable', 'date'];
+            $baseRules['check_out_date'] = ['nullable', 'date'];
             $baseRules['completion_intent'] = [
                 'nullable',
                 'string',
@@ -623,6 +654,64 @@ class PerformCrewMovementActionRequest extends FormRequest
                         'occurred_at',
                         'The actual disembarkation cannot be before the employee joined the vessel.',
                     );
+                }
+
+                if ($this->input('next_phase') === CrewPhaseCode::DemobStandby->value
+                    && $this->filled('accommodation_status')) {
+                    $checkInDate = $this->input('check_in_date')
+                        ? Carbon::parse((string) $this->input('check_in_date'), $timezone)->startOfDay()
+                        : null;
+
+                    if (
+                        $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value
+                        && $checkInDate !== null
+                        && $checkInDate->lt($occurredAt->copy()->timezone($timezone)->startOfDay())
+                    ) {
+                        $validator->errors()->add(
+                            'check_in_date',
+                            'Hotel check-in cannot be before the actual disembarkation date.',
+                        );
+                    }
+                }
+            }
+
+            if ($action === 'travel_home') {
+                $accommodation = app(CrewAccommodationService::class);
+                $openStays = $accommodation->openPostSignoffHotelStays($assignment);
+
+                if ($openStays->count() > 1) {
+                    $validator->errors()->add(
+                        'check_out_date',
+                        'Multiple open post-sign-off hotel stays were found. Resolve accommodation data before returning home.',
+                    );
+                }
+
+                $openStay = $openStays->first();
+
+                if ($openStay !== null) {
+                    if (! $this->filled('check_out_date')) {
+                        $validator->errors()->add(
+                            'check_out_date',
+                            'Hotel check-out date is required before returning home.',
+                        );
+                    } elseif ($occurredAt !== null) {
+                        $checkOutDate = Carbon::parse((string) $this->input('check_out_date'), $timezone)->startOfDay();
+                        $returnHomeLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+                        if ($openStay->check_in_date !== null && $checkOutDate->lt($openStay->check_in_date)) {
+                            $validator->errors()->add(
+                                'check_out_date',
+                                'Hotel check-out cannot be before check-in.',
+                            );
+                        }
+
+                        if ($checkOutDate->gt($returnHomeLocalDate)) {
+                            $validator->errors()->add(
+                                'check_out_date',
+                                'Hotel check-out cannot be after the actual return-home date.',
+                            );
+                        }
+                    }
                 }
             }
 

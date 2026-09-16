@@ -44,6 +44,9 @@ export type CrewPreJoinAccommodationContext = {
     warning: string | null;
 };
 
+export type CrewPostSignoffAccommodationContext =
+    CrewPreJoinAccommodationContext;
+
 export type CrewAccommodationSummaryItem = {
     id: number;
     stay_type: string;
@@ -91,6 +94,7 @@ export type CrewMovementContext = {
     training_expected_completion_at: string | null;
     company_timezone: string;
     pre_join_accommodation?: CrewPreJoinAccommodationContext;
+    post_signoff_accommodation?: CrewPostSignoffAccommodationContext;
     active_on_vessel_elsewhere?: ActiveOnVesselAssignment | null;
 } & CrewTourProgressFields;
 

@@ -631,7 +631,30 @@ final class CrewMovementService
         $nextCode = $this->requireNextPhaseCode($payload, [CrewPhaseCode::DemobStandby, CrewPhaseCode::HomeRedeploy]);
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
 
-        return $this->completeAndOpenNext($assignment, $current, $nextCode, $occurredAt, $actorId);
+        if ($nextCode === CrewPhaseCode::DemobStandby) {
+            $this->accommodation->validatePostSignoffCheckInPayload($assignment, $payload, $occurredAt);
+        }
+
+        $assignment = $this->completeAndOpenNext($assignment, $current, $nextCode, $occurredAt, $actorId);
+
+        if ($nextCode !== CrewPhaseCode::DemobStandby) {
+            return $assignment;
+        }
+
+        $assignment->unsetRelation('currentPhase');
+        $assignment->load('currentPhase');
+        $startedFromPhase = $assignment->currentPhase;
+
+        if ($startedFromPhase === null) {
+            throw CrewMovementException::make(
+                'Confirm disembarkation could not determine the new Demobilisation Standby phase.',
+                'missing_demob_standby_phase',
+            );
+        }
+
+        $this->accommodation->recordPostSignoffCheckIn($assignment, $payload, $startedFromPhase, $actorId);
+
+        return $assignment;
     }
 
     /**
@@ -643,6 +666,9 @@ final class CrewMovementService
         $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::DemobStandby);
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $completionIntent = $this->resolveTravelHomeCompletionIntent($payload);
+
+        $this->accommodation->validatePostSignoffCheckOutPayload($assignment, $payload, $occurredAt);
+        $this->accommodation->recordPostSignoffCheckOut($assignment, $payload, $actorId);
 
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 

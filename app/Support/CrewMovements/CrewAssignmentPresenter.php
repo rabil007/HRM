@@ -311,6 +311,7 @@ class CrewAssignmentPresenter
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,
             'pre_join_accommodation' => self::preJoinAccommodationContext($assignment, $timezone),
+            'post_signoff_accommodation' => self::postSignoffAccommodationContext($assignment, $timezone),
             ...$tourProgress,
         ];
     }
@@ -327,6 +328,18 @@ class CrewAssignmentPresenter
         }
 
         return app(CrewAccommodationService::class)->preJoinContext($assignment, $timezone);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function postSignoffAccommodationContext(CrewAssignment $assignment, string $timezone): ?array
+    {
+        if ($assignment->currentPhase?->phase_code !== CrewPhaseCode::DemobStandby) {
+            return null;
+        }
+
+        return app(CrewAccommodationService::class)->postSignoffContext($assignment, $timezone);
     }
 
     /**

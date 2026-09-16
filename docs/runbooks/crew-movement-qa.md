@@ -67,9 +67,16 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Join Vessel with missing legacy accommodation shows warning but remains allowed
 - [ ] P2A → P2B → P2A training loop keeps the same open pre-join hotel stay until Join Vessel
 - [ ] Plan Sign-Off updates plan without leaving P4
-- [ ] Confirm Disembarkation → P5
+- [ ] Confirm Disembarkation → P5 default path records post-sign-off hotel accommodation (Hotel, optional Room Type, Check-in Date defaulting to Actual Disembarkation local date)
+- [ ] Confirm Disembarkation **No hotel accommodation** creates explicit `post_signoff` / `no_accommodation` stay with no hotel/date fields
+- [ ] Confirm Disembarkation rejects foreign/inactive Hotel or Room Type and invalid check-in before Actual Disembarkation
+- [ ] Direct Confirm Disembarkation → P6 hides accommodation fields and creates no post-sign-off stay
+- [ ] Legacy Confirm Disembarkation → P5 without accommodation payload still succeeds with derived `missing` context
+- [ ] Return Home with open post-sign-off hotel stay requires Hotel Check-out Date and closes the stay atomically
+- [ ] Return Home with explicit `post_signoff` / `no_accommodation` proceeds without checkout fields
+- [ ] Return Home with missing legacy post-sign-off accommodation shows warning but remains allowed
 - [ ] Return Home (default **Return Home & Close Assignment**) → P6 recorded + assignment **Completed** with `closed_at` = actual return-home timestamp
-- [ ] Return Home with **Keep open for Redeployment** → active P6; assignment stays **Active**
+- [ ] Return Home with **Keep open for Redeployment** → active P6; assignment stays **Active**; hotel stay still closed
 - [ ] Close Assignment from active P6 still works for intentionally open P6 / legacy records
 - [ ] Only one active phase at a time
 - [ ] Activity/audit entries present

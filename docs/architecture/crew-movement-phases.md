@@ -127,8 +127,8 @@ Missing accommodation is **not** persisted as a status. It will later be derived
 |----|---------------|-------------------------|
 | PR 2 | Record Arrival | Pre-join hotel check-in or explicit `no_accommodation` |
 | PR 2 | Join Vessel | Pre-join hotel check-out for open hotel stays |
-| PR 3 | Confirm Disembarkation | Post-sign-off hotel check-in |
-| PR 3 | Return Home | Post-sign-off hotel check-out |
+| PR 3 | Confirm Disembarkation | Post-sign-off hotel check-in or explicit `no_accommodation` when next phase is P5 |
+| PR 3 | Return Home | Post-sign-off hotel check-out for open hotel stays |
 | PR 3 | Return Home & Close Assignment | Post-sign-off checkout integration with assignment closure |
 
 **PR 2 (implemented):**
@@ -140,7 +140,15 @@ Missing accommodation is **not** persisted as a status. It will later be derived
 - Omitting accommodation fields on Record Arrival remains backward compatible for legacy API callers: movement succeeds and no accommodation stay is created.
 - Crew Assignment show exposes read-only pre-join accommodation history/context when stays exist.
 
-PR 1 did **not** change Current Crew hotel views or occupancy dashboards. PR 2 adds movement-dialog and assignment-show accommodation context only.
+**PR 3 (implemented):**
+
+- **Confirm Disembarkation → P5** creates a `post_signoff` `CrewAccommodationStay` inside the same `CrewMovementService` transaction as the P4 → P5 movement. Normal web UI defaults to hotel accommodation when Demobilisation Standby is selected; operators may check **No hotel accommodation** to persist an explicit `no_accommodation` decision. Direct **Confirm Disembarkation → P6** hides accommodation fields and creates **no** post-sign-off stay.
+- **Return Home** closes the current open `post_signoff` hotel stay (`check_out_date IS NULL`) in the same transaction as the P5 → P6 movement and existing `completion_intent` handling. Explicit `no_accommodation` records are left unchanged. Legacy P5 assignments with neither an open hotel stay nor a `no_accommodation` decision remain returnable; the Return Home dialog shows a non-blocking missing-accommodation warning and does **not** invent accommodation data.
+- `started_from_phase_id` on a new post-sign-off stay references the active **P5 Demobilisation Standby** phase opened by Confirm Disembarkation.
+- Omitting accommodation fields on Confirm Disembarkation → P5 remains backward compatible for legacy API callers: movement succeeds and no accommodation stay is created.
+- Assignment show accommodation history renders both pre-join and post-sign-off stays in chronological order.
+
+PR 1 did **not** change Current Crew hotel views or occupancy dashboards. PR 2/PR 3 add movement-dialog and assignment-show accommodation context only.
 
 ## P0–P6
 
