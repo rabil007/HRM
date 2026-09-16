@@ -467,7 +467,6 @@ final class EmployeeSmartSearchConceptRegistry
             'at home' => ['in_home'],
             'in home' => ['in_home'],
             'available' => ['available'],
-            'ready to join' => ['ready_to_join'],
             'pre-mobilisation' => ['pre_mobilisation'],
             'pre mobilisation' => ['pre_mobilisation'],
             'training' => ['training'],

@@ -324,7 +324,7 @@ final class EmployeeSmartSearchResolver
             return;
         }
 
-        $options = EmployeeCrewStatusFilter::options();
+        $options = EmployeeCrewStatusFilter::selectableOptions();
         $normalized = $this->normalize($term);
         $aliases = EmployeeSmartSearchConceptRegistry::definition('crew_status')['aliases'] ?? [];
         $aliasTargets = $aliases[$normalized] ?? [];

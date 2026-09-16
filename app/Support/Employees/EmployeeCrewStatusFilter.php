@@ -13,6 +13,12 @@ final class EmployeeCrewStatusFilter
 {
     public const AVAILABLE = 'available';
 
+    /** @var list<string> */
+    private const LEGACY_SELECTABLE_EXCLUDED = [
+        'travel_in',
+        'ready_to_join',
+    ];
+
     /**
      * @return array<string, string>
      */
@@ -31,6 +37,20 @@ final class EmployeeCrewStatusFilter
             'home_redeploy' => 'Home / redeploy',
             'movement_update_required' => 'Needs update',
         ];
+    }
+
+    /**
+     * Normal product-facing filter choices. Legacy P1/P3 statuses remain
+     * resolvable and filterable via URL or saved views, but are not advertised.
+     *
+     * @return array<string, string>
+     */
+    public static function selectableOptions(): array
+    {
+        return array_diff_key(
+            self::options(),
+            array_flip(self::LEGACY_SELECTABLE_EXCLUDED),
+        );
     }
 
     public static function isValid(string $crewStatus): bool

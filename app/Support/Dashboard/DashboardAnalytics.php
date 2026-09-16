@@ -477,7 +477,6 @@ final class DashboardAnalytics
                 ->get();
 
             $resolver = new CrewAssignmentStatusResolver;
-            $readyToJoin = 0;
             $inHome = 0;
             $needsUpdate = 0;
             $overdueHome = 0;
@@ -487,10 +486,6 @@ final class DashboardAnalytics
                 $resolved = $resolver->forEmployee($employee);
                 $status = $resolved['status'];
                 $total++;
-
-                if ($status === 'ready_to_join') {
-                    $readyToJoin++;
-                }
 
                 if ($status === 'in_home') {
                     $inHome++;
@@ -510,7 +505,7 @@ final class DashboardAnalytics
 
             return [
                 'on_vessel' => (int) ($pulse['onboard_now'] ?? 0),
-                'ready_to_join' => $readyToJoin,
+                'ready_to_join' => 0,
                 'in_home' => $inHome,
                 'at_home' => $inHome,
                 'needs_update' => $needsUpdate,

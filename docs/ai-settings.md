@@ -77,7 +77,7 @@ Approval Location and SSSA option are multi-valued directory filters. When Smart
 
 The model may normalize language (Indian employees, Indian country employees, employees from India → nationality India; Filipino → Philippines; department codes such as HR/CRW; rank abbreviations such as AB / Able Seaman). Laravel then resolves only against trusted active master data: exact name, exact code, or a small server-owned alias list. Numeric IDs from the model are ignored. Fuzzy similarity never auto-applies a candidate. Ambiguous matches are not guessed. “Working in UAE” is not silently mapped to nationality.
 
-Crew status uses `EmployeeCrewStatusFilter` labels (onboard, available, at home, ready to join, and so on). The word “crew” by itself is not a crew status.
+Crew status uses `EmployeeCrewStatusFilter` selectable labels (onboard, available, at home, join standby, and so on). Legacy travel in and ready to join are not normal Smart Search targets. The word “crew” by itself is not a crew status.
 
 Contradictions (equals + missing, missing + present, two different equals on a single-valued concept) are not applied. Unsupported OR/negation is not guessed (`not active` is not `inactive`; `Indian or Filipino` is not reduced to one nationality).
 

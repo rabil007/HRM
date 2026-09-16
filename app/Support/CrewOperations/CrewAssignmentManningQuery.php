@@ -116,8 +116,13 @@ final class CrewAssignmentManningQuery
             ->whereNotNull('planned_join_at')
             ->whereDate('planned_join_at', '>', $today->toDateString())
             ->whereHas('currentPhase', function ($query): void {
-                $query->where('phase_code', CrewPhaseCode::ReadyToJoin)
-                    ->where('status', CrewPhaseStatus::Active);
+                $query->whereIn(
+                    'phase_code',
+                    array_map(
+                        fn (CrewPhaseCode $code): string => $code->value,
+                        CrewPhaseCode::plannedJoinForecastPhases(),
+                    ),
+                )->where('status', CrewPhaseStatus::Active);
             });
 
         ActiveEmployeeConstraint::whereHas($query, $companyId);

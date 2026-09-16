@@ -40,7 +40,11 @@ export function CrewSection({ summary }: CrewSectionProps) {
                 <DashboardMetricCard
                     title="In Home / Standby"
                     value={inHomeValue}
-                    subtitle={`${summary.ready_to_join} ready to join vessel`}
+                    subtitle={
+                        summary.overdue_at_home > 0
+                            ? `${summary.overdue_at_home} beyond home threshold`
+                            : 'Between assignments'
+                    }
                     icon={Home}
                     iconColor="text-blue-500"
                     href={crewAssignmentsIndex.url({

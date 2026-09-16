@@ -1001,6 +1001,7 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 - `CrewAssignmentStatusResolver` maps current phase → operational status.
 - Dashboard counts use latest relevant assignment per employee, plus Tour of Duty sign-off buckets (within 30/14/7 days, due today, overdue, missing tour/sign-off).
 - Onboard manning = active assignment + active P4 on vessel. Planned sign-off does not remove onboard crew.
+- Planned-join manning forecasts (`CrewAssignmentManningQuery`) count active pre-vessel assignments with future `planned_join_at` in P0/P2A/P2B, plus legacy P1/P3 when they still exist. P4/P5/P6 are excluded.
 - Attention rules live in `CrewMovementAttentionQuery` (stale draft/phase, overdue planned join/sign-off, missing vessel/rank, tour due/overdue/missing).
 
 ## Assignment numbers

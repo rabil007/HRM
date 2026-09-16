@@ -330,3 +330,21 @@ test('single-valued concepts still reject conflicting equals values', function (
         ->and($rank->filters)->toBe([])
         ->and($rank->ambiguous[0]['reason'] ?? null)->toBe('multiple_values');
 });
+
+test('smart search does not treat legacy ready to join as a normal crew status target', function () {
+    $fixtures = makeResolverFixtures();
+
+    $result = (new EmployeeSmartSearchResolver)->resolve($fixtures['company']->id, [
+        'criteria' => [[
+            'concept' => 'crew_status',
+            'operator' => 'equals',
+            'value' => 'ready to join',
+        ]],
+        'ambiguous_terms' => [],
+        'unsupported_terms' => [],
+    ]);
+
+    expect($result->filters)->toBe([])
+        ->and($result->unresolved[0]['field'] ?? null)->toBe('crew_status')
+        ->and($result->unresolved[0]['term'] ?? null)->toBe('ready to join');
+});

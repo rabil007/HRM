@@ -441,16 +441,10 @@ export function EmployeeFiltersSheet({
                         <AppSelectItem value="pre_mobilisation">
                             Pre-mobilisation
                         </AppSelectItem>
-                        <AppSelectItem value="travel_in">
-                            Travel in
-                        </AppSelectItem>
                         <AppSelectItem value="join_standby">
                             Join standby
                         </AppSelectItem>
                         <AppSelectItem value="training">Training</AppSelectItem>
-                        <AppSelectItem value="ready_to_join">
-                            Ready to join
-                        </AppSelectItem>
                         <AppSelectItem value="on_vessel">
                             On vessel
                         </AppSelectItem>

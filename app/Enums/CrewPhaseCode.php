@@ -108,4 +108,23 @@ enum CrewPhaseCode: string
             self::HomeRedeploy,
         ];
     }
+
+    /**
+     * Pre-vessel phases eligible for planned-join manning forecasts.
+     *
+     * Modern assignments use P0/P2A/P2B. Legacy P1/P3 remain compatible for
+     * historical assignments. P4/P5/P6 are excluded.
+     *
+     * @return list<self>
+     */
+    public static function plannedJoinForecastPhases(): array
+    {
+        return [
+            self::PreMobilisation,
+            self::TravelIn,
+            self::JoinStandby,
+            self::Training,
+            self::ReadyToJoin,
+        ];
+    }
 }

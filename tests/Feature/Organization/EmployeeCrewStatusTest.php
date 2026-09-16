@@ -522,3 +522,44 @@ test('completed assignment status resolution eager loads vessels without lazy lo
             ->assignment_id->not->toBeNull();
     }
 });
+
+test('selectable crew status options omit legacy travel in and ready to join', function () {
+    expect(array_keys(EmployeeCrewStatusFilter::selectableOptions()))
+        ->not->toContain('travel_in', 'ready_to_join')
+        ->and(EmployeeCrewStatusFilter::isValid('travel_in'))->toBeTrue()
+        ->and(EmployeeCrewStatusFilter::isValid('ready_to_join'))->toBeTrue();
+});
+
+test('legacy p1 and p3 statuses remain resolvable and filterable', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+    $vessel = makeEmployeeCrewStatusVessel('Legacy Status Vessel', $company);
+
+    $p1Assignment = makeCurrentCrewPhaseAssignment(
+        $company,
+        $employee,
+        $rank,
+        $vessel,
+        CrewPhaseCode::TravelIn,
+    );
+
+    expect((new CrewAssignmentStatusResolver)->forEmployee($employee->fresh()))
+        ->status->toBe('travel_in')
+        ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'travel_in'))
+        ->toContain($employee->id);
+
+    $p3Employee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
+    makeCurrentCrewPhaseAssignment(
+        $company,
+        $p3Employee,
+        $rank,
+        $vessel,
+        CrewPhaseCode::ReadyToJoin,
+    );
+
+    expect((new CrewAssignmentStatusResolver)->forEmployee($p3Employee->fresh()))
+        ->status->toBe('ready_to_join')
+        ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'ready_to_join'))
+        ->toContain($p3Employee->id);
+
+    expect($p1Assignment->currentPhase->phase_code)->toBe(CrewPhaseCode::TravelIn);
+});
