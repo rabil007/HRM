@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +29,10 @@ export function JoinVesselForm({
         (rank) => rank.id === form.data.rank_id,
     );
 
+    const lastAutoCheckOutDateRef = useRef(
+        form.data.check_out_date || form.data.occurred_at.slice(0, 10),
+    );
+
     const syncCheckOutDate = (occurredAt: string): void => {
         if (preJoinAccommodation?.status !== 'open_hotel') {
             return;
@@ -35,9 +40,16 @@ export function JoinVesselForm({
 
         const nextJoinDate = occurredAt.slice(0, 10);
 
-        if (nextJoinDate) {
-            form.setData('check_out_date', nextJoinDate);
+        if (
+            !nextJoinDate ||
+            (form.data.check_out_date !== '' &&
+                form.data.check_out_date !== lastAutoCheckOutDateRef.current)
+        ) {
+            return;
         }
+
+        form.setData('check_out_date', nextJoinDate);
+        lastAutoCheckOutDateRef.current = nextJoinDate;
     };
 
     const vesselsForClient = (formOptions?.vessels ?? []).filter((vessel) => {

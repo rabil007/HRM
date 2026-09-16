@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,9 @@ export function RecordArrivalForm({
         context.current_phase_code === 'p0' ||
         context.current_phase_code === 'p1';
     const noHotelAccommodation = form.data.no_hotel_accommodation;
+    const lastAutoCheckInDateRef = useRef(
+        form.data.check_in_date || form.data.occurred_at.slice(0, 10),
+    );
 
     const syncCheckInDate = (occurredAt: string): void => {
         if (noHotelAccommodation) {
@@ -33,19 +37,34 @@ export function RecordArrivalForm({
 
         const arrivalDate = occurredAt.slice(0, 10);
 
-        if (arrivalDate) {
-            form.setData('check_in_date', arrivalDate);
+        if (
+            !arrivalDate ||
+            (form.data.check_in_date !== '' &&
+                form.data.check_in_date !== lastAutoCheckInDateRef.current)
+        ) {
+            return;
         }
+
+        form.setData('check_in_date', arrivalDate);
+        lastAutoCheckInDateRef.current = arrivalDate;
     };
 
     const setNoHotelAccommodation = (checked: boolean): void => {
+        const nextCheckInDate = checked
+            ? ''
+            : form.data.occurred_at.slice(0, 10);
+
+        if (!checked) {
+            lastAutoCheckInDateRef.current = nextCheckInDate;
+        }
+
         form.setData({
             ...form.data,
             no_hotel_accommodation: checked,
             accommodation_status: checked ? 'no_accommodation' : 'hotel',
             hotel_id: checked ? null : form.data.hotel_id,
             room_type_id: checked ? null : form.data.room_type_id,
-            check_in_date: checked ? '' : form.data.occurred_at.slice(0, 10),
+            check_in_date: nextCheckInDate,
         });
     };
 
@@ -109,11 +128,16 @@ export function RecordArrivalForm({
                                 Room Type
                             </Label>
                             <Select
-                                value={form.data.room_type_id?.toString() ?? ''}
+                                value={
+                                    form.data.room_type_id?.toString() ??
+                                    '__none__'
+                                }
                                 onValueChange={(value) =>
                                     form.setData(
                                         'room_type_id',
-                                        value ? Number(value) : null,
+                                        value === '__none__'
+                                            ? null
+                                            : Number(value),
                                     )
                                 }
                             >
@@ -121,6 +145,9 @@ export function RecordArrivalForm({
                                     <SelectValue placeholder="Select room type..." />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="__none__">
+                                        Not assigned yet
+                                    </SelectItem>
                                     {(formOptions?.room_types ?? []).map(
                                         (roomType) => (
                                             <SelectItem

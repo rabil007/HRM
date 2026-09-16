@@ -4,6 +4,7 @@ use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
+use App\Exceptions\CrewMovementException;
 use App\Models\Company;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
@@ -397,6 +398,93 @@ test('assignment show exposes accommodation summary and missing pre join warning
         ->assertInertia(fn ($page) => $page
             ->where('assignment.movement_context.pre_join_accommodation.status', 'missing')
         );
+});
+
+test('record arrival rejects invalid explicit accommodation status at domain layer', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementAccommodationFixtures();
+    $assignment = startActivePreMobilisationAssignment(compact('user', 'company', 'employee', 'rank'));
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-09-16 10:30:00',
+        'accommodation_status' => 'not_a_valid_status',
+    ], $user->id))->toThrow(function (CrewMovementException $exception): void {
+        expect($exception->getMessage())->toBe('Invalid accommodation status.')
+            ->and($exception->errorCode)->toBe('invalid_accommodation_status');
+    });
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+});
+
+test('join vessel rejects multiple open pre join hotel stays without partial mutation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementAccommodationFixtures();
+    $vessel = makeCrewMovementVessel('Multiple Open Stays', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel B']);
+    $stayA = CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotelA->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-09-16',
+        'check_out_date' => null,
+    ]);
+    $stayB = CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotelB->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-09-17',
+        'check_out_date' => null,
+    ]);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2026-09-19 08:00:00',
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'check_out_date' => '2026-09-19',
+    ], $user->id))->toThrow(function (CrewMovementException $exception): void {
+        expect($exception->getMessage())->toBe(
+            'Multiple open pre-join hotel stays were found. Resolve accommodation data before joining the vessel.',
+        )->and($exception->errorCode)->toBe('pre_join_accommodation_integrity');
+    });
+
+    $assignment->refresh()->load('currentPhase');
+    $stayA->refresh();
+    $stayB->refresh();
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($stayA->check_out_date)->toBeNull()
+        ->and($stayB->check_out_date)->toBeNull();
+});
+
+test('record arrival accepts nullable room type for hotel accommodation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementAccommodationFixtures();
+    $assignment = startActivePreMobilisationAssignment(compact('user', 'company', 'employee', 'rank'));
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-09-16 10:30:00',
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'room_type_id' => null,
+            'check_in_date' => '2026-09-16',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->first();
+
+    expect($stay)->not->toBeNull()
+        ->and($stay->room_type_id)->toBeNull();
 });
 
 test('failed record arrival accommodation validation leaves assignment unchanged', function () {

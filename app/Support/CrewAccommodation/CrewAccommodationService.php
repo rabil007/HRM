@@ -396,13 +396,22 @@ final class CrewAccommodationService
      */
     private function resolveAccommodationStatus(array $payload): ?CrewAccommodationStatus
     {
-        $raw = $payload['accommodation_status'] ?? null;
-
-        if ($raw === null || $raw === '') {
+        if (! array_key_exists('accommodation_status', $payload)
+            || $payload['accommodation_status'] === null
+            || $payload['accommodation_status'] === '') {
             return null;
         }
 
-        return CrewAccommodationStatus::tryFrom((string) $raw);
+        $status = CrewAccommodationStatus::tryFrom((string) $payload['accommodation_status']);
+
+        if ($status === null) {
+            throw CrewMovementException::make(
+                'Invalid accommodation status.',
+                'invalid_accommodation_status',
+            );
+        }
+
+        return $status;
     }
 
     private function assertActiveHotel(int $companyId, int $hotelId): void
