@@ -379,15 +379,21 @@ class EmployeeController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
 
+        $hadProfileTemplate = $employee->employee_profile_template_id !== null;
+
         $employee->update([
             'employee_profile_template_id' => (int) $request->validated('employee_profile_template_id'),
         ]);
+
+        $successMessage = $hadProfileTemplate
+            ? 'Profile template changed successfully.'
+            : 'Profile template assigned successfully.';
 
         return redirect()
             ->route('organization.employees.show', array_merge(
                 ['employee' => $employee],
                 EmployeeDirectoryFilters::listQueryFromRequest($request),
             ))
-            ->with('success', 'Profile template assigned successfully.');
+            ->with('success', $successMessage);
     }
 }

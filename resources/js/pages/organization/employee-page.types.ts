@@ -336,6 +336,7 @@ export type EmployeePageProps = {
     can: {
         create_user: boolean;
         assign_profile_template?: boolean;
+        change_profile_template?: boolean;
         documents_view: boolean;
         documents_download: boolean;
         documents_upload: boolean;

@@ -9,7 +9,7 @@ import {
     X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -40,6 +40,7 @@ import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { AssignEmployeeProfileTemplate } from '@/pages/organization/_components/assign-employee-profile-template';
+import { ChangeEmployeeProfileTemplateDialog } from '@/pages/organization/_components/change-employee-profile-template-dialog';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 import type { ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 type Option = { id: number; name?: string | null; title?: string | null };
@@ -208,6 +209,7 @@ export function EmployeeHeaderCard({
     templateProfileFields = null,
     isMissingRequired = () => false,
     canAssignProfileTemplate = false,
+    canChangeProfileTemplate = false,
     profileTemplates = [],
 }: {
     canUpdate: boolean;
@@ -237,8 +239,11 @@ export function EmployeeHeaderCard({
     templateProfileFields?: string[] | null;
     isMissingRequired?: (field: string) => boolean;
     canAssignProfileTemplate?: boolean;
+    canChangeProfileTemplate?: boolean;
     profileTemplates?: ProfileTemplateOption[];
 }) {
+    const [changeTemplateOpen, setChangeTemplateOpen] = useState(false);
+
     const showField = (key: string) =>
         !templateProfileFields || templateProfileFields.includes(key);
 
@@ -629,18 +634,69 @@ export function EmployeeHeaderCard({
                                 ) : null}
                             </div>
                             {employee.employee_profile_template?.name ? (
-                                <Badge
-                                    title={`Profile template: ${employee.employee_profile_template.name}`}
-                                    className="flex max-w-44 items-center gap-1.5 rounded-full border-accent/25 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent"
-                                >
-                                    <ClipboardList className="h-3 w-3 shrink-0" />
-                                    <span className="truncate">
-                                        {
-                                            employee.employee_profile_template
-                                                .name
+                                <>
+                                    <Badge
+                                        asChild={canChangeProfileTemplate}
+                                        title={
+                                            canChangeProfileTemplate
+                                                ? `Profile template: ${employee.employee_profile_template.name}. Click to change.`
+                                                : `Profile template: ${employee.employee_profile_template.name}`
                                         }
-                                    </span>
-                                </Badge>
+                                        className={cn(
+                                            'flex max-w-44 items-center gap-1.5 rounded-full border-accent/25 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent',
+                                            canChangeProfileTemplate &&
+                                                'cursor-pointer transition-colors hover:bg-accent/15',
+                                        )}
+                                    >
+                                        {canChangeProfileTemplate ? (
+                                            <button
+                                                type="button"
+                                                className="inline-flex max-w-full min-w-0 items-center gap-1.5"
+                                                onClick={() =>
+                                                    setChangeTemplateOpen(true)
+                                                }
+                                            >
+                                                <ClipboardList className="h-3 w-3 shrink-0" />
+                                                <span className="truncate">
+                                                    {
+                                                        employee
+                                                            .employee_profile_template
+                                                            .name
+                                                    }
+                                                </span>
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <ClipboardList className="h-3 w-3 shrink-0" />
+                                                <span className="truncate">
+                                                    {
+                                                        employee
+                                                            .employee_profile_template
+                                                            .name
+                                                    }
+                                                </span>
+                                            </>
+                                        )}
+                                    </Badge>
+                                    {changeTemplateOpen ? (
+                                        <ChangeEmployeeProfileTemplateDialog
+                                            open={changeTemplateOpen}
+                                            onOpenChange={setChangeTemplateOpen}
+                                            employeeId={employee.id}
+                                            currentTemplateName={
+                                                employee
+                                                    .employee_profile_template
+                                                    .name ?? ''
+                                            }
+                                            currentTemplateId={
+                                                employee
+                                                    .employee_profile_template
+                                                    .id
+                                            }
+                                            profileTemplates={profileTemplates}
+                                        />
+                                    ) : null}
+                                </>
                             ) : canAssignProfileTemplate ? (
                                 <AssignEmployeeProfileTemplate
                                     employeeId={employee.id}

@@ -39,10 +39,15 @@ class AssignEmployeeProfileTemplateRequest extends FormRequest
                 return;
             }
 
-            if ($employee->employee_profile_template_id !== null) {
+            $templateId = (int) $this->input('employee_profile_template_id');
+
+            if (
+                $employee->employee_profile_template_id !== null
+                && (int) $employee->employee_profile_template_id === $templateId
+            ) {
                 $validator->errors()->add(
                     'employee_profile_template_id',
-                    'This employee already has a profile template assigned.',
+                    'This template is already assigned to the employee.',
                 );
             }
         });

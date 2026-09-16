@@ -82,6 +82,8 @@ final class EmployeeProfilePageData
 
         $canUpdateEmployee = $authUser?->can('employees.update') ?? false;
         $needsProfileTemplate = $employee->employee_profile_template_id === null;
+        $canAssignProfileTemplate = $canUpdateEmployee && $needsProfileTemplate;
+        $canChangeProfileTemplate = $canUpdateEmployee && ! $needsProfileTemplate;
 
         $employeePayload = EmployeeDetailResource::toArray($employee);
 
@@ -90,13 +92,14 @@ final class EmployeeProfilePageData
             'employee_navigation' => $employeeNavigation,
             'employee' => $employeePayload,
             'resolved_template' => EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate),
-            'profile_templates' => $needsProfileTemplate
+            'profile_templates' => ($canAssignProfileTemplate || $canChangeProfileTemplate)
                 ? self::activeProfileTemplates($companyId)
                 : [],
             'roles' => $roles,
             'can' => [
                 'create_user' => $canUpdateEmployee && ($authUser?->can('users.create') ?? false),
-                'assign_profile_template' => $canUpdateEmployee && $needsProfileTemplate,
+                'assign_profile_template' => $canAssignProfileTemplate,
+                'change_profile_template' => $canChangeProfileTemplate,
                 'documents_view' => $authUser?->can('documents.view'),
                 'documents_download' => $authUser?->can('documents.download'),
                 'documents_upload' => $authUser?->can('documents.upload'),
@@ -328,6 +331,7 @@ final class EmployeeProfilePageData
         return [
             'create_user' => false,
             'assign_profile_template' => false,
+            'change_profile_template' => false,
             'documents_view' => $authUser?->can('documents.view') ?? false,
             'documents_download' => $authUser?->can('documents.download') ?? false,
             'documents_upload' => $authUser?->can('documents.upload') ?? false,

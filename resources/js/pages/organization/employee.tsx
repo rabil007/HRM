@@ -738,6 +738,9 @@ function EmployeeDetailsPage({
                             canAssignProfileTemplate={
                                 can?.assign_profile_template ?? false
                             }
+                            canChangeProfileTemplate={
+                                can?.change_profile_template ?? false
+                            }
                             profileTemplates={profile_templates}
                             employee={localEmployee}
                             departments={departments}

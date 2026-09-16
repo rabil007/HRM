@@ -74,6 +74,7 @@ class Employee extends Model
                 'termination_date',
                 'termination_reason',
                 'place_of_birth',
+                'employee_profile_template_id',
             ])
             ->logOnlyDirty();
     }

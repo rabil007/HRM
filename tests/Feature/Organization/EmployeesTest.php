@@ -4100,27 +4100,27 @@ test('employee without profile template can assign one', function () {
     expect($employee->fresh()->employee_profile_template_id)->toBe($template->id);
 });
 
-test('employee with profile template cannot be reassigned', function () {
+test('employee with profile template can change to another active template', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
     $country = Country::query()->create([
         'code' => 'APR',
-        'name' => 'Reassign Block Land',
+        'name' => 'Reassign Land',
         'dial_code' => '+1',
         'is_active' => true,
     ]);
 
     $currency = Currency::query()->create([
         'code' => 'APR',
-        'name' => 'Reassign Block Currency',
+        'name' => 'Reassign Currency',
         'symbol' => '$',
         'is_active' => true,
     ]);
 
     $company = Company::query()->create([
-        'name' => 'Reassign Block Co',
-        'slug' => 'reassign-block-co',
+        'name' => 'Reassign Co',
+        'slug' => 'reassign-co',
         'working_days' => [1, 2, 3, 4, 5],
         'country_id' => $country->id,
         'currency_id' => $currency->id,
@@ -4129,8 +4129,187 @@ test('employee with profile template cannot be reassigned', function () {
         'status' => 'active',
     ]);
 
-    $existingTemplate = createEmployeeProfileTemplate($company, 'Existing', EmployeeProfileTemplateFieldRegistry::defaultConfiguration());
-    $otherTemplate = createEmployeeProfileTemplate($company, 'Other', EmployeeProfileTemplateFieldRegistry::defaultConfiguration());
+    $existingTemplate = createEmployeeProfileTemplate(
+        $company,
+        'Existing',
+        employeeProfileTemplateWithVisibleEmployeeFields([
+            'employee_no',
+            'name',
+            'rank_id',
+        ]),
+    );
+    $otherTemplate = createEmployeeProfileTemplate(
+        $company,
+        'Other',
+        employeeProfileTemplateWithVisibleEmployeeFields([
+            'employee_no',
+            'name',
+            'client_id',
+        ]),
+    );
+
+    $rank = Rank::query()->create([
+        'name' => 'Captain',
+        'is_active' => true,
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'Acme Client',
+        'is_active' => true,
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $existingTemplate->id,
+            'rank_id' => $rank->id,
+            'client_id' => $client->id,
+            'passport_number' => 'P1234567',
+            'nearest_airport' => 'DXB',
+            'emergency_contact' => 'Jane Doe',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->get(route('organization.employees.show', $employee))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.assign_profile_template', false)
+            ->where('can.change_profile_template', true)
+            ->has('profile_templates', 2)
+            ->where('employee.employee_profile_template.id', $existingTemplate->id));
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $otherTemplate->id,
+    ])
+        ->assertRedirect(route('organization.employees.show', $employee))
+        ->assertSessionHas('success', 'Profile template changed successfully.');
+
+    $employee->refresh();
+
+    expect($employee->employee_profile_template_id)->toBe($otherTemplate->id)
+        ->and($employee->rank_id)->toBe($rank->id)
+        ->and($employee->client_id)->toBe($client->id)
+        ->and($employee->passport_number)->toBe('P1234567')
+        ->and($employee->nearest_airport)->toBe('DXB')
+        ->and($employee->emergency_contact)->toBe('Jane Doe');
+
+    $activity = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('subject_type', Employee::class)
+        ->where('subject_id', $employee->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->attribute_changes->get('attributes')['employee_profile_template_id'] ?? null)->toBe($otherTemplate->id)
+        ->and($activity->attribute_changes->get('old')['employee_profile_template_id'] ?? null)->toBe($existingTemplate->id)
+        ->and($activity->causer_id)->toBe($user->id);
+
+    $response = $this->get(route('organization.employees.show', $employee));
+
+    $response->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->where('employee.employee_profile_template.id', $otherTemplate->id)
+        ->where('employee.employee_profile_template.name', 'Other')
+        ->has('employee_tabs.profile_fields')
+        ->has('resolved_template'));
+
+    $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
+
+    expect($profileFields)->toContain('client_id')
+        ->and($profileFields)->not->toContain('rank_id');
+});
+
+test('employee profile template options are hidden without employees.update permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'PTV',
+        'name' => 'Profile Template View Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'PTV',
+        'name' => 'Profile Template View Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Profile Template View Co',
+        'slug' => 'profile-template-view-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Assigned Template');
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $template->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.show', $employee))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.assign_profile_template', false)
+            ->where('can.change_profile_template', false)
+            ->where('profile_templates', []));
+});
+
+test('cross-company profile template cannot be assigned to employee', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CPT',
+        'name' => 'Cross Profile Template Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CPT',
+        'name' => 'Cross Profile Template Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Cross Profile Template Co',
+        'slug' => 'cross-profile-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Foreign Profile Template Co',
+        'slug' => 'foreign-profile-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $existingTemplate = createEmployeeProfileTemplate($company, 'Existing');
+    $foreignTemplate = createEmployeeProfileTemplate($otherCompany, 'Foreign');
 
     $employee = Employee::factory()
         ->forCompany($company)
@@ -4141,11 +4320,218 @@ test('employee with profile template cannot be reassigned', function () {
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
 
     $this->put(route('organization.employees.profile-template.assign', $employee), [
-        'employee_profile_template_id' => $otherTemplate->id,
-    ])
-        ->assertSessionHasErrors('employee_profile_template_id');
+        'employee_profile_template_id' => $foreignTemplate->id,
+    ])->assertSessionHasErrors('employee_profile_template_id');
 
     expect($employee->fresh()->employee_profile_template_id)->toBe($existingTemplate->id);
+});
+
+test('inactive profile template cannot be assigned to employee', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'IPT',
+        'name' => 'Inactive Profile Template Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'IPT',
+        'name' => 'Inactive Profile Template Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Inactive Profile Template Co',
+        'slug' => 'inactive-profile-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $existingTemplate = createEmployeeProfileTemplate($company, 'Existing');
+    $inactiveTemplate = createEmployeeProfileTemplate($company, 'Inactive');
+    $inactiveTemplate->update(['is_active' => false]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $existingTemplate->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $inactiveTemplate->id,
+    ])->assertSessionHasErrors('employee_profile_template_id');
+
+    expect($employee->fresh()->employee_profile_template_id)->toBe($existingTemplate->id);
+});
+
+test('employee belonging to another company cannot have profile template changed', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'EPT',
+        'name' => 'Employee Profile Template Tenant Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'EPT',
+        'name' => 'Employee Profile Template Tenant Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $companyA = Company::query()->create([
+        'name' => 'Company A',
+        'slug' => 'company-a-profile-template',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $companyB = Company::query()->create([
+        'name' => 'Company B',
+        'slug' => 'company-b-profile-template',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $templateA = createEmployeeProfileTemplate($companyA, 'Template A');
+    $templateB = createEmployeeProfileTemplate($companyB, 'Template B');
+
+    $employeeB = Employee::factory()
+        ->forCompany($companyB)
+        ->create([
+            'employee_profile_template_id' => $templateB->id,
+        ]);
+
+    grantCompanyPermissions($user, $companyA, ['employees.view', 'employees.update']);
+
+    $this->put(route('organization.employees.profile-template.assign', $employeeB), [
+        'employee_profile_template_id' => $templateA->id,
+    ])->assertNotFound();
+
+    expect($employeeB->fresh()->employee_profile_template_id)->toBe($templateB->id);
+});
+
+test('assigning the same profile template returns validation error', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'SPT',
+        'name' => 'Same Profile Template Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'SPT',
+        'name' => 'Same Profile Template Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Same Profile Template Co',
+        'slug' => 'same-profile-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Existing');
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $template->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $template->id,
+    ])->assertSessionHasErrors('employee_profile_template_id');
+
+    expect($employee->fresh()->employee_profile_template_id)->toBe($template->id);
+});
+
+test('employee import does not replace profile template for existing employees', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'RPT',
+        'name' => 'Reimport Profile Template Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'RPT',
+        'name' => 'Reimport Profile Template Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Reimport Profile Template Co',
+        'slug' => 'reimport-profile-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $existingTemplate = createEmployeeProfileTemplate($company, 'Existing Template');
+    $importTemplate = createEmployeeProfileTemplate($company, 'Import Template');
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-RPT-1',
+            'name' => 'Existing Employee',
+            'employee_profile_template_id' => $existingTemplate->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import', 'employees.update']);
+
+    $csv = "employee_no,name\nEMP-RPT-1,Updated Name\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->post('/organization/employees/import', [
+        'file' => $file,
+        'employee_profile_template_id' => $importTemplate->id,
+    ])->assertRedirect('/organization/employees');
+
+    $employee->refresh();
+
+    expect($employee->name)->toBe('Updated Name')
+        ->and($employee->employee_profile_template_id)->toBe($existingTemplate->id);
 });
 
 test('employee update returns validation error when employee number is already used', function () {
