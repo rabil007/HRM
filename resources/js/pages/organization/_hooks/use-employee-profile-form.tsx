@@ -249,6 +249,42 @@ export function useEmployeeProfileForm(
 
             const hasPendingImage = form.data.image instanceof File;
 
+            // #region agent log
+            fetch(
+                'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Debug-Session-Id': 'cbb891',
+                    },
+                    body: JSON.stringify({
+                        sessionId: 'cbb891',
+                        runId: 'pre-fix',
+                        hypothesisId: 'A',
+                        location: 'use-employee-profile-form.tsx:saveChanges',
+                        message: 'employee profile save with image staged',
+                        data: {
+                            hasPendingImage,
+                            removeImage: Boolean(form.data.remove_image),
+                            imageType:
+                                form.data.image instanceof File
+                                    ? form.data.image.type
+                                    : typeof form.data.image,
+                            imageSize:
+                                form.data.image instanceof File
+                                    ? form.data.image.size
+                                    : null,
+                            submitMethod: 'put',
+                            forceFormData: hasPendingImage,
+                            employeeId: targetEmployeeId,
+                        },
+                        timestamp: Date.now(),
+                    }),
+                },
+            ).catch(() => {});
+            // #endregion
+
             form.transform((data) => {
                 const payload = transformEmployeeProfileFormData(
                     data,
