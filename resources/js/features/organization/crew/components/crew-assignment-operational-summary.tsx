@@ -103,6 +103,20 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
     }
 
     if (
+        assignment.current_phase?.code === 'p0' &&
+        assignment.planned_arrival_at
+    ) {
+        return {
+            label: 'Arrival Date',
+            value: formatDisplayDate(assignment.planned_arrival_at),
+            detail:
+                assignment.recommended_action?.label ??
+                'Expected arrival at the joining location',
+            tone: 'neutral',
+        };
+    }
+
+    if (
         ['p0', 'p1', 'p2a', 'p2b', 'p3'].includes(
             assignment.current_phase?.code ?? '',
         )
