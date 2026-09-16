@@ -20,7 +20,22 @@ class CrewAccommodationStay extends Model
 
     use LogsActivityWithCompany;
 
-    protected $guarded = [];
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'company_id',
+        'crew_assignment_id',
+        'hotel_id',
+        'room_type_id',
+        'stay_type',
+        'accommodation_status',
+        'check_in_date',
+        'check_out_date',
+        'started_from_phase_id',
+        'created_by',
+        'updated_by',
+    ];
 
     protected static function booted(): void
     {

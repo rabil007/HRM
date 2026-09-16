@@ -27,7 +27,6 @@ class UpdateRoomTypeRequest extends FormRequest
                 'max:120',
                 Rule::unique('room_types', 'name')
                     ->where(fn ($query) => $query->where('company_id', $companyId))
-                    ->whereNull('deleted_at')
                     ->ignore($roomTypeId),
             ],
             'description' => ['nullable', 'string', 'max:2000'],

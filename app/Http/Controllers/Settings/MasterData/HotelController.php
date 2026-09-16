@@ -56,6 +56,7 @@ class HotelController extends Controller
             Hotel::class,
             $data,
             redirect()->route('settings.master-data.hotels.index'),
+            scopeAttributes: ['company_id' => $companyId],
         );
     }
 

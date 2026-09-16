@@ -15,7 +15,6 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            $table->softDeletes();
 
             $table->unique(['company_id', 'name'], 'uq_hotels_company_name');
             $table->index('company_id');

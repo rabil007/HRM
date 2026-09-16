@@ -25,8 +25,7 @@ class StoreRoomTypeRequest extends FormRequest
                 'string',
                 'max:120',
                 Rule::unique('room_types', 'name')
-                    ->where(fn ($query) => $query->where('company_id', $companyId))
-                    ->whereNull('deleted_at'),
+                    ->where(fn ($query) => $query->where('company_id', $companyId)),
             ],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['nullable', 'boolean'],

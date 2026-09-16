@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAccommodationStay;
 use App\Models\Currency;
+use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -84,7 +85,97 @@ test('authorized users can view, create, update, and delete room types', functio
         ->delete("/settings/master-data/room-types/{$roomType->id}")
         ->assertRedirect(route('settings.master-data.room-types.index'));
 
-    $this->assertSoftDeleted('room_types', ['id' => $roomType->id]);
+    $this->assertDatabaseMissing('room_types', ['id' => $roomType->id]);
+});
+
+test('same room type name is allowed in different companies', function () {
+    ['user' => $user, 'company' => $companyA] = makeCrewAssignmentFixtures();
+    ['company' => $companyB] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $companyA, ['settings.master-data.room-types.create']);
+    grantCompanyPermissions($user, $companyB, ['settings.master-data.room-types.create']);
+
+    RoomType::factory()->create([
+        'company_id' => $companyA->id,
+        'name' => 'Single Room',
+    ]);
+
+    $this->withSession(['current_company_id' => $companyB->id])
+        ->post('/settings/master-data/room-types', [
+            'name' => 'Single Room',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('settings.master-data.room-types.index'));
+
+    expect(RoomType::query()->where('company_id', $companyA->id)->where('name', 'Single Room')->exists())->toBeTrue()
+        ->and(RoomType::query()->where('company_id', $companyB->id)->where('name', 'Single Room')->exists())->toBeTrue();
+});
+
+test('json quick-create scopes room types to the current company', function () {
+    ['user' => $user, 'company' => $companyA] = makeCrewAssignmentFixtures();
+    ['company' => $companyB] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $companyA, ['settings.master-data.room-types.create']);
+    grantCompanyPermissions($user, $companyB, ['settings.master-data.room-types.create']);
+
+    $companyARoomType = RoomType::factory()->create([
+        'company_id' => $companyA->id,
+        'name' => 'Single Room',
+    ]);
+
+    $response = $this->withSession(['current_company_id' => $companyB->id])
+        ->postJson('/settings/master-data/room-types', [
+            'name' => 'Single Room',
+            'is_active' => true,
+        ]);
+
+    $response->assertSuccessful();
+
+    $companyBRoomTypeId = (int) $response->json('id');
+
+    expect($companyBRoomTypeId)->not->toBe($companyARoomType->id)
+        ->and(RoomType::query()->whereKey($companyBRoomTypeId)->value('company_id'))->toBe($companyB->id);
+});
+
+test('unused room type can be deleted and recreated with the same name', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeCrewAssignmentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.room-types.create',
+        'settings.master-data.room-types.delete',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/room-types', [
+            'name' => 'Single Room',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('settings.master-data.room-types.index'));
+
+    $roomTypeId = RoomType::query()->where('company_id', $company->id)->where('name', 'Single Room')->value('id');
+    expect($roomTypeId)->not->toBeNull();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->delete("/settings/master-data/room-types/{$roomTypeId}")
+        ->assertRedirect(route('settings.master-data.room-types.index'));
+
+    $this->assertDatabaseMissing('room_types', ['id' => $roomTypeId]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/room-types', [
+            'name' => 'Single Room',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('settings.master-data.room-types.index'));
+
+    expect(RoomType::query()->where('company_id', $company->id)->where('name', 'Single Room')->count())->toBe(1);
 });
 
 test('room types index supports search and pagination meta', function () {
@@ -213,6 +304,7 @@ test('room type referenced by accommodation history cannot be deleted', function
         'settings.master-data.room-types.delete',
     ]);
 
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
     $roomType = RoomType::factory()->create([
         'company_id' => $company->id,
         'name' => 'Referenced Room',
@@ -221,6 +313,7 @@ test('room type referenced by accommodation history cannot be deleted', function
     CrewAccommodationStay::factory()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
         'room_type_id' => $roomType->id,
         'stay_type' => CrewAccommodationStayType::PreJoin,
         'accommodation_status' => CrewAccommodationStatus::Hotel,
@@ -241,6 +334,7 @@ test('inactive room type remains available through historical accommodation rela
     $vessel = makeCrewMovementVessel('Historical Room Vessel', $company);
     $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
 
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
     $roomType = RoomType::factory()->create([
         'company_id' => $company->id,
         'name' => 'Historical Room',
@@ -250,6 +344,7 @@ test('inactive room type remains available through historical accommodation rela
     $stay = CrewAccommodationStay::factory()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
         'room_type_id' => $roomType->id,
         'stay_type' => CrewAccommodationStayType::PostSignoff,
         'accommodation_status' => CrewAccommodationStatus::Hotel,

@@ -84,7 +84,97 @@ test('authorized users can view, create, update, and delete hotels', function ()
         ->delete("/settings/master-data/hotels/{$hotel->id}")
         ->assertRedirect(route('settings.master-data.hotels.index'));
 
-    $this->assertSoftDeleted('hotels', ['id' => $hotel->id]);
+    $this->assertDatabaseMissing('hotels', ['id' => $hotel->id]);
+});
+
+test('same hotel name is allowed in different companies', function () {
+    ['user' => $user, 'company' => $companyA] = makeCrewAssignmentFixtures();
+    ['company' => $companyB] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $companyA, ['settings.master-data.hotels.create']);
+    grantCompanyPermissions($user, $companyB, ['settings.master-data.hotels.create']);
+
+    Hotel::factory()->create([
+        'company_id' => $companyA->id,
+        'name' => 'Royal Rose',
+    ]);
+
+    $this->withSession(['current_company_id' => $companyB->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Royal Rose',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect(Hotel::query()->where('company_id', $companyA->id)->where('name', 'Royal Rose')->exists())->toBeTrue()
+        ->and(Hotel::query()->where('company_id', $companyB->id)->where('name', 'Royal Rose')->exists())->toBeTrue();
+});
+
+test('json quick-create scopes hotels to the current company', function () {
+    ['user' => $user, 'company' => $companyA] = makeCrewAssignmentFixtures();
+    ['company' => $companyB] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $companyA, ['settings.master-data.hotels.create']);
+    grantCompanyPermissions($user, $companyB, ['settings.master-data.hotels.create']);
+
+    $companyAHotel = Hotel::factory()->create([
+        'company_id' => $companyA->id,
+        'name' => 'Royal Rose',
+    ]);
+
+    $response = $this->withSession(['current_company_id' => $companyB->id])
+        ->postJson('/settings/master-data/hotels', [
+            'name' => 'Royal Rose',
+            'is_active' => true,
+        ]);
+
+    $response->assertSuccessful();
+
+    $companyBHotelId = (int) $response->json('id');
+
+    expect($companyBHotelId)->not->toBe($companyAHotel->id)
+        ->and(Hotel::query()->whereKey($companyBHotelId)->value('company_id'))->toBe($companyB->id);
+});
+
+test('unused hotel can be deleted and recreated with the same name', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeCrewAssignmentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.create',
+        'settings.master-data.hotels.delete',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Royal Rose',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $hotelId = Hotel::query()->where('company_id', $company->id)->where('name', 'Royal Rose')->value('id');
+    expect($hotelId)->not->toBeNull();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->delete("/settings/master-data/hotels/{$hotelId}")
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $this->assertDatabaseMissing('hotels', ['id' => $hotelId]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Royal Rose',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect(Hotel::query()->where('company_id', $company->id)->where('name', 'Royal Rose')->count())->toBe(1);
 });
 
 test('hotels index supports search and pagination meta', function () {

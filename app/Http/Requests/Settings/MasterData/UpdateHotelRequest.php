@@ -27,7 +27,6 @@ class UpdateHotelRequest extends FormRequest
                 'max:120',
                 Rule::unique('hotels', 'name')
                     ->where(fn ($query) => $query->where('company_id', $companyId))
-                    ->whereNull('deleted_at')
                     ->ignore($hotelId),
             ],
             'description' => ['nullable', 'string', 'max:2000'],

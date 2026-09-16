@@ -56,6 +56,7 @@ class RoomTypeController extends Controller
             RoomType::class,
             $data,
             redirect()->route('settings.master-data.room-types.index'),
+            scopeAttributes: ['company_id' => $companyId],
         );
     }
 
