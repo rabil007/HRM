@@ -247,7 +247,10 @@ class CrewMovementAttentionQuery
      *     by_phase: array<string, int>,
      *     pre_join_hotel: int,
      *     crew_on_site: int,
-     *     post_signoff_hotel: int
+     *     post_signoff_hotel: int,
+     *     on_home: int,
+     *     on_home_over_limit: int,
+     *     max_home_days: int
      * }
      */
     public static function summaryCounts(int $companyId): array
@@ -298,6 +301,8 @@ class CrewMovementAttentionQuery
             ),
         )->count();
 
+        $homeSummary = CurrentCrewHomeQuery::summaryCounts($companyId);
+
         return [
             'total' => $assignments->count(),
             'needs_attention' => self::needingAttention($assignments)->count(),
@@ -305,6 +310,9 @@ class CrewMovementAttentionQuery
             'pre_join_hotel' => $preJoinHotel,
             'crew_on_site' => $crewOnSite,
             'post_signoff_hotel' => $postSignoffHotel,
+            'on_home' => $homeSummary['on_home'],
+            'on_home_over_limit' => $homeSummary['on_home_over_limit'],
+            'max_home_days' => $homeSummary['max_home_days'],
         ];
     }
 

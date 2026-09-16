@@ -65,9 +65,7 @@ export function VoidErroneousAssignmentDialog({
         >
             <AlertDialogContent className="max-w-lg glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>
-                        Void erroneous assignment?
-                    </AlertDialogTitle>
+                    <AlertDialogTitle>Void this assignment?</AlertDialogTitle>
                     <AlertDialogDescription>
                         This action is only for assignments or recorded
                         movements entered by mistake. The assignment will be
@@ -163,7 +161,7 @@ export function VoidErroneousAssignmentDialog({
                             form.processing || !form.data.void_reason.trim()
                         }
                     >
-                        Void erroneous assignment
+                        Void assignment
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>

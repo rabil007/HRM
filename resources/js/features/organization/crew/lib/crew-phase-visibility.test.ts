@@ -158,6 +158,23 @@ describe('crew phase visibility', () => {
         ]);
     });
 
+    it('marks earlier path stages as skipped when crew advanced without recorded phases', () => {
+        const p6WithPartialHistory = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+            normalProgressStepState(step, 'p6', [
+                timelineItem('p0', 'completed'),
+                timelineItem('p4', 'completed'),
+            ]),
+        );
+
+        assert.deepEqual(p6WithPartialHistory, [
+            'completed',
+            'skipped',
+            'completed',
+            'skipped',
+            'current',
+        ]);
+    });
+
     it('surfaces active legacy phases from the timeline when needed', () => {
         const activeLegacyTimelineItem = {
             id: 1,

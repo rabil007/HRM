@@ -18,6 +18,8 @@ export type MovementActionConfig = {
     fixedNextPhase?: string;
     nextPhaseLabel?: string;
     nextPhaseOptions?: MovementNextPhaseOption[];
+    completionIntentLabel?: string;
+    completionIntentOptions?: MovementNextPhaseOption[];
     keepOpenLabel?: string;
 };
 
@@ -134,14 +136,32 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         ],
     },
     travel_home: {
-        title: 'Travel Home',
+        title: 'Return Home',
         description:
-            'This completes P5 Demobilisation Standby and moves the employee to P6 Home / Redeploy.',
-        occurredAtLabel: 'Actual travel-home date and time',
-        submitLabel: 'Travel Home',
+            'Record when the crew member returned home and choose whether this mobilisation cycle is complete.',
+        occurredAtLabel: 'Date & Time',
+        submitLabel: 'Return Home & Close Assignment',
         impactTitle: 'What this does',
-        impactDescription:
-            'This completes P5 Demobilisation Standby and moves the employee to P6 Home / Redeploy.',
+        impactDescription: [
+            'Completes P5 Demobilisation Standby.',
+            'Records P6 Home / Redeployment using the actual return-home timestamp.',
+            'By default, closes the assignment so the employee enters the normal In Home workflow.',
+        ],
+        completionIntentLabel: 'What happens next?',
+        completionIntentOptions: [
+            {
+                value: 'close',
+                label: 'Returned Home — finish this assignment',
+                description:
+                    'The crew member has returned home and this mobilisation cycle is complete.',
+            },
+            {
+                value: 'redeploy',
+                label: 'Keep open for Redeployment',
+                description:
+                    'Keep this assignment active in Home / Redeployment because the crew member may be redeployed.',
+            },
+        ],
         fixedNextPhase: 'p6',
     },
     close_assignment: {

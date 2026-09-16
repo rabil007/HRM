@@ -162,6 +162,7 @@ function buildInitialForm(
             formOptions,
         ),
         planned_signoff_override_reason: '',
+        completion_intent: action === 'travel_home' ? 'close' : '',
     };
 
     return action === 'transfer_vessel'
@@ -347,9 +348,16 @@ export function MovementActionDialog({
     const isLarge =
         action === 'join_vessel' ||
         action === 'confirm_disembarkation' ||
+        action === 'travel_home' ||
         action === 'transfer_vessel' ||
         action === 'redeploy';
     const cancelLabel = config.keepOpenLabel ?? 'Cancel';
+    const submitLabel =
+        action === 'travel_home'
+            ? form.data.completion_intent === 'redeploy'
+                ? 'Move to Home / Redeployment'
+                : 'Return Home & Close Assignment'
+            : config.submitLabel;
 
     return (
         <Fragment>
@@ -413,7 +421,7 @@ export function MovementActionDialog({
                             {form.processing ? (
                                 <Spinner className="mr-2" />
                             ) : null}
-                            {config.submitLabel}
+                            {submitLabel}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

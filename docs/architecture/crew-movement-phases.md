@@ -26,6 +26,7 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | **Crew Assignments → Pre-Join Hotel** | `/organization/crew?view=pre_join_hotel` | Active assignments whose **current** phase is P2A, P2B, or legacy P3 (hotel/standby before vessel joining) |
 | **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew (active P4) |
 | **Crew Assignments → Post-Sign-Off Hotel** | `/organization/crew?view=post_signoff_hotel` | Active assignments whose **current** phase is P5 (demobilisation standby after disembarkation) |
+| **Crew Assignments → On Home** | `/organization/crew?view=on_home` | Active employees currently home between mobilisation cycles (active P6 and completed assignments with no newer Draft/Active assignment) |
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel manning and movements (Gantt) |
 | **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
 | **Crew Planning → Relief Desk** | `/organization/crew-planning?view=relief` | Operational desk of active P4 crew with upcoming/overdue/missing Planned Sign-Off, derived relief status, and mobilisation readiness |
@@ -61,6 +62,9 @@ The Crew Assignments index uses summary cards as the primary operational navigat
 | **Pre-Join Hotel** | Active assignments with current phase **P2A + P2B + legacy P3** |
 | **Crew On-Site** | Vessel View (`view=vessel`) — active **P4** crew grouped by vessel |
 | **Post-Sign-Off Hotel** | Active assignments with current phase **P5** |
+| **On Home** | Active employees currently home between mobilisation cycles, including active **P6** and employees whose latest assignment is **Completed** with no newer Draft/Active assignment |
+
+**On Home** reuses the existing Crew Operations Availability Rule (`max_home_days` from Crew Operations Settings; default 30 when unset). Home duration is derived from `CrewAssignmentStatusResolver` semantics: active P6 uses the authoritative P6 `actual_start_at`; completed assignments use `closed_at`. Summary cards expose `on_home`, `on_home_over_limit`, and `max_home_days`. The focused view sorts by operational urgency (over limit, then nearest to limit, then longest home duration).
 
 **P0 Pre-Mobilisation** is no longer a dashboard summary card. It remains available through **Filters → Current Phase** and other detailed filters.
 
@@ -393,8 +397,8 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 | `plan_signoff` | P4 plan only (does not disembark) |
 | `confirm_disembarkation` | P4 → P5 or P6 |
 | `start_demob_standby` | helper into P5 |
-| `travel_home` | P5 → P6 |
-| `close_assignment` | P6 → Completed |
+| `travel_home` | P5 → P6 (default: also closes assignment in the same action) |
+| `close_assignment` | P6 → Completed (still required for intentionally open P6 / legacy records) |
 | `cancel_assignment` | Draft/Active → Cancelled (not from active P4) |
 | `void_erroneous_assignment` | Privileged admin cleanup (any P0–P6; separate route) |
 
@@ -479,6 +483,36 @@ PLB 648 starts       26 Aug 16:30
 
 That gap can stay a normal assignment or redeploy. Do not rewrite it as a transfer. Payroll timesheet preparation overlap detection remains independent of this UI recommendation.
 
+### Return Home (`travel_home`)
+
+Available from Active P5 Demobilisation Standby. The movement dialog records the **actual return-home timestamp** and asks what happens next.
+
+| Choice | Result |
+|--------|--------|
+| **Returned Home — finish this assignment** (default) | Atomic: complete P5 → record P6 → complete P6 → `CrewAssignment.status = Completed`, `closed_at = occurred_at`. Employee enters the normal In Home / `max_home_days` workflow. |
+| **Keep open for Redeployment** | Legacy path: complete P5 → active P6. Assignment stays `Active`; **Redeploy** and **Close Assignment** remain available. |
+
+Normal operational closure:
+
+```text
+P5 Demobilisation Standby
+    ↓ Return Home & Close Assignment (actual return-home timestamp)
+Completed (P6 recorded and completed; assignment closed)
+```
+
+Intentional redeployment hold:
+
+```text
+P5 Demobilisation Standby
+    ↓ Keep open for Redeployment
+P6 Home / Redeployment (Active)
+    ↓ Redeploy or Close Assignment later
+```
+
+`completion_intent` is server-side (`close` default, `redeploy` to keep open). Planned Travel Home is forecast only and is never used as the actual return-home or `closed_at` timestamp.
+
+Existing Active P6 records are not bulk-closed. They continue to expose **Close Assignment** and **Redeploy**.
+
 ### Redeploy (`redeploy`)
 
 Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P2A / P4 (Active; vessel optional except P4 requires vessel and rank). P1 and P3 are excluded from normal redeploy choices. Same or different vessel/client is allowed. Direct P4 redeploy applies a fresh Tour snapshot; pre-P4 starts do not — Tour is applied later on Join Vessel. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
@@ -535,8 +569,8 @@ Typical suggestions:
 | P2B | Complete Training |
 | P3 (legacy) | Join Vessel |
 | P4 | Confirm Disembarkation (or Plan Relief when sign-off is near and relief is not ready) |
-| P5 | Travel Home |
-| P6 | Close Assignment |
+| P5 | Return Home (default: **Return Home & Close Assignment**) |
+| P6 | Close Assignment (when assignment was kept open for redeployment) |
 
 ## Permissions
 

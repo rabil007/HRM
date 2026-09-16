@@ -25,6 +25,8 @@ use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\CurrentCrewHomePresenter;
+use App\Support\CrewMovements\CurrentCrewHomeQuery;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
@@ -73,13 +75,28 @@ class CrewAssignmentController extends Controller
         if ($view === CurrentCrewRequestFilters::VIEW_VESSEL) {
             $vesselPaginator = CurrentCrewVesselQuery::paginate($companyId, $filters);
             $assignments = [];
+            $homeCrew = [];
             $vessels = $vesselPaginator->items();
             $pagination = $this->paginationMeta($vesselPaginator);
+        } elseif ($view === CurrentCrewRequestFilters::VIEW_ON_HOME) {
+            $filters['page'] = max(1, (int) $request->query('page', 1));
+            $homePaginator = CurrentCrewHomeQuery::paginate($companyId, $filters);
+            $assignments = [];
+            $vessels = [];
+            $homeCrew = collect($homePaginator->items())
+                ->map(fn (array $item): array => CurrentCrewHomePresenter::listItem(
+                    $item,
+                    $companyId,
+                    $request->user(),
+                ))
+                ->all();
+            $pagination = $this->paginationMeta($homePaginator);
         } else {
             $paginator = CurrentCrewQuery::paginate($companyId, $filters, $view);
             $assignments = $paginator->through(
                 fn (CrewAssignment $assignment) => CrewAssignmentPresenter::listItem($assignment, $request->user()),
             )->items();
+            $homeCrew = [];
             $vessels = [];
             $pagination = $this->paginationMeta($paginator);
         }
@@ -90,6 +107,7 @@ class CrewAssignmentController extends Controller
         return Inertia::render('organization/crew/index', [
             'view' => $view,
             'assignments' => $assignments,
+            'home_crew' => $homeCrew ?? [],
             'vessels' => $vessels,
             'pagination' => $pagination,
             'search' => $filters['search'],

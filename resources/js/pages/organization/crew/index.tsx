@@ -7,6 +7,7 @@ import type {
     CrewAssignmentListItem,
     CrewAssignmentPagePermissions,
     CrewAssignmentSummary,
+    CurrentCrewHomeRow,
     CurrentCrewView,
     CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
@@ -16,6 +17,7 @@ import type { PaginationMeta } from '@/types/pagination';
 export default function CrewAssignmentsIndex({
     view = 'crew',
     assignments,
+    home_crew = [],
     vessels = [],
     pagination,
     search,
@@ -28,6 +30,7 @@ export default function CrewAssignmentsIndex({
 }: {
     view?: CurrentCrewView;
     assignments: CrewAssignmentListItem[];
+    home_crew?: CurrentCrewHomeRow[];
     vessels?: CurrentCrewVesselRow[];
     pagination: PaginationMeta;
     search: string;
@@ -44,6 +47,7 @@ export default function CrewAssignmentsIndex({
             <CurrentCrewContent
                 view={view}
                 assignments={assignments}
+                home_crew={home_crew}
                 vessels={vessels}
                 pagination={pagination}
                 search={search}

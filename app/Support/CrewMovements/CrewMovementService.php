@@ -7,6 +7,7 @@ use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
+use App\Enums\CrewTravelHomeCompletionIntent;
 use App\Exceptions\CrewMovementException;
 use App\Models\Client;
 use App\Models\Company;
@@ -621,6 +622,7 @@ final class CrewMovementService
         $this->assertStatus($assignment, CrewAssignmentStatus::Active);
         $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::DemobStandby);
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
+        $completionIntent = $this->resolveTravelHomeCompletionIntent($payload);
 
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 
@@ -645,9 +647,26 @@ final class CrewMovementService
             );
         }
 
+        if ($completionIntent === CrewTravelHomeCompletionIntent::Close) {
+            $this->completePhase($next, $occurredAt, $occurredAt, $actorId);
+
+            $updates['status'] = CrewAssignmentStatus::Completed;
+            $updates['closed_at'] = $occurredAt;
+        }
+
         $assignment->update($updates);
 
         return $assignment;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveTravelHomeCompletionIntent(array $payload): CrewTravelHomeCompletionIntent
+    {
+        $intent = CrewTravelHomeCompletionIntent::tryFrom((string) ($payload['completion_intent'] ?? ''));
+
+        return $intent ?? CrewTravelHomeCompletionIntent::Close;
     }
 
     /**

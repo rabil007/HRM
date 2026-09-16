@@ -392,6 +392,9 @@ test('crew assignments index exposes operational summary cards and views', funct
             ->has('summary.pre_join_hotel')
             ->has('summary.crew_on_site')
             ->has('summary.post_signoff_hotel')
+            ->has('summary.on_home')
+            ->has('summary.on_home_over_limit')
+            ->has('summary.max_home_days')
             ->has('assignments', 1));
 
     $this->actingAs($fixtures['user'])

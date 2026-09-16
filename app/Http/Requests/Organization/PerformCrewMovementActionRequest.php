@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewTravelHomeCompletionIntent;
 use App\Models\CrewAssignment;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
@@ -284,6 +285,11 @@ class PerformCrewMovementActionRequest extends FormRequest
 
         if ($action === 'travel_home') {
             $baseRules['planned_travel_at'] = ['nullable', 'date'];
+            $baseRules['completion_intent'] = [
+                'nullable',
+                'string',
+                Rule::in(CrewTravelHomeCompletionIntent::values()),
+            ];
         }
 
         if ($action === 'cancel_assignment') {

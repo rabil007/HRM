@@ -86,6 +86,15 @@ describe('buildCrewSummaryFilterParams', () => {
         assert.equal(params.include_completed, undefined);
         assert.equal(params.phase, undefined);
     });
+
+    it('clears conflicting filters for On Home', () => {
+        const params = buildCrewSummaryFilterParams('on_home', base);
+
+        assert.equal(params.view, 'on_home');
+        assert.equal(params.status, undefined);
+        assert.equal(params.include_completed, undefined);
+        assert.equal(params.phase, undefined);
+    });
 });
 
 describe('resolveActiveSummaryFilter', () => {
@@ -131,6 +140,16 @@ describe('resolveActiveSummaryFilter', () => {
 
     it('selects Current Assignments on the default crew view without attention', () => {
         assert.equal(resolveActiveSummaryFilter(emptyFilters, 'crew'), '');
+    });
+
+    it('prioritizes On Home over Needs Attention', () => {
+        assert.equal(
+            resolveActiveSummaryFilter(
+                { ...emptyFilters, movement_attention: true },
+                'on_home',
+            ),
+            'on_home',
+        );
     });
 });
 
