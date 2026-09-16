@@ -17,7 +17,7 @@ const SUMMARY_ITEMS: {
 }[] = [
     {
         key: '',
-        label: 'Active assignments',
+        label: 'Current Assignments',
         icon: ClipboardList,
         getValue: (summary) => summary.total,
         cardClass:

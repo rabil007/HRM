@@ -46,6 +46,69 @@ export function sanitizeFiltersForOperationalView(
     };
 }
 
+export function resolveActiveSummaryFilter(
+    filters: CrewAssignmentFilters,
+    view: CurrentCrewView,
+): CrewSummaryFilter {
+    if (view === 'pre_join_hotel') {
+        return 'pre_join_hotel';
+    }
+
+    if (view === 'vessel') {
+        return 'crew_on_site';
+    }
+
+    if (view === 'post_signoff_hotel') {
+        return 'post_signoff_hotel';
+    }
+
+    if (filters.movement_attention) {
+        return 'attention';
+    }
+
+    return '';
+}
+
+export function queueSectionCopy(
+    view: CurrentCrewView,
+    filters: CrewAssignmentFilters,
+): { title: string; description: string } {
+    if (view === 'pre_join_hotel') {
+        return {
+            title: 'Pre-Join Hotel crew',
+            description:
+                'Active crew in Join Standby, Training, or Ready to Join.',
+        };
+    }
+
+    if (view === 'vessel') {
+        return {
+            title: 'Crew On-Site',
+            description: 'Vessel-grouped roster of active P4 onboard crew.',
+        };
+    }
+
+    if (view === 'post_signoff_hotel') {
+        return {
+            title: 'Post-Sign-Off Hotel crew',
+            description: 'Active crew in Demobilisation Standby.',
+        };
+    }
+
+    if (filters.movement_attention) {
+        return {
+            title: 'Assignments needing attention',
+            description:
+                'Search, filter, or open a crew record for quick action.',
+        };
+    }
+
+    return {
+        title: 'Assignment queue',
+        description: 'Search, filter, or open a crew record for quick action.',
+    };
+}
+
 export function buildCrewSummaryFilterParams(
     filter: CrewSummaryFilter,
     base: CrewIndexCompatibleParams,

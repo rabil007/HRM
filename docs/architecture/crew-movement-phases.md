@@ -56,7 +56,7 @@ The Crew Assignments index uses summary cards as the primary operational navigat
 
 | Card | Meaning |
 |------|---------|
-| **Active Assignments** | Default operational queue (Draft/Active unless status/history filters widen the board) |
+| **Current Assignments** | Default operational queue (Draft/Active unless status/history filters widen the board) |
 | **Needs Attention** | Existing movement-attention filter (`movement_attention=1`) |
 | **Pre-Join Hotel** | Active assignments with current phase **P2A + P2B + P3** |
 | **Crew On-Site** | Vessel View (`view=vessel`) — active **P4** crew grouped by vessel |

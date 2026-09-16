@@ -20,6 +20,10 @@ import { CrewAssignmentQuickDetailSheet } from '@/features/organization/crew/com
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
+import {
+    queueSectionCopy,
+    resolveActiveSummaryFilter,
+} from '@/features/organization/crew/lib/crew-summary-filter-params';
 import { OnboardByVesselBoard } from '@/features/organization/crew/onboard-by-vessel/onboard-by-vessel-board';
 import { onboardSelectionResetKey } from '@/features/organization/crew/onboard-by-vessel/selection-reset-key';
 import type {
@@ -33,7 +37,6 @@ import type {
     CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
 import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
-import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-index-filters';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
@@ -70,69 +73,6 @@ function normalizeFilters(
         signoff_within_14_no_relief: Boolean(
             filters.signoff_within_14_no_relief,
         ),
-    };
-}
-
-function resolveActiveSummaryFilter(
-    filters: CrewAssignmentFilters,
-    view: CurrentCrewView,
-): CrewSummaryFilter {
-    if (filters.movement_attention) {
-        return 'attention';
-    }
-
-    if (view === 'vessel') {
-        return 'crew_on_site';
-    }
-
-    if (view === 'pre_join_hotel') {
-        return 'pre_join_hotel';
-    }
-
-    if (view === 'post_signoff_hotel') {
-        return 'post_signoff_hotel';
-    }
-
-    return '';
-}
-
-function queueSectionCopy(
-    view: CurrentCrewView,
-    filters: CrewAssignmentFilters,
-): { title: string; description: string } {
-    if (filters.movement_attention) {
-        return {
-            title: 'Assignments needing attention',
-            description:
-                'Search, filter, or open a crew record for quick action.',
-        };
-    }
-
-    if (view === 'pre_join_hotel') {
-        return {
-            title: 'Pre-Join Hotel crew',
-            description:
-                'Active crew in Join Standby, Training, or Ready to Join.',
-        };
-    }
-
-    if (view === 'vessel') {
-        return {
-            title: 'Crew On-Site',
-            description: 'Vessel-grouped roster of active P4 onboard crew.',
-        };
-    }
-
-    if (view === 'post_signoff_hotel') {
-        return {
-            title: 'Post-Sign-Off Hotel crew',
-            description: 'Active crew in Demobilisation Standby.',
-        };
-    }
-
-    return {
-        title: 'Assignment queue',
-        description: 'Search, filter, or open a crew record for quick action.',
     };
 }
 

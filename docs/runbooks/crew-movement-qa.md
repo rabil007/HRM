@@ -170,7 +170,7 @@ Operational checklist after deploying Crew Movement changes.
 
 ## 12. Current Crew operational cards
 
-- [ ] **Active Assignments** opens the normal operational queue (`view=crew`) without stale location-view state
+- [ ] **Current Assignments** opens the normal operational queue (`view=crew`) without stale location-view state
 - [ ] **Needs Attention** shows current assignments requiring review (`movement_attention=1`) on the normal crew list
 - [ ] **Pre-Join Hotel** shows only Active current P2A/P2B/P3 (`view=pre_join_hotel`)
 - [ ] **Crew On-Site** shows only Active current P4 grouped by vessel (`view=vessel`)
@@ -183,6 +183,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Operational location views do not expose misleading **Current Phase**, **Status**, or **Include Completed** controls in the Filters sheet (controls are disabled with operational-view context copy)
 - [ ] Compatible filters (search, vessel, rank, client, employee, planned dates, tour, relief) still work inside an operational card view
 - [ ] Pagination and search preserve the selected operational card/view
+- [ ] Selecting **Pre-Join Hotel** and then enabling **Needs Attention** keeps **Pre-Join Hotel** visually selected while filtering that hotel population for attention
 
 ## 13. Payroll safeguards (Arrival-first regression)
 
