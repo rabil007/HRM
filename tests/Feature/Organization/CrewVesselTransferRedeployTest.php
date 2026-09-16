@@ -278,7 +278,6 @@ test('redeploy from p5 can start at chosen phases including same vessel', functi
         ->exists())->toBeTrue();
 })->with([
     'p0' => ['p0', CrewAssignmentStatus::Draft, CrewPhaseCode::PreMobilisation],
-    'p1' => ['p1', CrewAssignmentStatus::Active, CrewPhaseCode::TravelIn],
     'p2a' => ['p2a', CrewAssignmentStatus::Active, CrewPhaseCode::JoinStandby],
     'p3' => ['p3', CrewAssignmentStatus::Active, CrewPhaseCode::ReadyToJoin],
     'p4' => ['p4', CrewAssignmentStatus::Active, CrewPhaseCode::OnVessel],
@@ -299,13 +298,13 @@ test('redeploy from p6 is available and completes the source assignment', functi
 
     $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-20 10:00:00',
-        'starting_phase' => 'p1',
+        'starting_phase' => 'p2a',
         'vessel_id' => $sourceVessel->id,
         'rank_id' => $rank->id,
     ], $user->id);
 
     expect($source->fresh()->status)->toBe(CrewAssignmentStatus::Completed)
-        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 });
 
 test('cross-company destination vessel references are rejected on transfer', function () {
@@ -394,7 +393,7 @@ test('cross-company destination vessel references are rejected on redeploy', fun
         ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount);
 });
 
-test('redeploy to p1 inherits the active source vessel when destination vessel is omitted', function () {
+test('redeploy to p2a inherits the active source vessel when destination vessel is omitted', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
     $service = transferRedeployService();
@@ -406,7 +405,7 @@ test('redeploy to p1 inherits the active source vessel when destination vessel i
 
     $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-15 09:00:00',
-        'starting_phase' => 'p1',
+        'starting_phase' => 'p2a',
         'rank_id' => $rank->id,
     ], $user->id);
 
@@ -415,10 +414,10 @@ test('redeploy to p1 inherits the active source vessel when destination vessel i
         ->and($destination->source)->toBe('redeployment')
         ->and($destination->status)->toBe(CrewAssignmentStatus::Active)
         ->and($destination->vessel_id)->toBe($sourceVessel->id)
-        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 });
 
-test('redeploy to p1 rejects an inherited inactive source vessel without mutating the source', function () {
+test('redeploy to p2a rejects an inherited inactive source vessel without mutating the source', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
     $service = transferRedeployService();
@@ -453,7 +452,7 @@ test('redeploy to p1 rejects an inherited inactive source vessel without mutatin
         CrewMovementAction::Redeploy,
         [
             'occurred_at' => '2026-07-15 09:00:00',
-            'starting_phase' => 'p1',
+            'starting_phase' => 'p2a',
             'rank_id' => $rank->id,
         ],
         $user->id,

@@ -78,7 +78,7 @@ it('does not block mobilisation when readiness is not ready', function () {
     $assignment->refresh()->load('currentPhase');
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 });
 
 it('omits document links without documents.view', function () {

@@ -3,11 +3,15 @@
 use App\Enums\CrewPhaseCode;
 use App\Support\CrewMovements\CrewMovementTransitionMap;
 
-test('p0 can move to p1', function () {
+test('p0 can move to p2a but cannot move to p1', function () {
     expect(CrewMovementTransitionMap::canTransitionWithinAssignment(
         CrewPhaseCode::PreMobilisation,
-        CrewPhaseCode::TravelIn,
-    ))->toBeTrue();
+        CrewPhaseCode::JoinStandby,
+    ))->toBeTrue()
+        ->and(CrewMovementTransitionMap::canTransitionWithinAssignment(
+            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::TravelIn,
+        ))->toBeFalse();
 });
 
 test('p1 can move to p2a', function () {

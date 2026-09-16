@@ -46,7 +46,7 @@ test('full happy path p0 through completed p6', function () {
         'occurred_at' => '2026-01-01 08:00:00',
     ], $user->id);
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 
     $assignment = $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-05 10:00:00',
@@ -88,7 +88,7 @@ test('full happy path p0 through completed p6', function () {
         ->and($assignment->current_phase_id)->not->toBeNull()
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($assignment->phases()->count())->toBe(7);
+        ->and($assignment->phases()->count())->toBe(6);
 });
 
 test('training loop creates a second p2a record', function () {
@@ -139,9 +139,9 @@ test('arrival can open p3 directly', function () {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     $service = crewMovementService();
 
-    $assignment = $service->createDraft($company->id, $employee->id, [], $user->id);
-    $service->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
-        'occurred_at' => '2026-03-01 08:00:00',
+    $assignment = $service->startAssignment($company->id, $employee->id, [
+        'current_stage' => 'p1',
+        'stage_started_at' => '2026-03-01 08:00:00',
     ], $user->id);
     $assignment = $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 08:00:00',
@@ -161,7 +161,9 @@ test('join vessel requires vessel and rank and does not require actual disembark
     $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, ['occurred_at' => '2026-03-01 08:00:00'], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 08:00:00',
-        'next_phase' => 'p3',
+    ], $user->id);
+    $service->perform($company->id, $id, CrewMovementAction::MarkReady, [
+        'occurred_at' => '2026-03-02 10:00:00',
     ], $user->id);
 
     expect(fn () => $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
@@ -346,7 +348,7 @@ test('invalid transition rolls back all changes', function () {
 
     expect(CrewAssignmentPhase::query()->where('crew_assignment_id', $id)->count())->toBe($beforePhases)
         ->and($assignment->fresh()->status)->toBe($beforeStatus)
-        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 });
 
 test('simulated failure after phase completion rolls back phase and assignment updates', function () {
@@ -440,5 +442,5 @@ test('phase sequence remains consistent across movements', function () {
 
     $sequences = $assignment->phases()->ordered()->pluck('sequence')->all();
 
-    expect($sequences)->toBe([1, 2, 3, 4, 5]);
+    expect($sequences)->toBe([1, 2, 3, 4]);
 });
