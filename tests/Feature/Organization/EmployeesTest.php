@@ -992,7 +992,10 @@ test('employee profile includes image and can be updated with a photo', function
     Storage::disk('public')->assertMissing($path);
 });
 
-test('employee photo upload accepts post with method spoofing like inertia formdata saves', function () {
+test('employee photo upload accepts post with method spoofing like inertia formdata saves', function (): void {
+    // Regression guard: real HTTP PUT + multipart does not populate $_FILES in production.
+    // The employee profile frontend must POST with `_method=put` when uploading a photo.
+    // See resources/js/pages/organization/_lib/employee-profile-update-payload.test.ts
     $user = User::factory()->create();
     $this->actingAs($user);
     Storage::fake('public');

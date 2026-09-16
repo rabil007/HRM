@@ -89,6 +89,29 @@ OMS-HRM rarely uses dedicated form routes for org CRUD; forms live in **right-si
 
 ---
 
+## Multipart update with files
+
+**Files:**
+
+- `resources/js/features/organization/users/lib/submit-user-form.ts`
+- `resources/js/pages/organization/_lib/employee-profile-update-payload.ts`
+- `resources/js/pages/organization/_hooks/use-employee-profile-form.tsx`
+
+**Why it is a good example**
+
+Production PHP/nginx do not populate uploaded files for real HTTP `PUT` multipart requests. Updates that include a `File` must **POST with `_method: 'put'`** and `forceFormData: true`. Using `form.put(..., { forceFormData: true })` can save other fields while silently dropping the upload.
+
+**Important patterns to follow**
+
+- Centralize visit + payload rules in a small `_lib` helper with a Node test (see `employee-profile-update-payload.test.ts`, `user-form-payload.test.ts`).
+- Backend regression test: `EmployeesTest.php` photo upload spoof test.
+
+**What future code should imitate**
+
+- Any Inertia update that may include files → copy this POST spoof pattern; do not switch back to `form.put` with FormData.
+
+---
+
 ## Table component
 
 **File:** `resources/js/features/organization/documents/document-compliance-table-row.tsx`

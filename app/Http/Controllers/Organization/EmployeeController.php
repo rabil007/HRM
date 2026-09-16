@@ -246,31 +246,6 @@ class EmployeeController extends Controller
         );
         $data['company_id'] = $companyId;
 
-        // #region agent log
-        file_put_contents(
-            base_path('.cursor/debug-cbb891.log'),
-            json_encode([
-                'sessionId' => 'cbb891',
-                'runId' => 'pre-fix',
-                'hypothesisId' => 'A',
-                'location' => 'EmployeeController.php:update',
-                'message' => 'employee image upload request received',
-                'data' => [
-                    'method' => $request->method(),
-                    'content_type' => $request->header('Content-Type'),
-                    'has_file_image' => $request->hasFile('image'),
-                    'has_input_image' => $request->has('image'),
-                    'remove_image' => $removeImage,
-                    'content_length' => $request->header('Content-Length'),
-                    'employee_id' => $employee->id,
-                    'existing_image' => $employee->image !== null,
-                ],
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ]).PHP_EOL,
-            FILE_APPEND,
-        );
-        // #endregion
-
         if ($request->hasFile('image')) {
             if ($employee->image) {
                 Storage::disk('public')->delete($employee->image);
@@ -288,29 +263,6 @@ class EmployeeController extends Controller
 
             $data['image'] = null;
         }
-
-        // #region agent log
-        file_put_contents(
-            base_path('.cursor/debug-cbb891.log'),
-            json_encode([
-                'sessionId' => 'cbb891',
-                'runId' => 'pre-fix',
-                'hypothesisId' => 'A',
-                'location' => 'EmployeeController.php:update:image-branch',
-                'message' => 'employee image upload branch resolved',
-                'data' => [
-                    'image_action' => array_key_exists('image', $data)
-                        ? ($data['image'] === null ? 'removed' : 'stored')
-                        : 'unchanged',
-                    'stored_image_path' => is_string($data['image'] ?? null)
-                        ? $data['image']
-                        : null,
-                ],
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ]).PHP_EOL,
-            FILE_APPEND,
-        );
-        // #endregion
 
         if (($data['religion_id'] ?? null) === '') {
             $data['religion_id'] = null;

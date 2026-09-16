@@ -54,6 +54,23 @@ Settings master-data sheets: `components/settings/master-data-form-sheet.tsx`
 - Edit/replace: `edit-document-dialog.tsx`, `replace-document-dialog.tsx`
 - Pass `partialReloadKeys={['documents']}` or `['document']` for targeted Inertia reload
 
+## Multipart file uploads on update (required)
+
+**Never use `form.put()` / `router.put()` with `forceFormData: true`.** PHP/nginx on production do not populate uploaded files for real HTTP `PUT` multipart requests, so saves can succeed while the file is silently dropped.
+
+For update routes that include a `File`, always:
+
+1. `form.post(updateUrl, { forceFormData: true, ... })`
+2. Include `_method: 'put'` in the transformed payload
+
+Golden references:
+
+- User avatar updates: `features/organization/users/lib/submit-user-form.ts` + `user-form-payload.test.ts`
+- Employee profile photo: `pages/organization/_lib/employee-profile-update-payload.ts` + `.test.ts` + `use-employee-profile-form.tsx`
+- Backend regression: `tests/Feature/Organization/EmployeesTest.php` (`employee photo upload accepts post with method spoofing`)
+
+Do not refactor these back to `form.put(..., { forceFormData: true })` without updating the tests above.
+
 ## Avoid
 
 - Client-side schema validation libraries.

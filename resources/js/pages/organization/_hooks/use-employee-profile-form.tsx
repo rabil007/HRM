@@ -6,8 +6,12 @@ import { toast } from '@/lib/toast';
 import {
     buildEmployeeProfileFormInitial,
     isEmployeeProfileFormDirty,
-    transformEmployeeProfileFormData,
 } from '@/pages/organization/_lib/employee-profile-form-state';
+import {
+    buildEmployeeProfileUpdatePayload,
+    employeeProfileUpdateRequiresPostSpoof,
+    resolveEmployeeProfileSaveVisit,
+} from '@/pages/organization/_lib/employee-profile-update-payload';
 import type {
     EmployeeDetails,
     TemplateFieldConfig,
@@ -247,64 +251,17 @@ export function useEmployeeProfileForm(
                 return;
             }
 
-            const hasPendingImage = form.data.image instanceof File;
+            const hasPendingImage = employeeProfileUpdateRequiresPostSpoof(
+                form.data.image,
+            );
+            const saveVisit = resolveEmployeeProfileSaveVisit(form.data.image);
 
-            // #region agent log
-            fetch(
-                'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Debug-Session-Id': 'cbb891',
-                    },
-                    body: JSON.stringify({
-                        sessionId: 'cbb891',
-                        runId: 'pre-fix',
-                        hypothesisId: 'A',
-                        location: 'use-employee-profile-form.tsx:saveChanges',
-                        message: 'employee profile save with image staged',
-                        data: {
-                            hasPendingImage,
-                            removeImage: Boolean(form.data.remove_image),
-                            imageType:
-                                form.data.image instanceof File
-                                    ? form.data.image.type
-                                    : typeof form.data.image,
-                            imageSize:
-                                form.data.image instanceof File
-                                    ? form.data.image.size
-                                    : null,
-                            submitMethod: hasPendingImage ? 'post' : 'put',
-                            forceFormData: hasPendingImage,
-                            employeeId: targetEmployeeId,
-                        },
-                        timestamp: Date.now(),
-                    }),
-                },
-            ).catch(() => {});
-            // #endregion
-
-            form.transform((data) => {
-                const payload = transformEmployeeProfileFormData(
+            form.transform((data) =>
+                buildEmployeeProfileUpdatePayload(
                     data,
                     options?.templateRequiredFields,
-                );
-
-                if (data.image instanceof File) {
-                    payload.image = data.image;
-                }
-
-                if (data.remove_image) {
-                    payload.remove_image = true;
-                }
-
-                if (hasPendingImage) {
-                    payload._method = 'put';
-                }
-
-                return payload;
-            });
+                ),
+            );
 
             const updateUrl = updateEmployee.url(
                 { employee: targetEmployeeId },
@@ -336,10 +293,10 @@ export function useEmployeeProfileForm(
                 },
             };
 
-            if (hasPendingImage) {
+            if (saveVisit.httpMethod === 'post') {
                 form.post(updateUrl, {
                     ...visitOptions,
-                    forceFormData: true,
+                    forceFormData: saveVisit.forceFormData,
                 });
 
                 return;
