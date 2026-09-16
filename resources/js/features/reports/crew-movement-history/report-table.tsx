@@ -483,6 +483,13 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                             value={formatDisplayDate(row.planned_travel_in)}
                             hint={row.planned_travel_in_origin_label}
                         />
+                        {row.planned_arrival ? (
+                            <DetailField
+                                label="Planned arrival"
+                                value={formatDisplayDate(row.planned_arrival)}
+                                hint={row.planned_arrival_origin_label}
+                            />
+                        ) : null}
                         <DetailField
                             label="Planned join"
                             value={formatDisplayDate(row.planned_join)}
@@ -514,6 +521,13 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         Actual movement & completion
                     </h3>
                     <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                        {row.actual_arrival ? (
+                            <DetailField
+                                label="Actual arrival"
+                                value={formatDisplayDate(row.actual_arrival)}
+                                hint={row.actual_arrival_origin_label}
+                            />
+                        ) : null}
                         <DetailField
                             label="Actual vessel join"
                             value={formatDisplayDate(row.on_vessel.actual_join)}
@@ -851,6 +865,15 @@ export function CrewMovementHistoryReportTable({
                                     </p>
                                 </Cell>
                                 <Cell className={columns.planned}>
+                                    {row.planned_arrival ? (
+                                        <DatePair
+                                            label="Arrival"
+                                            value={row.planned_arrival}
+                                            hint={
+                                                row.planned_arrival_origin_label
+                                            }
+                                        />
+                                    ) : null}
                                     <DatePair
                                         label="Join"
                                         value={row.planned_join}
@@ -870,6 +893,15 @@ export function CrewMovementHistoryReportTable({
                                     />
                                 </Cell>
                                 <Cell className={columns.actual}>
+                                    {row.actual_arrival ? (
+                                        <DatePair
+                                            label="Arrived"
+                                            value={row.actual_arrival}
+                                            hint={
+                                                row.actual_arrival_origin_label
+                                            }
+                                        />
+                                    ) : null}
                                     <DatePair
                                         label="Joined"
                                         value={row.on_vessel.actual_join}

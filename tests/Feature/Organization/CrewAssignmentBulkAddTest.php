@@ -220,7 +220,7 @@ test('bulk add starts one employee as a normal active assignment', function () {
         ->and($assignment->planned_join_at?->toDateString())->toBe('2026-09-20')
         ->and($assignment->remarks)->toBe('Bulk mobilisation')
         ->and($assignment->phases)->toHaveCount(1)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue()
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i:s'))->toBe('2026-09-15 15:45:12')
@@ -266,7 +266,7 @@ test('bulk add starts multiple employees in one batch with a shared server times
             ->and($assignment->planned_join_at?->toDateString())->toBe('2026-09-20')
             ->and($assignment->remarks)->toBe('Bulk mobilisation')
             ->and($assignment->phases)->toHaveCount(1)
-            ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
+            ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
             ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
     }
 
@@ -295,7 +295,7 @@ test('omitted bulk current stage defaults every row to travel in', function () {
         ->all();
 
     expect($codes)->toHaveCount(2)
-        ->and($codes)->each->toBe(CrewPhaseCode::TravelIn);
+        ->and($codes)->each->toBe(CrewPhaseCode::PreMobilisation);
 });
 
 test('explicit bulk p0 starts every row at active pre-mobilisation', function () {
@@ -432,7 +432,7 @@ test('mismatched client and vessel relationship is rejected', function () {
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('direct payable start stages are rejected from bulk add', function (string $stage) {
+test('browser supplied current stage in bulk add is ignored and rows start in p0', function (string $stage) {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingBulkAddCrewUser();
 
     $this->actingAs($user)
@@ -443,10 +443,10 @@ test('direct payable start stages are rejected from bulk add', function (string 
                 ['employee_id' => $employee->id, 'rank_id' => $rank->id],
             ],
         ]))
-        ->assertRedirect(unifiedBulkCreateUrl())
-        ->assertSessionHasErrors('current_stage');
+        ->assertRedirect(route('organization.crew-assignments.index'));
 
-    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+    expect($assignment?->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 })->with([
     'p2a' => ['p2a'],
     'p3' => ['p3'],

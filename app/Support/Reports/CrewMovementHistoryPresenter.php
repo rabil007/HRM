@@ -56,6 +56,8 @@ final class CrewMovementHistoryPresenter
             : collect();
 
         $plannedJoin = CrewDateProvenance::plannedJoin($assignment, $timezone);
+        $plannedArrival = CrewDateProvenance::plannedArrival($assignment, $timezone);
+        $actualArrival = CrewDateProvenance::actualArrival($assignment, $timezone);
         $plannedSignoff = CrewDateProvenance::plannedSignoff($assignment, $timezone);
         $plannedTravelHome = CrewDateProvenance::plannedTravel($assignment, $timezone);
         $plannedTravelInPhase = $phases
@@ -97,6 +99,12 @@ final class CrewMovementHistoryPresenter
             'planned_travel_in' => $plannedTravelIn['start'],
             'planned_travel_in_origin' => $plannedTravelIn['origin'],
             'planned_travel_in_origin_label' => $plannedTravelIn['origin_label'],
+            'planned_arrival' => $plannedArrival['value'],
+            'planned_arrival_origin' => $plannedArrival['origin'],
+            'planned_arrival_origin_label' => $plannedArrival['origin_label'],
+            'actual_arrival' => $actualArrival['value'],
+            'actual_arrival_origin' => $actualArrival['origin'],
+            'actual_arrival_origin_label' => $actualArrival['origin_label'],
             'planned_join' => $plannedJoin['value'],
             'planned_join_origin' => $plannedJoin['origin'],
             'planned_join_origin_label' => $plannedJoin['origin_label'],

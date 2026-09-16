@@ -16,7 +16,7 @@ final class CrewMovementTransitionMap
     {
         return [
             CrewPhaseCode::PreMobilisation->value => [
-                CrewPhaseCode::TravelIn,
+                CrewPhaseCode::JoinStandby,
             ],
             CrewPhaseCode::TravelIn->value => [
                 CrewPhaseCode::JoinStandby,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
@@ -38,6 +39,17 @@ class PerformCrewMovementActionRequest extends FormRequest
 
                 if ($resolved !== null) {
                     $this->merge(['client_id' => $resolved]);
+                }
+            }
+        }
+
+        if ($action === 'record_arrival') {
+            /** @var CrewAssignment|null $assignment */
+            $assignment = $this->route('assignment');
+            if ($assignment instanceof CrewAssignment) {
+                $assignment->loadMissing('currentPhase');
+                if ($assignment->currentPhase?->phase_code === CrewPhaseCode::PreMobilisation && ! $this->filled('next_phase')) {
+                    $this->merge(['next_phase' => CrewPhaseCode::JoinStandby->value]);
                 }
             }
         }
@@ -94,11 +106,21 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'cancel_assignment',
             ], true)), 'nullable', 'date'],
             'next_phase' => array_values(array_filter([
-                Rule::requiredIf(fn () => in_array($action, [
-                    'record_arrival',
-                    'complete_training',
-                    'confirm_disembarkation',
-                ], true)),
+                Rule::requiredIf(function () use ($action) {
+                    if ($action === 'record_arrival') {
+                        /** @var CrewAssignment|null $assignment */
+                        $assignment = $this->route('assignment');
+                        if ($assignment instanceof CrewAssignment) {
+                            $assignment->loadMissing('currentPhase');
+
+                            return $assignment->currentPhase?->phase_code === CrewPhaseCode::TravelIn;
+                        }
+
+                        return false;
+                    }
+
+                    return in_array($action, ['complete_training', 'confirm_disembarkation'], true);
+                }),
                 'nullable',
                 'string',
                 in_array($action, [
@@ -169,12 +191,12 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'string',
                 Rule::in([
                     CrewPhaseCode::PreMobilisation->value,
-                    CrewPhaseCode::TravelIn->value,
                     CrewPhaseCode::JoinStandby->value,
                     CrewPhaseCode::ReadyToJoin->value,
                     CrewPhaseCode::OnVessel->value,
                 ]),
             ];
+            $baseRules['planned_arrival_at'] = ['nullable', 'date'];
             $baseRules['vessel_id'] = [
                 Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value),
                 'nullable',
@@ -267,6 +289,47 @@ class PerformCrewMovementActionRequest extends FormRequest
                     'occurred_at',
                     'This date cannot be before the current phase started.',
                 );
+            }
+
+            if ($action === 'approve_mobilisation') {
+                $isDraft = $assignment->status === CrewAssignmentStatus::Draft;
+                $isPreMob = $assignment->currentPhase === null || $assignment->currentPhase->phase_code === CrewPhaseCode::PreMobilisation;
+
+                if (! $isDraft || ! $isPreMob) {
+                    $validator->errors()->add(
+                        'action',
+                        'Start Assignment is only valid for draft assignments in Pre-Mobilisation.',
+                    );
+                }
+            }
+
+            if ($action === 'record_arrival') {
+                $currentCode = $assignment->currentPhase?->phase_code;
+
+                if (! in_array($currentCode, [CrewPhaseCode::PreMobilisation, CrewPhaseCode::TravelIn], true)) {
+                    $validator->errors()->add(
+                        'action',
+                        'Record Arrival can only be performed from Pre-Mobilisation or Travel In.',
+                    );
+                }
+
+                if ($currentCode === CrewPhaseCode::PreMobilisation && $this->input('next_phase') !== CrewPhaseCode::JoinStandby->value) {
+                    $validator->errors()->add(
+                        'next_phase',
+                        'Pre-Mobilisation arrivals must transition to Join Standby.',
+                    );
+                }
+            }
+
+            if ($action === 'redeploy' && $this->filled('planned_arrival_at') && $this->filled('planned_join_at')) {
+                $arrival = Carbon::parse((string) $this->input('planned_arrival_at'), $timezone)->startOfDay();
+                $join = Carbon::parse((string) $this->input('planned_join_at'), $timezone)->startOfDay();
+                if ($arrival->gt($join)) {
+                    $validator->errors()->add(
+                        'planned_arrival_at',
+                        'Planned Arrival Date cannot be after Planned Vessel Join Date.',
+                    );
+                }
             }
 
             if ($action === 'complete_training') {

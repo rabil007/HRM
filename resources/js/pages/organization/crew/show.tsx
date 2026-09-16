@@ -803,6 +803,12 @@ export default function CrewAssignmentShow({
                             </CardHeader>
                             <CardContent className="pt-0">
                                 <CrewMetadataField
+                                    label="Planned Arrival Date"
+                                    value={formatDisplayDate(
+                                        assignment.planned_arrival_at,
+                                    )}
+                                />
+                                <CrewMetadataField
                                     label="Expected Vessel Join"
                                     value={formatDisplayDate(
                                         assignment.planned_join_at,
@@ -818,6 +824,12 @@ export default function CrewAssignmentShow({
                                     label="Planned Travel"
                                     value={formatDisplayDate(
                                         assignment.planned_travel_at,
+                                    )}
+                                />
+                                <CrewMetadataField
+                                    label="Actual Arrival"
+                                    value={formatDisplayDate(
+                                        assignment.actual_arrival_at,
                                     )}
                                 />
                                 <CrewMetadataField

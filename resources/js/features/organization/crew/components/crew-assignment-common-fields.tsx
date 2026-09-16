@@ -10,19 +10,12 @@ import {
     filterVesselsForClient,
     selectedVesselIsLegacyUnassigned,
 } from '@/features/organization/crew/lib/crew-assignment-client-vessel';
-import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
-import type {
-    CrewAssignmentCreateFormOptions,
-    CrewAssignmentStartStage,
-} from '@/features/organization/crew/types';
-import { CREW_DIRECT_START_STAGES } from '@/features/organization/crew/types';
-import { cn } from '@/lib/utils';
+import type { CrewAssignmentCreateFormOptions } from '@/features/organization/crew/types';
 
 export type CrewAssignmentCommonFieldsData = {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
-    current_stage: CrewAssignmentStartStage;
     remarks: string;
 };
 
@@ -38,22 +31,13 @@ type CommonFieldsForm = {
     errors: Record<string, string | undefined>;
 };
 
-const STAGE_KIND: Record<CrewAssignmentStartStage, string> = {
-    p1: 'Default.',
-    p0: 'Optional.',
-};
-
 export function CrewAssignmentCommonFields({
     form,
     formOptions,
-    showStartFields = true,
-    stagePresentation = 'select',
     showMasterFields = true,
 }: {
     form: CommonFieldsForm;
     formOptions: CrewAssignmentCreateFormOptions;
-    showStartFields?: boolean;
-    stagePresentation?: 'select' | 'cards';
     showMasterFields?: boolean;
 }): ReactElement {
     const vesselsForClient = filterVesselsForClient(
@@ -205,91 +189,6 @@ export function CrewAssignmentCommonFields({
                             <InputError message={form.errors.planned_join_at} />
                         </div>
                     </>
-                ) : null}
-
-                {showStartFields ? (
-                    stagePresentation === 'cards' ? (
-                        <fieldset className="space-y-3 md:col-span-2">
-                            <legend className="text-sm font-medium">
-                                Initial Assignment Stage
-                            </legend>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {CREW_DIRECT_START_STAGES.map((stage) => {
-                                    const selected =
-                                        form.data.current_stage === stage.value;
-
-                                    return (
-                                        <button
-                                            key={stage.value}
-                                            type="button"
-                                            aria-pressed={selected}
-                                            onClick={() =>
-                                                form.setData(
-                                                    'current_stage',
-                                                    stage.value,
-                                                )
-                                            }
-                                            className={cn(
-                                                'rounded-xl border p-4 text-left transition-colors',
-                                                selected
-                                                    ? 'border-primary/50 bg-primary/10'
-                                                    : 'border-border/60 bg-muted/10 hover:border-border',
-                                            )}
-                                        >
-                                            <p className="text-sm font-semibold">
-                                                {stage.label}
-                                            </p>
-                                            <p className="mt-1 text-xs font-medium text-muted-foreground">
-                                                {STAGE_KIND[stage.value]}
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {crewPhaseDescription(
-                                                    stage.value,
-                                                )}
-                                            </p>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <InputError message={form.errors.current_stage} />
-                        </fieldset>
-                    ) : (
-                        <div className="space-y-2">
-                            <Label htmlFor="current_stage">
-                                Current Assignment Stage *
-                            </Label>
-                            <AppSelect
-                                value={form.data.current_stage ?? 'p1'}
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'current_stage',
-                                        (value ||
-                                            'p1') as CrewAssignmentStartStage,
-                                    )
-                                }
-                                variant="dark"
-                                placeholder="Select stage..."
-                            >
-                                {CREW_DIRECT_START_STAGES.map((stage) => (
-                                    <AppSelectItem
-                                        key={stage.value}
-                                        value={stage.value}
-                                    >
-                                        {stage.label}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                            <p
-                                id="current-stage-description"
-                                className="text-xs text-muted-foreground"
-                            >
-                                {crewPhaseDescription(
-                                    form.data.current_stage ?? 'p1',
-                                )}
-                            </p>
-                            <InputError message={form.errors.current_stage} />
-                        </div>
-                    )
                 ) : null}
             </div>
 

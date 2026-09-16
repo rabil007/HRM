@@ -2,9 +2,10 @@
 
 namespace App\Http\Requests\Organization;
 
-use App\Enums\CrewPhaseCode;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -30,10 +31,6 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
         $vesselId = $this->input('vessel_id');
         $clientId = $this->input('client_id');
         $merge = [];
-
-        if ($this->input('current_stage') === null || $this->input('current_stage') === '') {
-            $merge['current_stage'] = CrewPhaseCode::TravelIn->value;
-        }
 
         if (($clientId === null || $clientId === '')
             && $vesselId !== null
@@ -62,14 +59,6 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
             'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'planned_join_at' => ['nullable', 'date'],
-            'current_stage' => [
-                'required',
-                'string',
-                Rule::in(array_map(
-                    fn (CrewPhaseCode $phase): string => $phase->value,
-                    CrewPhaseCode::directStartPhases(),
-                )),
-            ],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'crew' => ['required', 'array', 'min:1'],
             'crew.*.employee_id' => [
@@ -79,6 +68,7 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
                 ActiveCompanyEmployeeRule::exists($companyId),
             ],
             'crew.*.rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
+            'crew.*.planned_arrival_at' => ['nullable', 'date'],
         ];
     }
 
@@ -88,7 +78,6 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'current_stage.in' => 'Assignments cannot start directly in this stage. Start at Travel In or Pre-Mobilisation so payable join-standby history is recorded.',
             'crew.required' => 'Add at least one crew member.',
             'crew.min' => 'Add at least one crew member.',
             'crew.*.employee_id.required' => 'Select an employee for this row.',
@@ -105,6 +94,7 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
         return [
             'crew.*.employee_id' => 'employee',
             'crew.*.rank_id' => 'rank',
+            'crew.*.planned_arrival_at' => 'arrival date',
         ];
     }
 
@@ -125,6 +115,24 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
                 $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
             );
+
+            $plannedJoin = $this->input('planned_join_at');
+            $crew = (array) $this->input('crew', []);
+
+            if ($plannedJoin !== null && $plannedJoin !== '') {
+                $timezone = CompanyTimezone::forCompanyId($companyId);
+                $joinDate = Carbon::parse($plannedJoin, $timezone)->toDateString();
+
+                foreach ($crew as $index => $row) {
+                    $arrival = $row['planned_arrival_at'] ?? null;
+                    if ($arrival !== null && $arrival !== '') {
+                        $arrivalDate = Carbon::parse($arrival, $timezone)->toDateString();
+                        if ($arrivalDate > $joinDate) {
+                            $validator->errors()->add("crew.{$index}.planned_arrival_at", 'Arrival Date cannot be after Expected Vessel Join.');
+                        }
+                    }
+                }
+            }
         });
     }
 }

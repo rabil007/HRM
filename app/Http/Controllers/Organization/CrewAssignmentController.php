@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Enums\CrewAssignmentSubmissionIntent;
+use App\Enums\CrewPhaseCode;
 use App\Enums\RecentItemType;
 use App\Enums\SavedViewPage;
 use App\Exceptions\CrewMovementException;
@@ -194,7 +195,8 @@ class CrewAssignmentController extends Controller
                         'client_id' => $validated['client_id'] ?? null,
                         'vessel_id' => $validated['vessel_id'] ?? null,
                         'planned_join_at' => $validated['planned_join_at'] ?? null,
-                        'current_stage' => $validated['current_stage'] ?? null,
+                        'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
+                        'current_stage' => CrewPhaseCode::PreMobilisation->value,
                         'remarks' => $validated['remarks'] ?? null,
                     ],
                     $request->user()?->id,
@@ -208,6 +210,7 @@ class CrewAssignmentController extends Controller
                             'client_id' => $validated['client_id'] ?? null,
                             'vessel_id' => $validated['vessel_id'] ?? null,
                             'planned_join_at' => $validated['planned_join_at'] ?? null,
+                            'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
                             'remarks' => $validated['remarks'] ?? null,
                         ],
                         $request->user()?->id,
@@ -362,6 +365,7 @@ class CrewAssignmentController extends Controller
             'client_id',
             'vessel_id',
             'planned_join_at',
+            'planned_arrival_at',
             'remarks',
         ]);
         $updateData['updated_by'] = $request->user()?->id;

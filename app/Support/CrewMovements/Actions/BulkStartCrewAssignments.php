@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewMovements\Actions;
 
+use App\Enums\CrewPhaseCode;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
@@ -26,9 +27,8 @@ final class BulkStartCrewAssignments
      *     client_id?: int|null,
      *     vessel_id?: int|null,
      *     planned_join_at?: string|null,
-     *     current_stage?: string|null,
      *     remarks?: string|null,
-     *     crew: list<array{employee_id: int, rank_id?: int|null}>
+     *     crew: list<array{employee_id: int, rank_id?: int|null, planned_arrival_at?: string|null}>
      * }  $payload
      * @return list<CrewAssignment>
      */
@@ -56,8 +56,9 @@ final class BulkStartCrewAssignments
                             'rank_id' => $row['rank_id'],
                             'client_id' => $payload['client_id'] ?? null,
                             'vessel_id' => $payload['vessel_id'] ?? null,
+                            'planned_arrival_at' => $row['planned_arrival_at'] ?? null,
                             'planned_join_at' => $payload['planned_join_at'] ?? null,
-                            'current_stage' => $payload['current_stage'] ?? null,
+                            'current_stage' => CrewPhaseCode::PreMobilisation->value,
                             'remarks' => $payload['remarks'] ?? null,
                             'stage_started_at' => $startedAt->format('Y-m-d H:i:s'),
                         ],
@@ -78,8 +79,8 @@ final class BulkStartCrewAssignments
     }
 
     /**
-     * @param  list<array{employee_id: int, rank_id?: int|null}>  $crew
-     * @return list<array{index: int, employee_id: int, rank_id: int|null}>
+     * @param  list<array{employee_id: int, rank_id?: int|null, planned_arrival_at?: string|null}>  $crew
+     * @return list<array{index: int, employee_id: int, rank_id: int|null, planned_arrival_at: string|null}>
      */
     private function rowsInLockOrder(array $crew): array
     {
@@ -91,6 +92,9 @@ final class BulkStartCrewAssignments
                 'employee_id' => (int) $row['employee_id'],
                 'rank_id' => isset($row['rank_id']) && $row['rank_id'] !== null
                     ? (int) $row['rank_id']
+                    : null,
+                'planned_arrival_at' => isset($row['planned_arrival_at']) && $row['planned_arrival_at'] !== ''
+                    ? (string) $row['planned_arrival_at']
                     : null,
             ];
         }

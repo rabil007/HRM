@@ -3,12 +3,15 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Models\Company;
 use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
+use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewMovementService;
 
 /**
@@ -61,12 +64,13 @@ test('approve mobilisation advances draft to travel in', function () {
             'action' => CrewMovementAction::ApproveMobilisation->value,
             'occurred_at' => '2026-01-01 08:00:00',
         ])
-        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment))
+        ->assertSessionHas('success', 'Start Assignment completed successfully.');
 
     $assignment->refresh()->load('currentPhase');
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 });
 
 test('transfer vessel redirects to the new destination assignment', function () {
@@ -268,4 +272,102 @@ test('plan signoff requires override reason', function () {
             'planned_signoff_at' => '2026-06-15',
         ])
         ->assertSessionHasErrors('planned_signoff_override_reason');
+});
+
+test('active p0 rejects crafted approve mobilisation at http boundary without creating p1', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'stage_started_at' => '2026-01-01 08:00:00',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::ApproveMobilisation->value,
+            'occurred_at' => '2026-01-02 08:00:00',
+        ])
+        ->assertSessionHasErrors('action');
+
+    $assignment->refresh()->load('phases');
+    expect($assignment->phases)->toHaveCount(1)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::TravelIn)->count())->toBe(0);
+});
+
+test('redeploy with starting phase p1 is rejected at http boundary', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $vessel = makeCrewMovementVessel('Completed Tour Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    app(CrewMovementService::class)->perform($company->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-02-01 08:00:00',
+        'next_phase' => 'p5',
+    ], $user->id);
+
+    $newVessel = makeCrewMovementVessel('Redeploy Target Vessel');
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::Redeploy->value,
+            'vessel_id' => $newVessel->id,
+            'rank_id' => $rank->id,
+            'starting_phase' => 'p1',
+            'occurred_at' => '2026-02-02 08:00:00',
+        ])
+        ->assertSessionHasErrors('starting_phase');
+});
+
+test('record arrival on active p0 transitions to join standby and sets actual arrival date', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'planned_arrival_at' => '2026-01-04 10:00:00',
+        'planned_join_at' => '2026-01-05',
+        'stage_started_at' => '2026-01-01 08:00:00',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-01-04 11:30:00',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment))
+        ->assertSessionHas('success', 'Record Arrival completed successfully.');
+
+    $assignment->refresh()->load(['phases', 'currentPhase']);
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
+        ->and($assignment->phases)->toHaveCount(2);
+
+    expect(CrewArrivalResolver::timestamp($assignment)?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-01-04 11:30')
+        ->and(CrewArrivalResolver::date($assignment, $company->timezone))->toBe('2026-01-04');
+});
+
+test('record arrival on legacy p1 allows transition to join standby or ready to join', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+
+    // Create a legacy assignment directly starting in P1 via service internal capability
+    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'current_stage' => 'p1',
+        'stage_started_at' => '2026-01-01 08:00:00',
+    ], $user->id);
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-01-03 14:00:00',
+            'next_phase' => 'p3',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $assignment->refresh()->load('currentPhase');
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::ReadyToJoin);
 });

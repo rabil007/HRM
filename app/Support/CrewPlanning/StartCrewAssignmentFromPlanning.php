@@ -19,7 +19,7 @@ final class StartCrewAssignmentFromPlanning
     ) {}
 
     /**
-     * @param  array{current_stage?: string|null, remarks?: string|null}  $operatorChoices
+     * @param  array{planned_arrival_at?: string|null, remarks?: string|null}  $operatorChoices
      * @return array{assignment: CrewAssignment, created_new: bool}
      */
     public function handle(
@@ -57,8 +57,9 @@ final class StartCrewAssignmentFromPlanning
                     'rank_id' => $masters['rank_id'],
                     'client_id' => $masters['client_id'],
                     'vessel_id' => $masters['vessel_id'],
+                    'planned_arrival_at' => $operatorChoices['planned_arrival_at'] ?? null,
                     'planned_join_at' => $masters['planned_join_at'],
-                    'current_stage' => $operatorChoices['current_stage'] ?? CrewPhaseCode::TravelIn->value,
+                    'current_stage' => CrewPhaseCode::PreMobilisation->value,
                     'remarks' => $operatorChoices['remarks'] ?? null,
                     'source' => 'crew_planning',
                 ],
@@ -97,7 +98,7 @@ final class StartCrewAssignmentFromPlanning
 
         if ($linked->status === CrewAssignmentStatus::Draft) {
             throw CrewMovementException::make(
-                'This planning record is linked to a draft crew assignment. Open the linked assignment and use Start Travel or update the draft before starting again.',
+                'This planning record is linked to a draft crew assignment. Open the linked assignment and use Start Assignment or update the draft before starting again.',
                 'planning_linked_draft',
             );
         }

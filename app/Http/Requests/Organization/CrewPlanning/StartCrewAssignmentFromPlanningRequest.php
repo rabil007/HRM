@@ -2,11 +2,12 @@
 
 namespace App\Http\Requests\Organization\CrewPlanning;
 
-use App\Enums\CrewPhaseCode;
 use App\Models\CrewPlanningAssignment;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StartCrewAssignmentFromPlanningRequest extends FormRequest
 {
@@ -35,40 +36,43 @@ class StartCrewAssignmentFromPlanningRequest extends FormRequest
         return true;
     }
 
-    protected function prepareForValidation(): void
-    {
-        if ($this->input('current_stage') === null || $this->input('current_stage') === '') {
-            $this->merge([
-                'current_stage' => CrewPhaseCode::TravelIn->value,
-            ]);
-        }
-    }
-
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'current_stage' => [
-                'required',
-                'string',
-                Rule::in(array_map(
-                    fn (CrewPhaseCode $phase): string => $phase->value,
-                    CrewPhaseCode::directStartPhases(),
-                )),
-            ],
+            'planned_arrival_at' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
+    public function withValidator(Validator $validator): void
     {
-        return [
-            'current_stage.in' => 'Assignments cannot start directly in this stage. Start at Travel In or Pre-Mobilisation so payable join-standby history is recorded.',
-        ];
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $plannedArrival = $this->input('planned_arrival_at');
+            if ($plannedArrival === null || $plannedArrival === '') {
+                return;
+            }
+
+            /** @var CrewPlanningAssignment|null $planning */
+            $planning = $this->route('assignment');
+            if ($planning === null || $planning->planned_join_date === null) {
+                return;
+            }
+
+            $companyId = (int) $this->attributes->get('current_company_id');
+            $timezone = CompanyTimezone::forCompanyId($companyId);
+            $arrivalDate = Carbon::parse($plannedArrival, $timezone)->toDateString();
+            $joinDate = $planning->planned_join_date->copy()->timezone($timezone)->toDateString();
+
+            if ($arrivalDate > $joinDate) {
+                $validator->errors()->add('planned_arrival_at', 'Arrival Date cannot be after Expected Vessel Join.');
+            }
+        });
     }
 }

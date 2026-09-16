@@ -32,6 +32,7 @@ export default function CrewAssignmentEdit({
         client_id: assignment.client?.id ?? null,
         vessel_id: assignment.vessel?.id ?? null,
         planned_join_at: assignment.planned_join_at ?? '',
+        planned_arrival_at: assignment.planned_arrival_at ?? '',
         remarks: assignment.remarks ?? '',
     });
 

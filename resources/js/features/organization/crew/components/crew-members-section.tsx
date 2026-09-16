@@ -12,6 +12,7 @@ import {
 } from '@/components/data-table';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TableBody, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -103,6 +104,7 @@ export function CrewMembersSection({
                                 <DataTableHeaderRow>
                                     <DataTableHead>Employee</DataTableHead>
                                     <DataTableHead>Rank</DataTableHead>
+                                    <DataTableHead>Arrival Date</DataTableHead>
                                     <DataTableHead>
                                         Operational Status
                                     </DataTableHead>
@@ -237,6 +239,7 @@ function SingleCrewMemberCard({
                               : row.rank_id;
 
                         onChangeRow(index, {
+                            ...row,
                             employee_id: nextRow.employee_id,
                             rank_id: nextRankId,
                         });
@@ -288,6 +291,35 @@ function SingleCrewMemberCard({
                         Defaulted from employee profile
                     </p>
                 ) : null}
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="crew-planned-arrival-at">
+                    Arrival Date{' '}
+                    <span className="font-normal text-muted-foreground">
+                        (optional)
+                    </span>
+                </Label>
+                <Input
+                    id="crew-planned-arrival-at"
+                    type="date"
+                    className="h-11"
+                    value={row.planned_arrival_at ?? ''}
+                    onChange={(event) =>
+                        onChangeRow(0, {
+                            ...row,
+                            planned_arrival_at: event.target.value || null,
+                        })
+                    }
+                />
+                <p className="text-xs text-muted-foreground">
+                    Expected date the crew member will arrive at the joining
+                    location. Actual arrival is recorded later through Record
+                    Arrival.
+                </p>
+                <InputError
+                    message={bulkFieldError(errors, 'planned_arrival_at')}
+                />
             </div>
 
             {status ? (
@@ -357,6 +389,25 @@ function BulkDesktopRow({
                     formOptions={formOptions}
                     onChangeRow={onChangeRow}
                     error={bulkFieldError(errors, `crew.${index}.rank_id`)}
+                />
+            </td>
+            <td className={dataTableCellClass()}>
+                <Input
+                    type="date"
+                    className="h-10 text-xs"
+                    value={row.planned_arrival_at ?? ''}
+                    onChange={(event) =>
+                        onChangeRow(index, {
+                            ...row,
+                            planned_arrival_at: event.target.value || null,
+                        })
+                    }
+                />
+                <InputError
+                    message={bulkFieldError(
+                        errors,
+                        `crew.${index}.planned_arrival_at`,
+                    )}
                 />
             </td>
             <td className={dataTableCellClass()}>
@@ -452,6 +503,30 @@ function BulkMobileCard({
                 />
             </div>
 
+            <div className="space-y-2">
+                <Label htmlFor={`bulk-arrival-${index}`}>
+                    Arrival Date (optional)
+                </Label>
+                <Input
+                    id={`bulk-arrival-${index}`}
+                    type="date"
+                    className="h-11"
+                    value={row.planned_arrival_at ?? ''}
+                    onChange={(event) =>
+                        onChangeRow(index, {
+                            ...row,
+                            planned_arrival_at: event.target.value || null,
+                        })
+                    }
+                />
+                <InputError
+                    message={bulkFieldError(
+                        errors,
+                        `crew.${index}.planned_arrival_at`,
+                    )}
+                />
+            </div>
+
             <OperationalStatusCell
                 status={status}
                 activeOnVessel={activeOnVessel}
@@ -489,6 +564,7 @@ function EmployeeSelect({
                     );
 
                     onChangeRow(index, {
+                        ...row,
                         employee_id: employeeId,
                         rank_id: employee?.rank_id ?? null,
                     });

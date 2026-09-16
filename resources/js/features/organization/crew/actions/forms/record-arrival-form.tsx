@@ -6,8 +6,11 @@ import type { MovementActionFormProps } from './movement-form-shared';
 export function RecordArrivalForm({
     form,
     config,
+    context,
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
+    const isP0 = context.current_phase_code === 'p0';
+
     return (
         <div className="space-y-4">
             {config.occurredAtLabel ? (
@@ -17,7 +20,12 @@ export function RecordArrivalForm({
                     inputRef={firstFieldRef}
                 />
             ) : null}
-            {config.nextPhaseOptions && config.nextPhaseLabel ? (
+            {isP0 ? (
+                <div className="rounded-md border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
+                    This records the crew member's actual arrival and starts
+                    Join Standby.
+                </div>
+            ) : config.nextPhaseOptions && config.nextPhaseLabel ? (
                 <MovementNextPhaseChoice
                     id="movement-next-phase"
                     label={config.nextPhaseLabel}

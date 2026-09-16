@@ -108,8 +108,13 @@ function buildInitialForm(
     formOptions?: CrewAssignmentFormOptions,
     prefill?: VesselTransferPrefill | null,
 ): CrewMovementActionFormData {
-    const config = getMovementActionConfig(action);
-    const nextPhase = config.nextPhaseOptions?.[0]?.value ?? '';
+    const config = getMovementActionConfig(action, context.current_phase_code);
+    const nextPhase =
+        action === 'record_arrival' && context.current_phase_code === 'p0'
+            ? 'p2a'
+            : (config.nextPhaseOptions?.[0]?.value ??
+              config.fixedNextPhase ??
+              '');
 
     const data: CrewMovementActionFormData = {
         action,
@@ -330,7 +335,10 @@ export function MovementActionDialog({
         );
     }
 
-    const config = getMovementActionConfig(action);
+    const config = getMovementActionConfig(
+        action,
+        movementContext.current_phase_code,
+    );
     const isDestructive = Boolean(config.destructive);
     const isLarge =
         action === 'join_vessel' ||

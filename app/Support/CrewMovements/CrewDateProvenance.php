@@ -100,6 +100,46 @@ final class CrewDateProvenance
     }
 
     /**
+     * @return array{value: string|null, origin: string|null, origin_label: string|null}
+     */
+    public static function plannedArrival(CrewAssignment $assignment, string $timezone): array
+    {
+        $raw = $assignment->planned_arrival_at;
+
+        if ($raw === null) {
+            return [
+                'value' => null,
+                'origin' => null,
+                'origin_label' => null,
+            ];
+        }
+
+        $origin = $assignment->source === 'crew_planning'
+            ? self::CrewPlanning
+            : self::UserEntered;
+
+        return [
+            'value' => self::toDateString($raw, $timezone),
+            'origin' => $origin,
+            'origin_label' => self::label($origin),
+        ];
+    }
+
+    /**
+     * @return array{value: string|null, origin: string, origin_label: string}
+     */
+    public static function actualArrival(CrewAssignment $assignment, string $timezone): array
+    {
+        $value = CrewArrivalResolver::date($assignment, $timezone);
+
+        return [
+            'value' => $value,
+            'origin' => self::MovementActual,
+            'origin_label' => (string) self::label(self::MovementActual),
+        ];
+    }
+
+    /**
      * @return array{start: string|null, end: string|null, origin: string|null, origin_label: string|null}
      */
     public static function phasePlanned(?CrewAssignmentPhase $phase, ?CrewAssignment $assignment, string $timezone): array

@@ -26,8 +26,7 @@ final class ResolvePlanningStartHandoff
      *     client_id: int|null,
      *     client_name: string|null,
      *     planned_join_at: string,
-     *     remarks: string|null,
-     *     current_stage: string
+     *     remarks: string|null
      * }
      */
     public function prefill(CrewPlanningAssignment $planning, int $companyId): array
@@ -64,7 +63,6 @@ final class ResolvePlanningStartHandoff
             'client_name' => $this->resolveClientName($clientId),
             'planned_join_at' => $planning->planned_join_date->toDateString(),
             'remarks' => $planning->notes,
-            'current_stage' => 'p1',
         ];
     }
 

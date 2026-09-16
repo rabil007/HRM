@@ -25,15 +25,14 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     Record<CrewMovementAction, MovementActionConfig>
 > = {
     approve_mobilisation: {
-        title: 'Start Travel',
+        title: 'Start Assignment',
         description:
-            'This completes Pre-Mobilisation and moves the employee to P1 Travel In.',
-        occurredAtLabel: 'Travel started at',
-        submitLabel: 'Start Travel',
+            'This activates the draft Pre-Mobilisation assignment so operational movement can begin.',
+        occurredAtLabel: 'Started at',
+        submitLabel: 'Start Assignment',
         impactTitle: 'What this does',
         impactDescription:
-            'This completes Pre-Mobilisation and moves the employee to P1 Travel In. The original Pre-Mobilisation start time is preserved.',
-        fixedNextPhase: 'p1',
+            'This activates the draft Pre-Mobilisation assignment. The employee enters active Pre-Mobilisation.',
     },
     record_arrival: {
         title: 'Record Arrival',
@@ -228,7 +227,22 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
 
 export function getMovementActionConfig(
     action: CrewMovementAction,
+    currentPhase?: string | null,
 ): MovementActionConfig {
+    if (action === 'record_arrival' && currentPhase === 'p0') {
+        return {
+            title: 'Record Arrival',
+            description:
+                "This records the crew member's actual arrival and starts Join Standby.",
+            occurredAtLabel: 'Arrival date and time',
+            submitLabel: 'Record Arrival',
+            impactTitle: 'What this does',
+            impactDescription:
+                "This records the crew member's actual arrival and transitions the assignment from Pre-Mobilisation into Join Standby.",
+            fixedNextPhase: 'p2a',
+        };
+    }
+
     return (
         MOVEMENT_ACTION_CONFIG[action] ?? {
             title: action,

@@ -72,6 +72,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
                         });
                 }),
             ],
+            'planned_arrival_at' => ['nullable', 'date'],
             'planned_join_at' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
@@ -87,6 +88,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
             $assignment = $this->existingAssignment();
             $companyId = (int) $this->attributes->get('current_company_id');
 
+            $this->assertArrivalNotAfterExpectedJoin($validator, $assignment, $companyId);
             $this->assertExpectedJoinNotAfterPlannedSignOff($validator, $assignment, $companyId);
 
             if ($validator->errors()->isNotEmpty()) {
@@ -154,6 +156,35 @@ class UpdateCrewAssignmentRequest extends FormRequest
             $validator->errors()->add(
                 'planned_join_at',
                 'Expected Vessel Join cannot be after the existing Planned Sign-Off. Update the sign-off plan through the appropriate movement or planning workflow first.',
+            );
+        }
+    }
+
+    private function assertArrivalNotAfterExpectedJoin(
+        Validator $validator,
+        ?CrewAssignment $assignment,
+        int $companyId,
+    ): void {
+        $rawArrival = $this->has('planned_arrival_at')
+            ? $this->input('planned_arrival_at')
+            : $assignment?->planned_arrival_at;
+
+        $rawJoin = $this->has('planned_join_at')
+            ? $this->input('planned_join_at')
+            : $assignment?->planned_join_at;
+
+        if ($rawArrival === null || $rawArrival === '' || $rawJoin === null || $rawJoin === '') {
+            return;
+        }
+
+        $timezone = CompanyTimezone::forCompanyId($companyId);
+        $arrivalDate = Carbon::parse($rawArrival, $timezone)->toDateString();
+        $joinDate = Carbon::parse($rawJoin, $timezone)->toDateString();
+
+        if ($arrivalDate > $joinDate) {
+            $validator->errors()->add(
+                'planned_arrival_at',
+                'Arrival Date cannot be after Expected Vessel Join.',
             );
         }
     }

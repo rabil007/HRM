@@ -24,7 +24,6 @@ import { TourSignoffFields } from './tour-signoff-fields';
 
 const REDEPLOY_STARTING_PHASES = [
     { value: 'p0', label: CREW_PHASE_LABELS.p0 },
-    { value: 'p1', label: CREW_PHASE_LABELS.p1 },
     { value: 'p2a', label: CREW_PHASE_LABELS.p2a },
     { value: 'p3', label: CREW_PHASE_LABELS.p3 },
     { value: 'p4', label: CREW_PHASE_LABELS.p4 },
@@ -40,11 +39,9 @@ export function RedeployForm({
     const startingPhase = form.data.starting_phase;
     const requiresVessel = startingPhase === 'p4';
     const redeployDate = form.data.occurred_at.slice(0, 10);
-    const showDestinationFields = ['p1', 'p2a', 'p3', 'p4'].includes(
-        startingPhase,
-    );
+    const showDestinationFields = ['p2a', 'p3', 'p4'].includes(startingPhase);
     const showDirectP4Tour = startingPhase === 'p4';
-    const showForecastSignoff = ['p1', 'p2a', 'p3'].includes(startingPhase);
+    const showForecastSignoff = ['p2a', 'p3'].includes(startingPhase);
     const selectedRank = findRankTourOption(
         formOptions?.ranks,
         form.data.rank_id,
@@ -169,11 +166,7 @@ export function RedeployForm({
                             next.planned_signoff_at = '';
                             Object.assign(next, clearedDirectP4TourFields());
                         } else if (value === 'p4') {
-                            if (
-                                !['p1', 'p2a', 'p3', 'p4'].includes(
-                                    startingPhase,
-                                )
-                            ) {
+                            if (!['p2a', 'p3', 'p4'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
                                 next.rank_id = context.rank_id;
                                 next.client_id = context.client_id;
@@ -233,6 +226,28 @@ export function RedeployForm({
                     label={config.occurredAtLabel}
                     inputRef={firstFieldRef}
                 />
+            ) : null}
+
+            {startingPhase === 'p0' ? (
+                <div className="space-y-2">
+                    <Label htmlFor="redeploy-planned-arrival-at">
+                        Planned Arrival Date (optional)
+                    </Label>
+                    <Input
+                        id="redeploy-planned-arrival-at"
+                        type="date"
+                        value={form.data.planned_arrival_at ?? ''}
+                        onChange={(e) =>
+                            form.setData('planned_arrival_at', e.target.value)
+                        }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                        Expected date the crew member will arrive at the joining
+                        location. Actual arrival is recorded later through
+                        Record Arrival.
+                    </p>
+                    <InputError message={form.errors.planned_arrival_at} />
+                </div>
             ) : null}
 
             {formOptions && showDestinationFields ? (

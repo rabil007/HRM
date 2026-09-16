@@ -120,7 +120,7 @@ test('omitted current stage starts active travel in with matching timestamps', f
         ->and($assignment->tour_of_duty_days)->toBeNull()
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00')
         ->and($assignment->phases)->toHaveCount(1)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->sequence)->toBe(1)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue()
@@ -150,7 +150,7 @@ test('explicit pre-mobilisation start assignment creates active p0', function ()
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00');
 });
 
-test('explicit travel in start without stage_started_at uses identical company-local timestamps', function () {
+test('explicit start without stage_started_at uses identical company-local timestamps and defaults to p0', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
     Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00', $company->timezone));
 
@@ -168,7 +168,7 @@ test('explicit travel in start without stage_started_at uses identical company-l
     expect($assignment)->not->toBeNull()
         ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00')
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
 });
 
@@ -209,7 +209,7 @@ test('omitted assignment start date uses company-local now', function () {
     expect($assignment->started_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
         ->and($assignment->currentPhase?->actual_start_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue()
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 });
 
 test('crafted stage started at cannot backdate a normal web start assignment', function () {
@@ -301,19 +301,24 @@ test('direct start stages create only the selected phase', function (string $sta
     'p0' => ['p0', CrewPhaseCode::PreMobilisation],
 ]);
 
-test('disallowed direct start stages are rejected', function (string $stage) {
-    ['user' => $user, 'employee' => $employee] = actingCrewStarter();
+test('browser supplied current stage is ignored by store endpoint and defaults to p0', function (string $stage) {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    $vessel = makeCrewMovementVessel('Start Test Vessel', $company);
 
     $this->actingAs($user)
         ->from(route('organization.crew-assignments.create'))
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
             'current_stage' => $stage,
             'stage_started_at' => '2026-09-15T08:30',
         ])
-        ->assertRedirect(route('organization.crew-assignments.create'))
-        ->assertSessionHasErrors('current_stage');
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 })->with(['p2a', 'p3', 'p2b', 'p4', 'p5', 'p6']);
 
 test('service rejects payable join-standby stages as a direct start', function (string $stage) {
@@ -411,38 +416,28 @@ test('cross-company employee and vessel are rejected on start', function () {
         ->assertSessionHasErrors('vessel_id');
 });
 
-test('start travel from active p0 completes p0 and opens p1 without rewriting started_at', function () {
+test('active p0 rejects crafted approve mobilisation and creates no p1', function () {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     $service = app(CrewMovementService::class);
 
     $assignment = $service->startAssignment($company->id, $employee->id, [
-        'current_stage' => 'p0',
         'stage_started_at' => '2026-09-15 08:00:00',
     ], $user->id);
 
-    $originalStart = $assignment->started_at?->copy();
-    $p0Id = $assignment->current_phase_id;
-
-    $assignment = $service->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
+    expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
         'occurred_at' => '2026-09-15 14:15:00',
-    ], $user->id);
+    ], $user->id))->toThrow(
+        CrewMovementException::class,
+        'Start Assignment can only be performed on a draft assignment in planned pre-mobilisation.',
+    );
 
-    $p0 = CrewAssignmentPhase::query()->find($p0Id);
-
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->started_at?->equalTo($originalStart))->toBeTrue()
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
-        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
-        ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 14:15')
-        ->and($p0?->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($p0?->actual_start_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 08:00')
-        ->and($p0?->actual_end_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 14:15')
-        ->and($assignment->phases)->toHaveCount(2)
-        ->and($assignment->tour_of_duty_days)->toBeNull()
-        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
+    $assignment->refresh()->load('phases');
+    expect($assignment->phases)->toHaveCount(1)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::TravelIn)->count())->toBe(0);
 });
 
-test('legacy draft p0 start travel remains backward compatible', function () {
+test('draft p0 start assignment activates existing p0 without creating p1', function () {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     $service = app(CrewMovementService::class);
 
@@ -457,36 +452,36 @@ test('legacy draft p0 start travel remains backward compatible', function () {
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 11:00')
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
-        ->and($p0?->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($p0?->actual_start_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 11:00')
-        ->and($p0?->actual_end_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 11:00');
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
+        ->and($assignment->phases)->toHaveCount(1)
+        ->and($p0?->status)->toBe(CrewPhaseStatus::Active)
+        ->and($p0?->actual_start_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 11:00');
 });
 
-test('active p0 exposes start travel as the available mobilisation action', function () {
+test('active p0 exposes record arrival as the available mobilisation action', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     grantCompanyPermissions($user, $company, startAssignmentPermissions());
     $user->update(['current_company_id' => $company->id]);
 
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
         'rank_id' => $rank->id,
-        'current_stage' => 'p0',
         'stage_started_at' => '2026-09-15 08:00:00',
     ], $user->id)->load(['currentPhase', 'employee', 'company']);
 
     expect(CrewMovementAvailableActions::for($assignment))->toBe([
-        CrewMovementAction::ApproveMobilisation->value,
+        CrewMovementAction::RecordArrival->value,
         CrewMovementAction::CancelAssignment->value,
     ])
-        ->and(CrewMovementAction::ApproveMobilisation->label())->toBe('Start Travel');
+        ->and(CrewMovementAction::ApproveMobilisation->label())->toBe('Start Assignment');
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.show', $assignment))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('assignment.available_actions.0', CrewMovementAction::ApproveMobilisation->value)
-            ->where('assignment.recommended_action.action', CrewMovementAction::ApproveMobilisation->value)
-            ->where('assignment.recommended_action.label', 'Start Travel')
+            ->where('assignment.available_actions.0', CrewMovementAction::RecordArrival->value)
+            ->where('assignment.recommended_action.action', CrewMovementAction::RecordArrival->value)
+            ->where('assignment.recommended_action.label', 'Record Arrival')
             ->where('can.start', true));
 });
 
@@ -543,7 +538,7 @@ test('list presenter keeps planned join values for expected vessel join display'
     $item = CrewAssignmentPresenter::listItem($assignment);
 
     expect($item['planned_join_at'])->toBe('2026-09-20')
-        ->and($item['available_actions'])->toContain(CrewMovementAction::ApproveMobilisation->value)
+        ->and($item['available_actions'])->toContain(CrewMovementAction::RecordArrival->value)
         ->and($item['current_phase']['code'])->toBe('p0')
         ->and($item['current_phase']['status'])->toBe('active');
 });

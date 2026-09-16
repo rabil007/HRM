@@ -160,7 +160,7 @@ test('opening start from planning does not create a crew assignment', function (
             ->where('planning_context.rank_id', $rank->id)
             ->where('planning_context.vessel_id', $vessel->id)
             ->where('planning_context.planned_join_at', '2027-04-01')
-            ->where('planning_context.current_stage', 'p1')
+            ->missing('planning_context.current_stage')
             ->where('planning_context.remarks', 'Planning notes')
         );
 
@@ -196,7 +196,6 @@ test('p1 start from planning uses trusted server time not planned join date', fu
             'rank_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2027-09-20',
-            'current_stage' => 'p1',
             'stage_started_at' => '2027-09-20T08:00',
         ])
         ->assertRedirect();
@@ -208,7 +207,7 @@ test('p1 start from planning uses trusted server time not planned join date', fu
         ->and($assignment->planned_join_at?->toDateString())->toBe('2027-09-20')
         ->and($assignment->planned_signoff_at?->toDateString())->toBe('2027-12-31')
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2027-09-18 09:15')
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2027-09-18 09:15')
         ->and($planning->fresh()->crew_assignment_id)->toBe($assignment->id)
         ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
@@ -253,9 +252,9 @@ test('p0 start from planning creates only p0 phase', function () {
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active);
 });
 
-test('direct p4 start from planning is rejected', function () {
+test('planning start ignores browser current stage and starts in p0', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Rejected Stage Vessel');
+    $vessel = makeCrewMovementVessel('Direct P4 Vessel');
     grantCompanyPermissions($user, $company, planningStartPermissions());
     $user->update(['current_company_id' => $company->id]);
 
@@ -281,9 +280,10 @@ test('direct p4 start from planning is rejected', function () {
             'planned_join_at' => '2027-04-01',
             'current_stage' => 'p4',
         ])
-        ->assertSessionHasErrors('current_stage');
+        ->assertRedirect();
 
-    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->firstOrFail();
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 });
 
 test('planning employee already p4 exposes active assignment conflict data without mutation', function () {

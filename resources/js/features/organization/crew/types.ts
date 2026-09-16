@@ -50,8 +50,10 @@ export type CrewMovementContext = {
     client_id: number | null;
     client_name: string | null;
     planned_join_at: string | null;
+    planned_arrival_at?: string | null;
     planned_signoff_at: string | null;
     planned_travel_at: string | null;
+    actual_arrival_at?: string | null;
     actual_join_at: string | null;
     actual_disembarkation_at: string | null;
     training_provider: string | null;
@@ -137,8 +139,10 @@ export interface CrewAssignmentListItem
     } | null;
     days_in_phase: number | null;
     planned_join_at: string | null;
+    planned_arrival_at?: string | null;
     planned_signoff_at: string | null;
     planned_travel_at?: string | null;
+    actual_arrival_at?: string | null;
     actual_join_at?: string | null;
     created_at: string | null;
     company_timezone?: string;
@@ -186,8 +190,10 @@ export interface CrewAssignmentDetail
     days_in_phase: number | null;
     days_in_training?: number | null;
     planned_join_at: string | null;
+    planned_arrival_at?: string | null;
     planned_signoff_at: string | null;
     planned_travel_at: string | null;
+    actual_arrival_at?: string | null;
     actual_join_at: string | null;
     actual_disembarkation_at: string | null;
     started_at: string | null;
@@ -290,6 +296,7 @@ export interface CrewAssignmentFormData {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
+    planned_arrival_at?: string | null;
     remarks: string;
 }
 
@@ -301,7 +308,7 @@ export interface CrewAssignmentCreateFormData {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
-    current_stage: CrewAssignmentStartStage;
+    planned_arrival_at?: string | null;
     submission_intent: 'start' | 'draft';
     remarks: string;
 }
@@ -309,13 +316,14 @@ export interface CrewAssignmentCreateFormData {
 export type BulkAddCrewRow = {
     employee_id: number | null;
     rank_id: number | null;
+    planned_arrival_at?: string | null;
 };
 
 export interface BulkAddCrewFormData {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
-    current_stage: CrewAssignmentStartStage;
+    planned_arrival_at?: string | null;
     remarks: string;
     crew: BulkAddCrewRow[];
 }
@@ -386,8 +394,8 @@ export type CrewPlanningStartContext = {
     client_id: number | null;
     client_name: string | null;
     planned_join_at: string;
+    planned_arrival_at?: string | null;
     remarks: string | null;
-    current_stage: CrewAssignmentStartStage;
 };
 
 export type CrewPlanningBackQuery = Record<string, string | number>;
@@ -560,6 +568,7 @@ export interface CrewMovementActionFormData {
     client_id: number | null;
     planned_signoff_at: string;
     planned_travel_at: string;
+    planned_arrival_at?: string | null;
     reason: string;
     planned_signoff_choice:
         | 'tour_of_duty'

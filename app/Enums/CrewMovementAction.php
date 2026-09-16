@@ -24,7 +24,7 @@ enum CrewMovementAction: string
     public function label(): string
     {
         return match ($this) {
-            self::ApproveMobilisation => 'Start Travel',
+            self::ApproveMobilisation => 'Start Assignment',
             self::RecordArrival => 'Record Arrival',
             self::StartJoinStandby => 'Start Join Standby',
             self::SendToTraining => 'Send to Training',

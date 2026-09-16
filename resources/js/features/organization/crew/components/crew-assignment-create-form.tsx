@@ -7,6 +7,8 @@ import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
@@ -32,13 +34,11 @@ import {
 import type {
     BulkAddCrewFormData,
     BulkAddCrewRow,
-    CrewAssignmentCreateFormData,
     CrewAssignmentCreateFormOptions,
     CrewAssignmentPagePermissions,
     CrewPlanningBackQuery,
     CrewPlanningStartContext,
 } from '@/features/organization/crew/types';
-import { CREW_DIRECT_START_STAGES } from '@/features/organization/crew/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { dashboard } from '@/routes';
 import {
@@ -73,6 +73,7 @@ function createInitialRows(
             key: 'crew-row-planning',
             employee_id: planningContext.employee_id,
             rank_id: planningContext.rank_id,
+            planned_arrival_at: planningContext.planned_arrival_at ?? null,
         };
 
         return {
@@ -136,12 +137,15 @@ export function CrewAssignmentCreateForm({
         client_id: planning_context?.client_id ?? null,
         vessel_id: planning_context?.vessel_id ?? null,
         planned_join_at: planning_context?.planned_join_at ?? '',
-        current_stage: planning_context?.current_stage ?? 'p1',
+        planned_arrival_at: planning_context?.planned_arrival_at ?? '',
         remarks: planning_context?.remarks ?? '',
-        crew: initialRows.rows.map(({ employee_id, rank_id }) => ({
-            employee_id,
-            rank_id,
-        })),
+        crew: initialRows.rows.map(
+            ({ employee_id, rank_id, planned_arrival_at }) => ({
+                employee_id,
+                rank_id,
+                planned_arrival_at: planned_arrival_at ?? null,
+            }),
+        ),
         submission_intent: can.start ? 'start' : 'draft',
     });
 
@@ -211,10 +215,6 @@ export function CrewAssignmentCreateForm({
         : can.view
           ? 'Back to Crew Assignments'
           : 'Back to Dashboard';
-    const stageLabel =
-        CREW_DIRECT_START_STAGES.find(
-            (stage) => stage.value === form.data.current_stage,
-        )?.label ?? 'P1 · Travel In';
     const vesselName = destinationVessel?.name ?? 'Not selected';
 
     const submitSingle = (intent: 'start' | 'draft'): void => {
@@ -238,32 +238,24 @@ export function CrewAssignmentCreateForm({
         form.transform(() => {
             if (fromPlanning) {
                 return {
+                    planned_arrival_at: form.data.planned_arrival_at || null,
                     remarks: form.data.remarks,
-                    current_stage: form.data.current_stage,
                 };
             }
 
-            const payload: Omit<
-                CrewAssignmentCreateFormData,
-                'current_stage'
-            > & {
-                current_stage?: CrewAssignmentCreateFormData['current_stage'];
-                stage_started_at?: string;
-            } = {
+            return {
                 employee_id: row?.employee_id ?? null,
                 rank_id: row?.rank_id ?? null,
                 client_id: form.data.client_id,
                 vessel_id: form.data.vessel_id,
                 planned_join_at: form.data.planned_join_at,
+                planned_arrival_at:
+                    row?.planned_arrival_at ||
+                    form.data.planned_arrival_at ||
+                    null,
                 remarks: form.data.remarks,
                 submission_intent: intent,
-                current_stage:
-                    intent === 'start' ? form.data.current_stage : undefined,
             };
-
-            delete payload.stage_started_at;
-
-            return payload;
         });
 
         const postUrl = fromPlanning
@@ -284,11 +276,11 @@ export function CrewAssignmentCreateForm({
             client_id: data.client_id,
             vessel_id: data.vessel_id,
             planned_join_at: data.planned_join_at,
-            current_stage: data.current_stage,
             remarks: data.remarks,
             crew: data.crew.map((row) => ({
                 employee_id: row.employee_id,
                 rank_id: row.rank_id,
+                planned_arrival_at: row.planned_arrival_at || null,
             })),
         }));
 
@@ -387,6 +379,40 @@ export function CrewAssignmentCreateForm({
                                             canViewAssignment={can.view}
                                         />
                                     ) : null}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="planning-planned-arrival-at">
+                                            Arrival Date{' '}
+                                            <span className="font-normal text-muted-foreground">
+                                                (optional)
+                                            </span>
+                                        </Label>
+                                        <Input
+                                            id="planning-planned-arrival-at"
+                                            type="date"
+                                            className="h-11 sm:max-w-md"
+                                            value={
+                                                form.data.planned_arrival_at ??
+                                                ''
+                                            }
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'planned_arrival_at',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Expected date the crew member will
+                                            arrive at the joining location.
+                                            Actual arrival is recorded later
+                                            through Record Arrival.
+                                        </p>
+                                        <InputError
+                                            message={
+                                                form.errors.planned_arrival_at
+                                            }
+                                        />
+                                    </div>
                                 </>
                             ) : (
                                 <CrewMembersSection
@@ -437,14 +463,7 @@ export function CrewAssignmentCreateForm({
                             <CrewAssignmentCommonFields
                                 form={form}
                                 formOptions={form_options}
-                                showStartFields={
-                                    can.start &&
-                                    !planningActiveAssignmentConflict
-                                }
                                 showMasterFields={!fromPlanning}
-                                stagePresentation={
-                                    bulkMode ? 'cards' : 'select'
-                                }
                             />
 
                             {bulkMode ? (
@@ -470,9 +489,6 @@ export function CrewAssignmentCreateForm({
                                     ) : null}
                                     <p className="mt-1 text-muted-foreground">
                                         Vessel: {vesselName}
-                                    </p>
-                                    <p className="text-muted-foreground">
-                                        Stage: {stageLabel}
                                     </p>
                                     <p className="text-muted-foreground">
                                         Expected Join:{' '}

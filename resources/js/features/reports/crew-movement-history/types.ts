@@ -64,6 +64,12 @@ export type CrewMovementHistoryRow = {
     planned_travel_in: string | null;
     planned_travel_in_origin?: string | null;
     planned_travel_in_origin_label?: string | null;
+    planned_arrival?: string | null;
+    planned_arrival_origin?: string | null;
+    planned_arrival_origin_label?: string | null;
+    actual_arrival?: string | null;
+    actual_arrival_origin?: string | null;
+    actual_arrival_origin_label?: string | null;
     planned_join: string | null;
     planned_join_origin?: string | null;
     planned_join_origin_label?: string | null;

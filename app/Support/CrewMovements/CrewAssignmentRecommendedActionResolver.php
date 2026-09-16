@@ -90,6 +90,7 @@ final class CrewAssignmentRecommendedActionResolver
         array $permitted,
         ?CrewMobilisationReadinessResult $readiness,
     ): ?CrewAssignmentRecommendedActionResult {
+        $canRecordArrival = $this->allows($permitted, CrewMovementAction::RecordArrival);
         $canApprove = $this->allows($permitted, CrewMovementAction::ApproveMobilisation);
         $hasIssues = $readiness !== null
             && $readiness->applies
@@ -97,6 +98,16 @@ final class CrewAssignmentRecommendedActionResolver
 
         if ($hasIssues) {
             $problemCount = count($readiness->problems);
+            $anywayAction = match (true) {
+                $canRecordArrival => CrewMovementAction::RecordArrival->value,
+                $canApprove => CrewMovementAction::ApproveMobilisation->value,
+                default => null,
+            };
+            $anywayLabel = match (true) {
+                $canRecordArrival => 'Record Arrival Anyway',
+                $canApprove => 'Start Assignment Anyway',
+                default => null,
+            };
 
             return new CrewAssignmentRecommendedActionResult(
                 type: 'readiness',
@@ -105,20 +116,28 @@ final class CrewAssignmentRecommendedActionResolver
                     ? 'One mobilisation requirement needs attention. This is guidance only and does not block movement.'
                     : sprintf('%d mobilisation requirements need attention. This is guidance only and does not block movement.', $problemCount),
                 href: $readiness->documentsHref,
-                anywayAction: $canApprove ? CrewMovementAction::ApproveMobilisation->value : null,
-                anywayLabel: $canApprove ? 'Start Travel Anyway' : null,
+                anywayAction: $anywayAction,
+                anywayLabel: $anywayLabel,
             );
         }
 
-        $reason = $readiness !== null && $readiness->applies && ! $readiness->hasConfiguredChecks()
-            ? 'No required document checks are configured. Start travel when Operations is ready to proceed.'
-            : 'Readiness looks clear. Start travel when Operations is ready to proceed.';
+        if ($canRecordArrival) {
+            return $this->movementRecommendation(
+                $permitted,
+                CrewMovementAction::RecordArrival,
+                'Crew member is in pre-mobilisation. Record arrival when they reach the join location.',
+            );
+        }
 
-        return $this->movementRecommendation(
-            $permitted,
-            CrewMovementAction::ApproveMobilisation,
-            $reason,
-        );
+        if ($canApprove) {
+            return $this->movementRecommendation(
+                $permitted,
+                CrewMovementAction::ApproveMobilisation,
+                'Assignment is in draft. Start assignment when Operations is ready to proceed.',
+            );
+        }
+
+        return null;
     }
 
     /**

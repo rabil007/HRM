@@ -33,6 +33,7 @@ type CrewSharedFormFields = {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
+    planned_arrival_at?: string | null;
     remarks: string;
     current_stage?: CrewAssignmentStartStage;
 };
@@ -505,6 +506,35 @@ export function CrewAssignmentFormFields<T extends CrewSharedFormFields>({
                                 Join Vessel.
                             </p>
                             <InputError message={form.errors.planned_join_at} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="planned_arrival_at">
+                                Planned Arrival Date{' '}
+                                <span className="font-normal text-muted-foreground">
+                                    (optional)
+                                </span>
+                            </Label>
+                            <Input
+                                id="planned_arrival_at"
+                                type="date"
+                                className="h-11"
+                                value={form.data.planned_arrival_at ?? ''}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'planned_arrival_at',
+                                        (event.target.value ||
+                                            null) as T['planned_arrival_at'],
+                                    )
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Expected date the crew member will arrive at the
+                                joining location. Actual arrival is recorded
+                                later through Record Arrival.
+                            </p>
+                            <InputError
+                                message={form.errors.planned_arrival_at}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Current Assignment Stage</Label>
