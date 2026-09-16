@@ -11,6 +11,28 @@ import {
     resolveActiveLegacyPhaseContext,
 } from './crew-phase-visibility.ts';
 
+function timelineItem(
+    phaseCode: string,
+    status: 'active' | 'completed',
+): PhaseTimelineItem {
+    return {
+        id: 1,
+        sequence: 1,
+        phase_code: phaseCode,
+        phase_label: phaseCode,
+        status,
+        status_label: status,
+        planned_start_at: null,
+        planned_end_at: null,
+        actual_start_at: '2026-09-01',
+        actual_end_at: status === 'completed' ? '2026-09-02' : null,
+        details: null,
+        remarks: null,
+        has_pending_correction: false,
+        has_approved_correction: false,
+    };
+}
+
 describe('crew phase visibility', () => {
     it('keeps a central normal visible phase list without legacy phases', () => {
         assert.deepEqual(NORMAL_VISIBLE_CREW_PHASES, [
@@ -61,12 +83,12 @@ describe('crew phase visibility', () => {
         assert.equal(legacyPhaseContextLabel('p2a'), null);
     });
 
-    it('maps legacy current phases onto the normal progress path without p1/p3 steps', () => {
+    it('does not mark prior normal phases completed for legacy current phases without timeline evidence', () => {
         const p1States = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
             normalProgressStepState(step, 'p1', []),
         );
         assert.deepEqual(p1States, [
-            'completed',
+            'upcoming',
             'upcoming',
             'upcoming',
             'upcoming',
@@ -77,7 +99,58 @@ describe('crew phase visibility', () => {
             normalProgressStepState(step, 'p3', []),
         );
         assert.deepEqual(p3States, [
+            'upcoming',
+            'upcoming',
+            'upcoming',
+            'upcoming',
+            'upcoming',
+        ]);
+    });
+
+    it('marks only timeline-backed completion for normal and legacy assignments', () => {
+        const p0Only = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+            normalProgressStepState(step, 'p0', []),
+        );
+        assert.deepEqual(p0Only, [
+            'current',
+            'upcoming',
+            'upcoming',
+            'upcoming',
+            'upcoming',
+        ]);
+
+        const p2aAfterCompletedP0 = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+            normalProgressStepState(step, 'p2a', [
+                timelineItem('p0', 'completed'),
+            ]),
+        );
+        assert.deepEqual(p2aAfterCompletedP0, [
             'completed',
+            'current',
+            'upcoming',
+            'upcoming',
+            'upcoming',
+        ]);
+
+        const legacyP3WithoutP2History = NORMAL_PHASE_PROGRESS_STEPS.map(
+            (step) => normalProgressStepState(step, 'p3', []),
+        );
+        assert.deepEqual(legacyP3WithoutP2History, [
+            'upcoming',
+            'upcoming',
+            'upcoming',
+            'upcoming',
+            'upcoming',
+        ]);
+
+        const legacyP3WithCompletedP2 = NORMAL_PHASE_PROGRESS_STEPS.map(
+            (step) =>
+                normalProgressStepState(step, 'p3', [
+                    timelineItem('p2a', 'completed'),
+                ]),
+        );
+        assert.deepEqual(legacyP3WithCompletedP2, [
+            'upcoming',
             'completed',
             'upcoming',
             'upcoming',

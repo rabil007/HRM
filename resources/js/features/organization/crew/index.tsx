@@ -90,7 +90,7 @@ function listEmptyStateCopy(
     if (view === 'pre_join_hotel') {
         return {
             title: 'No crew in pre-join hotel',
-            description: 'No crew are currently in Join Standby or Training.',
+            description: 'No active pre-join crew.',
         };
     }
 

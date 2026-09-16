@@ -264,6 +264,45 @@ test('relief desk maps linked pre-join phases to mobilising and ready to join', 
     'p3' => [CrewPhaseCode::ReadyToJoin, CrewReliefStatus::ReadyToJoin],
 ]);
 
+test('relief desk filter options exclude ready to join but still resolve historical p3 rows', function () {
+    $fixtures = makeReliefDeskFixtures();
+    $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 9, 'Filter Source');
+    $plan = makeReliefPlanFor(
+        $source,
+        makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Filter Relief'),
+        $fixtures['today']->addDays(9),
+    );
+    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-planning.index', ['view' => 'relief']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::ReadyToJoin->value)
+            ->where('relief_desk.filter_options.relief_statuses', fn ($statuses) => collect($statuses)
+                ->pluck('value')
+                ->contains(CrewReliefStatus::ReadyToJoin->value) === false)
+        );
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-planning.index', [
+            'view' => 'relief',
+            'relief_status' => CrewReliefStatus::ReadyToJoin->value,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('relief_desk.filters.relief_status', CrewReliefStatus::ReadyToJoin->value)
+            ->has('relief_desk.rows', 1)
+            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::ReadyToJoin->value)
+        );
+});
+
 test('relief desk shows relief onboard without closing the source assignment', function () {
     $fixtures = makeReliefDeskFixtures();
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 4, 'Still Onboard');

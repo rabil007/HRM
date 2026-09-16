@@ -6,12 +6,14 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
+use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -19,7 +21,32 @@ class PerformCrewMovementActionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        if ($this->user() === null) {
+            return false;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        /** @var CrewAssignment|null $assignment */
+        $assignment = $this->route('assignment');
+
+        if (! $assignment instanceof CrewAssignment) {
+            return false;
+        }
+
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+
+        $action = CrewMovementAction::tryFrom((string) $this->input('action'));
+
+        if ($action === CrewMovementAction::CancelAssignment) {
+            Gate::authorize('cancel', $assignment);
+
+            return true;
+        }
+
+        Gate::authorize('performMovement', $assignment);
+
+        return true;
     }
 
     protected function prepareForValidation(): void

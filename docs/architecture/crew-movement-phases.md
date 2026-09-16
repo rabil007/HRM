@@ -58,7 +58,7 @@ The Crew Assignments index uses summary cards as the primary operational navigat
 |------|---------|
 | **Current Assignments** | Default operational queue (Draft/Active unless status/history filters widen the board) |
 | **Needs Attention** | Existing movement-attention filter (`movement_attention=1`) |
-| **Pre-Join Hotel** | Active assignments with current phase **P2A + P2B + P3** |
+| **Pre-Join Hotel** | Active assignments with current phase **P2A + P2B + legacy P3** |
 | **Crew On-Site** | Vessel View (`view=vessel`) — active **P4** crew grouped by vessel |
 | **Post-Sign-Off Hotel** | Active assignments with current phase **P5** |
 
@@ -184,7 +184,7 @@ Creates:
 - `planned_arrival_at` stores **Arrival Date** (forecast only, `planned_arrival_at <= planned_join_at`)
 - `planned_join_at` stores **Expected Vessel Join** (forecast only)
 
-All normal web assignments start at **P0 Pre-Mobilisation**. Browser requests no longer submit, validate, or require `current_stage`. Direct starts at P2A, P2B, P3, P4, P5, or P6 are rejected. P1 (`TravelIn`) is removed from normal creation and redeployment choices (new P1 assignments are never created via normal web workflows). Join Vessel remains the only way to enter P4. Redeploy supports `[P0, P2A, P3, P4]`.
+All normal web assignments start at **P0 Pre-Mobilisation**. Browser requests no longer submit, validate, or require `current_stage`. Direct starts at P2A, P2B, P3, P4, P5, or P6 are rejected. P1 (`TravelIn`) is removed from normal creation and redeployment choices (new P1 assignments are never created via normal web workflows). Join Vessel remains the only way to enter P4. Redeploy supports `[P0, P2A, P4]` only.
 
 Prior phases are **never invented**. A normal start has only P0 in the timeline.
 
@@ -257,7 +257,8 @@ Record Arrival is the operational entry point from pre-vessel status into locati
 | Current Phase | Behaviour |
 |---------------|-----------|
 | **Active P0 (New Work)** | Advances P0 → P2A Join Standby directly. No next-phase selector is required or shown; next phase is forced to P2A. Actual arrival timestamp is recorded as P2A `actual_start_at`. |
-| **Active P1 (Legacy Records)** | Legacy assignments in P1 remain fully supported. The user can select P2A (Join Standby) or P3 (Ready to Join). Actual arrival timestamp is derived from P1 `actual_end_at` or P2A `actual_start_at`. |
+| **Active P1 (Legacy Records)** | Legacy assignments in P1 remain fully supported. Record Arrival advances to **P2A Join Standby** only. Actual arrival timestamp is derived from P1 `actual_end_at` or P2A `actual_start_at`. |
+| **Existing P3 (Legacy Records)** | Legacy assignments still in P3 may **Join Vessel → P4**. No normal web workflow creates new P3 assignments. |
 
 ### Actual Arrival Resolution (`CrewArrivalResolver`)
 
@@ -381,12 +382,12 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 | Action | Typical from phase |
 |--------|--------------------|
 | `approve_mobilisation` | Draft P0 only. User-facing label: **Start Assignment** |
-| `record_arrival` | Active P0 → P2A; legacy Active P1 → P2A or P3 |
-| `start_join_standby` | P1/P3 path helpers |
+| `record_arrival` | Active P0 → P2A; legacy Active P1 → P2A |
+| `start_join_standby` | Legacy path helpers |
 | `send_to_training` | P2A → P2B |
-| `complete_training` | P2B → P2A or P3 |
-| `mark_ready` | P2A → P3 |
-| `join_vessel` | P3 (or direct paths) → P4 |
+| `complete_training` | P2B → P2A |
+| `mark_ready` | Legacy only: P2A → P3 (not offered in normal web workflow) |
+| `join_vessel` | P2A or legacy P3 → P4 |
 | `plan_signoff` | P4 plan only (does not disembark) |
 | `confirm_disembarkation` | P4 → P5 or P6 |
 | `start_demob_standby` | helper into P5 |
@@ -478,7 +479,7 @@ That gap can stay a normal assignment or redeploy. Do not rewrite it as a transf
 
 ### Redeploy (`redeploy`)
 
-Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P2A / P3 / P4 (Active; vessel optional except P4 requires vessel and rank). P1 is excluded from normal redeploy choices. Same or different vessel/client is allowed. Direct P4 redeploy applies a fresh Tour snapshot; pre-P4 starts do not — Tour is applied later on Join Vessel. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
+Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P2A / P4 (Active; vessel optional except P4 requires vessel and rank). P1 and P3 are excluded from normal redeploy choices. Same or different vessel/client is allowed. Direct P4 redeploy applies a fresh Tour snapshot; pre-P4 starts do not — Tour is applied later on Join Vessel. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
 
 ### Still unsupported as an immediate movement action
 
@@ -530,7 +531,7 @@ Typical suggestions:
 | P1 (legacy) | Record Arrival |
 | P2A | Join Vessel |
 | P2B | Complete Training |
-| P3 | Join Vessel |
+| P3 (legacy) | Join Vessel |
 | P4 | Confirm Disembarkation (or Plan Relief when sign-off is near and relief is not ready) |
 | P5 | Travel Home |
 | P6 | Close Assignment |
@@ -708,7 +709,7 @@ Resolved by `CrewReliefReadinessResolver` from the active operational Planning r
 | `relief_planned` | Planning row exists; `crew_assignment_id` is null |
 | `assignment_created` | Linked draft / not-yet-mobilising assignment |
 | `mobilising` | Linked assignment in P0–P2B movement |
-| `ready_to_join` | Linked assignment active P3 |
+| `ready_to_join` | Linked legacy assignment active P3 (historical only; not a normal filter option) |
 | `relief_onboard` | Linked assignment active P4 with actual join |
 
 Soft-deleted Planning rows, cancelled or completed linked assignments, and linked Active assignments whose current phase is P5 or P6 do not count as operational relief. Operational linked relief is limited to Draft/Active assignments still in P0–P4. Vacant relief slots (null `employee_id`) still require source P4 / vessel / rank / duplicate validation. Authoritative duplicate and employee checks run inside `SaveCrewPlanningAssignment` after locking the source assignment.
@@ -926,7 +927,7 @@ Movement dialogs reuse shared Tour / Planned Sign-Off controls (`TourSignoffFiel
 |---------|-----------|
 | Transfer Vessel | Destination-rank Tour default (`tour_of_duty` when resolved); no `existing_plan` |
 | Redeploy P4 | Same Tour / sign-off controls as Transfer |
-| Redeploy P0–P3 | Tour fields hidden and excluded from submit; optional forecast sign-off only |
+| Redeploy P0–P2 | Tour fields hidden and excluded from submit; optional forecast sign-off only |
 | Payload | Empty `tour_of_duty_days` omitted; non-manual choices drop stale date/reason |
 
 Backend Tour resolution remains authoritative.

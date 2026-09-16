@@ -44,11 +44,17 @@ enum CrewReliefStatus: string
     }
 
     /**
+     * Normal filter choices for operational desks. Legacy/historical
+     * `ready_to_join` rows remain resolvable via URL and internal queries.
+     *
      * @return list<self>
      */
     public static function filterable(): array
     {
-        return self::cases();
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $status): bool => $status !== self::ReadyToJoin,
+        ));
     }
 
     /**

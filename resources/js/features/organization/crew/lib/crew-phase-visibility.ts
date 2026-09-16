@@ -145,42 +145,12 @@ export function normalProgressStepState(
     const normalizedCurrent = currentPhaseCode?.toLowerCase() ?? null;
     const completedCodes = completedPhaseCodes(phaseTimeline);
 
-    if (normalizedCurrent === 'p1') {
-        if (step.key === 'p0') {
-            return 'completed';
-        }
-
-        return 'upcoming';
-    }
-
-    if (normalizedCurrent === 'p3') {
-        if (step.key === 'p0' || step.key === 'p2') {
-            return 'completed';
-        }
-
-        return 'upcoming';
-    }
-
-    if (normalizedCurrent && step.codes.includes(normalizedCurrent)) {
+    if (
+        normalizedCurrent &&
+        !isLegacyCrewPhase(normalizedCurrent) &&
+        step.codes.includes(normalizedCurrent)
+    ) {
         return 'current';
-    }
-
-    if (step.key === 'p0') {
-        if (
-            step.codes.some((code) => completedCodes.has(code)) ||
-            completedCodes.has('p1')
-        ) {
-            return 'completed';
-        }
-    }
-
-    if (step.key === 'p2') {
-        if (
-            step.codes.some((code) => completedCodes.has(code)) ||
-            completedCodes.has('p3')
-        ) {
-            return 'completed';
-        }
     }
 
     if (step.codes.some((code) => completedCodes.has(code))) {
@@ -227,16 +197,8 @@ export function resolveNormalPhasePathIndex(
 ): number {
     const normalizedCurrent = currentPhaseCode?.toLowerCase() ?? null;
 
-    if (!normalizedCurrent) {
+    if (!normalizedCurrent || isLegacyCrewPhase(normalizedCurrent)) {
         return -1;
-    }
-
-    if (normalizedCurrent === 'p1') {
-        return 0;
-    }
-
-    if (normalizedCurrent === 'p3') {
-        return 1;
     }
 
     return NORMAL_PHASE_PATH_STEPS.findIndex((step) =>

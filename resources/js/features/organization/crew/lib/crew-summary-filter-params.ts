@@ -76,7 +76,7 @@ export function queueSectionCopy(
     if (view === 'pre_join_hotel') {
         return {
             title: 'Pre-Join Hotel crew',
-            description: 'Active crew in Join Standby or Training.',
+            description: 'Active pre-join crew.',
         };
     }
 

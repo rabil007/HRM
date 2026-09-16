@@ -135,12 +135,13 @@ describe('resolveActiveSummaryFilter', () => {
 });
 
 describe('queueSectionCopy', () => {
-    it('keeps Pre-Join Hotel copy focused on join standby and training', () => {
+    it('uses neutral pre-join hotel copy', () => {
         const copy = queueSectionCopy('pre_join_hotel', emptyFilters);
 
         assert.equal(copy.title, 'Pre-Join Hotel crew');
-        assert.match(copy.description, /join standby or training/i);
+        assert.match(copy.description, /active pre-join crew/i);
         assert.doesNotMatch(copy.description, /ready to join/i);
+        assert.doesNotMatch(copy.description, /join standby or training/i);
     });
 
     it('keeps Pre-Join Hotel heading when Needs Attention is also enabled', () => {

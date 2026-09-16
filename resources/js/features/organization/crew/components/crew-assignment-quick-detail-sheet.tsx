@@ -31,8 +31,8 @@ import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-p
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import {
     legacyPhaseContextLabel,
-    NORMAL_PHASE_PATH_STEPS,
-    resolveNormalPhasePathIndex,
+    NORMAL_PHASE_PROGRESS_STEPS,
+    normalProgressStepState,
 } from '@/features/organization/crew/lib/crew-phase-visibility';
 import {
     crewQuickDetailModel,
@@ -651,7 +651,7 @@ function QuickDetailContent({
     );
 }
 
-const CREW_PHASE_PATH = NORMAL_PHASE_PATH_STEPS;
+const CREW_PHASE_PATH = NORMAL_PHASE_PROGRESS_STEPS;
 
 function CrewPhasePath({
     currentPhaseCode,
@@ -660,9 +660,10 @@ function CrewPhasePath({
     currentPhaseCode: string | null;
     legacyContext: string | null;
 }) {
-    const currentIndex = resolveNormalPhasePathIndex(currentPhaseCode);
-    const currentStep =
-        currentIndex >= 0 ? CREW_PHASE_PATH[currentIndex] : null;
+    const currentStep = CREW_PHASE_PATH.find(
+        (step) =>
+            normalProgressStepState(step, currentPhaseCode, []) === 'current',
+    );
 
     return (
         <section
@@ -679,7 +680,7 @@ function CrewPhasePath({
                     Phase path
                 </span>
                 <span className="truncate text-[11px] font-medium">
-                    {currentStep?.description ?? 'No phase recorded'}
+                    {currentStep?.label ?? 'No phase recorded'}
                 </span>
             </div>
             <ol
@@ -687,13 +688,17 @@ function CrewPhasePath({
                 aria-label="Crew movement phases"
             >
                 {CREW_PHASE_PATH.map((step, index) => {
-                    const isCurrent = !legacyContext && index === currentIndex;
-                    const isComplete =
-                        currentIndex >= 0 && index < currentIndex;
+                    const state = normalProgressStepState(
+                        step,
+                        currentPhaseCode,
+                        [],
+                    );
+                    const isCurrent = !legacyContext && state === 'current';
+                    const isComplete = state === 'completed';
 
                     return (
                         <li
-                            key={step.code}
+                            key={step.key}
                             className="flex min-w-0 flex-1 items-center last:flex-none"
                         >
                             <span
@@ -707,10 +712,10 @@ function CrewPhasePath({
                                         !isComplete &&
                                         'border-border bg-background text-muted-foreground',
                                 )}
-                                title={step.description}
+                                title={step.label}
                                 aria-current={isCurrent ? 'step' : undefined}
                             >
-                                {step.label}
+                                {step.code}
                             </span>
                             {index < CREW_PHASE_PATH.length - 1 ? (
                                 <span

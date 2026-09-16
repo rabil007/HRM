@@ -58,8 +58,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Active P0 cannot Start Assignment again; progression is **Record Arrival**
 - [ ] Record Arrival from Active P0 → P2A Join Standby at one exact timestamp (`P0.actual_end_at = P2A.actual_start_at`)
 - [ ] Active P0 Record Arrival does not offer P3 selector (P2A only)
-- [ ] Mark Ready → P3 (when applicable from P2A)
-- [ ] Join Vessel → P4 (optional planned sign-off only)
+- [ ] Join Vessel from P2A → P4 (optional planned sign-off only)
 - [ ] Plan Sign-Off updates plan without leaving P4
 - [ ] Confirm Disembarkation → P5
 - [ ] Travel Home → P6
@@ -70,16 +69,17 @@ Operational checklist after deploying Crew Movement changes.
 ### Legacy P1 support (historical records only)
 
 - [ ] Existing Active P1 assignments still show Travel In wording
-- [ ] Record Arrival from Active P1 → P2A or P3 (selector available)
-- [ ] Normal web Create / Planning Start / Bulk Start do not manufacture new P1 assignments
-- [ ] Redeploy normal choices exclude P1
+- [ ] Record Arrival from Active P1 → P2A only
+- [ ] Existing Active P3 assignments can still Join Vessel → P4
+- [ ] Normal web Create / Planning Start / Bulk Start do not manufacture new P1 or P3 assignments
+- [ ] Redeploy normal choices exclude P1 and P3
 
 ## 4. Training loop
 
 - [ ] P2A → Send to Training → P2B
 - [ ] Complete Training → P2A
 - [ ] Loop again if needed
-- [ ] Exit to P3 then join vessel
+- [ ] Join Vessel from P2A → P4
 
 ## 5. Sea service
 
@@ -143,7 +143,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Transfer creates linked Active P4 assignment with no invented standby/home phases
 - [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
 - [ ] Crew Assignments shows only the new Active assignment; Movement History shows both
-- [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P2A/P3/P4); P1 is not offered; same vessel is allowed; P0 clears planned sign-off and hidden destination fields
+- [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P2A/P4); P1 and P3 are not offered; same vessel is allowed; P0 clears planned sign-off and hidden destination fields
 - [ ] Movement controller redirects to the new linked assignment after transfer/redeploy
 - [ ] Daily Crew payroll board shows one employee row for multiple movement periods; Movement Periods dialog edits Manual segments; Applied Crew Operations segments are read-only
 - [ ] Daily Crew Excel allows repeated employee rows as separate periods; employee-level overtime/salary amounts are entered once; overlaps fail preview with Excel row numbers
@@ -172,14 +172,14 @@ Operational checklist after deploying Crew Movement changes.
 
 - [ ] **Current Assignments** opens the normal operational queue (`view=crew`) without stale location-view state
 - [ ] **Needs Attention** shows current assignments requiring review (`movement_attention=1`) on the normal crew list
-- [ ] **Pre-Join Hotel** shows only Active current P2A/P2B/P3 (`view=pre_join_hotel`)
+- [ ] **Pre-Join Hotel** shows Active current P2A/P2B and legacy P3 (`view=pre_join_hotel`)
 - [ ] **Crew On-Site** shows only Active current P4 grouped by vessel (`view=vessel`)
 - [ ] **Post-Sign-Off Hotel** shows only Active current P5 (`view=post_signoff_hotel`)
 - [ ] **P0 Pre-Mobilisation** remains accessible through Filters → Current Phase (not a dashboard card)
 - [ ] **P6** appears in none of the three location cards
 - [ ] Completed/historical assignments never appear in Hotel or On-Site location views
 - [ ] After setting **Status = Completed**, clicking **Crew On-Site** clears the conflicting status and shows the current Active P4 board (not an empty misleading board)
-- [ ] After setting **Phase = P0** and **Include Completed = Yes**, clicking **Pre-Join Hotel** clears those conflicting filters and shows only Active P2A/P2B/P3
+- [ ] After setting **Phase = P0** and **Include Completed = Yes**, clicking **Pre-Join Hotel** clears those conflicting filters and shows Active P2A/P2B and legacy P3
 - [ ] Operational location views do not expose misleading **Current Phase**, **Status**, or **Include Completed** controls in the Filters sheet (controls are disabled with operational-view context copy)
 - [ ] Compatible filters (search, vessel, rank, client, employee, planned dates, tour, relief) still work inside an operational card view
 - [ ] Pagination and search preserve the selected operational card/view

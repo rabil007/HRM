@@ -155,6 +155,44 @@ test('confirm disembarkation creates sea service', function () {
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->exists())->toBeTrue();
 });
 
+test('cross-company movement action does not leak phase validation details', function () {
+    ['user' => $user] = makeCrewMovementActionFixtures();
+    ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
+
+    $foreign = makeActiveOnVesselAssignment($otherCompany, $otherEmployee, $otherRank, makeCrewMovementVessel('Foreign Vessel'));
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $foreign))
+        ->post(route('organization.crew-assignments.perform-action', $foreign), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-01-01 08:00:00',
+        ])
+        ->assertNotFound()
+        ->assertSessionDoesntHaveErrors(['action', 'occurred_at', 'next_phase']);
+});
+
+test('users without movement permission do not receive action availability validation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+    ]);
+
+    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'stage_started_at' => '2026-01-01 08:00:00',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-01-02 08:00:00',
+        ])
+        ->assertForbidden()
+        ->assertSessionDoesntHaveErrors(['action', 'occurred_at', 'next_phase']);
+});
+
 test('cross-company movement action is rejected', function () {
     ['user' => $user] = makeCrewMovementActionFixtures();
     ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
