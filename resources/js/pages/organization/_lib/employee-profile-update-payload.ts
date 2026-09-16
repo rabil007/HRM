@@ -1,8 +1,6 @@
-import type { TemplateFieldConfig } from '../employee-page.types.ts';
-import {
-    transformEmployeeProfileFormData,
-    type EmployeeProfileFormData,
-} from './employee-profile-form-state.ts';
+import type { TemplateFieldConfig } from '../employee-page.types';
+import { transformEmployeeProfileFormData } from './employee-profile-form-state';
+import type { EmployeeProfileFormData } from './employee-profile-form-state';
 
 export type EmployeeProfileSaveVisit = {
     httpMethod: 'post' | 'put';
