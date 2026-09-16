@@ -55,7 +55,7 @@ Every active company always maintains a three-month rolling window of Draft payr
 - The `payroll:ensure-future-periods` command runs the action for every active company (`status = active`, not soft-deleted). It accepts `--company=` to target one company and `--months=` to change the window size (default 3). It continues past per-company failures, logging them with company context.
 - The command is scheduled daily at `00:45` with `withoutOverlapping`. Daily execution self-heals missed runs, picks up newly activated companies, and keeps the third month populated.
 
-Automatic Crew periods are always created with `crew_timesheet_mode = hybrid` and the display name `{Month} - Crew`. Automatic Office periods have no crew mode. Every automatic period is `draft` with `payment_date = null`, `generated_at = null`, `notes = "Automatically created"`, and `created_by = null`. The automation never creates crew timesheets, timeline preparations, payroll records, salary inputs, approvals, payment dates, or generation timestamps.
+Automatic Crew periods are always created with `crew_timesheet_mode = hybrid` and the display name `{Month} - Crew`. Automatic Office periods have no crew mode. Every automatic period is `draft` with `payment_date = null`, `generated_at = null`, `notes = "Automatically created"`, and `created_by = null`. The automation never creates crew timesheets, Crew Timesheet preparations, payroll records, salary inputs, approvals, payment dates, or generation timestamps.
 
 Auto-created rows are identified by `creation_source = automatic` and a deterministic `automatic_period_key` (`company:{id}:{category}:{YYYY-MM}`). Regular full-month periods (automatic or user-created) also store `regular_period_key` with the same shape and a unique index, so there is at most one normal monthly period per company, category, and month. The scheduler skips creating an automatic period when any regular period for that month already exists.
 
@@ -237,7 +237,7 @@ Key characteristics:
 - **Skippable vs Non-skippable warnings:** Employee-level operational warnings (`missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `invalid_phase_range`, as well as informational warnings) may be skipped. However, tenant data-isolation failures (`cross_company_reference`) and stale preparations can **never** be skipped or bypassed. If any line in a preparation contains a `cross_company_reference`, skipping is disabled across the entire preparation (`can_skip = false` for all employees).
 - **Immutable snapshot preserved:** Original `CrewAssignment`, `CrewAssignmentPhase`, and generated `CrewTimesheetPreparationLine` records are never deleted, mutated, or zeroed. They remain visible in the review history and details dialog for audit evidence.
 - **Warning breakdown consistency:** The headline blocker counter reflects `unresolved_blocking_warning_count` (which discounts actively skipped employees). The detailed warning breakdown exposes `total_count`, `unresolved_count`, and `skipped_count` per warning code, so historical blocker totals remain visible while actionable blockers clearly show unresolved counts.
-- **Exclusion from Apply:** When the approved preparation is applied (`ApplyCrewTimesheetPreparation`), payable preparation lines for actively skipped employees are completely excluded. No Crew Assignment timesheet or segments are written for that employee.
+- **Exclusion from Apply:** When the approved preparation is applied (`ApplyCrewTimesheetPreparation`), payable preparation lines for actively skipped employees are completely excluded. No Applied Crew Timesheet or operational segments are written for that employee.
 - **Preservation of Manual / Excel data:** If a skipped employee already has a Manual or Imported timesheet or segments, Apply leaves that employee's operational and financial data untouched.
 - **Separate from payroll exclusion:** Skipping an employee's Crew Timesheet data is strictly a source-selection decision. It does **not** automatically add the employee to `payroll_periods.excluded_employee_ids`. In hybrid payroll, the employee may subsequently have hours/movements entered manually or imported via Excel, or be excluded during the final payroll generation step if no replacement timesheet is provided. If no replacement data is provided, generation preview marks the Daily crew employee as missing/unready and generation will not proceed for them.
 - **Exclusive mode behavior:** In exclusive Crew Timesheet mode, all Daily crew employees must have valid Crew Assignment coverage. Skipping an employee's timesheet means they are not covered by Crew Assignments and will block generation unless that employee is explicitly excluded from the pay run via `payroll_periods.excluded_employee_ids`.
@@ -327,7 +327,7 @@ Clear Timesheets (Draft crew periods only):
 
 - One period-level action clears every Manual and Excel Import timesheet in the current Draft crew pay period (`DELETE /payroll/{payrollPeriod}/crew-timesheets/manual-import`)
 - Requires `payroll.crew_timesheets.clear`
-- Soft-deletes matching rows; Crew Assignment timesheets, preparation-linked rows, timesheet/preparation history, contracts, salary inputs, and exclusions are never modified
+- Soft-deletes matching rows; Crew Timesheets sourced from Crew Assignments, preparation-linked rows, timesheet/preparation history, contracts, salary inputs, and exclusions are never modified
 - Legacy `source = null` rows are treated as Manual via `resolvedSource()` and are included
 - After clearing, Manual save and Excel import restore the soft-deleted row (no duplicate-key failure) and re-apply auto-approval
 - Daily Crew rows return to Not Entered; Monthly Crew Manual/Import overrides are removed so default monthly eligibility applies again
@@ -371,7 +371,7 @@ Financial import preservation:
 
 Payable-category filtering:
 
-- `app/Support/Payroll/CrewTimeline/PayableCrewPreparationLines.php` is the single source of truth for payable lines (sign-on standby, onsite, sign-off standby with days > 0). Excluded, warning-only, and zero-day lines never require a linked Crew Assignment timesheet, and the same predicate is used by application, readiness, and generation validation.
+- `app/Support/Payroll/CrewTimeline/PayableCrewPreparationLines.php` is the single source of truth for payable lines (sign-on standby, onsite, sign-off standby with days > 0). Excluded, warning-only, and zero-day lines never require a linked Crew Timesheet with Crew Assignment source, and the same predicate is used by application, readiness, and generation validation.
 
 Readiness / generation parity:
 
@@ -385,7 +385,7 @@ Source freshness:
 
 - The preparation source hash covers period boundaries, cutoff, phases (code/status/actual dates), the period-applicable contract (id, category, salary structure, effective dates), and pending movement correction state. Contract changes, salary-structure changes, new pending corrections, actual-movement changes, and added/removed phases all make an approved preparation stale.
 
-Timeline queries:
+Crew movement queries (`CrewTimelinePhaseQuery`):
 
 - `CrewTimelinePhaseQuery::issuePhases()` includes phases missing `actual_start_at` (by planned window) so a blocking `missing_actual_start` warning is raised instead of silently dropping the phase; `overlappingPhases()` (payable allocation) still uses actual timestamps only. Both resolve period boundaries in the company timezone and compare in UTC so phases crossing a UTC midnight boundary are not excluded.
 

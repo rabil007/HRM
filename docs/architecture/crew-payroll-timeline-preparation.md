@@ -17,6 +17,27 @@ System or user creates one normal Crew pay period for the month (hybrid)
     → one payroll generation for the entire Crew period
 ```
 
+## Architecture relationship
+
+```text
+CrewAssignment / CrewAssignmentPhase
+    ↓ actual operational movement data
+
+CrewTimesheetPreparation
+    ↓ versioned review / warning / approval workflow
+
+CrewTimesheet
+    ↓ applied Payroll input
+
+Payroll generation
+```
+
+- **`CrewAssignment` / `CrewAssignmentPhase`** remains the operational source of truth for movements.
+- **Crew Timesheet preparation** is a Payroll workflow that extracts actual movement dates into versioned, reviewable timesheet lines. It is not a replacement for Crew Assignment.
+- Planned schedule dates are never payroll movement actuals.
+- `source = crew_operations` (`CrewTimesheetSource::CrewOperations`) remains an internal persisted compatibility database value.
+- Technical `CrewTimeline*` naming (`app/Support/Payroll/CrewTimeline/`, `CrewTimelinePhaseQuery`, `payroll.crew-timeline.*`) remains for implementation compatibility; user- and product-facing copy refers to **Crew Timesheet** and **Crew Assignments**.
+
 ## Source-of-truth rules
 
 - `CrewAssignment` and `CrewAssignmentPhase` remain the operational source of truth for movements.
@@ -24,7 +45,7 @@ System or user creates one normal Crew pay period for the month (hybrid)
 - Only `CrewAssignmentPhase.actual_start_at` and `actual_end_at` are used as payable movement dates.
 - `CrewAssignment.started_at` and `closed_at` describe the assignment lifecycle. They are never Crew payroll inputs.
 - Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
-- The Payroll Crew Timeline review payload must not expose planned schedule dates as phase timeline fields. Payroll review presents only actual movement dates, payroll allocation ranges, and warning affected periods.
+- The Payroll Crew Timesheet review payload must not expose planned schedule dates as phase fields. Payroll review presents only actual movement dates, payroll allocation ranges, and warning affected periods.
 - `CrewTimelinePhaseQuery::issuePhases()` may inspect planned phase windows only to discover records missing actual movement timestamps so a blocking warning can be generated. Planned values are never converted into payable allocation.
 - Payroll must not wait for an assignment to finish before monthly preparation can exist.
 - Automatic preparation currently supports **daily** crew only.
@@ -97,7 +118,7 @@ Line-level proposed operational pay categories and warning rows (`warning_code`)
 
 ### `crew_timesheet_preparation_skips`
 
-Persistent, additive audit table for employee timeline skips:
+Persistent, additive audit table for employee Crew Timesheet skips:
 
 - `company_id`, `crew_timesheet_preparation_id`, `employee_id` (unique together)
 - `reason` (mandatory, 5–1,000 characters)
@@ -281,7 +302,7 @@ Employee
 └── Non-payable / excluded activity
 ```
 
-The Payroll Crew Timeline review payload must not expose planned schedule dates as phase timeline fields. Payroll review presents only actual movement dates, payroll allocation ranges, and warning affected periods. Planned dates are intentionally not shown in the payroll breakdown because they are not payroll inputs.
+The Payroll Crew Timesheet review payload must not expose planned schedule dates as phase fields. Payroll review presents only actual movement dates, payroll allocation ranges, and warning affected periods. Planned dates are intentionally not shown in the payroll breakdown because they are not payroll inputs.
 
 Presentation rules:
 
@@ -321,7 +342,7 @@ The payroll breakdown displays dates as `04 Aug 2026`. Backend values remain ISO
 
 Phase 1C does not write to `crew_timesheets`.
 
-## Phase 1D apply approved timeline to timesheets
+## Phase 1D apply approved Crew Timesheet to timesheets
 
 ### Status transition
 
@@ -478,7 +499,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 - Phase 1C: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1CTest.php`
 - Phase 1D: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1DTest.php`
 - Phase 1E: `tests/Feature/Payroll/CrewTimesheetModePhase1ETest.php`
-- Skip Timeline Data: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationSkipTest.php`
+- Skip Crew Timesheet Data: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationSkipTest.php`
 - Hardening: `tests/Feature/Payroll/CrewPayrollHardeningTest.php`, `tests/Unit/Support/Payroll/ResolveCrewContractForPayrollPeriodTest.php`
 - Shared fixtures: `tests/Support/crew-timeline-fixtures.php`
 
@@ -486,7 +507,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 
 - Monthly crew movement integration
 - Travel payment configuration
-- Direct editing of generated timeline lines
+- Direct editing of generated preparation lines
 - Payroll correction workflow for replacing Applied preparations
 
 Vessel transfer, redeployment, and assignment-based timesheet segments are implemented. See [crew-movement-phases.md](./crew-movement-phases.md) and [payroll.md](../payroll.md).

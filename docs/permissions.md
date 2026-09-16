@@ -65,18 +65,18 @@ Re-seed after catalog changes: `php artisan db:seed --class=PermissionsSeeder`. 
 
 Cmd/Ctrl+K record search authorizes each category on the backend (`employees.view`, `documents.view`, `crew_operations.assignments.view`, `crew_operations.vessels.view`, `departments.view`, `positions.view`, and `payroll.periods.view` or `payroll.crew_timesheets.view`). Navigation command visibility stays in `nav-visibility.ts`. See [Global search](./global-search.md).
 
-Crew timesheet timeline workflow permissions (Phase 1C–1D):
+Crew Timesheet preparation workflow permissions (Phase 1C–1D):
 
-| Permission                               | Capability                                                                                  |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `payroll.crew_timesheets.view`           | View timeline preparation review page                                                       |
-| `payroll.crew_timesheets.prepare`        | Create a new draft preparation version                                                      |
-| `payroll.crew_timesheets.clear`          | Clear all Manual/Import timesheets on a Draft crew period                                   |
-| `payroll.crew_timesheets.submit`         | Submit latest draft timeline preparation, or submit a Manual/Import timesheet for approval  |
-| `payroll.crew_timesheets.approve`        | Approve a submitted preparation, or approve a submitted Manual/Import timesheet             |
-| `payroll.crew_timesheets.return`         | Return a submitted preparation or Manual/Import timesheet with notes                        |
-| `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets                                            |
-| `payroll.crew_timesheets.skip_timeline`  | Skip or restore an employee's Crew Timesheet data for a draft preparation version          |
+| Permission                               | Capability                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `payroll.crew_timesheets.view`           | View Crew Timesheet preparation review page                                                      |
+| `payroll.crew_timesheets.prepare`        | Create a new draft preparation version                                                           |
+| `payroll.crew_timesheets.clear`          | Clear all Manual/Import timesheets on a Draft crew period                                        |
+| `payroll.crew_timesheets.submit`         | Submit latest draft Crew Timesheet preparation, or submit a Manual/Import timesheet for approval |
+| `payroll.crew_timesheets.approve`        | Approve a submitted preparation, or approve a submitted Manual/Import timesheet                  |
+| `payroll.crew_timesheets.return`         | Return a submitted preparation or Manual/Import timesheet with notes                             |
+| `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets                                                 |
+| `payroll.crew_timesheets.skip_timeline`  | Skip or restore an employee's Crew Timesheet data for a draft preparation version               |
 
 `payroll.crew_timesheets.skip_timeline` is seeded into the catalog and granted to the system `Owner` role. It is not automatically granted broadly to other tenant roles; administrators must assign it explicitly via Roles & permissions.
 

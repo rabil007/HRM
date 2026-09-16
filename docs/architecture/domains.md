@@ -847,7 +847,7 @@ Manage payroll periods, crew timesheets, salary inputs, generated payroll record
 - inputs: `payroll.crew_timesheets.*` and `payroll.salary_inputs.*`
 - outputs: `payroll.records.view`, `payroll.payslips.generate`, `payroll.payslips.email`, `payroll.wps.export`
 
-Some payroll hub routes authorize inside the controller (for example `authorizePayrollHub` / `authorizePayrollShow`) rather than via route `can:` middleware. Crew timeline prepare/submit/approve/return/apply routes use `can:payroll.crew_timesheets.*`. Verify the specific endpoint before treating it as protected.
+Some payroll hub routes authorize inside the controller (for example `authorizePayrollHub` / `authorizePayrollShow`) rather than via route `can:` middleware. Crew Timesheet prepare/submit/approve/return/apply routes use `can:payroll.crew_timesheets.*`. Verify the specific endpoint before treating it as protected.
 
 ---
 

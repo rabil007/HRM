@@ -70,7 +70,7 @@ test('crew payroll board row for applied crew operations timesheet exposes appli
     expect($row['approval_status'])->toBe('applied')
         ->and($row['approval_status_label'])->toBe('Applied/Approved')
         ->and($row['operational_source'])->toBe('crew_operations')
-        ->and($row['operational_source_label'])->toBe('Crew Operations');
+        ->and($row['operational_source_label'])->toBe('Crew Assignments');
 });
 
 test('crew payroll board row for approved import timesheet exposes approved status and excel import source', function () {

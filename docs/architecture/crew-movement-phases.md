@@ -366,7 +366,7 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 
 Void requires the dedicated permission **and** passes `CrewAssignmentVoidGuard`. Downstream blockers include:
 
-- `payroll_applied` / `payroll_protected` — Applied, Approved/Submitted timeline prep, paid/approved work allocations, or timesheet segments
+- `payroll_applied` / `payroll_protected` — Applied, Approved/Submitted Crew Timesheet prep, paid/approved work allocations, or timesheet segments
 - `sea_service_exists` — linked `EmployeeSeaService` (never cascade-deleted)
 - `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`
 - `already_voided` — already voided / soft-deleted
@@ -430,7 +430,7 @@ HEA KRAKEN ends      23 Aug 16:30
 PLB 648 starts       26 Aug 16:30
 ```
 
-That gap can stay a normal assignment or redeploy. Do not rewrite it as a transfer. Payroll timeline overlap detection remains independent of this UI recommendation.
+That gap can stay a normal assignment or redeploy. Do not rewrite it as a transfer. Payroll timesheet preparation overlap detection remains independent of this UI recommendation.
 
 ### Redeploy (`redeploy`)
 
