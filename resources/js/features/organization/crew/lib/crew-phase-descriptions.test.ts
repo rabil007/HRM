@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { CREW_DIRECT_START_STAGES } from '../types.ts';
 import {
     CREW_PHASE_CODES,
     crewPhaseCopy,
@@ -24,6 +23,18 @@ describe('crew phase descriptions', () => {
             assert.ok(item.compact.length > 0);
             assert.equal(crewPhaseDescription(item.code), item.description);
         }
+    });
+
+    it('explains pre-mobilisation as waiting for arrival in the arrival-first workflow', () => {
+        const copy = crewPhaseCopy('p0');
+
+        assert.equal(
+            copy?.description,
+            'Assignment prepared and waiting for the crew member to arrive.',
+        );
+        assert.equal(copy?.compact, 'Waiting for arrival');
+        assert.match(copy?.description ?? '', /waiting/i);
+        assert.match(copy?.description ?? '', /arrive/i);
     });
 
     it('explains join standby as waiting or hotel/accommodation before joining', () => {
@@ -51,32 +62,13 @@ describe('crew phase descriptions', () => {
         assert.match(copy?.description ?? '', /hotel\/accommodation/i);
     });
 
-    it('uses the selected current-stage description for the create selector', () => {
-        const expected: Record<string, string> = {
-            p0: 'Preparing the crew member before travel.',
-            p1: 'Travelling to the joining location.',
-        };
-
-        assert.deepEqual(
-            CREW_DIRECT_START_STAGES.map((stage) => stage.value),
-            ['p1', 'p0'],
-        );
-
-        for (const stage of CREW_DIRECT_START_STAGES) {
-            assert.equal(
-                crewPhaseDescription(stage.value),
-                expected[stage.value],
-            );
-        }
-    });
-
     it('includes every supported phase in the compact phase guide', () => {
         const guide = crewPhaseGuideItems().map(
             (item) => `${item.code.toUpperCase()} — ${item.compact}`,
         );
 
         assert.deepEqual(guide, [
-            'P0 — Prepare before travel',
+            'P0 — Waiting for arrival',
             'P1 — Travelling to join',
             'P2A — Waiting/hotel before joining',
             'P2B — Training',

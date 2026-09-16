@@ -696,6 +696,88 @@ test('22. expected vessel join after existing planned sign-off is rejected and p
         ->and($fresh->remarks)->toBe('Original remarks');
 });
 
+test('24. edit assignment updates planned arrival date and logs activity', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Arrival Edit Vessel');
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-09-21',
+        'planned_arrival_at' => '2026-09-18',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.edit', $assignment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/edit')
+            ->where('assignment.planned_arrival_at', '2026-09-18'));
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-09-21',
+            'planned_arrival_at' => '2026-09-20',
+            'remarks' => 'Updated arrival forecast',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    expect($assignment->fresh()->planned_arrival_at?->toDateString())->toBe('2026-09-20')
+        ->and($assignment->fresh()->employee_id)->toBe($employee->id);
+});
+
+test('25. edit assignment rejects arrival date after expected vessel join', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Arrival Validation Vessel');
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-09-21',
+        'planned_arrival_at' => '2026-09-18',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.edit', $assignment))
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-09-21',
+            'planned_arrival_at' => '2026-09-22',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.edit', $assignment))
+        ->assertSessionHasErrors('planned_arrival_at');
+
+    expect($assignment->fresh()->planned_arrival_at?->toDateString())->toBe('2026-09-18');
+});
+
+test('26. edit assignment cannot change employee through update payload', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
+    $vessel = makeCrewMovementVessel('Employee Lock Vessel');
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-assignments.update', $assignment), [
+            'employee_id' => $otherEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_arrival_at' => '2026-09-20',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    expect($assignment->fresh()->employee_id)->toBe($employee->id);
+});
+
 test('23. expected vessel join may be updated when planned sign-off is absent', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Join Without Signoff Vessel');

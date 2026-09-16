@@ -21,8 +21,9 @@ export type CrewPhaseCopy = {
 const CREW_PHASE_COPY = {
     p0: {
         label: 'Pre-Mobilisation',
-        description: 'Preparing the crew member before travel.',
-        compact: 'Prepare before travel',
+        description:
+            'Assignment prepared and waiting for the crew member to arrive.',
+        compact: 'Waiting for arrival',
     },
     p1: {
         label: 'Travel In',

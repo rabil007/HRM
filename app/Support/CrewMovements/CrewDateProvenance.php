@@ -114,14 +114,10 @@ final class CrewDateProvenance
             ];
         }
 
-        $origin = $assignment->source === 'crew_planning'
-            ? self::CrewPlanning
-            : self::UserEntered;
-
         return [
             'value' => self::toDateString($raw, $timezone),
-            'origin' => $origin,
-            'origin_label' => self::label($origin),
+            'origin' => self::UserEntered,
+            'origin_label' => self::label(self::UserEntered),
         ];
     }
 

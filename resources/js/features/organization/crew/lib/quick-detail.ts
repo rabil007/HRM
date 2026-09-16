@@ -19,7 +19,6 @@ export type QuickDetailIssue = Pick<
 };
 
 const NEXT_MOVEMENT: Record<string, CrewMovementAction> = {
-    p0: 'approve_mobilisation',
     p1: 'record_arrival',
     p2a: 'mark_ready',
     p2b: 'complete_training',
@@ -28,8 +27,31 @@ const NEXT_MOVEMENT: Record<string, CrewMovementAction> = {
     p5: 'travel_home',
 };
 
+function nextMovementForPhase(
+    phase: string | undefined,
+    availableActions: CrewMovementAction[],
+): CrewMovementAction | undefined {
+    if (!phase) {
+        return undefined;
+    }
+
+    if (phase === 'p0') {
+        if (availableActions.includes('record_arrival')) {
+            return 'record_arrival';
+        }
+
+        if (availableActions.includes('approve_mobilisation')) {
+            return 'approve_mobilisation';
+        }
+
+        return undefined;
+    }
+
+    return NEXT_MOVEMENT[phase];
+}
+
 const MOVEMENT_GUIDANCE: Record<string, string> = {
-    p0: 'Pre-mobilisation is in progress.',
+    p0: 'Pre-mobilisation is in progress. Record arrival when the crew member reaches the join location.',
     p1: 'Confirm the actual arrival and choose standby or ready to join.',
     p2a: 'Confirm clearance before marking this crew member ready to join.',
     p2b: 'Record completion once the course is finished.',
@@ -173,7 +195,10 @@ export function crewQuickDetailModel(
     const daysUntilMilestone = milestone
         ? calendarDayDifference(milestone.date, today)
         : null;
-    const movementCandidate = phase ? NEXT_MOVEMENT[phase] : undefined;
+    const movementCandidate = nextMovementForPhase(
+        phase,
+        availableActions as CrewMovementAction[],
+    );
     const movement =
         !finished &&
         movementCandidate &&

@@ -233,15 +233,11 @@ final class CrewMovementService
     }
 
     /**
-     * User-facing action: Start Travel. Internal value remains `approve_mobilisation`.
+     * User-facing action: Start Assignment. Internal value remains `approve_mobilisation`.
      *
-     * CASE A — Active P0: complete the existing Active Pre-Mobilisation phase using
-     * its recorded actual_start_at, open Active P1 at occurred_at, and preserve
-     * assignment.started_at.
-     *
-     * CASE B — legacy Draft P0: keep the historical Draft → Active + P1 transition.
-     * Planned P0 has no actual_start_at; one is not manufactured from a later travel time
-     * beyond the existing completePhase fallback (start = end = occurred_at).
+     * Draft P0 only: activates the assignment to Active and sets the existing planned
+     * Pre-Mobilisation phase actual_start_at to occurred_at. Active P0 is rejected;
+     * operational progression from Active P0 uses Record Arrival.
      *
      * @param  array<string, mixed>  $payload
      */

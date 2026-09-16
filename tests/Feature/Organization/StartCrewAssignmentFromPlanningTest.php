@@ -664,3 +664,58 @@ test('relief planning start ignores crafted vessel rank substitution', function 
         ->and($planning->fresh()->vessel_id)->toBe($vesselA->id)
         ->and($planning->fresh()->rank_id)->toBe($rank->id);
 });
+
+test('planning start compares arrival and expected join as calendar dates without timezone shift', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'America/Los_Angeles']);
+    $vessel = makeCrewMovementVessel('Calendar Date Vessel', $company);
+    grantCompanyPermissions($user, $company, planningStartPermissions());
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-09-21',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $planning), [
+            'planned_arrival_at' => '2026-09-20',
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->firstOrFail();
+
+    expect($assignment->planned_arrival_at?->toDateString())->toBe('2026-09-20')
+        ->and($assignment->planned_join_at?->toDateString())->toBe('2026-09-21');
+
+    $otherEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $invalidPlanning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $otherEmployee->id,
+        'planned_join_date' => '2026-09-21',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start', $invalidPlanning), [
+            'planned_arrival_at' => '2026-09-22',
+        ])
+        ->assertSessionHasErrors('planned_arrival_at');
+
+    expect(CrewAssignment::query()->where('employee_id', $otherEmployee->id)->count())->toBe(0);
+});

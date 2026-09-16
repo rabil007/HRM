@@ -94,6 +94,40 @@ test('crew planning planned join retains crew planning provenance', function () 
         ->and($signoff['origin'])->toBe(CrewDateProvenance::CrewPlanning);
 });
 
+test('planned arrival always uses assignment entered provenance even for crew planning source', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->create([
+            'source' => 'crew_planning',
+            'planned_arrival_at' => '2026-09-20 00:00:00',
+        ]);
+
+    $arrival = CrewDateProvenance::plannedArrival($assignment, 'Asia/Dubai');
+
+    expect($arrival['value'])->toBe('2026-09-20')
+        ->and($arrival['origin'])->toBe(CrewDateProvenance::UserEntered)
+        ->and($arrival['origin_label'])->toBe('Entered on assignment');
+});
+
+test('manual assignment planned arrival uses assignment entered provenance', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->create([
+            'source' => 'manual',
+            'planned_arrival_at' => '2026-09-18 00:00:00',
+        ]);
+
+    $arrival = CrewDateProvenance::plannedArrival($assignment, 'Asia/Dubai');
+
+    expect($arrival['value'])->toBe('2026-09-18')
+        ->and($arrival['origin'])->toBe(CrewDateProvenance::UserEntered)
+        ->and($arrival['origin_label'])->toBe('Entered on assignment');
+});
+
 test('manual user entered planned join remains visible as planned', function () {
     ['employee' => $employee] = makeCrewAssignmentFixtures();
 

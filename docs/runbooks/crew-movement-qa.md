@@ -10,20 +10,23 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Confirm roles that previously had deployments permissions now have assignment permissions
 - [ ] Confirm `crew_operations.deployments.*` permissions no longer exist
 
-## 2. Start Assignment
+## 2. Start Assignment (Arrival-first)
 
 - [ ] Open Crew Assignments → Start Assignment
 - [ ] Create form loads employees, ranks, vessels, clients, and operational status
-- [ ] Start Assignment defaults to P1 Travel In and records start as company-local server submit time (no start datetime field; crafted `stage_started_at` is ignored)
-- [ ] Optional P0 Pre-Mobilisation start still works
-- [ ] P2A/P3 cannot be chosen as the initial assignment stage
-- [ ] Assignment is Active with Active P1 (or Active P0 when chosen), not Draft + Planned P0
+- [ ] Start Assignment creates Active P0 Pre-Mobilisation at company-local server submit time (no start datetime field; crafted `stage_started_at` is ignored)
+- [ ] No initial-stage selector is shown on Create or Edit
+- [ ] Normal web Create never offers P1 Travel In as an initial stage
+- [ ] Assignment is Active with Active P0, not Draft + Planned P0
 - [ ] Assignment number format `CA-{YEAR}-{######}`
 - [ ] Save as Draft still creates Draft + Planned P0
 - [ ] Expected Vessel Join stores in `planned_join_at`
-- [ ] Edit Assignment matches Create: employee locked, rank/client/vessel, Expected Vessel Join, Current Assignment Stage read-only, remarks. Planned Sign-Off, Planned Travel Home, and Assignment Start Date & Time are not on this form; those values stay owned by movement/planning workflows.
+- [ ] Arrival Date (`planned_arrival_at`) is optional forecast only on Create and Edit
+- [ ] Create and Edit use the same **Arrival Date** label and helper copy (not “Planned Arrival Date” on Edit)
+- [ ] Edit Assignment matches Single Create layout: Crew Members (Employee locked, Rank, Arrival Date, Current Assignment Stage read-only) + Assignment Details (Client, Vessel, Expected Vessel Join, Remarks)
+- [ ] Planned Sign-Off, Planned Travel Home, and Assignment Start Date & Time are not on Edit; those values stay owned by movement/planning workflows
 - [ ] Expected Vessel Join cannot be saved after an existing Planned Sign-Off; the sign-off plan is not silently changed
-- [ ] Start Travel does not show or require Planned Travel Home
+- [ ] Arrival Date cannot be saved after Expected Vessel Join
 
 ## 2A. Unified Start / Bulk Create
 
@@ -38,7 +41,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Legacy `/organization/crew/bulk-create` redirects to the unified Create page for bookmarks
 - [ ] One-row Start posts to the normal Store endpoint; one-row Draft posts to Store with `submission_intent=draft`
 - [ ] Two-or-more-row Start posts to the existing bulk Store endpoint (atomic)
-- [ ] Common Client / Vessel auto-resolve identically for single and bulk; Expected Join, P1 default / optional P0, and remarks are shared
+- [ ] Common Client / Vessel auto-resolve identically for single and bulk; Expected Join, remarks, and per-row Arrival Date are shared semantics
 - [ ] Per-row employee + rank; rank defaults from the employee and can be changed
 - [ ] Duplicate employees are blocked in the UI and rejected by the server
 - [ ] Single mode: On Vessel on a different vessel opens Transfer Vessel recommendation (not bulk auto-transfer)
@@ -46,16 +49,16 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] An active-assignment employee blocks bulk submission; removing that row lets the rest of a valid batch start
 - [ ] Start N Assignments is all-or-nothing: a blocked row creates zero assignments from that submission
 - [ ] Successful batch redirects to Current Crew with `{N} crew assignments started successfully.`
-- [ ] Every created assignment is a normal Active CrewAssignment with exactly one initial P0 or P1 phase, the same server-generated start timestamp, no invented P2A/P3/P4, no Sea Service, and no payroll payable days from P0/P1
-- [ ] After a P0 batch, Start Travel on an individual assignment still works
+- [ ] Every created assignment is a normal Active CrewAssignment with exactly one initial P0 phase, the same server-generated start timestamp, no invented P1/P2A/P3/P4, no Sea Service, and no payroll payable days from P0
 - [ ] Spreadsheet import, per-row vessel/stage, backdated start time, bulk Save Draft, and Skip Blocked Rows are not present
 
-## 3. Standard lifecycle
+## 3. Standard lifecycle (Arrival-first normal path)
 
-- [ ] Start Travel (`approve_mobilisation`) from Active P0 → P1
-- [ ] Legacy Draft P0 can still Start Travel
-- [ ] Record Arrival → P2A
-- [ ] Mark Ready → P3
+- [ ] Start Assignment from Draft P0 → Active P0 (`approve_mobilisation`; user-facing label **Start Assignment**)
+- [ ] Active P0 cannot Start Assignment again; progression is **Record Arrival**
+- [ ] Record Arrival from Active P0 → P2A Join Standby at one exact timestamp (`P0.actual_end_at = P2A.actual_start_at`)
+- [ ] Active P0 Record Arrival does not offer P3 selector (P2A only)
+- [ ] Mark Ready → P3 (when applicable from P2A)
 - [ ] Join Vessel → P4 (optional planned sign-off only)
 - [ ] Plan Sign-Off updates plan without leaving P4
 - [ ] Confirm Disembarkation → P5
@@ -63,6 +66,13 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Close Assignment → Completed
 - [ ] Only one active phase at a time
 - [ ] Activity/audit entries present
+
+### Legacy P1 support (historical records only)
+
+- [ ] Existing Active P1 assignments still show Travel In wording
+- [ ] Record Arrival from Active P1 → P2A or P3 (selector available)
+- [ ] Normal web Create / Planning Start / Bulk Start do not manufacture new P1 assignments
+- [ ] Redeploy normal choices exclude P1
 
 ## 4. Training loop
 
@@ -82,12 +92,15 @@ Operational checklist after deploying Crew Movement changes.
 
 - [ ] Planning row **Start Assignment** opens the unified Start form without creating a CrewAssignment
 - [ ] Planning master data (Employee, Rank, Client, Vessel, Expected Join) is read-only on the handoff form
-- [ ] Confirm Start creates one Active CrewAssignment with one P0/P1 phase, `source = crew_planning`, and links the original planning row
+- [ ] Arrival Date is editable on the handoff form and is operational assignment data (not Crew Planning authoritative)
+- [ ] Confirm Start creates one Active CrewAssignment with one P0 phase, `source = crew_planning`, and links the original planning row
 - [ ] Expected Join and Planned Sign-Off remain forecasts; actual start uses trusted server submit time
-- [ ] P1 default / P0 optional; direct P2A–P6 rejected
+- [ ] Arrival Date provenance displays **Entered on assignment**, not **From Crew Planning**
+- [ ] No initial-stage selector; crafted `current_stage` is ignored
 - [ ] Back/Cancel returns to Crew Planning with practical filter context preserved
 - [ ] User without `crew_operations.planning.view` cannot open or submit the Planning → Start handoff
 - [ ] Crafted POST cannot substitute employee/rank/vessel/client/planned join — server uses locked Planning values
+- [ ] Arrival Date after Expected Vessel Join is rejected using calendar-date comparison (no timezone shift on date-only Planning values)
 - [ ] Expected Join after Planned Sign-Off is rejected at Start
 - [ ] Relief planning preserves `relieves_crew_assignment_id` and rejects incompatible relief state
 - [ ] Linked Active assignment opens existing record without duplicate
@@ -130,7 +143,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Transfer creates linked Active P4 assignment with no invented standby/home phases
 - [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
 - [ ] Crew Assignments shows only the new Active assignment; Movement History shows both
-- [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P1/P2A/P3/P4); same vessel is allowed; P0 clears planned sign-off and hidden destination fields
+- [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P2A/P3/P4); P1 is not offered; same vessel is allowed; P0 clears planned sign-off and hidden destination fields
 - [ ] Movement controller redirects to the new linked assignment after transfer/redeploy
 - [ ] Daily Crew payroll board shows one employee row for multiple movement periods; Movement Periods dialog edits Manual segments; Applied Crew Operations segments are read-only
 - [ ] Daily Crew Excel allows repeated employee rows as separate periods; employee-level overtime/salary amounts are entered once; overlaps fail preview with Excel row numbers
@@ -148,11 +161,19 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Training provider and course values match each P2B occurrence
 - [ ] Active phases display Ongoing and calculate through company-local today
 - [ ] Planned Sign-Off remains separate from Actual Disembarkation
+- [ ] Arrival Date provenance shows **Entered on assignment** for manual and Planning-started assignments
 - [ ] Filters, sorting, 25/50/100 page sizes, and Clear Filters work
 - [ ] View Assignment and View Employee open the existing read-only destinations
 - [ ] Excel and CSV contain the same filtered assignment set as the table
 - [ ] Company A cannot view or export Company B assignment history
 - [ ] No `EmployeeDeployment` or duplicate movement/report table is created
+
+## 12. Payroll safeguards (Arrival-first regression)
+
+- [ ] P0 and P1 remain payroll-excluded
+- [ ] P2A begins Sign-On Standby payroll behavior after Record Arrival
+- [ ] Arrival Date (`planned_arrival_at`) remains forecast-only and does not create payroll days
+- [ ] Existing Arrival-first payroll regression tests remain green
 
 ## Movement Correction Production Readiness QA
 

@@ -166,7 +166,7 @@ describe('crew quick detail operational summary', () => {
                     label: 'Pre-Mobilisation',
                     status: 'active',
                 },
-                available_actions: ['approve_mobilisation'],
+                available_actions: ['record_arrival'],
             },
             can,
             now,
@@ -185,8 +185,8 @@ describe('crew quick detail operational summary', () => {
         );
         assert.equal(preMobilisation.milestone?.label, 'Expected Join');
         assert.equal(preMobilisation.milestone?.date, '2026-09-17');
-        assert.equal(preMobilisation.movement, 'approve_mobilisation');
-        assert.equal(preMobilisation.focus, 'Pre-mobilisation is in progress.');
+        assert.equal(preMobilisation.movement, 'record_arrival');
+        assert.match(preMobilisation.focus, /record arrival/i);
         assert.equal(travelling.milestone?.date, '2026-09-17');
     });
 

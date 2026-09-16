@@ -77,7 +77,7 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 
 | Code | Label | User-facing meaning |
 |------|-------|---------------------|
-| P0 | Pre-Mobilisation | Preparing the crew member before travel. |
+| P0 | Pre-Mobilisation | Assignment prepared and waiting for the crew member to arrive. |
 | P1 | Travel In | Travelling to the joining location. |
 | P2A | Join Standby | Waiting or staying in hotel/accommodation before joining the vessel. |
 | P2B | Training | Completing required training before joining. |
@@ -90,7 +90,7 @@ These sentences are UI copy only (`crew-phase-descriptions.ts`). They do not cha
 
 **Standby** in Crew Operations means the employee is waiting between movements, typically staying in a hotel or other accommodation. It is not only a system status.
 
-- **P0** is preparation before travel, not boarding.
+- **P0** is pre-mobilisation waiting for arrival, not boarding.
 - **P2A Join Standby** is waiting/staying in hotel/accommodation before joining.
 - **P5 Demobilisation Standby** is after disembarkation, waiting/staying in hotel/accommodation for onward or home travel.
 
@@ -109,7 +109,7 @@ A Planning record is **not** required before starting an operational assignment.
 Crew Planning (optional future intention)
     ↓ Start Assignment (review + confirm)
 Unified Start Assignment form (/organization/crew/create?planning_assignment_id=…)
-    ↓ confirm P0/P1
+    ↓ confirm Active P0
 CrewMovementService::startAssignment()
     ↓
 Crew Assignment (operational cycle)
@@ -128,13 +128,13 @@ Crew Planning records **future intention only**. Planning dates are forecasts an
 | Step | Behaviour |
 |------|-----------|
 | Planning row **Start Assignment** | Opens the unified Create UI with trusted server-side prefill. **Does not** create a `CrewAssignment`. |
-| Operations review | Employee, Rank, Client/Vessel, Expected Vessel Join (`planned_join_at`), Planned Arrival Date (`planned_arrival_at`), Remarks. Browser requests no longer submit or validate `current_stage`. |
+| Operations review | Employee, Rank, Client/Vessel, Expected Vessel Join (`planned_join_at`), Arrival Date (`planned_arrival_at`), Remarks. Browser requests no longer submit or validate `current_stage`. |
 | Confirm **Start Assignment** | `POST organization/crew-planning/assignments/{planning}/start` → `StartCrewAssignmentFromPlanning` → `CrewMovementService::startAssignment()` inside one transaction. |
 | Linking | Original `CrewPlanningAssignment` is linked via `crew_assignment_id`. `relieves_crew_assignment_id` is preserved. `source = crew_planning`. |
-| Timestamps | `started_at` and first phase `actual_start_at` use company-local trusted server submit time (`now()`). Planned Join remains `planned_join_at` forecast only. Planned Arrival Date remains `planned_arrival_at` forecast only. |
+| Timestamps | `started_at` and first phase `actual_start_at` use company-local trusted server submit time (`now()`). Expected Vessel Join remains `planned_join_at` forecast only. Arrival Date remains `planned_arrival_at` forecast only. |
 | Planned Sign-Off | When present on the Planning row, `planned_leave_date` maps server-side to `CrewAssignment.planned_signoff_at`. It is not editable in the Start handoff and is not an actual disembarkation or payroll date. |
 | Permissions | Planning handoff requires `crew_operations.planning.view` **and** `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Normal manual Start at `/organization/crew/create` (without `planning_assignment_id`) does **not** require Planning view. Backend authorization is mandatory. |
-| Master data | Employee, Rank, Client, Vessel, and Expected Vessel Join come from the locked Planning record at Start and are rendered in the read-only `PlanningStartAuthoritativeFields`. Planned Arrival Date is an operational field below it. The handoff form is read-only for planning authoritative fields; crafted POST values cannot override them. Update Planning separately when master data is wrong. |
+| Master data | Employee, Rank, Client, Vessel, and Expected Vessel Join come from the locked Planning record at Start and are rendered in the read-only `PlanningStartAuthoritativeFields`. Arrival Date is an operational assignment field below it (not Crew Planning authoritative data). The handoff form is read-only for planning authoritative fields; crafted POST values cannot override them. Update Planning separately when master data is wrong. |
 | Linked Active assignment | Redirect to the existing assignment; never create a duplicate. |
 | Linked Draft assignment | Backward compatible with the legacy draft-conversion workflow: redirect to the linked draft assignment show page; continue mobilisation from Crew Assignments (Start Assignment / draft edits). |
 | Active assignment conflict | When the planned employee already has any Active `CrewAssignment`, Planning → Start does **not** offer Start Assignment or the manual Transfer Vessel recommendation dialog. The page shows an operational warning and, when permitted, **Open Current Assignment**. For active P4 On Vessel on a different vessel, Operations must review the existing assignment and use the existing Transfer Vessel workflow from that assignment when appropriate. Planning is **not** linked atomically into Transfer Vessel in this phase. Backend still rejects crafted POSTs via `CrewMovementService::startAssignment()` → `assertNoActiveAssignment()`. Relief planning for a different employee (`relieves_crew_assignment_id`) is not treated as a conflict for the relief crew member. |
@@ -157,7 +157,7 @@ Creates:
 - `started_at` = company-local submit time (`now()` in the company timezone)
 - one Active starting phase (`sequence = 1`, `phase_code = PreMobilisation` (P0), `actual_start_at` = the same submit timestamp)
 - `source` remains the existing manual source
-- `planned_arrival_at` stores **Planned Arrival Date** (forecast only, `planned_arrival_at <= planned_join_at`)
+- `planned_arrival_at` stores **Arrival Date** (forecast only, `planned_arrival_at <= planned_join_at`)
 - `planned_join_at` stores **Expected Vessel Join** (forecast only)
 
 All normal web assignments start at **P0 Pre-Mobilisation**. Browser requests no longer submit, validate, or require `current_stage`. Direct starts at P2A, P2B, P3, P4, P5, or P6 are rejected. P1 (`TravelIn`) is removed from normal creation and redeployment choices (new P1 assignments are never created via normal web workflows). Join Vessel remains the only way to enter P4. Redeploy supports `[P0, P2A, P3, P4]`.
@@ -183,7 +183,7 @@ Start Crew Assignment (/organization/crew/create)
     ↓ one crew row by default
     ↓ optional Add Another Crew Member
     ↓ common Client / Vessel / Expected Join / remarks
-    ↓ per-employee Rank and Planned Arrival Date
+    ↓ per-employee Rank and Arrival Date
 BulkStartCrewAssignments (one transaction, 2+ rows only)
     ↓ CrewMovementService::startAssignment() for each employee (always P0)
 Current Crew
@@ -193,7 +193,7 @@ Current Crew
 |------|-----------|
 | Permissions | Same as Start Assignment: `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Frontend `can.start` is UX only. Bulk mode and **Add Another Crew Member** require Start capability; create-only users stay in Single/Draft mode. |
 | Common fields | Client, Vessel, Expected Vessel Join (`planned_join_at`), remarks. Client/Vessel auto-resolution reuses `ClientAssignmentRules`. |
-| Per-row fields | Employee, Rank, and Planned Arrival Date (`planned_arrival_at`). Rank still defaults from the employee profile. |
+| Per-row fields | Employee, Rank, and Arrival Date (`planned_arrival_at`). Rank still defaults from the employee profile. |
 | Starting stages | Always P0 Pre-Mobilisation. `current_stage` is removed from requests and transforms. |
 | Timestamp | One company-local server timestamp for the whole successful batch. The HTTP request does not accept `stage_started_at`, `started_at`, or browser-supplied company IDs. Each assignment `started_at` equals its initial phase `actual_start_at`. |
 | Atomicity | All-or-nothing. Every visible bulk row must have a selected employee or be removed by the user; incomplete, blocked, or invalid rows prevent the entire batch. If any row is invalid or the employee already has an Active assignment, **no** assignments from that batch are committed. Partial success / Skip Blocked Rows is not in this phase. |
@@ -215,7 +215,7 @@ Existing Draft assignments remain operable.
 
 ### Edit Assignment
 
-The edit form updates assignment master data, Expected Vessel Join (`planned_join_at`), Planned Arrival Date (`planned_arrival_at`), plus remarks. Current Assignment Stage is read-only context. The form does **not** expose Assignment Start Date & Time, Planned Sign-Off, Planned Travel Home, or editable actual movement timestamps. Stored `planned_signoff_at` / `planned_travel_at` remain on the record and continue to be owned by P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. The update request accepts only `rank_id`, `client_id`, `vessel_id`, `planned_join_at`, `planned_arrival_at`, and `remarks`. It does not accept `started_at`, `current_stage`, phase `actual_start_at` / `actual_end_at`, `planned_signoff_at`, or `planned_travel_at`. Omitting those fields preserves existing stored values. If Expected Vessel Join is submitted and an existing Planned Sign-Off is present, the join date cannot be after that sign-off date. Planned Arrival Date cannot be after Expected Vessel Join.
+Single Create and Edit share the same crew-member and assignment-details field components (`CrewMemberFields`, `CrewAssignmentCommonFields`). The edit form updates assignment master data, Expected Vessel Join (`planned_join_at`), Arrival Date (`planned_arrival_at`), plus remarks. Employee is locked on Edit. Current Assignment Stage is read-only context. The form does **not** expose Assignment Start Date & Time, Planned Sign-Off, Planned Travel Home, or editable actual movement timestamps. Stored `planned_signoff_at` / `planned_travel_at` remain on the record and continue to be owned by P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. The update request accepts only `rank_id`, `client_id`, `vessel_id`, `planned_join_at`, `planned_arrival_at`, and `remarks`. It does not accept `started_at`, `current_stage`, phase `actual_start_at` / `actual_end_at`, `planned_signoff_at`, or `planned_travel_at`. Omitting those fields preserves existing stored values. If Expected Vessel Join is submitted and an existing Planned Sign-Off is present, the join date cannot be after that sign-off date. Planned Arrival Date cannot be after Expected Vessel Join.
 
 ### Start Assignment (`approve_mobilisation`)
 
@@ -356,8 +356,8 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 
 | Action | Typical from phase |
 |--------|--------------------|
-| `approve_mobilisation` | P0 (Active or legacy Draft). User-facing label: **Start Travel** |
-| `record_arrival` | P1 → P2A or P3 |
+| `approve_mobilisation` | Draft P0 only. User-facing label: **Start Assignment** |
+| `record_arrival` | Active P0 → P2A; legacy Active P1 → P2A or P3 |
 | `start_join_standby` | P1/P3 path helpers |
 | `send_to_training` | P2A → P2B |
 | `complete_training` | P2B → P2A or P3 |
@@ -454,7 +454,7 @@ That gap can stay a normal assignment or redeploy. Do not rewrite it as a transf
 
 ### Redeploy (`redeploy`)
 
-Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P1 / P2A / P3 / P4 (Active; vessel optional except P4 requires vessel and rank). Same or different vessel/client is allowed. Direct P4 redeploy applies a fresh Tour snapshot; pre-P4 starts do not — Tour is applied later on Join Vessel. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
+Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P2A / P3 / P4 (Active; vessel optional except P4 requires vessel and rank). P1 is excluded from normal redeploy choices. Same or different vessel/client is allowed. Direct P4 redeploy applies a fresh Tour snapshot; pre-P4 starts do not — Tour is applied later on Join Vessel. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
 
 ### Still unsupported as an immediate movement action
 
@@ -472,7 +472,7 @@ Generic Crew Assignment editing is limited to Draft/pre-P4 preparation. Once P4 
 
 Mobilisation Readiness currently derives from required-document compliance (`DocumentRequirementResolver` / `DocumentComplianceQuery`). Training is not included in the score. There is no readiness table and **no movement blocker**. Readiness is advisory only and never blocks Crew movement.
 
-`CrewMobilisationReadinessResolver` answers whether the assignment employee looks operationally ready to mobilise based on required documents. It is shown on Crew Assignment show (full card) and as a compact indicator on Current Crew lists for **pre-join** assignments (P0–P3). Zero applicable checks are shown as **No Checks Configured** (neutral presentation; overall status remains Ready so P0 may still recommend Start Travel).
+`CrewMobilisationReadinessResolver` answers whether the assignment employee looks operationally ready to mobilise based on required documents. It is shown on Crew Assignment show (full card) and as a compact indicator on Current Crew lists for **pre-join** assignments (P0–P3). Zero applicable checks are shown as **No Checks Configured** (neutral presentation; overall status remains Ready so Draft P0 may still recommend Start Assignment).
 
 | Status | Meaning |
 |--------|---------|
@@ -499,9 +499,11 @@ Typical suggestions:
 
 | Phase | Usual recommendation |
 |-------|----------------------|
-| P0 (ready or no checks configured) | Start Travel (`approve_mobilisation`) |
-| P0 (readiness issues) | Resolve readiness, with Start Travel Anyway |
-| P1 | Record Arrival |
+| Active P0 (ready or no checks configured) | Record Arrival |
+| Active P0 (readiness issues) | Resolve readiness, with Record Arrival Anyway |
+| Draft P0 (ready or no checks configured) | Start Assignment (`approve_mobilisation`) |
+| Draft P0 (readiness issues) | Resolve readiness, with Start Assignment Anyway |
+| P1 (legacy) | Record Arrival |
 | P2A | Join Vessel |
 | P2B | Complete Training |
 | P3 | Join Vessel |

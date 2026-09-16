@@ -300,8 +300,6 @@ export interface CrewAssignmentFormData {
     remarks: string;
 }
 
-export type CrewAssignmentStartStage = 'p0' | 'p1';
-
 export interface CrewAssignmentCreateFormData {
     employee_id: number | null;
     rank_id: number | null;
@@ -327,14 +325,6 @@ export interface BulkAddCrewFormData {
     remarks: string;
     crew: BulkAddCrewRow[];
 }
-
-export const CREW_DIRECT_START_STAGES: Array<{
-    value: CrewAssignmentStartStage;
-    label: string;
-}> = [
-    { value: 'p1', label: 'P1 · Travel In' },
-    { value: 'p0', label: 'P0 · Pre-Mobilisation' },
-];
 
 export interface CrewAssignmentFormOptions {
     employees: Array<{
@@ -522,7 +512,7 @@ export type CrewMovementAction =
     | 'correct_movement';
 
 export const CREW_MOVEMENT_ACTION_LABELS: Record<CrewMovementAction, string> = {
-    approve_mobilisation: 'Start Travel',
+    approve_mobilisation: 'Start Assignment',
     record_arrival: 'Record Arrival',
     start_join_standby: 'Start Join Standby',
     send_to_training: 'Send to Training',

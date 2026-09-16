@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Organization\CrewPlanning;
 
 use App\Models\CrewPlanningAssignment;
-use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -65,10 +64,8 @@ class StartCrewAssignmentFromPlanningRequest extends FormRequest
                 return;
             }
 
-            $companyId = (int) $this->attributes->get('current_company_id');
-            $timezone = CompanyTimezone::forCompanyId($companyId);
-            $arrivalDate = Carbon::parse($plannedArrival, $timezone)->toDateString();
-            $joinDate = $planning->planned_join_date->copy()->timezone($timezone)->toDateString();
+            $arrivalDate = Carbon::parse((string) $plannedArrival)->toDateString();
+            $joinDate = $planning->planned_join_date->toDateString();
 
             if ($arrivalDate > $joinDate) {
                 $validator->errors()->add('planned_arrival_at', 'Arrival Date cannot be after Expected Vessel Join.');

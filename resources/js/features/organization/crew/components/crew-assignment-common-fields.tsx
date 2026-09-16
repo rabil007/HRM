@@ -79,11 +79,10 @@ export function CrewAssignmentCommonFields({
             ) : (
                 <div>
                     <h2 className="text-sm font-semibold tracking-tight">
-                        Operational Start
+                        Assignment Details
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                        Choose the initial movement stage and optional remarks
-                        for this mobilisation.
+                        Add optional operational remarks for this mobilisation.
                     </p>
                 </div>
             )}

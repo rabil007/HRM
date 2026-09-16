@@ -1,6 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     dataTableActionsCellClass,
@@ -19,6 +18,7 @@ import {
     CrewEmployeeOperationalStatus,
     getEmployeeStatusContainerClass,
 } from '@/features/organization/crew/components/crew-employee-operational-status';
+import { CrewMemberFields } from '@/features/organization/crew/components/crew-member-fields';
 import {
     bulkFieldError,
     bulkRowBlockReason,
@@ -184,151 +184,37 @@ function SingleCrewMemberCard({
     selectedEmployeeIds: Set<number>;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
 }): ReactElement {
-    const [rankDefaultedFromProfile, setRankDefaultedFromProfile] =
-        useState(false);
     const status = lookupByEmployeeId(
         formOptions.employee_status_by_employee,
         row.employee_id,
     );
-    const activeOnVessel = lookupByEmployeeId(
-        formOptions.active_on_vessel_by_employee,
-        row.employee_id,
-    );
-    const employeeError = bulkFieldError(errors, 'employee_id');
-    const rankError = bulkFieldError(errors, 'rank_id');
-    const selectedEmployee = formOptions.employees.find(
-        (employee) => employee.id === row.employee_id,
-    );
-    const profileRankName =
-        selectedEmployee?.rank_id != null
-            ? (formOptions.ranks.find(
-                  (rank) => rank.id === selectedEmployee.rank_id,
-              )?.name ?? null)
-            : null;
     const employeeContainerClass = status
         ? getEmployeeStatusContainerClass(status.status)
         : 'border-border/60 bg-muted/10';
-    const companyTimezone = formOptions.company_timezone ?? 'UTC';
 
     return (
         <div
             className={cn(
-                'space-y-4 rounded-xl border p-4 transition-colors',
+                'rounded-xl border p-4 transition-colors',
                 employeeContainerClass,
             )}
         >
-            <div className="space-y-2">
-                <Label htmlFor="crew-employee">Employee *</Label>
-                <EmployeeSelect
-                    index={0}
-                    row={row}
-                    formOptions={formOptions}
-                    selectedEmployeeIds={selectedEmployeeIds}
-                    onChangeRow={(index, nextRow) => {
-                        const employee = formOptions.employees.find(
-                            (item) => item.id === nextRow.employee_id,
-                        );
-                        const defaultRankId = employee?.rank_id ?? null;
-                        const shouldUseProfileRank =
-                            defaultRankId !== null &&
-                            (rankDefaultedFromProfile || row.rank_id === null);
-                        const nextRankId = shouldUseProfileRank
-                            ? defaultRankId
-                            : rankDefaultedFromProfile
-                              ? null
-                              : row.rank_id;
-
-                        onChangeRow(index, {
-                            ...row,
-                            employee_id: nextRow.employee_id,
-                            rank_id: nextRankId,
-                        });
-                        setRankDefaultedFromProfile(shouldUseProfileRank);
-                    }}
-                    error={employeeError}
-                />
-                {selectedEmployee ? (
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                        {selectedEmployee.employee_no ? (
-                            <p>
-                                Employee number:{' '}
-                                <span className="font-medium text-foreground">
-                                    {selectedEmployee.employee_no}
-                                </span>
-                            </p>
-                        ) : null}
-                        {profileRankName ? (
-                            <p>
-                                Default rank:{' '}
-                                <span className="font-medium text-foreground">
-                                    {profileRankName}
-                                </span>
-                            </p>
-                        ) : null}
-                    </div>
-                ) : null}
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="crew-rank">
-                    Rank{' '}
-                    <span className="font-normal text-muted-foreground">
-                        (optional until vessel joining)
-                    </span>
-                </Label>
-                <RankSelect
-                    index={0}
-                    row={row}
-                    formOptions={formOptions}
-                    onChangeRow={(index, nextRow) => {
-                        onChangeRow(index, nextRow);
-                        setRankDefaultedFromProfile(false);
-                    }}
-                    error={rankError}
-                />
-                {rankDefaultedFromProfile ? (
-                    <p className="text-xs font-medium text-sky-700 dark:text-sky-300">
-                        Defaulted from employee profile
-                    </p>
-                ) : null}
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="crew-planned-arrival-at">
-                    Arrival Date{' '}
-                    <span className="font-normal text-muted-foreground">
-                        (optional)
-                    </span>
-                </Label>
-                <Input
-                    id="crew-planned-arrival-at"
-                    type="date"
-                    className="h-11"
-                    value={row.planned_arrival_at ?? ''}
-                    onChange={(event) =>
-                        onChangeRow(0, {
-                            ...row,
-                            planned_arrival_at: event.target.value || null,
-                        })
-                    }
-                />
-                <p className="text-xs text-muted-foreground">
-                    Expected date the crew member will arrive at the joining
-                    location. Actual arrival is recorded later through Record
-                    Arrival.
-                </p>
-                <InputError
-                    message={bulkFieldError(errors, 'planned_arrival_at')}
-                />
-            </div>
-
-            {status ? (
-                <CrewEmployeeOperationalStatus
-                    status={status}
-                    activeOnVessel={activeOnVessel}
-                    companyTimezone={companyTimezone}
-                />
-            ) : null}
+            <CrewMemberFields
+                data={row}
+                onChange={(nextData) =>
+                    onChangeRow(0, {
+                        ...row,
+                        ...nextData,
+                    })
+                }
+                formOptions={formOptions}
+                errors={errors}
+                showOperationalStatus
+                selectedEmployeeIds={selectedEmployeeIds}
+                employeeErrorKey="employee_id"
+                rankErrorKey="rank_id"
+                arrivalErrorKey="planned_arrival_at"
+            />
         </div>
     );
 }

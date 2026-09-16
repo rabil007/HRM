@@ -6,7 +6,8 @@ import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
-import { CrewAssignmentFormFields } from '@/features/organization/crew/components/crew-assignment-form-fields';
+import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
+import { CrewMemberFields } from '@/features/organization/crew/components/crew-member-fields';
 import type {
     CrewAssignmentDetail,
     CrewAssignmentFormData,
@@ -126,12 +127,44 @@ export default function CrewAssignmentEdit({
                 <Card className="border-border/80 dark:border-white/10">
                     <CardContent className="p-6 md:p-8">
                         <form onSubmit={handleSubmit} className="space-y-8">
-                            <CrewAssignmentFormFields
+                            <section className="space-y-4">
+                                <div>
+                                    <h2 className="text-sm font-semibold tracking-tight">
+                                        Crew Members
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        Employee is locked after assignment
+                                        creation. Rank and Arrival Date remain
+                                        editable.
+                                    </p>
+                                </div>
+
+                                <CrewMemberFields
+                                    data={{
+                                        employee_id: form.data.employee_id,
+                                        rank_id: form.data.rank_id,
+                                        planned_arrival_at:
+                                            form.data.planned_arrival_at,
+                                    }}
+                                    onChange={(memberData) => {
+                                        form.setData({
+                                            ...form.data,
+                                            rank_id: memberData.rank_id,
+                                            planned_arrival_at:
+                                                memberData.planned_arrival_at,
+                                        });
+                                    }}
+                                    formOptions={form_options}
+                                    errors={form.errors}
+                                    lockEmployee
+                                    employeeLabel={employeeLabel}
+                                    currentPhase={assignment.current_phase}
+                                />
+                            </section>
+
+                            <CrewAssignmentCommonFields
                                 form={form}
                                 formOptions={form_options}
-                                lockEmployee
-                                employeeLabel={employeeLabel}
-                                currentPhase={assignment.current_phase}
                             />
 
                             <div className="flex flex-wrap gap-3 border-t border-border/60 pt-6">

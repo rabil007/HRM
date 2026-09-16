@@ -123,7 +123,7 @@ export function CrewRecommendedNextAction({
                                     }
                                 >
                                     {recommended.anyway_label ??
-                                        'Start Travel Anyway'}
+                                        'Start Assignment Anyway'}
                                 </Button>
                             ) : null}
                             <MovementActionMenu

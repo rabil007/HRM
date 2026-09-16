@@ -5,13 +5,11 @@ import { update as updateEmployee } from '@/actions/App/Http/Controllers/Organiz
 import { toast } from '@/lib/toast';
 import {
     buildEmployeeProfileFormInitial,
-    isEmployeeProfileFormDirty,
-} from '@/pages/organization/_lib/employee-profile-form-state';
-import {
     buildEmployeeProfileUpdatePayload,
     employeeProfileUpdateRequiresPostSpoof,
+    isEmployeeProfileFormDirty,
     resolveEmployeeProfileSaveVisit,
-} from '@/pages/organization/_lib/employee-profile-update-payload';
+} from '@/pages/organization/_lib/employee-profile-form-state';
 import type {
     EmployeeDetails,
     TemplateFieldConfig,
