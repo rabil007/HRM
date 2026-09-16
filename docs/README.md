@@ -1,125 +1,120 @@
-# OMS-HRM Documentation
+# OMS-HRM Documentation Router
 
-Product and developer documentation for the Herd OMS-HRM application. These guides describe **implemented** behavior in this repository.
+Use this file to find the **smallest useful context** for a task in Herd OMS-HRM. OMS-HRM is a complete multi-tenant Organization Management and Human Resources platform; **Crew Operations is one domain, not the whole product**.
 
-**Authoritative sources:** current code, routes, migrations, tests, and `database/seeders/PermissionsSeeder.php`. If documentation disagrees with those, follow the implementation.
+**Source of truth:** current code, routes, migrations, tests, and `database/seeders/PermissionsSeeder.php`. Documentation is the map; implementation wins when they disagree.
 
-## Agent context routing
+For the human-friendly documentation catalog, see [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md).
 
-Load **only** documentation relevant to the current task. Do **not** load every domain guide, `AI_GUIDE.md`, or the entire repository for a normal change.
+## Agent workflow
+
+For normal work, do not load the whole repository or all documentation.
 
 ```text
-.cursor/rules/project-rules.mdc     always-on invariants
+AGENTS.md + .cursor/rules/project-rules.mdc
         ↓
-docs/README.md                      this router
+docs/README.md
         ↓
-one matching domain guide
+one matching focused guide OR architecture/context-map.md
         ↓
 relevant routes + permission names
         ↓
-relevant models + Support/Services
+relevant models + Support/Services + frontend
         ↓
-one or two sibling implementations + tests
+one or two sibling implementations + focused tests
 ```
 
-Directory-level pointers (without architecture prose): [architecture/context-map.md](./architecture/context-map.md).
+Use [architecture/golden-files.md](./architecture/golden-files.md) when you need a preferred implementation example. Use [architecture/domains.md](./architecture/domains.md) only when a task needs broader business-domain relationships that the focused guide/current code does not answer. Load `AI_GUIDE.md` only for broad repository architecture work.
 
-Inspect the current implementation **before** relying on documentation. Broaden context only when the task crosses domains or evidence requires it.
+### Context budget
 
-### Do not initially load
+- Start with **one** matching guide. Load a second only when the task genuinely crosses domains.
+- For domains without a focused guide, start with the small [architecture/context-map.md](./architecture/context-map.md), then inspect current implementation. Do **not** load the full `architecture/domains.md` by default.
+- Inspect only the relevant route group, permission names, models, Support/Services, frontend feature, migrations, seeders, and tests.
+- Do not initially load every migration, model, frontend module, `.cursor/rules` file, skill, or documentation file.
+- Do not treat old prompts or stale docs as stronger evidence than current implementation.
 
-- Every migration, every model, or the entire frontend tree
-- Every documentation file or `AI_GUIDE.md` for a narrow task
-- The entire PermissionsSeeder when only one permission group is needed
-- Unrelated Crew, Payroll, or Documents modules
+## Full platform task router
 
-### Task → guide
+| Domain / task | Read first |
+| --- | --- |
+| Dashboard / analytics | [dashboard.md](./dashboard.md) |
+| Organization / companies / branches / tenancy structure | [architecture/context-map.md](./architecture/context-map.md), then current Organization routes/code; use `architecture/domains.md` only if broader relationships are needed |
+| Employees / profiles / contracts / bank / education / experience / training / vaccination / languages / sea service | [architecture/context-map.md](./architecture/context-map.md), then current Employee implementation; also [architecture/active-employee-visibility.md](./architecture/active-employee-visibility.md) when employee-status visibility is involved |
+| Master data / settings master data | [architecture/context-map.md](./architecture/context-map.md), then `routes/settings.php` and current Settings implementation |
+| Documents / library / employee documents / company or branch documents / templates / e-signing | [document-management.md](./document-management.md); add [document-search.md](./document-search.md) or [document-sharing.md](./document-sharing.md) only when relevant |
+| Document compliance / expiry Web Push | [document-compliance-web-push.md](./document-compliance-web-push.md) |
+| Attendance / records | [architecture/context-map.md](./architecture/context-map.md), then current Attendance routes/code |
+| Leave requests / approvals / policies | [architecture/context-map.md](./architecture/context-map.md), then current Leave implementation and permission names |
+| Payroll | [payroll.md](./payroll.md) |
+| Crew Payroll / Crew Timesheet preparation | [payroll.md](./payroll.md) and [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) |
+| Crew Operations / Crew Assignments / P0-P6 / planning / vessel manning / movements | [architecture/crew-movement-phases.md](./architecture/crew-movement-phases.md) |
+| Crew movement corrections | [architecture/crew-movement-corrections.md](./architecture/crew-movement-corrections.md) |
+| Crew operational alerts | [crew-operational-alerts-email.md](./crew-operational-alerts-email.md) or [crew-operational-alerts-web-push.md](./crew-operational-alerts-web-push.md) |
+| Reports (general) | [architecture/context-map.md](./architecture/context-map.md), then the current report route/query/export; use a report-specific guide when one exists |
+| Crew Movement History report | [reports/crew-movement-history.md](./reports/crew-movement-history.md) |
+| Users / roles / permissions / tenant authorization | [permissions.md](./permissions.md) and `.cursor/rules/permissions.mdc` |
+| Activity logs / audit trail | [permissions.md](./permissions.md#audit) and current activity-log implementation |
+| User account status / login eligibility | [permissions.md](./permissions.md#global-user-account-status) |
+| User email identity / duplicate login emails | [permissions.md](./permissions.md#global-user-email-identity) |
+| Privileged 2FA | [privileged-2fa.md](./privileged-2fa.md) |
+| Announcements | [announcements.md](./announcements.md); add [announcements-web-push.md](./announcements-web-push.md) for browser push |
+| Email / SMTP integration | [email-configuration.md](./email-configuration.md) |
+| WhatsApp integration | [whatsapp-integration.md](./whatsapp-integration.md) |
+| Hikvision integration | [hikvision-integration.md](./hikvision-integration.md) |
+| AI providers / Smart Employee Search | [ai-settings.md](./ai-settings.md) |
+| Settings without a dedicated guide | [architecture/context-map.md](./architecture/context-map.md), then `routes/settings.php` and the relevant current Settings code |
+| Global Search | [global-search.md](./global-search.md) |
+| Navigation favorites | [navigation-favorites.md](./navigation-favorites.md) |
+| Recently viewed records | [recent-items.md](./recent-items.md) |
+| Saved views | [saved-views.md](./saved-views.md) |
+| Mobile operational UX | [mobile-operational-lists.md](./mobile-operational-lists.md) |
+| HTTP / browser security headers | [security-headers.md](./security-headers.md) |
+| Job history retention / activity-log cleanup | [permissions.md](./permissions.md#job-history-and-activity-log-retention) |
+| CI / quality gates | [ci.md](./ci.md) |
+| Broad architecture / cross-domain analysis | [architecture/project-analysis.md](./architecture/project-analysis.md), then [architecture/domains.md](./architecture/domains.md) only as needed |
 
-| Task                                         | Read first                                                                                                                                                                                                                                                                                                                      |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Crew Operations / Crew Assignments / P0–P6   | [architecture/crew-movement-phases.md](./architecture/crew-movement-phases.md)                                                                                                                                                                                                                                                  |
-| Crew movement corrections                    | [architecture/crew-movement-corrections.md](./architecture/crew-movement-corrections.md)                                                                                                                                                                                                                                        |
-| Crew Movement History report                 | [reports/crew-movement-history.md](./reports/crew-movement-history.md)                                                                                                                                                                                                                                                          |
-| Crew payroll / Crew Timesheet preparation    | [payroll.md](./payroll.md) and [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md)                                                                                                                                                                                         |
-| Tenant access or permissions                 | [permissions.md](./permissions.md) and `.cursor/rules/permissions.mdc`                                                                                                                                                                                                                                                          |
-| Activity logs / audit trail                  | [permissions.md](./permissions.md#audit) and `.cursor/rules/permissions.mdc`                                                                                                                                                                                                                                                    |
-| User account status / login eligibility      | [permissions.md](./permissions.md#global-user-account-status)                                                                                                                                                                                                                                                                   |
-| User email identity / duplicate login emails | [permissions.md](./permissions.md#global-user-email-identity)                                                                                                                                                                                                                                                                   |
-| Documents, sharing, or search                | The matching document guide below; [global-search.md](./global-search.md) for Cmd/Ctrl+K                                                                                                                                                                                                                                        |
-| Global Search                                | [global-search.md](./global-search.md)                                                                                                                                                                                                                                                                                          |
-| Navigation favorites                         | [navigation-favorites.md](./navigation-favorites.md)                                                                                                                                                                                                                                                                            |
-| Recently viewed records                      | [recent-items.md](./recent-items.md)                                                                                                                                                                                                                                                                                            |
-| Saved views                                  | [saved-views.md](./saved-views.md)                                                                                                                                                                                                                                                                                              |
-| Privileged 2FA                               | [privileged-2fa.md](./privileged-2fa.md) and `.cursor/rules/permissions.mdc`                                                                                                                                                                                                                                                    |
-| Job history retention / activity-log cleanup | [permissions.md](./permissions.md#job-history-and-activity-log-retention)                                                                                                                                                                                                                                                       |
-| AI providers / Smart Employee Search         | [ai-settings.md](./ai-settings.md)                                                                                                                                                                                                                                                                                              |
-| HTTP / browser security headers              | [security-headers.md](./security-headers.md)                                                                                                                                                                                                                                                                                    |
-| Security (credentials, tenancy, auth)        | Matching security guide ([permissions.md](./permissions.md#global-user-account-status) for login account status, [permissions.md](./permissions.md#global-user-email-identity) for global email identity, [privileged-2fa.md](./privileged-2fa.md), [security-headers.md](./security-headers.md)) + `review-oms-security` skill |
-| CI quality gates                             | [ci.md](./ci.md)                                                                                                                                                                                                                                                                                                                |
-| Operational lists on phones                  | [mobile-operational-lists.md](./mobile-operational-lists.md)                                                                                                                                                                                                                                                                    |
-| Payroll (non-crew)                           | [payroll.md](./payroll.md)                                                                                                                                                                                                                                                                                                      |
-| Laravel backend                              | `.cursor/rules/backend.mdc`; `laravel-best-practices` skill                                                                                                                                                                                                                                                                     |
-| Inertia React UI                             | The matching scoped UI rule; `inertia-react-development` skill                                                                                                                                                                                                                                                                  |
-| End-to-end change                            | `implement-oms-change` skill                                                                                                                                                                                                                                                                                                    |
-| Preferred copy-from examples                 | [architecture/golden-files.md](./architecture/golden-files.md)                                                                                                                                                                                                                                                                  |
-| Architecture overview                        | [architecture/project-analysis.md](./architecture/project-analysis.md)                                                                                                                                                                                                                                                          |
+## Crew and Payroll terminology
 
-## Index
+Keep product-facing terminology distinct from compatibility names:
 
-| Guide                                                                                    | Audience                           | Topics                                                                                                                                                                     |
-| ---------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Dashboard](./dashboard.md)                                                              | HR, developers                     | Analytics, charts, document health, workforce trends                                                                                                                       |
-| [Document management](./document-management.md)                                          | HR, developers                     | Overview attention dashboard, Library, Document Types, folders, employee browse, upload, expiry, required-document compliance, and Company/Branch organizational documents |
-| [Document search](./document-search.md)                                                  | HR, developers                     | Documents index search UX, result modes, backend queries                                                                                                                   |
-| [Global search](./global-search.md)                                                      | HR, developers                     | Cmd/Ctrl+K omnibox: commands plus permission-aware record search                                                                                                           |
-| [Navigation favorites](./navigation-favorites.md)                                        | HR, developers                     | Personal pinned navigation destinations; permission-aware, not record shortcuts                                                                                            |
-| [Recent items](./recent-items.md)                                                        | HR, developers                     | Recently viewed business records in Cmd/Ctrl+K; per user and company, not audit history                                                                                    |
-| [Saved views](./saved-views.md)                                                          | HR, developers                     | Personal named list-filter combinations on Employees, Documents, Crew, Leave, and Payroll                                                                                  |
-| [Privileged two-factor](./privileged-2fa.md)                                             | Admins, developers                 | Fortify 2FA enrollment required for high-trust actions; does not replace permissions                                                                                       |
-| [HTTP security headers](./security-headers.md)                                           | Admins, developers                 | CSP, HSTS, framing, Referrer-Policy, session cookie production settings                                                                                                    |
-| [CI quality gates](./ci.md)                                                              | Developers                         | Change classifier, parallel Pint / frontend static / Vite build, sharded Pest, `Quality gates` aggregator                                                                  |
-| [Mobile operational lists](./mobile-operational-lists.md)                                | Developers                         | Compact phone cards for selected operational indexes; desktop tables stay standard                                                                                         |
-| [Document sharing](./document-sharing.md)                                                | HR, developers                     | Share links, WhatsApp, bulk actions                                                                                                                                        |
-| [Permissions](./permissions.md)                                                          | Admins, developers                 | Spatie permissions, activity audit, documents, imports, global user account status, global user email identity                                                             |
-| [Email configuration](./email-configuration.md)                                          | Admins, developers                 | SMTP settings, test email                                                                                                                                                  |
-| [AI settings](./ai-settings.md)                                                          | Admins, developers                 | Platform OpenAI/OpenRouter credentials, Smart Employee Search toggle, Employee Directory Beta UI                                                                           |
-| [WhatsApp integration](./whatsapp-integration.md)                                        | Admins, developers                 | Meta Cloud API settings, webhook verification, signed status callbacks                                                                                                     |
-| [Announcement Web Push](./announcements-web-push.md)                                     | Admins, developers                 | Browser push as an extension of in-app announcements                                                                                                                       |
-| [Announcements](./announcements.md)                                                      | HR, developers                     | Channels, publish flow, Send test to me                                                                                                                                    |
-| [Document compliance Web Push](./document-compliance-web-push.md)                        | Admins, developers                 | Browser push for the daily document expiry summary                                                                                                                         |
-| [Hikvision integration](./hikvision-integration.md)                                      | Admins, developers                 | Company settings, webhooks, scheduled syncs                                                                                                                                |
-| [Payroll](./payroll.md)                                                                  | Payroll users, developers          | Periods, salary inputs, timesheets, payslips, WPS, state transitions                                                                                                       |
-| [Crew payroll timesheet preparation](./architecture/crew-payroll-timeline-preparation.md) | Payroll, operations, developers    | Prepare / review / approve / apply crew timesheets from Crew Assignment actuals                                                              |
-| [Crew Movement History](./reports/crew-movement-history.md)                              | Operations, management, developers | One-row assignment history, phase mapping, durations, exports                                                                                                              |
-| [Crew Movement Corrections](./architecture/crew-movement-corrections.md)                 | Operations, developers             | Request/approve workflow for in-place movement field corrections                                                                                                           |
-| [Crew Movement Phases](./architecture/crew-movement-phases.md)                           | Operations, developers             | CrewAssignment source of truth, P0–P6, planning sync, sea service, manning, alerts                                                                                         |
-| [Crew operational alerts Web Push](./crew-operational-alerts-web-push.md)                | Admins, developers                 | Unified bell, recipient/read state, privacy-safe Crew browser push                                                                                                         |
-| [Crew operational alerts email](./crew-operational-alerts-email.md)                      | Admins, developers                 | Privacy-safe Crew alert email delivery, ledger, SMTP, retries                                                                                                              |
-| [Architecture overview](./architecture/project-analysis.md)                              | Developers                         | Application structure, stack, conventions                                                                                                                                  |
-| [Domain map](./architecture/domains.md)                                                  | Product, developers                | Core HR, documents, attendance, payroll, Crew Operations                                                                                                                   |
-| [Context map](./architecture/context-map.md)                                             | Developers, agents                 | Directory-level pointers by domain                                                                                                                                         |
-| [Golden files](./architecture/golden-files.md)                                           | Developers                         | Preferred implementation references                                                                                                                                        |
-| [Active employee visibility](./architecture/active-employee-visibility.md)               | Product, developers                | Operational vs historical employee status filtering                                                                                                                        |
-| [Documentation audit](./DOCUMENTATION_AUDIT.md)                                          | Maintainers                        | Historical May/July audits plus later follow-ups                                                                                                                           |
+```text
+CrewAssignment / CrewAssignmentPhase
+    ↓ actual operational movement data
+CrewTimesheetPreparation
+    ↓ versioned Payroll review / warning / approval workflow
+CrewTimesheet
+    ↓ applied Payroll input
+Payroll generation
+```
 
-## Implemented module coverage
+- `CrewAssignment` / `CrewAssignmentPhase` remain the operational source of truth for Crew movements.
+- Product-facing Payroll copy uses **Crew Timesheet** and **Crew Assignments**.
+- Internal persisted/technical compatibility names such as `source = crew_operations`, `CrewTimesheetSource::CrewOperations`, `CrewTimeline*`, `app/Support/Payroll/CrewTimeline/`, and `payroll.crew-timeline.*` remain valid implementation identifiers.
+- Planned sign-off or planning dates are never actual disembarkation/payroll movement dates.
+- `EmployeeDeployment` has been removed; do not reintroduce it unless an explicit migration task requires it.
 
-The application currently includes core organization and employee management, employee profile templates, documents and e-signing, attendance and leave, payroll, training, **Crew Operations** (Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections), users and roles, activity logging, bulk documents, and SMTP/WhatsApp/Hikvision integrations. The Organization Activity Logs page is user-attributed: rows without an `App\Models\User` causer are excluded from that page and its filter options. It presents human-readable activity headlines, module/user/importance filters, date shortcuts, range summary counts, searchable changed values, field-level diffs, and permission-aware links back to supported affected records. `audit.view` does not bypass the normal view permission for those destination records. Explicit workflow and compliance evidence remains stored by its domain and is not deleted by this view-level rule. Documentation depth varies by module; source code, routes, and tests remain authoritative where a dedicated guide is not yet available.
+## Cross-cutting implementation rules
 
-## Related project files
+- Resolve tenant ownership from trusted request `current_company_id`; never trust client-submitted `company_id`.
+- Backend authorization is mandatory. Frontend permission flags are UX only.
+- Sensitive credentials must stay masked and server-side.
+- Keep the Laravel/Inertia monolith and reuse existing Support/Services/components before introducing abstractions or dependencies.
+- Use explicit routes and Wayfinder; never manually edit generated route/action files.
+- Preserve operational history, auditability, and planned-vs-actual distinctions.
+- Meaningful changes require focused tests for the affected behavior, permissions, tenant isolation, workflow, audit, and regressions as applicable.
+- If behavior, architecture, permissions, schema, integrations, or operations change, update the relevant existing Markdown guide in the same task.
 
-| File                          | Purpose                                                      |
-| ----------------------------- | ------------------------------------------------------------ |
-| [README.md](../README.md)     | Setup, stack, quick reference                                |
-| [AI_GUIDE.md](../AI_GUIDE.md) | Concise repository-wide architecture (load only when needed) |
-| [AGENTS.md](../AGENTS.md)     | Laravel Boost agent rules (package versions, skills)         |
+## Developer helpers
 
-## Documentation standards
-
-- Routes are listed as paths; run `php artisan route:list --path=organization` for named routes.
-- Permissions are seeded in `database/seeders/PermissionsSeeder.php`.
-- Frontend pages live under `resources/js/pages/`; feature modules under `resources/js/features/`.
-
-## Last reviewed
-
-Entry points reviewed on **2026-09-08**. Activity-log routing, user attribution, intelligence filters, and permission-aware record linking were additionally checked against the current implementation on **2026-09-14**. Topic guides still vary in depth; implementation remains authoritative.
+| Need | Use |
+| --- | --- |
+| Laravel backend conventions | `.cursor/rules/backend.mdc` + `laravel-best-practices` skill |
+| Inertia React UI | matching scoped `.cursor/rules/*.mdc` + `inertia-react-development` skill |
+| Pest | `.cursor/rules/testing.mdc` + `pest-testing` skill |
+| Wayfinder | `wayfinder-development` skill |
+| End-to-end OMS change | `implement-oms-change` skill |
+| Security-sensitive review | `review-oms-security` skill |
+| Preferred implementation references | [architecture/golden-files.md](./architecture/golden-files.md) |
+| Directory-level domain pointers | [architecture/context-map.md](./architecture/context-map.md) |
+| Full documentation catalog | [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) |
