@@ -74,6 +74,8 @@ export const SETTINGS_HUB_VIEW_PERMISSIONS: readonly string[] = [
     'settings.master-data.ranks.view',
     'settings.master-data.clients.view',
     'settings.master-data.projects.view',
+    'settings.master-data.hotels.view',
+    'settings.master-data.room-types.view',
 ];
 
 export function hasSettingsAccess(

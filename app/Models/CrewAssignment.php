@@ -204,6 +204,14 @@ class CrewAssignment extends Model
             ->where('status', CrewMovementCorrectionStatus::Pending);
     }
 
+    /**
+     * @return HasMany<CrewAccommodationStay, $this>
+     */
+    public function accommodationStays(): HasMany
+    {
+        return $this->hasMany(CrewAccommodationStay::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

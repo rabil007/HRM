@@ -98,8 +98,40 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 | **CrewPlanningAssignment** | Planned join/leave on the Gantt board; may convert into a draft assignment. |
 | **CrewAssignment** | One mobilisation cycle (P0–P6). |
 | **CrewAssignmentPhase** | Ordered occurrence of a phase on that cycle. |
+| **CrewAccommodationStay** | Accommodation history for a mobilisation cycle (hotel stay or explicit no-accommodation record). |
 | **EmployeeSeaService** | Historical sea time created from completed P4 phases. |
 | **EmployeeTraining** | Formal employee qualification record; optionally synced from completed P2B phases. |
+
+```text
+CrewAssignment = mobilisation cycle
+CrewAssignmentPhase = operational movement history
+CrewAccommodationStay = accommodation history
+```
+
+**P2A/P5 phase presence does NOT itself prove hotel occupancy.** The Current Crew **Pre-Join Hotel** and **Post-Sign-Off Hotel** views are phase-based operational groupings only. Actual hotel occupancy is recorded separately in `crew_accommodation_stays` and is not inferred from phase codes alone.
+
+Accommodation master data (Settings → **Hotels**, **Room Types**) is company-scoped. A single assignment may have multiple accommodation stays, including multiple records of the same `stay_type` (for example hotel changes within one mobilisation cycle). There is no `unique(crew_assignment_id, stay_type)` constraint.
+
+`CrewAccommodationStay` supports:
+
+| Field / enum | Values (PR 1 foundation) |
+|--------------|--------------------------|
+| `stay_type` | `pre_join`, `post_signoff` |
+| `accommodation_status` | `hotel`, `no_accommodation` |
+
+Missing accommodation is **not** persisted as a status. It will later be derived when an assignment is in active P2A/P5, has no accommodation stay, and has no explicit `no_accommodation` record.
+
+### Planned accommodation integration (not yet implemented)
+
+| PR | Movement action | Accommodation behaviour |
+|----|---------------|-------------------------|
+| PR 2 | Record Arrival | Pre-join hotel check-in |
+| PR 2 | Join Vessel | Pre-join hotel check-out |
+| PR 3 | Confirm Disembarkation | Post-sign-off hotel check-in |
+| PR 3 | Return Home | Post-sign-off hotel check-out |
+| PR 3 | Return Home & Close Assignment | Post-sign-off checkout integration with assignment closure |
+
+PR 1 does **not** change Current Crew hotel views, movement dialogs, occupancy dashboards, or assignment accommodation-history UI.
 
 ## P0–P6
 

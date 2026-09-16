@@ -13,9 +13,11 @@ use App\Http\Controllers\Settings\MasterData\CourseController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
 use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
+use App\Http\Controllers\Settings\MasterData\HotelController;
 use App\Http\Controllers\Settings\MasterData\ProjectController;
 use App\Http\Controllers\Settings\MasterData\RankController;
 use App\Http\Controllers\Settings\MasterData\ReligionController;
+use App\Http\Controllers\Settings\MasterData\RoomTypeController;
 use App\Http\Controllers\Settings\MasterData\SssaOptionController;
 use App\Http\Controllers\Settings\MasterData\VesselController;
 use App\Http\Controllers\Settings\MasterData\VesselTypeController;
@@ -435,5 +437,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('projects/{project}', [ProjectController::class, 'destroy'])
             ->middleware('can:settings.master-data.projects.delete')
             ->name('projects.destroy');
+
+        Route::get('hotels', [HotelController::class, 'index'])
+            ->middleware('can:settings.master-data.hotels.view')
+            ->name('hotels.index');
+        Route::post('hotels', [HotelController::class, 'store'])
+            ->middleware('can:settings.master-data.hotels.create')
+            ->name('hotels.store');
+        Route::put('hotels/{hotel}', [HotelController::class, 'update'])
+            ->middleware('can:settings.master-data.hotels.update')
+            ->name('hotels.update');
+        Route::delete('hotels/{hotel}', [HotelController::class, 'destroy'])
+            ->middleware('can:settings.master-data.hotels.delete')
+            ->name('hotels.destroy');
+
+        Route::get('room-types', [RoomTypeController::class, 'index'])
+            ->middleware('can:settings.master-data.room-types.view')
+            ->name('room-types.index');
+        Route::post('room-types', [RoomTypeController::class, 'store'])
+            ->middleware('can:settings.master-data.room-types.create')
+            ->name('room-types.store');
+        Route::put('room-types/{room_type}', [RoomTypeController::class, 'update'])
+            ->middleware('can:settings.master-data.room-types.update')
+            ->name('room-types.update');
+        Route::delete('room-types/{room_type}', [RoomTypeController::class, 'destroy'])
+            ->middleware('can:settings.master-data.room-types.delete')
+            ->name('room-types.destroy');
     });
 });

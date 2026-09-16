@@ -157,6 +157,16 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.projects.update',
             'settings.master-data.projects.delete',
 
+            'settings.master-data.hotels.view',
+            'settings.master-data.hotels.create',
+            'settings.master-data.hotels.update',
+            'settings.master-data.hotels.delete',
+
+            'settings.master-data.room-types.view',
+            'settings.master-data.room-types.create',
+            'settings.master-data.room-types.update',
+            'settings.master-data.room-types.delete',
+
             'companies.view',
             'companies.create',
             'companies.update',

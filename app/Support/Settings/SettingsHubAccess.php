@@ -32,6 +32,8 @@ final class SettingsHubAccess
             'settings.master-data.clients.view',
             'settings.master-data.document-types.view',
             'settings.master-data.projects.view',
+            'settings.master-data.hotels.view',
+            'settings.master-data.room-types.view',
         ];
     }
 

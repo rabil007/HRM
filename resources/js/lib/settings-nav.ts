@@ -2,6 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 import {
     Award,
     BadgeCheck,
+    BedDouble,
+    Building2,
     Camera,
     FolderKanban,
     Globe2,
@@ -184,6 +186,20 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
         permission: 'settings.master-data.projects.view',
         icon: FolderKanban,
         color: 'bg-violet-500/10 text-violet-600',
+    },
+    {
+        title: 'Hotels',
+        href: '/settings/master-data/hotels',
+        permission: 'settings.master-data.hotels.view',
+        icon: Building2,
+        color: 'bg-indigo-500/10 text-indigo-600',
+    },
+    {
+        title: 'Room types',
+        href: '/settings/master-data/room-types',
+        permission: 'settings.master-data.room-types.view',
+        icon: BedDouble,
+        color: 'bg-indigo-500/10 text-indigo-600',
     },
 ];
 

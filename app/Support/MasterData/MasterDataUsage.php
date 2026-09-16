@@ -11,6 +11,7 @@ use App\Models\CompanyDocument;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Course;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
@@ -28,10 +29,12 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeVaccination;
 use App\Models\Gender;
+use App\Models\Hotel;
 use App\Models\PayrollRecord;
 use App\Models\Project;
 use App\Models\Rank;
 use App\Models\Religion;
+use App\Models\RoomType;
 use App\Models\SssaOption;
 use App\Models\Vessel;
 use App\Models\VesselManning;
@@ -352,6 +355,12 @@ final class MasterDataUsage
                     DocumentRequirement::class,
                     'document_requirement_id',
                 ),
+            ],
+            Hotel::class => [
+                MasterDataUsageSource::model('crew accommodation stays', CrewAccommodationStay::class, 'hotel_id', 'company_id', includeSoftDeletedReferences: true),
+            ],
+            RoomType::class => [
+                MasterDataUsageSource::model('crew accommodation stays', CrewAccommodationStay::class, 'room_type_id', 'company_id', includeSoftDeletedReferences: true),
             ],
             default => throw new InvalidArgumentException("Master-data usage is not defined for {$modelClass}."),
         };
