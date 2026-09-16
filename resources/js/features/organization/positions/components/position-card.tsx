@@ -66,6 +66,11 @@ export function PositionCard({
                                 </Badge>
                             ) : null}
                         </div>
+                        {position.description ? (
+                            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted-foreground/75">
+                                {position.description}
+                            </p>
+                        ) : null}
                     </div>
                     <Badge
                         className={`border text-[10px] font-bold tracking-wider uppercase ${statusClass}`}

@@ -335,6 +335,50 @@ Physical or logical sites within a company (HQ, offices). Employees are assigned
 
 ---
 
+## Positions
+
+### Purpose
+
+Company-scoped job-position master data used by employee assignment, payroll, reporting, search, and document-compliance rules.
+
+### Main model and storage
+
+- `Position` belongs to a company and may belong to a department.
+- A position may have a free-text description of up to 5,000 characters.
+- A position may have one optional attachment (PDF, Word, JPG, PNG, or WebP; maximum 10 MB).
+- Attachment metadata is stored on `positions`; file bytes are stored on the private `local` disk below `position-attachments/{company_id}/{position_id}/`.
+- Replacing or explicitly removing an attachment deletes the prior file after the database update succeeds. Soft-deleting a position preserves its attachment with the historical record.
+
+### Controllers / Support
+
+| File | Role |
+|------|------|
+| `PositionController` | Company-scoped list, show, CRUD, status, search, and export |
+| `PositionAttachmentController` | Permission-protected preview and download |
+| `PositionAttachmentStorage` | Private storage, metadata, checksum, path-boundary validation, replacement cleanup |
+
+### Pages / components
+
+- `resources/js/features/organization/positions/positions-content.tsx` — list/grid/tree views and CRUD form state.
+- `resources/js/features/organization/positions/components/position-form-sheet.tsx` — description and attachment create/edit UI.
+- `resources/js/pages/organization/position.tsx` — details, attachment view/download, and audit activity.
+
+### Permissions and tenancy
+
+- Existing `positions.view|create|update|delete|export` permissions remain authoritative.
+- Attachment preview/download requires `positions.view` and verifies that the position belongs to trusted request `current_company_id`.
+- Department validation is company-scoped; cross-company department IDs are rejected.
+- Attachment paths are never exposed as public storage URLs.
+
+### Important workflows
+
+1. Create may store a description and one optional attachment.
+2. Edit may retain, replace, or explicitly remove the attachment.
+3. Search includes title, description, grade, and attachment filename; exports include description and attachment filename.
+4. Attachment metadata changes and description edits are included in the position activity trail; storage paths and checksums are not logged.
+
+---
+
 ## Employees
 
 ### Purpose

@@ -1,6 +1,14 @@
 import { Head } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
-import { Activity, BadgeDollarSign, Crown, Users } from 'lucide-react';
+import {
+    Activity,
+    BadgeDollarSign,
+    Crown,
+    Download,
+    ExternalLink,
+    FileText,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -79,6 +87,18 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
     );
 }
 
+function formatFileSize(size: number | null): string {
+    if (size === null) {
+        return 'Size unavailable';
+    }
+
+    if (size < 1024 * 1024) {
+        return `${Math.max(1, Math.round(size / 1024))} KB`;
+    }
+
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function PositionDetails({
     position,
     departments,
@@ -98,10 +118,13 @@ export default function PositionDetails({
     const form = useForm<PositionFormData>({
         department_id: position.department?.id ?? '',
         title: position.title ?? '',
+        description: position.description ?? '',
         grade: position.grade ?? '',
         min_salary: position.min_salary ? String(position.min_salary) : '',
         max_salary: position.max_salary ? String(position.max_salary) : '',
         status: position.status ?? 'active',
+        attachment: null,
+        remove_attachment: false,
     });
 
     return (
@@ -172,6 +195,14 @@ export default function PositionDetails({
                                         )
                                     }
                                 />
+                                <div className="space-y-2 px-6 py-4">
+                                    <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
+                                        Description
+                                    </div>
+                                    <p className="text-sm leading-6 whitespace-pre-wrap text-foreground/90">
+                                        {position.description ?? '—'}
+                                    </p>
+                                </div>
                                 <Field
                                     label="Grade"
                                     value={position.grade ?? '—'}
@@ -233,6 +264,80 @@ export default function PositionDetails({
                         </CardContent>
                     </Card>
                 </div>
+
+                <Card className="mt-6 glass-card dark:border-white/5 dark:bg-white/5">
+                    <CardHeader>
+                        <CardTitle className="text-xl font-bold tracking-tight">
+                            Position attachment
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {position.attachment ? (
+                            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                                <div className="flex min-w-0 items-center gap-4">
+                                    {position.attachment.is_image ? (
+                                        <img
+                                            src={
+                                                position.attachment.preview_url
+                                            }
+                                            alt={
+                                                position.attachment
+                                                    .original_name
+                                            }
+                                            className="h-20 w-20 shrink-0 rounded-xl border border-border object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                            <FileText className="h-5 w-5" />
+                                        </div>
+                                    )}
+                                    <div className="min-w-0">
+                                        <div className="truncate text-sm font-semibold">
+                                            {position.attachment.original_name}
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            {position.attachment.mime_type ??
+                                                'Document'}{' '}
+                                            •{' '}
+                                            {formatFileSize(
+                                                position.attachment.size_bytes,
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button asChild variant="secondary">
+                                        <a
+                                            href={
+                                                position.attachment.preview_url
+                                            }
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            <ExternalLink className="mr-2 h-4 w-4" />
+                                            View
+                                        </a>
+                                    </Button>
+                                    <Button asChild variant="outline">
+                                        <a
+                                            href={
+                                                position.attachment.download_url
+                                            }
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Download
+                                        </a>
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                                No document or photo has been uploaded for this
+                                position.
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {can_view_audit ? (
                     <Card className="mt-8 glass-card dark:border-white/5 dark:bg-white/5">
@@ -413,6 +518,28 @@ export default function PositionDetails({
                     departments={departments}
                     form={form}
                     onSubmit={() => {
+                        const hasAttachment =
+                            form.data.attachment instanceof File;
+
+                        if (hasAttachment) {
+                            form.transform((data) => ({
+                                ...data,
+                                _method: 'put',
+                            }));
+                            form.post(
+                                `/organization/positions/${position.id}`,
+                                {
+                                    preserveScroll: true,
+                                    forceFormData: true,
+                                    onSuccess: () => setOpen(false),
+                                    onFinish: () =>
+                                        form.transform((data) => data),
+                                },
+                            );
+
+                            return;
+                        }
+
                         form.put(`/organization/positions/${position.id}`, {
                             preserveScroll: true,
                             onSuccess: () => setOpen(false),

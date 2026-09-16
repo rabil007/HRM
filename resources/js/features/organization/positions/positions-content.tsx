@@ -78,10 +78,13 @@ export function PositionsContent({
     const form = useForm<PositionFormData>({
         department_id: '',
         title: '',
+        description: '',
         grade: '',
         min_salary: '',
         max_salary: '',
         status: 'active',
+        attachment: null,
+        remove_attachment: false,
     });
 
     const handleAdd = () => {
@@ -91,10 +94,13 @@ export function PositionsContent({
             form.setData({
                 department_id: '',
                 title: '',
+                description: '',
                 grade: '',
                 min_salary: '',
                 max_salary: '',
                 status: 'active',
+                attachment: null,
+                remove_attachment: false,
             });
         });
     };
@@ -106,6 +112,7 @@ export function PositionsContent({
             form.setData({
                 department_id: position.department?.id ?? '',
                 title: position.title ?? '',
+                description: position.description ?? '',
                 grade: position.grade ?? '',
                 min_salary: position.min_salary
                     ? String(position.min_salary)
@@ -114,6 +121,8 @@ export function PositionsContent({
                     ? String(position.max_salary)
                     : '',
                 status: position.status ?? 'active',
+                attachment: null,
+                remove_attachment: false,
             });
         });
     };
@@ -141,7 +150,21 @@ export function PositionsContent({
     };
 
     const submit = () => {
+        const hasAttachment = form.data.attachment instanceof File;
+
         if (crud.currentEntity) {
+            if (hasAttachment) {
+                form.transform((data) => ({ ...data, _method: 'put' }));
+                form.post(`/organization/positions/${crud.currentEntity.id}`, {
+                    preserveScroll: true,
+                    forceFormData: true,
+                    onSuccess: () => crud.setIsSheetOpen(false),
+                    onFinish: () => form.transform((data) => data),
+                });
+
+                return;
+            }
+
             form.put(`/organization/positions/${crud.currentEntity.id}`, {
                 preserveScroll: true,
                 onSuccess: () => crud.setIsSheetOpen(false),
@@ -152,6 +175,7 @@ export function PositionsContent({
 
         form.post('/organization/positions', {
             preserveScroll: true,
+            forceFormData: hasAttachment,
             onSuccess: () => crud.setIsSheetOpen(false),
         });
     };
@@ -199,7 +223,7 @@ export function PositionsContent({
             }
             search={{
                 placeholder:
-                    'Search positions by title, grade, company, or department...',
+                    'Search positions by title, description, grade, or attachment...',
                 value: list.searchInput,
                 onChange: list.onSearchChange,
                 right:
@@ -237,17 +261,19 @@ export function PositionsContent({
                     ))}
                 </div>
             ) : (
-                <OrganizationDataTable minWidth="min-w-[980px]">
+                <OrganizationDataTable minWidth="min-w-[1180px]">
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="pl-5">
                                 Position
                             </DataTableHead>
                             <DataTableHead>Department</DataTableHead>
+                            <DataTableHead>Description</DataTableHead>
                             <DataTableHead>Grade</DataTableHead>
                             <DataTableHead>Min</DataTableHead>
                             <DataTableHead>Max</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
+                            <DataTableHead>Attachment</DataTableHead>
                             <DataTableHead className="text-right">
                                 Actions
                             </DataTableHead>
@@ -271,6 +297,13 @@ export function PositionsContent({
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {position.department?.name ?? '—'}
+                                </TableCell>
+                                <TableCell
+                                    className={`${dataTableCellClass()} max-w-[260px]`}
+                                >
+                                    <span className="line-clamp-2">
+                                        {position.description ?? '—'}
+                                    </span>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {position.grade ?? '—'}
@@ -298,6 +331,9 @@ export function PositionsContent({
                                             {position.status ?? '—'}
                                         </span>
                                     </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {position.attachment?.original_name ?? '—'}
                                 </TableCell>
                                 <TableCell
                                     className={dataTableActionsCellClass()}

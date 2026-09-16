@@ -18,7 +18,21 @@ class Position extends Model
     use LogsActivityWithCompany;
     use SoftDeletes;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'company_id',
+        'department_id',
+        'title',
+        'description',
+        'grade',
+        'min_salary',
+        'max_salary',
+        'status',
+        'attachment_path',
+        'attachment_original_name',
+        'attachment_mime_type',
+        'attachment_size_bytes',
+        'attachment_checksum',
+    ];
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -27,10 +41,14 @@ class Position extends Model
                 'company_id',
                 'department_id',
                 'title',
+                'description',
                 'grade',
                 'min_salary',
                 'max_salary',
                 'status',
+                'attachment_original_name',
+                'attachment_mime_type',
+                'attachment_size_bytes',
             ])
             ->logOnlyDirty();
     }
