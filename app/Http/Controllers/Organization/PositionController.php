@@ -173,8 +173,7 @@ class PositionController extends Controller
     public function store(
         StorePositionRequest $request,
         PositionAttachmentStorage $attachmentStorage,
-    ): JsonResponse|RedirectResponse
-    {
+    ): JsonResponse|RedirectResponse {
         $data = $request->validated();
         $companyId = (int) $request->attributes->get('current_company_id');
         $attachment = $request->file('attachment');
@@ -245,8 +244,7 @@ class PositionController extends Controller
         UpdatePositionRequest $request,
         Position $position,
         PositionAttachmentStorage $attachmentStorage,
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $position->company_id === $companyId, 404);
 
