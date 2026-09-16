@@ -575,6 +575,8 @@ describe('crew timeline line presentation', () => {
                             phase_code: 'p1',
                             phase_code_display: 'P1',
                             phase_label: 'Travel In',
+                            is_legacy: true,
+                            legacy_context_label: 'Legacy phase · P1 Travel In',
                             actual_start: '2026-08-01',
                             actual_end: '2026-08-02',
                             payroll_from: '2026-08-01',
@@ -663,6 +665,11 @@ describe('crew timeline line presentation', () => {
         assert.equal(payableLineIds.includes(30), false);
         assert.equal(payableLineIds.includes(31), false);
         assert.equal(payableLineIds.includes(36), false);
+        assert.equal(
+            breakdown.excluded.find((segment) => segment.lineId === 31)
+                ?.legacyContextLabel,
+            'Legacy phase · P1 Travel In',
+        );
         assert.equal(breakdown.detectedPayableDays, 3);
         assert.equal(
             breakdown.categories.find((category) => category.key === 'onsite')

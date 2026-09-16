@@ -182,6 +182,11 @@ export function RequestCorrectionDialog({
                                             {phase.phase_code.toUpperCase()} ·{' '}
                                             {phase.phase_label}
                                         </span>
+                                        {phase.legacy_context_label ? (
+                                            <span className="text-xs text-muted-foreground">
+                                                {phase.legacy_context_label}
+                                            </span>
+                                        ) : null}
                                         <span className="text-xs text-muted-foreground">
                                             {phase.status_label}
                                             {phase.has_pending_correction

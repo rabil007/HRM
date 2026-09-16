@@ -270,6 +270,8 @@ Permissions:
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
 
+Legacy Crew phase compatibility: modern assignments stop at P0/P2A/P2B/P4/P5/P6, but payroll preparation and movement corrections still understand historical P1 (Excluded) and P3 (Sign-On Standby) when those phases exist on an assignment. Pay mapping, overlap rules, and source hashing are unchanged.
+
 ### Unified Crew timesheet sources (hybrid)
 
 Each crew pay period stores `crew_timesheet_mode`:

@@ -81,6 +81,8 @@ export type CrewTimelinePhaseOccurrence = {
     remarks: string[];
     occurrence: number | null;
     occurrence_count: number;
+    is_legacy?: boolean;
+    legacy_context_label?: string | null;
     has_payroll_period: boolean;
 };
 

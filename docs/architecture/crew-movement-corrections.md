@@ -27,6 +27,8 @@ Derived updates on approve:
 
 Correcting P1 Travel In updates that phase `actual_start_at` only. It does **not** rewrite `CrewAssignment.started_at`. Assignment `started_at` / `closed_at` describe the assignment lifecycle and are not Crew payroll inputs.
 
+Modern assignments do not create new P1/P3 phases, so the correction picker naturally omits them. Historical assignments that recorded actual P1 or P3 movement remain correctable; the UI may show a small legacy context label on those phases only.
+
 ## Hard rules
 
 - Originals are always read from the database at request time

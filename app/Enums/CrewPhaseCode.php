@@ -72,6 +72,15 @@ enum CrewPhaseCode: string
         return in_array($this, self::legacyPhases(), true);
     }
 
+    public function legacyContextLabel(): ?string
+    {
+        if (! $this->isLegacy()) {
+            return null;
+        }
+
+        return sprintf('Legacy phase · %s %s', strtoupper($this->value), $this->label());
+    }
+
     /**
      * @return list<self>
      */

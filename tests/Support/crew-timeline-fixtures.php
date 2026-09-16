@@ -4,6 +4,7 @@ use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
@@ -11,12 +12,35 @@ use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewTimesheetPreparation;
+use App\Models\CrewTimesheetPreparationLine;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
+
+function overlapWarningExists(int $preparationId): bool
+{
+    return CrewTimesheetPreparationLine::query()
+        ->where('crew_timesheet_preparation_id', $preparationId)
+        ->where('warning_code', CrewTimelineWarningCode::OverlappingPhases->value)
+        ->exists();
+}
+
+/**
+ * @return Collection<int, CrewTimesheetPreparationLine>
+ */
+function payableLinesCovering(int $preparationId, string $date)
+{
+    return CrewTimesheetPreparationLine::query()
+        ->where('crew_timesheet_preparation_id', $preparationId)
+        ->where('days', '>', 0)
+        ->whereDate('from_date', '<=', $date)
+        ->whereDate('to_date', '>=', $date)
+        ->get();
+}
 
 function makeDailyCrewTimelineFixtures(): array
 {

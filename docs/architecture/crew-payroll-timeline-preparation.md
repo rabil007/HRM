@@ -64,6 +64,8 @@ Payroll generation
 | P5 Demobilisation Standby | Sign-Off Standby               |
 | P6 Home / Redeployment    | Excluded                       |
 
+Modern Crew assignments no longer create new P1 or P3 phases. Payroll preparation still reads historical P1/P3 when they exist on an assignment; it never fabricates empty legacy phase rows for modern assignments. Payroll review may show a small legacy context label on actual P1/P3 phases without hiding source lines or changing pay mapping.
+
 Day priority when categories overlap:
 
 1. Onsite
@@ -311,7 +313,7 @@ Presentation rules:
 - Every positive-day non-excluded preparation line remains visible. Do not collapse separate payroll lines into the employee-level earliest `from` and latest `to`.
 - Actual movement comes from the linked `CrewAssignmentPhase` (`actual_start_at` / `actual_end_at`). Payroll counted dates come from the preparation line `from_date` / `to_date` / `days`.
 - Linked assignments created by `vessel_transfer` or `redeployment` stay separate, with a transfer/redeployment divider. Multiple P4 periods are not merged into one continuous range.
-- P0, P1, and P6 excluded lines appear after the payable breakdown and do not contribute to Total Payable.
+- P0, P1, and P6 excluded lines appear after the payable breakdown and do not contribute to Total Payable. Actual legacy P1/P3 phases may show a legacy context label; source lines and pay categories stay unchanged.
 - Blocking and informational warnings remain visible, including warning-only zero-day lines.
 - A skipped employee must show detected Crew Assignment payable days separately from applied Crew Assignment days (`0`). Original movement data stays visible for audit, but the modal must not imply the employee receives zero payroll.
 - The modal does not show salary amounts. Those are calculated later during payroll generation.

@@ -165,9 +165,16 @@ function PayableSegmentCard({
     return (
         <article className="rounded-xl border border-border/70 bg-card/80 p-3.5 sm:p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
-                <h4 className="font-semibold text-foreground">
-                    {segment.title}
-                </h4>
+                <div>
+                    <h4 className="font-semibold text-foreground">
+                        {segment.title}
+                    </h4>
+                    {segment.legacyContextLabel ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            {segment.legacyContextLabel}
+                        </p>
+                    ) : null}
+                </div>
                 <Badge
                     variant="outline"
                     className={cn(
@@ -385,6 +392,9 @@ function ExcludedSegmentCard({
     return (
         <article className="rounded-xl border border-border/60 bg-muted/20 px-3.5 py-3 text-sm text-muted-foreground">
             <p className="font-medium text-foreground/80">{segment.title}</p>
+            {segment.legacyContextLabel ? (
+                <p className="mt-0.5 text-xs">{segment.legacyContextLabel}</p>
+            ) : null}
             <p className="mt-1 tabular-nums">
                 {formatCrewTimelineArrowRange(segment.from, segment.to)}
             </p>

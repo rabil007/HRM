@@ -228,6 +228,7 @@ export type CrewTimelinePayrollSegment = {
     lineId: number;
     payCategory: CrewTimelinePayableCategoryKey;
     title: string;
+    legacyContextLabel: string | null;
     assignmentId: number | null;
     assignmentNumber: string | null;
     vessel: string | null;
@@ -246,6 +247,7 @@ export type CrewTimelineExcludedSegment = {
     id: string;
     lineId: number;
     title: string;
+    legacyContextLabel: string | null;
     from: string | null;
     to: string | null;
     days: string;
@@ -477,6 +479,7 @@ export function buildCrewTimelinePayrollBreakdown(
                         id: `excluded-${line.id}`,
                         lineId: line.id,
                         title: payrollPhaseTitle(phase, line),
+                        legacyContextLabel: phase.legacy_context_label ?? null,
                         from: line.from_date,
                         to: line.to_date,
                         days: line.days,
@@ -507,6 +510,7 @@ export function buildCrewTimelinePayrollBreakdown(
                     lineId: line.id,
                     payCategory: line.pay_category,
                     title: payrollPhaseTitle(phase, line),
+                    legacyContextLabel: phase.legacy_context_label ?? null,
                     assignmentId: assignment.id,
                     assignmentNumber: assignment.assignment_number,
                     vessel: assignment.vessel,

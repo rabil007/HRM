@@ -487,6 +487,8 @@ export interface CorrectablePhase {
     actual_end_at: string | null;
     remarks: string | null;
     details: Record<string, unknown> | null;
+    is_legacy?: boolean;
+    legacy_context_label?: string | null;
     allowed_fields: string[];
     has_pending_correction: boolean;
     current_values: Record<string, CrewMovementCorrectionFieldValue>;

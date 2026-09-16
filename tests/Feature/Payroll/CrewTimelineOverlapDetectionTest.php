@@ -7,28 +7,6 @@ use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
-use Illuminate\Support\Collection;
-
-function overlapWarningExists(int $preparationId): bool
-{
-    return CrewTimesheetPreparationLine::query()
-        ->where('crew_timesheet_preparation_id', $preparationId)
-        ->where('warning_code', CrewTimelineWarningCode::OverlappingPhases->value)
-        ->exists();
-}
-
-/**
- * @return Collection<int, CrewTimesheetPreparationLine>
- */
-function payableLinesCovering(int $preparationId, string $date)
-{
-    return CrewTimesheetPreparationLine::query()
-        ->where('crew_timesheet_preparation_id', $preparationId)
-        ->where('days', '>', 0)
-        ->whereDate('from_date', '<=', $date)
-        ->whereDate('to_date', '>=', $date)
-        ->get();
-}
 
 test('exact phase handoffs produce no overlap warning and onsite wins transition dates', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
