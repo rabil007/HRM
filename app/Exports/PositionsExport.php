@@ -31,10 +31,12 @@ class PositionsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             'Company',
             'Department',
             'Title',
+            'Description',
             'Grade',
             'Min Salary',
             'Max Salary',
             'Status',
+            'Attachment',
             'Created At',
         ];
     }
@@ -46,10 +48,12 @@ class PositionsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $this->companyName,
             $position->department?->name,
             $position->title,
+            $position->description,
             $position->grade,
             $position->min_salary,
             $position->max_salary,
             $position->status,
+            $position->attachment_original_name,
             optional($position->created_at)->toDateTimeString(),
         ];
     }

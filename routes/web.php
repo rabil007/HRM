@@ -169,6 +169,7 @@ use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\OrganizationBulkRecordController;
+use App\Http\Controllers\Organization\PositionAttachmentController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SeaServicesExportController;
@@ -479,6 +480,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/positions', [PositionController::class, 'index'])->middleware('can:positions.view')->name('organization.positions');
     Route::get('organization/positions/export', [PositionController::class, 'export'])->middleware('can:positions.export')->name('organization.positions.export');
+    Route::get('organization/positions/{position}/attachment/preview', [PositionAttachmentController::class, 'preview'])->middleware('can:positions.view')->name('organization.positions.attachment.preview');
+    Route::get('organization/positions/{position}/attachment/download', [PositionAttachmentController::class, 'download'])->middleware('can:positions.view')->name('organization.positions.attachment.download');
     Route::get('organization/positions/{position}', [PositionController::class, 'show'])->middleware('can:positions.view')->name('organization.positions.show');
     Route::post('organization/positions', [PositionController::class, 'store'])->middleware('can:positions.create')->name('organization.positions.store');
     Route::put('organization/positions/{position}', [PositionController::class, 'update'])->middleware('can:positions.update')->name('organization.positions.update');

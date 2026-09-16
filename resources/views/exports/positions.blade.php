@@ -24,10 +24,12 @@
                     <th>Company</th>
                     <th>Department</th>
                     <th>Title</th>
+                    <th>Description</th>
                     <th class="nowrap">Grade</th>
                     <th class="nowrap">Min Salary</th>
                     <th class="nowrap">Max Salary</th>
                     <th class="nowrap">Status</th>
+                    <th>Attachment</th>
                 </tr>
             </thead>
             <tbody>
@@ -37,14 +39,15 @@
                         <td>{{ $companyName }}</td>
                         <td>{{ $position->department?->name }}</td>
                         <td>{{ $position->title }}</td>
+                        <td>{{ $position->description }}</td>
                         <td class="nowrap">{{ $position->grade }}</td>
                         <td class="nowrap">{{ $position->min_salary }}</td>
                         <td class="nowrap">{{ $position->max_salary }}</td>
                         <td class="nowrap">{{ $position->status }}</td>
+                        <td>{{ $position->attachment_original_name }}</td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
     </body>
 </html>
-
