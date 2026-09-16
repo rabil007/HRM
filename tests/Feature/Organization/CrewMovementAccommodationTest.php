@@ -4,16 +4,19 @@ use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\Company;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
 use App\Models\Rank;
 use App\Models\RoomType;
 use App\Models\User;
+use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewMovements\CrewMovementService;
 
 /**
@@ -747,6 +750,130 @@ test('failed confirm disembarkation accommodation validation rolls back p4 compl
         ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(0);
 });
 
+test('confirm disembarkation rejects duplicate post signoff hotel stay before movement mutation', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
+    $existingHotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Existing Post-Signoff']);
+    $newHotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'New Post-Signoff']);
+    $existingStay = CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $existingHotel->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-11-28',
+        'check_out_date' => null,
+        'started_from_phase_id' => $assignment->current_phase_id,
+    ]);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-11-30 09:30:00',
+        'next_phase' => CrewPhaseCode::DemobStandby->value,
+        'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+        'hotel_id' => $newHotel->id,
+        'check_in_date' => '2026-11-30',
+    ], $fixtures['user']->id))->toThrow(function (CrewMovementException $exception): void {
+        expect($exception->getMessage())->toBe('An open post-sign-off hotel stay already exists for this assignment.')
+            ->and($exception->errorCode)->toBe('post_signoff_accommodation_exists');
+    });
+
+    $assignment->refresh()->load(['currentPhase', 'phases']);
+    $existingStay->refresh();
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and($assignment->currentPhase?->status->value)->toBe('active')
+        ->and($assignment->phases->contains('phase_code', CrewPhaseCode::DemobStandby))->toBeFalse()
+        ->and($existingStay->check_out_date)->toBeNull()
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(1)
+        ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(0);
+});
+
+test('confirm disembarkation rejects new hotel when post signoff no accommodation decision exists', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation,
+        'started_from_phase_id' => $assignment->current_phase_id,
+    ]);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'City Seasons']);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-11-30 09:30:00',
+        'next_phase' => CrewPhaseCode::DemobStandby->value,
+        'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+        'hotel_id' => $hotel->id,
+        'check_in_date' => '2026-11-30',
+    ], $fixtures['user']->id))->toThrow(function (CrewMovementException $exception): void {
+        expect($exception->errorCode)->toBe('post_signoff_accommodation_exists');
+    });
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(1);
+});
+
+test('confirm disembarkation rejects duplicate post signoff no accommodation decision', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation,
+        'started_from_phase_id' => $assignment->current_phase_id,
+    ]);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-11-30 09:30:00',
+        'next_phase' => CrewPhaseCode::DemobStandby->value,
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+    ], $fixtures['user']->id))->toThrow(function (CrewMovementException $exception): void {
+        expect($exception->errorCode)->toBe('post_signoff_accommodation_exists');
+    });
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(1);
+});
+
+test('confirm disembarkation rejects no accommodation when open post signoff hotel exists', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Existing Post-Signoff']);
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-11-28',
+        'check_out_date' => null,
+        'started_from_phase_id' => $assignment->current_phase_id,
+    ]);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-11-30 09:30:00',
+        'next_phase' => CrewPhaseCode::DemobStandby->value,
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+    ], $fixtures['user']->id))->toThrow(function (CrewMovementException $exception): void {
+        expect($exception->errorCode)->toBe('post_signoff_accommodation_exists');
+    });
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(1);
+});
+
 test('return home closes open post signoff hotel stay and completes p5 to p6', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
     [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
@@ -982,6 +1109,11 @@ test('assignment show accommodation summary includes pre join and post signoff s
 
     $assignment->refresh();
 
+    $summary = app(CrewAccommodationService::class)->assignmentAccommodationSummary($assignment);
+
+    expect($summary[0]['stay_type'])->toBe('pre_join')
+        ->and($summary[1]['stay_type'])->toBe('post_signoff');
+
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-assignments.show', $assignment))
         ->assertOk()
@@ -989,5 +1121,71 @@ test('assignment show accommodation summary includes pre join and post signoff s
             ->has('assignment.accommodation', 2)
             ->where('assignment.accommodation.0.stay_type', 'pre_join')
             ->where('assignment.accommodation.1.stay_type', 'post_signoff')
+        );
+});
+
+test('assignment accommodation summary orders stays by phase sequence instead of id', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
+    $preJoinPhase = CrewAssignmentPhase::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-16 08:00:00',
+        'actual_end_at' => '2026-09-19 08:00:00',
+    ]);
+    $postSignoffPhase = CrewAssignmentPhase::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 5,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-11-30 09:30:00',
+        'actual_end_at' => '2026-12-05 18:00:00',
+    ]);
+    $hotelPostSignoff = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Later Phase Hotel']);
+    $hotelPreJoin = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Earlier Phase Hotel']);
+
+    $laterPhaseStay = CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotelPostSignoff->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-11-30',
+        'check_out_date' => '2026-12-05',
+        'started_from_phase_id' => $postSignoffPhase->id,
+    ]);
+    $earlierPhaseStay = CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotelPreJoin->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-09-16',
+        'check_out_date' => '2026-09-19',
+        'started_from_phase_id' => $preJoinPhase->id,
+    ]);
+
+    expect($laterPhaseStay->id)->toBeLessThan($earlierPhaseStay->id);
+
+    $summary = app(CrewAccommodationService::class)->assignmentAccommodationSummary($assignment);
+
+    expect($summary)->toHaveCount(2)
+        ->and($summary[0]['id'])->toBe($earlierPhaseStay->id)
+        ->and($summary[0]['stay_type'])->toBe('pre_join')
+        ->and($summary[1]['id'])->toBe($laterPhaseStay->id)
+        ->and($summary[1]['stay_type'])->toBe('post_signoff');
+
+    $assignment->load(['accommodationStays.hotel', 'accommodationStays.roomType']);
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-assignments.show', $assignment))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('assignment.accommodation.0.id', $earlierPhaseStay->id)
+            ->where('assignment.accommodation.1.id', $laterPhaseStay->id)
         );
 });

@@ -422,6 +422,20 @@ final class CrewAccommodationService
             return;
         }
 
+        if ($this->openPostSignoffHotelStays($assignment)->isNotEmpty()) {
+            throw CrewMovementException::make(
+                'An open post-sign-off hotel stay already exists for this assignment.',
+                'post_signoff_accommodation_exists',
+            );
+        }
+
+        if ($this->hasPostSignoffNoAccommodationDecision($assignment)) {
+            throw CrewMovementException::make(
+                'A post-sign-off no-accommodation decision already exists for this assignment.',
+                'post_signoff_accommodation_exists',
+            );
+        }
+
         if ($status === CrewAccommodationStatus::NoAccommodation) {
             return;
         }
@@ -629,13 +643,14 @@ final class CrewAccommodationService
         $timezone ??= CompanyTimezone::forCompanyId((int) $assignment->company_id);
 
         $stays = $assignment->relationLoaded('accommodationStays')
-            ? $assignment->accommodationStays->sortBy('id')->values()
+            ? $assignment->accommodationStays
             : CrewAccommodationStay::query()
                 ->where('company_id', $assignment->company_id)
                 ->where('crew_assignment_id', $assignment->id)
-                ->with(['hotel', 'roomType'])
-                ->orderBy('id')
+                ->with(['hotel', 'roomType', 'startedFromPhase'])
                 ->get();
+
+        $stays = $this->sortAccommodationStaysForHistory($stays);
 
         return $stays
             ->map(function (CrewAccommodationStay $stay) use ($timezone): array {
@@ -690,6 +705,22 @@ final class CrewAccommodationService
             ->where('stay_type', $stayType)
             ->where('accommodation_status', CrewAccommodationStatus::NoAccommodation)
             ->exists();
+    }
+
+    /**
+     * @param  Collection<int, CrewAccommodationStay>  $stays
+     * @return Collection<int, CrewAccommodationStay>
+     */
+    private function sortAccommodationStaysForHistory(Collection $stays): Collection
+    {
+        return $stays
+            ->loadMissing(['hotel', 'roomType', 'startedFromPhase'])
+            ->sortBy(fn (CrewAccommodationStay $stay): array => [
+                $stay->startedFromPhase?->sequence ?? PHP_INT_MAX,
+                $stay->check_in_date?->toDateString() ?? '',
+                $stay->id,
+            ])
+            ->values();
     }
 
     private function resolveAccommodationStatus(array $payload): ?CrewAccommodationStatus
