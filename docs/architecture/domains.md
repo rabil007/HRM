@@ -414,7 +414,7 @@ flowchart LR
 
 1. **Create** — employee profile template drives fields; `CreateEmployee` action persists the employee and supported nested records.
 2. **Profile tabs** — template controls visible fields; each tab posts to nested resource controllers.
-3. **Profile template assignment** — employees without a template can be assigned one from the profile header. Users with `employees.update` may also change an employee's profile template after creation or import. Changing a template updates field/module visibility only; existing stored employee data is preserved even when fields are hidden by the new template.
+3. **Profile template assignment** — employees without a template can be assigned one from the profile header. Users with `employees.update` may also change an employee's profile template after creation or import. Changing a template updates field/module visibility only; existing stored employee data is preserved even when fields are hidden by the new template. Soft-deleted templates cannot be assigned. Templates currently assigned to employees cannot be deleted; deactivate a template instead when it should no longer be available for future assignment. Employees may continue using an inactive, non-deleted assigned template.
 4. **Link user** — `EmployeeUserController` creates `User` with `users.create`.
 5. **Import** — preview → commit with column-level permission checks. Import assigns a profile template to newly created employees only; re-importing an existing employee does not replace its assigned template.
 6. **Print** — CV, offshore CV, salary certificate routes.

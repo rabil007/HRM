@@ -4534,6 +4534,207 @@ test('employee import does not replace profile template for existing employees',
         ->and($employee->employee_profile_template_id)->toBe($existingTemplate->id);
 });
 
+test('soft-deleted profile template cannot be assigned to employee without template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'SDA',
+        'name' => 'Soft Delete Assign Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'SDA',
+        'name' => 'Soft Delete Assign Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Soft Delete Assign Co',
+        'slug' => 'soft-delete-assign-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $deletedTemplate = createEmployeeProfileTemplate($company, 'Deleted Template');
+    $deletedTemplate->delete();
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => null,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $deletedTemplate->id,
+    ])->assertSessionHasErrors('employee_profile_template_id');
+
+    expect($employee->fresh()->employee_profile_template_id)->toBeNull();
+});
+
+test('soft-deleted profile template cannot replace an existing assigned template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'SDR',
+        'name' => 'Soft Delete Replace Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'SDR',
+        'name' => 'Soft Delete Replace Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Soft Delete Replace Co',
+        'slug' => 'soft-delete-replace-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $existingTemplate = createEmployeeProfileTemplate($company, 'Existing Template');
+    $deletedTemplate = createEmployeeProfileTemplate($company, 'Deleted Template');
+    $deletedTemplate->delete();
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $existingTemplate->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $deletedTemplate->id,
+    ])->assertSessionHasErrors('employee_profile_template_id');
+
+    expect($employee->fresh()->employee_profile_template_id)->toBe($existingTemplate->id);
+});
+
+test('user without employees.update cannot assign or change profile template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NUP',
+        'name' => 'No Update Permission Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NUP',
+        'name' => 'No Update Permission Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'No Update Permission Co',
+        'slug' => 'no-update-permission-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $existingTemplate = createEmployeeProfileTemplate($company, 'Existing Template');
+    $otherTemplate = createEmployeeProfileTemplate($company, 'Other Template');
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $existingTemplate->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $otherTemplate->id,
+    ])->assertForbidden();
+
+    expect($employee->fresh()->employee_profile_template_id)->toBe($existingTemplate->id);
+});
+
+test('employee profile resolves an inactive non-deleted assigned template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'IAT',
+        'name' => 'Inactive Assigned Template Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'IAT',
+        'name' => 'Inactive Assigned Template Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Inactive Assigned Template Co',
+        'slug' => 'inactive-assigned-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = createEmployeeProfileTemplate(
+        $company,
+        'Inactive Assigned',
+        employeeProfileTemplateWithVisibleEmployeeFields([
+            'employee_no',
+            'name',
+            'rank_id',
+        ]),
+    );
+    $template->update(['is_active' => false]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $template->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.show', $employee))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.employee_profile_template.id', $template->id)
+            ->where('employee.employee_profile_template.name', 'Inactive Assigned')
+            ->has('resolved_template')
+            ->has('employee_tabs.profile_fields')
+            ->where('can.change_profile_template', false)
+            ->where('profile_templates', []));
+});
+
 test('employee update returns validation error when employee number is already used', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

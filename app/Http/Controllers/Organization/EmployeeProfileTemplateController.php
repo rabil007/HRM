@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\EmployeeProfileTemplate\StoreEmployeeProfileTemplateRequest;
 use App\Http\Requests\Organization\EmployeeProfileTemplate\UpdateEmployeeProfileTemplateRequest;
+use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
@@ -109,6 +110,19 @@ class EmployeeProfileTemplateController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $employeeProfileTemplate->company_id === $companyId, 404);
+
+        $isAssignedToEmployees = Employee::query()
+            ->where('company_id', $companyId)
+            ->where('employee_profile_template_id', $employeeProfileTemplate->id)
+            ->exists();
+
+        if ($isAssignedToEmployees) {
+            return redirect()
+                ->back()
+                ->withErrors([
+                    'employee_profile_template' => 'This profile template cannot be deleted because it is assigned to employees. Reassign those employees or deactivate the template instead.',
+                ]);
+        }
 
         $employeeProfileTemplate->delete();
 

@@ -25,7 +25,8 @@ class AssignEmployeeProfileTemplateRequest extends FormRequest
                 Rule::exists('employee_profile_templates', 'id')
                     ->where(fn ($query) => $query
                         ->where('company_id', $companyId)
-                        ->where('is_active', true)),
+                        ->where('is_active', true)
+                        ->whereNull('deleted_at')),
             ],
         ];
     }
