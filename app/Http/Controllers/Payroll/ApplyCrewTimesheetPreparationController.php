@@ -27,8 +27,8 @@ class ApplyCrewTimesheetPreparationController extends Controller
         );
 
         $message = $result->idempotent
-            ? 'Crew timeline was already applied to timesheets.'
-            : "Applied crew timeline to {$result->appliedEmployeeCount} employee timesheet(s).";
+            ? 'Crew timesheet was already applied to timesheets.'
+            : "Applied crew timesheet to {$result->appliedEmployeeCount} employee timesheet(s).";
 
         return redirect()
             ->route('payroll.crew-timeline.show', [$payrollPeriod, $preparation])

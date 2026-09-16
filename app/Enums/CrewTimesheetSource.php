@@ -13,7 +13,7 @@ enum CrewTimesheetSource: string
         return match ($this) {
             self::Manual => 'Manual',
             self::Import => 'Import',
-            self::CrewOperations => 'Crew Operations',
+            self::CrewOperations => 'Crew Assignments',
         };
     }
 

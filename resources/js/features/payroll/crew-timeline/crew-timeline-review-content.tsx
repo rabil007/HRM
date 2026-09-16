@@ -230,7 +230,7 @@ export function CrewTimelineReviewContent({
                         <AlertTitle>Applied</AlertTitle>
                         <AlertDescription>
                             Crew Timesheet operational values were written from
-                            Crew Operations. Linked timesheets:{' '}
+                            Crew Assignments. Linked timesheets:{' '}
                             {preparation.linked_timesheet_count}. Operational
                             fields are locked; financial fields remain editable.
                         </AlertDescription>
@@ -467,7 +467,7 @@ function MetaFreshness({ isFresh }: { isFresh: boolean }) {
                 ) : (
                     <RefreshCw className="size-3.5 shrink-0" />
                 )}
-                {isFresh ? 'Fresh' : 'Crew Operations changed'}
+                {isFresh ? 'Fresh' : 'Crew Assignment data changed'}
             </p>
         </div>
     );

@@ -23,7 +23,7 @@ enum CrewTimesheetBoardFilter: string
             self::Ready => 'Ready',
             self::MissingTimesheet => 'Missing Timesheet',
             self::AwaitingApproval => 'Awaiting Approval',
-            self::CrewOperations => 'Crew Operations',
+            self::CrewOperations => 'Crew Assignments',
             self::Manual => 'Manual',
             self::Import => 'Import',
             self::Returned => 'Returned',

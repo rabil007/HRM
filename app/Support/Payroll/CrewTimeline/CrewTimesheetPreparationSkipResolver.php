@@ -149,7 +149,7 @@ final class CrewTimesheetPreparationSkipResolver
     {
         if ($this->hasUnresolvedBlockingWarnings($preparation)) {
             throw ValidationException::withMessages([
-                'preparation' => 'Blocking warnings must be resolved before continuing. Correct Crew Operations data and prepare a new version.',
+                'preparation' => 'Blocking warnings must be resolved before continuing. Correct Crew Assignment data and prepare a new version.',
             ]);
         }
     }
@@ -174,7 +174,7 @@ final class CrewTimesheetPreparationSkipResolver
 
         if ($lines->isEmpty()) {
             throw ValidationException::withMessages([
-                'employee' => 'The employee does not have any timeline lines in this preparation.',
+                'employee' => 'The employee does not have any timesheet lines in this preparation.',
             ]);
         }
 
@@ -240,13 +240,13 @@ final class CrewTimesheetPreparationSkipResolver
     {
         if (! $period->isCrew()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew timeline workflow is only available for crew pay periods.',
+                'payroll_period_id' => 'Crew timesheet workflow is only available for crew pay periods.',
             ]);
         }
 
         if ($period->status !== PayrollPeriodStatus::Draft) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew timeline workflow is only available for draft pay periods.',
+                'payroll_period_id' => 'Crew timesheet workflow is only available for draft pay periods.',
             ]);
         }
     }
@@ -255,7 +255,7 @@ final class CrewTimesheetPreparationSkipResolver
     {
         if ($preparation->status !== CrewTimesheetPreparationStatus::Draft) {
             throw ValidationException::withMessages([
-                'preparation' => 'Only draft preparations can have employee timeline data modified.',
+                'preparation' => 'Only draft preparations can have employee timesheet data modified.',
             ]);
         }
     }

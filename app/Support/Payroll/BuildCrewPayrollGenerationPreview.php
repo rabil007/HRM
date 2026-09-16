@@ -207,7 +207,7 @@ final class BuildCrewPayrollGenerationPreview
                         'employee_id' => $employeeId,
                         'employee_name' => $employee->name,
                         'code' => 'invalid_source_for_monthly',
-                        'message' => "{$employee->name} is Monthly Crew but has a Crew Operations timesheet.",
+                        'message' => "{$employee->name} is Monthly Crew but has a Crew Assignment timesheet.",
                     ];
 
                     continue;
@@ -275,7 +275,7 @@ final class BuildCrewPayrollGenerationPreview
                     'employee_id' => $employeeId,
                     'employee_name' => $employee->name,
                     'code' => 'invalid_timesheet_source',
-                    'message' => "{$employee->name} timesheet source must be Manual, Import, or Crew Operations.",
+                    'message' => "{$employee->name} timesheet source must be Manual, Import, or Crew Assignments.",
                 ];
 
                 continue;

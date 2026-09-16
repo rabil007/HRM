@@ -63,7 +63,7 @@ final class ReplaceCrewTimesheetSegments
 
             if ($timesheet->isOperationallyLocked()) {
                 throw ValidationException::withMessages([
-                    'segments' => 'Operational Crew Operations timesheet fields cannot be changed after the timeline is Applied.',
+                    'segments' => 'Operational Crew Assignment timesheet fields cannot be changed after the timesheet is Applied.',
                 ]);
             }
 
@@ -91,7 +91,7 @@ final class ReplaceCrewTimesheetSegments
 
             if ($period->requiresExclusiveCrewOperationsTimesheets()) {
                 throw ValidationException::withMessages([
-                    'segments' => 'Daily crew operational days come from the Applied Crew Operations timeline and cannot be set manually.',
+                    'segments' => 'Daily crew operational days come from the Applied Crew Timesheet and cannot be set manually.',
                 ]);
             }
 

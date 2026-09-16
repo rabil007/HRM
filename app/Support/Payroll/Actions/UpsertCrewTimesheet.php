@@ -125,7 +125,7 @@ final class UpsertCrewTimesheet
             if ($exclusiveCrewOperations && $isDaily) {
                 if ($this->hasOperationalPayload($data)) {
                     throw ValidationException::withMessages([
-                        'sign_on_standby_days' => 'Daily crew operational days come from the Applied Crew Operations timeline and cannot be set manually or via import.',
+                        'sign_on_standby_days' => 'Daily crew operational days come from the Applied Crew Timesheet and cannot be set manually or via import.',
                     ]);
                 }
 
@@ -568,7 +568,7 @@ final class UpsertCrewTimesheet
     {
         if (isset($data['segments']) && is_array($data['segments']) && $data['segments'] !== []) {
             throw ValidationException::withMessages([
-                'segments' => 'Operational Crew Operations timesheet fields cannot be changed after the timeline is Applied.',
+                'segments' => 'Operational Crew Assignment timesheet fields cannot be changed after the timesheet is Applied.',
             ]);
         }
 
@@ -598,7 +598,7 @@ final class UpsertCrewTimesheet
                 }
 
                 throw ValidationException::withMessages([
-                    $key => 'Operational Crew Operations timesheet fields cannot be changed after the timeline is Applied.',
+                    $key => 'Operational Crew Assignment timesheet fields cannot be changed after the timesheet is Applied.',
                 ]);
             }
         }

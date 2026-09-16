@@ -108,7 +108,7 @@ export function CrewTimelineWarningPanel({
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Crew Timesheet source changed</AlertTitle>
                     <AlertDescription>
-                        Crew Operations data changed after this Crew Timesheet
+                        Crew Assignment data changed after this Crew Timesheet
                         was prepared. Prepare a new version before continuing.
                     </AlertDescription>
                 </Alert>
@@ -123,7 +123,7 @@ export function CrewTimelineWarningPanel({
                     </AlertTitle>
                     <AlertDescription>
                         Blocking warnings prevent submission and approval.
-                        Correct Crew Operations data and prepare a new version,
+                        Correct Crew Assignment data and prepare a new version,
                         or skip the affected employee&apos;s Crew Timesheet data
                         if permitted.
                         <WarningBreakdownList

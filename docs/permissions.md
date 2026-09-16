@@ -76,7 +76,7 @@ Crew timesheet timeline workflow permissions (Phase 1C–1D):
 | `payroll.crew_timesheets.approve`        | Approve a submitted preparation, or approve a submitted Manual/Import timesheet             |
 | `payroll.crew_timesheets.return`         | Return a submitted preparation or Manual/Import timesheet with notes                        |
 | `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets                                            |
-| `payroll.crew_timesheets.skip_timeline`  | Skip or restore an employee's Crew Operations timeline data for a draft preparation version |
+| `payroll.crew_timesheets.skip_timeline`  | Skip or restore an employee's Crew Timesheet data for a draft preparation version          |
 
 `payroll.crew_timesheets.skip_timeline` is seeded into the catalog and granted to the system `Owner` role. It is not automatically granted broadly to other tenant roles; administrators must assign it explicitly via Roles & permissions.
 

@@ -444,12 +444,12 @@ export function CrewTimelineLinesDialog({
                     {employee.is_skipped ? (
                         <div className="mb-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
                             <p className="text-xs font-semibold tracking-wide text-amber-900 uppercase dark:text-amber-200">
-                                Crew Operations timeline skipped
+                                Crew Timesheet skipped
                             </p>
                             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
                                 <div>
                                     <dt className="text-xs text-muted-foreground">
-                                        Detected Crew Operations payable days
+                                        Detected Crew Assignment payable days
                                     </dt>
                                     <dd className="mt-0.5 font-semibold text-foreground tabular-nums">
                                         {formatCrewTimelineDayCount(
@@ -459,7 +459,7 @@ export function CrewTimelineLinesDialog({
                                 </div>
                                 <div>
                                     <dt className="text-xs text-muted-foreground">
-                                        Applied from Crew Operations
+                                        Applied from Crew Assignments
                                     </dt>
                                     <dd className="mt-0.5 font-semibold text-foreground tabular-nums">
                                         {formatCrewTimelineDayCount(
@@ -497,7 +497,7 @@ export function CrewTimelineLinesDialog({
                                 </div>
                             </dl>
                             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                                Original Crew Operations data is preserved
+                                Original Crew Assignment data is preserved
                                 below, but these operational days will not be
                                 applied from this preparation.
                             </p>
@@ -532,7 +532,7 @@ export function CrewTimelineLinesDialog({
                     </div>
                     {employee.is_skipped ? (
                         <p className="mt-2 text-xs text-muted-foreground">
-                            These category totals are detected Crew Operations
+                            These category totals are detected Crew Assignment
                             days. They are not applied from this preparation.
                         </p>
                     ) : null}
@@ -544,7 +544,7 @@ export function CrewTimelineLinesDialog({
                             </h2>
                             {breakdown.categories.length === 0 ? (
                                 <p className="mt-3 text-sm text-muted-foreground">
-                                    No payable Crew Operations days in this
+                                    No payable Crew Assignment days in this
                                     preparation.
                                 </p>
                             ) : (
@@ -610,7 +610,7 @@ export function CrewTimelineLinesDialog({
                     <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Info className="size-3.5 shrink-0" aria-hidden />
                         Payroll counted dates are the days this preparation
-                        uses. Actual movement is read-only Crew Operations data.
+                        uses. Actual movement is read-only Crew Assignment data.
                     </p>
                     <DialogClose asChild>
                         <Button type="button" className="w-full sm:w-auto">

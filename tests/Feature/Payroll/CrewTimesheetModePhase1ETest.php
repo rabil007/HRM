@@ -113,7 +113,7 @@ test('prepare is blocked in manual timesheet mode with the expected message', fu
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.crew-timeline.prepare', $fixtures['period']))
         ->assertSessionHasErrors([
-            'payroll_period_id' => 'Crew Operations timeline preparation is not available for this pay period.',
+            'payroll_period_id' => 'Crew Timesheet preparation is not available for this pay period.',
         ]);
 });
 

@@ -367,8 +367,7 @@ export function CrewTimelineEmployeeTable({
                                             )}
                                         </span>
                                         <p className="text-[10px] leading-tight text-muted-foreground">
-                                            Not included in applied payroll
-                                            timeline
+                                            Not included in applied timesheet
                                         </p>
                                     </div>
                                 ) : (
@@ -405,7 +404,7 @@ export function CrewTimelineEmployeeTable({
                                                 {restoringId ===
                                                 employee.employee_id
                                                     ? 'Restoring…'
-                                                    : 'Restore Timeline Data'}
+                                                    : 'Restore Timesheet Data'}
                                             </Button>
                                         ) : null
                                     ) : employee.can_skip ? (
@@ -417,7 +416,7 @@ export function CrewTimelineEmployeeTable({
                                                 setSkippingEmployee(employee)
                                             }
                                         >
-                                            Skip Timeline Data
+                                            Skip Timesheet Data
                                         </Button>
                                     ) : employee.has_cross_company_warning ||
                                       (employee.has_non_skippable_integrity_error &&
@@ -432,7 +431,7 @@ export function CrewTimelineEmployeeTable({
                                                         size="sm"
                                                         disabled
                                                     >
-                                                        Skip Timeline Data
+                                                        Skip Timesheet Data
                                                     </Button>
                                                 </span>
                                             </TooltipTrigger>

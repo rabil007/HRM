@@ -82,7 +82,7 @@ export function PayrollShowFiltersSheet({
                             Awaiting Approval
                         </AppSelectItem>
                         <AppSelectItem value="crew_operations">
-                            Crew Operations
+                            Crew Assignments
                         </AppSelectItem>
                         <AppSelectItem value="manual">Manual</AppSelectItem>
                         <AppSelectItem value="import">Import</AppSelectItem>

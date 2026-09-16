@@ -562,7 +562,7 @@ export function PayrollShowContent({
 
     const generationBlockingReason =
         period.generation_blocking_reason ??
-        'Apply the approved Crew Operations timeline before generating payroll.';
+        'Apply the approved Crew Timesheet before generating payroll.';
 
     const showTimelineCard =
         period.supports_timesheets &&
@@ -811,7 +811,7 @@ export function PayrollShowContent({
                                     <Ship className="mr-2 h-4 w-4" />
                                     {isPreparingTimeline
                                         ? 'Preparing…'
-                                        : 'Prepare from Crew Operations'}
+                                        : 'Prepare from Crew Assignments'}
                                 </Button>
                             ) : null}
                             {canRevertToDraft ? (
@@ -947,7 +947,7 @@ export function PayrollShowContent({
                             <div className="space-y-2">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-sm font-semibold">
-                                        Crew Operations timeline
+                                        Crew Timesheet
                                     </p>
                                     <CrewTimelineStatusBadge
                                         status={
@@ -971,7 +971,7 @@ export function PayrollShowContent({
                                     >
                                         {crew_timeline_preparation.is_fresh
                                             ? 'Fresh'
-                                            : 'Timeline changed'}
+                                            : 'Crew Assignment data changed'}
                                     </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
@@ -992,7 +992,7 @@ export function PayrollShowContent({
                                 'applied' ? (
                                     <p className="text-sm text-emerald-700 dark:text-emerald-300">
                                         Operational timesheets came from Crew
-                                        Operations.
+                                        Assignments.
                                     </p>
                                 ) : null}
                             </div>
@@ -1006,7 +1006,7 @@ export function PayrollShowContent({
                                         }
                                     >
                                         <RotateCcw className="mr-2 h-4 w-4" />
-                                        Re-prepare (new version)
+                                        Prepare new version
                                     </Button>
                                 ) : null}
                                 <Button
@@ -1023,8 +1023,8 @@ export function PayrollShowContent({
                                     <Ship className="mr-2 h-4 w-4" />
                                     {crew_timeline_preparation.status ===
                                     'applied'
-                                        ? 'View Timeline'
-                                        : 'Review Timeline'}
+                                        ? 'View Crew Timesheet'
+                                        : 'Review Crew Timesheet'}
                                 </Button>
                             </div>
                         </div>

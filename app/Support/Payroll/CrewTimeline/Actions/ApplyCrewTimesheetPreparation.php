@@ -140,7 +140,7 @@ final class ApplyCrewTimesheetPreparation
                         'employee_id' => (int) $activeSkip->employee_id,
                         'employee_number' => $activeSkip->employee?->employee_no,
                         'employee_name' => $activeSkip->employee?->name,
-                        'reason' => 'Timeline data skipped: '.$activeSkip->reason,
+                        'reason' => 'Timesheet data skipped: '.$activeSkip->reason,
                     ];
                 }
             }
@@ -173,7 +173,7 @@ final class ApplyCrewTimesheetPreparation
                         'employee_id' => $employeeId,
                         'employee_number' => $employee->employee_no,
                         'employee_name' => $employee->name,
-                        'reason' => 'Monthly crew contracts are not applied from Crew Operations timelines.',
+                        'reason' => 'Monthly crew contracts are not applied from Crew Timesheets.',
                     ];
 
                     continue;

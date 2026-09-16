@@ -58,7 +58,7 @@ export function CrewTimelineReturnDialog({
                     <AlertDialogTitle>Return Crew Timesheet</AlertDialogTitle>
                     <AlertDialogDescription>
                         Returning keeps this Crew Timesheet version as history.
-                        Correct Crew Operations data and prepare a new version
+                        Correct Crew Assignment data and prepare a new version
                         to continue.
                     </AlertDialogDescription>
                 </AlertDialogHeader>

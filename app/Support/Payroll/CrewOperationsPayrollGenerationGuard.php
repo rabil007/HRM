@@ -16,11 +16,11 @@ use Illuminate\Validation\ValidationException;
 
 final class CrewOperationsPayrollGenerationGuard
 {
-    public const MISSING_APPLIED_MESSAGE = 'Apply the approved Crew Operations timeline before generating payroll.';
+    public const MISSING_APPLIED_MESSAGE = 'Apply the approved Crew Timesheet before generating payroll.';
 
-    public const MULTIPLE_APPLIED_MESSAGE = 'Multiple Applied Crew Operations timelines were found for this pay period.';
+    public const MULTIPLE_APPLIED_MESSAGE = 'Multiple Applied Crew Timesheets were found for this pay period.';
 
-    public const BLOCKING_WARNINGS_MESSAGE = 'The Applied Crew Operations timeline still has blocking warnings and cannot be used for payroll generation.';
+    public const BLOCKING_WARNINGS_MESSAGE = 'The Applied Crew Timesheet still has blocking warnings and cannot be used for payroll generation.';
 
     public function __construct(
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
@@ -204,7 +204,7 @@ final class CrewOperationsPayrollGenerationGuard
             if (in_array((int) $employee->id, $activeSkippedIds, true)) {
                 return $this->result(
                     false,
-                    "Daily crew employee {$employee->name} timeline data was skipped and is not covered by Crew Operations.",
+                    "Daily crew employee {$employee->name} timeline data was skipped and is not covered by Crew Assignments.",
                     $preparation,
                     (int) $employee->id,
                 );
@@ -291,7 +291,7 @@ final class CrewOperationsPayrollGenerationGuard
             if ($timesheet === null) {
                 return $this->result(
                     false,
-                    "Daily crew employee {$employee->name} is missing a timesheet. Enter Manual or Excel data, or apply Crew Operations movement data.",
+                    "Daily crew employee {$employee->name} is missing a timesheet. Enter Manual or Excel data, or apply Crew Assignment movement data.",
                     $preparation,
                     $employeeId,
                 );
@@ -303,7 +303,7 @@ final class CrewOperationsPayrollGenerationGuard
                 if ($preparation === null) {
                     return $this->result(
                         false,
-                        "Daily crew employee {$employee->name} has Crew Operations timesheet data but no Applied timeline was found.",
+                        "Daily crew employee {$employee->name} has Crew Assignment timesheet data but no Applied timesheet was found.",
                         null,
                         $employeeId,
                     );
@@ -321,7 +321,7 @@ final class CrewOperationsPayrollGenerationGuard
             if (! in_array($source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
                 return $this->result(
                     false,
-                    "Daily crew employee {$employee->name} timesheet source must be Manual, Import, or Crew Operations.",
+                    "Daily crew employee {$employee->name} timesheet source must be Manual, Import, or Crew Assignments.",
                     $preparation,
                     $employeeId,
                 );
@@ -363,23 +363,23 @@ final class CrewOperationsPayrollGenerationGuard
             ->first();
 
         if ($timesheet === null) {
-            return "Daily crew employee {$employee->name} is missing a Crew Operations timesheet linked to the Applied timeline.";
+            return "Daily crew employee {$employee->name} is missing a Crew Assignment timesheet linked to the Applied timesheet.";
         }
 
         if ($timesheet->resolvedSource() !== CrewTimesheetSource::CrewOperations) {
-            return "Daily crew employee {$employee->name} timesheet source must be Crew Operations.";
+            return "Daily crew employee {$employee->name} timesheet source must be Crew Assignments.";
         }
 
         if ($preparation === null) {
-            return "Daily crew employee {$employee->name} has Crew Operations timesheet data but no Applied timeline was found.";
+            return "Daily crew employee {$employee->name} has Crew Assignment timesheet data but no Applied timesheet was found.";
         }
 
         if ((int) $timesheet->crew_timesheet_preparation_id !== (int) $preparation->id) {
-            return "Daily crew employee {$employee->name} timesheet is not linked to the Applied timeline.";
+            return "Daily crew employee {$employee->name} timesheet is not linked to the Applied timesheet.";
         }
 
         if ($timesheet->movement_source_hash !== $preparation->source_hash) {
-            return "Daily crew employee {$employee->name} timesheet movement source hash does not match the Applied timeline.";
+            return "Daily crew employee {$employee->name} timesheet movement source hash does not match the Applied timesheet.";
         }
 
         if ($timesheet->operational_approved_by === null || $timesheet->operational_approved_at === null) {

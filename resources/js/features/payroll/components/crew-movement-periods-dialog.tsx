@@ -446,7 +446,7 @@ function CrewMovementPeriodsDialogBody({
                                     aria-hidden
                                 />
                                 <p>
-                                    Crew Operations data — timesheet periods are
+                                    Crew Assignment data — timesheet periods are
                                     read-only. Dates and assignment are managed
                                     via the Crew Operations workflow.
                                 </p>

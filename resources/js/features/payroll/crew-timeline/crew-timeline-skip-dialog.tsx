@@ -81,7 +81,7 @@ export function CrewTimelineSkipDialog({
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-2 text-left">
                         <span>
-                            This employee&apos;s Crew Operations movement data
+                            This employee&apos;s Crew Assignment movement data
                             will not be applied from this Crew Timesheet
                             preparation.
                         </span>
@@ -101,7 +101,7 @@ export function CrewTimelineSkipDialog({
                             </ul>
                         </div>
                         <p className="text-xs text-muted-foreground italic">
-                            Original Crew Operations movement data will not be
+                            Original Crew Assignment movement data will not be
                             changed.
                         </p>
                     </AlertDialogDescription>

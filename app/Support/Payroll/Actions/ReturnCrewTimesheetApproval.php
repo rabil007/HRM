@@ -49,7 +49,7 @@ final class ReturnCrewTimesheetApproval
 
             if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
                 throw ValidationException::withMessages([
-                    'timesheet' => 'Crew Operations timesheets cannot be returned from this workflow.',
+                    'timesheet' => 'Crew Assignment timesheets cannot be returned from this workflow.',
                 ]);
             }
 

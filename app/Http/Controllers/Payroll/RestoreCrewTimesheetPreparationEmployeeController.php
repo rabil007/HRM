@@ -31,6 +31,6 @@ class RestoreCrewTimesheetPreparationEmployeeController extends Controller
 
         return redirect()
             ->route('payroll.crew-timeline.show', [$payrollPeriod, $preparation])
-            ->with('success', "Timeline data restored for {$employee->name}.");
+            ->with('success', "Timesheet data restored for {$employee->name}.");
     }
 }

@@ -197,7 +197,7 @@ final class CrewTimesheetResource
     public static function operationalSourceLabel(?CrewTimesheet $timesheet, ContractSalaryStructure $salaryStructure): string
     {
         return match (self::operationalSource($timesheet, $salaryStructure)) {
-            'crew_operations' => 'Crew Operations',
+            'crew_operations' => 'Crew Assignments',
             'import' => 'Excel Import',
             'manual' => 'Manual',
             'monthly_crew' => 'Monthly Crew',

@@ -35,8 +35,8 @@ export function ClearCrewTimesheetsDialog({
                         <span className="block">
                             This will remove all manually entered and
                             Excel-imported timesheet data from this draft pay
-                            period. Crew Operations timesheets and timeline data
-                            will not be affected.
+                            period. Crew Assignment timesheets and timesheet
+                            data will not be affected.
                         </span>
                         {clearableCount > 0 ? (
                             <span className="block font-medium text-foreground">

@@ -49,7 +49,7 @@ final class PrepareCrewTimesheetTimeline
 
         if (! $period->usesCrewOperationsTimesheets()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'Crew Operations timeline preparation is not available for this pay period.',
+                'payroll_period_id' => 'Crew Timesheet preparation is not available for this pay period.',
             ]);
         }
 
