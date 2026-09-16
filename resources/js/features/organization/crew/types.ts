@@ -397,6 +397,48 @@ export interface CrewAssignmentSummary {
     pre_join_hotel: number;
     crew_on_site: number;
     post_signoff_hotel: number;
+    on_home: number;
+    on_home_over_limit: number;
+    max_home_days: number;
+}
+
+export type CurrentCrewHomeAvailabilityStatus =
+    | 'within_limit'
+    | 'near_limit'
+    | 'over_limit';
+
+export interface CurrentCrewHomeRow {
+    employee: {
+        id: number;
+        name: string;
+        employee_no: string | null;
+        image?: string | null;
+    };
+    rank: {
+        id: number;
+        name: string;
+    } | null;
+    last_vessel: {
+        id: number;
+        name: string;
+    } | null;
+    home_since: string | null;
+    days_at_home: number | null;
+    max_home_days: number;
+    availability_status: CurrentCrewHomeAvailabilityStatus;
+    availability_label: string;
+    availability_detail: string | null;
+    latest_assignment: {
+        id: number;
+        assignment_no: string;
+        status: string;
+        status_label: string;
+    } | null;
+    can: {
+        view_employee: boolean;
+        view_assignment: boolean;
+        start_assignment: boolean;
+    };
 }
 
 export type CrewFilterOption = {
@@ -426,7 +468,8 @@ export type CurrentCrewView =
     | 'crew'
     | 'pre_join_hotel'
     | 'vessel'
-    | 'post_signoff_hotel';
+    | 'post_signoff_hotel'
+    | 'on_home';
 
 export interface CurrentCrewVesselRow {
     id: number;

@@ -1,4 +1,10 @@
-import { AlertTriangle, BedDouble, ClipboardList, Ship } from 'lucide-react';
+import {
+    AlertTriangle,
+    BedDouble,
+    ClipboardList,
+    Home,
+    Ship,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { CrewAssignmentSummary } from '@/features/organization/crew/types';
 import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-index-filters';
@@ -80,6 +86,24 @@ const SUMMARY_ITEMS: {
         detail: (summary) =>
             `${percentage(summary.post_signoff_hotel, summary.total)}% in demobilisation standby`,
     },
+    {
+        key: 'on_home',
+        label: 'On Home',
+        icon: Home,
+        getValue: (summary) => summary.on_home,
+        cardClass:
+            'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
+        activeClass: 'border-orange-500/40 ring-1 ring-orange-500/25',
+        valueClass: 'text-orange-500',
+        progressClass: 'bg-orange-500',
+        detail: (summary) => {
+            if (summary.on_home_over_limit > 0) {
+                return `${summary.on_home_over_limit} over ${summary.max_home_days}-day limit`;
+            }
+
+            return `Availability limit ${summary.max_home_days} days`;
+        },
+    },
 ];
 
 function percentage(value: number, total: number): number {
@@ -96,7 +120,7 @@ export function CrewSummaryCards({
     onSelect: (filter: CrewSummaryFilter) => void;
 }) {
     return (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.key === activeFilter;
                 const Icon = item.icon;

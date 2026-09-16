@@ -19,6 +19,8 @@ import { CrewAssignmentMobileCard } from '@/features/organization/crew/component
 import { CrewAssignmentQuickDetailSheet } from '@/features/organization/crew/components/crew-assignment-quick-detail-sheet';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
+import { CrewHomeMobileCard } from '@/features/organization/crew/components/crew-home-mobile-card';
+import { CrewHomeTableRow } from '@/features/organization/crew/components/crew-home-table-row';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
 import {
     queueSectionCopy,
@@ -33,6 +35,7 @@ import type {
     CrewAssignmentListItem,
     CrewAssignmentPagePermissions,
     CrewAssignmentSummary,
+    CurrentCrewHomeRow,
     CurrentCrewView,
     CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
@@ -101,6 +104,14 @@ function listEmptyStateCopy(
         };
     }
 
+    if (view === 'on_home') {
+        return {
+            title: 'No crew currently on home',
+            description:
+                'No active crew are currently home between mobilisation cycles.',
+        };
+    }
+
     return {
         title: 'No active crew assignments',
         description:
@@ -111,6 +122,7 @@ function listEmptyStateCopy(
 export function CurrentCrewContent({
     view = 'crew',
     assignments,
+    home_crew = [],
     vessels = [],
     pagination,
     search: initialSearch,
@@ -123,6 +135,7 @@ export function CurrentCrewContent({
 }: {
     view?: CurrentCrewView;
     assignments: CrewAssignmentListItem[];
+    home_crew?: CurrentCrewHomeRow[];
     vessels?: CurrentCrewVesselRow[];
     pagination: PaginationMeta;
     search: string;
@@ -188,9 +201,12 @@ export function CurrentCrewContent({
     const hasActiveQuery =
         Boolean(searchInput.trim()) || activeFiltersCount > 0;
     const isVesselView = currentView === 'vessel';
+    const isOnHomeView = currentView === 'on_home';
     const isEmpty = isVesselView
         ? vessels.length === 0
-        : assignments.length === 0;
+        : isOnHomeView
+          ? home_crew.length === 0
+          : assignments.length === 0;
     const { current_company_id: currentCompanyId } = usePage().props as {
         current_company_id?: number | null;
     };
@@ -251,7 +267,11 @@ export function CurrentCrewContent({
             </div>
 
             <SearchBar
-                placeholder="Search assignment no, employee, vessel, rank, or client..."
+                placeholder={
+                    isOnHomeView
+                        ? 'Search employee, rank, vessel, or assignment no...'
+                        : 'Search assignment no, employee, vessel, rank, or client...'
+                }
                 value={searchInput}
                 onChange={onSearchChange}
                 right={
@@ -318,6 +338,101 @@ export function CurrentCrewContent({
                         ) : null
                     }
                 />
+            ) : isOnHomeView ? (
+                isEmpty ? (
+                    <EmptyState
+                        icon={
+                            <Ship className="mx-auto mb-3 size-8 text-muted-foreground/50" />
+                        }
+                        title={
+                            listEmptyStateCopy(currentView, hasActiveQuery)
+                                .title
+                        }
+                        description={
+                            listEmptyStateCopy(currentView, hasActiveQuery)
+                                .description
+                        }
+                        action={
+                            hasActiveQuery ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={onResetFilters}
+                                >
+                                    Clear filters
+                                </Button>
+                            ) : null
+                        }
+                    />
+                ) : (
+                    <>
+                        <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                            <MobileRecordList>
+                                {home_crew.map((row) => (
+                                    <CrewHomeMobileCard
+                                        key={row.employee.id}
+                                        row={row}
+                                    />
+                                ))}
+                            </MobileRecordList>
+                        </div>
+
+                        <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                            <OrganizationDataTable
+                                minWidth="min-w-[1280px]"
+                                tableClassName="table-fixed"
+                            >
+                                <TableHeader>
+                                    <DataTableHeaderRow>
+                                        <DataTableHead className="w-[260px]">
+                                            Crew Member
+                                        </DataTableHead>
+                                        <DataTableHead className="w-[140px]">
+                                            Rank
+                                        </DataTableHead>
+                                        <DataTableHead className="w-[160px]">
+                                            Last Vessel
+                                        </DataTableHead>
+                                        <DataTableHead className="w-[150px]">
+                                            Home Since
+                                        </DataTableHead>
+                                        <DataTableHead className="w-[120px]">
+                                            Days at Home
+                                        </DataTableHead>
+                                        <DataTableHead className="w-[200px]">
+                                            Availability
+                                        </DataTableHead>
+                                        <DataTableHead className="w-[150px]">
+                                            Latest Assignment
+                                        </DataTableHead>
+                                        <DataTableHead className="w-[160px]">
+                                            Actions
+                                        </DataTableHead>
+                                    </DataTableHeaderRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {home_crew.map((row) => (
+                                        <CrewHomeTableRow
+                                            key={row.employee.id}
+                                            row={row}
+                                        />
+                                    ))}
+                                </TableBody>
+                            </OrganizationDataTable>
+                        </div>
+
+                        {pagination.last_page > 1 ? (
+                            <Pagination
+                                currentPage={pagination.current_page}
+                                lastPage={pagination.last_page}
+                                perPage={pagination.per_page}
+                                total={pagination.total}
+                                from={pagination.from}
+                                to={pagination.to}
+                                onPageChange={onPageChange}
+                            />
+                        ) : null}
+                    </>
+                )
             ) : isEmpty ? (
                 <EmptyState
                     icon={

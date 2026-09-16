@@ -15,7 +15,8 @@ export type CrewSummaryFilter =
     | 'attention'
     | 'pre_join_hotel'
     | 'crew_on_site'
-    | 'post_signoff_hotel';
+    | 'post_signoff_hotel'
+    | 'on_home';
 
 function cleanParams(
     params: Record<string, string | number | boolean | null | undefined>,
@@ -44,6 +45,7 @@ function cleanParams(
 const PARTIAL_ONLY = [
     'view',
     'assignments',
+    'home_crew',
     'vessels',
     'pagination',
     'search',

@@ -26,7 +26,8 @@ export function isOperationalLocationView(view: CurrentCrewView): boolean {
     return (
         view === 'pre_join_hotel' ||
         view === 'vessel' ||
-        view === 'post_signoff_hotel'
+        view === 'post_signoff_hotel' ||
+        view === 'on_home'
     );
 }
 
@@ -62,6 +63,10 @@ export function resolveActiveSummaryFilter(
         return 'post_signoff_hotel';
     }
 
+    if (view === 'on_home') {
+        return 'on_home';
+    }
+
     if (filters.movement_attention) {
         return 'attention';
     }
@@ -91,6 +96,14 @@ export function queueSectionCopy(
         return {
             title: 'Post-Sign-Off Hotel crew',
             description: 'Active crew in Demobilisation Standby.',
+        };
+    }
+
+    if (view === 'on_home') {
+        return {
+            title: 'On Home crew',
+            description:
+                'Crew currently home between mobilisation cycles, including active P6 and completed assignments.',
         };
     }
 
@@ -130,6 +143,8 @@ export function buildCrewSummaryFilterParams(
         next.view = 'vessel';
     } else if (filter === 'post_signoff_hotel') {
         next.view = 'post_signoff_hotel';
+    } else if (filter === 'on_home') {
+        next.view = 'on_home';
     }
 
     return next;

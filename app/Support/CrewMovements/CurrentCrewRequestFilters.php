@@ -14,6 +14,8 @@ final class CurrentCrewRequestFilters
 
     public const VIEW_POST_SIGNOFF_HOTEL = 'post_signoff_hotel';
 
+    public const VIEW_ON_HOME = 'on_home';
+
     /**
      * @return array<string, mixed>
      */
@@ -100,7 +102,8 @@ final class CurrentCrewRequestFilters
         return match ($view) {
             self::VIEW_VESSEL,
             self::VIEW_PRE_JOIN_HOTEL,
-            self::VIEW_POST_SIGNOFF_HOTEL => $view,
+            self::VIEW_POST_SIGNOFF_HOTEL,
+            self::VIEW_ON_HOME => $view,
             default => self::VIEW_CREW,
         };
     }
@@ -111,6 +114,7 @@ final class CurrentCrewRequestFilters
             self::VIEW_VESSEL,
             self::VIEW_PRE_JOIN_HOTEL,
             self::VIEW_POST_SIGNOFF_HOTEL,
+            self::VIEW_ON_HOME,
         ], true);
     }
 
@@ -119,6 +123,7 @@ final class CurrentCrewRequestFilters
         return in_array($view, [
             self::VIEW_PRE_JOIN_HOTEL,
             self::VIEW_POST_SIGNOFF_HOTEL,
+            self::VIEW_ON_HOME,
         ], true);
     }
 }

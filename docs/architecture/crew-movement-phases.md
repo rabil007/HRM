@@ -26,6 +26,7 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | **Crew Assignments → Pre-Join Hotel** | `/organization/crew?view=pre_join_hotel` | Active assignments whose **current** phase is P2A, P2B, or P3 (hotel/standby before vessel joining) |
 | **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew (active P4) |
 | **Crew Assignments → Post-Sign-Off Hotel** | `/organization/crew?view=post_signoff_hotel` | Active assignments whose **current** phase is P5 (demobilisation standby after disembarkation) |
+| **Crew Assignments → On Home** | `/organization/crew?view=on_home` | Active employees currently home between mobilisation cycles (active P6 and completed assignments with no newer Draft/Active assignment) |
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel manning and movements (Gantt) |
 | **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
 | **Crew Planning → Relief Desk** | `/organization/crew-planning?view=relief` | Operational desk of active P4 crew with upcoming/overdue/missing Planned Sign-Off, derived relief status, and mobilisation readiness |
@@ -61,6 +62,9 @@ The Crew Assignments index uses summary cards as the primary operational navigat
 | **Pre-Join Hotel** | Active assignments with current phase **P2A + P2B + legacy P3** |
 | **Crew On-Site** | Vessel View (`view=vessel`) — active **P4** crew grouped by vessel |
 | **Post-Sign-Off Hotel** | Active assignments with current phase **P5** |
+| **On Home** | Active employees currently home between mobilisation cycles, including active **P6** and employees whose latest assignment is **Completed** with no newer Draft/Active assignment |
+
+**On Home** reuses the existing Crew Operations Availability Rule (`max_home_days` from Crew Operations Settings; default 30 when unset). Home duration is derived from `CrewAssignmentStatusResolver` semantics: active P6 uses the authoritative P6 `actual_start_at`; completed assignments use `closed_at`. Summary cards expose `on_home`, `on_home_over_limit`, and `max_home_days`. The focused view sorts by operational urgency (over limit, then nearest to limit, then longest home duration).
 
 **P0 Pre-Mobilisation** is no longer a dashboard summary card. It remains available through **Filters → Current Phase** and other detailed filters.
 

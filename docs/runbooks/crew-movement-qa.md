@@ -175,8 +175,13 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] **Pre-Join Hotel** shows Active current P2A/P2B and legacy P3 (`view=pre_join_hotel`)
 - [ ] **Crew On-Site** shows only Active current P4 grouped by vessel (`view=vessel`)
 - [ ] **Post-Sign-Off Hotel** shows only Active current P5 (`view=post_signoff_hotel`)
+- [ ] **On Home** shows active employees home between mobilisation cycles (`view=on_home`), including active P6 and completed assignments with no newer Draft/Active assignment
+- [ ] **On Home** card secondary text uses the company `max_home_days` Availability Rule (for example `5 over 30-day limit`)
+- [ ] **On Home** list shows Home Since, Days at Home, availability status against `max_home_days`, and links to the latest assignment when present
+- [ ] Employees with a newer Active or Draft assignment do not appear in **On Home**
+- [ ] Inactive/terminated employees never appear in **On Home**
 - [ ] **P0 Pre-Mobilisation** remains accessible through Filters → Current Phase (not a dashboard card)
-- [ ] **P6** appears in none of the three location cards
+- [ ] **P6** appears only in **On Home**, not in the hotel/on-site location cards
 - [ ] Completed/historical assignments never appear in Hotel or On-Site location views
 - [ ] After setting **Status = Completed**, clicking **Crew On-Site** clears the conflicting status and shows the current Active P4 board (not an empty misleading board)
 - [ ] After setting **Phase = P0** and **Include Completed = Yes**, clicking **Pre-Join Hotel** clears those conflicting filters and shows Active P2A/P2B and legacy P3
