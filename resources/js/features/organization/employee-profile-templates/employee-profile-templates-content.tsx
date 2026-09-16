@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useViewPreference } from '@/hooks/use-view-preference';
+import { firstValidationError } from '@/lib/first-validation-error';
+import { toast } from '@/lib/toast';
 import { TemplateCard } from './components/template-card';
 import { TemplateDeleteDialog } from './components/template-delete-dialog';
 import type { EmployeeProfileTemplate } from './types';
@@ -76,9 +78,18 @@ export function EmployeeProfileTemplatesContent({
             `/organization/templates/employee-profile/${currentTemplate.id}`,
             {
                 preserveScroll: true,
-                onFinish: () => {
+                onSuccess: () => {
                     setIsDeleteOpen(false);
                     setCurrentTemplate(null);
+                },
+                onError: (errors) => {
+                    toast.error(
+                        firstValidationError(
+                            errors,
+                            'employee_profile_template',
+                            'This profile template could not be deleted.',
+                        ),
+                    );
                 },
             },
         );
