@@ -275,7 +275,7 @@ export function useEmployeeProfileForm(
                                 form.data.image instanceof File
                                     ? form.data.image.size
                                     : null,
-                            submitMethod: 'put',
+                            submitMethod: hasPendingImage ? 'post' : 'put',
                             forceFormData: hasPendingImage,
                             employeeId: targetEmployeeId,
                         },
@@ -299,6 +299,10 @@ export function useEmployeeProfileForm(
                     payload.remove_image = true;
                 }
 
+                if (hasPendingImage) {
+                    payload._method = 'put';
+                }
+
                 return payload;
             });
 
@@ -307,15 +311,22 @@ export function useEmployeeProfileForm(
                 { query: options?.listQuery ?? {} },
             );
 
-            form.put(updateUrl, {
-                forceFormData: hasPendingImage,
+            const visitOptions = {
                 preserveScroll: true,
                 onSuccess: () => {
+                    if (hasPendingImage) {
+                        form.setData((current) => ({
+                            ...current,
+                            image: null,
+                            remove_image: false,
+                        }));
+                    }
+
                     setActiveField(null);
                     setMissingRequiredFields(new Set());
                     afterSuccess?.();
                 },
-                onError: (errors) => {
+                onError: (errors: Record<string, string>) => {
                     const first = Object.values(errors ?? {})[0];
                     toast.error(
                         typeof first === 'string' && first.length
@@ -323,7 +334,18 @@ export function useEmployeeProfileForm(
                             : 'Failed to save changes.',
                     );
                 },
-            });
+            };
+
+            if (hasPendingImage) {
+                form.post(updateUrl, {
+                    ...visitOptions,
+                    forceFormData: true,
+                });
+
+                return;
+            }
+
+            form.put(updateUrl, visitOptions);
         },
         [
             canUpdate,

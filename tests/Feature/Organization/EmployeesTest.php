@@ -992,6 +992,59 @@ test('employee profile includes image and can be updated with a photo', function
     Storage::disk('public')->assertMissing($path);
 });
 
+test('employee photo upload accepts post with method spoofing like inertia formdata saves', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Storage::fake('public');
+
+    $country = Country::query()->create([
+        'code' => 'IMG2',
+        'name' => 'Imagelands Two',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'IM2',
+        'name' => 'Image Currency Two',
+        'symbol' => 'I2',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Photo Co Two',
+        'slug' => 'photo-co-two',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-PHOTO-2',
+            'name' => 'Photo Employee Two',
+            'status' => 'active',
+            'image' => null,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->post("/organization/employees/{$employee->id}", [
+        '_method' => 'put',
+        'employee_no' => 'EMP-PHOTO-2',
+        'name' => 'Photo Employee Two',
+        'image' => UploadedFile::fake()->image('profile.jpg', 320, 320),
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    $path = $employee->fresh()->image;
+    expect($path)->not->toBeNull();
+    Storage::disk('public')->assertExists($path);
+});
+
 test('authenticated users can create, update, toggle status, and delete an employee', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
