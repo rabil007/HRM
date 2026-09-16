@@ -232,7 +232,7 @@ export default function CrewAssignmentShow({
                                     className="h-10 rounded-lg px-4"
                                     onClick={() => setIsVoidDialogOpen(true)}
                                 >
-                                    Void Erroneous Assignment
+                                    Void Assignment
                                 </Button>
                             ) : null}
                             {can.update && assignment.is_editable ? (
