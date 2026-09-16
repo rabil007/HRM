@@ -6,6 +6,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
+use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
 use Carbon\Carbon;
@@ -48,10 +49,15 @@ class PerformCrewMovementActionRequest extends FormRequest
             $assignment = $this->route('assignment');
             if ($assignment instanceof CrewAssignment) {
                 $assignment->loadMissing('currentPhase');
-                if ($assignment->currentPhase?->phase_code === CrewPhaseCode::PreMobilisation && ! $this->filled('next_phase')) {
+                if (in_array($assignment->currentPhase?->phase_code, [CrewPhaseCode::PreMobilisation, CrewPhaseCode::TravelIn], true)
+                    && ! $this->filled('next_phase')) {
                     $this->merge(['next_phase' => CrewPhaseCode::JoinStandby->value]);
                 }
             }
+        }
+
+        if ($action === 'complete_training' && ! $this->filled('next_phase')) {
+            $this->merge(['next_phase' => CrewPhaseCode::JoinStandby->value]);
         }
 
         if ($action !== 'redeploy') {
@@ -131,7 +137,6 @@ class PerformCrewMovementActionRequest extends FormRequest
                     ? Rule::in(match ($action) {
                         'record_arrival', 'complete_training' => [
                             CrewPhaseCode::JoinStandby->value,
-                            CrewPhaseCode::ReadyToJoin->value,
                         ],
                         'confirm_disembarkation' => [
                             CrewPhaseCode::DemobStandby->value,
@@ -192,7 +197,6 @@ class PerformCrewMovementActionRequest extends FormRequest
                 Rule::in([
                     CrewPhaseCode::PreMobilisation->value,
                     CrewPhaseCode::JoinStandby->value,
-                    CrewPhaseCode::ReadyToJoin->value,
                     CrewPhaseCode::OnVessel->value,
                 ]),
             ];
@@ -278,6 +282,16 @@ class PerformCrewMovementActionRequest extends FormRequest
             }
 
             $assignment->loadMissing(['currentPhase', 'phases', 'company']);
+
+            $allowedActions = CrewMovementAvailableActions::for($assignment);
+
+            if (! in_array($action, $allowedActions, true)) {
+                $validator->errors()->add(
+                    'action',
+                    'This action is not available for the current assignment phase.',
+                );
+            }
+
             $timezone = (string) ($assignment->company?->timezone ?? config('app.timezone', 'UTC'));
             $occurredAt = $this->input('occurred_at')
                 ? Carbon::parse((string) $this->input('occurred_at'), $timezone)
@@ -317,6 +331,13 @@ class PerformCrewMovementActionRequest extends FormRequest
                     $validator->errors()->add(
                         'next_phase',
                         'Pre-Mobilisation arrivals must transition to Join Standby.',
+                    );
+                }
+
+                if ($currentCode === CrewPhaseCode::TravelIn && $this->input('next_phase') !== CrewPhaseCode::JoinStandby->value) {
+                    $validator->errors()->add(
+                        'next_phase',
+                        'Travel In arrivals must transition to Join Standby.',
                     );
                 }
             }

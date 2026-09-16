@@ -47,7 +47,6 @@ class CrewMovementAvailableActions
                 ],
                 CrewPhaseCode::JoinStandby => [
                     CrewMovementAction::SendToTraining->value,
-                    CrewMovementAction::MarkReady->value,
                     CrewMovementAction::JoinVessel->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],

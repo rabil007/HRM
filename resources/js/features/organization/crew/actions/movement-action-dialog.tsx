@@ -112,9 +112,13 @@ function buildInitialForm(
     const nextPhase =
         action === 'record_arrival' && context.current_phase_code === 'p0'
             ? 'p2a'
-            : (config.nextPhaseOptions?.[0]?.value ??
-              config.fixedNextPhase ??
-              '');
+            : action === 'record_arrival' && context.current_phase_code === 'p1'
+              ? 'p2a'
+              : action === 'complete_training'
+                ? 'p2a'
+                : (config.nextPhaseOptions?.[0]?.value ??
+                  config.fixedNextPhase ??
+                  '');
 
     const data: CrewMovementActionFormData = {
         action,

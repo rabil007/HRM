@@ -33,6 +33,10 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
     ], $user->id);
 
     if ($targetPhase === CrewPhaseCode::TravelIn) {
+        $assignment->currentPhase->update([
+            'phase_code' => CrewPhaseCode::TravelIn,
+        ]);
+
         return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];
     }
 
@@ -40,6 +44,15 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
         'occurred_at' => '2026-01-05 10:00:00',
         'next_phase' => 'p2a',
     ], $user->id);
+
+    if ($targetPhase === CrewPhaseCode::ReadyToJoin) {
+        $assignment = $assignment->fresh(['currentPhase']);
+        $assignment->currentPhase->update([
+            'phase_code' => CrewPhaseCode::ReadyToJoin,
+        ]);
+
+        return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];
+    }
 
     if ($targetPhase === CrewPhaseCode::JoinStandby) {
         return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];
@@ -52,14 +65,6 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
             'course' => 'BOSIET',
         ], $user->id);
 
-        return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];
-    }
-
-    $service->perform($company->id, $id, CrewMovementAction::MarkReady, [
-        'occurred_at' => '2026-01-08 09:00:00',
-    ], $user->id);
-
-    if ($targetPhase === CrewPhaseCode::ReadyToJoin) {
         return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];
     }
 
@@ -112,7 +117,6 @@ test('available actions match guided menus for every phase', function (CrewPhase
         CrewPhaseCode::JoinStandby,
         [
             CrewMovementAction::SendToTraining->value,
-            CrewMovementAction::MarkReady->value,
             CrewMovementAction::JoinVessel->value,
             CrewMovementAction::CancelAssignment->value,
         ],

@@ -36,11 +36,11 @@ it('keeps other allowed actions when a recommendation is present', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('assignment.recommended_action.action', CrewMovementAction::JoinVessel->value)
             ->where('assignment.available_actions.0', CrewMovementAction::SendToTraining->value)
-            ->where('assignment.available_actions.3', CrewMovementAction::CancelAssignment->value)
+            ->where('assignment.available_actions.2', CrewMovementAction::CancelAssignment->value)
         );
 });
 
-it('allows a non-recommended valid movement', function () {
+it('rejects crafted mark ready from join standby at the http boundary', function () {
     $fixtures = makeCrewAssignmentFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
         'crew_operations.assignments.view',
@@ -66,15 +66,16 @@ it('allows a non-recommended valid movement', function () {
     ], $fixtures['user']->id);
 
     $this->actingAs($fixtures['user'])
+        ->from(route('organization.crew-assignments.show', $assignment))
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::MarkReady->value,
             'occurred_at' => '2026-01-05 08:00:00',
         ])
-        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+        ->assertSessionHasErrors('action');
 
     $assignment->refresh()->load('currentPhase');
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::ReadyToJoin);
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 });
 
 it('still forbids movement without permission when a recommendation exists', function () {

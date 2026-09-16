@@ -288,7 +288,7 @@ final class CrewMovementService
         if ($current->phase_code === CrewPhaseCode::PreMobilisation) {
             $nextCode = CrewPhaseCode::JoinStandby;
         } else {
-            $nextCode = $this->requireNextPhaseCode($payload, [CrewPhaseCode::JoinStandby, CrewPhaseCode::ReadyToJoin]);
+            $nextCode = $this->requireNextPhaseCode($payload, [CrewPhaseCode::JoinStandby]);
         }
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
@@ -386,7 +386,7 @@ final class CrewMovementService
     {
         $this->assertStatus($assignment, CrewAssignmentStatus::Active);
         $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::Training);
-        $nextCode = $this->requireNextPhaseCode($payload, [CrewPhaseCode::JoinStandby, CrewPhaseCode::ReadyToJoin]);
+        $nextCode = $this->requireNextPhaseCode($payload, [CrewPhaseCode::JoinStandby]);
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
 
         $existingDetails = is_array($current->details) ? $current->details : [];
@@ -816,7 +816,6 @@ final class CrewMovementService
         $startingPhase = $this->requireNextPhaseCode($payload, [
             CrewPhaseCode::PreMobilisation,
             CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::ReadyToJoin,
             CrewPhaseCode::OnVessel,
         ]);
 
@@ -1218,7 +1217,7 @@ final class CrewMovementService
 
         if ($code === null || ! $code->allowsDirectStart()) {
             throw CrewMovementException::make(
-                'Assignments cannot start directly in this stage. Start at Travel In or Pre-Mobilisation so payable join-standby history is recorded.',
+                'Assignments cannot start directly in this stage. Start at Pre-Mobilisation so payable join-standby history is recorded.',
                 'invalid_start_stage',
             );
         }

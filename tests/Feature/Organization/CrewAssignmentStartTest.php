@@ -253,17 +253,14 @@ test('crafted future stage started at cannot affect a normal web start assignmen
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
 });
 
-test('service start assignment still accepts an explicit historical timestamp', function () {
+test('service start assignment rejects legacy travel in direct start', function () {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00', $company->timezone));
 
-    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+    expect(fn () => app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
         'current_stage' => 'p1',
         'stage_started_at' => '2026-09-14 10:30:00',
-    ], $user->id);
-
-    expect($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-14 10:30')
-        ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
+    ], $user->id))->toThrow(CrewMovementException::class, 'Assignments cannot start directly in this stage.');
 });
 
 test('service rejects date-only stage started at', function () {
@@ -283,6 +280,18 @@ test('service rejects future stage started at', function () {
     ], $user->id))->toThrow(CrewMovementException::class, 'Assignment start date and time cannot be in the future.');
 });
 
+test('service rejects travel in as a direct start stage', function () {
+    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+
+    expect(fn () => app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'current_stage' => 'p1',
+        'stage_started_at' => '2026-09-15 08:30:00',
+    ], $user->id))->toThrow(
+        CrewMovementException::class,
+        'Assignments cannot start directly in this stage.',
+    );
+});
+
 test('direct start stages create only the selected phase', function (string $stage, CrewPhaseCode $expected) {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
@@ -297,7 +306,6 @@ test('direct start stages create only the selected phase', function (string $sta
         ->and($assignment->currentPhase?->sequence)->toBe(1)
         ->and($assignment->phases->pluck('phase_code')->map->value->all())->toBe([$stage]);
 })->with([
-    'p1' => ['p1', CrewPhaseCode::TravelIn],
     'p0' => ['p0', CrewPhaseCode::PreMobilisation],
 ]);
 

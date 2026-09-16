@@ -25,7 +25,6 @@ import { TourSignoffFields } from './tour-signoff-fields';
 const REDEPLOY_STARTING_PHASES = [
     { value: 'p0', label: CREW_PHASE_LABELS.p0 },
     { value: 'p2a', label: CREW_PHASE_LABELS.p2a },
-    { value: 'p3', label: CREW_PHASE_LABELS.p3 },
     { value: 'p4', label: CREW_PHASE_LABELS.p4 },
 ] as const;
 
@@ -39,9 +38,9 @@ export function RedeployForm({
     const startingPhase = form.data.starting_phase;
     const requiresVessel = startingPhase === 'p4';
     const redeployDate = form.data.occurred_at.slice(0, 10);
-    const showDestinationFields = ['p2a', 'p3', 'p4'].includes(startingPhase);
+    const showDestinationFields = ['p2a', 'p4'].includes(startingPhase);
     const showDirectP4Tour = startingPhase === 'p4';
-    const showForecastSignoff = ['p2a', 'p3'].includes(startingPhase);
+    const showForecastSignoff = startingPhase === 'p2a';
     const selectedRank = findRankTourOption(
         formOptions?.ranks,
         form.data.rank_id,
@@ -166,7 +165,7 @@ export function RedeployForm({
                             next.planned_signoff_at = '';
                             Object.assign(next, clearedDirectP4TourFields());
                         } else if (value === 'p4') {
-                            if (!['p2a', 'p3', 'p4'].includes(startingPhase)) {
+                            if (!['p2a', 'p4'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
                                 next.rank_id = context.rank_id;
                                 next.client_id = context.client_id;
@@ -187,7 +186,7 @@ export function RedeployForm({
                             next.planned_signoff_at = '';
                         } else {
                             if (
-                                !['p1', 'p2a', 'p3', 'p4'].includes(
+                                !['p1', 'p2a', 'p4'].includes(
                                     startingPhase,
                                 )
                             ) {

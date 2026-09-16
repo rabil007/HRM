@@ -54,11 +54,6 @@ test('full happy path p0 through completed p6', function () {
     ], $user->id);
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 
-    $assignment = $service->perform($company->id, $id, CrewMovementAction::MarkReady, [
-        'occurred_at' => '2026-01-08 09:00:00',
-    ], $user->id);
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::ReadyToJoin);
-
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-10 12:00:00',
         'vessel_id' => $vessel->id,
@@ -88,7 +83,7 @@ test('full happy path p0 through completed p6', function () {
         ->and($assignment->current_phase_id)->not->toBeNull()
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($assignment->phases()->count())->toBe(6);
+        ->and($assignment->phases()->count())->toBe(5);
 });
 
 test('training loop creates a second p2a record', function () {
@@ -123,9 +118,6 @@ test('training loop creates a second p2a record', function () {
         ->and($assignment->phases()->where('phase_code', CrewPhaseCode::Training)->first()?->planned_start_at)
         ->toBeNull();
 
-    $service->perform($company->id, $id, CrewMovementAction::MarkReady, [
-        'occurred_at' => '2026-02-11 08:00:00',
-    ], $user->id);
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-02-12 08:00:00',
         'vessel_id' => $vessel->id,
@@ -135,20 +127,30 @@ test('training loop creates a second p2a record', function () {
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
 });
 
-test('arrival can open p3 directly', function () {
-    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+test('legacy p1 record arrival only opens join standby', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Legacy P1 Arrival');
     $service = crewMovementService();
 
-    $assignment = $service->startAssignment($company->id, $employee->id, [
-        'current_stage' => 'p1',
-        'stage_started_at' => '2026-03-01 08:00:00',
-    ], $user->id);
-    $assignment = $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+    $assignment = makeCurrentCrewPhaseAssignment(
+        $company,
+        $employee,
+        $rank,
+        $vessel,
+        CrewPhaseCode::TravelIn,
+    );
+
+    expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 08:00:00',
         'next_phase' => 'p3',
+    ], $user->id))->toThrow(CrewMovementException::class);
+
+    $assignment = $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-03-02 08:00:00',
+        'next_phase' => 'p2a',
     ], $user->id);
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::ReadyToJoin);
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 });
 
 test('join vessel requires vessel and rank and does not require actual disembarkation', function () {
@@ -161,9 +163,6 @@ test('join vessel requires vessel and rank and does not require actual disembark
     $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, ['occurred_at' => '2026-03-01 08:00:00'], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 08:00:00',
-    ], $user->id);
-    $service->perform($company->id, $id, CrewMovementAction::MarkReady, [
-        'occurred_at' => '2026-03-02 10:00:00',
     ], $user->id);
 
     expect(fn () => $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
@@ -190,7 +189,7 @@ test('planned sign-off does not close p4 and confirm preserves planned sign-off'
     $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, ['occurred_at' => '2026-01-01 08:00:00'], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
@@ -227,7 +226,7 @@ test('direct p4 to p6 is supported via confirm disembarkation', function () {
     $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, ['occurred_at' => '2026-01-01 08:00:00'], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
@@ -252,7 +251,7 @@ test('start demob standby uses shared disembarkation handler', function () {
     $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, ['occurred_at' => '2026-01-01 08:00:00'], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
@@ -276,7 +275,7 @@ test('assignment closes only from p6 and cancelling p4 is rejected', function ()
     $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, ['occurred_at' => '2026-01-01 08:00:00'], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',

@@ -49,7 +49,7 @@ enum CrewPhaseCode: string
     /**
      * Phases Operations may choose as the first known stage on manual Start Assignment.
      *
-     * Limited to P0 and P1 so payable Join Standby (P2A/P2B/P3) history is not skipped.
+     * Normal web Start Assignment always begins at P0. P1 is legacy compatibility only.
      * Redeploy and Join Vessel remain the paths into later phases. Join Vessel is still
      * the only way to enter On Vessel.
      *
@@ -59,7 +59,6 @@ enum CrewPhaseCode: string
     {
         return [
             self::PreMobilisation,
-            self::TravelIn,
         ];
     }
 

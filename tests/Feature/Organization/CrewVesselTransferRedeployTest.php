@@ -48,7 +48,7 @@ function makeOnVesselSourceAssignment(): array
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-07-01 12:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-07-01 16:00:00',
@@ -279,7 +279,6 @@ test('redeploy from p5 can start at chosen phases including same vessel', functi
 })->with([
     'p0' => ['p0', CrewAssignmentStatus::Draft, CrewPhaseCode::PreMobilisation],
     'p2a' => ['p2a', CrewAssignmentStatus::Active, CrewPhaseCode::JoinStandby],
-    'p3' => ['p3', CrewAssignmentStatus::Active, CrewPhaseCode::ReadyToJoin],
     'p4' => ['p4', CrewAssignmentStatus::Active, CrewPhaseCode::OnVessel],
 ]);
 
@@ -343,7 +342,7 @@ test('cross-company destination vessel references are rejected on join', functio
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-07-01 12:00:00',
-        'next_phase' => 'p3',
+        'next_phase' => 'p2a',
     ], $user->id);
 
     expect(fn () => $service->perform(
@@ -700,14 +699,14 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
 
     $preP4 = $service->perform($company2->id, $source2->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-15 09:00:00',
-        'starting_phase' => 'p3',
+        'starting_phase' => 'p2a',
         'vessel_id' => $sourceVessel2->id,
         'rank_id' => $rank2->id,
     ], $user2->id);
 
     expect($preP4->tour_of_duty_days)->toBeNull()
         ->and($preP4->planned_signoff_source)->toBeNull()
-        ->and($preP4->currentPhase?->phase_code)->toBe(CrewPhaseCode::ReadyToJoin);
+        ->and($preP4->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 
     $joined = $service->perform($company2->id, $preP4->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-07-20 10:00:00',

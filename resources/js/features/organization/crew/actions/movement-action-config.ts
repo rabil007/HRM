@@ -69,26 +69,14 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     },
     complete_training: {
         title: 'Complete Training',
-        description: 'Record training completion and choose the next phase.',
+        description:
+            'Record training completion and return the employee to Join Standby.',
         occurredAtLabel: 'Training completed at',
         submitLabel: 'Complete Training',
         impactTitle: 'What this does',
-        impactDescription: 'This completes P2B Training.',
-        nextPhaseLabel: 'After training',
-        nextPhaseOptions: [
-            {
-                value: 'p2a',
-                label: 'Return to Join Standby',
-                description:
-                    'The employee will wait for vessel joining or further instructions.',
-            },
-            {
-                value: 'p3',
-                label: CREW_PHASE_LABELS.p3,
-                description:
-                    'Training is complete and the employee is cleared to join.',
-            },
-        ],
+        impactDescription:
+            'This completes P2B Training and returns the employee to Join Standby.',
+        fixedNextPhase: 'p2a',
     },
     mark_ready: {
         title: 'Mark Ready',
@@ -239,6 +227,20 @@ export function getMovementActionConfig(
             impactTitle: 'What this does',
             impactDescription:
                 "This records the crew member's actual arrival and transitions the assignment from Pre-Mobilisation into Join Standby.",
+            fixedNextPhase: 'p2a',
+        };
+    }
+
+    if (action === 'record_arrival' && currentPhase === 'p1') {
+        return {
+            title: 'Record Arrival',
+            description:
+                "This records the crew member's actual arrival and starts Join Standby.",
+            occurredAtLabel: 'Arrival date and time',
+            submitLabel: 'Record Arrival',
+            impactTitle: 'What this does',
+            impactDescription:
+                'This completes Travel In and moves the employee into Join Standby.',
             fixedNextPhase: 'p2a',
         };
     }
