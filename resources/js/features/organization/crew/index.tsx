@@ -523,6 +523,7 @@ export function CurrentCrewContent({
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
                 filterOptions={filterOptions}
+                view={currentView}
                 value={filters}
                 onChange={onSheetFiltersChange}
                 onReset={onResetFilters}

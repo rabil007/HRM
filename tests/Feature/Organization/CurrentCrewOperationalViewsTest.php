@@ -467,6 +467,146 @@ test('include completed does not leak history into pre join hotel view', functio
             ->has('assignments', 0));
 });
 
+test('operational location views sanitize conflicting inertia filters from crafted urls', function () {
+    $fixtures = makeOperationalViewsFixtures();
+
+    makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $fixtures['vessel'],
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-assignments.index', [
+            'view' => 'vessel',
+            'status' => 'completed',
+            'phase' => 'p0',
+            'include_completed' => 1,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('view', 'vessel')
+            ->where('filters.status', '')
+            ->where('filters.phase', '')
+            ->where('filters.include_completed', false)
+            ->has('vessels', 1));
+
+    makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        Employee::factory()->forCompany($fixtures['company'])->create([
+            'rank_id' => $fixtures['rank']->id,
+        ]),
+        $fixtures['rank'],
+        $fixtures['vessel'],
+        CrewPhaseCode::JoinStandby,
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-assignments.index', [
+            'view' => 'pre_join_hotel',
+            'status' => 'completed',
+            'phase' => 'p4',
+            'include_completed' => 1,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('view', 'pre_join_hotel')
+            ->where('filters.status', '')
+            ->where('filters.phase', '')
+            ->where('filters.include_completed', false)
+            ->has('assignments', 1));
+});
+
+test('status completed cannot alter pre join hotel query semantics', function () {
+    $fixtures = makeOperationalViewsFixtures();
+
+    makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $fixtures['vessel'],
+        CrewPhaseCode::JoinStandby,
+    );
+
+    $paginator = CurrentCrewQuery::paginate(
+        $fixtures['company']->id,
+        ['status' => 'completed', 'include_completed' => true, 'phase' => 'p0'],
+        CurrentCrewRequestFilters::VIEW_PRE_JOIN_HOTEL,
+    );
+
+    expect($paginator->total())->toBe(1);
+});
+
+test('pre join hotel excludes active assignment whose current phase is not active', function () {
+    $fixtures = makeOperationalViewsFixtures();
+    $employee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+    ]);
+
+    $assignment = makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        $employee,
+        $fixtures['rank'],
+        $fixtures['vessel'],
+        CrewPhaseCode::JoinStandby,
+    );
+
+    $assignment->currentPhase?->update(['status' => CrewPhaseStatus::Completed]);
+
+    $paginator = CurrentCrewQuery::paginate(
+        $fixtures['company']->id,
+        [],
+        CurrentCrewRequestFilters::VIEW_PRE_JOIN_HOTEL,
+    );
+
+    expect($paginator->total())->toBe(0);
+});
+
+test('post signoff hotel excludes active assignment whose current phase is not active', function () {
+    $fixtures = makeOperationalViewsFixtures();
+    $employee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+    ]);
+
+    $assignment = makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        $employee,
+        $fixtures['rank'],
+        $fixtures['vessel'],
+        CrewPhaseCode::DemobStandby,
+    );
+
+    $assignment->currentPhase?->update(['status' => CrewPhaseStatus::Completed]);
+
+    $paginator = CurrentCrewQuery::paginate(
+        $fixtures['company']->id,
+        [],
+        CurrentCrewRequestFilters::VIEW_POST_SIGNOFF_HOTEL,
+    );
+
+    expect($paginator->total())->toBe(0);
+});
+
+test('summary location counts require active current phase status', function () {
+    $fixtures = makeOperationalViewsFixtures();
+    $employee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+    ]);
+
+    $assignment = makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        $employee,
+        $fixtures['rank'],
+        $fixtures['vessel'],
+        CrewPhaseCode::JoinStandby,
+    );
+
+    $assignment->currentPhase?->update(['status' => CrewPhaseStatus::Completed]);
+
+    expect(CrewMovementAttentionQuery::summaryCounts($fixtures['company']->id)['pre_join_hotel'])->toBe(0);
+});
+
 test('historical p5 phase on completed assignment does not count as post signoff hotel', function () {
     $fixtures = makeOperationalViewsFixtures();
 

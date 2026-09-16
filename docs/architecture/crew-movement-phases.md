@@ -70,7 +70,7 @@ The Crew Assignments index uses summary cards as the primary operational navigat
 - accommodation booking data
 - a Payroll category (Payroll still maps P2A/P2B/P3 to Sign-On Standby and P5 to Sign-Off Standby)
 
-Operational hotel/on-site views enforce `CrewAssignment.status = Active` and match **current** phase only — completed historical phases never appear in these cards or views, even when `include_completed=1` is present in the URL.
+Operational hotel/on-site views enforce `CrewAssignment.status = Active`, **active** current phase status, and match **current** phase only — completed historical phases never appear in these cards or views, even when `include_completed=1` is present in the URL. Summary-card navigation clears conflicting `phase`, `status`, and `include_completed` values; crafted URL params for those fields are sanitized for display and ignored by the authoritative query.
 
 ### Export intent
 

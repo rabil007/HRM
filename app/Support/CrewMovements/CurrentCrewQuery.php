@@ -4,6 +4,7 @@ namespace App\Support\CrewMovements;
 
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
 use App\Enums\CrewTourStatus;
@@ -353,6 +354,8 @@ class CurrentCrewQuery
         ActiveEmployeeConstraint::whereHas($query, $companyId);
 
         $query->whereHas('currentPhase', function (Builder $phase) use ($view): void {
+            $phase->where('status', CrewPhaseStatus::Active);
+
             if ($view === CurrentCrewRequestFilters::VIEW_PRE_JOIN_HOTEL) {
                 $phase->whereIn('phase_code', [
                     CrewPhaseCode::JoinStandby,

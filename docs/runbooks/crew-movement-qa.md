@@ -168,7 +168,23 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Company A cannot view or export Company B assignment history
 - [ ] No `EmployeeDeployment` or duplicate movement/report table is created
 
-## 12. Payroll safeguards (Arrival-first regression)
+## 12. Current Crew operational cards
+
+- [ ] **Active Assignments** opens the normal operational queue (`view=crew`) without stale location-view state
+- [ ] **Needs Attention** shows current assignments requiring review (`movement_attention=1`) on the normal crew list
+- [ ] **Pre-Join Hotel** shows only Active current P2A/P2B/P3 (`view=pre_join_hotel`)
+- [ ] **Crew On-Site** shows only Active current P4 grouped by vessel (`view=vessel`)
+- [ ] **Post-Sign-Off Hotel** shows only Active current P5 (`view=post_signoff_hotel`)
+- [ ] **P0 Pre-Mobilisation** remains accessible through Filters → Current Phase (not a dashboard card)
+- [ ] **P6** appears in none of the three location cards
+- [ ] Completed/historical assignments never appear in Hotel or On-Site location views
+- [ ] After setting **Status = Completed**, clicking **Crew On-Site** clears the conflicting status and shows the current Active P4 board (not an empty misleading board)
+- [ ] After setting **Phase = P0** and **Include Completed = Yes**, clicking **Pre-Join Hotel** clears those conflicting filters and shows only Active P2A/P2B/P3
+- [ ] Operational location views do not expose misleading **Current Phase**, **Status**, or **Include Completed** controls in the Filters sheet (controls are disabled with operational-view context copy)
+- [ ] Compatible filters (search, vessel, rank, client, employee, planned dates, tour, relief) still work inside an operational card view
+- [ ] Pagination and search preserve the selected operational card/view
+
+## 13. Payroll safeguards (Arrival-first regression)
 
 - [ ] P0 and P1 remain payroll-excluded
 - [ ] P2A begins Sign-On Standby payroll behavior after Record Arrival

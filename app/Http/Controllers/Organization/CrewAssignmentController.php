@@ -64,8 +64,11 @@ class CrewAssignmentController extends Controller
         }
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        $filters = CurrentCrewRequestFilters::fromRequest($request);
         $view = CurrentCrewRequestFilters::view($request);
+        $filters = CurrentCrewRequestFilters::sanitizeForView(
+            CurrentCrewRequestFilters::fromRequest($request),
+            $view,
+        );
 
         if ($view === CurrentCrewRequestFilters::VIEW_VESSEL) {
             $vesselPaginator = CurrentCrewVesselQuery::paginate($companyId, $filters);
@@ -90,7 +93,7 @@ class CrewAssignmentController extends Controller
             'vessels' => $vessels,
             'pagination' => $pagination,
             'search' => $filters['search'],
-            'filters' => CurrentCrewRequestFilters::inertiaFilters($filters),
+            'filters' => CurrentCrewRequestFilters::inertiaFilters($filters, $view),
             'summary' => $summary,
             'filter_options' => $filterOptions,
             'form_options' => [

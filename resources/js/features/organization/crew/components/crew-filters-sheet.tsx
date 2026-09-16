@@ -3,10 +3,12 @@ import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { isOperationalLocationView } from '@/features/organization/crew/lib/crew-summary-filter-params';
 import { CREW_TOUR_STATUS_FILTER_OPTIONS } from '@/features/organization/crew/lib/tour-of-duty';
 import type {
     CrewAssignmentFilterOptions,
     CrewAssignmentFilters,
+    CurrentCrewView,
 } from '@/features/organization/crew/types';
 import { CREW_PHASE_LABELS } from '@/features/organization/crew/types';
 
@@ -22,6 +24,7 @@ export function CrewFiltersSheet({
     open,
     onOpenChange,
     filterOptions,
+    view = 'crew',
     value,
     onChange,
     onReset,
@@ -29,10 +32,12 @@ export function CrewFiltersSheet({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     filterOptions: CrewAssignmentFilterOptions;
+    view?: CurrentCrewView;
     value: CrewAssignmentFilters;
     onChange: (next: CrewAssignmentFilters) => void;
     onReset: () => void;
 }) {
+    const operationalLocationView = isOperationalLocationView(view);
     const selectedClientId =
         value.client_id !== '' ? Number(value.client_id) : null;
 
@@ -71,6 +76,13 @@ export function CrewFiltersSheet({
 
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
+            {operationalLocationView ? (
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                    Phase and assignment status are fixed by this operational
+                    view.
+                </div>
+            ) : null}
+
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Current phase
@@ -80,6 +92,7 @@ export function CrewFiltersSheet({
                     onValueChange={(phase) => onChange({ ...value, phase })}
                     variant="dark"
                     placeholder="All phases"
+                    disabled={operationalLocationView}
                 >
                     <AppSelectItem value="">All phases</AppSelectItem>
                     {Object.entries(CREW_PHASE_LABELS).map(([code, label]) => (
@@ -99,6 +112,7 @@ export function CrewFiltersSheet({
                     onValueChange={(status) => onChange({ ...value, status })}
                     variant="dark"
                     placeholder="All statuses"
+                    disabled={operationalLocationView}
                 >
                     {STATUS_OPTIONS.map((option) => (
                         <AppSelectItem
@@ -403,6 +417,7 @@ export function CrewFiltersSheet({
                 </div>
                 <Switch
                     checked={value.include_completed}
+                    disabled={operationalLocationView}
                     onCheckedChange={(checked) =>
                         onChange({ ...value, include_completed: checked })
                     }

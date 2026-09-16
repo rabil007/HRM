@@ -1,5 +1,9 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useState } from 'react';
+import {
+    buildCrewSummaryFilterParams,
+    isOperationalLocationView,
+} from '@/features/organization/crew/lib/crew-summary-filter-params';
 import type {
     CrewAssignmentFilters,
     CurrentCrewView,
@@ -134,36 +138,60 @@ export function useCrewIndexFilters({
 
     const onSummaryFilterChange = useCallback(
         (filter: CrewSummaryFilter) => {
-            const next = {
-                ...baseParams(),
-                view: undefined as string | undefined,
-                phase: undefined as string | undefined,
-                movement_attention: undefined as boolean | undefined,
-                page: 1,
-            };
+            const {
+                search,
+                vessel_id,
+                rank_id,
+                client_id,
+                employee_id,
+                planned_join_from,
+                planned_join_to,
+                planned_signoff_from,
+                planned_signoff_to,
+                tour_status,
+                relief_status,
+                relief_risk,
+                relief_not_ready,
+                signoff_within_14_no_relief,
+                per_page,
+            } = baseParams();
 
-            if (filter === 'attention') {
-                next.movement_attention = true;
-            } else if (filter === 'pre_join_hotel') {
-                next.view = 'pre_join_hotel';
-            } else if (filter === 'crew_on_site') {
-                next.view = 'vessel';
-            } else if (filter === 'post_signoff_hotel') {
-                next.view = 'post_signoff_hotel';
-            }
-
-            visit(next);
+            visit(
+                buildCrewSummaryFilterParams(filter, {
+                    search,
+                    vessel_id,
+                    rank_id,
+                    client_id,
+                    employee_id,
+                    planned_join_from,
+                    planned_join_to,
+                    planned_signoff_from,
+                    planned_signoff_to,
+                    tour_status,
+                    relief_status,
+                    relief_risk,
+                    relief_not_ready,
+                    signoff_within_14_no_relief,
+                    per_page,
+                }),
+            );
         },
         [baseParams, visit],
     );
 
     const onSheetFiltersChange = useCallback(
         (next: CrewAssignmentFilters) => {
+            const operationalLocation = isOperationalLocationView(view);
+
             visit({
                 view: viewParam(view),
                 search: initialSearch || undefined,
-                phase: next.phase || undefined,
-                status: next.status || undefined,
+                phase: operationalLocation
+                    ? undefined
+                    : next.phase || undefined,
+                status: operationalLocation
+                    ? undefined
+                    : next.status || undefined,
                 vessel_id: next.vessel_id || undefined,
                 rank_id: next.rank_id || undefined,
                 client_id: next.client_id || undefined,
@@ -173,7 +201,9 @@ export function useCrewIndexFilters({
                 planned_signoff_from: next.planned_signoff_from || undefined,
                 planned_signoff_to: next.planned_signoff_to || undefined,
                 movement_attention: next.movement_attention || undefined,
-                include_completed: next.include_completed || undefined,
+                include_completed: operationalLocation
+                    ? undefined
+                    : next.include_completed || undefined,
                 tour_status: next.tour_status || undefined,
                 relief_status: next.relief_status || undefined,
                 relief_risk: next.relief_risk || undefined,

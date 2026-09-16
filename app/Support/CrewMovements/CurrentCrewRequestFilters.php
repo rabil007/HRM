@@ -48,8 +48,27 @@ final class CurrentCrewRequestFilters
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
-    public static function inertiaFilters(array $filters): array
+    public static function sanitizeForView(array $filters, string $view): array
     {
+        if (! self::isOperationalLocationView($view)) {
+            return $filters;
+        }
+
+        $filters['phase'] = '';
+        $filters['status'] = '';
+        $filters['include_completed'] = false;
+
+        return $filters;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public static function inertiaFilters(array $filters, string $view = self::VIEW_CREW): array
+    {
+        $filters = self::sanitizeForView($filters, $view);
+
         return [
             'phase' => $filters['phase'],
             'status' => $filters['status'],

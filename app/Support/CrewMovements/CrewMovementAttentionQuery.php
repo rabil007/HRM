@@ -267,13 +267,9 @@ class CrewMovementAttentionQuery
             $byPhase[$phaseCode] = ($byPhase[$phaseCode] ?? 0) + 1;
         }
 
-        $activeQuery = CrewAssignment::query()
-            ->where('company_id', $companyId)
-            ->where('status', CrewAssignmentStatus::Active);
-
-        ActiveEmployeeConstraint::whereHas($activeQuery, $companyId);
-
-        $activeAssignments = self::candidates($companyId, $activeQuery);
+        $activeAssignments = $assignments->filter(
+            fn (CrewAssignment $assignment): bool => $assignment->status === CrewAssignmentStatus::Active,
+        );
 
         $preJoinHotelPhases = [
             CrewPhaseCode::JoinStandby->value,
@@ -282,19 +278,24 @@ class CrewMovementAttentionQuery
         ];
 
         $preJoinHotel = $activeAssignments->filter(
-            fn (CrewAssignment $assignment): bool => in_array(
-                $assignment->currentPhase?->phase_code?->value,
+            fn (CrewAssignment $assignment): bool => self::hasActiveCurrentPhaseIn(
+                $assignment,
                 $preJoinHotelPhases,
-                true,
             ),
         )->count();
 
         $crewOnSite = $activeAssignments->filter(
-            fn (CrewAssignment $assignment): bool => $assignment->currentPhase?->phase_code === CrewPhaseCode::OnVessel,
+            fn (CrewAssignment $assignment): bool => self::hasActiveCurrentPhase(
+                $assignment,
+                CrewPhaseCode::OnVessel,
+            ),
         )->count();
 
         $postSignoffHotel = $activeAssignments->filter(
-            fn (CrewAssignment $assignment): bool => $assignment->currentPhase?->phase_code === CrewPhaseCode::DemobStandby,
+            fn (CrewAssignment $assignment): bool => self::hasActiveCurrentPhase(
+                $assignment,
+                CrewPhaseCode::DemobStandby,
+            ),
         )->count();
 
         return [
@@ -328,5 +329,24 @@ class CrewMovementAttentionQuery
         return $assignments->filter(
             fn (CrewAssignment $assignment): bool => self::forAssignment($assignment) !== [],
         );
+    }
+
+    private static function hasActiveCurrentPhase(
+        CrewAssignment $assignment,
+        CrewPhaseCode $phaseCode,
+    ): bool {
+        return $assignment->currentPhase?->status === CrewPhaseStatus::Active
+            && $assignment->currentPhase?->phase_code === $phaseCode;
+    }
+
+    /**
+     * @param  list<string>  $phaseCodes
+     */
+    private static function hasActiveCurrentPhaseIn(
+        CrewAssignment $assignment,
+        array $phaseCodes,
+    ): bool {
+        return $assignment->currentPhase?->status === CrewPhaseStatus::Active
+            && in_array($assignment->currentPhase?->phase_code?->value, $phaseCodes, true);
     }
 }
