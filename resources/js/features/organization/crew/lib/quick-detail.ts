@@ -20,7 +20,6 @@ export type QuickDetailIssue = Pick<
 
 const NEXT_MOVEMENT: Record<string, CrewMovementAction> = {
     p1: 'record_arrival',
-    p2a: 'mark_ready',
     p2b: 'complete_training',
     p3: 'join_vessel',
     p4: 'plan_signoff',
@@ -47,15 +46,27 @@ function nextMovementForPhase(
         return undefined;
     }
 
+    if (phase === 'p2a') {
+        if (availableActions.includes('join_vessel')) {
+            return 'join_vessel';
+        }
+
+        if (availableActions.includes('send_to_training')) {
+            return 'send_to_training';
+        }
+
+        return undefined;
+    }
+
     return NEXT_MOVEMENT[phase];
 }
 
 const MOVEMENT_GUIDANCE: Record<string, string> = {
     p0: 'Pre-mobilisation is in progress. Record arrival when the crew member reaches the join location.',
-    p1: 'Confirm the actual arrival and choose standby or ready to join.',
-    p2a: 'Confirm clearance before marking this crew member ready to join.',
+    p1: 'Legacy Travel In assignment. Record arrival to move the crew member into Join Standby.',
+    p2a: 'Crew member is on join standby. Send to training if required, or record Join Vessel when they actually board.',
     p2b: 'Record completion once the course is finished.',
-    p3: 'Confirm the actual boarding time and destination vessel.',
+    p3: 'Legacy Ready to Join assignment. Record Join Vessel when the crew member actually boards.',
     p4: 'Review the sign-off plan and relief arrangements.',
     p5: 'Confirm travel home or use another movement to redeploy.',
     p6: 'Review the record before closing this cycle or redeploying.',

@@ -30,6 +30,11 @@ import { CrewTourProgressDisplay } from '@/features/organization/crew/components
 import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import {
+    legacyPhaseContextLabel,
+    NORMAL_PHASE_PATH_STEPS,
+    resolveNormalPhasePathIndex,
+} from '@/features/organization/crew/lib/crew-phase-visibility';
+import {
     crewQuickDetailModel,
     relativePlanDate,
 } from '@/features/organization/crew/lib/quick-detail';
@@ -143,6 +148,7 @@ function QuickDetailContent({
     const model = crewQuickDetailModel(assignment, can);
     const context = assignment.movement_context;
     const phase = assignment.current_phase;
+    const legacyContext = legacyPhaseContextLabel(phase?.code ?? null);
     const phaseDescription = crewPhaseDescription(phase?.code);
     const isOnVessel = phase?.code === 'p4' && !model.finished;
     const documentsHref =
@@ -281,6 +287,11 @@ function QuickDetailContent({
                                 {phaseDescription}
                             </p>
                         ) : null}
+                        {legacyContext ? (
+                            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                                {legacyContext}
+                            </p>
+                        ) : null}
                         <p className="text-xs text-muted-foreground">
                             {formatDaysInPhase(assignment.days_in_phase)}
                         </p>
@@ -317,7 +328,10 @@ function QuickDetailContent({
                     </div>
                 </div>
 
-                <CrewPhasePath currentPhaseCode={phase?.code ?? null} />
+                <CrewPhasePath
+                    currentPhaseCode={phase?.code ?? null}
+                    legacyContext={legacyContext}
+                />
 
                 <div className="flex flex-col gap-5 px-4 py-4">
                     <section
@@ -637,27 +651,16 @@ function QuickDetailContent({
     );
 }
 
-const CREW_PHASE_PATH = [
-    { code: 'p0', label: 'P0', description: 'Pre-mobilisation' },
-    { code: 'p1', label: 'P1', description: 'Travel in' },
-    { code: 'p2', label: 'P2', description: 'Standby or training' },
-    { code: 'p3', label: 'P3', description: 'Ready to join' },
-    { code: 'p4', label: 'P4', description: 'On vessel' },
-    { code: 'p5', label: 'P5', description: 'Demobilisation' },
-    { code: 'p6', label: 'P6', description: 'Home or redeployment' },
-] as const;
+const CREW_PHASE_PATH = NORMAL_PHASE_PATH_STEPS;
 
 function CrewPhasePath({
     currentPhaseCode,
+    legacyContext,
 }: {
     currentPhaseCode: string | null;
+    legacyContext: string | null;
 }) {
-    const normalizedPhaseCode = currentPhaseCode?.toLowerCase() ?? null;
-    const currentIndex = CREW_PHASE_PATH.findIndex((step) =>
-        step.code === 'p2'
-            ? normalizedPhaseCode === 'p2a' || normalizedPhaseCode === 'p2b'
-            : step.code === normalizedPhaseCode,
-    );
+    const currentIndex = resolveNormalPhasePathIndex(currentPhaseCode);
     const currentStep =
         currentIndex >= 0 ? CREW_PHASE_PATH[currentIndex] : null;
 
@@ -666,6 +669,11 @@ function CrewPhasePath({
             className="border-b border-border/60 bg-muted/10 px-4 py-3"
             aria-label="Crew movement phase path"
         >
+            {legacyContext ? (
+                <p className="mb-2 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    {legacyContext}
+                </p>
+            ) : null}
             <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] font-semibold text-muted-foreground">
                     Phase path
@@ -679,7 +687,7 @@ function CrewPhasePath({
                 aria-label="Crew movement phases"
             >
                 {CREW_PHASE_PATH.map((step, index) => {
-                    const isCurrent = index === currentIndex;
+                    const isCurrent = !legacyContext && index === currentIndex;
                     const isComplete =
                         currentIndex >= 0 && index < currentIndex;
 

@@ -179,6 +179,7 @@ describe('crew quick detail operational summary', () => {
                     label: 'Travel In',
                     status: 'active',
                 },
+                available_actions: ['record_arrival'],
             },
             can,
             now,
@@ -188,6 +189,53 @@ describe('crew quick detail operational summary', () => {
         assert.equal(preMobilisation.movement, 'record_arrival');
         assert.match(preMobilisation.focus, /record arrival/i);
         assert.equal(travelling.milestone?.date, '2026-09-17');
+        assert.equal(travelling.movement, 'record_arrival');
+        assert.match(travelling.focus, /legacy travel in/i);
+    });
+
+    it('prefers join vessel or training for p2a without mark ready guidance', () => {
+        const assignment = listItem({
+            current_phase: {
+                code: 'p2a',
+                label: 'Join Standby',
+                status: 'active',
+            },
+            available_actions: ['join_vessel', 'send_to_training'],
+        });
+        const model = crewQuickDetailModel(assignment, can, now);
+
+        assert.equal(model.movement, 'join_vessel');
+        assert.match(model.focus, /join standby/i);
+        assert.doesNotMatch(model.focus, /mark ready/i);
+        assert.doesNotMatch(model.focus, /marking this crew member ready/i);
+
+        const trainingOnly = crewQuickDetailModel(
+            {
+                ...assignment,
+                available_actions: ['send_to_training'],
+            },
+            can,
+            now,
+        );
+        assert.equal(trainingOnly.movement, 'send_to_training');
+    });
+
+    it('recommends join vessel for legacy p3 when available', () => {
+        const model = crewQuickDetailModel(
+            listItem({
+                current_phase: {
+                    code: 'p3',
+                    label: 'Ready to Join',
+                    status: 'active',
+                },
+                available_actions: ['join_vessel'],
+            }),
+            can,
+            now,
+        );
+
+        assert.equal(model.movement, 'join_vessel');
+        assert.match(model.focus, /legacy ready to join/i);
     });
 
     it('does not show historic joining as the next event during demobilisation or after closure', () => {

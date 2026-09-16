@@ -52,7 +52,7 @@ const SUMMARY_ITEMS: {
         valueClass: 'text-sky-500',
         progressClass: 'bg-sky-500',
         detail: (summary) =>
-            `${percentage(summary.pre_join_hotel, summary.total)}% in join standby, training, or ready to join`,
+            `${percentage(summary.pre_join_hotel, summary.total)}% in join standby or training`,
     },
     {
         key: 'crew_on_site',

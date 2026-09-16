@@ -10,7 +10,7 @@ import type {
     CrewAssignmentFilters,
     CurrentCrewView,
 } from '@/features/organization/crew/types';
-import { CREW_PHASE_LABELS } from '@/features/organization/crew/types';
+import { normalVisiblePhaseFilterOptions } from '@/features/organization/crew/lib/crew-phase-visibility';
 
 const STATUS_OPTIONS = [
     { value: '', label: 'All statuses' },
@@ -95,9 +95,9 @@ export function CrewFiltersSheet({
                     disabled={operationalLocationView}
                 >
                     <AppSelectItem value="">All phases</AppSelectItem>
-                    {Object.entries(CREW_PHASE_LABELS).map(([code, label]) => (
-                        <AppSelectItem key={code} value={code}>
-                            {code.toUpperCase()} · {label}
+                    {normalVisiblePhaseFilterOptions().map((option) => (
+                        <AppSelectItem key={option.value} value={option.value}>
+                            {option.label}
                         </AppSelectItem>
                     ))}
                 </AppSelect>

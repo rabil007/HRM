@@ -36,26 +36,14 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     },
     record_arrival: {
         title: 'Record Arrival',
-        description: 'This completes Travel In and records the arrival.',
+        description:
+            "This records the crew member's actual arrival and starts Join Standby.",
         occurredAtLabel: 'Arrival date and time',
         submitLabel: 'Record Arrival',
         impactTitle: 'What this does',
-        impactDescription: 'This completes Travel In.',
-        nextPhaseLabel: 'After arrival',
-        nextPhaseOptions: [
-            {
-                value: 'p2a',
-                label: CREW_PHASE_LABELS.p2a,
-                description:
-                    'The employee has arrived but is waiting for the vessel or final clearance.',
-            },
-            {
-                value: 'p3',
-                label: CREW_PHASE_LABELS.p3,
-                description:
-                    'The employee has arrived and is fully cleared to join the vessel.',
-            },
-        ],
+        impactDescription:
+            "This records the crew member's actual arrival and starts Join Standby.",
+        fixedNextPhase: 'p2a',
     },
     send_to_training: {
         title: 'Send to Training',

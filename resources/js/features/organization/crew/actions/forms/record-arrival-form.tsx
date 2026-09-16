@@ -9,7 +9,9 @@ export function RecordArrivalForm({
     context,
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
-    const isP0 = context.current_phase_code === 'p0';
+    const isFixedArrivalPhase =
+        context.current_phase_code === 'p0' ||
+        context.current_phase_code === 'p1';
 
     return (
         <div className="space-y-4">
@@ -20,7 +22,7 @@ export function RecordArrivalForm({
                     inputRef={firstFieldRef}
                 />
             ) : null}
-            {isP0 ? (
+            {isFixedArrivalPhase ? (
                 <div className="rounded-md border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
                     This records the crew member's actual arrival and starts
                     Join Standby.
