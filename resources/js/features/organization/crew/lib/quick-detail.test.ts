@@ -77,6 +77,7 @@ function listItem(
         current_phase: { code: 'p4', label: 'On Vessel', status: 'active' },
         days_in_phase: 44,
         planned_join_at: '2026-08-01',
+        planned_arrival_at: null,
         planned_signoff_at: '2026-09-20',
         created_at: '2026-08-01',
         warnings: [],
@@ -153,14 +154,28 @@ describe('crew quick detail operational summary', () => {
         assert.equal(model.movement, 'complete_training');
     });
 
-    it('shows expected join for pre-join crew including active p0', () => {
+    it('uses Arrival Date for active p0 and falls back to Expected Join when arrival is absent', () => {
         const assignment = listItem({
-            planned_travel_at: '2026-09-15',
+            planned_arrival_at: '2026-09-15',
             planned_join_at: '2026-09-17',
         });
         const preMobilisation = crewQuickDetailModel(
             {
                 ...assignment,
+                current_phase: {
+                    code: 'p0',
+                    label: 'Pre-Mobilisation',
+                    status: 'active',
+                },
+                available_actions: ['record_arrival'],
+            },
+            can,
+            now,
+        );
+        const preMobilisationWithoutArrival = crewQuickDetailModel(
+            {
+                ...assignment,
+                planned_arrival_at: null,
                 current_phase: {
                     code: 'p0',
                     label: 'Pre-Mobilisation',
@@ -184,10 +199,18 @@ describe('crew quick detail operational summary', () => {
             can,
             now,
         );
-        assert.equal(preMobilisation.milestone?.label, 'Expected Join');
-        assert.equal(preMobilisation.milestone?.date, '2026-09-17');
+        assert.equal(preMobilisation.milestone?.label, 'Arrival Date');
+        assert.equal(preMobilisation.milestone?.date, '2026-09-15');
         assert.equal(preMobilisation.movement, 'record_arrival');
         assert.match(preMobilisation.focus, /record arrival/i);
+        assert.equal(
+            preMobilisationWithoutArrival.milestone?.label,
+            'Expected Join',
+        );
+        assert.equal(
+            preMobilisationWithoutArrival.milestone?.date,
+            '2026-09-17',
+        );
         assert.equal(travelling.milestone?.date, '2026-09-17');
         assert.equal(travelling.movement, 'record_arrival');
         assert.match(travelling.focus, /legacy travel in/i);

@@ -4,6 +4,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Support\CrewMovements\CrewAssignmentRecommendedActionResolver;
 use App\Support\CrewMovements\CrewMovementService;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -38,6 +39,34 @@ it('keeps other allowed actions when a recommendation is present', function () {
             ->where('assignment.available_actions.0', CrewMovementAction::SendToTraining->value)
             ->where('assignment.available_actions.2', CrewMovementAction::CancelAssignment->value)
         );
+});
+
+it('does not recommend legacy mark ready even when supplied as an allowed action', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft(
+        $fixtures['company']->id,
+        $fixtures['employee']->id,
+        ['rank_id' => $fixtures['rank']->id],
+        $fixtures['user']->id,
+    );
+
+    $assignment->update(['status' => CrewAssignmentStatus::Active]);
+    $assignment->currentPhase->update([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
+    $assignment->load('currentPhase');
+
+    $result = app(CrewAssignmentRecommendedActionResolver::class)->forAssignment(
+        $assignment,
+        [
+            CrewMovementAction::MarkReady->value,
+            CrewMovementAction::SendToTraining->value,
+        ],
+    );
+
+    expect($result?->action)->toBe(CrewMovementAction::SendToTraining->value);
 });
 
 it('rejects crafted mark ready from join standby at the http boundary', function () {

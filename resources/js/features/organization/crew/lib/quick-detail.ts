@@ -195,6 +195,11 @@ export function crewQuickDetailModel(
                 date: assignment.movement_context
                     .training_expected_completion_at,
             };
+        } else if (phase === 'p0' && assignment.planned_arrival_at) {
+            milestone = {
+                label: 'Arrival Date',
+                date: assignment.planned_arrival_at,
+            };
         } else if (phase && ['p0', 'p1', 'p2a', 'p3'].includes(phase)) {
             milestone = {
                 label: 'Expected Join',

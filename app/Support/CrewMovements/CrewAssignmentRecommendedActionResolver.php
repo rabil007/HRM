@@ -41,7 +41,6 @@ final class CrewAssignmentRecommendedActionResolver
         if ($phase === CrewPhaseCode::JoinStandby) {
             return $this->firstMovement($permitted, [
                 [CrewMovementAction::JoinVessel, 'Crew member is on join standby and can join the vessel.'],
-                [CrewMovementAction::MarkReady, 'Crew member can be marked ready to join.'],
                 [CrewMovementAction::SendToTraining, 'Send the crew member to training if that is the operational path.'],
             ]);
         }
