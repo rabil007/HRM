@@ -3,6 +3,7 @@ import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { normalVisiblePhaseFilterOptions } from '@/features/organization/crew/lib/crew-phase-visibility';
 import { isOperationalLocationView } from '@/features/organization/crew/lib/crew-summary-filter-params';
 import { CREW_TOUR_STATUS_FILTER_OPTIONS } from '@/features/organization/crew/lib/tour-of-duty';
 import type {
@@ -10,7 +11,6 @@ import type {
     CrewAssignmentFilters,
     CurrentCrewView,
 } from '@/features/organization/crew/types';
-import { normalVisiblePhaseFilterOptions } from '@/features/organization/crew/lib/crew-phase-visibility';
 
 const STATUS_OPTIONS = [
     { value: '', label: 'All statuses' },

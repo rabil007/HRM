@@ -1,5 +1,5 @@
-import { crewPhaseCopy } from './crew-phase-descriptions';
-import type { PhaseTimelineItem } from '../types';
+import type { PhaseTimelineItem } from '../types.ts';
+import { crewPhaseCopy } from './crew-phase-descriptions.ts';
 
 export const NORMAL_VISIBLE_CREW_PHASES = [
     'p0',
