@@ -89,6 +89,7 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
 
     $service->perform($company->id, $id, CrewMovementAction::TravelHome, [
         'occurred_at' => '2026-04-05 14:00:00',
+        'completion_intent' => 'redeploy',
     ], $user->id);
 
     return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];

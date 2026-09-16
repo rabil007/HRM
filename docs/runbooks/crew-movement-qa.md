@@ -61,8 +61,9 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Join Vessel from P2A → P4 (optional planned sign-off only)
 - [ ] Plan Sign-Off updates plan without leaving P4
 - [ ] Confirm Disembarkation → P5
-- [ ] Travel Home → P6
-- [ ] Close Assignment → Completed
+- [ ] Return Home (default **Return Home & Close Assignment**) → P6 recorded + assignment **Completed** with `closed_at` = actual return-home timestamp
+- [ ] Return Home with **Keep open for Redeployment** → active P6; assignment stays **Active**
+- [ ] Close Assignment from active P6 still works for intentionally open P6 / legacy records
 - [ ] Only one active phase at a time
 - [ ] Activity/audit entries present
 

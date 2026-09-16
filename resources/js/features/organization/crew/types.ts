@@ -617,4 +617,5 @@ export interface CrewMovementActionFormData {
         | 'existing_plan'
         | 'manual_override';
     planned_signoff_override_reason: string;
+    completion_intent: 'close' | 'redeploy' | '';
 }

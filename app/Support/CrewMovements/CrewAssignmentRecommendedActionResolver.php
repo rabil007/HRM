@@ -68,7 +68,7 @@ final class CrewAssignmentRecommendedActionResolver
 
         if ($phase === CrewPhaseCode::DemobStandby) {
             return $this->firstMovement($permitted, [
-                [CrewMovementAction::TravelHome, 'Crew member is on demobilisation standby. Record travel home when they depart.'],
+                [CrewMovementAction::TravelHome, 'Crew member is on demobilisation standby. Record return home and close the assignment when the mobilisation cycle is complete.'],
                 [CrewMovementAction::Redeploy, 'Redeploy if the next cycle is already being arranged.'],
             ]);
         }

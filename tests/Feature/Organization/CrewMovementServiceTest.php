@@ -71,15 +71,11 @@ test('full happy path p0 through completed p6', function () {
 
     $assignment = $service->perform($company->id, $id, CrewMovementAction::TravelHome, [
         'occurred_at' => '2026-04-05 14:00:00',
-    ], $user->id);
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy);
-
-    $assignment = $service->perform($company->id, $id, CrewMovementAction::CloseAssignment, [
-        'occurred_at' => '2026-04-06 09:00:00',
+        'completion_intent' => 'close',
     ], $user->id);
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Completed)
-        ->and($assignment->closed_at)->not->toBeNull()
+        ->and($assignment->closed_at?->toDateTimeString())->toBe('2026-04-05 14:00:00')
         ->and($assignment->current_phase_id)->not->toBeNull()
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Completed)
