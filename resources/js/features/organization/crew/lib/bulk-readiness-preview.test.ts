@@ -8,10 +8,12 @@ import {
     bulkStartHelperText,
     classifyBulkRow,
     indicesOfBlockedRows,
+    removeBlockedBulkRows,
     resolveNextPreviewRowKey,
     resolvePreviewIndex,
 } from './bulk-readiness-preview.ts';
-import { summarizeBulkRows } from './bulk-row-status.ts';
+import { canSubmitBulkBatch, summarizeBulkRows } from './bulk-row-status.ts';
+import { isBulkCreateMode } from './crew-assignment-create-mode.ts';
 
 const formOptions = {
     employees: [
@@ -302,5 +304,102 @@ describe('bulk readiness preview helpers', () => {
 
     it('finds blocked row indices for remove-blocked action', () => {
         assert.deepEqual(indicesOfBlockedRows(rows, formOptions), [0, 1]);
+    });
+
+    it('removes only blocked rows and keeps ready rows', () => {
+        const removal = removeBlockedBulkRows(rows, formOptions);
+
+        assert.ok(removal);
+        assert.equal(removal.rows.length, 2);
+        assert.equal(removal.ensureMinimumOneRow, false);
+        assert.equal(removal.rows[0]?.employee_id, 12);
+        assert.equal(removal.rows[1]?.employee_id, null);
+    });
+
+    it('requires a blank row when all blocked rows are removed', () => {
+        const blockedOnly: BulkPreviewRowInput[] = [
+            { key: 'row-a', employee_id: 10, rank_id: 1 },
+            { key: 'row-b', employee_id: 11, rank_id: 1 },
+        ];
+
+        const removal = removeBlockedBulkRows(blockedOnly, formOptions);
+
+        assert.ok(removal);
+        assert.equal(removal.rows.length, 0);
+        assert.equal(removal.ensureMinimumOneRow, true);
+    });
+
+    it('returns null when no blocked rows remain to remove', () => {
+        const readyOnly: BulkPreviewRowInput[] = [
+            { key: 'row-ready', employee_id: 12, rank_id: 1 },
+        ];
+
+        assert.equal(removeBlockedBulkRows(readyOnly, formOptions), null);
+    });
+
+    it('leaves single mode after removing all blocked rows from a two-row batch', () => {
+        const blockedOnly: BulkPreviewRowInput[] = [
+            { key: 'row-a', employee_id: 10, rank_id: 1 },
+            { key: 'row-b', employee_id: 11, rank_id: 1 },
+        ];
+        const removal = removeBlockedBulkRows(blockedOnly, formOptions);
+        const nextRows =
+            removal?.ensureMinimumOneRow === true
+                ? [{ key: 'row-blank', employee_id: null, rank_id: null }]
+                : (removal?.rows ?? []);
+
+        assert.equal(isBulkCreateMode(nextRows.length), false);
+    });
+
+    it('does not keep removed preview row keys after blocked removal', () => {
+        const blockedOnly: BulkPreviewRowInput[] = [
+            { key: 'row-a', employee_id: 10, rank_id: 1 },
+            { key: 'row-b', employee_id: 11, rank_id: 1 },
+        ];
+        const removal = removeBlockedBulkRows(blockedOnly, formOptions);
+        const nextRows =
+            removal?.ensureMinimumOneRow === true
+                ? [{ key: 'row-blank', employee_id: null, rank_id: null }]
+                : (removal?.rows ?? []);
+        const previewRowKey = null;
+
+        assert.equal(
+            nextRows.some((row) => row.key === previewRowKey),
+            false,
+        );
+        assert.ok(
+            nextRows.every((row) => row.key !== 'row-a' && row.key !== 'row-b'),
+        );
+    });
+
+    it('keeps submission disabled when only a blank row remains', () => {
+        const blankOnly = [{ employee_id: null, rank_id: null }];
+        const summary = summarizeBulkRows(blankOnly, () => null);
+
+        assert.equal(summary.incompleteCount, 1);
+        assert.equal(canSubmitBulkBatch(summary), false);
+    });
+
+    it('still allows a ready row after removing one blocked row from a mixed batch', () => {
+        const mixed: BulkPreviewRowInput[] = [
+            { key: 'row-blocked', employee_id: 10, rank_id: 1 },
+            { key: 'row-ready-a', employee_id: 12, rank_id: 1 },
+            { key: 'row-ready-b', employee_id: 12, rank_id: 1 },
+        ];
+        const removal = removeBlockedBulkRows(mixed, formOptions);
+
+        assert.ok(removal);
+        assert.equal(removal.rows.length, 2);
+        assert.equal(removal.ensureMinimumOneRow, false);
+        assert.equal(
+            summarizeBulkRows(removal.rows, (employeeId) =>
+                employeeId == null
+                    ? null
+                    : (formOptions.employee_status_by_employee[
+                          String(employeeId)
+                      ] ?? null),
+            ).readyCount,
+            2,
+        );
     });
 });

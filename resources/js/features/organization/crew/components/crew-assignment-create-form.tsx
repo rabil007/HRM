@@ -24,7 +24,7 @@ import type {
 } from '@/features/organization/crew/lib/bulk-readiness-preview';
 import {
     bulkStartHelperText,
-    indicesOfBlockedRows,
+    removeBlockedBulkRows,
     resolveNextPreviewRowKey,
 } from '@/features/organization/crew/lib/bulk-readiness-preview';
 import {
@@ -284,18 +284,43 @@ export function CrewAssignmentCreateForm({
             const nextKeys = rowKeys.filter(
                 (_, rowIndex) => rowIndex !== index,
             );
-            const nextCrew = form.data.crew.filter(
+            let nextCrew = form.data.crew.filter(
                 (_, rowIndex) => rowIndex !== index,
             );
+            let nextKeysResolved = nextKeys;
+            let insertedBlankRow = false;
+
+            if (nextCrew.length === 0) {
+                insertedBlankRow = true;
+                const blankRow = newCrewRow();
+                nextCrew = [
+                    {
+                        employee_id: blankRow.employee_id,
+                        rank_id: blankRow.rank_id,
+                    },
+                ];
+                nextKeysResolved = [blankRow.key];
+            }
+
             const nextRows: CrewMemberRowState[] = nextCrew.map(
                 (row, rowIndex) => ({
                     ...row,
-                    key: nextKeys[rowIndex] ?? `crew-row-fallback-${rowIndex}`,
+                    key:
+                        nextKeysResolved[rowIndex] ??
+                        `crew-row-fallback-${rowIndex}`,
                 }),
             );
 
-            setRowKeys(nextKeys);
+            setRowKeys(nextKeysResolved);
             form.setData('crew', nextCrew);
+
+            if (insertedBlankRow) {
+                setBulkSidebarMode('summary');
+                setPreviewRowKey(null);
+                setScrollFocusedRow(false);
+
+                return;
+            }
 
             if (previewRowKey === removedKey) {
                 const nextPreviewKey = resolveNextPreviewRowKey(
@@ -316,27 +341,31 @@ export function CrewAssignmentCreateForm({
     );
 
     const handleRemoveBlockedRows = useCallback(() => {
-        const blockedIndices = indicesOfBlockedRows(rows, form_options).sort(
-            (left, right) => right - left,
-        );
+        const removal = removeBlockedBulkRows(rows, form_options);
 
-        if (blockedIndices.length === 0) {
+        if (removal === null) {
             return;
         }
 
-        const nextKeys = [...rowKeys];
-        const nextCrew = [...form.data.crew];
+        let nextRows: CrewMemberRowState[] = removal.rows;
 
-        for (const index of blockedIndices) {
-            nextKeys.splice(index, 1);
-            nextCrew.splice(index, 1);
+        if (removal.ensureMinimumOneRow) {
+            nextRows = [newCrewRow()];
         }
 
-        setRowKeys(nextKeys);
-        form.setData('crew', nextCrew);
+        setRowKeys(nextRows.map((row) => row.key));
+        form.setData(
+            'crew',
+            nextRows.map(({ employee_id, rank_id, planned_arrival_at }) => ({
+                employee_id,
+                rank_id,
+                planned_arrival_at,
+            })),
+        );
         setBulkSidebarMode('summary');
         setPreviewRowKey(null);
-    }, [form, form_options, rowKeys, rows]);
+        setScrollFocusedRow(false);
+    }, [form, form_options, rows]);
 
     const focusBulkValidationError = useCallback(
         (errors: Record<string, string | undefined>) => {

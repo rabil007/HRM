@@ -312,20 +312,6 @@ export function buildBulkEmployeePreviewGuidance(
         previewRow.row.employee_id,
     );
 
-    if (previewRow.state === 'ready') {
-        return buildAssignmentReadinessGuidance({
-            status: previewRow.status,
-            activeOnVessel: previewRow.activeOnVessel,
-            destinationVesselId: context.destinationVesselId,
-            destinationVesselName: context.destinationVesselName,
-            plannedJoinAt: context.plannedJoinAt,
-            employeeName,
-            permissions: context.permissions,
-            vessels: context.formOptions.vessels,
-            maxHomeDays: context.formOptions.max_home_days,
-        });
-    }
-
     return buildAssignmentReadinessGuidance({
         status: previewRow.status,
         activeOnVessel: previewRow.activeOnVessel,
@@ -337,6 +323,30 @@ export function buildBulkEmployeePreviewGuidance(
         vessels: context.formOptions.vessels,
         maxHomeDays: context.formOptions.max_home_days,
     });
+}
+
+export type BlockedBulkRowRemovalResult = {
+    rows: BulkPreviewRowInput[];
+    ensureMinimumOneRow: boolean;
+};
+
+export function removeBlockedBulkRows(
+    rows: BulkPreviewRowInput[],
+    formOptions: CrewAssignmentCreateFormOptions,
+): BlockedBulkRowRemovalResult | null {
+    const blockedIndices = indicesOfBlockedRows(rows, formOptions);
+
+    if (blockedIndices.length === 0) {
+        return null;
+    }
+
+    const blockedSet = new Set(blockedIndices);
+    const nextRows = rows.filter((_, index) => !blockedSet.has(index));
+
+    return {
+        rows: nextRows,
+        ensureMinimumOneRow: nextRows.length === 0,
+    };
 }
 
 export function bulkPreviewBlockedWarning(state: BulkRowState): string | null {

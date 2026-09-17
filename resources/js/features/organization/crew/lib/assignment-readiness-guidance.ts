@@ -301,8 +301,10 @@ function buildPlannedDateAdvisory(
 ): ReadinessAdvisory | undefined {
     const { status, plannedJoinAt } = context;
 
+    // planned_next_date is phase-dependent (join / sign-off / travel) and must not
+    // be treated as a universal planned sign-off field outside P4 On Vessel.
     if (
-        !status?.has_active_assignment ||
+        status?.status !== 'on_vessel' ||
         !plannedJoinAt ||
         !status.planned_next_date
     ) {
@@ -318,7 +320,7 @@ function buildPlannedDateAdvisory(
 
     return {
         title: 'Planned date overlap',
-        severity: status.status === 'on_vessel' ? 'conflict' : 'attention',
+        severity: 'conflict',
         message:
             'Expected Join is before the current Planned Sign-Off. Use Transfer Vessel for a direct vessel move, or update the current sign-off plan.',
     };

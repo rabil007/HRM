@@ -414,7 +414,7 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('warns when planned join is before current planned sign-off', () => {
+    it('warns when P4 planned join is before current planned sign-off', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
@@ -436,6 +436,140 @@ describe('buildAssignmentReadinessGuidance', () => {
             guidance?.plannedDateAdvisory?.title,
             'Planned date overlap',
         );
+        assert.match(
+            guidance?.plannedDateAdvisory?.message ?? '',
+            /Planned Sign-Off/,
+        );
+        assert.equal(guidance?.plannedDateAdvisory?.severity, 'conflict');
+    });
+
+    it('does not warn for P4 when planned join is on or after planned sign-off', () => {
+        const baseStatus = {
+            status: 'on_vessel',
+            label: 'On Vessel',
+            current_phase: 'p4',
+            has_active_assignment: true,
+            assignment_id: 42,
+            assignment_no: 'CA-2026-000042',
+            vessel_name: 'Sea Eagle',
+            planned_next_date: '2026-11-08',
+        };
+
+        const equalJoin = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus(baseStatus),
+                activeOnVessel: activeOnVessel(),
+                plannedJoinAt: '2026-11-08',
+            }),
+        );
+        const afterJoin = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus(baseStatus),
+                activeOnVessel: activeOnVessel(),
+                plannedJoinAt: '2026-11-15',
+            }),
+        );
+
+        assert.equal(equalJoin?.plannedDateAdvisory, undefined);
+        assert.equal(afterJoin?.plannedDateAdvisory, undefined);
+    });
+
+    it('does not treat P2A planned_next_date as planned sign-off overlap', () => {
+        const guidance = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus({
+                    status: 'join_standby',
+                    label: 'Join Standby',
+                    current_phase: 'p2a',
+                    has_active_assignment: true,
+                    assignment_id: 42,
+                    assignment_no: 'CA-2026-000042',
+                    vessel_name: 'Sea Eagle',
+                    planned_next_date: '2026-11-08',
+                }),
+                plannedJoinAt: '2026-11-01',
+            }),
+        );
+
+        assert.equal(guidance?.plannedDateAdvisory, undefined);
+    });
+
+    it('does not treat P2B planned_next_date as planned sign-off overlap', () => {
+        const guidance = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus({
+                    status: 'training',
+                    label: 'Training',
+                    current_phase: 'p2b',
+                    has_active_assignment: true,
+                    assignment_id: 42,
+                    assignment_no: 'CA-2026-000042',
+                    vessel_name: 'Sea Eagle',
+                    planned_next_date: '2026-11-08',
+                }),
+                plannedJoinAt: '2026-11-01',
+            }),
+        );
+
+        assert.equal(guidance?.plannedDateAdvisory, undefined);
+    });
+
+    it('does not treat P3 planned_next_date as planned sign-off overlap', () => {
+        const guidance = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus({
+                    status: 'ready_to_join',
+                    label: 'Ready to Join',
+                    current_phase: 'p3',
+                    has_active_assignment: true,
+                    assignment_id: 42,
+                    assignment_no: 'CA-2026-000042',
+                    vessel_name: 'Sea Eagle',
+                    planned_next_date: '2026-11-08',
+                }),
+                plannedJoinAt: '2026-11-01',
+            }),
+        );
+
+        assert.equal(guidance?.plannedDateAdvisory, undefined);
+    });
+
+    it('does not treat P5 planned_next_date as planned sign-off overlap', () => {
+        const guidance = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus({
+                    status: 'demob_standby',
+                    label: 'Demobilisation Standby',
+                    current_phase: 'p5',
+                    has_active_assignment: true,
+                    assignment_id: 42,
+                    assignment_no: 'CA-2026-000042',
+                    planned_next_date: '2026-11-08',
+                }),
+                plannedJoinAt: '2026-11-01',
+            }),
+        );
+
+        assert.equal(guidance?.plannedDateAdvisory, undefined);
+    });
+
+    it('does not show planned sign-off overlap advisory for P6', () => {
+        const guidance = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus({
+                    status: 'home_redeploy',
+                    label: 'Home / Redeployment',
+                    current_phase: 'p6',
+                    has_active_assignment: true,
+                    assignment_id: 42,
+                    assignment_no: 'CA-2026-000042',
+                    planned_next_date: null,
+                }),
+                plannedJoinAt: '2026-11-01',
+            }),
+        );
+
+        assert.equal(guidance?.plannedDateAdvisory, undefined);
     });
 
     it('hides restricted assignment actions for users without view permission', () => {
