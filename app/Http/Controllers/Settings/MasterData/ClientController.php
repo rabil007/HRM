@@ -57,7 +57,7 @@ class ClientController extends Controller
                 'vessels_count' => (int) ($client->vessels_count ?? 0),
                 'is_in_use' => (bool) $client->getAttribute('is_in_use'),
                 'can_delete' => (bool) $client->getAttribute('can_delete'),
-                'usage_count' => (int) ($client->getAttribute('usage_count') ?? 0),
+                'usage_count' => $client->getAttribute('usage_count') !== null ? (int) $client->getAttribute('usage_count') : null,
                 'usage_label' => $client->getAttribute('usage_label'),
             ];
         })->all();
