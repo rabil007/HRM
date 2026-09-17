@@ -3,7 +3,21 @@ import { describe, it } from 'node:test';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { createServer } from 'vite';
-import type { CrewAssignmentCreateFormOptions } from '../types.ts';
+import type {
+    CrewAssignmentCreateFormOptions,
+    CrewAssignmentPagePermissions,
+} from '../types.ts';
+
+const defaultPermissions: Pick<
+    CrewAssignmentPagePermissions,
+    'view' | 'update' | 'perform_movement' | 'cancel' | 'view_planning'
+> = {
+    view: true,
+    update: true,
+    perform_movement: true,
+    cancel: true,
+    view_planning: true,
+};
 
 function makeFormOptions(
     overrides: Partial<CrewAssignmentCreateFormOptions> = {},
@@ -65,6 +79,7 @@ async function renderReadinessPanel(options: {
     employeeId: number | null;
     formOptions?: CrewAssignmentCreateFormOptions;
     destinationVesselId?: number | null;
+    permissions?: typeof defaultPermissions;
 }): Promise<string> {
     const vite = await createServer({
         configFile: false,
@@ -85,6 +100,7 @@ async function renderReadinessPanel(options: {
             React.createElement(CrewAssignmentReadinessPanel, {
                 employeeId: options.employeeId,
                 formOptions: options.formOptions ?? makeFormOptions(),
+                permissions: options.permissions ?? defaultPermissions,
                 destinationVesselId: options.destinationVesselId ?? null,
             }),
         );
@@ -100,7 +116,7 @@ describe('CrewAssignmentReadinessPanel render component test', () => {
         assert.ok(html.includes('data-slot="assignment-readiness-empty"'));
         assert.ok(
             html.includes(
-                'Select an employee to view their current crew status',
+                'Select an employee to view their crew movement journey',
             ),
         );
         assert.ok(!html.includes('data-slot="assignment-readiness-employee"'));
@@ -123,6 +139,7 @@ describe('CrewAssignmentReadinessPanel render component test', () => {
         assert.ok(html.includes('CA-2026-000042'));
         assert.ok(html.includes('Ocean Star'));
         assert.ok(html.includes('On Vessel'));
-        assert.ok(html.includes('Recommended action'));
+        assert.ok(html.includes('What this means'));
+        assert.ok(html.includes('Recommended actions'));
     });
 });
