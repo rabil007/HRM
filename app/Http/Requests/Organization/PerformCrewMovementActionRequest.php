@@ -14,6 +14,7 @@ use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -408,7 +409,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             $companyId = (int) $assignment->company_id;
             $this->assertRoomTypeBelongsToSelectedHotel($validator, $companyId);
 
-            $timezone = (string) ($assignment->company?->timezone ?? config('app.timezone', 'UTC'));
+            $timezone = CompanyTimezone::forCompany($assignment->company ?? $companyId);
             $occurredAt = $this->input('occurred_at')
                 ? Carbon::parse((string) $this->input('occurred_at'), $timezone)
                 : null;

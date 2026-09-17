@@ -168,6 +168,7 @@ export function CancelAssignmentForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={
                         openAccommodation !== null ? undefined : firstFieldRef
                     }

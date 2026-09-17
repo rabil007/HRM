@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { formatDisplayDate } from '@/lib/format-date';
+import { formatDisplayDate, toCompanyDateLocal } from '@/lib/format-date';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
@@ -16,8 +16,10 @@ export function CloseAssignmentForm({
                     <span className="text-muted-foreground">P6 started: </span>
                     <span className="font-medium">
                         {formatDisplayDate(
-                            context.current_phase_started_at?.slice(0, 10) ??
-                                null,
+                            toCompanyDateLocal(
+                                context.current_phase_started_at,
+                                context.company_timezone,
+                            ) || null,
                         )}
                     </span>
                 </div>
@@ -49,6 +51,7 @@ export function CloseAssignmentForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={firstFieldRef}
                 />
             ) : null}

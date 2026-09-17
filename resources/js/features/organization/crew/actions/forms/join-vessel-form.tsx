@@ -216,6 +216,7 @@ export function JoinVesselForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={
                         preJoinAccommodation?.status === 'open_hotel'
                             ? undefined

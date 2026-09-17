@@ -3,12 +3,12 @@
 namespace App\Support\CrewMovements\Corrections;
 
 use App\Models\Client;
-use App\Models\Company;
 use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -158,7 +158,6 @@ final class CrewMovementCorrectionValueSnapshot
 
     private function companyTimezone(int $companyId): string
     {
-        return (string) (Company::query()->whereKey($companyId)->value('timezone')
-            ?? config('app.timezone', 'UTC'));
+        return CompanyTimezone::forCompanyId($companyId);
     }
 }

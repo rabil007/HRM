@@ -376,6 +376,7 @@ export function RedeployForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={
                         postSignoffAccommodation?.status === 'open_hotel'
                             ? undefined

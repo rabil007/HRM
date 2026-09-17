@@ -105,6 +105,22 @@ The correction list uses SQL cutoffs derived from the same Age Rules for filteri
 
 Detailed correction rows, values, actors, filters, history, and charts are intentionally excluded from Crew Operations. This keeps the overview focused on onboard crew, upcoming joins, sign-offs, manning gaps, movement attention, and operational phase counts.
 
+## Company Timezone Correction UX
+
+Correction dialogs and impact previews strictly follow the Phase 3 Company Timezone standard:
+
+1. **Initial Date Values**:
+   - Converted from stored UTC timestamps into the company's local wall-clock time (`YYYY-MM-DDTHH:mm`) using the assignment company's timezone (`CompanyTimezone::forCompanyId($companyId)`).
+   - Prevents device browser shifts (e.g., UTC or IST browsers shifting a Dubai 14:00 timestamp or crossing midnight).
+
+2. **Input Pickers & Validation**:
+   - Date inputs (`actual_start_at`, `actual_end_at`) show explicit company timezone hints (`Recorded in company time: {timezoneLabel}`).
+   - Max attribute caps actual date pickers at `nowInCompanyTime(companyTimezone)`.
+   - Proactive client-side warnings highlight if an entered timestamp is in the future relative to the company clock, and the dialog disables progression until resolved.
+
+3. **Impact Previews**:
+   - Proposed datetime changes are previewed in the company timezone with 12-hour formatting (`DD-MM-YYYY hh:mm A`).
+
 ## Non-goals
 
 - No `EmployeeDeployment` restoration

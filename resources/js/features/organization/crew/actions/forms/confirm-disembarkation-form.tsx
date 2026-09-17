@@ -156,6 +156,7 @@ export function ConfirmDisembarkationForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={firstFieldRef}
                     min={
                         context.actual_join_at

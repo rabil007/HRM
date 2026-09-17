@@ -23,6 +23,7 @@ import {
     normalizeTourSignoffPayload,
 } from '@/features/organization/crew/lib/tour-signoff';
 import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
+import { nowInCompanyDate, nowInCompanyTime } from '@/lib/company-timezone';
 import { cn } from '@/lib/utils';
 import { performAction } from '@/routes/organization/crew-assignments';
 import type {
@@ -48,13 +49,6 @@ import { getMovementActionConfig } from './movement-action-config';
 import { MovementContextCard } from './movement-context-card';
 import { VesselTransferRecommendationDialog } from './vessel-transfer-recommendation-dialog';
 import type { VesselTransferPrefill } from './vessel-transfer-recommendation-dialog';
-
-function defaultDateTimeLocal(): string {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-
-    return now.toISOString().slice(0, 16);
-}
 
 function resolveJoinSignoffChoice(
     context: CrewMovementContext,
@@ -123,9 +117,13 @@ function buildInitialForm(
                   config.fixedNextPhase ??
                   '');
 
+    const companyTz = context.company_timezone;
+    const initialOccurredAt = nowInCompanyTime(companyTz);
+    const initialHotelDate = nowInCompanyDate(companyTz);
+
     const data: CrewMovementActionFormData = {
         action,
-        occurred_at: defaultDateTimeLocal(),
+        occurred_at: initialOccurredAt,
         next_phase: nextPhase,
         starting_phase: action === 'redeploy' ? 'p0' : '',
         provider:
@@ -178,18 +176,18 @@ function buildInitialForm(
             action === 'record_arrival' ||
             action === 'confirm_disembarkation' ||
             action === 'redeploy'
-                ? defaultDateTimeLocal().slice(0, 10)
+                ? initialHotelDate
                 : '',
         check_out_date:
             action === 'join_vessel' ||
             action === 'travel_home' ||
             action === 'cancel_assignment'
-                ? defaultDateTimeLocal().slice(0, 10)
+                ? initialHotelDate
                 : '',
         source_check_out_date:
             action === 'redeploy' &&
             context.post_signoff_accommodation?.status === 'open_hotel'
-                ? defaultDateTimeLocal().slice(0, 10)
+                ? initialHotelDate
                 : '',
         no_hotel_accommodation: false,
     };

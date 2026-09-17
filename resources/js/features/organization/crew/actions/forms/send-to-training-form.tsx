@@ -10,12 +10,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { formatCompanyTimezoneLabel } from '@/lib/company-timezone';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
 export function SendToTrainingForm({
     form,
     config,
+    context,
     formOptions,
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
@@ -36,6 +38,7 @@ export function SendToTrainingForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={firstFieldRef}
                 />
             ) : null}
@@ -112,6 +115,10 @@ export function SendToTrainingForm({
                         form.setData('planned_end_at', event.target.value)
                     }
                 />
+                <p className="text-xs text-muted-foreground">
+                    Recorded in company time:{' '}
+                    {formatCompanyTimezoneLabel(context.company_timezone)}.
+                </p>
                 {expectedBeforeStart ? (
                     <p className="text-sm text-destructive">
                         Expected completion cannot be before training started.

@@ -72,6 +72,7 @@ export function ApproveMobilisationForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={firstFieldRef}
                 />
             ) : null}

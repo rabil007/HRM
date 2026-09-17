@@ -1,5 +1,8 @@
 import type { ReactElement } from 'react';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatCompanyTimezoneLabel,
+    formatDisplayDateTime12hInTimezone,
+} from '@/lib/company-timezone';
 import type { CrewMovementContext } from '../types';
 
 function ContextRow({
@@ -38,8 +41,13 @@ export function MovementContextCard({
               null);
 
     const startedDisplay = context.current_phase_started_at
-        ? formatDisplayDateTime12h(context.current_phase_started_at)
+        ? formatDisplayDateTime12hInTimezone(
+              context.current_phase_started_at,
+              context.company_timezone,
+          )
         : null;
+
+    const timezoneLabel = formatCompanyTimezoneLabel(context.company_timezone);
 
     return (
         <div className="space-y-1.5 rounded-lg border bg-muted/30 p-3">
@@ -56,7 +64,8 @@ export function MovementContextCard({
                 <ContextRow label="Rank" value={context.rank_name} />
             </div>
             <p className="pt-1 text-xs text-muted-foreground">
-                Times are recorded in {context.company_timezone}
+                Times are recorded in company time: {timezoneLabel} (
+                {context.company_timezone})
             </p>
         </div>
     );

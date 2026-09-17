@@ -3,7 +3,7 @@
 namespace App\Support\CrewMovements;
 
 use App\Exceptions\CrewMovementException;
-use App\Models\Company;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -16,7 +16,7 @@ final class CrewActualMovementTimestampGuard
 {
     public function assertNotFuture(int $companyId, CarbonInterface $occurredAt): void
     {
-        $timezone = $this->companyTimezone($companyId);
+        $timezone = CompanyTimezone::forCompanyId($companyId);
         $now = Carbon::now($timezone);
 
         if ($occurredAt->gt($now)) {
@@ -25,11 +25,5 @@ final class CrewActualMovementTimestampGuard
                 'occurred_at_in_future',
             );
         }
-    }
-
-    private function companyTimezone(int $companyId): string
-    {
-        return (string) (Company::query()->whereKey($companyId)->value('timezone')
-            ?? config('app.timezone', 'UTC'));
     }
 }

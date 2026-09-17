@@ -21,6 +21,7 @@ use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -1737,8 +1738,7 @@ final class CrewMovementService
 
     private function companyTimezone(int $companyId): string
     {
-        return (string) (Company::query()->whereKey($companyId)->value('timezone')
-            ?? config('app.timezone', 'UTC'));
+        return CompanyTimezone::forCompanyId($companyId);
     }
 
     /**

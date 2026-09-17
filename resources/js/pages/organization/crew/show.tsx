@@ -1054,6 +1054,9 @@ export default function CrewAssignmentShow({
                     assignmentId={assignment.id}
                     correctablePhases={corrections.correctable_phases}
                     formOptions={form_options}
+                    companyTimezone={
+                        assignment.movement_context?.company_timezone
+                    }
                 />
             ) : null}
 

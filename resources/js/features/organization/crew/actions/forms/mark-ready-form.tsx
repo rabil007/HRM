@@ -5,6 +5,7 @@ import type { MovementActionFormProps } from './movement-form-shared';
 export function MarkReadyForm({
     form,
     config,
+    context,
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
     return (
@@ -13,6 +14,7 @@ export function MarkReadyForm({
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
+                    timezone={context.company_timezone}
                     inputRef={firstFieldRef}
                 />
             ) : null}

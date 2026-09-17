@@ -1,5 +1,5 @@
 import type { ActionImpactPreviewProps } from '../../../../components/action-impact-preview.ts';
-import { formatDisplayDateTime12h } from '../../../../lib/format-date.ts';
+import { formatDisplayDateTime12hInTimezone } from '../../../../lib/company-timezone.ts';
 import type { MovementActionConfig } from '../actions/movement-action-config.ts';
 import type {
     CrewAssignmentFormOptions,
@@ -45,12 +45,15 @@ function normalizeImpacts(
     return description ? [description] : [];
 }
 
-function formatMovementTime(value: string | null | undefined): string | null {
+function formatMovementTime(
+    value: string | null | undefined,
+    timeZone?: string,
+): string | null {
     if (!value?.trim()) {
         return null;
     }
 
-    return formatDisplayDateTime12h(value);
+    return formatDisplayDateTime12hInTimezone(value, timeZone);
 }
 
 export function buildMovementImpactPreview({
@@ -71,7 +74,10 @@ export function buildMovementImpactPreview({
     }
 
     const impacts = normalizeImpacts(config.impactDescription);
-    const movementTime = formatMovementTime(formData.occurred_at);
+    const movementTime = formatMovementTime(
+        formData.occurred_at,
+        context.company_timezone,
+    );
     const currentPhase = phaseLine(
         context.current_phase_code,
         context.current_phase_label,

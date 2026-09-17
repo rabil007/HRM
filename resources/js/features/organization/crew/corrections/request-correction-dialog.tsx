@@ -18,6 +18,12 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { correctionFieldLabel } from '@/features/organization/crew-movement-corrections/types';
+import {
+    formatCompanyTimezoneLabel,
+    isCompanyTimeInFuture,
+    nowInCompanyTime,
+    useCompanyTimezone,
+} from '@/lib/company-timezone';
 import { cn } from '@/lib/utils';
 import { store as storeCorrection } from '@/routes/organization/crew-assignments/corrections';
 import {
@@ -42,13 +48,19 @@ export function RequestCorrectionDialog({
     assignmentId,
     correctablePhases,
     formOptions,
+    companyTimezone,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     assignmentId: number;
     correctablePhases: CorrectablePhase[];
     formOptions?: CrewAssignmentFormOptions;
+    companyTimezone?: string;
 }): ReactElement {
+    const effectiveTimezone = useCompanyTimezone(companyTimezone);
+    const timezoneLabel = formatCompanyTimezoneLabel(effectiveTimezone);
+    const nowLocal = nowInCompanyTime(effectiveTimezone);
+
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
 
@@ -67,6 +79,7 @@ export function RequestCorrectionDialog({
     const currentCourseId = initialCorrectionFieldValue(
         'details.course_id',
         currentCourse,
+        effectiveTimezone,
     );
 
     useEffect(() => {
@@ -89,7 +102,7 @@ export function RequestCorrectionDialog({
         setSelectedPhaseId(phase.id);
         form.setData({
             crew_assignment_phase_id: phase.id,
-            proposed_values: initialCorrectionValues(phase),
+            proposed_values: initialCorrectionValues(phase, effectiveTimezone),
             reason: '',
         });
         setStep(2);
@@ -134,6 +147,20 @@ export function RequestCorrectionDialog({
                 initialCorrectionFieldValue(
                     field,
                     selectedPhase.current_values[field],
+                    effectiveTimezone,
+                ),
+        ),
+    );
+
+    const hasFutureActualDate = Boolean(
+        selectedPhase &&
+        editableFields.some(
+            (field) =>
+                field.includes('actual') &&
+                CORRECTION_DATE_FIELDS.has(field) &&
+                isCompanyTimeInFuture(
+                    form.data.proposed_values[field] ?? '',
+                    effectiveTimezone,
                 ),
         ),
     );
@@ -209,21 +236,46 @@ export function RequestCorrectionDialog({
                                         {correctionFieldLabel(field)}
                                     </Label>
                                     {CORRECTION_DATE_FIELDS.has(field) ? (
-                                        <Input
-                                            id={`correction-${field}`}
-                                            type="datetime-local"
-                                            value={
+                                        <div className="space-y-1">
+                                            <Input
+                                                id={`correction-${field}`}
+                                                type="datetime-local"
+                                                max={
+                                                    field.includes('actual')
+                                                        ? nowLocal
+                                                        : undefined
+                                                }
+                                                value={
+                                                    form.data.proposed_values[
+                                                        field
+                                                    ] ?? ''
+                                                }
+                                                onChange={(event) =>
+                                                    setFieldValue(
+                                                        field,
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Recorded in company time:{' '}
+                                                {timezoneLabel}
+                                            </p>
+                                            {field.includes('actual') &&
+                                            isCompanyTimeInFuture(
                                                 form.data.proposed_values[
                                                     field
-                                                ] ?? ''
-                                            }
-                                            onChange={(event) =>
-                                                setFieldValue(
-                                                    field,
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
+                                                ] ?? '',
+                                                effectiveTimezone,
+                                            ) ? (
+                                                <p className="text-xs font-medium text-destructive">
+                                                    This timestamp is in the
+                                                    future in company time (
+                                                    {timezoneLabel}) and will be
+                                                    rejected.
+                                                </p>
+                                            ) : null}
+                                        </div>
                                     ) : field in CORRECTION_SELECT_OPTIONS &&
                                       (formOptions ||
                                           field === 'details.course_id') ? (
@@ -319,6 +371,7 @@ export function RequestCorrectionDialog({
                                     selectedPhase,
                                     form.data.proposed_values,
                                     formOptions,
+                                    effectiveTimezone,
                                 )}
                                 warning="This change may affect downstream operational history after approval."
                             />
@@ -372,7 +425,7 @@ export function RequestCorrectionDialog({
                             <Button
                                 type="button"
                                 onClick={() => setStep(3)}
-                                disabled={!hasChanges}
+                                disabled={!hasChanges || hasFutureActualDate}
                             >
                                 Next
                             </Button>

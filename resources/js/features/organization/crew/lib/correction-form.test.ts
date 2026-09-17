@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import type { CorrectablePhase } from '../types.ts';
 import {
     CORRECTION_SELECT_OPTIONS,
+    buildCorrectionImpactChanges,
     editableCorrectionFields,
     initialCorrectionFieldValue,
     initialCorrectionValues,
@@ -143,8 +144,8 @@ describe('training correction form', () => {
 
     it('preserves company-local dates, assignment IDs, text and empty values', () => {
         const values = initialCorrectionValues(trainingPhase());
-        assert.equal(values.actual_start_at, '2026-03-03T14:00:00');
-        assert.equal(values.actual_end_at, '2026-03-05T16:00:00');
+        assert.equal(values.actual_start_at, '2026-03-03T14:00');
+        assert.equal(values.actual_end_at, '2026-03-05T16:00');
         assert.equal(values.remarks, '');
         assert.equal(values['details.provider'], 'ABC Academy');
 
@@ -173,5 +174,36 @@ describe('training correction form', () => {
             '',
         );
         assert.equal(initialCorrectionFieldValue('remarks', undefined), '');
+    });
+
+    it('initializes date values based on specified company timezone', () => {
+        const phase = trainingPhase();
+        // In Europe/London on 2026-03-03 (GMT, UTC+0), 10:00 UTC is 10:00
+        const londonValues = initialCorrectionValues(phase, 'Europe/London');
+        assert.equal(londonValues.actual_start_at, '2026-03-03T10:00');
+
+        // In Asia/Dubai (UTC+4), 10:00 UTC is 14:00
+        const dubaiValues = initialCorrectionValues(phase, 'Asia/Dubai');
+        assert.equal(dubaiValues.actual_start_at, '2026-03-03T14:00');
+    });
+
+    it('builds impact preview with formatted company timezone dates', () => {
+        const phase = trainingPhase();
+        const proposedValues = {
+            ...initialCorrectionValues(phase, 'Asia/Dubai'),
+            actual_end_at: '2026-03-05T18:30',
+        };
+
+        const changes = buildCorrectionImpactChanges(
+            phase,
+            proposedValues,
+            undefined,
+            'Asia/Dubai',
+        );
+
+        assert.equal(changes.length, 1);
+        assert.equal(changes[0].label, 'Actual End');
+        assert.equal(changes[0].previous, '2026-03-05 16:00:00');
+        assert.equal(changes[0].next, '05-03-2026 6:30 PM');
     });
 });

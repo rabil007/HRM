@@ -1181,9 +1181,25 @@ This is powered by `ActiveOnVesselAssignmentFinder` (`form_options.active_on_ves
 
 The edit sidebar answers “what can I safely change on this existing mobilisation?” via `assignment-edit-guidance.ts`: phase-aware copy, safe-to-update fields, destination-change notes (not Transfer Vessel before boarding), linked Planning change summary (Vessel/Rank/Expected Join), and proactive date advisories. Backend validation in `UpdateCrewAssignmentRequest` remains authoritative. Edit form options preserve inactive historical Vessel/Client options when unchanged.
 
-### Operational timestamps and timezone
+### Operational timestamps and company timezone UX
 
-All status timestamps (`since`, `actual_start_at`) are rendered in the **company timezone** using `formatDisplayDateTimeInTimezone(value, companyTimezone)`. The company's IANA timezone string is exposed as `form_options.company_timezone` and derived from `CompanyTimezone::forCompanyId($companyId)`.
+All crew movement forms, action dialogs, and correction interfaces operate in the **company timezone**, not the user device's local browser timezone.
+
+```text
+What the user sees = What the company timezone means = What the backend stores/interprets
+```
+
+1. **Company Timezone Source**:
+   - Resolved via `CompanyTimezone::forCompanyId($companyId)` / `CompanyTimezone::forCompany($company)` on the backend.
+   - Passed via Inertia shared page settings (`page.props.settings.company.timezone` or `page.props.settings.timezone`) and contextual models (`movement_context.company_timezone`).
+   - Frontend helper `useCompanyTimezone(contextTimezone)` safely resolves the tenant's IANA timezone identifier with robust fallback.
+
+2. **Form Datetime Inputs**:
+   - Pre-populated using `nowInCompanyTime(companyTimezone)` (`YYYY-MM-DDTHH:mm`), ensuring default values represent company wall-clock time rather than device local time.
+   - For hotel check-in/check-out dates, default values use `nowInCompanyDate(companyTimezone)` (`YYYY-MM-DD`).
+   - Movement dialogs display explicit timezone badges/hints: `Recorded in company time: {timezoneLabel}` (e.g. `Gulf Standard Time (UTC+4)` or `British Summer Time (UTC+1)`).
+   - Datetime pickers enforce `max={nowInCompanyTime(companyTimezone)}` for actual movement timestamps, with client-side reactive warnings against future dates.
+   - All status timestamps (`since`, `actual_start_at`) and impact previews render in the company timezone.
 
 ### Generic backend error display
 

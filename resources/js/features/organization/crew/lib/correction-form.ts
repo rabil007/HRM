@@ -1,5 +1,8 @@
 import type { ActionImpactChange } from '../../../../components/action-impact-preview.ts';
-import { formatDisplayDateTime12h } from '../../../../lib/format-date.ts';
+import {
+    formatDisplayDateTime12hInTimezone,
+    toCompanyDateTimeLocal,
+} from '../../../../lib/company-timezone.ts';
 import type { CrewMovementCorrectionFieldValue } from '../../crew-movement-corrections/types.ts';
 import { correctionFieldLabel } from '../../crew-movement-corrections/types.ts';
 import type { CorrectablePhase, CrewAssignmentFormOptions } from '../types.ts';
@@ -29,13 +32,26 @@ export const CORRECTION_DATE_FIELDS = new Set([
 export function initialCorrectionFieldValue(
     field: string,
     current: CrewMovementCorrectionFieldValue | undefined,
+    timeZone?: string,
 ): string {
     if (!current) {
         return '';
     }
 
     if (CORRECTION_DATE_FIELDS.has(field)) {
-        return current.display?.replace(' ', 'T') ?? '';
+        if (timeZone && typeof current.value === 'string' && current.value) {
+            return toCompanyDateTimeLocal(current.value, timeZone);
+        }
+
+        if (current.display) {
+            return toCompanyDateTimeLocal(current.display, timeZone);
+        }
+
+        if (typeof current.value === 'string' && current.value) {
+            return toCompanyDateTimeLocal(current.value, timeZone);
+        }
+
+        return '';
     }
 
     if (field in CORRECTION_SELECT_OPTIONS) {
@@ -61,11 +77,16 @@ export function editableCorrectionFields(phase: CorrectablePhase): string[] {
 
 export function initialCorrectionValues(
     phase: CorrectablePhase,
+    timeZone?: string,
 ): Record<string, string> {
     return Object.fromEntries(
         editableCorrectionFields(phase).map((field) => [
             field,
-            initialCorrectionFieldValue(field, phase.current_values[field]),
+            initialCorrectionFieldValue(
+                field,
+                phase.current_values[field],
+                timeZone,
+            ),
         ]),
     );
 }
@@ -74,13 +95,14 @@ function formatCorrectionProposedDisplay(
     field: string,
     value: string,
     formOptions?: CrewAssignmentFormOptions,
+    timeZone?: string,
 ): string {
     if (!value.trim()) {
         return '—';
     }
 
     if (CORRECTION_DATE_FIELDS.has(field)) {
-        return formatDisplayDateTime12h(value);
+        return formatDisplayDateTime12hInTimezone(value, timeZone);
     }
 
     const optionKey = CORRECTION_SELECT_OPTIONS[field];
@@ -100,6 +122,7 @@ export function buildCorrectionImpactChanges(
     phase: CorrectablePhase,
     proposedValues: Record<string, string>,
     formOptions?: CrewAssignmentFormOptions,
+    timeZone?: string,
 ): ActionImpactChange[] {
     return editableCorrectionFields(phase)
         .map((field) => {
@@ -108,10 +131,12 @@ export function buildCorrectionImpactChanges(
                 field,
                 proposedValues[field] ?? '',
                 formOptions,
+                timeZone,
             );
             const initial = initialCorrectionFieldValue(
                 field,
                 phase.current_values[field],
+                timeZone,
             );
 
             if ((proposedValues[field] ?? '') === initial) {

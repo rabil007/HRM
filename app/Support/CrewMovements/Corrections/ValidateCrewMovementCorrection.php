@@ -7,7 +7,6 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\Client;
-use App\Models\Company;
 use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -17,6 +16,7 @@ use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewActualMovementTimestampGuard;
 use App\Support\CrewMovements\CrewMovementMasterDataGuard;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -395,8 +395,7 @@ final class ValidateCrewMovementCorrection
 
     private function parseTimestamp(int $companyId, string $value): CarbonInterface
     {
-        $timezone = (string) (Company::query()->whereKey($companyId)->value('timezone')
-            ?? config('app.timezone', 'UTC'));
+        $timezone = CompanyTimezone::forCompanyId($companyId);
 
         try {
             return Carbon::parse($value, $timezone);
