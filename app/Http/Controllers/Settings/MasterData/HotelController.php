@@ -163,6 +163,8 @@ class HotelController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            MasterDataUsage::assertDeletable($hotel, $companyId);
+
             SyncHotelRoomTypes::deleteAllForHotel($hotel, $companyId);
             $hotel->delete();
         });

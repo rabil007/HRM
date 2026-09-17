@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Support\LogOptions;
 
 class CrewAccommodationStay extends Model
@@ -19,6 +20,11 @@ class CrewAccommodationStay extends Model
     use HasFactory;
 
     use LogsActivityWithCompany;
+
+    /**
+     * @var array<string, mixed>|null
+     */
+    public ?array $activityLogContext = null;
 
     /**
      * @var list<string>
@@ -59,6 +65,28 @@ class CrewAccommodationStay extends Model
                 'started_from_phase_id',
             ])
             ->logOnlyDirty();
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        $companyId = null;
+
+        if (array_key_exists('company_id', $this->getAttributes())) {
+            $companyId = $this->getAttribute('company_id');
+        }
+
+        if (! $companyId) {
+            $companyId = request()->attributes->get('current_company_id');
+        }
+
+        $activity->company_id = $companyId ? (int) $companyId : null;
+
+        if ($this->activityLogContext === null) {
+            return;
+        }
+
+        $activity->properties = ($activity->properties ?? collect())->merge($this->activityLogContext);
+        $this->activityLogContext = null;
     }
 
     protected function casts(): array

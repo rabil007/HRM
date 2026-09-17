@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Support\MasterData\ReconcileLegacyRoomTypes;
 use Illuminate\Support\Facades\Artisan;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -928,4 +929,567 @@ test('standalone room types page is no longer available', function () {
     $this->withSession(['current_company_id' => $company->id])
         ->get('/settings/master-data/room-types')
         ->assertNotFound();
+});
+
+test('hotel deletion rolls back when a nested room type is referenced', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Rollback Hotel Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.delete',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Rollback Hotel']);
+    $referencedRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Referenced Room',
+    ]);
+    $unusedRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Unused Room',
+    ]);
+
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $referencedRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->from(route('settings.master-data.hotels.index'))
+        ->delete("/settings/master-data/hotels/{$hotel->id}")
+        ->assertRedirect(route('settings.master-data.hotels.index'))
+        ->assertSessionHasErrors('record');
+
+    expect(Hotel::query()->whereKey($hotel->id)->exists())->toBeTrue()
+        ->and(RoomType::query()->whereKey($referencedRoomType->id)->exists())->toBeTrue()
+        ->and(RoomType::query()->whereKey($unusedRoomType->id)->exists())->toBeTrue();
+});
+
+test('legacy room type can be assigned safely to a valid hotel', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Assign Legacy Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Assign Hotel']);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Assignable Standard',
+    ]);
+
+    CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels/legacy-room-types/assign', [
+            'room_type_id' => $legacyRoomType->id,
+            'hotel_id' => $hotel->id,
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBe($hotel->id);
+});
+
+test('legacy room type already assigned cannot be reassigned', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel B']);
+    $assignedRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotelA->id,
+        'name' => 'Assigned Standard',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels/legacy-room-types/assign', [
+            'room_type_id' => $assignedRoomType->id,
+            'hotel_id' => $hotelB->id,
+        ])
+        ->assertSessionHasErrors('room_type_id');
+
+    expect($assignedRoomType->fresh()?->hotel_id)->toBe($hotelA->id);
+});
+
+test('cross-company legacy room type cannot be assigned', function () {
+    ['user' => $user, 'company' => $companyA] = makeCrewAssignmentFixtures();
+    ['company' => $companyB] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $companyA, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $targetHotel = Hotel::factory()->create(['company_id' => $companyA->id, 'name' => 'Target Hotel']);
+    $foreignLegacyRoomType = RoomType::factory()->create([
+        'company_id' => $companyB->id,
+        'hotel_id' => null,
+        'name' => 'Foreign Legacy',
+    ]);
+
+    $this->withSession(['current_company_id' => $companyA->id])
+        ->post('/settings/master-data/hotels/legacy-room-types/assign', [
+            'room_type_id' => $foreignLegacyRoomType->id,
+            'hotel_id' => $targetHotel->id,
+        ])
+        ->assertSessionHasErrors('room_type_id');
+
+    expect($foreignLegacyRoomType->fresh()?->hotel_id)->toBeNull();
+});
+
+test('cross-company hotel cannot be targeted for legacy assignment', function () {
+    ['user' => $user, 'company' => $companyA] = makeCrewAssignmentFixtures();
+    ['company' => $companyB] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $companyA, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $foreignHotel = Hotel::factory()->create(['company_id' => $companyB->id, 'name' => 'Foreign Hotel']);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $companyA->id,
+        'hotel_id' => null,
+        'name' => 'Local Legacy',
+    ]);
+
+    $this->withSession(['current_company_id' => $companyA->id])
+        ->post('/settings/master-data/hotels/legacy-room-types/assign', [
+            'room_type_id' => $legacyRoomType->id,
+            'hotel_id' => $foreignHotel->id,
+        ])
+        ->assertSessionHasErrors('hotel_id');
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBeNull();
+});
+
+test('legacy room type used historically by hotel a cannot be manually assigned to hotel b', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Wrong Hotel Assign Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Historical Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Historical Hotel B']);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Historical Standard',
+    ]);
+
+    CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotelA->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels/legacy-room-types/assign', [
+            'room_type_id' => $legacyRoomType->id,
+            'hotel_id' => $hotelB->id,
+        ])
+        ->assertSessionHasErrors('hotel_id');
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBeNull();
+});
+
+test('duplicate room type name in target hotel blocks manual legacy assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Duplicate Assign Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Duplicate Assign Hotel']);
+    RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Standard',
+    ]);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Standard',
+    ]);
+
+    CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels/legacy-room-types/assign', [
+            'room_type_id' => $legacyRoomType->id,
+            'hotel_id' => $hotel->id,
+        ])
+        ->assertSessionHasErrors('name');
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBeNull()
+        ->and(RoomType::query()->where('hotel_id', $hotel->id)->where('name', 'Standard')->count())->toBe(1);
+});
+
+test('split reconciliation reuses existing same-name room type in destination hotel', function () {
+    ['company' => $company, 'employee' => $employeeA, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employeeB = Employee::factory()->forCompany($company)->create(['name' => 'Reuse Split B']);
+    $vessel = makeCrewMovementVessel('Reuse Split Vessel', $company);
+    $assignmentA = makeCurrentCrewPhaseAssignment($company, $employeeA, $rank, $vessel, CrewPhaseCode::JoinStandby);
+    $assignmentB = makeCurrentCrewPhaseAssignment($company, $employeeB, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Reuse Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Reuse Hotel B']);
+    $existingHotelBRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotelB->id,
+        'name' => 'Standard',
+    ]);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Standard',
+    ]);
+
+    $stayA = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentA->id,
+        'hotel_id' => $hotelA->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $stayB = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentB->id,
+        'hotel_id' => $hotelB->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    ReconcileLegacyRoomTypes::splitByHotelUsage($legacyRoomType, $company->id);
+
+    $stayA->refresh();
+    $stayB->refresh();
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBe($hotelA->id)
+        ->and($stayA->room_type_id)->toBe($legacyRoomType->id)
+        ->and($stayB->room_type_id)->toBe($existingHotelBRoomType->id)
+        ->and(RoomType::query()->where('hotel_id', $hotelB->id)->where('name', 'Standard')->count())->toBe(1);
+});
+
+test('split reconciliation keeps hotel room type and stay relationships consistent', function () {
+    ['company' => $company, 'employee' => $employeeA, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employeeB = Employee::factory()->forCompany($company)->create(['name' => 'Consistency Split B']);
+    $vessel = makeCrewMovementVessel('Consistency Split Vessel', $company);
+    $assignmentA = makeCurrentCrewPhaseAssignment($company, $employeeA, $rank, $vessel, CrewPhaseCode::JoinStandby);
+    $assignmentB = makeCurrentCrewPhaseAssignment($company, $employeeB, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Consistency Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Consistency Hotel B']);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Deluxe',
+    ]);
+
+    $stayA = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentA->id,
+        'hotel_id' => $hotelA->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $stayB = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentB->id,
+        'hotel_id' => $hotelB->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    ReconcileLegacyRoomTypes::splitByHotelUsage($legacyRoomType, $company->id);
+
+    foreach ([$stayA->fresh(), $stayB->fresh()] as $stay) {
+        $roomType = RoomType::query()->find($stay->room_type_id);
+
+        expect($roomType)->not->toBeNull()
+            ->and($roomType->company_id)->toBe($company->id)
+            ->and($roomType->hotel_id)->toBe($stay->hotel_id);
+    }
+});
+
+test('split reconciliation reassigns to existing same-name room types when every hotel already has one', function () {
+    ['company' => $company, 'employee' => $employeeA, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employeeB = Employee::factory()->forCompany($company)->create(['name' => 'All Existing Split B']);
+    $vessel = makeCrewMovementVessel('All Existing Split Vessel', $company);
+    $assignmentA = makeCurrentCrewPhaseAssignment($company, $employeeA, $rank, $vessel, CrewPhaseCode::JoinStandby);
+    $assignmentB = makeCurrentCrewPhaseAssignment($company, $employeeB, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'All Existing Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'All Existing Hotel B']);
+    $existingHotelARoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotelA->id,
+        'name' => 'Standard',
+    ]);
+    $existingHotelBRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotelB->id,
+        'name' => 'Standard',
+    ]);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Standard',
+    ]);
+
+    $stayA = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentA->id,
+        'hotel_id' => $hotelA->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $stayB = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentB->id,
+        'hotel_id' => $hotelB->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    ReconcileLegacyRoomTypes::autoReconcile();
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBeNull()
+        ->and($stayA->fresh()->room_type_id)->toBe($existingHotelARoomType->id)
+        ->and($stayB->fresh()->room_type_id)->toBe($existingHotelBRoomType->id)
+        ->and(RoomType::query()->where('hotel_id', $hotelA->id)->where('name', 'Standard')->count())->toBe(1)
+        ->and(RoomType::query()->where('hotel_id', $hotelB->id)->where('name', 'Standard')->count())->toBe(1);
+});
+
+test('auto reconciliation leaves duplicate-name single-hotel legacy data unresolved', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Unresolved Auto Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Unresolved Auto Hotel']);
+    RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Standard',
+    ]);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Standard',
+    ]);
+
+    CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    ReconcileLegacyRoomTypes::autoReconcile();
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBeNull();
+});
+
+test('reconciliation updates historical stays through model save and records activity history', function () {
+    ['company' => $company, 'employee' => $employeeA, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employeeB = Employee::factory()->forCompany($company)->create(['name' => 'Audit Split B']);
+    $vessel = makeCrewMovementVessel('Audit Split Vessel', $company);
+    $assignmentA = makeCurrentCrewPhaseAssignment($company, $employeeA, $rank, $vessel, CrewPhaseCode::JoinStandby);
+    $assignmentB = makeCurrentCrewPhaseAssignment($company, $employeeB, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Audit Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Audit Hotel B']);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Audit Standard',
+    ]);
+
+    $stayA = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentA->id,
+        'hotel_id' => $hotelA->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $stayB = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentB->id,
+        'hotel_id' => $hotelB->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $activityCountBefore = Activity::query()
+        ->where('subject_type', CrewAccommodationStay::class)
+        ->count();
+
+    ReconcileLegacyRoomTypes::splitByHotelUsage($legacyRoomType, $company->id);
+
+    $stayB->refresh();
+
+    $activity = Activity::query()
+        ->where('subject_type', CrewAccommodationStay::class)
+        ->where('subject_id', $stayB->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect(Activity::query()->where('subject_type', CrewAccommodationStay::class)->count())
+        ->toBeGreaterThan($activityCountBefore)
+        ->and($activity)->not->toBeNull()
+        ->and($activity->company_id)->toBe($company->id)
+        ->and($activity->properties->get('reason'))->toBe('legacy_room_type_reconciliation')
+        ->and($activity->properties->get('legacy_room_type_id'))->toBe($legacyRoomType->id)
+        ->and($activity->properties->get('hotel_id'))->toBe($hotelB->id)
+        ->and($activity->attribute_changes->get('attributes')['room_type_id'])->not->toBe($legacyRoomType->id)
+        ->and($activity->attribute_changes->get('old')['room_type_id'])->toBe($legacyRoomType->id)
+        ->and($stayA->fresh()->room_type_id)->toBe($legacyRoomType->id);
+});
+
+test('duplicate room type ids in nested hotel update payload are rejected', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Duplicate Id Hotel']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Single',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Duplicate Id Hotel',
+            'is_active' => true,
+            'room_types' => [
+                [
+                    'id' => $roomType->id,
+                    'name' => 'Single',
+                    'is_active' => true,
+                ],
+                [
+                    'id' => $roomType->id,
+                    'name' => 'Single Updated Again',
+                    'is_active' => true,
+                ],
+            ],
+        ])
+        ->assertSessionHasErrors('room_types.1.id');
+
+    expect($roomType->fresh()?->name)->toBe('Single');
+});
+
+test('same room type id cannot appear in room_types and removed_room_type_ids', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Overlap Hotel']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Overlap Room',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Overlap Hotel',
+            'is_active' => true,
+            'room_types' => [
+                [
+                    'id' => $roomType->id,
+                    'name' => 'Overlap Room',
+                    'is_active' => true,
+                ],
+            ],
+            'removed_room_type_ids' => [$roomType->id],
+        ])
+        ->assertSessionHasErrors('removed_room_type_ids');
+
+    expect(RoomType::query()->whereKey($roomType->id)->exists())->toBeTrue();
 });

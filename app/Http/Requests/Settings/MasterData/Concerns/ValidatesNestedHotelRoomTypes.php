@@ -20,6 +20,7 @@ trait ValidatesNestedHotelRoomTypes
             'room_types.*.id' => [
                 'nullable',
                 'integer',
+                'distinct',
                 Rule::exists('room_types', 'id')->where(function ($query) use ($companyId, $hotelId): void {
                     $query->where('company_id', $companyId);
 
