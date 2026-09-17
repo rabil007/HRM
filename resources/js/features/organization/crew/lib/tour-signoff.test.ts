@@ -50,6 +50,14 @@ function baseForm(
         reason: '',
         planned_signoff_choice: 'tour_of_duty',
         planned_signoff_override_reason: 'stale reason',
+        completion_intent: '',
+        accommodation_status: '',
+        hotel_id: null,
+        room_type_id: null,
+        check_in_date: '',
+        check_out_date: '',
+        source_check_out_date: '',
+        no_hotel_accommodation: false,
         ...overrides,
     };
 }

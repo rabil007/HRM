@@ -111,4 +111,4 @@ Detailed correction rows, values, actors, filters, history, and charts are inten
 - No vessel transfer / redeployment via corrections
 - No immediate apply via `CrewMovementAction::CorrectMovement`
 - Pending proposals never affect reports’ official dates
-- **Void Erroneous Assignment** is a separate privileged workflow (`crew_operations.assignments.void`), not a correction and not Cancel — see [crew-movement-phases.md](./crew-movement-phases.md)
+- **Void Erroneous Assignment** is a separate privileged workflow (`crew_operations.assignments.void`), not a correction and not Cancel — see [crew-movement-phases.md](./crew-movement-phases.md). Void is conservatively blocked once accommodation history exists until a dedicated accommodation correction/reversal workflow is implemented.

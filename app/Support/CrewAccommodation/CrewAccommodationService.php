@@ -636,6 +636,233 @@ final class CrewAccommodationService
     }
 
     /**
+     * @return Collection<int, CrewAccommodationStay>
+     */
+    public function openCancellationHotelStays(CrewAssignment $assignment): Collection
+    {
+        return $this->openPreJoinHotelStays($assignment)
+            ->merge($this->openPostSignoffHotelStays($assignment))
+            ->sortBy('id')
+            ->values();
+    }
+
+    /**
+     * @return array{
+     *     status: 'open_hotel'|'no_accommodation'|'missing',
+     *     stay_id: int|null,
+     *     hotel_id: int|null,
+     *     hotel_name: string|null,
+     *     room_type_id: int|null,
+     *     room_type_name: string|null,
+     *     check_in_date: string|null,
+     *     check_out_date: string|null,
+     *     stay_days: int|null,
+     *     warning: string|null
+     * }
+     */
+    public function cancellationAccommodationContext(CrewAssignment $assignment, ?string $timezone = null): array
+    {
+        $timezone ??= CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $openStays = $this->openCancellationHotelStays($assignment);
+
+        if ($openStays->count() > 1) {
+            return [
+                'status' => 'missing',
+                'stay_id' => null,
+                'hotel_id' => null,
+                'hotel_name' => null,
+                'room_type_id' => null,
+                'room_type_name' => null,
+                'check_in_date' => null,
+                'check_out_date' => null,
+                'stay_days' => null,
+                'warning' => 'Multiple open hotel stays were found. Resolve accommodation data before cancelling this assignment.',
+            ];
+        }
+
+        $openStay = $openStays->first();
+
+        if ($openStay instanceof CrewAccommodationStay) {
+            $openStay->loadMissing(['hotel', 'roomType']);
+
+            return [
+                'status' => 'open_hotel',
+                'stay_id' => $openStay->id,
+                'hotel_id' => $openStay->hotel_id,
+                'hotel_name' => $openStay->hotel?->name,
+                'room_type_id' => $openStay->room_type_id,
+                'room_type_name' => $openStay->roomType?->name,
+                'check_in_date' => $openStay->check_in_date?->toDateString(),
+                'check_out_date' => null,
+                'stay_days' => $this->stayDays($openStay->check_in_date, now($timezone), $timezone),
+                'warning' => null,
+            ];
+        }
+
+        return [
+            'status' => 'missing',
+            'stay_id' => null,
+            'hotel_id' => null,
+            'hotel_name' => null,
+            'room_type_id' => null,
+            'room_type_name' => null,
+            'check_in_date' => null,
+            'check_out_date' => null,
+            'stay_days' => null,
+            'warning' => null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function validateCancellationCheckOutPayload(
+        CrewAssignment $assignment,
+        array $payload,
+        CarbonInterface $occurredAt,
+    ): void {
+        $openStays = $this->openCancellationHotelStays($assignment);
+
+        if ($openStays->count() > 1) {
+            throw CrewMovementException::make(
+                'Multiple open hotel stays were found. Resolve accommodation data before cancelling this assignment.',
+                'cancellation_accommodation_integrity',
+            );
+        }
+
+        $openStay = $openStays->first();
+
+        if (! $openStay instanceof CrewAccommodationStay) {
+            return;
+        }
+
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $checkOutDate = $this->parseDate($payload['check_out_date'] ?? null, $timezone);
+        $cancellationLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+        if ($checkOutDate === null) {
+            throw CrewMovementException::make(
+                'Hotel check-out date is required before cancelling this assignment.',
+                'check_out_required',
+            );
+        }
+
+        if ($openStay->check_in_date !== null && $checkOutDate->lt($openStay->check_in_date)) {
+            throw CrewMovementException::make(
+                'Hotel check-out cannot be before check-in.',
+                'check_out_before_check_in',
+            );
+        }
+
+        if ($checkOutDate->gt($cancellationLocalDate)) {
+            throw CrewMovementException::make(
+                'Hotel check-out cannot be after the cancellation date.',
+                'check_out_after_cancellation',
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function recordCancellationCheckOut(
+        CrewAssignment $assignment,
+        array $payload,
+        ?int $actorId = null,
+    ): void {
+        $openStays = $this->openCancellationHotelStays($assignment);
+
+        if ($openStays->count() > 1) {
+            throw CrewMovementException::make(
+                'Multiple open hotel stays were found. Resolve accommodation data before cancelling this assignment.',
+                'cancellation_accommodation_integrity',
+            );
+        }
+
+        $openStay = $openStays->first();
+
+        if (! $openStay instanceof CrewAccommodationStay) {
+            return;
+        }
+
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $checkOutDate = $this->parseDate($payload['check_out_date'] ?? null, $timezone);
+
+        if ($checkOutDate === null) {
+            throw CrewMovementException::make(
+                'Hotel check-out date is required before cancelling this assignment.',
+                'check_out_required',
+            );
+        }
+
+        $openStay->update([
+            'check_out_date' => $checkOutDate,
+            'updated_by' => $actorId,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function validateRedeployDestinationPreJoinPayload(
+        int $companyId,
+        array $payload,
+        CarbonInterface $occurredAt,
+    ): void {
+        $status = $this->resolveAccommodationStatus($payload);
+
+        if ($status === null) {
+            return;
+        }
+
+        if ($status === CrewAccommodationStatus::NoAccommodation) {
+            return;
+        }
+
+        $timezone = CompanyTimezone::forCompanyId($companyId);
+        $hotelId = isset($payload['hotel_id']) ? (int) $payload['hotel_id'] : 0;
+        $checkInDate = $this->parseDate($payload['check_in_date'] ?? null, $timezone);
+
+        if ($hotelId <= 0) {
+            throw CrewMovementException::make('Hotel is required for destination pre-join accommodation.', 'hotel_required');
+        }
+
+        if ($checkInDate === null) {
+            throw CrewMovementException::make('Check-in date is required for destination pre-join accommodation.', 'check_in_required');
+        }
+
+        $this->assertActiveHotel($companyId, $hotelId);
+
+        if (! empty($payload['room_type_id'])) {
+            $this->assertActiveRoomType($companyId, (int) $payload['room_type_id']);
+        }
+
+        $redeployLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+        if ($checkInDate->lt($redeployLocalDate)) {
+            throw CrewMovementException::make(
+                'Hotel check-in cannot be before the redeployment date.',
+                'check_in_before_redeploy',
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function redeploySourceCheckoutPayload(array $payload): array
+    {
+        if (! array_key_exists('source_check_out_date', $payload)) {
+            return $payload;
+        }
+
+        return array_merge($payload, [
+            'check_out_date' => $payload['source_check_out_date'],
+        ]);
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     public function assignmentAccommodationSummary(CrewAssignment $assignment, ?string $timezone = null): array

@@ -658,5 +658,6 @@ export interface CrewMovementActionFormData {
     room_type_id: number | null;
     check_in_date: string;
     check_out_date: string;
+    source_check_out_date: string;
     no_hotel_accommodation: boolean;
 }

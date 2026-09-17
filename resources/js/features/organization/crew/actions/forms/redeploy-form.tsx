@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react';
+import { useRef } from 'react';
 import InputError from '@/components/input-error';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,6 +19,7 @@ import {
     hasManualOverrideInput,
     nextSignoffChoiceForRankChange,
 } from '@/features/organization/crew/lib/tour-signoff';
+import { formatDisplayDate } from '@/lib/format-date';
 import { CREW_PHASE_LABELS } from '../../types';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
@@ -41,6 +44,74 @@ export function RedeployForm({
     const showDestinationFields = ['p2a', 'p4'].includes(startingPhase);
     const showDirectP4Tour = startingPhase === 'p4';
     const showForecastSignoff = startingPhase === 'p2a';
+    const showDestinationAccommodation = startingPhase === 'p2a';
+    const postSignoffAccommodation = context.post_signoff_accommodation;
+    const noDestinationHotelAccommodation = form.data.no_hotel_accommodation;
+    const lastAutoSourceCheckOutDateRef = useRef(
+        form.data.source_check_out_date || form.data.occurred_at.slice(0, 10),
+    );
+    const lastAutoDestinationCheckInDateRef = useRef(
+        form.data.check_in_date || form.data.occurred_at.slice(0, 10),
+    );
+
+    const syncSourceCheckOutDate = (occurredAt: string): void => {
+        if (postSignoffAccommodation?.status !== 'open_hotel') {
+            return;
+        }
+
+        const nextRedeployDate = occurredAt.slice(0, 10);
+
+        if (
+            !nextRedeployDate ||
+            (form.data.source_check_out_date !== '' &&
+                form.data.source_check_out_date !==
+                    lastAutoSourceCheckOutDateRef.current)
+        ) {
+            return;
+        }
+
+        form.setData('source_check_out_date', nextRedeployDate);
+        lastAutoSourceCheckOutDateRef.current = nextRedeployDate;
+    };
+
+    const syncDestinationCheckInDate = (occurredAt: string): void => {
+        if (!showDestinationAccommodation || noDestinationHotelAccommodation) {
+            return;
+        }
+
+        const nextRedeployDate = occurredAt.slice(0, 10);
+
+        if (
+            !nextRedeployDate ||
+            (form.data.check_in_date !== '' &&
+                form.data.check_in_date !==
+                    lastAutoDestinationCheckInDateRef.current)
+        ) {
+            return;
+        }
+
+        form.setData('check_in_date', nextRedeployDate);
+        lastAutoDestinationCheckInDateRef.current = nextRedeployDate;
+    };
+
+    const setNoDestinationHotelAccommodation = (checked: boolean): void => {
+        const nextCheckInDate = checked
+            ? ''
+            : form.data.occurred_at.slice(0, 10);
+
+        if (!checked) {
+            lastAutoDestinationCheckInDateRef.current = nextCheckInDate;
+        }
+
+        form.setData({
+            ...form.data,
+            no_hotel_accommodation: checked,
+            accommodation_status: checked ? 'no_accommodation' : 'hotel',
+            hotel_id: checked ? null : form.data.hotel_id,
+            room_type_id: checked ? null : form.data.room_type_id,
+            check_in_date: nextCheckInDate,
+        });
+    };
     const selectedRank = findRankTourOption(
         formOptions?.ranks,
         form.data.rank_id,
@@ -215,11 +286,72 @@ export function RedeployForm({
                 <InputError message={form.errors.starting_phase} />
             </div>
 
+            {postSignoffAccommodation?.status === 'open_hotel' ? (
+                <div className="space-y-4 rounded-lg border border-border/60 p-4">
+                    <div>
+                        <h3 className="text-sm font-semibold">
+                            Current Post-Sign-Off Accommodation
+                        </h3>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                        <div className="font-medium">
+                            {postSignoffAccommodation.hotel_name ?? 'Hotel'}
+                        </div>
+                        {postSignoffAccommodation.room_type_name ? (
+                            <div className="text-muted-foreground">
+                                {postSignoffAccommodation.room_type_name}
+                            </div>
+                        ) : null}
+                        <div className="text-muted-foreground">
+                            Checked in{' '}
+                            {formatDisplayDate(
+                                postSignoffAccommodation.check_in_date,
+                            )}
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="redeploy-source-check-out-date">
+                            Source Hotel Check-out Date{' '}
+                            <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="redeploy-source-check-out-date"
+                            type="date"
+                            value={form.data.source_check_out_date}
+                            onChange={(event) =>
+                                form.setData(
+                                    'source_check_out_date',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                        <InputError
+                            message={form.errors.source_check_out_date}
+                        />
+                    </div>
+                </div>
+            ) : null}
+
+            {postSignoffAccommodation?.status === 'missing' &&
+            postSignoffAccommodation.warning ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+                    {postSignoffAccommodation.warning}
+                </div>
+            ) : null}
+
             {config.occurredAtLabel ? (
                 <MovementOccurredAtField
                     form={form}
                     label={config.occurredAtLabel}
-                    inputRef={firstFieldRef}
+                    inputRef={
+                        postSignoffAccommodation?.status === 'open_hotel'
+                            ? undefined
+                            : firstFieldRef
+                    }
+                    onValueChange={(occurredAt) => {
+                        syncSourceCheckOutDate(occurredAt);
+                        syncDestinationCheckInDate(occurredAt);
+                    }}
                 />
             ) : null}
 
@@ -346,6 +478,137 @@ export function RedeployForm({
                     idPrefix="redeploy"
                     tourContextLabel="the destination rank"
                 />
+            ) : null}
+
+            {showDestinationAccommodation && formOptions ? (
+                <div className="space-y-4 rounded-lg border border-border/60 p-4">
+                    <div>
+                        <h3 className="text-sm font-semibold">
+                            Destination Pre-Join Accommodation
+                        </h3>
+                    </div>
+
+                    {!noDestinationHotelAccommodation ? (
+                        <>
+                            <div className="space-y-2">
+                                <Label htmlFor="redeploy-destination-hotel">
+                                    Hotel{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <Select
+                                    value={form.data.hotel_id?.toString() ?? ''}
+                                    onValueChange={(value) =>
+                                        form.setData(
+                                            'hotel_id',
+                                            value ? Number(value) : null,
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger id="redeploy-destination-hotel">
+                                        <SelectValue placeholder="Select hotel..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(formOptions.hotels ?? []).map(
+                                            (hotel) => (
+                                                <SelectItem
+                                                    key={hotel.id}
+                                                    value={hotel.id.toString()}
+                                                >
+                                                    {hotel.name}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={form.errors.hotel_id} />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="redeploy-destination-room-type">
+                                    Room Type
+                                </Label>
+                                <Select
+                                    value={
+                                        form.data.room_type_id?.toString() ??
+                                        '__none__'
+                                    }
+                                    onValueChange={(value) =>
+                                        form.setData(
+                                            'room_type_id',
+                                            value === '__none__'
+                                                ? null
+                                                : Number(value),
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger id="redeploy-destination-room-type">
+                                        <SelectValue placeholder="Not assigned yet" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">
+                                            Not assigned yet
+                                        </SelectItem>
+                                        {(formOptions.room_types ?? []).map(
+                                            (roomType) => (
+                                                <SelectItem
+                                                    key={roomType.id}
+                                                    value={roomType.id.toString()}
+                                                >
+                                                    {roomType.name}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <InputError
+                                    message={form.errors.room_type_id}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="redeploy-destination-check-in-date">
+                                    Check-in Date{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <Input
+                                    id="redeploy-destination-check-in-date"
+                                    type="date"
+                                    value={form.data.check_in_date}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'check_in_date',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={form.errors.check_in_date}
+                                />
+                            </div>
+                        </>
+                    ) : null}
+
+                    <div className="flex items-start gap-3">
+                        <Checkbox
+                            id="redeploy-no-destination-hotel"
+                            checked={noDestinationHotelAccommodation}
+                            onCheckedChange={(checked) =>
+                                setNoDestinationHotelAccommodation(
+                                    checked === true,
+                                )
+                            }
+                        />
+                        <div className="space-y-1">
+                            <Label
+                                htmlFor="redeploy-no-destination-hotel"
+                                className="font-normal"
+                            >
+                                No hotel accommodation
+                            </Label>
+                        </div>
+                    </div>
+                    <InputError message={form.errors.accommodation_status} />
+                </div>
             ) : null}
 
             {showForecastSignoff ? (

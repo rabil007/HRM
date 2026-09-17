@@ -5,6 +5,7 @@ namespace App\Support\CrewMovements;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\PayrollWorkAllocationStatus;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewTimesheetPreparationLine;
@@ -21,6 +22,8 @@ use Illuminate\Validation\ValidationException;
 final class CrewAssignmentVoidGuard
 {
     public const BLOCKED_MESSAGE = 'This assignment cannot be voided because it has already affected protected payroll, sea service, or a linked assignment. Use the appropriate correction or reversal workflow instead.';
+
+    public const ACCOMMODATION_BLOCKED_MESSAGE = 'This assignment cannot be voided because accommodation history exists. Use the appropriate correction workflow instead.';
 
     /**
      * @return list<array{code: string, message: string}>
@@ -78,6 +81,13 @@ final class CrewAssignmentVoidGuard
             ];
         }
 
+        if ($this->hasAccommodationHistory($assignment, $companyId)) {
+            $blockers[] = [
+                'code' => 'accommodation_history_exists',
+                'message' => self::ACCOMMODATION_BLOCKED_MESSAGE,
+            ];
+        }
+
         return $this->uniqueByCode($blockers);
     }
 
@@ -93,10 +103,16 @@ final class CrewAssignmentVoidGuard
             fn (array $blocker): bool => $blocker['code'] === 'already_voided',
         );
 
+        $accommodationBlocked = collect($blockers)->contains(
+            fn (array $blocker): bool => $blocker['code'] === 'accommodation_history_exists',
+        );
+
         throw ValidationException::withMessages([
             'void' => $alreadyVoided
                 ? 'This assignment has already been voided.'
-                : self::BLOCKED_MESSAGE,
+                : ($accommodationBlocked
+                    ? self::ACCOMMODATION_BLOCKED_MESSAGE
+                    : self::BLOCKED_MESSAGE),
         ]);
     }
 
@@ -188,6 +204,14 @@ final class CrewAssignmentVoidGuard
         // Conservative: any Crew Operations timesheet segment for this assignment
         // is treated as a protected payroll dependency (immutable ops history).
         return CrewTimesheetSegment::query()
+            ->where('company_id', $companyId)
+            ->where('crew_assignment_id', $assignment->id)
+            ->exists();
+    }
+
+    private function hasAccommodationHistory(CrewAssignment $assignment, int $companyId): bool
+    {
+        return CrewAccommodationStay::query()
             ->where('company_id', $companyId)
             ->where('crew_assignment_id', $assignment->id)
             ->exists();

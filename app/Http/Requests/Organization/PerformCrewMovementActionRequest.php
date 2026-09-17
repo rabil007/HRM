@@ -316,6 +316,34 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'max:1000',
             ];
             $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
+            $baseRules['source_check_out_date'] = ['nullable', 'date'];
+            $baseRules['accommodation_status'] = [
+                Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::JoinStandby->value),
+                'nullable',
+                'string',
+                Rule::in(CrewAccommodationStatus::values()),
+            ];
+            $baseRules['hotel_id'] = [
+                Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::JoinStandby->value),
+                Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::JoinStandby->value
+                    && $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value),
+                'nullable',
+                'integer',
+                Rule::exists('hotels', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ];
+            $baseRules['room_type_id'] = [
+                Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::JoinStandby->value),
+                'nullable',
+                'integer',
+                Rule::exists('room_types', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ];
+            $baseRules['check_in_date'] = [
+                Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::JoinStandby->value),
+                Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::JoinStandby->value
+                    && $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value),
+                'nullable',
+                'date',
+            ];
         }
 
         if ($action === 'send_to_training') {
@@ -352,6 +380,7 @@ class PerformCrewMovementActionRequest extends FormRequest
 
         if ($action === 'cancel_assignment') {
             $baseRules['reason'] = ['required', 'string', 'max:500'];
+            $baseRules['check_out_date'] = ['nullable', 'date'];
         }
 
         return $baseRules;
@@ -675,6 +704,108 @@ class PerformCrewMovementActionRequest extends FormRequest
                 }
             }
 
+            if ($action === 'redeploy') {
+                $accommodation = app(CrewAccommodationService::class);
+
+                if ($assignment->currentPhase?->phase_code === CrewPhaseCode::DemobStandby) {
+                    $openStays = $accommodation->openPostSignoffHotelStays($assignment);
+
+                    if ($openStays->count() > 1) {
+                        $validator->errors()->add(
+                            'source_check_out_date',
+                            'Multiple open post-sign-off hotel stays were found. Resolve accommodation data before redeploying.',
+                        );
+                    }
+
+                    $openStay = $openStays->first();
+
+                    if ($openStay !== null) {
+                        if (! $this->filled('source_check_out_date')) {
+                            $validator->errors()->add(
+                                'source_check_out_date',
+                                'Hotel check-out date is required before redeploying.',
+                            );
+                        } elseif ($occurredAt !== null) {
+                            $checkOutDate = Carbon::parse((string) $this->input('source_check_out_date'), $timezone)->startOfDay();
+                            $redeployLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+                            if ($openStay->check_in_date !== null && $checkOutDate->lt($openStay->check_in_date)) {
+                                $validator->errors()->add(
+                                    'source_check_out_date',
+                                    'Hotel check-out cannot be before check-in.',
+                                );
+                            }
+
+                            if ($checkOutDate->gt($redeployLocalDate)) {
+                                $validator->errors()->add(
+                                    'source_check_out_date',
+                                    'Hotel check-out cannot be after the redeployment date.',
+                                );
+                            }
+                        }
+                    }
+                }
+
+                if ($this->input('starting_phase') === CrewPhaseCode::JoinStandby->value
+                    && $this->filled('accommodation_status')
+                    && $occurredAt !== null) {
+                    $checkInDate = $this->input('check_in_date')
+                        ? Carbon::parse((string) $this->input('check_in_date'), $timezone)->startOfDay()
+                        : null;
+
+                    if (
+                        $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value
+                        && $checkInDate !== null
+                        && $checkInDate->lt($occurredAt->copy()->timezone($timezone)->startOfDay())
+                    ) {
+                        $validator->errors()->add(
+                            'check_in_date',
+                            'Hotel check-in cannot be before the redeployment date.',
+                        );
+                    }
+                }
+            }
+
+            if ($action === 'cancel_assignment') {
+                $accommodation = app(CrewAccommodationService::class);
+                $openStays = $accommodation->openCancellationHotelStays($assignment);
+
+                if ($openStays->count() > 1) {
+                    $validator->errors()->add(
+                        'check_out_date',
+                        'Multiple open hotel stays were found. Resolve accommodation data before cancelling this assignment.',
+                    );
+                }
+
+                $openStay = $openStays->first();
+
+                if ($openStay !== null) {
+                    if (! $this->filled('check_out_date')) {
+                        $validator->errors()->add(
+                            'check_out_date',
+                            'Hotel check-out date is required before cancelling this assignment.',
+                        );
+                    } elseif ($occurredAt !== null) {
+                        $checkOutDate = Carbon::parse((string) $this->input('check_out_date'), $timezone)->startOfDay();
+                        $cancellationLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+                        if ($openStay->check_in_date !== null && $checkOutDate->lt($openStay->check_in_date)) {
+                            $validator->errors()->add(
+                                'check_out_date',
+                                'Hotel check-out cannot be before check-in.',
+                            );
+                        }
+
+                        if ($checkOutDate->gt($cancellationLocalDate)) {
+                            $validator->errors()->add(
+                                'check_out_date',
+                                'Hotel check-out cannot be after the cancellation date.',
+                            );
+                        }
+                    }
+                }
+            }
+
             if ($action === 'travel_home') {
                 $accommodation = app(CrewAccommodationService::class);
                 $openStays = $accommodation->openPostSignoffHotelStays($assignment);
@@ -743,6 +874,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             'hotel_id.required' => 'Please select a hotel.',
             'check_in_date.required' => 'Please enter the hotel check-in date.',
             'check_out_date.required' => 'Please enter the hotel check-out date.',
+            'source_check_out_date.required' => 'Please enter the hotel check-out date.',
         ];
     }
 }

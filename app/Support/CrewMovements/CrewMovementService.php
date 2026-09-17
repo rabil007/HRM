@@ -943,6 +943,30 @@ final class CrewMovementService
             );
         }
 
+        if ($current->phase_code === CrewPhaseCode::DemobStandby) {
+            $this->accommodation->validatePostSignoffCheckOutPayload(
+                $assignment,
+                $this->accommodation->redeploySourceCheckoutPayload($payload),
+                $occurredAt,
+            );
+        }
+
+        if ($startingPhase === CrewPhaseCode::JoinStandby) {
+            $this->accommodation->validateRedeployDestinationPreJoinPayload(
+                (int) $assignment->company_id,
+                $payload,
+                $occurredAt,
+            );
+        }
+
+        if ($current->phase_code === CrewPhaseCode::DemobStandby) {
+            $this->accommodation->recordPostSignoffCheckOut(
+                $assignment,
+                $this->accommodation->redeploySourceCheckoutPayload($payload),
+                $actorId,
+            );
+        }
+
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 
         $assignment->update([
@@ -994,6 +1018,21 @@ final class CrewMovementService
             $this->logTourOfDutyApplied($destination, $signoff, $occurredAt, $actorId);
         }
 
+        if ($startingPhase === CrewPhaseCode::JoinStandby) {
+            $destination->unsetRelation('currentPhase');
+            $destination->load('currentPhase');
+            $startedFromPhase = $destination->currentPhase;
+
+            if ($startedFromPhase === null) {
+                throw CrewMovementException::make(
+                    'Redeploy could not determine the destination Join Standby phase.',
+                    'missing_destination_join_standby_phase',
+                );
+            }
+
+            $this->accommodation->recordPreJoinCheckIn($destination, $payload, $startedFromPhase, $actorId);
+        }
+
         $this->invariants->assertValid($destination);
         $this->logCrewRedeployed(
             $source,
@@ -1042,6 +1081,9 @@ final class CrewMovementService
         $occurredAt = isset($payload['occurred_at'])
             ? $this->parseTimestamp($assignment->company_id, (string) $payload['occurred_at'])
             : now($this->companyTimezone($assignment->company_id));
+
+        $this->accommodation->validateCancellationCheckOutPayload($assignment, $payload, $occurredAt);
+        $this->accommodation->recordCancellationCheckOut($assignment, $payload, $actorId);
 
         if ($current !== null && $current->status !== CrewPhaseStatus::Cancelled) {
             $current->update([

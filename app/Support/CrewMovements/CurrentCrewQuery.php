@@ -85,7 +85,7 @@ class CurrentCrewQuery
 
         self::attachReliefReadiness($paginator->getCollection(), $companyId);
         self::attachMobilisationReadiness($paginator->getCollection(), $companyId);
-        self::attachPreJoinAccommodation($paginator->getCollection());
+        self::attachMovementAccommodation($paginator->getCollection());
 
         return $paginator;
     }
@@ -229,21 +229,32 @@ class CurrentCrewQuery
     /**
      * @param  Collection<int, CrewAssignment>  $assignments
      */
-    public static function attachPreJoinAccommodation(Collection $assignments): void
+    public static function attachMovementAccommodation(Collection $assignments): void
     {
-        $preJoinAssignments = $assignments->filter(function (CrewAssignment $assignment): bool {
+        $accommodationAssignments = $assignments->filter(function (CrewAssignment $assignment): bool {
             return in_array($assignment->currentPhase?->phase_code, [
                 CrewPhaseCode::JoinStandby,
                 CrewPhaseCode::Training,
                 CrewPhaseCode::ReadyToJoin,
+                CrewPhaseCode::DemobStandby,
             ], true);
         });
 
-        if ($preJoinAssignments->isEmpty()) {
+        if ($accommodationAssignments->isEmpty()) {
             return;
         }
 
-        $preJoinAssignments->load(['accommodationStays.hotel', 'accommodationStays.roomType']);
+        $accommodationAssignments->load(['accommodationStays.hotel', 'accommodationStays.roomType']);
+    }
+
+    /**
+     * @deprecated Use attachMovementAccommodation() instead.
+     *
+     * @param  Collection<int, CrewAssignment>  $assignments
+     */
+    public static function attachPreJoinAccommodation(Collection $assignments): void
+    {
+        self::attachMovementAccommodation($assignments);
     }
 
     /**

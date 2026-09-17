@@ -130,6 +130,8 @@ Missing accommodation is **not** persisted as a status. It will later be derived
 | PR 3 | Confirm Disembarkation | Post-sign-off hotel check-in or explicit `no_accommodation` when next phase is P5 |
 | PR 3 | Return Home | Post-sign-off hotel check-out for open hotel stays |
 | PR 3 | Return Home & Close Assignment | Post-sign-off checkout integration with assignment closure |
+| Hardening | P5 Redeploy | Post-sign-off hotel check-out for open hotel stays before source completion; optional destination pre-join accommodation when redeploy starts at P2A |
+| Hardening | Cancel Assignment | Closes any single open pre-join or post-sign-off hotel stay atomically with cancellation |
 
 **PR 2 (implemented):**
 
@@ -144,6 +146,8 @@ Missing accommodation is **not** persisted as a status. It will later be derived
 
 - **Confirm Disembarkation → P5** creates a `post_signoff` `CrewAccommodationStay` inside the same `CrewMovementService` transaction as the P4 → P5 movement. Normal web UI defaults to hotel accommodation when Demobilisation Standby is selected; operators may check **No hotel accommodation** to persist an explicit `no_accommodation` decision. Direct **Confirm Disembarkation → P6** hides accommodation fields and creates **no** post-sign-off stay.
 - **Return Home** closes the current open `post_signoff` hotel stay (`check_out_date IS NULL`) in the same transaction as the P5 → P6 movement and existing `completion_intent` handling. Explicit `no_accommodation` records are left unchanged. Legacy P5 assignments with neither an open hotel stay nor a `no_accommodation` decision remain returnable; the Return Home dialog shows a non-blocking missing-accommodation warning and does **not** invent accommodation data.
+- **P5 Redeploy** closes the current open `post_signoff` hotel stay in the same transaction as source completion and linked destination creation. When the destination starts at **P2A Join Standby**, the redeploy dialog captures destination pre-join accommodation (hotel or explicit `no_accommodation`) in the same transaction. Redeploy to **P0** or direct **P4** does not create destination pre-join accommodation. Legacy P5 assignments with missing accommodation remain redeployable with a non-blocking warning.
+- **Cancel Assignment** closes a single open pre-join or post-sign-off hotel stay in the same transaction as cancellation when exactly one open hotel stay exists. Multiple open hotel stays block cancellation until data is corrected. Explicit `no_accommodation` and legacy missing accommodation remain cancellable without inventing records.
 - `started_from_phase_id` on a new post-sign-off stay references the active **P5 Demobilisation Standby** phase opened by Confirm Disembarkation.
 - Omitting accommodation fields on Confirm Disembarkation → P5 remains backward compatible for legacy API callers: movement succeeds and no accommodation stay is created.
 - Assignment show accommodation history renders both pre-join and post-sign-off stays in chronological order.
@@ -469,6 +473,7 @@ Void requires the dedicated permission **and** passes `CrewAssignmentVoidGuard`.
 - `payroll_applied` / `payroll_protected` — Applied, Approved/Submitted Crew Timesheet prep, paid/approved work allocations, or timesheet segments
 - `sea_service_exists` — linked `EmployeeSeaService` (never cascade-deleted)
 - `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`
+- `accommodation_history_exists` — any `CrewAccommodationStay` row for the assignment (conservative block until a dedicated accommodation correction/reversal workflow exists)
 - `already_voided` — already voided / soft-deleted
 
 HTTP: `POST /organization/crew/{assignment}/void` (`organization.crew-assignments.void`) via `VoidCrewAssignment` Support action (transaction + `lockForUpdate()`). Linked assignment-derived planning bars are soft-deleted; phase history is retained under the soft-deleted assignment.

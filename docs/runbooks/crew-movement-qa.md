@@ -159,6 +159,12 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
 - [ ] Crew Assignments shows only the new Active assignment; Movement History shows both
 - [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P2A/P4); P1 and P3 are not offered; same vessel is allowed; P0 clears planned sign-off and hidden destination fields
+- [ ] P5 Redeploy with open post-sign-off hotel requires Source Hotel Check-out Date and closes the stay atomically with source completion
+- [ ] P5 Redeploy → P2A shows Destination Pre-Join Accommodation (Hotel / Room Type / Check-in / No hotel)
+- [ ] P5 Redeploy → P0 or P4 handles source accommodation but creates no destination pre-join stay
+- [ ] Cancel Assignment with one open pre-join or post-sign-off hotel stay requires Hotel Check-out Date and closes the stay atomically
+- [ ] Cancel Assignment with multiple open hotel stays is rejected with no partial mutation
+- [ ] Void Erroneous Assignment is blocked when accommodation history exists (hotel stay or explicit no-accommodation record)
 - [ ] Movement controller redirects to the new linked assignment after transfer/redeploy
 - [ ] Daily Crew payroll board shows one employee row for multiple movement periods; Movement Periods dialog edits Manual segments; Applied Crew Operations segments are read-only
 - [ ] Daily Crew Excel allows repeated employee rows as separate periods; employee-level overtime/salary amounts are entered once; overlaps fail preview with Excel row numbers

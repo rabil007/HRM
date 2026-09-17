@@ -2,6 +2,7 @@
 
 use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAccommodationStayType;
+use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
@@ -17,7 +18,14 @@ use App\Models\Rank;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
+use App\Support\CrewMovements\Actions\VoidCrewAssignment;
+use App\Support\CrewMovements\CrewAssignmentPresenter;
+use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\CurrentCrewQuery;
+use App\Support\CrewMovements\CurrentCrewRequestFilters;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * @return array{user: User, company: Company, employee: Employee, rank: Rank}
@@ -1188,4 +1196,477 @@ test('assignment accommodation summary orders stays by phase sequence instead of
             ->where('assignment.accommodation.0.id', $earlierPhaseStay->id)
             ->where('assignment.accommodation.1.id', $laterPhaseStay->id)
         );
+});
+
+function makeActiveP2AAssignmentWithPreJoinHotel(array $fixtures): array
+{
+    $assignment = startActivePreMobilisationAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Royal Rose']);
+
+    app(CrewMovementService::class)->perform(
+        $fixtures['company']->id,
+        $assignment->id,
+        CrewMovementAction::RecordArrival,
+        [
+            'occurred_at' => '2026-09-16 10:30:00',
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2026-09-16',
+        ],
+        $fixtures['user']->id,
+    );
+
+    $assignment->refresh()->load('currentPhase');
+    $stay = CrewAccommodationStay::query()
+        ->where('crew_assignment_id', $assignment->id)
+        ->where('stay_type', CrewAccommodationStayType::PreJoin)
+        ->first();
+
+    return [$assignment, $hotel, $stay];
+}
+
+test('p5 redeploy closes source post signoff hotel stay and creates destination assignment', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+    $service = app(CrewMovementService::class);
+
+    $destination = $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::PreMobilisation->value,
+        'source_check_out_date' => '2026-12-04',
+    ], $fixtures['user']->id);
+
+    $assignment->refresh();
+    $stay->refresh();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($stay->check_out_date?->toDateString())->toBe('2026-12-04')
+        ->and($destination->previous_assignment_id)->toBe($assignment->id)
+        ->and($destination->status)->toBe(CrewAssignmentStatus::Draft);
+});
+
+test('p5 redeploy rollback leaves source stay open when destination validation fails', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::OnVessel->value,
+        'source_check_out_date' => '2026-12-04',
+    ], $fixtures['user']->id))->toThrow(CrewMovementException::class);
+
+    $assignment->refresh()->load('currentPhase');
+    $stay->refresh();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and($stay->check_out_date)->toBeNull()
+        ->and(CrewAssignment::query()->where('previous_assignment_id', $assignment->id)->exists())->toBeFalse();
+});
+
+test('redeploy to p2a creates destination pre join hotel stay', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, $sourceHotel, $sourceStay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+    $destinationHotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Destination Hotel']);
+    $roomType = RoomType::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Twin Room']);
+
+    $destination = app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::JoinStandby->value,
+        'source_check_out_date' => '2026-12-05',
+        'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+        'hotel_id' => $destinationHotel->id,
+        'room_type_id' => $roomType->id,
+        'check_in_date' => '2026-12-05',
+    ], $fixtures['user']->id);
+
+    $sourceStay->refresh();
+    $destinationStay = CrewAccommodationStay::query()
+        ->where('crew_assignment_id', $destination->id)
+        ->where('stay_type', CrewAccommodationStayType::PreJoin)
+        ->first();
+
+    expect($sourceStay->check_out_date?->toDateString())->toBe('2026-12-05')
+        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($destinationStay)->not->toBeNull()
+        ->and($destinationStay->hotel_id)->toBe($destinationHotel->id)
+        ->and($destinationStay->started_from_phase_id)->toBe($destination->current_phase_id);
+});
+
+test('redeploy to p2a creates explicit destination no accommodation stay', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, , $sourceStay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+
+    $destination = app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::JoinStandby->value,
+        'source_check_out_date' => '2026-12-05',
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+    ], $fixtures['user']->id);
+
+    $destinationStay = CrewAccommodationStay::query()
+        ->where('crew_assignment_id', $destination->id)
+        ->first();
+
+    expect($sourceStay->fresh()->check_out_date?->toDateString())->toBe('2026-12-05')
+        ->and($destinationStay)->not->toBeNull()
+        ->and($destinationStay->stay_type)->toBe(CrewAccommodationStayType::PreJoin)
+        ->and($destinationStay->accommodation_status)->toBe(CrewAccommodationStatus::NoAccommodation);
+});
+
+test('redeploy to p0 handles source accommodation without creating destination stay', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+
+    $destination = app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::PreMobilisation->value,
+        'source_check_out_date' => '2026-12-05',
+    ], $fixtures['user']->id);
+
+    expect($stay->fresh()->check_out_date?->toDateString())->toBe('2026-12-05')
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $destination->id)->count())->toBe(0);
+});
+
+test('redeploy to p4 handles source accommodation without creating destination pre join stay', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    $fixtures['rank']->update(['max_tour_of_duty_days' => 90]);
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+    $vessel = makeCrewMovementVessel('Redeploy P4 Vessel', $fixtures['company']);
+
+    $destination = app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::OnVessel->value,
+        'source_check_out_date' => '2026-12-05',
+        'vessel_id' => $vessel->id,
+        'rank_id' => $fixtures['rank']->id,
+        'planned_signoff_choice' => 'tour_of_duty',
+    ], $fixtures['user']->id);
+
+    expect($stay->fresh()->check_out_date?->toDateString())->toBe('2026-12-05')
+        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $destination->id)->count())->toBe(0);
+});
+
+test('p5 redeploy without legacy source accommodation remains allowed', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
+
+    app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-11-30 09:30:00',
+        'next_phase' => CrewPhaseCode::DemobStandby->value,
+    ], $fixtures['user']->id);
+
+    $destination = app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->fresh()->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::PreMobilisation->value,
+    ], $fixtures['user']->id);
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($destination->status)->toBe(CrewAssignmentStatus::Draft);
+});
+
+test('p5 redeploy rejects multiple open post signoff hotel stays', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, $hotel] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-12-01',
+        'check_out_date' => null,
+        'started_from_phase_id' => $assignment->current_phase_id,
+    ]);
+
+    expect(fn () => app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::PreMobilisation->value,
+        'source_check_out_date' => '2026-12-05',
+    ], $fixtures['user']->id))->toThrow(CrewMovementException::class);
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Active)
+        ->and(CrewAssignment::query()->where('previous_assignment_id', $assignment->id)->exists())->toBeFalse();
+});
+
+test('cancel from p2a closes open pre join hotel stay', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);
+    [$assignment, , $stay] = makeActiveP2AAssignmentWithPreJoinHotel($fixtures);
+
+    $this->actingAs($fixtures['user'])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-09-18 08:00:00',
+            'check_out_date' => '2026-09-18',
+            'reason' => 'Client cancelled mobilisation',
+        ])
+        ->assertRedirect();
+
+    $assignment->refresh();
+    $stay->refresh();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Cancelled)
+        ->and($stay->check_out_date?->toDateString())->toBe('2026-09-18');
+});
+
+test('cancel from p2b closes the same open pre join hotel stay', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);
+    [$assignment, , $stay] = makeActiveP2AAssignmentWithPreJoinHotel($fixtures);
+    $service = app(CrewMovementService::class);
+
+    $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::SendToTraining, [
+        'occurred_at' => '2026-09-17 08:00:00',
+        'provider' => 'Training Center',
+        'course' => 'Safety',
+    ], $fixtures['user']->id);
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::Training);
+
+    $this->actingAs($fixtures['user'])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-09-18 08:00:00',
+            'check_out_date' => '2026-09-18',
+            'reason' => 'Training mobilisation cancelled',
+        ])
+        ->assertRedirect();
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled)
+        ->and($stay->fresh()->check_out_date?->toDateString())->toBe('2026-09-18');
+});
+
+test('cancel from p5 closes open post signoff hotel stay', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+
+    $this->actingAs($fixtures['user'])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-12-06 08:00:00',
+            'check_out_date' => '2026-12-06',
+            'reason' => 'Demobilisation cancelled',
+        ])
+        ->assertRedirect();
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled)
+        ->and($stay->fresh()->check_out_date?->toDateString())->toBe('2026-12-06');
+});
+
+test('invalid cancel checkout leaves assignment active and stay open', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);
+    [$assignment, , $stay] = makeActiveP2AAssignmentWithPreJoinHotel($fixtures);
+
+    $this->actingAs($fixtures['user'])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-09-18 08:00:00',
+            'check_out_date' => '2026-09-15',
+            'reason' => 'Client cancelled mobilisation',
+        ])
+        ->assertSessionHasErrors('check_out_date');
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($stay->fresh()->check_out_date)->toBeNull();
+});
+
+test('cancel without accommodation data remains allowed', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);
+    $assignment = startActivePreMobilisationAssignment($fixtures);
+
+    app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-09-16 10:30:00',
+    ], $fixtures['user']->id);
+
+    $this->actingAs($fixtures['user'])
+        ->post(route('organization.crew-assignments.perform-action', $assignment->fresh()), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-09-18 08:00:00',
+            'reason' => 'No accommodation on record',
+        ])
+        ->assertRedirect();
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled);
+});
+
+test('cancel with explicit no accommodation decision remains allowed', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);
+    $assignment = startActivePreMobilisationAssignment($fixtures);
+
+    app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-09-16 10:30:00',
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+    ], $fixtures['user']->id);
+
+    $this->actingAs($fixtures['user'])
+        ->post(route('organization.crew-assignments.perform-action', $assignment->fresh()), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-09-18 08:00:00',
+            'reason' => 'No hotel path',
+        ])
+        ->assertRedirect();
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled);
+});
+
+test('cancel rejects multiple open hotel stays without partial mutation', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);
+    [$assignment, $hotel] = makeActiveP2AAssignmentWithPreJoinHotel($fixtures);
+
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-09-10',
+        'check_out_date' => null,
+        'started_from_phase_id' => $assignment->current_phase_id,
+    ]);
+
+    $this->actingAs($fixtures['user'])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-09-18 08:00:00',
+            'check_out_date' => '2026-09-18',
+            'reason' => 'Should be blocked',
+        ])
+        ->assertSessionHasErrors('check_out_date');
+
+    expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Active);
+});
+
+test('void is blocked when pre join hotel stay exists', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
+    [$assignment, , $stay] = makeActiveP2AAssignmentWithPreJoinHotel($fixtures);
+
+    expect(fn () => app(VoidCrewAssignment::class)->handle(
+        $fixtures['company']->id,
+        $assignment->id,
+        $fixtures['user'],
+        'Should be blocked',
+    ))->toThrow(ValidationException::class);
+
+    expect($assignment->fresh()->trashed())->toBeFalse()
+        ->and($stay->fresh()->check_out_date)->toBeNull()
+        ->and(collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $fixtures['company']->id))->pluck('code'))
+        ->toContain('accommodation_history_exists');
+});
+
+test('void is blocked when post signoff hotel stay exists', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+
+    expect(fn () => app(VoidCrewAssignment::class)->handle(
+        $fixtures['company']->id,
+        $assignment->id,
+        $fixtures['user'],
+        'Should be blocked',
+    ))->toThrow(ValidationException::class);
+
+    expect($assignment->fresh()->trashed())->toBeFalse()
+        ->and($stay->fresh()->check_out_date)->toBeNull();
+});
+
+test('void is blocked when no accommodation record exists', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
+    $assignment = startActivePreMobilisationAssignment($fixtures);
+
+    app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-09-16 10:30:00',
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+    ], $fixtures['user']->id);
+
+    expect(fn () => app(VoidCrewAssignment::class)->handle(
+        $fixtures['company']->id,
+        $assignment->fresh()->id,
+        $fixtures['user'],
+        'Should be blocked',
+    ))->toThrow(ValidationException::class);
+});
+
+test('void without accommodation history remains allowed', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
+    $assignment = app(CrewMovementService::class)->createDraft($fixtures['company']->id, $fixtures['employee']->id, [
+        'rank_id' => $fixtures['rank']->id,
+    ], $fixtures['user']->id);
+
+    app(VoidCrewAssignment::class)->handle(
+        $fixtures['company']->id,
+        $assignment->id,
+        $fixtures['user'],
+        'Entered by mistake',
+    );
+
+    expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue();
+});
+
+test('current crew bulk loads p5 accommodation without per assignment presenter queries', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.view']);
+    $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
+
+    foreach (['Hotel A', 'Hotel B', 'Hotel C'] as $index => $hotelName) {
+        $employee = $index === 0
+            ? $fixtures['employee']
+            : Employee::factory()->forCompany($fixtures['company'])->create([
+                'rank_id' => $fixtures['rank']->id,
+                'status' => 'active',
+            ]);
+
+        $assignment = makeActiveOnVesselAssignment(
+            $fixtures['company'],
+            $employee,
+            $fixtures['rank'],
+            makeCrewMovementVessel("P5 Accommodation {$index}", $fixtures['company']),
+        );
+
+        $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => $hotelName]);
+
+        app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+            'occurred_at' => '2026-11-30 09:30:00',
+            'next_phase' => CrewPhaseCode::DemobStandby->value,
+            'accommodation_status' => $index === 2 ? null : CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $index === 2 ? null : $hotel->id,
+            'check_in_date' => $index === 2 ? null : '2026-11-30',
+        ], $fixtures['user']->id);
+    }
+
+    $page = CurrentCrewQuery::paginate(
+        $fixtures['company']->id,
+        [],
+        CurrentCrewRequestFilters::VIEW_POST_SIGNOFF_HOTEL,
+    );
+
+    $items = collect($page->items())->map(function (CrewAssignment $assignment) {
+        return CrewAssignmentPresenter::listItem($assignment);
+    });
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    foreach ($page->items() as $assignment) {
+        CrewAssignmentPresenter::listItem($assignment);
+    }
+    $presenterQueries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($page->total())->toBe(3)
+        ->and($items->pluck('movement_context.post_signoff_accommodation.status')->all())
+        ->toEqual(['open_hotel', 'open_hotel', 'missing'])
+        ->and($presenterQueries)->toBeLessThanOrEqual(2);
 });
