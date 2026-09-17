@@ -3,6 +3,14 @@ export type Company = {
     name: string;
 };
 
+export type PermissionOption = {
+    id: number;
+    name: string;
+    label: string;
+    description: string | null;
+    group: string;
+};
+
 export type Role = {
     id: number;
     name: string;

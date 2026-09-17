@@ -19,20 +19,18 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type {
     Company,
+    PermissionOption,
     Role,
     RoleFormData,
 } from '@/features/organization/roles/types';
 import { resolvePermissionGroups } from '@/pages/organization/_lib/role-permission-groups';
+import { permissionMatchesQuery } from '@/pages/organization/_lib/role-permission-search';
 
 function normalizePermissions(value: string[]): string[] {
     return Array.from(
         new Set(value.map((p) => p.trim()).filter(Boolean)),
     ).sort();
 }
-
-const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
-    'attendance.records.manage': 'Records: View All Employees',
-};
 
 export default function RoleDetails({
     role,
@@ -41,7 +39,7 @@ export default function RoleDetails({
 }: {
     role: Role & { updated_at?: string };
     company: (Company & { slug?: string }) | null;
-    permissions: { id: number; name: string }[];
+    permissions: PermissionOption[];
 }) {
     const form = useForm<RoleFormData>({
         name: role.name ?? '',
@@ -56,51 +54,51 @@ export default function RoleDetails({
     );
 
     const availablePermissions = useMemo(
-        () => normalizePermissions(permissions.map((p) => p.name)),
+        () =>
+            [...permissions].sort((left, right) =>
+                left.label.localeCompare(right.label),
+            ),
         [permissions],
     );
+
+    const availablePermissionNames = useMemo(
+        () =>
+            normalizePermissions(
+                permissions.map((permission) => permission.name),
+            ),
+        [permissions],
+    );
+
     const selectedSet = useMemo(
         () => new Set(selectedPermissions),
         [selectedPermissions],
     );
 
-    const formatPermissionName = (name: string) => {
-        if (PERMISSION_LABEL_OVERRIDES[name]) {
-            return PERMISSION_LABEL_OVERRIDES[name];
-        }
-
-        const parts = name.split('.');
-
-        if (parts.length <= 1) {
-            return name;
-        }
-
-        // Remove the group from the name for display if it's the first part
-        const rest = parts.slice(1);
-
-        return rest
-            .map((p) =>
-                p
-                    .split(/[-_]/)
-                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(' '),
-            )
-            .join(': ');
-    };
-
     const grouped = useMemo(() => {
-        const query = permissionQuery.trim().toLowerCase();
-        const list = query
-            ? availablePermissions.filter((p) =>
-                  p.toLowerCase().includes(query),
-              )
-            : availablePermissions;
+        const list = availablePermissions.filter((permission) => {
+            if (!permissionMatchesQuery(permission, permissionQuery)) {
+                return false;
+            }
 
-        // Map<MainGroup, Map<SubGroup, Permission[]>>
-        const mainMap = new Map<string, Map<string, string[]>>();
+            const checked = selectedSet.has(permission.name);
+
+            if (permissionView === 'selected') {
+                return checked;
+            }
+
+            if (permissionView === 'unselected') {
+                return !checked;
+            }
+
+            return true;
+        });
+
+        const mainMap = new Map<string, Map<string, PermissionOption[]>>();
 
         for (const permission of list) {
-            const { mainGroup, subGroup } = resolvePermissionGroups(permission);
+            const { mainGroup, subGroup } = resolvePermissionGroups(
+                permission.name,
+            );
 
             if (!mainMap.has(mainGroup)) {
                 mainMap.set(mainGroup, new Map());
@@ -115,17 +113,24 @@ export default function RoleDetails({
             subMap.get(subGroup)!.push(permission);
         }
 
-        // Convert to sorted array structure
         return Array.from(mainMap.entries())
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([mainGroup, subMap]) => {
                 const subGroups = Array.from(subMap.entries())
                     .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([name, items]) => [name, items.sort()] as const);
+                    .map(
+                        ([name, items]) =>
+                            [
+                                name,
+                                [...items].sort((left, right) =>
+                                    left.label.localeCompare(right.label),
+                                ),
+                            ] as const,
+                    );
 
                 return [mainGroup, subGroups] as const;
             });
-    }, [availablePermissions, permissionQuery]);
+    }, [availablePermissions, permissionQuery, permissionView, selectedSet]);
 
     const initialGroup = grouped[0]?.[0] ?? null;
     const [activeGroup, setActiveGroup] = useState<string | null>(initialGroup);
@@ -291,11 +296,14 @@ export default function RoleDetails({
                                     <div className="space-y-1 p-2">
                                         {grouped.map(([group, subGroups]) => {
                                             const allItems = subGroups.flatMap(
-                                                ([, items]) => items,
+                                                ([, items]) =>
+                                                    items.map(
+                                                        (item) => item.name,
+                                                    ),
                                             );
                                             const selectedCount =
-                                                allItems.filter((p) =>
-                                                    selectedSet.has(p),
+                                                allItems.filter((name) =>
+                                                    selectedSet.has(name),
                                                 ).length;
                                             const isActive =
                                                 effectiveActiveGroup === group;
@@ -348,7 +356,7 @@ export default function RoleDetails({
                                         className="h-8 w-full text-[10px] font-bold tracking-widest text-muted-foreground/40 uppercase hover:text-primary"
                                         onClick={() =>
                                             setSelectedPermissions(
-                                                availablePermissions,
+                                                availablePermissionNames,
                                             )
                                         }
                                     >
@@ -377,11 +385,14 @@ export default function RoleDetails({
                                                 groupData;
 
                                             const allItems = subGroups.flatMap(
-                                                ([, items]) => items,
+                                                ([, items]) =>
+                                                    items.map(
+                                                        (item) => item.name,
+                                                    ),
                                             );
                                             const selectedCount =
-                                                allItems.filter((p) =>
-                                                    selectedSet.has(p),
+                                                allItems.filter((name) =>
+                                                    selectedSet.has(name),
                                                 ).length;
                                             const allSelected =
                                                 selectedCount ===
@@ -472,10 +483,10 @@ export default function RoleDetails({
                                                                     const subSelectedCount =
                                                                         items.filter(
                                                                             (
-                                                                                p,
+                                                                                permission,
                                                                             ) =>
                                                                                 selectedSet.has(
-                                                                                    p,
+                                                                                    permission.name,
                                                                                 ),
                                                                         ).length;
                                                                     const subAllSelected =
@@ -522,7 +533,12 @@ export default function RoleDetails({
                                                                                         ) {
                                                                                             const remove =
                                                                                                 new Set(
-                                                                                                    items,
+                                                                                                    items.map(
+                                                                                                        (
+                                                                                                            permission,
+                                                                                                        ) =>
+                                                                                                            permission.name,
+                                                                                                    ),
                                                                                                 );
                                                                                             setSelectedPermissions(
                                                                                                 (
@@ -530,10 +546,10 @@ export default function RoleDetails({
                                                                                                 ) =>
                                                                                                     prev.filter(
                                                                                                         (
-                                                                                                            p,
+                                                                                                            name,
                                                                                                         ) =>
                                                                                                             !remove.has(
-                                                                                                                p,
+                                                                                                                name,
                                                                                                             ),
                                                                                                     ),
                                                                                             );
@@ -548,7 +564,12 @@ export default function RoleDetails({
                                                                                                 normalizePermissions(
                                                                                                     [
                                                                                                         ...prev,
-                                                                                                        ...items,
+                                                                                                        ...items.map(
+                                                                                                            (
+                                                                                                                permission,
+                                                                                                            ) =>
+                                                                                                                permission.name,
+                                                                                                        ),
                                                                                                     ],
                                                                                                 ),
                                                                                         );
@@ -561,22 +582,22 @@ export default function RoleDetails({
                                                                                 </Button>
                                                                             </div>
 
-                                                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                                                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                                                                                 {items.map(
                                                                                     (
                                                                                         permission,
                                                                                     ) => {
                                                                                         const checked =
                                                                                             selectedSet.has(
-                                                                                                permission,
+                                                                                                permission.name,
                                                                                             );
 
                                                                                         return (
                                                                                             <label
                                                                                                 key={
-                                                                                                    permission
+                                                                                                    permission.name
                                                                                                 }
-                                                                                                className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-all ${
+                                                                                                className={`flex cursor-pointer items-start gap-4 rounded-2xl border p-4 transition-all ${
                                                                                                     checked
                                                                                                         ? 'border-primary/20 bg-primary/[0.08] shadow-lg ring-1 shadow-primary/[0.03] ring-primary/10'
                                                                                                         : 'border-border bg-muted/20 hover:border-border hover:bg-muted/40 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
@@ -590,33 +611,33 @@ export default function RoleDetails({
                                                                                                         value,
                                                                                                     ) =>
                                                                                                         togglePermission(
-                                                                                                            permission,
+                                                                                                            permission.name,
                                                                                                             Boolean(
                                                                                                                 value,
                                                                                                             ),
                                                                                                         )
                                                                                                     }
-                                                                                                    className="h-5 w-5 border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary dark:border-white/10"
+                                                                                                    className="mt-0.5 h-5 w-5 border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary dark:border-white/10"
                                                                                                 />
-                                                                                                <div className="flex-1 overflow-hidden">
+                                                                                                <div className="min-w-0 flex-1 space-y-1">
                                                                                                     <p
-                                                                                                        className={`truncate text-sm font-bold tracking-tight ${checked ? 'text-primary' : 'text-foreground/80'}`}
+                                                                                                        className={`text-sm font-bold tracking-tight ${checked ? 'text-primary' : 'text-foreground/80'}`}
                                                                                                     >
-                                                                                                        {formatPermissionName(
-                                                                                                            permission,
-                                                                                                        )}
+                                                                                                        {
+                                                                                                            permission.label
+                                                                                                        }
                                                                                                     </p>
-                                                                                                    <p className="mt-0.5 truncate text-[10px] font-medium tracking-tighter text-muted-foreground/40 uppercase">
-                                                                                                        {permission
-                                                                                                            .split(
-                                                                                                                '.',
-                                                                                                            )
-                                                                                                            .pop()
-                                                                                                            ?.replace(
-                                                                                                                /-/g,
-                                                                                                                ' ',
-                                                                                                            )}{' '}
-                                                                                                        Access
+                                                                                                    {permission.description ? (
+                                                                                                        <p className="text-xs leading-relaxed text-muted-foreground">
+                                                                                                            {
+                                                                                                                permission.description
+                                                                                                            }
+                                                                                                        </p>
+                                                                                                    ) : null}
+                                                                                                    <p className="font-mono text-[10px] text-muted-foreground/50">
+                                                                                                        {
+                                                                                                            permission.name
+                                                                                                        }
                                                                                                     </p>
                                                                                                 </div>
                                                                                             </label>

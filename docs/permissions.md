@@ -2,7 +2,27 @@
 
 Authorization uses [Spatie Laravel Permission](https://github.com/spatie/laravel-permission) with **company teams**. `SetCurrentCompany` sets `current_company_id` on the request and configures the same value as Spatie's active team before company-scoped permission checks run.
 
-The authoritative permission catalog is `database/seeders/PermissionsSeeder.php`. Route coverage is defined by `routes/web.php` and `routes/settings.php`; do not treat this document as a substitute for checking both.
+The authoritative permission catalog is `app/Support/Authorization/ApplicationPermissionDefinitions.php`, synchronized into the database by `database/seeders/PermissionsSeeder.php`. Route coverage is defined by `routes/web.php` and `routes/settings.php`; do not treat this document as a substitute for checking both.
+
+Every application permission must define:
+
+- `name` — stable machine identifier used in route middleware and backend checks
+- `label` — human-readable title shown in Roles & permissions
+- `description` — plain-English explanation of the practical effect
+- `group` — module grouping used in the role editor
+
+Example:
+
+```php
+[
+    'name' => 'projects.create',
+    'label' => 'Create Projects',
+    'description' => 'Allows the user to create new project records for the active company.',
+    'group' => 'Settings',
+]
+```
+
+Add new permissions to `ApplicationPermissionDefinitions.php` first, then re-seed. Frontend hiding is not authorization. Descriptions explain a permission but do not replace backend permission enforcement.
 
 ## Enforcement rules
 

@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Organization;
 use App\Exports\RolesExport;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\Permission;
+use App\Support\Authorization\ApplicationPermissionRegistry;
+use App\Support\Authorization\Presenters\PermissionOptionPresenter;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -12,7 +15,6 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
@@ -43,10 +45,7 @@ class RoleController extends Controller
             'created_at' => $role->created_at,
         ]);
 
-        $permissions = Permission::query()
-            ->where('guard_name', 'web')
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $permissions = self::applicationPermissionOptions();
 
         $company = Company::query()->whereKey($companyId)->first(['id', 'name']);
 
@@ -67,10 +66,7 @@ class RoleController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $role->company_id === $companyId, 404);
 
-        $permissions = Permission::query()
-            ->where('guard_name', 'web')
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $permissions = self::applicationPermissionOptions();
 
         $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
 
@@ -170,6 +166,20 @@ class RoleController extends Controller
         return redirect()
             ->route('organization.roles')
             ->with('success', 'Role deleted successfully.');
+    }
+
+    /**
+     * @return list<array{id: int, name: string, label: string, description: string|null, group: string}>
+     */
+    private static function applicationPermissionOptions(): array
+    {
+        return PermissionOptionPresenter::collection(
+            Permission::query()
+                ->where('guard_name', 'web')
+                ->whereIn('name', ApplicationPermissionRegistry::names())
+                ->orderBy('name')
+                ->get(['id', 'name', 'label', 'description']),
+        );
     }
 
     public function export(Request $request)

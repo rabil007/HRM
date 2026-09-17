@@ -31,7 +31,7 @@ import { RoleDeleteDialog } from './components/role-delete-dialog';
 import { RoleFiltersSheet } from './components/role-filters-sheet';
 import type { RoleFilters } from './components/role-filters-sheet';
 import { RoleFormSheet } from './components/role-form-sheet';
-import type { Company, Role, RoleFormData } from './types';
+import type { Company, PermissionOption, Role, RoleFormData } from './types';
 
 export function RolesContent({
     roles,
@@ -46,7 +46,7 @@ export function RolesContent({
     search: string;
     filters: { has_permissions: string };
     company: Company | null;
-    permissions: { id: number; name: string }[];
+    permissions: PermissionOption[];
 }) {
     void _permissions;
 

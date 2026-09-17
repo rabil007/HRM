@@ -1,6 +1,10 @@
 import { Head } from '@inertiajs/react';
 import { RolesContent } from '@/features/organization/roles';
-import type { Company, Role } from '@/features/organization/roles/types';
+import type {
+    Company,
+    PermissionOption,
+    Role,
+} from '@/features/organization/roles/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function Roles({
@@ -16,7 +20,7 @@ export default function Roles({
     search: string;
     filters: { has_permissions: string };
     company: Company | null;
-    permissions: { id: number; name: string }[];
+    permissions: PermissionOption[];
 }) {
     return (
         <>

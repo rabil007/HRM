@@ -14,7 +14,7 @@ Multi-tenant authorization via **Spatie Laravel Permission** with **company team
 2. Routes enforce permissions: `->middleware('can:documents.view')`.
 3. Policies/gates for model or state rules — `app/Policies/CrewAssignmentPolicy.php` with `Gate::authorize`. Frontend `can` flags are UX only.
 
-Seed permissions in `database/seeders/PermissionsSeeder.php` (dot notation):
+Define permission metadata in `app/Support/Authorization/ApplicationPermissionDefinitions.php` (name, label, description, group), then sync via `database/seeders/PermissionsSeeder.php` (dot notation):
 
 ```
 employees.view
