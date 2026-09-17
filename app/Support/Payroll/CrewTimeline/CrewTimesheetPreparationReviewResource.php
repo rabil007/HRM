@@ -43,6 +43,7 @@ final class CrewTimesheetPreparationReviewResource
             $period,
             $companyTimezone,
             $hasPreparationCrossCompany,
+            $isFresh,
         );
         $summary = $this->summaryTotals($employees, $hasPreparationCrossCompany);
         $warningBreakdown = $this->warningBreakdown($employees);
@@ -70,7 +71,7 @@ final class CrewTimesheetPreparationReviewResource
                 'status' => $preparation->status->value,
                 'status_label' => $preparation->status->label(),
                 'cutoff_date' => $preparation->cutoff_date?->toDateString(),
-                'effective_cutoff_date' => $preparation->effective_cutoff_date?->toDateString() ?? $preparation->resolveEffectiveCutoffDate()->toDateString(),
+                'effective_cutoff_date' => $preparation->effective_cutoff_date?->toDateString() ?? $preparation->resolveEffectiveCutoffDate($period)->toDateString(),
                 'source_hash' => $preparation->source_hash,
                 'is_fresh' => $isFresh,
                 'is_stale' => ! $isFresh,
@@ -104,6 +105,7 @@ final class CrewTimesheetPreparationReviewResource
         PayrollPeriod $period,
         string $companyTimezone,
         bool $hasPreparationCrossCompany = false,
+        ?bool $isFresh = null,
     ): array {
         $prepLines = $this->preparationLines($preparation);
 
@@ -114,7 +116,7 @@ final class CrewTimesheetPreparationReviewResource
 
         $isDraft = $preparation->status === CrewTimesheetPreparationStatus::Draft;
         $isLatest = $this->isLatest($preparation);
-        $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
+        $isFresh = $isFresh ?? $this->freshnessChecker->isFresh($preparation, $period);
         $userCanSkip = auth()->user()?->can('payroll.crew_timesheets.skip_timeline') ?? false;
         $isPreparationEditable = $isDraft && $period->status === PayrollPeriodStatus::Draft && $period->isCrew() && $isLatest && $isFresh;
 
@@ -882,14 +884,23 @@ final class CrewTimesheetPreparationReviewResource
             ->get();
     }
 
+    /** @var array<string, bool> */
+    private array $isLatestCache = [];
+
     private function isLatest(CrewTimesheetPreparation $preparation): bool
     {
+        $key = "{$preparation->company_id}:{$preparation->payroll_period_id}:{$preparation->version}";
+
+        if (isset($this->isLatestCache[$key])) {
+            return $this->isLatestCache[$key];
+        }
+
         $latestVersion = (int) CrewTimesheetPreparation::query()
             ->where('company_id', $preparation->company_id)
             ->where('payroll_period_id', $preparation->payroll_period_id)
             ->max('version');
 
-        return (int) $preparation->version === $latestVersion;
+        return $this->isLatestCache[$key] = ((int) $preparation->version === $latestVersion);
     }
 
     private function formatDays(float $days): string

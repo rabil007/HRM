@@ -96,21 +96,24 @@ class CrewTimesheetPreparation extends Model
         ];
     }
 
-    public function resolveEffectiveCutoffDate(): CarbonImmutable
+    public function resolveEffectiveCutoffDate(?PayrollPeriod $period = null): CarbonImmutable
     {
         if ($this->effective_cutoff_date !== null) {
             return CarbonImmutable::parse($this->effective_cutoff_date->toDateString());
         }
 
-        $timezone = CompanyTimezone::forCompanyId((int) $this->company_id);
+        $period = $period ?? ($this->relationLoaded('payrollPeriod') ? $this->payrollPeriod : null);
+        $timezone = CompanyTimezone::forCompany($this->relationLoaded('company') ? $this->company : (int) $this->company_id);
 
         if ($this->cutoff_date !== null) {
             return CarbonImmutable::parse($this->cutoff_date->toDateString(), $timezone);
         }
 
-        $periodEnd = $this->payrollPeriod?->end_date !== null
-            ? CarbonImmutable::parse($this->payrollPeriod->end_date->toDateString(), $timezone)
-            : CarbonImmutable::now($timezone)->startOfDay();
+        $periodEnd = $period?->end_date !== null
+            ? CarbonImmutable::parse($period->end_date->toDateString(), $timezone)
+            : ($this->payrollPeriod?->end_date !== null
+                ? CarbonImmutable::parse($this->payrollPeriod->end_date->toDateString(), $timezone)
+                : CarbonImmutable::now($timezone)->startOfDay());
 
         $preparedDate = $this->prepared_at !== null
             ? CarbonImmutable::parse($this->prepared_at->toIso8601String(), $timezone)->startOfDay()

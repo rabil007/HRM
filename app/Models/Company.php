@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,17 @@ class Company extends Model
     use SoftDeletes;
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $company): void {
+            CompanyTimezone::flushCache((int) $company->id);
+        });
+
+        static::deleted(function (self $company): void {
+            CompanyTimezone::flushCache((int) $company->id);
+        });
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

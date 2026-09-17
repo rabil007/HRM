@@ -23,6 +23,18 @@ final class CompanyTimezone
         return self::forCompany($companyId);
     }
 
+    /** @var array<int, ?Company> */
+    private static array $resolvedCompanies = [];
+
+    public static function flushCache(?int $companyId = null): void
+    {
+        if ($companyId !== null) {
+            unset(self::$resolvedCompanies[$companyId]);
+        } else {
+            self::$resolvedCompanies = [];
+        }
+    }
+
     private static function resolveCompany(int|Company|null $company): ?Company
     {
         if ($company instanceof Company) {
@@ -33,7 +45,7 @@ final class CompanyTimezone
             return null;
         }
 
-        return Company::query()
+        return self::$resolvedCompanies[$company] ??= Company::query()
             ->select(['id', 'timezone'])
             ->find($company);
     }
