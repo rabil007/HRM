@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Settings\MasterData;
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Settings\MasterData\Concerns\PaginatesMasterDataIndex;
+use App\Http\Requests\Settings\MasterData\AssignLegacyRoomTypeRequest;
+use App\Http\Requests\Settings\MasterData\ReconcileLegacyRoomTypeRequest;
 use App\Http\Requests\Settings\MasterData\StoreHotelRequest;
 use App\Http\Requests\Settings\MasterData\UpdateHotelRequest;
 use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Support\MasterData\MasterDataUsage;
+use App\Support\MasterData\ReconcileLegacyRoomTypes;
 use App\Support\MasterData\SyncHotelRoomTypes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -42,10 +45,23 @@ class HotelController extends Controller
             Hotel::class,
         );
 
+        $unassignedRoomTypes = ReconcileLegacyRoomTypes::unresolvedForCompany($companyId);
+
         return Inertia::render('settings/master-data/hotels', [
             'hotels' => $page['items'],
             'pagination' => $page['pagination'],
             'search' => $page['search'],
+            'unassigned_room_types' => $unassignedRoomTypes,
+            'hotels_for_assignment' => Hotel::query()
+                ->forCompany($companyId)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (Hotel $hotel): array => [
+                    'id' => $hotel->id,
+                    'name' => $hotel->name,
+                ])
+                ->values()
+                ->all(),
         ]);
     }
 
@@ -54,7 +70,7 @@ class HotelController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $data = $request->validated();
         $roomTypes = $request->validatedRoomTypes();
-        unset($data['room_types']);
+        unset($data['room_types'], $data['removed_room_type_ids']);
         $data['company_id'] = $companyId;
         $data['is_active'] = $data['is_active'] ?? true;
 
@@ -79,7 +95,7 @@ class HotelController extends Controller
                 $hotel = Hotel::query()->create($data);
 
                 if ($roomTypes !== []) {
-                    SyncHotelRoomTypes::sync($hotel, $roomTypes, $companyId);
+                    SyncHotelRoomTypes::handle($hotel, $roomTypes, [], $companyId);
                 }
 
                 return $hotel;
@@ -96,7 +112,7 @@ class HotelController extends Controller
             $hotel = Hotel::query()->create($data);
 
             if ($roomTypes !== []) {
-                SyncHotelRoomTypes::sync($hotel, $roomTypes, $companyId);
+                SyncHotelRoomTypes::handle($hotel, $roomTypes, [], $companyId);
             }
         });
 
@@ -110,11 +126,22 @@ class HotelController extends Controller
 
         $data = $request->validated();
         $roomTypes = $request->validatedRoomTypes();
-        unset($data['room_types']);
+        $removedRoomTypeIds = $request->validatedRemovedRoomTypeIds();
+        $shouldSyncRoomTypes = $request->shouldSyncRoomTypes();
+        unset($data['room_types'], $data['removed_room_type_ids']);
 
-        DB::transaction(function () use ($hotel, $data, $roomTypes, $companyId): void {
+        DB::transaction(function () use ($hotel, $data, $roomTypes, $removedRoomTypeIds, $shouldSyncRoomTypes, $companyId): void {
+            $hotel = Hotel::query()
+                ->whereKey($hotel->id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             $hotel->update($data);
-            SyncHotelRoomTypes::syncWithDeletions($hotel, $roomTypes, $companyId);
+
+            if ($shouldSyncRoomTypes) {
+                SyncHotelRoomTypes::handle($hotel, $roomTypes, $removedRoomTypeIds, $companyId);
+            }
         });
 
         return redirect()->route('settings.master-data.hotels.index');
@@ -130,9 +157,52 @@ class HotelController extends Controller
         }
 
         DB::transaction(function () use ($hotel, $companyId): void {
+            $hotel = Hotel::query()
+                ->whereKey($hotel->id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             SyncHotelRoomTypes::deleteAllForHotel($hotel, $companyId);
             $hotel->delete();
         });
+
+        return redirect()->route('settings.master-data.hotels.index');
+    }
+
+    public function assignLegacyRoomType(AssignLegacyRoomTypeRequest $request): RedirectResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $data = $request->validated();
+
+        $roomType = RoomType::query()
+            ->whereKey((int) $data['room_type_id'])
+            ->where('company_id', $companyId)
+            ->whereNull('hotel_id')
+            ->firstOrFail();
+
+        $hotel = Hotel::query()
+            ->whereKey((int) $data['hotel_id'])
+            ->where('company_id', $companyId)
+            ->firstOrFail();
+
+        ReconcileLegacyRoomTypes::assignToHotel($roomType, $hotel, $companyId);
+
+        return redirect()->route('settings.master-data.hotels.index');
+    }
+
+    public function reconcileLegacyRoomType(ReconcileLegacyRoomTypeRequest $request): RedirectResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $data = $request->validated();
+
+        $roomType = RoomType::query()
+            ->whereKey((int) $data['room_type_id'])
+            ->where('company_id', $companyId)
+            ->whereNull('hotel_id')
+            ->firstOrFail();
+
+        ReconcileLegacyRoomTypes::splitByHotelUsage($roomType, $companyId);
 
         return redirect()->route('settings.master-data.hotels.index');
     }
@@ -142,7 +212,7 @@ class HotelController extends Controller
      */
     private function presentHotel(Hotel $hotel, int $companyId, Request $request): array
     {
-        $canDeleteRoomTypes = $request->user()?->can('settings.master-data.hotels.delete') ?? false;
+        $canDeleteRoomTypes = $request->user()?->can('settings.master-data.hotels.update') ?? false;
 
         $roomTypes = MasterDataUsage::decorate(
             $hotel->roomTypes,

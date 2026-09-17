@@ -33,7 +33,6 @@ export function RecordArrivalForm({
     const availableRoomTypes = roomTypesForHotel(
         formOptions?.room_types,
         form.data.hotel_id,
-        form.data.room_type_id,
     );
 
     const syncCheckInDate = (occurredAt: string): void => {

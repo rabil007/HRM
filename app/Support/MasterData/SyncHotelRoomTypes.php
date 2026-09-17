@@ -4,7 +4,6 @@ namespace App\Support\MasterData;
 
 use App\Models\Hotel;
 use App\Models\RoomType;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class SyncHotelRoomTypes
@@ -15,107 +14,111 @@ final class SyncHotelRoomTypes
      *     name: string,
      *     description?: string|null,
      *     is_active?: bool|null
-     * }>  $rows
+     * }>  $roomTypes
+     * @param  list<int>  $removedRoomTypeIds
      */
-    public static function sync(Hotel $hotel, array $rows, int $companyId): void
-    {
-        DB::transaction(function () use ($hotel, $rows, $companyId): void {
-            foreach ($rows as $index => $row) {
-                $name = trim((string) ($row['name'] ?? ''));
-                $description = isset($row['description']) && $row['description'] !== ''
-                    ? (string) $row['description']
-                    : null;
-                $isActive = array_key_exists('is_active', $row)
-                    ? (bool) $row['is_active']
-                    : true;
-                $roomTypeId = isset($row['id']) ? (int) $row['id'] : null;
+    public static function handle(
+        Hotel $hotel,
+        array $roomTypes,
+        array $removedRoomTypeIds,
+        int $companyId,
+    ): void {
+        $hotel = Hotel::query()
+            ->whereKey($hotel->id)
+            ->where('company_id', $companyId)
+            ->lockForUpdate()
+            ->firstOrFail();
 
-                if ($roomTypeId !== null && $roomTypeId > 0) {
-                    $roomType = RoomType::query()
-                        ->whereKey($roomTypeId)
-                        ->where('company_id', $companyId)
-                        ->where('hotel_id', $hotel->id)
-                        ->first();
+        $removedRoomTypeIds = array_values(array_unique(array_filter(
+            $removedRoomTypeIds,
+            fn (mixed $id): bool => is_numeric($id) && (int) $id > 0,
+        )));
 
-                    if ($roomType === null) {
-                        throw ValidationException::withMessages([
-                            "room_types.{$index}.id" => 'Room type does not belong to this hotel.',
-                        ]);
-                    }
+        $submittedIds = collect($roomTypes)
+            ->pluck('id')
+            ->filter(fn (mixed $id): bool => is_numeric($id) && (int) $id > 0)
+            ->map(fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
 
-                    $roomType->update([
-                        'name' => $name,
-                        'description' => $description,
-                        'is_active' => $isActive,
-                    ]);
+        $overlap = array_intersect($submittedIds, $removedRoomTypeIds);
 
-                    continue;
-                }
+        if ($overlap !== []) {
+            throw ValidationException::withMessages([
+                'removed_room_type_ids' => 'A room type cannot be updated and removed in the same request.',
+            ]);
+        }
 
-                $hotel->roomTypes()->create([
-                    'company_id' => $companyId,
-                    'name' => $name,
-                    'description' => $description,
-                    'is_active' => $isActive,
+        foreach ($removedRoomTypeIds as $roomTypeId) {
+            $roomType = RoomType::query()
+                ->whereKey($roomTypeId)
+                ->where('company_id', $companyId)
+                ->where('hotel_id', $hotel->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($roomType === null) {
+                throw ValidationException::withMessages([
+                    'removed_room_type_ids' => 'One or more room types do not belong to this hotel.',
                 ]);
             }
-        });
-    }
 
-    /**
-     * @param  list<array{
-     *     id?: int|null,
-     *     name: string,
-     *     description?: string|null,
-     *     is_active?: bool|null
-     * }>  $rows
-     */
-    public static function syncWithDeletions(Hotel $hotel, array $rows, int $companyId): void
-    {
-        DB::transaction(function () use ($hotel, $rows, $companyId): void {
-            $submittedIds = collect($rows)
-                ->pluck('id')
-                ->filter(fn (mixed $id): bool => is_numeric($id) && (int) $id > 0)
-                ->map(fn (mixed $id): int => (int) $id)
-                ->values()
-                ->all();
+            MasterDataUsage::assertDeletable($roomType, $companyId);
+            $roomType->delete();
+        }
 
-            $existingIds = $hotel->roomTypes()
-                ->where('company_id', $companyId)
-                ->pluck('id')
-                ->map(fn (mixed $id): int => (int) $id)
-                ->all();
+        foreach ($roomTypes as $index => $row) {
+            $name = trim((string) ($row['name'] ?? ''));
+            $description = isset($row['description']) && $row['description'] !== ''
+                ? (string) $row['description']
+                : null;
+            $isActive = array_key_exists('is_active', $row)
+                ? (bool) $row['is_active']
+                : true;
+            $roomTypeId = isset($row['id']) ? (int) $row['id'] : null;
 
-            foreach (array_diff($existingIds, $submittedIds) as $roomTypeId) {
+            if ($roomTypeId !== null && $roomTypeId > 0) {
                 $roomType = RoomType::query()
                     ->whereKey($roomTypeId)
                     ->where('company_id', $companyId)
                     ->where('hotel_id', $hotel->id)
+                    ->lockForUpdate()
                     ->first();
 
                 if ($roomType === null) {
-                    continue;
+                    throw ValidationException::withMessages([
+                        "room_types.{$index}.id" => 'Room type does not belong to this hotel.',
+                    ]);
                 }
 
-                MasterDataUsage::assertDeletable($roomType, $companyId);
-                $roomType->delete();
+                $roomType->update([
+                    'name' => $name,
+                    'description' => $description,
+                    'is_active' => $isActive,
+                ]);
+
+                continue;
             }
 
-            self::sync($hotel, $rows, $companyId);
-        });
+            $hotel->roomTypes()->create([
+                'company_id' => $companyId,
+                'name' => $name,
+                'description' => $description,
+                'is_active' => $isActive,
+            ]);
+        }
     }
 
     public static function deleteAllForHotel(Hotel $hotel, int $companyId): void
     {
-        DB::transaction(function () use ($hotel, $companyId): void {
-            $roomTypes = $hotel->roomTypes()
-                ->where('company_id', $companyId)
-                ->get();
+        $roomTypes = $hotel->roomTypes()
+            ->where('company_id', $companyId)
+            ->lockForUpdate()
+            ->get();
 
-            foreach ($roomTypes as $roomType) {
-                MasterDataUsage::assertDeletable($roomType, $companyId);
-                $roomType->delete();
-            }
-        });
+        foreach ($roomTypes as $roomType) {
+            MasterDataUsage::assertDeletable($roomType, $companyId);
+            $roomType->delete();
+        }
     }
 }

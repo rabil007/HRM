@@ -37,7 +37,7 @@ class UpdateHotelRequest extends FormRequest
             ],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['nullable', 'boolean'],
-            ...$this->nestedHotelRoomTypeRules($hotelId),
+            ...$this->nestedHotelRoomTypeRules($hotelId, allowRemovals: true),
         ];
     }
 
@@ -50,20 +50,5 @@ class UpdateHotelRequest extends FormRequest
                 $this->validateNestedHotelRoomTypes($validator, $hotel);
             }
         });
-    }
-
-    /**
-     * @return list<array{
-     *     id?: int|null,
-     *     name: string,
-     *     description?: string|null,
-     *     is_active?: bool|null
-     * }>
-     */
-    public function validatedRoomTypes(): array
-    {
-        $rows = $this->validated('room_types') ?? [];
-
-        return is_array($rows) ? array_values($rows) : [];
     }
 }

@@ -7,10 +7,15 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAccommodationStay;
 use App\Models\Currency;
+use App\Models\Employee;
 use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Models\User;
+use App\Support\MasterData\ReconcileLegacyRoomTypes;
+use Illuminate\Support\Facades\Artisan;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 test('guests cannot access hotels page', function () {
     $this->get('/settings/master-data/hotels')->assertRedirect(route('login'));
@@ -547,6 +552,180 @@ test('nested room type id from another hotel is rejected on hotel update', funct
     expect($foreignRoomType->fresh()?->name)->toBe('Foreign Room');
 });
 
+test('hotel update without room_types preserves existing room types', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Preserved Hotel']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Preserved Room',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Renamed Hotel',
+            'description' => 'Updated only',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect($hotel->fresh()?->name)->toBe('Renamed Hotel')
+        ->and(RoomType::query()->whereKey($roomType->id)->exists())->toBeTrue()
+        ->and($roomType->fresh()?->name)->toBe('Preserved Room');
+});
+
+test('hotel update with empty room_types and no removed ids preserves existing room types', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Empty Payload Hotel']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Still Here',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Empty Payload Hotel',
+            'is_active' => true,
+            'room_types' => [],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect(RoomType::query()->whereKey($roomType->id)->exists())->toBeTrue();
+});
+
+test('only room types listed in removed_room_type_ids are deleted', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Removal Hotel']);
+    $keep = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Keep',
+    ]);
+    $remove = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Remove',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Removal Hotel',
+            'is_active' => true,
+            'removed_room_type_ids' => [$remove->id],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect(RoomType::query()->whereKey($keep->id)->exists())->toBeTrue()
+        ->and(RoomType::query()->whereKey($remove->id)->exists())->toBeFalse();
+});
+
+test('stale hotel payload does not remove a room type created concurrently', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Concurrent Hotel']);
+    $singleRoom = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Single Room',
+    ]);
+
+    $suite = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Suite',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Concurrent Hotel',
+            'is_active' => true,
+            'room_types' => [
+                [
+                    'id' => $singleRoom->id,
+                    'name' => 'Single Room',
+                    'is_active' => true,
+                ],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect(RoomType::query()->whereKey($suite->id)->exists())->toBeTrue();
+});
+
+test('create-only user can enter room types while creating hotel', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.view',
+        'settings.master-data.hotels.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Create Only Hotel',
+            'is_active' => true,
+            'room_types' => [
+                ['name' => 'Single Room', 'is_active' => true],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $hotel = Hotel::query()->where('company_id', $company->id)->where('name', 'Create Only Hotel')->first();
+
+    expect($hotel)->not->toBeNull()
+        ->and($hotel->roomTypes()->where('name', 'Single Room')->exists())->toBeTrue();
+});
+
+test('create-only user cannot edit an existing hotel', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.view',
+        'settings.master-data.hotels.create',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Locked Hotel']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Hijacked',
+            'is_active' => true,
+        ])
+        ->assertForbidden();
+});
+
 test('referenced room type cannot be deleted through hotel update', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Room Type Hotel Vessel', $company);
@@ -579,7 +758,7 @@ test('referenced room type cannot be deleted through hotel update', function () 
         ->put("/settings/master-data/hotels/{$hotel->id}", [
             'name' => 'Referenced Hotel',
             'is_active' => true,
-            'room_types' => [],
+            'removed_room_type_ids' => [$roomType->id],
         ])
         ->assertSessionHasErrors('record');
 
@@ -615,6 +794,126 @@ test('unused hotel deletes nested unused room types transactionally', function (
 
     expect(Hotel::query()->whereKey($hotel->id)->exists())->toBeFalse()
         ->and(RoomType::query()->whereKey($roomTypeId)->exists())->toBeFalse();
+});
+
+test('legacy room type used by one hotel is auto-reconciled', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Legacy Single Hotel Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Legacy Hotel']);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Twin',
+    ]);
+
+    CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    ReconcileLegacyRoomTypes::autoReconcile();
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBe($hotel->id);
+});
+
+test('unused legacy room type is not auto-assigned', function () {
+    ['company' => $company] = makeCrewAssignmentFixtures();
+
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Unused Suite',
+    ]);
+
+    ReconcileLegacyRoomTypes::autoReconcile();
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBeNull();
+});
+
+test('legacy room type with multiple hotel usage can be split by hotel', function () {
+    ['company' => $company, 'employee' => $employeeA, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employeeB = Employee::factory()->forCompany($company)->create([
+        'name' => 'Legacy Split B',
+    ]);
+    $vessel = makeCrewMovementVessel('Legacy Split Vessel', $company);
+    $assignmentA = makeCurrentCrewPhaseAssignment($company, $employeeA, $rank, $vessel, CrewPhaseCode::JoinStandby);
+    $assignmentB = makeCurrentCrewPhaseAssignment($company, $employeeB, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel B']);
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'name' => 'Standard',
+    ]);
+
+    $stayA = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentA->id,
+        'hotel_id' => $hotelA->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    $stayB = CrewAccommodationStay::withoutEvents(fn () => CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignmentB->id,
+        'hotel_id' => $hotelB->id,
+        'room_type_id' => $legacyRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]));
+
+    ReconcileLegacyRoomTypes::splitByHotelUsage($legacyRoomType, $company->id);
+
+    $stayA->refresh();
+    $stayB->refresh();
+
+    expect($legacyRoomType->fresh()?->hotel_id)->toBe($hotelA->id)
+        ->and($stayA->room_type_id)->toBe($legacyRoomType->id)
+        ->and($stayB->room_type_id)->not->toBe($legacyRoomType->id)
+        ->and(RoomType::query()->where('hotel_id', $hotelB->id)->where('name', 'Standard')->exists())->toBeTrue();
+});
+
+test('legacy room type delete permission maps to hotels update not hotels delete', function () {
+    $legacyDelete = Permission::query()->firstOrCreate([
+        'name' => 'settings.master-data.room-types.delete',
+        'guard_name' => 'web',
+    ]);
+    $hotelsUpdate = Permission::query()->firstOrCreate([
+        'name' => 'settings.master-data.hotels.update',
+        'guard_name' => 'web',
+    ]);
+    $hotelsDelete = Permission::query()->firstOrCreate([
+        'name' => 'settings.master-data.hotels.delete',
+        'guard_name' => 'web',
+    ]);
+
+    ['company' => $company] = makeCrewAssignmentFixtures();
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'legacy-room-type-delete',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions([$legacyDelete]);
+
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    $role->refresh();
+
+    expect($role->hasPermissionTo($hotelsUpdate))->toBeTrue()
+        ->and($role->hasPermissionTo($hotelsDelete))->toBeFalse();
 });
 
 test('standalone room types page is no longer available', function () {

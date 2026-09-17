@@ -191,11 +191,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'integer',
                 Rule::exists('hotels', 'id')->where('company_id', $companyId)->where('is_active', true),
             ];
-            $baseRules['room_type_id'] = [
-                'nullable',
-                'integer',
-                Rule::exists('room_types', 'id')->where('company_id', $companyId)->where('is_active', true),
-            ];
+            $baseRules['room_type_id'] = $this->activeRoomTypeRule($companyId);
             $baseRules['check_in_date'] = [
                 Rule::requiredIf(fn () => $this->input('accommodation_status') === CrewAccommodationStatus::Hotel->value),
                 'nullable',
@@ -220,9 +216,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             ];
             $baseRules['room_type_id'] = [
                 Rule::excludeIf(fn () => $this->input('next_phase') !== CrewPhaseCode::DemobStandby->value),
-                'nullable',
-                'integer',
-                Rule::exists('room_types', 'id')->where('company_id', $companyId)->where('is_active', true),
+                ...$this->activeRoomTypeRule($companyId),
             ];
             $baseRules['check_in_date'] = [
                 Rule::excludeIf(fn () => $this->input('next_phase') !== CrewPhaseCode::DemobStandby->value),
@@ -334,9 +328,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             ];
             $baseRules['room_type_id'] = [
                 Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::JoinStandby->value),
-                'nullable',
-                'integer',
-                Rule::exists('room_types', 'id')->where('company_id', $companyId)->where('is_active', true),
+                ...$this->activeRoomTypeRule($companyId),
             ];
             $baseRules['check_in_date'] = [
                 Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::JoinStandby->value),
@@ -857,6 +849,22 @@ class PerformCrewMovementActionRequest extends FormRequest
                 );
             }
         });
+    }
+
+    /**
+     * @return list<ValidationRule|string>
+     */
+    private function activeRoomTypeRule(int $companyId): array
+    {
+        return [
+            'nullable',
+            'integer',
+            Rule::exists('room_types', 'id')->where(function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId)
+                    ->where('is_active', true)
+                    ->whereNotNull('hotel_id');
+            }),
+        ];
     }
 
     private function assertRoomTypeBelongsToSelectedHotel(Validator $validator, int $companyId): void

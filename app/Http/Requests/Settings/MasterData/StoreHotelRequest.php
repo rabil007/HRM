@@ -43,19 +43,4 @@ class StoreHotelRequest extends FormRequest
             $this->validateNestedHotelRoomTypes($validator);
         });
     }
-
-    /**
-     * @return list<array{
-     *     id?: int|null,
-     *     name: string,
-     *     description?: string|null,
-     *     is_active?: bool|null
-     * }>
-     */
-    public function validatedRoomTypes(): array
-    {
-        $rows = $this->validated('room_types') ?? [];
-
-        return is_array($rows) ? array_values($rows) : [];
-    }
 }

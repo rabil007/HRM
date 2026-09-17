@@ -203,6 +203,24 @@ test('record arrival rejects foreign inactive and invalid check in dates', funct
         ])
         ->assertSessionHasErrors('room_type_id');
 
+    $legacyRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => null,
+        'is_active' => true,
+        'name' => 'Legacy Room',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-09-16 10:30:00',
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $validHotel->id,
+            'room_type_id' => $legacyRoomType->id,
+            'check_in_date' => '2026-09-16',
+        ])
+        ->assertSessionHasErrors('room_type_id');
+
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::RecordArrival->value,

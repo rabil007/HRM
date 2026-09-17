@@ -1,54 +1,59 @@
-import { describe, expect, it } from 'vitest';
-import { resolveDestinationCheckInDateOnP2AEntry } from './redeploy-destination-check-in';
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { resolveDestinationCheckInDateOnP2AEntry } from './redeploy-destination-check-in.ts';
 
 describe('resolveDestinationCheckInDateOnP2AEntry', () => {
     it('sets check-in to the current redeploy date when empty', () => {
-        expect(
+        assert.deepEqual(
             resolveDestinationCheckInDateOnP2AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '',
                 lastAutoCheckInDate: '2026-09-17',
                 noHotelAccommodation: false,
             }),
-        ).toEqual({
-            checkInDate: '2026-09-20',
-            lastAutoCheckInDate: '2026-09-20',
-        });
+            {
+                checkInDate: '2026-09-20',
+                lastAutoCheckInDate: '2026-09-20',
+            },
+        );
     });
 
     it('updates an untouched auto-derived check-in date', () => {
-        expect(
+        assert.deepEqual(
             resolveDestinationCheckInDateOnP2AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '2026-09-17',
                 lastAutoCheckInDate: '2026-09-17',
                 noHotelAccommodation: false,
             }),
-        ).toEqual({
-            checkInDate: '2026-09-20',
-            lastAutoCheckInDate: '2026-09-20',
-        });
+            {
+                checkInDate: '2026-09-20',
+                lastAutoCheckInDate: '2026-09-20',
+            },
+        );
     });
 
     it('preserves a manually edited check-in date', () => {
-        expect(
+        assert.equal(
             resolveDestinationCheckInDateOnP2AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '2026-09-21',
                 lastAutoCheckInDate: '2026-09-20',
                 noHotelAccommodation: false,
             }),
-        ).toBeNull();
+            null,
+        );
     });
 
     it('does not populate check-in when no hotel accommodation is selected', () => {
-        expect(
+        assert.equal(
             resolveDestinationCheckInDateOnP2AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '',
                 lastAutoCheckInDate: '2026-09-17',
                 noHotelAccommodation: true,
             }),
-        ).toBeNull();
+            null,
+        );
     });
 });

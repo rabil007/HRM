@@ -110,20 +110,28 @@ final class CrewAccommodationStayIntegrity
         }
 
         if ($stay->room_type_id !== null) {
-            $roomTypeQuery = RoomType::query()
+            $roomType = RoomType::query()
                 ->whereKey($stay->room_type_id)
-                ->where('company_id', $companyId);
+                ->where('company_id', $companyId)
+                ->first();
 
-            if ($stay->hotel_id !== null) {
-                $roomTypeQuery->where('hotel_id', $stay->hotel_id);
+            if ($roomType === null) {
+                throw ValidationException::withMessages([
+                    'room_type_id' => 'Room type must belong to the current company.',
+                ]);
             }
 
-            if (! $roomTypeQuery->exists()) {
-                throw ValidationException::withMessages([
-                    'room_type_id' => $stay->hotel_id !== null
-                        ? 'Room type must belong to the selected hotel.'
-                        : 'Room type must belong to the current company.',
-                ]);
+            $isHistoricalLegacy = $stay->exists
+                && ! $stay->isDirty('room_type_id')
+                && ! $stay->isDirty('hotel_id')
+                && $roomType->hotel_id === null;
+
+            if ($stay->hotel_id !== null && ! $isHistoricalLegacy) {
+                if ((int) $roomType->hotel_id !== (int) $stay->hotel_id) {
+                    throw ValidationException::withMessages([
+                        'room_type_id' => 'Room type must belong to the selected hotel.',
+                    ]);
+                }
             }
         }
 

@@ -449,6 +449,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('hotels/{hotel}', [HotelController::class, 'destroy'])
             ->middleware('can:settings.master-data.hotels.delete')
             ->name('hotels.destroy');
+        Route::post('hotels/legacy-room-types/assign', [HotelController::class, 'assignLegacyRoomType'])
+            ->middleware('can:settings.master-data.hotels.update')
+            ->name('hotels.legacy-room-types.assign');
+        Route::post('hotels/legacy-room-types/reconcile', [HotelController::class, 'reconcileLegacyRoomType'])
+            ->middleware('can:settings.master-data.hotels.update')
+            ->name('hotels.legacy-room-types.reconcile');
 
     });
 });

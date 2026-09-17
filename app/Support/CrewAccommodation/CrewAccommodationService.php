@@ -147,7 +147,7 @@ final class CrewAccommodationService
         $this->assertActiveHotel($companyId, $hotelId);
 
         if (! empty($payload['room_type_id'])) {
-            $this->assertActiveRoomType($companyId, (int) $payload['room_type_id']);
+            $this->assertActiveRoomType($companyId, $hotelId, (int) $payload['room_type_id']);
         }
 
         $arrivalLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
@@ -456,7 +456,7 @@ final class CrewAccommodationService
         $this->assertActiveHotel($companyId, $hotelId);
 
         if (! empty($payload['room_type_id'])) {
-            $this->assertActiveRoomType($companyId, (int) $payload['room_type_id']);
+            $this->assertActiveRoomType($companyId, $hotelId, (int) $payload['room_type_id']);
         }
 
         $disembarkationLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
@@ -756,7 +756,7 @@ final class CrewAccommodationService
         $this->assertActiveHotel($companyId, $hotelId);
 
         if (! empty($payload['room_type_id'])) {
-            $this->assertActiveRoomType($companyId, (int) $payload['room_type_id']);
+            $this->assertActiveRoomType($companyId, $hotelId, (int) $payload['room_type_id']);
         }
 
         $redeployLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
@@ -905,11 +905,13 @@ final class CrewAccommodationService
         }
     }
 
-    private function assertActiveRoomType(int $companyId, int $roomTypeId): void
+    private function assertActiveRoomType(int $companyId, int $hotelId, int $roomTypeId): void
     {
         $exists = RoomType::query()
             ->whereKey($roomTypeId)
             ->where('company_id', $companyId)
+            ->where('hotel_id', $hotelId)
+            ->whereNotNull('hotel_id')
             ->where('is_active', true)
             ->exists();
 

@@ -1,4 +1,6 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { router } from '@inertiajs/react';
+import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { MasterDataDeleteButton } from '@/components/settings/master-data-delete-button';
 import {
     MasterDataField,
@@ -10,6 +12,13 @@ import { MasterDataInUseBadge } from '@/components/settings/master-data-in-use-b
 import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
@@ -34,11 +43,28 @@ type Hotel = {
     room_types: HotelRoomType[];
 } & MasterDataUsageFlags;
 
+type UnassignedRoomType = {
+    id: number;
+    name: string;
+    description: string | null;
+    is_active: boolean;
+    status: 'unused' | 'single_hotel' | 'multiple_hotels';
+    usage_count: number;
+    usage_label: string | null;
+    hotel_ids: number[];
+};
+
+type HotelAssignmentOption = {
+    id: number;
+    name: string;
+};
+
 type HotelFormData = {
     name: string;
     description: string;
     is_active: boolean;
     room_types: HotelRoomType[];
+    removed_room_type_ids: number[];
 };
 
 const initialForm: HotelFormData = {
@@ -46,6 +72,7 @@ const initialForm: HotelFormData = {
     description: '',
     is_active: true,
     room_types: [],
+    removed_room_type_ids: [],
 };
 
 function emptyRoomType(): HotelRoomType {
@@ -72,12 +99,19 @@ export default function Hotels({
     hotels,
     pagination,
     search = '',
+    unassigned_room_types = [],
+    hotels_for_assignment = [],
 }: {
     hotels: Hotel[];
     pagination: PaginationMeta;
     search?: string;
+    unassigned_room_types?: UnassignedRoomType[];
+    hotels_for_assignment?: HotelAssignmentOption[];
 }) {
     const can = useSettingsMasterDataCan('hotels');
+    const [assignHotelId, setAssignHotelId] = useState<Record<number, string>>(
+        {},
+    );
 
     const {
         searchInput,
@@ -114,17 +148,12 @@ export default function Hotels({
                 is_in_use: roomType.is_in_use,
                 can_delete: roomType.can_delete,
             })),
+            removed_room_type_ids: [],
         }),
         toTogglePayload: (hotel) => ({
             name: hotel.name,
             description: hotel.description,
             is_active: !hotel.is_active,
-            room_types: (hotel.room_types ?? []).map((roomType) => ({
-                id: roomType.id,
-                name: roomType.name,
-                description: roomType.description ?? '',
-                is_active: roomType.is_active,
-            })),
         }),
         transformSubmit: (data) => ({
             name: data.name,
@@ -138,6 +167,7 @@ export default function Hotels({
                     description: roomType.description.trim() || null,
                     is_active: roomType.is_active,
                 })),
+            removed_room_type_ids: data.removed_room_type_ids,
         }),
         onDeleteError: (errors) => {
             toast.error(
@@ -149,6 +179,8 @@ export default function Hotels({
             );
         },
     });
+
+    const canManageHotelForm = current ? can.update : can.create;
 
     const addRoomType = (): void => {
         form.setData('room_types', [...form.data.room_types, emptyRoomType()]);
@@ -177,9 +209,46 @@ export default function Hotels({
             return;
         }
 
-        form.setData(
-            'room_types',
-            form.data.room_types.filter((_, rowIndex) => rowIndex !== index),
+        const nextRoomTypes = form.data.room_types.filter(
+            (_, rowIndex) => rowIndex !== index,
+        );
+        const nextRemovedIds = [...form.data.removed_room_type_ids];
+
+        if (roomType.id !== undefined) {
+            nextRemovedIds.push(roomType.id);
+        }
+
+        form.setData({
+            ...form.data,
+            room_types: nextRoomTypes,
+            removed_room_type_ids: nextRemovedIds,
+        });
+    };
+
+    const assignLegacyRoomType = (roomTypeId: number): void => {
+        const hotelId = assignHotelId[roomTypeId];
+
+        if (!hotelId) {
+            toast.error('Select a hotel before assigning this room type.');
+
+            return;
+        }
+
+        router.post(
+            '/settings/master-data/hotels/legacy-room-types/assign',
+            {
+                room_type_id: roomTypeId,
+                hotel_id: Number(hotelId),
+            },
+            { preserveScroll: true },
+        );
+    };
+
+    const reconcileLegacyRoomType = (roomTypeId: number): void => {
+        router.post(
+            '/settings/master-data/hotels/legacy-room-types/reconcile',
+            { room_type_id: roomTypeId },
+            { preserveScroll: true },
         );
     };
 
@@ -197,7 +266,7 @@ export default function Hotels({
             createButtonLabel="Add hotel"
             onCreate={openCreate}
             tableMinWidth="min-w-[900px]"
-            isEmpty={rows.length === 0}
+            isEmpty={rows.length === 0 && unassigned_room_types.length === 0}
             emptyLabel="No hotels found."
             deleteOpen={deleteOpen}
             onDeleteOpenChange={setDeleteOpen}
@@ -236,6 +305,7 @@ export default function Hotels({
                             onChange={(event) =>
                                 form.setData('name', event.target.value)
                             }
+                            disabled={!canManageHotelForm}
                             placeholder="Royal Rose Hotel"
                             className={masterDataInputClass}
                         />
@@ -252,6 +322,7 @@ export default function Hotels({
                             onChange={(event) =>
                                 form.setData('description', event.target.value)
                             }
+                            disabled={!canManageHotelForm}
                             placeholder="Optional notes about this hotel"
                             className={masterDataInputClass}
                             rows={3}
@@ -269,7 +340,7 @@ export default function Hotels({
                             </div>
                         </div>
                         <Switch
-                            disabled={!can.update}
+                            disabled={!canManageHotelForm}
                             checked={form.data.is_active}
                             onCheckedChange={(value) =>
                                 form.setData('is_active', value)
@@ -288,7 +359,7 @@ export default function Hotels({
                                     when recording crew accommodation.
                                 </p>
                             </div>
-                            {can.create || can.update ? (
+                            {canManageHotelForm ? (
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -327,7 +398,7 @@ export default function Hotels({
                                                     />
                                                 ) : null}
                                             </div>
-                                            {can.update &&
+                                            {canManageHotelForm &&
                                             (roomType.can_delete ?? true) &&
                                             !roomType.is_in_use ? (
                                                 <Button
@@ -356,7 +427,7 @@ export default function Hotels({
                                             <Input
                                                 id={`room-type-name-${index}`}
                                                 value={roomType.name}
-                                                disabled={!can.update}
+                                                disabled={!canManageHotelForm}
                                                 onChange={(event) =>
                                                     updateRoomType(index, {
                                                         name: event.target
@@ -380,7 +451,7 @@ export default function Hotels({
                                             <Textarea
                                                 id={`room-type-description-${index}`}
                                                 value={roomType.description}
-                                                disabled={!can.update}
+                                                disabled={!canManageHotelForm}
                                                 onChange={(event) =>
                                                     updateRoomType(index, {
                                                         description:
@@ -398,7 +469,7 @@ export default function Hotels({
                                                 Active
                                             </span>
                                             <Switch
-                                                disabled={!can.update}
+                                                disabled={!canManageHotelForm}
                                                 checked={roomType.is_active}
                                                 onCheckedChange={(value) =>
                                                     updateRoomType(index, {
@@ -415,6 +486,97 @@ export default function Hotels({
                 </MasterDataFormSheet>
             }
         >
+            {unassigned_room_types.length > 0 ? (
+                <div className="border-b border-border/60 bg-amber-500/5 px-4 py-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <AlertTriangle className="size-4 text-amber-600" />
+                        Legacy room types need assignment (
+                        {unassigned_room_types.length})
+                    </div>
+                    <div className="space-y-2">
+                        {unassigned_room_types.map((roomType) => (
+                            <div
+                                key={roomType.id}
+                                className="grid grid-cols-12 items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-3 py-2 text-sm"
+                            >
+                                <div className="col-span-3 font-medium">
+                                    {roomType.name}
+                                </div>
+                                <div className="col-span-4 text-muted-foreground">
+                                    {roomType.usage_label ?? '—'}
+                                </div>
+                                <div className="col-span-5 flex justify-end gap-2">
+                                    {roomType.status === 'multiple_hotels' ? (
+                                        can.update ? (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    reconcileLegacyRoomType(
+                                                        roomType.id,
+                                                    )
+                                                }
+                                            >
+                                                Reconcile by hotel
+                                            </Button>
+                                        ) : null
+                                    ) : can.update ? (
+                                        <>
+                                            <Select
+                                                value={
+                                                    assignHotelId[
+                                                        roomType.id
+                                                    ] ?? ''
+                                                }
+                                                onValueChange={(value) =>
+                                                    setAssignHotelId(
+                                                        (current) => ({
+                                                            ...current,
+                                                            [roomType.id]:
+                                                                value,
+                                                        }),
+                                                    )
+                                                }
+                                            >
+                                                <SelectTrigger className="w-[180px]">
+                                                    <SelectValue placeholder="Assign hotel" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {hotels_for_assignment.map(
+                                                        (hotel) => (
+                                                            <SelectItem
+                                                                key={hotel.id}
+                                                                value={String(
+                                                                    hotel.id,
+                                                                )}
+                                                            >
+                                                                {hotel.name}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() =>
+                                                    assignLegacyRoomType(
+                                                        roomType.id,
+                                                    )
+                                                }
+                                            >
+                                                Assign
+                                            </Button>
+                                        </>
+                                    ) : null}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
             <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                 <div className="col-span-4">Name</div>
                 <div className="col-span-4">Room types</div>

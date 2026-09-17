@@ -52,7 +52,6 @@ export function RedeployForm({
     const availableRoomTypes = roomTypesForHotel(
         formOptions?.room_types,
         form.data.hotel_id,
-        form.data.room_type_id,
     );
     const lastAutoSourceCheckOutDateRef = useRef(
         form.data.source_check_out_date || form.data.occurred_at.slice(0, 10),
