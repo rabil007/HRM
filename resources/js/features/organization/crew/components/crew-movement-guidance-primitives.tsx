@@ -11,6 +11,10 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+    MovementWorkflowHelp,
+    movementWorkflowHelpTopicForAction,
+} from '@/features/organization/crew/components/movement-workflow-help';
 import type { ReadinessAction } from '@/features/organization/crew/lib/assignment-readiness-guidance';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { cn } from '@/lib/utils';
@@ -76,11 +80,34 @@ export function GuidanceActionButton({
     action,
     href,
     onClick,
+    onBeforeNavigate,
 }: {
     action: ReadinessAction;
     href?: string | null;
     onClick?: () => void;
+    onBeforeNavigate?: () => void;
 }): ReactElement | null {
+    const helpTopic = movementWorkflowHelpTopicForAction(action.key);
+
+    const actionLabel = (
+        <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-0.5">
+                <span className="block font-semibold">{action.label}</span>
+                {helpTopic ? (
+                    <MovementWorkflowHelp
+                        topic={helpTopic}
+                        label={`Explain ${action.label}`}
+                    />
+                ) : null}
+            </span>
+            {action.description ? (
+                <span className="mt-0.5 block font-normal opacity-80">
+                    {action.description}
+                </span>
+            ) : null}
+        </span>
+    );
+
     if (action.kind === 'transfer') {
         return (
             <Button
@@ -88,17 +115,13 @@ export function GuidanceActionButton({
                 variant={action.emphasis === 'primary' ? 'default' : 'outline'}
                 size="sm"
                 className="h-auto min-h-8 w-full justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs whitespace-normal"
-                onClick={onClick}
+                onClick={() => {
+                    onBeforeNavigate?.();
+                    onClick?.();
+                }}
             >
                 <ArrowRight className="size-3 shrink-0" aria-hidden />
-                <span>
-                    <span className="block font-semibold">{action.label}</span>
-                    {action.description ? (
-                        <span className="mt-0.5 block font-normal opacity-80">
-                            {action.description}
-                        </span>
-                    ) : null}
-                </span>
+                {actionLabel}
             </Button>
         );
     }
@@ -113,17 +136,13 @@ export function GuidanceActionButton({
             variant={action.emphasis === 'primary' ? 'default' : 'outline'}
             size="sm"
             className="h-auto min-h-8 w-full justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs whitespace-normal"
-            onClick={() => window.open(href, '_blank', 'noopener')}
+            onClick={() => {
+                onBeforeNavigate?.();
+                window.open(href, '_blank', 'noopener');
+            }}
         >
             <ArrowRight className="size-3 shrink-0" aria-hidden />
-            <span>
-                <span className="block font-semibold">{action.label}</span>
-                {action.description ? (
-                    <span className="mt-0.5 block font-normal opacity-80">
-                        {action.description}
-                    </span>
-                ) : null}
-            </span>
+            {actionLabel}
         </Button>
     );
 }

@@ -80,7 +80,10 @@ test('list presenter includes warnings payload shape', function () {
             CrewMovementAction::CancelAssignment->value,
         ])
         ->and($item['mobilisation_readiness'])->toBeArray()
-        ->and($item['mobilisation_readiness']['applies'])->toBeTrue();
+        ->and($item['mobilisation_readiness']['applies'])->toBeTrue()
+        ->and($item['recommended_action'])->toBeArray()
+        ->and($item['recommended_action']['type'])->toBe('movement')
+        ->and($item['recommended_action']['action'])->toBe(CrewMovementAction::ApproveMobilisation->value);
 
     if ($item['warnings'] !== []) {
         expect($item['warnings'][0])->toHaveKeys(['code', 'severity', 'label', 'message', 'date']);

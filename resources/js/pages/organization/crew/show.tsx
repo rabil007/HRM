@@ -331,6 +331,12 @@ export default function CrewAssignmentShow({
                             formOptions={form_options}
                             canViewDocuments={can.view_documents}
                             canViewPlanning={can.view_planning}
+                            canPerformMovement={can.perform_movement}
+                            canCancel={can.cancel}
+                            currentPhase={assignment.current_phase}
+                            status={assignment.status}
+                            statusLabel={assignment.status_label}
+                            vesselName={assignment.vessel?.name ?? null}
                         />
                     </div>
                 ) : null}

@@ -1106,6 +1106,14 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 - Display dates consistently as date strings from presenters (`toDateString()` for calendar fields).
 - Planned Sign-Off is never treated as Actual Disembarkation.
 
+## Crew Assignment index Phase Guide
+
+`/organization/crew` exposes a compact **Phase Guide** dialog from the page header. It is educational only: it explains P0–P6 meanings, typical next directions, and common alternative paths (for example P4 Transfer Vessel vs P5/P6 Redeploy). It does **not** change assignment state.
+
+- Not every assignment uses every phase. Actual movement is determined only by recorded `CrewAssignmentPhase` history.
+- P1 Travel In and P3 Ready to Join remain compatibility phases; the guide calls this out explicitly.
+- Current phase on the board remains derived from the authoritative backend resolver, not from the guide copy.
+
 ## Create Page Behaviour
 
 `organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows compact guidance:

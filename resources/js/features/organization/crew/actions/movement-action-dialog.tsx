@@ -13,6 +13,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { MovementWorkflowHelp } from '@/features/organization/crew/components/movement-workflow-help';
+import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
 import {
     defaultDestinationTourSignoffChoice,
     findRankTourOption,
@@ -529,7 +531,21 @@ export function MovementActionDialog({
                     )}
                 >
                     <DialogHeader className="shrink-0 space-y-1.5 border-b border-border/60 px-6 py-4 text-left">
-                        <DialogTitle>{config.title}</DialogTitle>
+                        <div className="flex items-start gap-1">
+                            <DialogTitle>{config.title}</DialogTitle>
+                            {action === 'transfer_vessel' ? (
+                                <MovementWorkflowHelp
+                                    topic="transfer"
+                                    label="Explain Transfer Vessel"
+                                />
+                            ) : null}
+                            {action === 'redeploy' ? (
+                                <MovementWorkflowHelp
+                                    topic="redeploy"
+                                    label="Explain Redeploy"
+                                />
+                            ) : null}
+                        </div>
                         <DialogDescription>
                             {config.description}
                         </DialogDescription>
@@ -556,7 +572,9 @@ export function MovementActionDialog({
                         <InputError
                             message={
                                 'error' in form.errors
-                                    ? String(form.errors.error ?? '')
+                                    ? mapMovementErrorMessage(
+                                          String(form.errors.error ?? ''),
+                                      )
                                     : undefined
                             }
                         />

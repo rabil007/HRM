@@ -1,5 +1,5 @@
-import type { CrewMovementAction } from '../types';
-import { CREW_PHASE_LABELS } from '../types';
+import type { CrewMovementAction } from '../types.ts';
+import { CREW_PHASE_LABELS } from '../types.ts';
 
 export type MovementNextPhaseOption = {
     value: string;
@@ -109,15 +109,15 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     confirm_disembarkation: {
         title: 'Confirm Disembarkation',
         description:
-            'Record the actual disembarkation and choose the next demobilisation phase.',
+            'Record the actual disembarkation and choose the next demobilisation phase. Planned Sign-Off does not disembark the employee.',
         occurredAtLabel: 'Actual disembarkation date and time',
         submitLabel: 'Confirm Disembarkation',
-        impactTitle: 'This action will',
+        impactTitle: 'What will happen',
         impactDescription: [
-            'Complete P4 On Vessel.',
-            'End the Planning bar on the actual disembarkation date.',
-            'Generate or update the employee Sea Service record.',
-            'Move the employee to P5 or P6.',
+            'P4 On Vessel ends at the selected movement time.',
+            'Sea service is finalized according to existing logic.',
+            'The assignment moves into the next configured movement stage (P5 or P6).',
+            'Planned Sign-Off alone does not disembark the crew member.',
         ],
         nextPhaseLabel: 'After disembarkation',
         nextPhaseOptions: [
@@ -141,11 +141,11 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'Record when the crew member returned home and choose whether this mobilisation cycle is complete.',
         occurredAtLabel: 'Date & Time',
         submitLabel: 'Return Home & Close Assignment',
-        impactTitle: 'What this does',
+        impactTitle: 'What will happen',
         impactDescription: [
-            'Completes P5 Demobilisation Standby.',
-            'Records P6 Home / Redeployment using the actual return-home timestamp.',
-            'By default, closes the assignment so the employee enters the normal In Home workflow.',
+            'Demobilisation standby ends at the selected movement time.',
+            'Home / Redeployment stage begins using the actual return-home timestamp.',
+            'By default, the assignment closes and home availability tracking can begin according to existing rules.',
         ],
         completionIntentLabel: 'What happens next?',
         completionIntentOptions: [
@@ -170,21 +170,25 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'Closing completes this mobilisation cycle. No further standard movement actions will be available.',
         occurredAtLabel: 'Assignment closed at',
         submitLabel: 'Complete Assignment',
-        impactTitle: 'What this does',
-        impactDescription:
-            'Closing completes this mobilisation cycle. No further standard movement actions will be available.',
+        impactTitle: 'What will happen',
+        impactDescription: [
+            'The assignment becomes Completed and this mobilisation cycle ends.',
+            'No current active mobilisation remains on this assignment record.',
+            'The employee becomes available according to normal status rules when no other active assignment exists.',
+        ],
     },
     cancel_assignment: {
         title: 'Cancel Assignment',
         description:
-            'Before P4, the linked future Planning bar will be removed. Historical completed onboard service is preserved. An employee currently onboard cannot be cancelled directly.',
+            'Use only when the mobilisation should be stopped. Movement history already recorded remains preserved.',
         occurredAtLabel: 'Cancellation effective at',
         submitLabel: 'Cancel Assignment',
-        impactTitle: 'What this does',
+        impactTitle: 'What will happen',
         impactDescription: [
-            'Before P4, the linked future Planning bar will be removed.',
-            'Historical completed onboard service is preserved.',
-            'An employee currently onboard cannot be cancelled directly.',
+            'The assignment is marked Cancelled when permitted for the current phase.',
+            'Historical movement and sea-service data already recorded remain preserved.',
+            'Before P4, the linked future Planning bar is removed according to existing rules.',
+            'Active P4 On Vessel assignments cannot be cancelled directly.',
         ],
         destructive: true,
         keepOpenLabel: 'Keep Assignment',
@@ -195,13 +199,13 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'Complete the current On Vessel assignment and start a linked assignment directly in P4 on the destination vessel. No standby or travel phases are invented.',
         occurredAtLabel: 'Actual transfer date and time',
         submitLabel: 'Transfer Vessel',
-        impactTitle: 'This action will',
+        impactTitle: 'What will happen',
         impactDescription: [
-            'Complete the current P4 On Vessel phase and assignment.',
-            'Create sea service for the completed source P4.',
-            'Create a linked Active assignment on the destination vessel in P4.',
-            'Preserve separate Planning bars for each assignment.',
-            'Redirect to the new destination assignment.',
+            'The current P4 On Vessel phase ends at the selected movement time.',
+            'Current assignment history on the source vessel remains preserved.',
+            'Sea service for the completed source P4 is synced according to existing logic.',
+            'A linked destination assignment is created and started in P4 on the destination vessel.',
+            'The movement time becomes the operational boundary between source and destination.',
         ],
         fixedNextPhase: 'p4',
     },
@@ -211,12 +215,12 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'Complete the current demobilisation or home phase and start a linked assignment at the chosen real starting phase. Earlier phases are not invented.',
         occurredAtLabel: 'Actual redeployment date and time',
         submitLabel: 'Redeploy',
-        impactTitle: 'This action will',
+        impactTitle: 'What will happen',
         impactDescription: [
-            'Complete the current P5 or P6 phase and assignment.',
-            'Create a linked assignment starting only at the selected phase.',
-            'Allow the same or a different vessel / client.',
-            'Redirect to the new linked assignment.',
+            'The current mobilisation is completed according to existing Redeploy logic.',
+            'A linked destination assignment is created and remains connected to the source history.',
+            'The destination starts only in the phase selected by the existing workflow (P0, P2A, or P4).',
+            'No earlier phases are invented on the destination assignment.',
         ],
     },
 };

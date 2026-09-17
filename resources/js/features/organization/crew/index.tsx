@@ -21,6 +21,7 @@ import { CrewAssignmentsTableRow } from '@/features/organization/crew/components
 import { CrewFiltersSheet } from '@/features/organization/crew/components/crew-filters-sheet';
 import { CrewHomeMobileCard } from '@/features/organization/crew/components/crew-home-mobile-card';
 import { CrewHomeTableRow } from '@/features/organization/crew/components/crew-home-table-row';
+import { CrewPhaseGuideDialog } from '@/features/organization/crew/components/crew-phase-guide-dialog';
 import { CrewSummaryCards } from '@/features/organization/crew/components/crew-summary-cards';
 import {
     queueSectionCopy,
@@ -222,14 +223,19 @@ export function CurrentCrewContent({
                 title="Crew Assignments"
                 description="Track mobilisation, vessel joins, and demobilisation in one operational board."
                 right={
-                    can.create ? (
-                        <Button
-                            onClick={() => router.visit(createAssignment.url())}
-                        >
-                            <Plus className="h-4 w-4" />
-                            Start Assignment
-                        </Button>
-                    ) : null
+                    <div className="flex flex-wrap items-center gap-2">
+                        <CrewPhaseGuideDialog />
+                        {can.create ? (
+                            <Button
+                                onClick={() =>
+                                    router.visit(createAssignment.url())
+                                }
+                            >
+                                <Plus className="h-4 w-4" />
+                                Start Assignment
+                            </Button>
+                        ) : null}
+                    </div>
                 }
             />
 

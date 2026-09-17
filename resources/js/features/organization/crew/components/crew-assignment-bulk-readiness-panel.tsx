@@ -165,6 +165,7 @@ export function CrewAssignmentBulkReadinessPanel({
     onReviewRow,
     onRemoveRow,
     onRemoveBlockedRows,
+    onBeforeExternalNavigation,
     batchError,
     className,
 }: {
@@ -187,6 +188,7 @@ export function CrewAssignmentBulkReadinessPanel({
     onReviewRow: (rowKey: string) => void;
     onRemoveRow: (index: number) => void;
     onRemoveBlockedRows?: () => void;
+    onBeforeExternalNavigation?: () => void;
     batchError?: string | null;
     className?: string;
 }): ReactElement {
@@ -563,6 +565,9 @@ export function CrewAssignmentBulkReadinessPanel({
                                                                 action,
                                                                 assignmentId,
                                                             )}
+                                                            onBeforeNavigate={
+                                                                onBeforeExternalNavigation
+                                                            }
                                                             onClick={
                                                                 action.kind ===
                                                                     'transfer' &&
