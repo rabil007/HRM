@@ -1,10 +1,13 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     AlertCircle,
     Download,
+    Eye,
     FileSpreadsheet,
+    FolderKanban,
     Info,
     Loader2,
+    Ship,
     Upload,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -57,16 +60,23 @@ type ClientRow = {
     id: number;
     name: string;
     is_active: boolean;
+    projects_count?: number;
+    vessels_count?: number;
 } & MasterDataUsageFlags;
 
 export default function Clients({
     clients,
     pagination,
     search = '',
+    can: pageCan = { view_projects: false, view_vessels: false },
 }: {
     clients: ClientRow[];
     pagination: PaginationMeta;
     search?: string;
+    can?: {
+        view_projects: boolean;
+        view_vessels: boolean;
+    };
 }) {
     const can = useSettingsMasterDataCan('clients');
 
@@ -300,53 +310,153 @@ export default function Clients({
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
-                        <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
-                                <div className="col-span-7">Name</div>
-                                <div className="col-span-2">Active</div>
-                                <div className="col-span-3 text-right">
+                        <div className="min-w-[760px]">
+                            <div className="grid grid-cols-12 items-center gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
+                                <div className="col-span-5">Client</div>
+                                <div className="col-span-4">
+                                    Connected Operations
+                                </div>
+                                <div className="col-span-1 text-center">
+                                    Active
+                                </div>
+                                <div className="col-span-2 text-right">
                                     Actions
                                 </div>
                             </div>
 
-                            {rows.map((v) => (
-                                <div
-                                    key={v.id}
-                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
-                                >
-                                    <div className="col-span-7 flex min-w-0 items-center gap-2 text-sm">
-                                        <span className="truncate">
-                                            {v.name}
-                                        </span>
-                                        <MasterDataInUseBadge item={v} />
-                                    </div>
-                                    <div className="col-span-2 flex items-center">
-                                        <Switch
-                                            disabled={!can.update}
-                                            checked={v.is_active}
-                                            onCheckedChange={() =>
-                                                toggleActive(v)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="col-span-3 flex flex-nowrap justify-end gap-2">
-                                        {can.update ? (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => openEdit(v)}
+                            {rows.map((v) => {
+                                const projectsCount = v.projects_count ?? 0;
+                                const vesselsCount = v.vessels_count ?? 0;
+
+                                return (
+                                    <div
+                                        key={v.id}
+                                        className="grid grid-cols-12 items-center gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap transition-colors hover:bg-muted/15"
+                                    >
+                                        <div className="col-span-5 flex min-w-0 items-center gap-2 text-sm">
+                                            <Link
+                                                href={`/settings/master-data/clients/${v.id}`}
+                                                className="truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
+                                                title={`View ${v.name} operational overview`}
                                             >
-                                                Edit
+                                                {v.name}
+                                            </Link>
+                                            <MasterDataInUseBadge item={v} />
+                                        </div>
+
+                                        <div className="col-span-4 flex items-center gap-2 text-xs">
+                                            {projectsCount > 0 ? (
+                                                pageCan.view_projects ? (
+                                                    <Link
+                                                        href={`/settings/master-data/projects?client_id=${v.id}`}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 font-medium text-foreground transition-colors hover:border-border hover:bg-muted"
+                                                        title={`View ${projectsCount} projects for ${v.name}`}
+                                                    >
+                                                        <FolderKanban className="size-3.5 text-primary" />
+                                                        <span>
+                                                            {projectsCount}{' '}
+                                                            {projectsCount === 1
+                                                                ? 'Project'
+                                                                : 'Projects'}
+                                                        </span>
+                                                    </Link>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1 font-medium text-muted-foreground">
+                                                        <FolderKanban className="size-3.5 text-muted-foreground" />
+                                                        <span>
+                                                            {projectsCount}{' '}
+                                                            {projectsCount === 1
+                                                                ? 'Project'
+                                                                : 'Projects'}
+                                                        </span>
+                                                    </span>
+                                                )
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground/60">
+                                                    <FolderKanban className="size-3.5 text-muted-foreground/40" />
+                                                    <span>No projects</span>
+                                                </span>
+                                            )}
+
+                                            {vesselsCount > 0 ? (
+                                                pageCan.view_vessels ? (
+                                                    <Link
+                                                        href={`/organization/vessels?client_id=${v.id}`}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 font-medium text-foreground transition-colors hover:border-border hover:bg-muted"
+                                                        title={`View ${vesselsCount} vessels for ${v.name} in current company`}
+                                                    >
+                                                        <Ship className="size-3.5 text-primary" />
+                                                        <span>
+                                                            {vesselsCount}{' '}
+                                                            {vesselsCount === 1
+                                                                ? 'Vessel'
+                                                                : 'Vessels'}
+                                                        </span>
+                                                    </Link>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1 font-medium text-muted-foreground">
+                                                        <Ship className="size-3.5 text-muted-foreground" />
+                                                        <span>
+                                                            {vesselsCount}{' '}
+                                                            {vesselsCount === 1
+                                                                ? 'Vessel'
+                                                                : 'Vessels'}
+                                                        </span>
+                                                    </span>
+                                                )
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground/60">
+                                                    <Ship className="size-3.5 text-muted-foreground/40" />
+                                                    <span>No vessels</span>
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="col-span-1 flex items-center justify-center">
+                                            <Switch
+                                                disabled={!can.update}
+                                                checked={v.is_active}
+                                                onCheckedChange={() =>
+                                                    toggleActive(v)
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="col-span-2 flex flex-nowrap items-center justify-end gap-1.5">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={`/settings/master-data/clients/${v.id}`}
+                                                >
+                                                    <Eye className="mr-1 h-3.5 w-3.5" />
+                                                    View
+                                                </Link>
                                             </Button>
-                                        ) : null}
-                                        <MasterDataDeleteButton
-                                            item={v}
-                                            hasDeletePermission={can.delete}
-                                            onDelete={() => requestDelete(v)}
-                                        />
+                                            {can.update ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 px-2.5 text-xs"
+                                                    onClick={() => openEdit(v)}
+                                                >
+                                                    Edit
+                                                </Button>
+                                            ) : null}
+                                            <MasterDataDeleteButton
+                                                item={v}
+                                                hasDeletePermission={can.delete}
+                                                onDelete={() =>
+                                                    requestDelete(v)
+                                                }
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             {rows.length === 0 ? (
                                 <div className="px-4 py-10 text-sm text-muted-foreground">

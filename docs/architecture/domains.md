@@ -662,9 +662,10 @@ VesselType (global) → Vessel (company + optional client_id) → VesselManning 
 - Project Client reassignment (including first-time `null` → Client) is blocked when Employees already reference the Project with a conflicting non-null Client. Employees with `project_id` set and `client_id` null do not block mapping. Import uses the same guard.
 - New operational Crew activity (assignments, Join/Transfer/Redeploy, Planning) requires an active company Vessel with an assigned **active** Client. Legacy-unassigned (`vessel.client_id = null`), inactive Vessels, and active Vessels whose Client is inactive are rejected. When a draft/assignment includes a Vessel, `CrewAssignment.client_id` is snapshotted from that Vessel’s current Client after those checks.
 - Editable pre-P4 Crew Assignments may keep an unchanged legacy/inactive Vessel or Client snapshot during unrelated edits; selecting a new Vessel/Client (or changing only one of the pair) must satisfy today’s operational rules.
-- Employee create/update and Employee CSV import enforce Client ↔ Project consistency using the same shared rules.
 - Current Crew / Relief Desk Client→Vessel filter options prefer historical assignment pairs (`crew_assignments.client_id` + `vessel_id`), not today’s `Vessel.client_id`.
 - `Vessel.client_id` is the **current/default operational Client**. Changing it does **not** rewrite historical `CrewAssignment.client_id` or `EmployeeSeaService.client_id` snapshots.
+- **Client Operations Hub**: `GET /settings/master-data/clients/{client}` (`settings.master-data.clients.show`, rendered via `settings/master-data/client-show`) provides a dedicated operational overview for each client. It aggregates total and active project counts, preview records, company-scoped vessel fleet counts and previews, quick navigation to filtered Projects (`/settings/master-data/projects?client_id=X`) and Vessels (`/organization/vessels?client_id=X`), and optional audit logging.
+- **Client Listing Operations**: The master data clients index (`/settings/master-data/clients`) includes compact, clickable operational chips (`[FolderKanban X Projects]`, `[Ship Y Vessels]`) that navigate directly to the respective module filtered by client, with vessel counts strictly scoped to the active `current_company_id`.
 
 ### Main models
 
