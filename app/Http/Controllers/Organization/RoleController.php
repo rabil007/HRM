@@ -11,6 +11,7 @@ use App\Support\Authorization\Presenters\PermissionOptionPresenter;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -45,8 +46,6 @@ class RoleController extends Controller
             'created_at' => $role->created_at,
         ]);
 
-        $permissions = self::applicationPermissionOptions();
-
         $company = Company::query()->whereKey($companyId)->first(['id', 'name']);
 
         return Inertia::render('organization/roles', [
@@ -57,7 +56,6 @@ class RoleController extends Controller
                 'has_permissions' => $hasPermissions,
             ],
             'company' => $company,
-            'permissions' => $permissions,
         ]);
     }
 
@@ -87,15 +85,7 @@ class RoleController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'permissions' => ['nullable', 'array'],
-            'permissions.*' => ['string', 'max:100'],
-        ]);
-
-        foreach (($data['permissions'] ?? []) as $permissionName) {
-            Permission::findOrCreate($permissionName, 'web');
-        }
+        $data = $request->validate(self::roleValidationRules());
 
         $role = Role::query()->create([
             'company_id' => $companyId,
@@ -115,11 +105,7 @@ class RoleController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $role->company_id === $companyId, 404);
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'permissions' => ['nullable', 'array'],
-            'permissions.*' => ['string', 'max:100'],
-        ]);
+        $data = $request->validate(self::roleValidationRules());
 
         if ($role->name === 'Owner') {
             if ($data['name'] !== 'Owner' || $request->exists('permissions')) {
@@ -131,10 +117,6 @@ class RoleController extends Controller
             return redirect()
                 ->route('organization.roles')
                 ->with('success', 'Role updated successfully.');
-        }
-
-        foreach (($data['permissions'] ?? []) as $permissionName) {
-            Permission::findOrCreate($permissionName, 'web');
         }
 
         $role->update([
@@ -166,6 +148,18 @@ class RoleController extends Controller
         return redirect()
             ->route('organization.roles')
             ->with('success', 'Role deleted successfully.');
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function roleValidationRules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:100'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', 'max:100', Rule::in(ApplicationPermissionRegistry::names())],
+        ];
     }
 
     /**

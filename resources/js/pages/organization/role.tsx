@@ -23,6 +23,7 @@ import type {
     Role,
     RoleFormData,
 } from '@/features/organization/roles/types';
+import { resolveEffectiveActiveGroup } from '@/pages/organization/_lib/role-permission-active-group';
 import { resolvePermissionGroups } from '@/pages/organization/_lib/role-permission-groups';
 import { permissionMatchesQuery } from '@/pages/organization/_lib/role-permission-search';
 
@@ -98,6 +99,7 @@ export default function RoleDetails({
         for (const permission of list) {
             const { mainGroup, subGroup } = resolvePermissionGroups(
                 permission.name,
+                permission.group,
             );
 
             if (!mainMap.has(mainGroup)) {
@@ -132,9 +134,13 @@ export default function RoleDetails({
             });
     }, [availablePermissions, permissionQuery, permissionView, selectedSet]);
 
-    const initialGroup = grouped[0]?.[0] ?? null;
-    const [activeGroup, setActiveGroup] = useState<string | null>(initialGroup);
-    const effectiveActiveGroup = activeGroup ?? initialGroup;
+    const [activeGroup, setActiveGroup] = useState<string | null>(
+        () => grouped[0]?.[0] ?? null,
+    );
+    const effectiveActiveGroup = useMemo(
+        () => resolveEffectiveActiveGroup(grouped, activeGroup),
+        [grouped, activeGroup],
+    );
 
     const togglePermission = (permission: string, next: boolean) => {
         if (next) {

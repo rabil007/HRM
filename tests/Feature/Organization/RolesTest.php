@@ -3,9 +3,9 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Permission;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 test('guests cannot access roles page', function () {
@@ -148,7 +148,156 @@ test('role permission assignment accepts companies permissions without obsolete 
     ]);
 });
 
+test('role create accepts known registry permissions', function () {
+    $this->seed(PermissionsSeeder::class);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'RPC',
+        'name' => 'Registry Permission Co Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => 'RPC',
+        'name' => 'Registry Permission Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+    $company = Company::query()->create([
+        'name' => 'Registry Permission Co',
+        'slug' => 'registry-permission-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.create', 'roles.view']);
+
+    $this->post('/organization/roles', [
+        'name' => 'Department Viewer',
+        'permissions' => ['departments.view'],
+    ])->assertRedirect();
+
+    $role = Role::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'Department Viewer')
+        ->first();
+
+    expect($role)->not->toBeNull()
+        ->and($role->permissions->pluck('name')->all())->toBe(['departments.view']);
+});
+
+test('role create rejects unknown permissions and does not create or assign them', function () {
+    $this->seed(PermissionsSeeder::class);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'RPU',
+        'name' => 'Registry Permission Unknown Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => 'RPU',
+        'name' => 'Registry Permission Unknown Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+    $company = Company::query()->create([
+        'name' => 'Registry Permission Unknown Co',
+        'slug' => 'registry-permission-unknown-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.create', 'roles.view']);
+
+    $unknownPermission = 'crafted.permission.escalation';
+
+    $this->from('/organization/roles')
+        ->post('/organization/roles', [
+            'name' => 'Escalation Role',
+            'permissions' => [$unknownPermission],
+        ])
+        ->assertRedirect('/organization/roles')
+        ->assertSessionHasErrors(['permissions.0']);
+
+    expect(Permission::query()->where('name', $unknownPermission)->exists())->toBeFalse();
+    expect(Role::query()->where('company_id', $company->id)->where('name', 'Escalation Role')->exists())->toBeFalse();
+});
+
+test('role update rejects unknown permissions without detaching existing assignments', function () {
+    $this->seed(PermissionsSeeder::class);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'RPE',
+        'name' => 'Registry Permission Edit Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => 'RPE',
+        'name' => 'Registry Permission Edit Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+    $company = Company::query()->create([
+        'name' => 'Registry Permission Edit Co',
+        'slug' => 'registry-permission-edit-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Admin',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view', 'employees.update']);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $unknownPermission = 'crafted.permission.escalation';
+
+    $this->from('/organization/roles')
+        ->put("/organization/roles/{$role->id}", [
+            'name' => 'HR Admin',
+            'permissions' => ['employees.view', $unknownPermission],
+        ])
+        ->assertRedirect('/organization/roles')
+        ->assertSessionHasErrors(['permissions.1']);
+
+    $role->refresh();
+
+    expect(Permission::query()->where('name', $unknownPermission)->exists())->toBeFalse()
+        ->and($role->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+        ]);
+});
+
 test('authenticated users can create, update, and delete a role', function () {
+    $this->seed(PermissionsSeeder::class);
+
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -714,7 +863,7 @@ test('Owner protection in company A does not block normal role edits in company 
     ]);
 });
 
-test('roles page does not list retired bulk signature review permission', function () {
+test('roles index page does not expose full permission metadata payload', function () {
     $this->seed(PermissionsSeeder::class);
 
     $user = User::factory()->create();
@@ -747,9 +896,5 @@ test('roles page does not list retired bulk signature review permission', functi
 
     $this->get('/organization/roles')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('permissions', fn ($permissions): bool => collect($permissions)
-                ->pluck('name')
-                ->doesntContain('bulk_documents.signatures.review')
-                && collect($permissions)->pluck('name')->contains('bulk_documents.view')));
+        ->assertInertia(fn ($page) => $page->missing('permissions'));
 });
