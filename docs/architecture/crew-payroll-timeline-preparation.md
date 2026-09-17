@@ -97,6 +97,28 @@ The same bound clips **all** payable allocation, including completed phases whos
 
 Future payable days are never generated. Existing preparation versions remain immutable snapshots; a new Prepare from Crew Assignments creates a new version through the current effective end.
 
+### Effective preparation cutoff ("as-of" date)
+
+Each preparation persists an explicit `effective_cutoff_date` (`CrewTimesheetPreparation.effective_cutoff_date`), resolved by `CrewTimelinePhaseQuery::resolveEffectiveCutoffDate()`:
+
+1. **Open active timelines**:
+   - If any phase in the period has `actual_start_at <= effectiveEnd` and is open (`actual_end_at === null` or ends after `effectiveEnd`), the preparation's effective cutoff is `effectiveEnd` (company-local today, capped by period end or explicit user cutoff).
+   - As company-local wall-clock date advances overnight, `effectiveEnd` advances. Because the active phase is still open, recalculating today would include the newly eligible day.
+   - Consequently, the source hash recalculation detects the advanced effective cutoff boundary, and the unapplied preparation becomes **stale**. A newly prepared version includes the new day.
+
+2. **Closed historical timelines**:
+   - When all overlapping phases in the period are completed (`actual_end_at <= effectiveEnd`), the preparation's effective cutoff is bounded by the latest actual movement date of the closed timeline (`min(effectiveEnd, max(latestClosedActualDate, periodStart))`).
+   - Advancing the wall-clock calendar date does not change the closed timeline's effective cutoff date or payable days.
+   - This prevents unnecessary daily invalidation for historical or closed periods where no underlying movement facts changed.
+
+3. **Explicit user cutoff**:
+   - When a user explicitly selects a cutoff date within the pay period (e.g. 17 Sep), `effectiveEnd` is capped at 17 Sep.
+   - Advancing current days (18 Sep, 19 Sep, ...) preserves `effective_cutoff_date = 17 Sep` and leaves the hash stable and deterministic.
+
+4. **Payroll period end**:
+   - For completed historical payroll periods (e.g. August when current month is September), `periodEnd` (31 Aug) caps `effectiveEnd`.
+   - The preparation result remains fixed at 31 Aug and does not alter as subsequent months advance.
+
 ## Phase 1A schema
 
 ### Extended `crew_timesheets`
@@ -106,6 +128,12 @@ Legacy standby/onsite fields remain. Additive payable standby and source metadat
 ### `crew_timesheet_preparations`
 
 Versioned, company-scoped preparation records. Unique `(company_id, payroll_period_id, version)`. Older versions are preserved.
+
+Fields include:
+
+- `cutoff_date`: User-specified optional cutoff (null when not specified)
+- `effective_cutoff_date`: Resolved effective preparation cutoff / as-of boundary (company-local calendar date)
+- `source_hash`: SHA-256 fingerprint of period, cutoff, effective cutoff date, movement phases, contracts, and pending corrections
 
 Additive return audit fields:
 
@@ -206,16 +234,26 @@ Approval requires the `payroll.crew_timesheets.approve` permission. There is no 
 
 - the preparation’s payroll period
 - the preparation’s cutoff date
+- the resolved `effective_cutoff_date` (via `CrewTimelinePhaseQuery::resolveEffectiveCutoffDate()`)
 - current overlapping actual phases via `CrewTimelinePhaseQuery`
 - `CrewTimelineSourceHasher`
 
 A preparation is stale when the recalculated hash differs from `source_hash`.
 
-Freshness is checked on the review page, before submission, and before approval.
+Freshness is checked:
+1. On the review page (`is_fresh`, `is_stale`, `stale_reason`)
+2. Before submission (`SubmitCrewTimesheetPreparation`)
+3. Before approval (`ApproveCrewTimesheetPreparation`)
+4. Before application to timesheets (`ApplyCrewTimesheetPreparation`)
 
-Stale preparations cannot be submitted or approved. Message:
+Stale preparations cannot be submitted, approved, or applied.
 
-> Crew Assignment data changed after this preparation was created. Prepare a new version before continuing.
+- If the active timeline has advanced past the preparation's effective cutoff without database changes:
+  > The active crew timeline has advanced beyond this preparation’s effective cutoff. Prepare a new version before continuing. (or for apply: Prepare and approve a new version before applying it to payroll.)
+- If underlying Crew Assignment facts, contracts, or pending corrections changed:
+  > Crew Assignment data changed after this preparation was created (or approved). Prepare a new version before continuing.
+
+Approval does not grant permission to apply stale data: if a preparation becomes stale between approval and apply, application blocks and requires re-preparation and re-approval. Applied timesheets remain immutable historical snapshots and are never mutated automatically when days advance.
 
 Do not update the old preparation’s `source_hash`.
 

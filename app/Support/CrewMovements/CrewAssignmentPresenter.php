@@ -10,6 +10,7 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
 class CrewAssignmentPresenter
@@ -372,7 +373,9 @@ class CrewAssignmentPresenter
 
     private static function companyTimezone(CrewAssignment $assignment): string
     {
-        return (string) ($assignment->company?->timezone ?? config('app.timezone', 'UTC'));
+        return CompanyTimezone::forCompany(
+            $assignment->company ?? (int) $assignment->company_id
+        );
     }
 
     /**

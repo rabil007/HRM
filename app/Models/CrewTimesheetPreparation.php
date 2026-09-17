@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\CarbonImmutable;
 use Database\Factories\CrewTimesheetPreparationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +31,7 @@ class CrewTimesheetPreparation extends Model
         'version',
         'status',
         'cutoff_date',
+        'effective_cutoff_date',
         'source_hash',
         'prepared_by',
         'prepared_at',
@@ -51,6 +54,7 @@ class CrewTimesheetPreparation extends Model
                 'version',
                 'status',
                 'cutoff_date',
+                'effective_cutoff_date',
                 'source_hash',
                 'prepared_by',
                 'prepared_at',
@@ -83,12 +87,36 @@ class CrewTimesheetPreparation extends Model
             'applied_by' => 'integer',
             'status' => CrewTimesheetPreparationStatus::class,
             'cutoff_date' => 'date',
+            'effective_cutoff_date' => 'date',
             'prepared_at' => 'datetime',
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',
             'returned_at' => 'datetime',
             'applied_at' => 'datetime',
         ];
+    }
+
+    public function resolveEffectiveCutoffDate(): CarbonImmutable
+    {
+        if ($this->effective_cutoff_date !== null) {
+            return CarbonImmutable::parse($this->effective_cutoff_date->toDateString());
+        }
+
+        $timezone = CompanyTimezone::forCompanyId((int) $this->company_id);
+
+        if ($this->cutoff_date !== null) {
+            return CarbonImmutable::parse($this->cutoff_date->toDateString(), $timezone);
+        }
+
+        $periodEnd = $this->payrollPeriod?->end_date !== null
+            ? CarbonImmutable::parse($this->payrollPeriod->end_date->toDateString(), $timezone)
+            : CarbonImmutable::now($timezone)->startOfDay();
+
+        $preparedDate = $this->prepared_at !== null
+            ? CarbonImmutable::parse($this->prepared_at->toIso8601String(), $timezone)->startOfDay()
+            : CarbonImmutable::now($timezone)->startOfDay();
+
+        return $preparedDate->lt($periodEnd) ? $preparedDate : $periodEnd;
     }
 
     public function company(): BelongsTo

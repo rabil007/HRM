@@ -137,6 +137,71 @@ final class CrewTimelinePhaseQuery
     }
 
     /**
+     * Resolves the effective preparation cutoff ("as-of") date.
+     *
+     * For open active phases overlapping the period, the effective cutoff advances
+     * with company-local today up to period end or explicit cutoff ($effectiveEnd).
+     *
+     * For completed historical phases, the effective cutoff is bounded by the
+     * latest actual movement date of the closed timeline, avoiding unnecessary
+     * daily invalidation when wall-clock time advances.
+     *
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     */
+    public function resolveEffectiveCutoffDate(
+        PayrollPeriod $period,
+        ?CarbonInterface $cutoffDate,
+        Collection $phases,
+    ): CarbonImmutable {
+        $timezone = CompanyTimezone::forCompanyId((int) $period->company_id);
+        $effectiveEnd = $this->effectiveEndDate($period, $cutoffDate);
+        $periodStart = CarbonImmutable::parse($period->start_date->toDateString(), $timezone)->startOfDay();
+
+        $hasOpenPhase = false;
+        $latestClosedActualDate = null;
+
+        foreach ($phases as $phase) {
+            if ($phase->actual_start_at === null) {
+                continue;
+            }
+
+            $phaseStart = CarbonImmutable::parse($phase->actual_start_at, $timezone)->startOfDay();
+
+            if ($phaseStart->gt($effectiveEnd)) {
+                continue;
+            }
+
+            if ($phase->actual_end_at === null) {
+                $hasOpenPhase = true;
+                break;
+            }
+
+            $phaseEnd = CarbonImmutable::parse($phase->actual_end_at, $timezone)->startOfDay();
+
+            if ($phaseEnd->gt($effectiveEnd)) {
+                $hasOpenPhase = true;
+                break;
+            }
+
+            if ($latestClosedActualDate === null || $phaseEnd->gt($latestClosedActualDate)) {
+                $latestClosedActualDate = $phaseEnd;
+            }
+        }
+
+        if ($hasOpenPhase) {
+            return $effectiveEnd;
+        }
+
+        if ($latestClosedActualDate === null) {
+            return $periodStart->lt($effectiveEnd) ? $periodStart : $effectiveEnd;
+        }
+
+        $boundedLatest = $latestClosedActualDate->lt($periodStart) ? $periodStart : $latestClosedActualDate;
+
+        return $boundedLatest->lt($effectiveEnd) ? $boundedLatest : $effectiveEnd;
+    }
+
+    /**
      * @return array{0: CarbonImmutable, 1: CarbonImmutable}|null
      */
     private function utcBoundaries(PayrollPeriod $period, CarbonInterface $effectiveEnd): ?array

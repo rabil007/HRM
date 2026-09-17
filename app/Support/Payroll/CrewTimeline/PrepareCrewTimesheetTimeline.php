@@ -100,7 +100,8 @@ final class PrepareCrewTimesheetTimeline
             $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $cutoffDate);
             $phases = $this->phaseQuery->overlappingPhases($period, $effectiveEnd);
             $issuePhases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
-            $sourceHash = $this->sourceHasher->hash($period, $cutoffDate, $issuePhases);
+            $effectiveCutoffDate = $this->phaseQuery->resolveEffectiveCutoffDate($period, $cutoffDate, $issuePhases);
+            $sourceHash = $this->sourceHasher->hash($period, $cutoffDate, $issuePhases, $effectiveCutoffDate);
             $issues = $this->issueDetector->detect($period, $issuePhases, $companyId);
             $allocatedDays = $this->dayAllocator->allocate($period, $phases, $effectiveEnd, $companyId);
             $ranges = $this->rangeBuilder->build($allocatedDays);
@@ -112,6 +113,7 @@ final class PrepareCrewTimesheetTimeline
                 'version' => $nextVersion,
                 'status' => CrewTimesheetPreparationStatus::Draft,
                 'cutoff_date' => $cutoffDate?->toDateString(),
+                'effective_cutoff_date' => $effectiveCutoffDate->toDateString(),
                 'source_hash' => $sourceHash,
                 'prepared_by' => $preparedByUserId,
                 'prepared_at' => now(),

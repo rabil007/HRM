@@ -75,10 +75,12 @@ function WarningBreakdownList({
 export function CrewTimelineWarningPanel({
     summary,
     isStale,
+    staleReason,
     breakdown,
 }: {
     summary: CrewTimelineSummary;
     isStale: boolean;
+    staleReason?: string | null;
     breakdown: CrewTimelineWarningBreakdownItem[];
 }) {
     const unresolvedBlockers =
@@ -108,8 +110,8 @@ export function CrewTimelineWarningPanel({
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Crew Timesheet source changed</AlertTitle>
                     <AlertDescription>
-                        Crew Assignment data changed after this Crew Timesheet
-                        was prepared. Prepare a new version before continuing.
+                        {staleReason ??
+                            'Crew Assignment data changed after this Crew Timesheet was prepared. Prepare a new version before continuing.'}
                     </AlertDescription>
                 </Alert>
             ) : null}

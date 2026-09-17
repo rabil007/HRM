@@ -151,9 +151,11 @@ export type CrewTimelinePreparation = {
     status: CrewTimelinePreparationStatus;
     status_label: string;
     cutoff_date: string | null;
+    effective_cutoff_date: string | null;
     source_hash: string | null;
     is_fresh: boolean;
     is_stale: boolean;
+    stale_reason?: string | null;
     is_latest: boolean;
     prepared_by: CrewTimelineUserRef | null;
     prepared_at: string | null;
@@ -238,6 +240,8 @@ export type CrewTimelinePreparationSummary = {
     status_label: string;
     is_fresh: boolean;
     is_stale: boolean;
+    stale_reason?: string | null;
+    effective_cutoff_date?: string | null;
     blocking_warning_count: number;
     informational_warning_count: number;
     prepared_at: string | null;

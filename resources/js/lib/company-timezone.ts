@@ -121,24 +121,15 @@ export function toCompanyDateTimeLocal(
         return '';
     }
 
-    // Already a datetime-local format without timezone offset: YYYY-MM-DDTHH:mm
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
-        return trimmed;
+    // Timezone-less calendar date: YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return `${trimmed}T00:00`;
     }
 
-    // Wall-clock display from backend snapshot: YYYY-MM-DD HH:mm
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(trimmed)) {
-        return trimmed.replace(' ', 'T');
-    }
-
-    // Wall-clock display with seconds: YYYY-MM-DD HH:mm:ss -> truncate seconds
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
-        // Backend SQL timestamps without timezone are stored in UTC:
-        const parsedUtc = new Date(trimmed.replace(' ', 'T') + 'Z');
-
-        if (!Number.isNaN(parsedUtc.getTime())) {
-            return formatInTimezone(parsedUtc, safeTz);
-        }
+    // Timezone-less wall-clock string: YYYY-MM-DD[T ]HH:mm or YYYY-MM-DD[T ]HH:mm:ss
+    // Treat these as already representing a company-local wall-clock value (e.g. from presenter or input).
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?$/.test(trimmed)) {
+        return trimmed.replace(' ', 'T').slice(0, 16);
     }
 
     // ISO timestamp with timezone designator (Z or +/-offset)

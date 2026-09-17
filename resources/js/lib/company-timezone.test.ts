@@ -182,9 +182,19 @@ describe('company-timezone helper', () => {
             );
         });
 
-        it('converts SQL UTC timestamp (YYYY-MM-DD HH:mm:ss) into company local time', () => {
+        it('treats presenter/wall-clock timestamp without timezone (YYYY-MM-DD HH:mm:ss) as company-local without double conversion', () => {
+            // Presenter value already in company time: '2026-09-17 23:55:00'
+            // Must NOT double-convert and shift to 2026-09-18
             assert.equal(
-                toCompanyDateTimeLocal('2026-09-17 19:30:00', 'Asia/Dubai'),
+                toCompanyDateTimeLocal('2026-09-17 23:55:00', 'Asia/Dubai'),
+                '2026-09-17T23:55',
+            );
+            assert.equal(
+                toCompanyDateLocal('2026-09-17 23:55:00', 'Asia/Dubai'),
+                '2026-09-17',
+            );
+            assert.equal(
+                toCompanyDateTimeLocal('2026-09-17 23:30:00', 'Asia/Dubai'),
                 '2026-09-17T23:30',
             );
         });

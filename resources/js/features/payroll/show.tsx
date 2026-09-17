@@ -971,7 +971,11 @@ export function PayrollShowContent({
                                     >
                                         {crew_timeline_preparation.is_fresh
                                             ? 'Fresh'
-                                            : 'Crew Assignment data changed'}
+                                            : crew_timeline_preparation.stale_reason?.includes(
+                                                    'timeline has advanced',
+                                                )
+                                              ? 'Timeline advanced'
+                                              : 'Crew Assignment data changed'}
                                     </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground">

@@ -209,6 +209,7 @@ export function CrewTimelineReviewContent({
                 <CrewTimelineWarningPanel
                     summary={summary}
                     isStale={preparation.is_stale}
+                    staleReason={preparation.stale_reason}
                     breakdown={warning_breakdown}
                 />
 
@@ -256,10 +257,24 @@ export function CrewTimelineReviewContent({
                     </CardHeader>
                     <CardContent className="grid gap-4 px-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
                         <MetaWithIcon
-                            label="Cutoff date"
-                            value={formatDisplayDate(preparation.cutoff_date)}
+                            label="Prepared through"
+                            value={formatDisplayDate(
+                                preparation.effective_cutoff_date ??
+                                    preparation.cutoff_date,
+                            )}
                             icon={Calendar}
                         />
+                        {preparation.cutoff_date &&
+                        preparation.cutoff_date !==
+                            preparation.effective_cutoff_date ? (
+                            <MetaWithIcon
+                                label="Explicit cutoff"
+                                value={formatDisplayDate(
+                                    preparation.cutoff_date,
+                                )}
+                                icon={Calendar}
+                            />
+                        ) : null}
                         <MetaFreshness isFresh={preparation.is_fresh} />
                         {preparation.linked_timesheet_count > 0 ? (
                             <Meta

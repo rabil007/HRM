@@ -28,6 +28,7 @@ final class CrewTimelineSourceHasher
         PayrollPeriod $period,
         ?CarbonInterface $cutoffDate,
         Collection $phases,
+        ?CarbonInterface $effectiveCutoffDate = null,
     ): string {
         $employeeIds = $phases
             ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->assignment?->employee_id)
@@ -47,6 +48,7 @@ final class CrewTimelineSourceHasher
             'period_start' => $period->start_date?->toDateString(),
             'period_end' => $period->end_date?->toDateString(),
             'cutoff_date' => $cutoffDate?->toDateString(),
+            'effective_cutoff_date' => $effectiveCutoffDate?->toDateString(),
             'phases' => $phases
                 ->map(fn (CrewAssignmentPhase $phase): array => [
                     'employee_id' => (int) $phase->assignment?->employee_id,

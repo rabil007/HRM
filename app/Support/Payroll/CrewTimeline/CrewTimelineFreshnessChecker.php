@@ -12,6 +12,10 @@ final class CrewTimelineFreshnessChecker
 
     public const APPLY_STALE_MESSAGE = 'Crew Assignment data changed after this preparation was approved. Prepare and approve a new version before applying it to payroll.';
 
+    public const TIMELINE_ADVANCED_MESSAGE = 'The active crew timeline has advanced beyond this preparation’s effective cutoff. Prepare a new version before continuing.';
+
+    public const APPLY_TIMELINE_ADVANCED_MESSAGE = 'The active crew timeline has advanced beyond this preparation’s effective cutoff. Prepare and approve a new version before applying it to payroll.';
+
     public function __construct(
         private readonly CrewTimelinePhaseQuery $phaseQuery,
         private readonly CrewTimelineSourceHasher $sourceHasher,
@@ -23,8 +27,9 @@ final class CrewTimelineFreshnessChecker
     ): string {
         $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $preparation->cutoff_date);
         $phases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
+        $effectiveCutoff = $this->phaseQuery->resolveEffectiveCutoffDate($period, $preparation->cutoff_date, $phases);
 
-        return $this->sourceHasher->hash($period, $preparation->cutoff_date, $phases);
+        return $this->sourceHasher->hash($period, $preparation->cutoff_date, $phases, $effectiveCutoff);
     }
 
     public function isFresh(
@@ -41,14 +46,44 @@ final class CrewTimelineFreshnessChecker
         );
     }
 
+    public function staleReason(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+        bool $isApplyContext = false,
+    ): ?string {
+        if ($this->isFresh($preparation, $period)) {
+            return null;
+        }
+
+        $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $preparation->cutoff_date);
+        $phases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
+        $hashWithPrepCutoff = $this->sourceHasher->hash(
+            $period,
+            $preparation->cutoff_date,
+            $phases,
+            $preparation->resolveEffectiveCutoffDate(),
+        );
+
+        if (hash_equals((string) $preparation->source_hash, $hashWithPrepCutoff)) {
+            return $isApplyContext ? self::APPLY_TIMELINE_ADVANCED_MESSAGE : self::TIMELINE_ADVANCED_MESSAGE;
+        }
+
+        return $isApplyContext ? self::APPLY_STALE_MESSAGE : self::STALE_MESSAGE;
+    }
+
     public function assertFresh(
         CrewTimesheetPreparation $preparation,
         PayrollPeriod $period,
         ?string $message = null,
     ): void {
         if (! $this->isFresh($preparation, $period)) {
+            $isApply = ($message === self::APPLY_STALE_MESSAGE);
+            $reason = $message !== null && ! in_array($message, [self::STALE_MESSAGE, self::APPLY_STALE_MESSAGE], true)
+                ? $message
+                : $this->staleReason($preparation, $period, $isApply);
+
             throw ValidationException::withMessages([
-                'preparation' => $message ?? self::STALE_MESSAGE,
+                'preparation' => $reason ?? self::STALE_MESSAGE,
             ]);
         }
     }
