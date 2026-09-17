@@ -164,18 +164,7 @@ export function CrewAssignmentOperationalSummary({
     const phaseAge = assignment.days_in_phase;
 
     return (
-        <section className="mb-6 space-y-3" aria-labelledby="assignment-pulse">
-            <div>
-                <h2
-                    id="assignment-pulse"
-                    className="text-sm font-semibold text-foreground"
-                >
-                    Assignment pulse
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                    Current operating position and immediate assignment health.
-                </p>
-            </div>
+        <section aria-label="Assignment operational summary">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryCard
                     label="Current station"

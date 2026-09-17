@@ -74,15 +74,15 @@ export function CrewRecommendedNextAction({
             : null;
 
     return (
-        <Card className="overflow-hidden border-primary/20 bg-primary/3 dark:border-primary/20 dark:bg-primary/5">
+        <Card className="overflow-hidden border-primary/20 bg-primary/3 shadow-xs dark:border-primary/20 dark:bg-primary/5">
             <CardHeader className="border-b border-primary/10 pb-3">
                 <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                         <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <Sparkles className="size-4" />
                         </span>
                         <div>
-                            <CardTitle className="text-base">
+                            <CardTitle className="text-base font-semibold">
                                 Operator next step
                             </CardTitle>
                             <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -91,13 +91,14 @@ export function CrewRecommendedNextAction({
                         </div>
                     </div>
                     {recommended ? (
-                        <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+                            <span className="size-1.5 rounded-full bg-primary" />
                             Recommended
                         </span>
                     ) : null}
                 </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3.5 pt-4">
                 <CrewOperationalStatePanel
                     assignment={{
                         current_phase: currentPhase
@@ -117,28 +118,38 @@ export function CrewRecommendedNextAction({
                         cancel: canCancel,
                     }}
                 />
-                {recommended ? (
-                    <>
-                        <div className="flex flex-wrap items-center gap-2">
+
+                <div className="space-y-2 border-t border-primary/10 pt-3">
+                    {recommended ? (
+                        <div className="flex flex-wrap items-center gap-2.5">
                             {recommendedMovement ? (
                                 <Button
                                     type="button"
                                     onClick={() =>
                                         openAction(recommendedMovement)
                                     }
+                                    className="font-medium shadow-xs"
                                 >
-                                    {CREW_MOVEMENT_ACTION_LABELS[
-                                        recommendedMovement as CrewMovementAction
-                                    ] ?? recommended.label}
+                                    <span>
+                                        {CREW_MOVEMENT_ACTION_LABELS[
+                                            recommendedMovement as CrewMovementAction
+                                        ] ?? recommended.label}
+                                    </span>
                                     <ArrowRight className="ml-1.5 size-4" />
                                 </Button>
                             ) : null}
                             {recommendedHref && !recommendedMovement ? (
-                                <Button asChild>
+                                <Button
+                                    asChild
+                                    className="font-medium shadow-xs"
+                                >
                                     <Link href={recommendedHref}>
-                                        {recommended.type === 'readiness'
-                                            ? 'Open Documents'
-                                            : recommended.label}
+                                        <span>
+                                            {recommended.type === 'readiness'
+                                                ? 'Open Documents'
+                                                : recommended.label}
+                                        </span>
+                                        <ArrowRight className="ml-1.5 size-4" />
                                     </Link>
                                 </Button>
                             ) : null}
@@ -146,6 +157,7 @@ export function CrewRecommendedNextAction({
                                 <Button
                                     type="button"
                                     variant="outline"
+                                    className="border-amber-500/30 text-amber-800 hover:bg-amber-500/10 dark:text-amber-200"
                                     onClick={() =>
                                         openAction(recommended.anyway_action!)
                                     }
@@ -167,26 +179,26 @@ export function CrewRecommendedNextAction({
                                 }
                             />
                         </div>
-                    </>
-                ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm text-muted-foreground">
-                            Choose any allowed movement. Recommendations are
-                            guidance only.
-                        </p>
-                        <MovementActionMenu
-                            assignmentId={assignmentId}
-                            availableActions={availableActions}
-                            movementContext={movementContext}
-                            formOptions={formOptions}
-                            triggerLabel="Record Movement"
-                        />
-                    </div>
-                )}
-                <p className="text-[11px] text-muted-foreground/70">
-                    Other permitted movements remain available under More
-                    Actions.
-                </p>
+                    ) : (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm text-muted-foreground">
+                                Choose any allowed movement. Recommendations are
+                                guidance only.
+                            </p>
+                            <MovementActionMenu
+                                assignmentId={assignmentId}
+                                availableActions={availableActions}
+                                movementContext={movementContext}
+                                formOptions={formOptions}
+                                triggerLabel="Record Movement"
+                            />
+                        </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground/70">
+                        Other permitted movements remain available under More
+                        Actions.
+                    </p>
+                </div>
             </CardContent>
             <MovementActionDialog
                 open={dialogOpen}
