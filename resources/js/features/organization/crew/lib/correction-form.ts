@@ -1,9 +1,16 @@
 import type { CrewMovementCorrectionFieldValue } from '../../crew-movement-corrections/types';
-import type { CorrectablePhase, CrewAssignmentFormOptions } from '../types';
+import type { CorrectablePhase } from '../types';
+
+/** Form option list keys used by correction select fields (excludes scalar metadata). */
+export type CorrectionFormOptionListKey =
+    | 'vessels'
+    | 'ranks'
+    | 'clients'
+    | 'courses';
 
 export const CORRECTION_SELECT_OPTIONS: Record<
     string,
-    keyof CrewAssignmentFormOptions
+    CorrectionFormOptionListKey
 > = {
     vessel_id: 'vessels',
     rank_id: 'ranks',
