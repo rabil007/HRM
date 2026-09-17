@@ -61,7 +61,11 @@ test('record arrival creates pre join hotel stay', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementAccommodationFixtures();
     $assignment = startActivePreMobilisationAssignment(compact('user', 'company', 'employee', 'rank'));
     $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Royal Rose']);
-    $roomType = RoomType::factory()->create(['company_id' => $company->id, 'name' => 'Single Room']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Single Room',
+    ]);
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
@@ -145,10 +149,17 @@ test('record arrival rejects foreign inactive and invalid check in dates', funct
     ['company' => $companyB] = makeCrewAssignmentFixtures();
     $assignment = startActivePreMobilisationAssignment(compact('user', 'company', 'employee', 'rank'));
     $foreignHotel = Hotel::factory()->create(['company_id' => $companyB->id]);
-    $foreignRoomType = RoomType::factory()->create(['company_id' => $companyB->id]);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $companyB->id,
+        'hotel_id' => $foreignHotel->id,
+    ]);
     $inactiveHotel = Hotel::factory()->create(['company_id' => $company->id, 'is_active' => false]);
-    $inactiveRoomType = RoomType::factory()->create(['company_id' => $company->id, 'is_active' => false]);
     $validHotel = Hotel::factory()->create(['company_id' => $company->id, 'is_active' => true]);
+    $inactiveRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $validHotel->id,
+        'is_active' => false,
+    ]);
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
@@ -205,6 +216,53 @@ test('record arrival rejects foreign inactive and invalid check in dates', funct
     $assignment->refresh()->load('currentPhase');
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+});
+
+test('record arrival rejects room type from another hotel', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementAccommodationFixtures();
+    $assignment = startActivePreMobilisationAssignment(compact('user', 'company', 'employee', 'rank'));
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel B']);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotelB->id,
+        'name' => 'Foreign Room',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-09-16 10:30:00',
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotelA->id,
+            'room_type_id' => $foreignRoomType->id,
+            'check_in_date' => '2026-09-16',
+        ])
+        ->assertSessionHasErrors('room_type_id');
+
+    expect(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+});
+
+test('record arrival allows null room type when hotel is selected', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementAccommodationFixtures();
+    $assignment = startActivePreMobilisationAssignment(compact('user', 'company', 'employee', 'rank'));
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Royal Rose']);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-09-16 10:30:00',
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2026-09-16',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
+
+    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->first();
+
+    expect($stay)->not->toBeNull()
+        ->and($stay->hotel_id)->toBe($hotel->id)
+        ->and($stay->room_type_id)->toBeNull();
 });
 
 test('join vessel closes open pre join hotel stay and enters p4', function () {
@@ -564,7 +622,11 @@ test('confirm disembarkation to p5 creates post signoff hotel stay', function ()
     $fixtures = makeCrewMovementAccommodationFixtures();
     $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
     $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'City Seasons']);
-    $roomType = RoomType::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Twin Room']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Twin Room',
+    ]);
 
     $this->actingAs($fixtures['user'])
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
@@ -669,10 +731,17 @@ test('confirm disembarkation hotel path validation rejects invalid payloads and 
     ['company' => $companyB] = makeCrewAssignmentFixtures();
     $assignment = makeActiveOnVesselAssignmentForAccommodation($fixtures);
     $foreignHotel = Hotel::factory()->create(['company_id' => $companyB->id]);
-    $foreignRoomType = RoomType::factory()->create(['company_id' => $companyB->id]);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $companyB->id,
+        'hotel_id' => $foreignHotel->id,
+    ]);
     $inactiveHotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'is_active' => false]);
-    $inactiveRoomType = RoomType::factory()->create(['company_id' => $fixtures['company']->id, 'is_active' => false]);
     $validHotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'is_active' => true]);
+    $inactiveRoomType = RoomType::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'hotel_id' => $validHotel->id,
+        'is_active' => false,
+    ]);
     $payloadBase = [
         'action' => CrewMovementAction::ConfirmDisembarkation->value,
         'occurred_at' => '2026-11-30 09:30:00',
@@ -1269,7 +1338,11 @@ test('redeploy to p2a creates destination pre join hotel stay', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
     [$assignment, $sourceHotel, $sourceStay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
     $destinationHotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Destination Hotel']);
-    $roomType = RoomType::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Twin Room']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'hotel_id' => $destinationHotel->id,
+        'name' => 'Twin Room',
+    ]);
 
     $destination = app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-12-05 09:00:00',

@@ -12,6 +12,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
 import {
     clearedDirectP4TourFields,
     defaultDestinationTourSignoffChoice,
@@ -47,6 +48,11 @@ export function RedeployForm({
     const showDestinationAccommodation = startingPhase === 'p2a';
     const postSignoffAccommodation = context.post_signoff_accommodation;
     const noDestinationHotelAccommodation = form.data.no_hotel_accommodation;
+    const availableRoomTypes = roomTypesForHotel(
+        formOptions?.room_types,
+        form.data.hotel_id,
+        form.data.room_type_id,
+    );
     const lastAutoSourceCheckOutDateRef = useRef(
         form.data.source_check_out_date || form.data.occurred_at.slice(0, 10),
     );
@@ -498,10 +504,13 @@ export function RedeployForm({
                                 <Select
                                     value={form.data.hotel_id?.toString() ?? ''}
                                     onValueChange={(value) =>
-                                        form.setData(
-                                            'hotel_id',
-                                            value ? Number(value) : null,
-                                        )
+                                        form.setData({
+                                            ...form.data,
+                                            hotel_id: value
+                                                ? Number(value)
+                                                : null,
+                                            room_type_id: null,
+                                        })
                                     }
                                 >
                                     <SelectTrigger id="redeploy-destination-hotel">
@@ -548,16 +557,14 @@ export function RedeployForm({
                                         <SelectItem value="__none__">
                                             Not assigned yet
                                         </SelectItem>
-                                        {(formOptions.room_types ?? []).map(
-                                            (roomType) => (
-                                                <SelectItem
-                                                    key={roomType.id}
-                                                    value={roomType.id.toString()}
-                                                >
-                                                    {roomType.name}
-                                                </SelectItem>
-                                            ),
-                                        )}
+                                        {availableRoomTypes.map((roomType) => (
+                                            <SelectItem
+                                                key={roomType.id}
+                                                value={roomType.id.toString()}
+                                            >
+                                                {roomType.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <InputError

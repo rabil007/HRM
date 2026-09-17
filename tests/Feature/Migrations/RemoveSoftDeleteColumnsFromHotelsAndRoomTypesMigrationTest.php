@@ -50,6 +50,7 @@ test('migration removes unused legacy soft-deleted hotels and room types', funct
 
     $activeRoomTypeId = DB::table('room_types')->insertGetId([
         'company_id' => $company->id,
+        'hotel_id' => $activeHotelId,
         'name' => 'Active Room',
         'description' => null,
         'is_active' => true,
@@ -98,6 +99,7 @@ test('migration preserves referenced legacy soft-deleted hotels and room types a
 
     $referencedRoomTypeId = DB::table('room_types')->insertGetId([
         'company_id' => $company->id,
+        'hotel_id' => $referencedHotelId,
         'name' => 'Referenced Deleted Room',
         'description' => null,
         'is_active' => true,
@@ -169,13 +171,14 @@ test('eloquent hotel and room type models do not use soft deletes after migratio
 
     $roomType = RoomType::query()->create([
         'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
         'name' => 'Model Room',
         'is_active' => true,
     ]);
 
-    $hotel->delete();
     $roomType->delete();
+    $hotel->delete();
 
-    expect(Hotel::query()->where('id', $hotel->id)->exists())->toBeFalse()
-        ->and(RoomType::query()->where('id', $roomType->id)->exists())->toBeFalse();
+    expect(RoomType::query()->where('id', $roomType->id)->exists())->toBeFalse()
+        ->and(Hotel::query()->where('id', $hotel->id)->exists())->toBeFalse();
 });

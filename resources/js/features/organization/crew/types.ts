@@ -381,7 +381,7 @@ export interface CrewAssignmentFormOptions {
     clients: Array<{ id: number; name: string }>;
     courses: Array<{ id: number; name: string }>;
     hotels?: Array<{ id: number; name: string }>;
-    room_types?: Array<{ id: number; name: string }>;
+    room_types?: Array<{ id: number; name: string; hotel_id: number | null }>;
 }
 
 export interface EmployeeOperationalStatus {

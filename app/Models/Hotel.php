@@ -62,6 +62,14 @@ class Hotel extends Model
     }
 
     /**
+     * @return HasMany<RoomType, $this>
+     */
+    public function roomTypes(): HasMany
+    {
+        return $this->hasMany(RoomType::class);
+    }
+
+    /**
      * @param  Builder<Hotel>  $query
      * @return Builder<Hotel>
      */

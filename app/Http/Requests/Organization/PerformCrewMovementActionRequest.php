@@ -8,6 +8,7 @@ use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTravelHomeCompletionIntent;
 use App\Models\CrewAssignment;
+use App\Models\RoomType;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
@@ -411,6 +412,9 @@ class PerformCrewMovementActionRequest extends FormRequest
                     'This action is not available for the current assignment phase.',
                 );
             }
+
+            $companyId = (int) $assignment->company_id;
+            $this->assertRoomTypeBelongsToSelectedHotel($validator, $companyId);
 
             $timezone = (string) ($assignment->company?->timezone ?? config('app.timezone', 'UTC'));
             $occurredAt = $this->input('occurred_at')
@@ -853,6 +857,30 @@ class PerformCrewMovementActionRequest extends FormRequest
                 );
             }
         });
+    }
+
+    private function assertRoomTypeBelongsToSelectedHotel(Validator $validator, int $companyId): void
+    {
+        if ($validator->errors()->isNotEmpty()) {
+            return;
+        }
+
+        if (! $this->filled('room_type_id') || ! $this->filled('hotel_id')) {
+            return;
+        }
+
+        $belongsToHotel = RoomType::query()
+            ->whereKey((int) $this->input('room_type_id'))
+            ->where('company_id', $companyId)
+            ->where('hotel_id', (int) $this->input('hotel_id'))
+            ->exists();
+
+        if (! $belongsToHotel) {
+            $validator->errors()->add(
+                'room_type_id',
+                'Room type must belong to the selected hotel.',
+            );
+        }
     }
 
     /**

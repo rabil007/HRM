@@ -11,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
 import { MovementNextPhaseChoice } from '../movement-next-phase-choice';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
@@ -28,6 +29,11 @@ export function RecordArrivalForm({
     const noHotelAccommodation = form.data.no_hotel_accommodation;
     const lastAutoCheckInDateRef = useRef(
         form.data.check_in_date || form.data.occurred_at.slice(0, 10),
+    );
+    const availableRoomTypes = roomTypesForHotel(
+        formOptions?.room_types,
+        form.data.hotel_id,
+        form.data.room_type_id,
     );
 
     const syncCheckInDate = (occurredAt: string): void => {
@@ -98,10 +104,11 @@ export function RecordArrivalForm({
                             <Select
                                 value={form.data.hotel_id?.toString() ?? ''}
                                 onValueChange={(value) =>
-                                    form.setData(
-                                        'hotel_id',
-                                        value ? Number(value) : null,
-                                    )
+                                    form.setData({
+                                        ...form.data,
+                                        hotel_id: value ? Number(value) : null,
+                                        room_type_id: null,
+                                    })
                                 }
                             >
                                 <SelectTrigger id="movement-hotel">
@@ -148,16 +155,14 @@ export function RecordArrivalForm({
                                     <SelectItem value="__none__">
                                         Not assigned yet
                                     </SelectItem>
-                                    {(formOptions?.room_types ?? []).map(
-                                        (roomType) => (
-                                            <SelectItem
-                                                key={roomType.id}
-                                                value={roomType.id.toString()}
-                                            >
-                                                {roomType.name}
-                                            </SelectItem>
-                                        ),
-                                    )}
+                                    {availableRoomTypes.map((roomType) => (
+                                        <SelectItem
+                                            key={roomType.id}
+                                            value={roomType.id.toString()}
+                                        >
+                                            {roomType.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                             <InputError message={form.errors.room_type_id} />

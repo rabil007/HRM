@@ -17,7 +17,6 @@ use App\Http\Controllers\Settings\MasterData\HotelController;
 use App\Http\Controllers\Settings\MasterData\ProjectController;
 use App\Http\Controllers\Settings\MasterData\RankController;
 use App\Http\Controllers\Settings\MasterData\ReligionController;
-use App\Http\Controllers\Settings\MasterData\RoomTypeController;
 use App\Http\Controllers\Settings\MasterData\SssaOptionController;
 use App\Http\Controllers\Settings\MasterData\VesselController;
 use App\Http\Controllers\Settings\MasterData\VesselTypeController;
@@ -451,17 +450,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:settings.master-data.hotels.delete')
             ->name('hotels.destroy');
 
-        Route::get('room-types', [RoomTypeController::class, 'index'])
-            ->middleware('can:settings.master-data.room-types.view')
-            ->name('room-types.index');
-        Route::post('room-types', [RoomTypeController::class, 'store'])
-            ->middleware('can:settings.master-data.room-types.create')
-            ->name('room-types.store');
-        Route::put('room-types/{room_type}', [RoomTypeController::class, 'update'])
-            ->middleware('can:settings.master-data.room-types.update')
-            ->name('room-types.update');
-        Route::delete('room-types/{room_type}', [RoomTypeController::class, 'destroy'])
-            ->middleware('can:settings.master-data.room-types.delete')
-            ->name('room-types.destroy');
     });
 });

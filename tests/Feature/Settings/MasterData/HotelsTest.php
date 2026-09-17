@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\CrewAccommodationStay;
 use App\Models\Currency;
 use App\Models\Hotel;
+use App\Models\RoomType;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -353,4 +354,279 @@ test('inactive hotel remains available through historical accommodation relation
     expect($stay->hotel)->not->toBeNull()
         ->and($stay->hotel->is_active)->toBeFalse()
         ->and($stay->hotel->name)->toBe('Historical Hotel');
+});
+
+test('hotel can be created with nested room types', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Royal Rose',
+            'description' => 'Airport hotel',
+            'is_active' => true,
+            'room_types' => [
+                ['name' => 'Single Room', 'description' => 'One bed', 'is_active' => true],
+                ['name' => 'Twin Room', 'description' => null, 'is_active' => true],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $hotel = Hotel::query()->where('company_id', $company->id)->where('name', 'Royal Rose')->first();
+
+    expect($hotel)->not->toBeNull()
+        ->and($hotel->roomTypes()->count())->toBe(2)
+        ->and($hotel->roomTypes()->where('name', 'Single Room')->exists())->toBeTrue()
+        ->and($hotel->roomTypes()->where('name', 'Twin Room')->exists())->toBeTrue();
+});
+
+test('room type belongs to hotel', function () {
+    ['company' => $company] = makeCrewAssignmentFixtures();
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'City Seasons']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Suite',
+    ]);
+
+    expect($roomType->hotel_id)->toBe($hotel->id)
+        ->and($roomType->hotel?->id)->toBe($hotel->id);
+});
+
+test('same room type name can exist in different hotels', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Hotel A',
+            'is_active' => true,
+            'room_types' => [
+                ['name' => 'Standard', 'is_active' => true],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Hotel B',
+            'is_active' => true,
+            'room_types' => [
+                ['name' => 'Standard', 'is_active' => true],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect(RoomType::query()->where('company_id', $company->id)->where('name', 'Standard')->count())->toBe(2);
+});
+
+test('duplicate room type name inside the same hotel is rejected', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Duplicate Hotel',
+            'is_active' => true,
+            'room_types' => [
+                ['name' => 'Standard', 'is_active' => true],
+                ['name' => 'Standard', 'is_active' => true],
+            ],
+        ])
+        ->assertSessionHasErrors('room_types.1.name');
+});
+
+test('hotel update can add edit deactivate and remove unused room types', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.create',
+        'settings.master-data.hotels.update',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Managed Hotel',
+            'is_active' => true,
+            'room_types' => [
+                ['name' => 'Single Room', 'is_active' => true],
+                ['name' => 'Twin Room', 'is_active' => true],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $hotel = Hotel::query()->where('company_id', $company->id)->where('name', 'Managed Hotel')->firstOrFail();
+    $singleRoom = $hotel->roomTypes()->where('name', 'Single Room')->firstOrFail();
+    $twinRoom = $hotel->roomTypes()->where('name', 'Twin Room')->firstOrFail();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Managed Hotel',
+            'description' => 'Updated',
+            'is_active' => true,
+            'room_types' => [
+                [
+                    'id' => $singleRoom->id,
+                    'name' => 'Single Room',
+                    'description' => 'Updated single',
+                    'is_active' => false,
+                ],
+                [
+                    'id' => $twinRoom->id,
+                    'name' => 'Twin Room',
+                    'description' => null,
+                    'is_active' => true,
+                ],
+                [
+                    'name' => 'Suite',
+                    'description' => 'Added later',
+                    'is_active' => true,
+                ],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $hotel->refresh()->load('roomTypes');
+
+    expect($hotel->description)->toBe('Updated')
+        ->and($hotel->roomTypes()->count())->toBe(3)
+        ->and($singleRoom->fresh()?->is_active)->toBeFalse()
+        ->and($singleRoom->fresh()?->description)->toBe('Updated single')
+        ->and($hotel->roomTypes()->where('name', 'Suite')->exists())->toBeTrue();
+});
+
+test('nested room type id from another hotel is rejected on hotel update', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel B']);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotelB->id,
+        'name' => 'Foreign Room',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotelA->id}", [
+            'name' => 'Hotel A',
+            'is_active' => true,
+            'room_types' => [
+                [
+                    'id' => $foreignRoomType->id,
+                    'name' => 'Hijacked',
+                    'is_active' => true,
+                ],
+            ],
+        ])
+        ->assertSessionHasErrors('room_types.0.id');
+
+    expect($foreignRoomType->fresh()?->name)->toBe('Foreign Room');
+});
+
+test('referenced room type cannot be deleted through hotel update', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Room Type Hotel Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.update',
+    ]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Referenced Hotel']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Referenced Room',
+    ]);
+
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $roomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => now()->toDateString(),
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/settings/master-data/hotels/{$hotel->id}", [
+            'name' => 'Referenced Hotel',
+            'is_active' => true,
+            'room_types' => [],
+        ])
+        ->assertSessionHasErrors('record');
+
+    expect(RoomType::query()->whereKey($roomType->id)->exists())->toBeTrue();
+});
+
+test('unused hotel deletes nested unused room types transactionally', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.create',
+        'settings.master-data.hotels.delete',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/settings/master-data/hotels', [
+            'name' => 'Disposable Hotel',
+            'is_active' => true,
+            'room_types' => [
+                ['name' => 'Single Room', 'is_active' => true],
+            ],
+        ])
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    $hotel = Hotel::query()->where('company_id', $company->id)->where('name', 'Disposable Hotel')->firstOrFail();
+    $roomTypeId = $hotel->roomTypes()->value('id');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->delete("/settings/master-data/hotels/{$hotel->id}")
+        ->assertRedirect(route('settings.master-data.hotels.index'));
+
+    expect(Hotel::query()->whereKey($hotel->id)->exists())->toBeFalse()
+        ->and(RoomType::query()->whereKey($roomTypeId)->exists())->toBeFalse();
+});
+
+test('standalone room types page is no longer available', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.hotels.view',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/settings/master-data/room-types')
+        ->assertNotFound();
 });

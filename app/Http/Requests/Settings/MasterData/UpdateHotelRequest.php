@@ -2,11 +2,16 @@
 
 namespace App\Http\Requests\Settings\MasterData;
 
+use App\Http\Requests\Settings\MasterData\Concerns\ValidatesNestedHotelRoomTypes;
+use App\Models\Hotel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateHotelRequest extends FormRequest
 {
+    use ValidatesNestedHotelRoomTypes;
+
     public function authorize(): bool
     {
         return true;
@@ -18,7 +23,8 @@ class UpdateHotelRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
-        $hotelId = (int) $this->route('hotel')?->id;
+        $hotel = $this->route('hotel');
+        $hotelId = $hotel instanceof Hotel ? (int) $hotel->id : null;
 
         return [
             'name' => [
@@ -31,6 +37,33 @@ class UpdateHotelRequest extends FormRequest
             ],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['nullable', 'boolean'],
+            ...$this->nestedHotelRoomTypeRules($hotelId),
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $hotel = $this->route('hotel');
+
+            if ($hotel instanceof Hotel) {
+                $this->validateNestedHotelRoomTypes($validator, $hotel);
+            }
+        });
+    }
+
+    /**
+     * @return list<array{
+     *     id?: int|null,
+     *     name: string,
+     *     description?: string|null,
+     *     is_active?: bool|null
+     * }>
+     */
+    public function validatedRoomTypes(): array
+    {
+        $rows = $this->validated('room_types') ?? [];
+
+        return is_array($rows) ? array_values($rows) : [];
     }
 }

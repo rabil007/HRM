@@ -110,7 +110,7 @@ CrewAccommodationStay = accommodation history
 
 **P2A/P5 phase presence does NOT itself prove hotel occupancy.** The Current Crew **Pre-Join Hotel** and **Post-Sign-Off Hotel** views are phase-based operational groupings only. Actual hotel occupancy is recorded separately in `crew_accommodation_stays` and is not inferred from phase codes alone.
 
-Accommodation master data (Settings → **Hotels**, **Room Types**) is company-scoped. Names are unique per company. Unused Hotels and Room Types are hard-deleted; referenced master data cannot be deleted and should be deactivated with `is_active` instead. A single assignment may have multiple accommodation stays, including multiple records of the same `stay_type` (for example hotel changes within one mobilisation cycle). There is no `unique(crew_assignment_id, stay_type)` constraint.
+Accommodation master data is managed under Settings → **Hotels**. Each Hotel owns its **Room Types** (`Hotel` → `RoomType`). A Room Type is hotel-specific, not company-global; room type names are unique per hotel (`company_id + hotel_id + name`). Hotels remain company-scoped. Unused Hotels and unused Room Types are hard-deleted; referenced master data cannot be deleted and should be deactivated with `is_active` instead. Legacy `room_types` rows may still exist with a null `hotel_id` until manually reconciled; new room types must belong to a hotel. A single assignment may have multiple accommodation stays, including multiple records of the same `stay_type` (for example hotel changes within one mobilisation cycle). There is no `unique(crew_assignment_id, stay_type)` constraint.
 
 `CrewAccommodationStay` supports:
 

@@ -14,7 +14,11 @@ test('crew accommodation stay belongs to assignment hotel and room type', functi
     $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
 
     $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Royal Rose']);
-    $roomType = RoomType::factory()->create(['company_id' => $company->id, 'name' => 'Twin Sharing']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Twin Sharing',
+    ]);
 
     $stay = CrewAccommodationStay::factory()->create([
         'company_id' => $company->id,
@@ -164,7 +168,11 @@ test('no accommodation status rejects room type', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('No Accommodation Room Vessel', $company);
     $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
-    $roomType = RoomType::factory()->create(['company_id' => $company->id]);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+    ]);
 
     CrewAccommodationStay::factory()->create([
         'company_id' => $company->id,
@@ -218,7 +226,11 @@ test('historical accommodation survives hotel and room type deactivation', funct
     $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
 
     $hotel = Hotel::factory()->create(['company_id' => $company->id, 'is_active' => true]);
-    $roomType = RoomType::factory()->create(['company_id' => $company->id, 'is_active' => true]);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'is_active' => true,
+    ]);
 
     $stay = CrewAccommodationStay::factory()->create([
         'company_id' => $company->id,
@@ -291,8 +303,17 @@ test('stale loaded room type relation cannot bypass tenant integrity on update',
     $assignment = makeCurrentCrewPhaseAssignment($companyA, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
     $hotel = Hotel::factory()->create(['company_id' => $companyA->id]);
 
-    $companyARoomType = RoomType::factory()->create(['company_id' => $companyA->id, 'name' => 'Company A Room']);
-    $foreignRoomType = RoomType::factory()->create(['company_id' => $companyB->id, 'name' => 'Foreign Room']);
+    $companyARoomType = RoomType::factory()->create([
+        'company_id' => $companyA->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Company A Room',
+    ]);
+    $foreignHotel = Hotel::factory()->create(['company_id' => $companyB->id]);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $companyB->id,
+        'hotel_id' => $foreignHotel->id,
+        'name' => 'Foreign Room',
+    ]);
 
     $stay = CrewAccommodationStay::factory()->create([
         'company_id' => $companyA->id,
@@ -310,6 +331,30 @@ test('stale loaded room type relation cannot bypass tenant integrity on update',
     expect(fn () => $stay->save())->toThrow(ValidationException::class);
     expect($stay->fresh()->room_type_id)->toBe($companyARoomType->id);
 });
+
+test('room type from another hotel is rejected by integrity checks', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Cross Hotel Room Vessel', $company);
+    $assignment = makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
+
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel A']);
+    $hotelB = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel B']);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotelB->id,
+        'name' => 'Foreign Room',
+    ]);
+
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotelA->id,
+        'room_type_id' => $foreignRoomType->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-09-16',
+    ]);
+})->throws(ValidationException::class);
 
 test('stale loaded assignment relation cannot bypass tenant integrity on update', function () {
     ['company' => $companyA, 'employee' => $employeeA, 'rank' => $rankA] = makeCrewAssignmentFixtures();

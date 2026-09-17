@@ -162,11 +162,6 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.hotels.update',
             'settings.master-data.hotels.delete',
 
-            'settings.master-data.room-types.view',
-            'settings.master-data.room-types.create',
-            'settings.master-data.room-types.update',
-            'settings.master-data.room-types.delete',
-
             'companies.view',
             'companies.create',
             'companies.update',
@@ -381,6 +376,53 @@ class PermissionsSeeder extends Seeder
         }
 
         $this->grantCrewAssignmentVoidPermissionToExistingRoles();
+        $this->migrateRoomTypePermissionsToHotels();
+    }
+
+    /**
+     * Room types are managed through Hotels. Grant equivalent hotel permissions
+     * to roles that still have legacy room-type permissions.
+     */
+    private function migrateRoomTypePermissionsToHotels(): void
+    {
+        $legacyToHotel = [
+            'settings.master-data.room-types.view' => 'settings.master-data.hotels.view',
+            'settings.master-data.room-types.create' => 'settings.master-data.hotels.create',
+            'settings.master-data.room-types.update' => 'settings.master-data.hotels.update',
+            'settings.master-data.room-types.delete' => 'settings.master-data.hotels.delete',
+        ];
+
+        $hotelPermissions = Permission::query()
+            ->where('guard_name', 'web')
+            ->whereIn('name', array_values($legacyToHotel))
+            ->get()
+            ->keyBy('name');
+
+        $roles = Role::query()
+            ->where('guard_name', 'web')
+            ->get();
+
+        foreach ($roles as $role) {
+            $names = $role->permissions()->pluck('name');
+
+            $grantIds = [];
+
+            foreach ($legacyToHotel as $legacy => $hotelPermission) {
+                if (! $names->contains($legacy)) {
+                    continue;
+                }
+
+                $permission = $hotelPermissions->get($hotelPermission);
+
+                if ($permission !== null) {
+                    $grantIds[] = $permission->id;
+                }
+            }
+
+            if ($grantIds !== []) {
+                $role->permissions()->syncWithoutDetaching($grantIds);
+            }
+        }
     }
 
     /**

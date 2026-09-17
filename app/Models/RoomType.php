@@ -23,6 +23,7 @@ class RoomType extends Model
      */
     protected $fillable = [
         'company_id',
+        'hotel_id',
         'name',
         'description',
         'is_active',
@@ -33,6 +34,7 @@ class RoomType extends Model
         return LogOptions::defaults()
             ->logOnly([
                 'company_id',
+                'hotel_id',
                 'name',
                 'description',
                 'is_active',
@@ -44,6 +46,7 @@ class RoomType extends Model
     {
         return [
             'company_id' => 'integer',
+            'hotel_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -51,6 +54,11 @@ class RoomType extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function hotel(): BelongsTo
+    {
+        return $this->belongsTo(Hotel::class);
     }
 
     /**

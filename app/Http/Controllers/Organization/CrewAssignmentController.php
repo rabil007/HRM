@@ -569,7 +569,7 @@ class CrewAssignmentController extends Controller
      *     clients: list<array<string, mixed>>,
      *     courses: list<array<string, mixed>>,
      *     hotels: list<array{id: int, name: string}>,
-     *     room_types: list<array{id: int, name: string}>
+     *     room_types: list<array{id: int, name: string, hotel_id: int|null}>
      * }
      */
     private function movementFormOptions(int $companyId): array
@@ -601,7 +601,7 @@ class CrewAssignmentController extends Controller
     }
 
     /**
-     * @return list<array{id: int, name: string}>
+     * @return list<array{id: int, name: string, hotel_id: int|null}>
      */
     private function activeRoomTypes(int $companyId): array
     {
@@ -609,8 +609,12 @@ class CrewAssignmentController extends Controller
             ->forCompany($companyId)
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (RoomType $roomType) => ['id' => $roomType->id, 'name' => $roomType->name])
+            ->get(['id', 'name', 'hotel_id'])
+            ->map(fn (RoomType $roomType) => [
+                'id' => $roomType->id,
+                'name' => $roomType->name,
+                'hotel_id' => $roomType->hotel_id !== null ? (int) $roomType->hotel_id : null,
+            ])
             ->values()
             ->all();
     }
