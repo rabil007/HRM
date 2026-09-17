@@ -38,6 +38,7 @@ use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
+use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -335,13 +336,16 @@ class CrewAssignmentController extends Controller
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
                 ->active()
+                ->with(['nationalityRef:id,name'])
                 ->orderBy('name')
-                ->get(['id', 'name', 'employee_no', 'rank_id'])
+                ->get(['id', 'name', 'employee_no', 'rank_id', 'image', 'nationality_id'])
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
                     'employee_no' => $e->employee_no,
                     'rank_id' => $e->rank_id,
+                    'image' => $e->image,
+                    'nationality_name' => $e->nationalityRef?->name,
                 ])
                 ->values()
                 ->all(),
@@ -349,6 +353,7 @@ class CrewAssignmentController extends Controller
             'vessels' => $this->vesselOptionsForAssignment($companyId, $assignment),
             'clients' => $this->clientOptionsForAssignment($assignment),
             'courses' => $this->activeCourses(),
+            'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
 
         return Inertia::render('organization/crew/edit', [

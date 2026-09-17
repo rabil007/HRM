@@ -618,7 +618,7 @@ export function CrewAssignmentCreateForm({
                                                         : transferRequiredButUnauthorized
                                                           ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
                                                           : hasActiveAssignmentConflict
-                                                            ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
+                                                            ? 'Active assignment exists — choose an action from Movement Guidance.'
                                                             : undefined
                                                 }
                                                 className="h-11 rounded-xl px-6"
@@ -723,10 +723,9 @@ export function CrewAssignmentCreateForm({
                                           !planningActiveAssignmentConflict &&
                                           !formErrors.error ? (
                                             <p className="w-full text-xs font-medium text-destructive">
-                                                This employee already has an
-                                                active Crew Assignment. Resolve
-                                                the conflict above before
-                                                creating a new one.
+                                                Active assignment exists —
+                                                choose an action from Movement
+                                                Guidance.
                                             </p>
                                         ) : null}
 

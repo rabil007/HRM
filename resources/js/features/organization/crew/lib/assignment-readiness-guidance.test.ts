@@ -123,9 +123,12 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Available for Assignment');
+        assert.equal(guidance?.phaseLabel, 'AVAILABLE');
         assert.equal(guidance?.severity, 'info');
-        assert.match(guidance?.description ?? '', /6 days/);
+        assert.match(
+            guidance?.explanation ?? '',
+            /Available for a new mobilisation/,
+        );
     });
 
     it('shows home availability within the configured limit', () => {
@@ -135,12 +138,11 @@ describe('buildAssignmentReadinessGuidance', () => {
                     status: 'in_home',
                     days_at_home: 6,
                     availability_status: 'within_limit',
-                    availability_detail: '24 days remaining',
                 }),
             }),
         );
 
-        assert.match(guidance?.description ?? '', /24 days remaining/);
+        assert.match(guidance?.summaryLine ?? '', /Home: 6 days/);
     });
 
     it('shows over-target home availability without blocking tone', () => {
@@ -154,9 +156,8 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Available — Over Home Target');
-        assert.equal(guidance?.severity, 'attention');
-        assert.match(guidance?.description ?? '', /4 days over target/);
+        assert.match(guidance?.summaryLine ?? '', /34 days/);
+        assert.match(guidance?.explanation ?? '', /4 days over target/);
     });
 
     it('guides active P0 toward continuing the current mobilisation', () => {
@@ -173,7 +174,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Pre-Mobilisation');
+        assert.match(guidance?.phaseLabel ?? '', /P0 · Pre-Mobilisation/);
         assert.ok(
             guidance?.actions.some(
                 (action) => action.key === 'continue_assignment',
@@ -208,8 +209,8 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Join Standby');
-        assert.equal(guidance?.destinationAlert?.severity, 'attention');
+        assert.match(guidance?.phaseLabel ?? '', /P2A · Join Standby/);
+        assert.equal(guidance?.destinationAdvisory?.severity, 'attention');
         assert.equal(
             guidance?.actions.some(
                 (action) => action.key === 'transfer_vessel',
@@ -218,7 +219,7 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('guides active P2B with overlap attention', () => {
+    it('guides active P2B without transfer suggestions', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
@@ -228,12 +229,22 @@ describe('buildAssignmentReadinessGuidance', () => {
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
+                    vessel_name: 'Sea Eagle',
                 }),
+                destinationVesselId: 8,
             }),
         );
 
-        assert.equal(guidance?.title, 'Training in Progress');
-        assert.ok(guidance?.attention);
+        assert.equal(
+            guidance?.actions.some(
+                (action) => action.key === 'transfer_vessel',
+            ),
+            false,
+        );
+        assert.equal(
+            guidance?.destinationAdvisory?.title,
+            'Destination changed',
+        );
     });
 
     it('guides active P3 toward join vessel workflow', () => {
@@ -247,16 +258,48 @@ describe('buildAssignmentReadinessGuidance', () => {
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
                 }),
+                destinationVesselId: 8,
             }),
         );
 
-        assert.equal(guidance?.title, 'Ready to Join');
+        assert.match(guidance?.phaseLabel ?? '', /P3 · Ready to Join/);
         assert.ok(
             guidance?.actions.some((action) => action.label === 'Join Vessel'),
         );
+        assert.equal(
+            guidance?.actions.some(
+                (action) => action.key === 'transfer_vessel',
+            ),
+            false,
+        );
     });
 
-    it('guides active P4 with intent options and transfer when destination differs', () => {
+    it('shows transfer vessel for P4 without a selected destination', () => {
+        const guidance = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus({
+                    status: 'on_vessel',
+                    label: 'On Vessel',
+                    current_phase: 'p4',
+                    has_active_assignment: true,
+                    assignment_id: 42,
+                    assignment_no: 'CA-2026-000042',
+                    vessel_name: 'Sea Eagle',
+                }),
+                activeOnVessel: activeOnVessel(),
+                destinationVesselId: null,
+            }),
+        );
+
+        const transfer = guidance?.actions.find(
+            (action) => action.key === 'transfer_vessel',
+        );
+
+        assert.ok(transfer);
+        assert.equal(transfer?.label, 'Transfer Vessel');
+    });
+
+    it('shows transfer to destination when P4 and different vessel selected', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
@@ -273,14 +316,36 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Currently On Vessel');
-        assert.equal(guidance?.destinationAlert?.severity, 'conflict');
-        assert.ok(guidance?.intentOptions?.length);
+        assert.equal(guidance?.destinationAdvisory?.severity, 'conflict');
         assert.ok(
             guidance?.actions.some(
-                (action) => action.key === 'transfer_vessel',
+                (action) => action.label === 'Transfer to Sea Falcon',
             ),
         );
+    });
+
+    it('does not duplicate intent cards for compact P4 guidance', () => {
+        const guidance = buildAssignmentReadinessGuidance(
+            buildContext({
+                status: makeStatus({
+                    status: 'on_vessel',
+                    label: 'On Vessel',
+                    current_phase: 'p4',
+                    has_active_assignment: true,
+                    assignment_id: 42,
+                    assignment_no: 'CA-2026-000042',
+                    vessel_name: 'Sea Eagle',
+                }),
+                activeOnVessel: activeOnVessel(),
+            }),
+        );
+
+        const openActions = guidance?.actions.filter(
+            (action) => action.key === 'open_assignment',
+        );
+
+        assert.equal(openActions?.length, 1);
+        assert.ok(guidance?.actions.length <= 3);
     });
 
     it('guides active P5 toward return home or redeploy', () => {
@@ -297,8 +362,10 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Demobilisation Standby');
-        assert.ok(guidance?.intentOptions?.length);
+        assert.match(guidance?.phaseLabel ?? '', /P5 · Demobilisation Standby/);
+        assert.ok(
+            guidance?.actions.some((action) => action.label === 'Return Home'),
+        );
     });
 
     it('guides active P6 toward close, redeploy, or planning', () => {
@@ -315,7 +382,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Home / Redeployment');
+        assert.match(guidance?.phaseLabel ?? '', /P6 · Home/);
         assert.ok(
             guidance?.actions.some((action) => action.label === 'Redeploy'),
         );
@@ -337,10 +404,13 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.destinationAlert?.title, 'Destination changed');
+        assert.equal(
+            guidance?.destinationAdvisory?.title,
+            'Destination changed',
+        );
         assert.match(
-            guidance?.destinationAlert?.message ?? '',
-            /update the existing assignment/i,
+            guidance?.destinationAdvisory?.message ?? '',
+            /Update this mobilisation/i,
         );
     });
 
@@ -362,7 +432,10 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.plannedDateAlert?.title, 'Planned date overlap');
+        assert.equal(
+            guidance?.plannedDateAdvisory?.title,
+            'Planned date overlap',
+        );
     });
 
     it('hides restricted assignment actions for users without view permission', () => {
@@ -383,7 +456,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.equal(guidance?.title, 'Active Crew Assignment');
+        assert.equal(guidance?.phaseLabel, 'ACTIVE ASSIGNMENT');
         assert.equal(guidance?.actions.length, 0);
     });
 
@@ -399,7 +472,7 @@ describe('buildAssignmentReadinessGuidance', () => {
                     assignment_no: 'CA-2026-000042',
                     vessel_name: 'Sea Eagle',
                 }),
-                activeOnVessel: activeOnVessel({ can_transfer: false }),
+                activeOnVessel: activeOnVessel(),
                 destinationVesselId: 8,
                 permissions: {
                     ...fullPermissions,
@@ -455,5 +528,9 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
 
         assert.equal(guidance?.showWhyBlocked, true);
+        assert.match(
+            guidance?.warning ?? '',
+            /Another active assignment is blocked/,
+        );
     });
 });

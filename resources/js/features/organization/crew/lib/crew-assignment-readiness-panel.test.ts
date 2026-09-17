@@ -115,9 +115,7 @@ describe('CrewAssignmentReadinessPanel render component test', () => {
 
         assert.ok(html.includes('data-slot="assignment-readiness-empty"'));
         assert.ok(
-            html.includes(
-                'Select an employee to view their crew movement journey',
-            ),
+            html.includes('Select an employee to view movement guidance'),
         );
         assert.ok(!html.includes('data-slot="assignment-readiness-employee"'));
     });
@@ -139,7 +137,9 @@ describe('CrewAssignmentReadinessPanel render component test', () => {
         assert.ok(html.includes('CA-2026-000042'));
         assert.ok(html.includes('Ocean Star'));
         assert.ok(html.includes('On Vessel'));
-        assert.ok(html.includes('What this means'));
-        assert.ok(html.includes('Recommended actions'));
+        assert.ok(html.includes('Movement Guidance'));
+        assert.ok(html.includes('Open Assignment'));
+        assert.ok(!html.includes('What are you trying to do?'));
+        assert.ok(!html.includes('Recommended actions'));
     });
 });

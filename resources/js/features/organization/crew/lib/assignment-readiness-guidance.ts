@@ -3,7 +3,10 @@ import type {
     CrewAssignmentPagePermissions,
     EmployeeOperationalStatus,
 } from '../types';
-import { recommendsVesselTransfer } from './vessel-transfer-recommendation.ts';
+import {
+    canTransferFromP4,
+    hasSelectedTransferDestination,
+} from './vessel-transfer-recommendation.ts';
 
 export type ReadinessSeverity = 'info' | 'attention' | 'conflict' | 'blocked';
 
@@ -28,33 +31,23 @@ export type ReadinessAction = {
     emphasis?: 'primary' | 'secondary';
 };
 
-export type ReadinessIntentOption = {
-    question: string;
-    hint: string;
-    actionKey: ReadinessActionKey;
-};
-
-export type ReadinessAlert = {
+export type ReadinessAdvisory = {
     title: string;
     message: string;
     severity: 'attention' | 'conflict';
 };
 
 export type AssignmentReadinessGuidance = {
-    title: string;
-    description: string;
-    guidance?: string;
-    secondaryGuidance?: string;
+    phaseLabel: string;
+    summaryLine?: string;
+    explanation: string;
     severity: ReadinessSeverity;
     actions: ReadinessAction[];
-    intentOptions?: ReadinessIntentOption[];
-    attention?: {
-        title: string;
-        message: string;
-    };
+    warning?: string;
     showWhyBlocked?: boolean;
-    destinationAlert?: ReadinessAlert;
-    plannedDateAlert?: ReadinessAlert;
+    transferPermissionNote?: string;
+    destinationAdvisory?: ReadinessAdvisory;
+    plannedDateAdvisory?: ReadinessAdvisory;
 };
 
 export type AssignmentReadinessGuidanceContext = {
@@ -73,6 +66,9 @@ export type AssignmentReadinessGuidanceContext = {
 };
 
 type VesselRef = { id: number; name: string };
+
+const ACTIVE_ASSIGNMENT_WARNING =
+    'Another active assignment is blocked to prevent overlapping movement/payroll records.';
 
 function resolveCurrentVesselId(
     status: EmployeeOperationalStatus | null,
@@ -111,6 +107,48 @@ function resolveAssignmentId(
     return status?.assignment_id ?? activeOnVessel?.assignment_id ?? null;
 }
 
+function phaseCodeLabel(status: EmployeeOperationalStatus): string {
+    const code = status.current_phase?.toUpperCase() ?? '';
+    const label = status.label ?? '';
+
+    return code ? `${code} · ${label}` : label;
+}
+
+function buildAssignmentSummaryLine(
+    status: EmployeeOperationalStatus,
+    vesselName: string | null,
+): string | undefined {
+    const parts: string[] = [];
+
+    if (vesselName) {
+        parts.push(vesselName);
+    }
+
+    if (status.assignment_no) {
+        parts.push(status.assignment_no);
+    }
+
+    if (status.days_in_phase != null) {
+        const dayLabel = status.days_in_phase === 1 ? 'day' : 'days';
+        const phaseCode = status.current_phase?.toLowerCase();
+
+        if (phaseCode === 'p4') {
+            parts.push(`${status.days_in_phase} ${dayLabel} onboard`);
+        } else if (phaseCode) {
+            parts.push(`${status.days_in_phase} ${dayLabel} in phase`);
+        }
+    }
+
+    if (
+        status.planned_next_date &&
+        status.current_phase?.toLowerCase() === 'p4'
+    ) {
+        parts.push(`Sign-off: ${status.planned_next_date.slice(0, 10)}`);
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 function canViewAssignmentDetails(
     status: EmployeeOperationalStatus | null,
     permissions: AssignmentReadinessGuidanceContext['permissions'],
@@ -134,9 +172,8 @@ function addAction(
 }
 
 function openAssignmentAction(
-    assignmentId: number,
-    label: string,
-    description?: string,
+    label = 'Open Assignment',
+    description = 'Continue current mobilisation',
     emphasis: 'primary' | 'secondary' = 'primary',
 ): ReadinessAction {
     return {
@@ -148,16 +185,11 @@ function openAssignmentAction(
     };
 }
 
-function continueAssignmentAction(
-    assignmentId: number,
-    assignmentNo: string | null,
-): ReadinessAction {
+function continueAssignmentAction(): ReadinessAction {
     return {
         key: 'continue_assignment',
-        label: assignmentNo
-            ? `Continue ${assignmentNo}`
-            : 'Continue Assignment',
-        description: 'Open the current mobilisation cycle.',
+        label: 'Continue',
+        description: 'Continue current mobilisation',
         kind: 'link',
         emphasis: 'primary',
     };
@@ -166,9 +198,8 @@ function continueAssignmentAction(
 function editMobilisationAction(): ReadinessAction {
     return {
         key: 'edit_mobilisation',
-        label: 'Edit Current Mobilisation',
-        description:
-            'Update vessel, rank, expected join, or arrival details on the existing assignment.',
+        label: 'Edit Mobilisation',
+        description: 'Update vessel, rank, or dates on this mobilisation',
         kind: 'link',
         emphasis: 'secondary',
     };
@@ -183,23 +214,14 @@ function planFutureAction(
 
     return {
         key: 'plan_future',
-        label: 'Plan Future Assignment',
-        description:
-            'Record future crew work in Crew Planning without starting another active mobilisation.',
+        label: 'Plan Future',
+        description: 'Schedule later work in Crew Planning',
         kind: 'link',
         emphasis: 'secondary',
     };
 }
 
-function transferAction(
-    activeOnVessel: ActiveOnVesselAssignment,
-    destinationVesselName: string | null,
-    canTransfer: boolean,
-): ReadinessAction | null {
-    if (!canTransfer) {
-        return null;
-    }
-
+function transferAction(destinationVesselName: string | null): ReadinessAction {
     const label = destinationVesselName
         ? `Transfer to ${destinationVesselName}`
         : 'Transfer Vessel';
@@ -207,16 +229,15 @@ function transferAction(
     return {
         key: 'transfer_vessel',
         label,
-        description:
-            'Use the existing Transfer Vessel workflow on the current assignment.',
+        description: 'Move directly to another vessel',
         kind: 'transfer',
         emphasis: 'primary',
     };
 }
 
-function buildDestinationAlert(
+function buildDestinationAdvisory(
     context: AssignmentReadinessGuidanceContext,
-): ReadinessAlert | undefined {
+): ReadinessAdvisory | undefined {
     const {
         status,
         activeOnVessel,
@@ -248,13 +269,11 @@ function buildDestinationAlert(
         return undefined;
     }
 
-    const employee = context.employeeName;
-
     if (status.status === 'on_vessel') {
         return {
-            title: 'Different vessel selected',
+            title: 'Direct vessel change detected',
             severity: 'conflict',
-            message: `${employee} is currently onboard ${currentVesselName}, while this form is targeting ${destinationVesselName}. If this represents a direct vessel change, use Transfer Vessel instead of Start Assignment.`,
+            message: `Current: ${currentVesselName}. Selected: ${destinationVesselName}. Use Transfer Vessel instead of starting another active assignment.`,
         };
     }
 
@@ -270,16 +289,16 @@ function buildDestinationAlert(
         return {
             title: 'Destination changed',
             severity: 'attention',
-            message: `The active mobilisation currently targets ${currentVesselName}, while this form targets ${destinationVesselName}. If ${destinationVesselName} replaces ${currentVesselName} for the current mobilisation, update the existing assignment instead of creating a second active assignment.`,
+            message: `Update this mobilisation if ${destinationVesselName} replaces ${currentVesselName}.`,
         };
     }
 
     return undefined;
 }
 
-function buildPlannedDateAlert(
+function buildPlannedDateAdvisory(
     context: AssignmentReadinessGuidanceContext,
-): ReadinessAlert | undefined {
+): ReadinessAdvisory | undefined {
     const { status, plannedJoinAt } = context;
 
     if (
@@ -301,7 +320,7 @@ function buildPlannedDateAlert(
         title: 'Planned date overlap',
         severity: status.status === 'on_vessel' ? 'conflict' : 'attention',
         message:
-            "The new Expected Vessel Join is before the current assignment's Planned Sign-Off. If this represents a direct vessel change, use Transfer Vessel. If the existing Planned Sign-Off changed, update the current assignment.",
+            'Expected Join is before the current Planned Sign-Off. Use Transfer Vessel for a direct vessel move, or update the current sign-off plan.',
     };
 }
 
@@ -316,25 +335,28 @@ function buildAvailableGuidance(
         const daysOver = daysAtHome - maxHomeDays;
 
         return {
-            title: 'Available — Over Home Target',
-            description: `Home for ${daysAtHome} days. Availability rule: ${maxHomeDays} days. ${daysOver} days over target.`,
-            guidance:
-                'This employee has exceeded the configured home availability target and may require operational attention.',
+            phaseLabel: 'AVAILABLE',
+            summaryLine: `Home: ${daysAtHome} days · Target: ${maxHomeDays}`,
+            explanation: `${daysOver} days over target. Available for a new mobilisation.`,
             severity: 'attention',
             actions: [],
         };
     }
 
-    const withinDescription =
+    const summaryLine =
         daysAtHome != null && maxHomeDays != null
-            ? `Home for ${daysAtHome} days. Availability rule: ${maxHomeDays} days. ${Math.max(0, maxHomeDays - daysAtHome)} days remaining.`
-            : 'No active Crew Assignment exists. This employee can start a new mobilisation.';
+            ? `Home: ${daysAtHome} days · Target: ${maxHomeDays}`
+            : undefined;
+
+    const explanation =
+        daysAtHome != null && maxHomeDays != null
+            ? `${Math.max(0, maxHomeDays - daysAtHome)} days remaining. Available for a new mobilisation.`
+            : 'Available for a new mobilisation.';
 
     return {
-        title: 'Available for Assignment',
-        description: withinDescription,
-        guidance:
-            'No active Crew Assignment exists. This employee can start a new mobilisation.',
+        phaseLabel: 'AVAILABLE',
+        summaryLine,
+        explanation,
         severity: 'info',
         actions: [],
     };
@@ -342,11 +364,9 @@ function buildAvailableGuidance(
 
 function buildRestrictedActiveGuidance(): AssignmentReadinessGuidance {
     return {
-        title: 'Active Crew Assignment',
-        description:
-            'This employee already has an active Crew Assignment. Another operational mobilisation cannot be started from here.',
-        guidance:
-            'Ask an authorized Operations user to review the current assignment and choose the correct workflow.',
+        phaseLabel: 'ACTIVE ASSIGNMENT',
+        explanation:
+            'This employee already has an active assignment. Ask an authorized Operations user to review it.',
         severity: 'attention',
         actions: [],
         showWhyBlocked: true,
@@ -356,7 +376,7 @@ function buildRestrictedActiveGuidance(): AssignmentReadinessGuidance {
 function buildPhaseGuidance(
     context: AssignmentReadinessGuidanceContext,
 ): AssignmentReadinessGuidance {
-    const { status, activeOnVessel, permissions, employeeName } = context;
+    const { status, activeOnVessel, permissions } = context;
 
     if (!status) {
         return buildAvailableGuidance(context);
@@ -367,99 +387,68 @@ function buildPhaseGuidance(
     }
 
     const assignmentId = resolveAssignmentId(status, activeOnVessel);
-    const assignmentNo =
-        status.assignment_no ?? activeOnVessel?.assignment_no ?? null;
-    const vesselName = resolveCurrentVesselName(status, activeOnVessel);
-    const canView = canViewAssignmentDetails(status, permissions);
-    const actions: ReadinessAction[] = [];
 
-    if (!canView || assignmentId === null) {
+    if (assignmentId === null) {
         return buildRestrictedActiveGuidance();
     }
 
-    const destinationAlert = buildDestinationAlert(context);
-    const plannedDateAlert = buildPlannedDateAlert(context);
+    if (!canViewAssignmentDetails(status, permissions)) {
+        return buildRestrictedActiveGuidance();
+    }
+
+    const vesselName = resolveCurrentVesselName(status, activeOnVessel);
+    const phaseLabel = phaseCodeLabel(status);
+    const summaryLine = buildAssignmentSummaryLine(status, vesselName);
+    const destinationAdvisory = buildDestinationAdvisory(context);
+    const plannedDateAdvisory = buildPlannedDateAdvisory(context);
+    const actions: ReadinessAction[] = [];
+
+    const baseActive = {
+        phaseLabel,
+        summaryLine,
+        severity: (destinationAdvisory?.severity === 'conflict'
+            ? 'conflict'
+            : 'attention') as ReadinessSeverity,
+        showWhyBlocked: true,
+        warning: ACTIVE_ASSIGNMENT_WARNING,
+        destinationAdvisory,
+        plannedDateAdvisory,
+    };
 
     switch (status.status) {
         case 'pre_mobilisation':
-            addAction(
-                actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
+            addAction(actions, continueAssignmentAction());
 
             if (permissions.update) {
                 addAction(actions, editMobilisationAction());
             }
 
-            if (permissions.cancel) {
-                addAction(
-                    actions,
-                    openAssignmentAction(
-                        assignmentId,
-                        'Cancel Assignment',
-                        'Cancel the current mobilisation from the assignment when permitted.',
-                        'secondary',
-                    ),
-                );
-            }
-
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: 'Pre-Mobilisation',
-                description:
-                    'This employee already has a mobilisation being prepared.',
-                guidance:
-                    'If the vessel, rank, expected arrival, expected join date or other mobilisation details have changed, update the existing assignment instead of starting another mobilisation cycle.',
-                severity: 'attention',
+                ...baseActive,
+                explanation: 'Mobilisation is already being prepared.',
                 actions,
-                attention: {
-                    title: 'Duplicate mobilisation risk',
-                    message:
-                        'Creating another operational assignment for the same mobilisation could create duplicate records.',
-                },
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
 
         case 'travel_in':
-            addAction(
-                actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
-            addAction(
-                actions,
-                openAssignmentAction(
-                    assignmentId,
-                    'Open Current Assignment',
-                    'Review travel and mobilisation details.',
-                ),
-            );
+            addAction(actions, continueAssignmentAction());
+            addAction(actions, openAssignmentAction());
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: 'Travel In',
-                description:
-                    'This employee is already travelling as part of the current mobilisation.',
-                guidance:
-                    'Continue the existing movement. If the destination has changed, review the current assignment rather than starting another active mobilisation.',
-                severity: 'attention',
+                ...baseActive,
+                explanation:
+                    'Already travelling under the current mobilisation.',
                 actions,
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
 
         case 'join_standby': {
-            const description = vesselName
-                ? `This employee has already mobilised and is waiting before vessel joining. Currently preparing to join ${vesselName}.`
-                : 'This employee has already mobilised and is waiting before vessel joining.';
+            const joinSummary = vesselName
+                ? `Preparing to join ${vesselName}`
+                : undefined;
 
-            addAction(
-                actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
+            addAction(actions, continueAssignmentAction());
 
             if (permissions.update) {
                 addAction(actions, editMobilisationAction());
@@ -468,25 +457,15 @@ function buildPhaseGuidance(
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: 'Join Standby',
-                description,
-                guidance:
-                    'If the intended vessel changed before boarding, review or change the current mobilisation rather than creating another active assignment.',
-                secondaryGuidance:
-                    'If this is work that should happen after the current mobilisation, use Crew Planning.',
-                severity: 'attention',
+                ...baseActive,
+                summaryLine: joinSummary ?? summaryLine,
+                explanation: 'Already in an active mobilisation.',
                 actions,
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
         }
 
         case 'training':
-            addAction(
-                actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
+            addAction(actions, continueAssignmentAction());
 
             if (permissions.update) {
                 addAction(actions, editMobilisationAction());
@@ -495,34 +474,17 @@ function buildPhaseGuidance(
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: 'Training in Progress',
-                description:
-                    'This employee is currently completing training as part of the active mobilisation.',
-                guidance:
-                    'Complete or continue this mobilisation before starting another operational cycle.',
-                severity: 'attention',
+                ...baseActive,
+                explanation: 'Training is part of the current mobilisation.',
                 actions,
-                attention: {
-                    title: 'Overlapping mobilisation risk',
-                    message:
-                        'Starting another active assignment before this mobilisation is completed or cancelled could create overlapping operational states.',
-                },
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
 
         case 'ready_to_join':
             addAction(
                 actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
-            addAction(
-                actions,
                 openAssignmentAction(
-                    assignmentId,
                     'Join Vessel',
-                    'Board the intended vessel from the current assignment when movement is permitted.',
+                    'Board the intended vessel from Movement Actions',
                 ),
             );
 
@@ -533,207 +495,113 @@ function buildPhaseGuidance(
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: 'Ready to Join',
-                description:
-                    'This employee is ready to board the intended vessel.',
-                guidance:
-                    'If the vessel changed before boarding, update the existing mobilisation. Do not start a second active assignment.',
-                severity: 'attention',
+                ...baseActive,
+                explanation: 'Ready to board the intended vessel.',
                 actions,
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
 
         case 'on_vessel': {
-            const onVesselDescription = `${employeeName} is currently onboard ${vesselName ?? 'the assigned vessel'}${assignmentNo ? ` under ${assignmentNo}` : ''}.`;
-            const transferRecommended = recommendsVesselTransfer(
+            const canTransfer = canTransferFromP4(
+                activeOnVessel,
+                permissions.perform_movement,
+            );
+            const hasDestination = hasSelectedTransferDestination(
                 activeOnVessel,
                 context.destinationVesselId,
             );
-            const canTransfer =
-                permissions.perform_movement &&
-                activeOnVessel?.can_transfer === true &&
-                transferRecommended;
+            let transferPermissionNote: string | undefined;
 
-            if (canTransfer && activeOnVessel) {
+            addAction(actions, openAssignmentAction());
+
+            if (canTransfer) {
                 addAction(
                     actions,
                     transferAction(
-                        activeOnVessel,
-                        context.destinationVesselName,
-                        true,
+                        hasDestination ? context.destinationVesselName : null,
                     ),
                 );
-                addAction(
-                    actions,
-                    openAssignmentAction(
-                        assignmentId,
-                        'Open Current Assignment',
-                        'Review the active onboard mobilisation.',
-                        'secondary',
-                    ),
-                );
-            } else {
-                addAction(
-                    actions,
-                    openAssignmentAction(
-                        assignmentId,
-                        'Open Current Assignment',
-                        transferRecommended
-                            ? 'Transfer Vessel is available from the current assignment when permitted.'
-                            : 'Review the active onboard mobilisation.',
-                    ),
-                );
+            } else if (
+                !permissions.perform_movement &&
+                activeOnVessel?.can_transfer === true
+            ) {
+                transferPermissionNote =
+                    'Transfer requires additional permission.';
             }
 
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: 'Currently On Vessel',
-                description: onVesselDescription,
-                guidance:
-                    'Another active Crew Assignment cannot be started while this mobilisation remains active.',
-                severity: destinationAlert ? 'conflict' : 'attention',
+                ...baseActive,
+                explanation:
+                    'Currently onboard. Choose the correct next workflow.',
                 actions,
-                intentOptions: [
-                    {
-                        question: 'Continuing the current vessel assignment?',
-                        hint: 'Open the current assignment to continue normal movement.',
-                        actionKey: 'open_assignment',
-                    },
-                    {
-                        question: 'Moving directly to another vessel?',
-                        hint: canTransfer
-                            ? 'Use Transfer Vessel from the current assignment.'
-                            : 'Transfer Vessel is available from the current assignment when permitted.',
-                        actionKey: 'transfer_vessel',
-                    },
-                    {
-                        question:
-                            'Preparing work that happens after this assignment?',
-                        hint: 'Use Crew Planning for future intention only.',
-                        actionKey: 'plan_future',
-                    },
-                ],
-                attention: {
-                    title: 'Operational conflict risk',
-                    message:
-                        'Starting another active assignment could create conflicting vessel, payroll, sea-service and crew movement records.',
-                },
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
+                transferPermissionNote,
             };
         }
 
         case 'demob_standby':
-            addAction(
-                actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
             addAction(actions, {
                 key: 'return_home',
                 label: 'Return Home',
-                description:
-                    'Record return home from the current assignment when movement is permitted.',
+                description: 'Record return home from Movement Actions',
                 kind: 'link',
                 emphasis: 'primary',
             });
             addAction(actions, {
                 key: 'redeploy',
                 label: 'Redeploy',
-                description:
-                    'Start linked redeployment from the current assignment when movement is permitted.',
+                description: 'Start linked redeployment from Movement Actions',
                 kind: 'link',
                 emphasis: 'secondary',
             });
             addAction(actions, planFutureAction(permissions));
+            addAction(
+                actions,
+                openAssignmentAction(
+                    'Open Assignment',
+                    'Review demobilisation details',
+                    'secondary',
+                ),
+            );
 
             return {
-                title: 'Demobilisation Standby',
-                description:
-                    'This employee has disembarked and is waiting for onward travel or the next operational instruction.',
-                guidance:
-                    'Going home? Continue the current assignment and use Return Home. Going directly into another mobilisation? Use Redeploy. Only preparing work for later? Use Crew Planning.',
-                severity: 'attention',
+                ...baseActive,
+                explanation: 'Disembarked and awaiting next movement.',
                 actions,
-                intentOptions: [
-                    {
-                        question: 'Going home?',
-                        hint: 'Continue the current assignment and use Return Home.',
-                        actionKey: 'return_home',
-                    },
-                    {
-                        question: 'Going directly into another mobilisation?',
-                        hint: 'Use Redeploy from the current assignment.',
-                        actionKey: 'redeploy',
-                    },
-                    {
-                        question: 'Only preparing work for later?',
-                        hint: 'Use Crew Planning without starting another active assignment.',
-                        actionKey: 'plan_future',
-                    },
-                ],
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
 
         case 'home_redeploy':
-            addAction(
-                actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
             addAction(actions, {
                 key: 'close_assignment',
-                label: 'Close Assignment',
-                description:
-                    'Close the current cycle when the vessel portion is complete.',
+                label: 'Close',
+                description: 'Close the current cycle when complete',
                 kind: 'link',
                 emphasis: 'secondary',
             });
             addAction(actions, {
                 key: 'redeploy',
                 label: 'Redeploy',
-                description:
-                    'Start another mobilisation through the existing Redeploy workflow.',
+                description: 'Start another mobilisation through Redeploy',
                 kind: 'link',
                 emphasis: 'primary',
             });
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: 'Home / Redeployment',
-                description:
-                    'This employee has completed the vessel portion of the current mobilisation and is in the final assignment stage.',
-                guidance:
-                    'If the current cycle is complete, close the assignment. If another mobilisation starts now, use Redeploy. If the next job is only planned for later, use Crew Planning.',
-                severity: 'attention',
+                ...baseActive,
+                explanation: 'Current mobilisation is in its final stage.',
                 actions,
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
 
         default:
-            addAction(
-                actions,
-                continueAssignmentAction(assignmentId, assignmentNo),
-            );
+            addAction(actions, continueAssignmentAction());
             addAction(actions, planFutureAction(permissions));
 
             return {
-                title: status.label || 'Active Crew Assignment',
-                description:
-                    'This employee already has an active Crew Assignment.',
-                guidance:
-                    'Continue the existing mobilisation instead of starting another active assignment.',
-                severity: 'attention',
+                ...baseActive,
+                explanation:
+                    'Continue the existing mobilisation instead of starting another.',
                 actions,
-                showWhyBlocked: true,
-                destinationAlert,
-                plannedDateAlert,
             };
     }
 }
@@ -765,8 +633,8 @@ export function readinessSeverityClassName(
     }
 }
 
-export function readinessAlertClassName(
-    severity: ReadinessAlert['severity'],
+export function readinessAdvisoryClassName(
+    severity: ReadinessAdvisory['severity'],
 ): string {
     return severity === 'conflict'
         ? readinessSeverityClassName('conflict')

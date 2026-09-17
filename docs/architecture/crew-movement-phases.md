@@ -1108,7 +1108,7 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 
 ## Create Page Behaviour
 
-`organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows **Movement Guidance** (Assignment Readiness) for the selected employee: identity summary, compact current journey indicator, current assignment context, phase-aware explanation, recommended actions toward existing workflows, optional destination/planned-date advisories, and a collapsible “why can’t I start another active assignment?” help section.
+`organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows compact **Movement Guidance** for the selected employee: identity, one-line phase summary, compact journey indicator, a short explanation, up to three action buttons (Open Assignment, Transfer Vessel, Plan Future, etc.), one consolidated warning when another active assignment blocks Start, optional destination/planned-date advisories, and a collapsed “Why is Start Assignment blocked?” help item.
 
 The panel is UX intelligence only. It does **not** change `CrewAssignment` state, create movement phases, or weaken backend validation. It guides operators toward the current assignment, Transfer Vessel, Redeploy, Return Home, Close Assignment, or Crew Planning as appropriate. One Active Crew Assignment per employee remains authoritative.
 
@@ -1130,15 +1130,26 @@ Backend authorization remains authoritative — the scoping on the create page i
 - `has_active_assignment` is always included in the payload regardless of view permission.
 - It is `true` when the employee has an **Active** assignment, including **Active P0**. Draft P0 remains `false`.
 - When `has_active_assignment = true` **and** the Transfer Vessel intercept is not active, Start Assignment and Save as Draft are **disabled**.
-- The conflict UI shows: "This employee already has an active Crew Assignment."
+- The conflict UI shows a short footer message pointing operators to Movement Guidance actions.
 - If the viewer has view permission (`assignment_no` is non-null), a "Continue [CA-XXXXXX]" button is shown, opening the existing assignment in a new tab.
 - Users with create permission but without `crew_operations.movements.perform` can still Save as Draft. Start Assignment is hidden and explained.
 
-### P4 On Vessel — Transfer Vessel intercept
+### P4 On Vessel — Transfer Vessel
 
-When the selected employee is P4 On Vessel **and** the destination vessel differs from the current vessel, the create page surfaces the Transfer Vessel dialog instead of blocking the submit button. The Transfer Vessel movement creates a new Active assignment and completes the old one atomically in a single transaction.
+Transfer availability and destination selection are separate concerns:
 
-This intercept is powered by `ActiveOnVesselAssignmentFinder`, which provides `form_options.active_on_vessel_by_employee` (also keyed by employee ID). `can_transfer` within each entry reflects the user's movement-perform permission.
+- **Can transfer:** employee is active P4 On Vessel, domain rules permit transfer on the current assignment, and the user has movement-perform permission. Movement Guidance shows **Transfer Vessel** even when no destination vessel is selected on the Start form; the existing Transfer Vessel dialog chooses the destination.
+- **Selected destination:** when the Start form targets a different vessel, the sidebar action becomes **Transfer to {vessel}** and prefills the dialog where supported. Submitting Start Assignment still opens the Transfer Vessel intercept instead of creating a second active assignment.
+
+Pre-P4 vessel changes on Create or Edit update the current mobilisation destination; they are **not** vessel transfers.
+
+This is powered by `ActiveOnVesselAssignmentFinder` (`form_options.active_on_vessel_by_employee`, keyed by employee ID). `can_transfer` within each entry reflects domain permission on the assignment; movement-perform permission controls whether the action is executable.
+
+### Edit Assignment workspace
+
+`organization/crew/{assignment}/edit` uses the same two-column workspace pattern as Create. Generic Edit remains available only for Draft and Active phases before P4 (P0–P3). P4/P5/P6 and Completed/Cancelled assignments redirect to Movement Actions.
+
+The edit sidebar answers “what can I safely change on this existing mobilisation?” via `assignment-edit-guidance.ts`: phase-aware copy, safe-to-update fields, destination-change notes (not Transfer Vessel before boarding), linked Planning change summary (Vessel/Rank/Expected Join), and proactive date advisories. Backend validation in `UpdateCrewAssignmentRequest` remains authoritative. Edit form options preserve inactive historical Vessel/Client options when unchanged.
 
 ### Operational timestamps and timezone
 

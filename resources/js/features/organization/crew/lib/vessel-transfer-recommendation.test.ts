@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    canTransferFromP4,
     canUseManualTransferRecommendation,
     hasPlanningStartActiveAssignmentConflict,
+    hasSelectedTransferDestination,
     recommendsVesselTransfer,
     shouldShowPlanningTransferGuidance,
 } from './vessel-transfer-recommendation.ts';
@@ -24,6 +26,36 @@ const activeEmployeeStatus = {
     vessel_name: 'Vessel A',
     has_active_assignment: true,
 };
+
+describe('canTransferFromP4', () => {
+    it('allows transfer when movement permission and domain transfer flag are present', () => {
+        assert.equal(canTransferFromP4(currentOnVessel, true), true);
+    });
+
+    it('blocks transfer without movement permission even when destination is unset', () => {
+        assert.equal(canTransferFromP4(currentOnVessel, false), false);
+    });
+
+    it('blocks transfer when the assignment cannot transfer', () => {
+        assert.equal(
+            canTransferFromP4({ vessel_id: 638, can_transfer: false }, true),
+            false,
+        );
+    });
+});
+
+describe('hasSelectedTransferDestination', () => {
+    it('matches recommendsVesselTransfer semantics', () => {
+        assert.equal(
+            hasSelectedTransferDestination(currentOnVessel, 649),
+            true,
+        );
+        assert.equal(
+            hasSelectedTransferDestination(currentOnVessel, null),
+            false,
+        );
+    });
+});
 
 describe('recommendsVesselTransfer', () => {
     it('does not recommend a transfer when there is no current On Vessel assignment', () => {

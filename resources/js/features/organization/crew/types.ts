@@ -384,6 +384,8 @@ export interface CrewAssignmentFormOptions {
     courses: Array<{ id: number; name: string }>;
     hotels?: Array<{ id: number; name: string }>;
     room_types?: Array<{ id: number; name: string; hotel_id: number | null }>;
+    /** Company IANA timezone for consistent operational date display. */
+    company_timezone?: string;
 }
 
 export interface EmployeeOperationalStatus {

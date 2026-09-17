@@ -44,8 +44,11 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Common Client / Vessel auto-resolve identically for single and bulk; Expected Join, remarks, and per-row Arrival Date are shared semantics
 - [ ] Per-row employee + rank; rank defaults from the employee and can be changed
 - [ ] Duplicate employees are blocked in the UI and rejected by the server
-- [ ] Single mode: On Vessel on a different vessel opens Transfer Vessel recommendation (not bulk auto-transfer)
+- [ ] Single mode: P4 Movement Guidance shows **Transfer Vessel** even when Start form vessel matches current vessel; selecting a different vessel relabels to **Transfer to {vessel}**
+- [ ] Single mode: On Vessel on a different vessel opens Transfer Vessel recommendation on submit (not bulk auto-transfer)
 - [ ] Bulk mode: On Vessel rows stay blocked with transfer guidance; no transfer dialogs
+- [ ] Movement Guidance stays compact (no duplicate intent cards / recommended-actions stack); collapsed help explains why Start is blocked
+- [ ] Edit Assignment uses two-column workspace with phase-aware editing guidance; generic Edit still unavailable from P4 onward
 - [ ] An active-assignment employee blocks bulk submission; removing that row lets the rest of a valid batch start
 - [ ] Start N Assignments is all-or-nothing: a blocked row creates zero assignments from that submission
 - [ ] Successful batch redirects to Current Crew with `{N} crew assignments started successfully.`

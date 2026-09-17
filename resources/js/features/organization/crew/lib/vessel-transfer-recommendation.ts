@@ -6,10 +6,9 @@ type CurrentVessel = {
 };
 
 /**
- * A transfer is recommended only when the employee is already On Vessel and a
- * different, selected destination vessel has been chosen.
+ * A different destination vessel has been selected on the Start form.
  */
-export function recommendsVesselTransfer(
+export function hasSelectedTransferDestination(
     current: CurrentVessel | null,
     destinationVesselId: number | null,
 ): boolean {
@@ -24,6 +23,25 @@ export function recommendsVesselTransfer(
     return (
         current.vessel_id === null || current.vessel_id !== destinationVesselId
     );
+}
+
+/** @deprecated Use hasSelectedTransferDestination */
+export function recommendsVesselTransfer(
+    current: CurrentVessel | null,
+    destinationVesselId: number | null,
+): boolean {
+    return hasSelectedTransferDestination(current, destinationVesselId);
+}
+
+/**
+ * Transfer is permitted for an employee already active P4 On Vessel.
+ * Destination selection only affects labelling/prefill — not availability.
+ */
+export function canTransferFromP4(
+    currentOnVessel: CurrentVessel | null,
+    performMovement: boolean,
+): boolean {
+    return performMovement && currentOnVessel?.can_transfer === true;
 }
 
 /**
@@ -42,7 +60,7 @@ export function canUseManualTransferRecommendation(
     }
 
     return (
-        recommendsVesselTransfer(currentOnVessel, destinationVesselId) &&
+        hasSelectedTransferDestination(currentOnVessel, destinationVesselId) &&
         currentOnVessel?.can_transfer === true
     );
 }
@@ -71,6 +89,6 @@ export function shouldShowPlanningTransferGuidance(
 ): boolean {
     return (
         employeeStatus?.status === 'on_vessel' &&
-        recommendsVesselTransfer(currentOnVessel, destinationVesselId)
+        hasSelectedTransferDestination(currentOnVessel, destinationVesselId)
     );
 }

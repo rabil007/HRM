@@ -92,7 +92,11 @@ test('1. Draft assignment allows opening edit page and updating planning fields'
             ->component('organization/crew/edit')
             ->where('assignment.id', $assignment->id)
             ->where('assignment.is_editable', true)
-            ->where('assignment.planned_join_at', '2026-09-01'));
+            ->where('assignment.planned_join_at', '2026-09-01')
+            ->has('form_options.company_timezone')
+            ->has('form_options.employees', fn (Assert $employees) => $employees
+                ->where('0.image', $employee->fresh()->image)
+                ->etc()));
 
     $newRank = Rank::query()->create(['name' => 'New Draft Rank '.Str::uuid(), 'is_active' => true]);
 
