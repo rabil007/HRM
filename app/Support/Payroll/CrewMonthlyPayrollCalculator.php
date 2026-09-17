@@ -74,7 +74,9 @@ final class CrewMonthlyPayrollCalculator
             2,
         );
 
-        $totalDeductions = round($unpaidLeaveDeduction + $deductionAmount, 2);
+        // Unpaid leave is already reflected in prorated earnings; the deduction line is
+        // informational for payslip/reporting and must not reduce net pay again.
+        $totalDeductions = round($deductionAmount, 2);
         $netSalary = round($grossSalary - $totalDeductions, 2);
         $presentDays = round($activePeriodDays, 2);
         $absentDays = round($unpaidLeaveDays, 2);

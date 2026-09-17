@@ -135,7 +135,7 @@ Legacy parent flat-field pairs with only one date set (for example Sign-On Stand
 - Missing or overlapping historical Daily Crew contracts and missing historical salary revisions remain **blocking**.
 - Preview exposes `warning_issues` / `warning_count` separately from `blocking_issues` / `blocking_count`. `can_generate` depends only on true blockers and ready employees.
 
-For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days. Salary inputs use the office-style addition and deduction application for monthly crew records.
+For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days. **Unpaid leave is deducted exactly once** through that proration; `unpaid_leave_deduction` may still appear on payslips/exports as an informational line but is not subtracted from net pay again. Salary inputs use the office-style addition and deduction application for monthly crew records.
 
 Daily crew uses only Sign-On Standby → Onsite → Sign-Off Standby. Monthly crew uses `unpaid_leave_days`. The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`) were intentionally removed by migration `2026_07_21_100000_replace_legacy_standby_fields_on_crew_timesheets` before any production payroll data existed; no compatibility bridge, mirroring, or source-based fallback remains.
 
@@ -156,7 +156,7 @@ Daily Crew payroll automatically pays unpaid work that falls **before** the paym
 - Each payable work date resolves the Daily Crew contract covering that date (company + employee + Crew + Daily + not soft-deleted). No “current contract” fallback for arrears dates.
 - Missing or overlapping covering contracts block generation.
 - Salary components resolve for the work date: latest revision with `effective_from <= work_date`. If the contract has revisions but none cover the date, generation is blocked. If the contract has no revisions, baseline contract components are used.
-- Standby day stores basic and supplementary amounts separately. Onsite stores basic + site + supplementary separately.
+- Standby day stores basic and supplementary amounts separately. Onsite stores basic + site + supplementary separately. Both the flat timesheet calculator path and the allocation-plan path must classify these components the same way for equivalent work and rates.
 - Overtime, additions, and deductions stay payment-period values and are **not** historically rated in this phase.
 
 **Duplicate-payment protection**

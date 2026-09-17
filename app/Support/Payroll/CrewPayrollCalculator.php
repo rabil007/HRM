@@ -146,14 +146,24 @@ final class CrewPayrollCalculator
         }
 
         $basicRate ??= 0.0;
-        $standbyDailyRate = $basicRate + ($supplementaryRate ?? 0);
-        $signOnStandbyPay = round($signOnStandbyDays * $standbyDailyRate, 2);
-        $signOffStandbyPay = round($signOffStandbyDays * $standbyDailyRate, 2);
+        $supplementaryDailyRate = $supplementaryRate ?? 0.0;
+
+        // Match allocation-plan classification: basic and supplementary are stored separately.
+        $signOnStandbyBasicPay = round($signOnStandbyDays * $basicRate, 2);
+        $signOffStandbyBasicPay = round($signOffStandbyDays * $basicRate, 2);
+        $signOnStandbySupplementaryPay = round($signOnStandbyDays * $supplementaryDailyRate, 2);
+        $signOffStandbySupplementaryPay = round($signOffStandbyDays * $supplementaryDailyRate, 2);
+        $signOnStandbyPay = round($signOnStandbyBasicPay + $signOnStandbySupplementaryPay, 2);
+        $signOffStandbyPay = round($signOffStandbyBasicPay + $signOffStandbySupplementaryPay, 2);
         $standbyPay = round($signOnStandbyPay + $signOffStandbyPay, 2);
 
         $onsitePay = round($onsiteDays * $basicRate, 2);
         $siteAllowancePay = round($onsiteDays * ($siteRate ?? 0), 2);
-        $supplementaryPay = round($onsiteDays * ($supplementaryRate ?? 0), 2);
+        $onsiteSupplementaryPay = round($onsiteDays * $supplementaryDailyRate, 2);
+        $supplementaryPay = round(
+            $signOnStandbySupplementaryPay + $signOffStandbySupplementaryPay + $onsiteSupplementaryPay,
+            2,
+        );
 
         $overtimeBreakdown = $this->resolveOvertimePay(
             $overtimeHours,
@@ -168,7 +178,7 @@ final class CrewPayrollCalculator
         $deductionAmount = round((float) ($timesheet->deduction_amount ?? 0), 2);
 
         $grossSalary = round(
-            $standbyPay + $onsitePay + $siteAllowancePay + $supplementaryPay + $overtimePay + $additionalAmount,
+            $standbyPay + $onsitePay + $siteAllowancePay + $onsiteSupplementaryPay + $overtimePay + $additionalAmount,
             2,
         );
         $netSalary = round($grossSalary - $deductionAmount, 2);
@@ -212,8 +222,10 @@ final class CrewPayrollCalculator
             'movement_segments' => $this->movementSegments($timesheet),
         ];
 
+        $basicSalary = round($signOnStandbyBasicPay + $signOffStandbyBasicPay + $onsitePay, 2);
+
         return [
-            'basic_salary' => $this->formatMoney($standbyPay + $onsitePay),
+            'basic_salary' => $this->formatMoney($basicSalary),
             'other_allowances' => $this->formatMoney($siteAllowancePay + $supplementaryPay),
             'overtime_pay' => $this->formatMoney($overtimePay),
             'overtime_hours' => $overtimeHours,
