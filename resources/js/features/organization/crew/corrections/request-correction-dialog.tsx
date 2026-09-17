@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
+import { ActionImpactPreview } from '@/components/action-impact-preview';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { store as storeCorrection } from '@/routes/organization/crew-assignments
 import {
     CORRECTION_DATE_FIELDS,
     CORRECTION_SELECT_OPTIONS,
+    buildCorrectionImpactChanges,
     editableCorrectionFields,
     initialCorrectionFieldValue,
     initialCorrectionValues,
@@ -304,23 +306,42 @@ export function RequestCorrectionDialog({
                         </div>
                     ) : null}
 
-                    {step === 3 ? (
-                        <div className="space-y-2">
-                            <Label htmlFor="correction-reason">
-                                Reason{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Textarea
-                                id="correction-reason"
-                                value={form.data.reason}
-                                onChange={(event) =>
-                                    form.setData('reason', event.target.value)
-                                }
-                                rows={4}
-                                required
-                                aria-required="true"
+                    {step === 3 && selectedPhase ? (
+                        <div className="space-y-4">
+                            <ActionImpactPreview
+                                severity="high"
+                                title="Correction summary"
+                                subject={[
+                                    selectedPhase.phase_code.toUpperCase(),
+                                    selectedPhase.phase_label,
+                                ].join(' · ')}
+                                changes={buildCorrectionImpactChanges(
+                                    selectedPhase,
+                                    form.data.proposed_values,
+                                    formOptions,
+                                )}
+                                warning="This change may affect downstream operational history after approval."
                             />
-                            <InputError message={form.errors.reason} />
+                            <div className="space-y-2">
+                                <Label htmlFor="correction-reason">
+                                    Reason{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <Textarea
+                                    id="correction-reason"
+                                    value={form.data.reason}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'reason',
+                                            event.target.value,
+                                        )
+                                    }
+                                    rows={4}
+                                    required
+                                    aria-required="true"
+                                />
+                                <InputError message={form.errors.reason} />
+                            </div>
                         </div>
                     ) : null}
                 </div>
@@ -367,7 +388,7 @@ export function RequestCorrectionDialog({
                                 {form.processing ? (
                                     <Spinner className="mr-2" />
                                 ) : null}
-                                Submit request
+                                Confirm Correction
                             </Button>
                         ) : null}
                     </div>

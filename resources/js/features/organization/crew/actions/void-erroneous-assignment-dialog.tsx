@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import VoidCrewAssignmentController from '@/actions/App/Http/Controllers/Organization/VoidCrewAssignmentController';
+import { ActionImpactPreview } from '@/components/action-impact-preview';
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -65,59 +66,36 @@ export function VoidErroneousAssignmentDialog({
         >
             <AlertDialogContent className="max-w-lg glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Void this assignment?</AlertDialogTitle>
+                    <AlertDialogTitle>Void Assignment</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action is only for assignments or recorded
-                        movements entered by mistake. The assignment will be
-                        removed from active operational use while its audit
-                        history is retained.
+                        Use only when this assignment or recorded movement was
+                        entered by mistake. Voiding removes it from active
+                        operational use while audit history is retained.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
 
                 {assignment ? (
-                    <div className="space-y-3 rounded-xl border border-border/60 bg-muted/30 p-3 text-sm dark:border-white/6 dark:bg-white/4">
-                        <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">
-                                Assignment
-                            </span>
-                            <span className="text-right font-semibold">
-                                {assignment.assignment_no}
-                            </span>
-                        </div>
-                        <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">
-                                Employee
-                            </span>
-                            <span className="text-right font-semibold">
-                                {assignment.employee?.name ?? '—'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">
-                                Current phase
-                            </span>
-                            <span className="text-right font-semibold">
-                                {assignment.current_phase
-                                    ? `${assignment.current_phase.code.toUpperCase()} · ${assignment.current_phase.label}`
-                                    : 'None'}
-                            </span>
-                        </div>
-                        <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">
-                                Status
-                            </span>
-                            <span className="font-semibold tracking-wide uppercase">
-                                {assignment.status_label}
-                            </span>
-                        </div>
-                    </div>
+                    <ActionImpactPreview
+                        severity="destructive"
+                        subject={[
+                            assignment.assignment_no,
+                            assignment.employee?.name,
+                        ]
+                            .filter(Boolean)
+                            .join('\n')}
+                        currentState={
+                            assignment.current_phase
+                                ? `${assignment.current_phase.code.toUpperCase()} · ${assignment.current_phase.label}`
+                                : undefined
+                        }
+                        impacts={[
+                            'The assignment is marked voided and removed from active operational use.',
+                            'Audit history for the assignment remains retained.',
+                            'Derived planning bars linked to this assignment are cleaned up according to existing void rules.',
+                        ]}
+                        warning="This assignment cannot be voided if it has already affected protected payroll, sea service, or a linked assignment. Use the appropriate correction or reversal workflow instead."
+                    />
                 ) : null}
-
-                <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    This assignment cannot be voided if it has already affected
-                    protected payroll, sea service, or a linked assignment. Use
-                    the appropriate correction or reversal workflow instead.
-                </div>
 
                 <div className="space-y-2">
                     <Label
@@ -161,7 +139,7 @@ export function VoidErroneousAssignmentDialog({
                             form.processing || !form.data.void_reason.trim()
                         }
                     >
-                        Void assignment
+                        Void Assignment
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>

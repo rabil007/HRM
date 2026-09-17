@@ -1,5 +1,8 @@
-import type { CrewMovementCorrectionFieldValue } from '../../crew-movement-corrections/types';
-import type { CorrectablePhase } from '../types';
+import type { ActionImpactChange } from '../../../../components/action-impact-preview.ts';
+import { formatDisplayDateTime12h } from '../../../../lib/format-date.ts';
+import type { CrewMovementCorrectionFieldValue } from '../../crew-movement-corrections/types.ts';
+import { correctionFieldLabel } from '../../crew-movement-corrections/types.ts';
+import type { CorrectablePhase, CrewAssignmentFormOptions } from '../types.ts';
 
 /** Form option list keys used by correction select fields (excludes scalar metadata). */
 export type CorrectionFormOptionListKey =
@@ -65,4 +68,61 @@ export function initialCorrectionValues(
             initialCorrectionFieldValue(field, phase.current_values[field]),
         ]),
     );
+}
+
+function formatCorrectionProposedDisplay(
+    field: string,
+    value: string,
+    formOptions?: CrewAssignmentFormOptions,
+): string {
+    if (!value.trim()) {
+        return '—';
+    }
+
+    if (CORRECTION_DATE_FIELDS.has(field)) {
+        return formatDisplayDateTime12h(value);
+    }
+
+    const optionKey = CORRECTION_SELECT_OPTIONS[field];
+
+    if (optionKey && formOptions) {
+        const match = formOptions[optionKey]?.find(
+            (option) => String(option.id) === value,
+        );
+
+        return match?.name ?? value;
+    }
+
+    return value;
+}
+
+export function buildCorrectionImpactChanges(
+    phase: CorrectablePhase,
+    proposedValues: Record<string, string>,
+    formOptions?: CrewAssignmentFormOptions,
+): ActionImpactChange[] {
+    return editableCorrectionFields(phase)
+        .map((field) => {
+            const previous = phase.current_values[field]?.display ?? '—';
+            const next = formatCorrectionProposedDisplay(
+                field,
+                proposedValues[field] ?? '',
+                formOptions,
+            );
+            const initial = initialCorrectionFieldValue(
+                field,
+                phase.current_values[field],
+            );
+
+            if ((proposedValues[field] ?? '') === initial) {
+                return null;
+            }
+
+            return {
+                label: correctionFieldLabel(field),
+                previous,
+                next,
+            };
+        })
+        .filter((change): change is ActionImpactChange => change !== null);
 }

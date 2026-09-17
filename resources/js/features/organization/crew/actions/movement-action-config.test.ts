@@ -6,8 +6,9 @@ describe('movement action impact previews', () => {
     it('describes transfer vessel impact using implemented behavior', () => {
         const config = getMovementActionConfig('transfer_vessel');
 
-        assert.equal(config.impactTitle, 'What will happen');
-        assert.ok(Array.isArray(config.impactDescription));
+        assert.equal(config.impactPreview, 'full');
+        assert.equal(config.impactSeverity, 'high');
+        assert.equal(config.submitLabel, 'Confirm Transfer');
         assert.match(
             config.impactDescription.join(' '),
             /P4 On Vessel phase ends/i,
@@ -21,19 +22,24 @@ describe('movement action impact previews', () => {
     it('describes redeploy linked-assignment behavior', () => {
         const config = getMovementActionConfig('redeploy');
 
-        assert.equal(config.impactTitle, 'What will happen');
+        assert.equal(config.impactPreview, 'full');
         assert.match(
             config.impactDescription.join(' '),
             /linked destination assignment/i,
         );
         assert.match(config.impactDescription.join(' '), /completed/i);
+        assert.equal(config.submitLabel, 'Confirm Redeploy');
     });
 
     it('distinguishes confirm disembarkation from planned sign-off', () => {
         const config = getMovementActionConfig('confirm_disembarkation');
 
-        assert.equal(config.impactTitle, 'What will happen');
+        assert.equal(config.impactPreview, 'full');
         assert.match(
+            config.impactDescription.join(' '),
+            /Actual disembarkation is recorded/i,
+        );
+        assert.doesNotMatch(
             config.impactDescription.join(' '),
             /Planned Sign-Off alone does not disembark/i,
         );
@@ -58,18 +64,37 @@ describe('movement action impact previews', () => {
         assert.match(config.impactDescription.join(' '), /Completed/i);
         assert.match(
             config.impactDescription.join(' '),
-            /no other active assignment exists/i,
+            /Historical movement data remains preserved/i,
         );
+        assert.equal(config.submitLabel, 'Close Assignment');
     });
 
-    it('warns that cancel preserves historical movement data', () => {
+    it('warns that cancel uses destructive presentation', () => {
         const config = getMovementActionConfig('cancel_assignment');
 
         assert.equal(config.destructive, true);
-        assert.match(config.impactDescription.join(' '), /remain preserved/i);
-        assert.match(
-            config.impactDescription.join(' '),
-            /cannot be cancelled directly/i,
-        );
+        assert.equal(config.impactSeverity, 'destructive');
+        assert.equal(config.keepOpenLabel, 'Keep Assignment');
+        assert.match(config.impactDescription.join(' '), /Cancelled/i);
+    });
+
+    it('uses light preview for join vessel and explicit submit label', () => {
+        const config = getMovementActionConfig('join_vessel');
+
+        assert.equal(config.impactPreview, 'light');
+        assert.equal(config.submitLabel, 'Confirm Join');
+    });
+
+    it('uses light preview for start assignment', () => {
+        const config = getMovementActionConfig('approve_mobilisation');
+
+        assert.equal(config.impactPreview, 'light');
+        assert.equal(config.submitLabel, 'Start Assignment');
+    });
+
+    it('does not require impact preview for plan sign-off', () => {
+        const config = getMovementActionConfig('plan_signoff');
+
+        assert.equal(config.impactPreview, 'none');
     });
 });
