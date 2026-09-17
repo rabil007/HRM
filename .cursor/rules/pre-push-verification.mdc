@@ -1,0 +1,75 @@
+---
+description: Run CI-matching checks on changed files before every commit/push (default agent behavior)
+alwaysApply: true
+---
+
+# Pre-commit / pre-push verification (changed files only)
+
+## Why CI keeps failing
+
+GitHub **Frontend Static** runs ESLint, Prettier, TypeScript, and frontend unit tests on every frontend-scoped push. Commits that skip the same checks locally fail CI even when the feature logic is correct.
+
+Typical misses:
+
+- ESLint (`import/order`, `import/consistent-type-specifier-style`, `@typescript-eslint/no-unused-vars`, `@stylistic/padding-line-between-statements`)
+- Prettier drift on edited `resources/js/**` files
+- TypeScript errors from new required props or removed exports
+- Frontend unit tests for components/helpers that changed but tests were not updated
+
+## Default agent behavior (mandatory unless overridden)
+
+**After finishing code changes and before every commit or push**, run the CI-equivalent checks below on **only the files changed in this task** (staged + unstaged, or the commit being pushed).
+
+**Override:** If the user's prompt explicitly says to skip verification, skip a specific check, or use a different verification scope, follow the prompt instead of this rule.
+
+Do not run full-repo suites (`composer ci:check`, `npm run test:frontend`, `php artisan test --compact` without a path) unless the change is cross-domain, a focused check failed, or the user asked for broader validation.
+
+## Collect changed paths
+
+```bash
+git diff --name-only HEAD
+git diff --name-only --cached
+```
+
+Union those paths. Ignore unrelated untracked junk under `storage/`.
+
+## PHP changed files (`*.php`)
+
+```bash
+vendor/bin/pint --dirty --format agent
+php artisan test --compact <matching-test-file-or-filter>
+```
+
+`pint --dirty` already limits to changed PHP. Run the smallest Pest file that covers the behavior.
+
+## Frontend changed files (`resources/js/**/*.{ts,tsx}`)
+
+Run in order on **each changed TS/TSX file** (or pass them as one eslint/prettier invocation):
+
+```bash
+npx prettier --write path/to/changed.tsx
+npx eslint path/to/changed.tsx
+npm run types:check
+```
+
+Also run **matching unit tests** when they exist:
+
+- Same path with `.test.ts` suffix
+- Co-located tests in the same directory tree under `resources/js/features/**/lib/*.test.ts`
+- Panel/component tests such as `crew-assignment-readiness-panel.test.ts` when the component or its required props change
+
+```bash
+node --experimental-strip-types --test path/to/changed.test.ts
+```
+
+If Wayfinder inputs changed (`routes/**`, `app/Http/Controllers/**`), CI also regenerates Wayfinder and runs frontend static/build — run `npm run types:check` at minimum after such backend route edits.
+
+## Before claiming success
+
+1. Every command above that applies to the diff must actually be run.
+2. Fix failures before committing or pushing.
+3. Never claim a check passed unless it exited 0.
+
+## After committing
+
+If a commit was already created without running checks, run the same changed-file commands against `git diff --name-only HEAD~1 HEAD`, fix issues, and add a fix-up commit before push.

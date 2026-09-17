@@ -50,10 +50,12 @@ Never run `migrate:fresh`, `migrate:refresh`, `db:wipe`, or destructive database
 
 ## Verification
 
+**Default:** before every commit or push, run CI-matching checks on **changed files only**. See `.cursor/rules/pre-push-verification.mdc`. Skip only when the user's prompt explicitly overrides verification.
+
 Run the narrowest relevant checks first.
 
-- PHP edits: `vendor/bin/pint --dirty --format agent`.
-- Pest: `php artisan test --compact <focused-test-or-filter>` before broad suites.
-- Frontend edits: format changed files, then run the narrowest relevant lint/type/unit checks; run `npm run build` when the changed scope warrants it.
+- PHP edits: `vendor/bin/pint --dirty --format agent`, then focused Pest.
+- Frontend edits on each changed `resources/js/**/*.{ts,tsx}` file: `npx prettier --write`, `npx eslint`, `npm run types:check`, plus matching `*.test.ts` files when present.
+- Run `npm run build` only when the changed scope warrants it (Vite/Wayfinder-wide impact).
 
 Never claim a command passed unless it actually ran successfully. Review the final diff for unrelated changes, generated files, exposed secrets, stale docs, tenancy, and backend authorization before finishing.
