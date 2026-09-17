@@ -1108,9 +1108,13 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 
 ## Create Page Behaviour
 
-`organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows **Assignment Readiness** for the selected employee: identity summary, current crew status, current assignment context, home availability, operational warnings, and deterministic recommended actions.
+`organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows **Movement Guidance** (Assignment Readiness) for the selected employee: identity summary, compact current journey indicator, current assignment context, phase-aware explanation, recommended actions toward existing workflows, optional destination/planned-date advisories, and a collapsible “why can’t I start another active assignment?” help section.
 
-Operational readiness is batch-resolved on the server by `CrewAssignmentStatusResolver` and injected into `form_options.employee_status_by_employee` (keyed by employee ID integer). Home availability for In Home / Home-Redeployment employees reuses `CurrentCrewHomeQuery` against the company Availability Rule (`form_options.max_home_days`).
+The panel is UX intelligence only. It does **not** change `CrewAssignment` state, create movement phases, or weaken backend validation. It guides operators toward the current assignment, Transfer Vessel, Redeploy, Return Home, Close Assignment, or Crew Planning as appropriate. One Active Crew Assignment per employee remains authoritative.
+
+Planned-date warnings in the panel are advisory forecasts only. They do not create actual movement timestamps and do not replace backend `assertNoActiveAssignment()` protection.
+
+Operational readiness is batch-resolved on the server by `CrewAssignmentStatusResolver` and injected into `form_options.employee_status_by_employee` (keyed by employee ID integer). Home availability for In Home / Home-Redeployment employees reuses `CurrentCrewHomeQuery` against the company Availability Rule (`form_options.max_home_days`). Deterministic copy and action suggestions live in `resources/js/features/organization/crew/lib/assignment-readiness-guidance.ts`.
 
 ### Status visibility and authorization scoping
 

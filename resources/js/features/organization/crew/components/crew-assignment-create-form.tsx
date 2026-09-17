@@ -219,6 +219,18 @@ export function CrewAssignmentCreateForm({
           ? 'Back to Crew Assignments'
           : 'Back to Dashboard';
     const vesselName = destinationVessel?.name ?? 'Not selected';
+    const readinessPermissions = {
+        view: can.view,
+        update: can.update,
+        perform_movement: can.perform_movement,
+        cancel: can.cancel,
+        view_planning: can.view_planning,
+    };
+    const transferPrefill = {
+        vessel_id: form.data.vessel_id,
+        rank_id: singleRow?.rank_id ?? null,
+        client_id: form.data.client_id,
+    };
 
     const submitSingle = (intent: 'start' | 'draft'): void => {
         if (canUseRecommendedTransfer) {
@@ -496,8 +508,19 @@ export function CrewAssignmentCreateForm({
                                                         effectiveEmployeeId
                                                     }
                                                     formOptions={form_options}
+                                                    permissions={
+                                                        readinessPermissions
+                                                    }
                                                     destinationVesselId={
                                                         form.data.vessel_id
+                                                    }
+                                                    plannedJoinAt={
+                                                        form.data
+                                                            .planned_join_at ||
+                                                        null
+                                                    }
+                                                    transferPrefill={
+                                                        transferPrefill
                                                     }
                                                     bulkMode={bulkMode}
                                                 />
@@ -510,8 +533,15 @@ export function CrewAssignmentCreateForm({
                                             <CrewAssignmentReadinessPanel
                                                 employeeId={effectiveEmployeeId}
                                                 formOptions={form_options}
+                                                permissions={
+                                                    readinessPermissions
+                                                }
                                                 destinationVesselId={
                                                     form.data.vessel_id
+                                                }
+                                                plannedJoinAt={
+                                                    form.data.planned_join_at ||
+                                                    null
                                                 }
                                                 planningEmployeeName={
                                                     planning_context?.employee_name ??
@@ -720,7 +750,12 @@ export function CrewAssignmentCreateForm({
                             <CrewAssignmentReadinessPanel
                                 employeeId={effectiveEmployeeId}
                                 formOptions={form_options}
+                                permissions={readinessPermissions}
                                 destinationVesselId={form.data.vessel_id}
+                                plannedJoinAt={
+                                    form.data.planned_join_at || null
+                                }
+                                transferPrefill={transferPrefill}
                                 bulkMode={bulkMode}
                                 planningEmployeeName={
                                     planning_context?.employee_name ?? null
