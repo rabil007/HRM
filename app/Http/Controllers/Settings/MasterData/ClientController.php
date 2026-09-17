@@ -66,8 +66,10 @@ class ClientController extends Controller
                 'vessels_count' => $canViewVessels ? (int) ($client->vessels_count ?? 0) : null,
                 'is_in_use' => (bool) $client->getAttribute('is_in_use'),
                 'can_delete' => (bool) $client->getAttribute('can_delete'),
-                'usage_count' => $client->getAttribute('usage_count') !== null ? (int) $client->getAttribute('usage_count') : null,
-                'usage_label' => $client->getAttribute('usage_label'),
+                // Client usage aggregates several permission domains. Keep the delete guard,
+                // but do not expose aggregate counts or labels as a cross-domain side channel.
+                'usage_count' => null,
+                'usage_label' => null,
             ];
         })->all();
 
