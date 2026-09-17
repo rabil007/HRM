@@ -13,10 +13,6 @@ const JOURNEY_STEPS = [
     { code: 'p6', label: 'P6' },
 ] as const;
 
-function stepTitle(code: string): string {
-    return crewPhaseCopy(code)?.label ?? code.toUpperCase();
-}
-
 export function CrewMovementJourneyIndicator({
     currentPhaseCode,
     className,

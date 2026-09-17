@@ -163,7 +163,7 @@ function continueAssignmentAction(
     };
 }
 
-function editMobilisationAction(assignmentId: number): ReadinessAction {
+function editMobilisationAction(): ReadinessAction {
     return {
         key: 'edit_mobilisation',
         label: 'Edit Current Mobilisation',
@@ -340,9 +340,7 @@ function buildAvailableGuidance(
     };
 }
 
-function buildRestrictedActiveGuidance(
-    context: AssignmentReadinessGuidanceContext,
-): AssignmentReadinessGuidance {
+function buildRestrictedActiveGuidance(): AssignmentReadinessGuidance {
     return {
         title: 'Active Crew Assignment',
         description:
@@ -376,7 +374,7 @@ function buildPhaseGuidance(
     const actions: ReadinessAction[] = [];
 
     if (!canView || assignmentId === null) {
-        return buildRestrictedActiveGuidance(context);
+        return buildRestrictedActiveGuidance();
     }
 
     const destinationAlert = buildDestinationAlert(context);
@@ -388,9 +386,11 @@ function buildPhaseGuidance(
                 actions,
                 continueAssignmentAction(assignmentId, assignmentNo),
             );
+
             if (permissions.update) {
-                addAction(actions, editMobilisationAction(assignmentId));
+                addAction(actions, editMobilisationAction());
             }
+
             if (permissions.cancel) {
                 addAction(
                     actions,
@@ -402,7 +402,9 @@ function buildPhaseGuidance(
                     ),
                 );
             }
+
             addAction(actions, planFutureAction(permissions));
+
             return {
                 title: 'Pre-Mobilisation',
                 description:
@@ -435,6 +437,7 @@ function buildPhaseGuidance(
                 ),
             );
             addAction(actions, planFutureAction(permissions));
+
             return {
                 title: 'Travel In',
                 description:
@@ -457,9 +460,11 @@ function buildPhaseGuidance(
                 actions,
                 continueAssignmentAction(assignmentId, assignmentNo),
             );
+
             if (permissions.update) {
-                addAction(actions, editMobilisationAction(assignmentId));
+                addAction(actions, editMobilisationAction());
             }
+
             addAction(actions, planFutureAction(permissions));
 
             return {
@@ -482,10 +487,13 @@ function buildPhaseGuidance(
                 actions,
                 continueAssignmentAction(assignmentId, assignmentNo),
             );
+
             if (permissions.update) {
-                addAction(actions, editMobilisationAction(assignmentId));
+                addAction(actions, editMobilisationAction());
             }
+
             addAction(actions, planFutureAction(permissions));
+
             return {
                 title: 'Training in Progress',
                 description:
@@ -517,10 +525,13 @@ function buildPhaseGuidance(
                     'Board the intended vessel from the current assignment when movement is permitted.',
                 ),
             );
+
             if (permissions.update) {
-                addAction(actions, editMobilisationAction(assignmentId));
+                addAction(actions, editMobilisationAction());
             }
+
             addAction(actions, planFutureAction(permissions));
+
             return {
                 title: 'Ready to Join',
                 description:
@@ -638,6 +649,7 @@ function buildPhaseGuidance(
                 emphasis: 'secondary',
             });
             addAction(actions, planFutureAction(permissions));
+
             return {
                 title: 'Demobilisation Standby',
                 description:
@@ -690,6 +702,7 @@ function buildPhaseGuidance(
                 emphasis: 'primary',
             });
             addAction(actions, planFutureAction(permissions));
+
             return {
                 title: 'Home / Redeployment',
                 description:
@@ -709,6 +722,7 @@ function buildPhaseGuidance(
                 continueAssignmentAction(assignmentId, assignmentNo),
             );
             addAction(actions, planFutureAction(permissions));
+
             return {
                 title: status.label || 'Active Crew Assignment',
                 description:

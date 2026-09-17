@@ -15,14 +15,16 @@ import {
 import { openTransferVessel } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewEmployeeStatusBadge } from '@/features/organization/crew/components/crew-employee-status-badge';
 import { CrewMovementJourneyIndicator } from '@/features/organization/crew/components/crew-movement-journey-indicator';
+import { isHomeAvailabilityStatus } from '@/features/organization/crew/lib/assignment-readiness';
 import {
     buildAssignmentReadinessGuidance,
     readinessAlertClassName,
     readinessSeverityClassName,
-    type ReadinessAction,
-    type ReadinessActionKey,
 } from '@/features/organization/crew/lib/assignment-readiness-guidance';
-import { isHomeAvailabilityStatus } from '@/features/organization/crew/lib/assignment-readiness';
+import type {
+    ReadinessAction,
+    ReadinessActionKey,
+} from '@/features/organization/crew/lib/assignment-readiness-guidance';
 import type {
     ActiveOnVesselAssignment,
     CrewAssignmentCreateFormOptions,
