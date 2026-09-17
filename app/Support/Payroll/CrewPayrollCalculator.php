@@ -548,7 +548,10 @@ final class CrewPayrollCalculator
      */
     private function movementSegments(CrewTimesheet $timesheet): array
     {
-        if ($timesheet->relationLoaded('segments')) {
+        if (
+            $timesheet->relationLoaded('segments')
+            && $timesheet->segments instanceof \Illuminate\Database\Eloquent\Collection
+        ) {
             $timesheet->segments->loadMissing(['assignment.vessel', 'assignment.client', 'assignment.rank']);
         }
 
