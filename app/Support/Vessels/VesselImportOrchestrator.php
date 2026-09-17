@@ -168,6 +168,7 @@ final class VesselImportOrchestrator
         );
 
         $seenVesselIds = [];
+        $seenNormalizedNames = [];
         $rows = [];
         $errors = [];
         $warnings = [];
@@ -260,7 +261,19 @@ final class VesselImportOrchestrator
                 }
 
                 if ($name !== '') {
-                    $existingByName = $vesselsByNormalizedName->get(Vessel::normalizeName($name));
+                    $normalizedName = Vessel::normalizeName($name);
+
+                    if (isset($seenNormalizedNames[$normalizedName])) {
+                        $rowErrors[] = $this->error(
+                            $rowNumber,
+                            'name',
+                            "{$name} appears more than once in this upload (first seen on row {$seenNormalizedNames[$normalizedName]}).",
+                        );
+                    } else {
+                        $seenNormalizedNames[$normalizedName] = $rowNumber;
+                    }
+
+                    $existingByName = $vesselsByNormalizedName->get($normalizedName);
 
                     if ($existingByName !== null) {
                         $rowErrors[] = $this->error(

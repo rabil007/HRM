@@ -557,6 +557,46 @@ test('vessel import preview rejects unknown client and vessel type', function ()
             ->etc());
 });
 
+test('vessel import preview detects duplicate new vessel names in one upload', function () {
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeVesselImportExportFixtures();
+
+    $file = makeVesselsImportCsv([
+        ['', 'ADNOC', 'TAWAM 1', 'AHTS', '', '', '', '', '', 'yes'],
+        ['', 'ADNOC', 'TAWAM 1', 'AHTS', '', '', '', '', '', 'yes'],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.vessels.import.preview'), ['file' => $file])
+        ->assertOk()
+        ->assertJsonPath('summary.errors', 1)
+        ->assertJsonPath('rows.1.errors.0.field', 'name')
+        ->assertJsonPath(
+            'rows.1.errors.0.message',
+            'TAWAM 1 appears more than once in this upload (first seen on row 2).',
+        );
+});
+
+test('vessel import skips duplicate new vessel names instead of failing the request', function () {
+    ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeVesselImportExportFixtures();
+
+    $file = makeVesselsImportCsv([
+        ['', 'ADNOC', 'TAWAM 1', 'AHTS', '', '', '', '', '', 'yes'],
+        ['', 'ADNOC', 'TAWAM 1', 'AHTS', '', '', '', '', '', 'yes'],
+        ['', 'ADNOC', 'Sea Eagle', 'AHTS', '', '', '', '', '', 'yes'],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.vessels.import'), ['file' => $file])
+        ->assertRedirect(route('organization.vessels.index'))
+        ->assertSessionHas('success');
+
+    expect(Vessel::query()->where('company_id', $company->id)->count())->toBe(2)
+        ->and(Vessel::query()->where('company_id', $company->id)->where('name', 'TAWAM 1')->count())->toBe(1)
+        ->and(Vessel::query()->where('company_id', $company->id)->where('name', 'Sea Eagle')->exists())->toBeTrue();
+});
+
 test('vessel import preview detects duplicate vessel_id rows in one upload', function () {
     ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client] = makeVesselImportExportFixtures();
 
