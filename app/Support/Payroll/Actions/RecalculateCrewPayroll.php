@@ -7,7 +7,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
 use App\Support\Payroll\ApplyCrewSalaryInputs;
-use App\Support\Payroll\ApplyOfficeSalaryInputs;
+use App\Support\Payroll\ApplyMonthlyCrewSalaryInputs;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +16,7 @@ final class RecalculateCrewPayroll
 {
     public function __construct(
         private readonly ApplyCrewSalaryInputs $applyCrewSalaryInputs,
-        private readonly ApplyOfficeSalaryInputs $applyOfficeSalaryInputs,
+        private readonly ApplyMonthlyCrewSalaryInputs $applyMonthlyCrewSalaryInputs,
     ) {}
 
     public function handle(PayrollPeriod $period, ?int $employeeId = null): int
@@ -66,7 +66,7 @@ final class RecalculateCrewPayroll
                 /** @var PayrollRecord $record */
                 $inputs = $inputsByEmployee->get($record->employee_id, Collection::make());
                 $adjusted = $this->isMonthlyCrewRecord($record)
-                    ? $this->applyOfficeSalaryInputs->apply($record, $inputs)
+                    ? $this->applyMonthlyCrewSalaryInputs->apply($record, $inputs)
                     : $this->applyCrewSalaryInputs->apply($record, $inputs);
 
                 $record->update($adjusted);

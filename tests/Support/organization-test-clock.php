@@ -14,3 +14,26 @@ function restoreOrganizationTestClock(): void
     Carbon::setTestNow();
     CarbonImmutable::setTestNow();
 }
+
+function freezeCrewMovementTestClock(): void
+{
+    freezeOrganizationMovementTestClock();
+}
+
+function restoreCrewMovementTestClock(): void
+{
+    restoreOrganizationTestClock();
+}
+
+trait WithCrewMovementClock
+{
+    protected function setUpWithCrewMovementClock(): void
+    {
+        freezeCrewMovementTestClock();
+    }
+
+    protected function tearDownWithCrewMovementClock(): void
+    {
+        restoreCrewMovementTestClock();
+    }
+}

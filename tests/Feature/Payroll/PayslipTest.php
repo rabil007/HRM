@@ -572,3 +572,191 @@ test('merged payslip pdf download redirects when no generated payslips exist', f
         ->assertRedirect(route('payroll.show', $period))
         ->assertSessionHas('error', 'No generated payslips found for this period.');
 });
+
+test('monthly crew payslip excludes informational unpaid leave from deductions and reconciles visible rows', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-MONTHLY-SLIP-1']);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'basic_salary' => 4166.67,
+        'housing_allowance' => 1666.67,
+        'transport_allowance' => 833.33,
+        'other_allowances' => 0.00,
+        'overtime_pay' => 0.00,
+        'bonus' => 0.00,
+        'other_deductions' => 0.00,
+        'loan_deduction' => 0.00,
+        'late_deduction' => 0.00,
+        'unpaid_leave_deduction' => 1333.33,
+        'total_deductions' => 0.00,
+        'gross_salary' => 6666.67,
+        'net_salary' => 6666.67,
+        'status' => 'approved',
+        'working_days' => 30,
+        'present_days' => 25,
+        'absent_days' => 5,
+        'leave_days' => 5,
+        'calculation_breakdown' => [
+            'salary_structure' => 'monthly',
+            'unpaid_leave_days' => 5,
+            'working_days' => 30,
+            'present_days' => 25,
+            'absent_days' => 5,
+            'leave_days' => 5,
+            'informational_unpaid_leave_deduction' => 1333.33,
+            'lines' => [
+                'basic' => 4166.67,
+                'housing' => 1666.67,
+                'transport' => 833.33,
+                'other' => 0.00,
+                'overtime' => 0.00,
+                'bonus' => 0.00,
+                'unpaid_leave_deduction' => 1333.33,
+                'informational_unpaid_leave' => 1333.33,
+                'late_deduction' => 0.00,
+                'loan_deduction' => 0.00,
+                'other_deduction' => 0.00,
+            ],
+            'gross_salary' => 6666.67,
+            'net_salary' => 6666.67,
+        ],
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+
+    // Visible deductions table must be empty and sum to 0.00 (matching total_deductions)
+    expect($data['deductions'])->toBe([])
+        ->and($data['total_deductions'])->toBe('0.00')
+        ->and($data['gross_salary'])->toBe('6666.67')
+        ->and($data['net_salary'])->toBe('6666.67');
+
+    // Earnings label indicates proration
+    $basicLine = collect($data['earnings'])->firstWhere('label', 'Basic salary (prorated)');
+    expect($basicLine)->not->toBeNull()
+        ->and($basicLine['amount'])->toBe('4166.67');
+
+    // Attendance / Proration summary displays informational unpaid leave with clear note
+    $impactRow = collect($data['crew_summary'])->firstWhere('label', 'Unpaid leave impact');
+    expect($impactRow)->not->toBeNull()
+        ->and($impactRow['value'])->toBe('1333.33')
+        ->and($impactRow['note'])->toBe('Already reflected in prorated earnings');
+
+    // Blade HTML rendering verification
+    $html = view('payroll.payslip', $data)->render();
+    expect($html)
+        ->toContain('Attendance / Proration')
+        ->toContain('Unpaid leave impact')
+        ->toContain('1333.33')
+        ->toContain('Already reflected in prorated earnings')
+        ->toContain('Basic salary (prorated)')
+        ->not->toContain('<th>Deductions</th>');
+});
+
+test('monthly crew payslip deductions reconcile when real deductions are present', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-MONTHLY-SLIP-2']);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'basic_salary' => 4500.00,
+        'housing_allowance' => 1500.00,
+        'transport_allowance' => 0.00,
+        'other_allowances' => 0.00,
+        'overtime_pay' => 0.00,
+        'bonus' => 0.00,
+        'loan_deduction' => 200.00,
+        'other_deductions' => 50.00,
+        'late_deduction' => 0.00,
+        'unpaid_leave_deduction' => 500.00,
+        'total_deductions' => 250.00,
+        'gross_salary' => 6000.00,
+        'net_salary' => 5750.00,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'salary_structure' => 'monthly',
+            'unpaid_leave_days' => 2,
+            'informational_unpaid_leave_deduction' => 500.00,
+            'lines' => [
+                'informational_unpaid_leave' => 500.00,
+                'loan_deduction' => 200.00,
+                'other_deduction' => 50.00,
+            ],
+        ],
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+
+    // Visible deductions only contain real monetary deductions
+    $deductionLabels = collect($data['deductions'])->pluck('label')->all();
+    expect($deductionLabels)->toEqual(['Loan', 'Other'])
+        ->and($deductionLabels)->not->toContain('Unpaid leave');
+
+    // Sum of visible deduction rows exactly equals total_deductions
+    $visibleSum = collect($data['deductions'])->sum(fn ($line) => (float) $line['amount']);
+    expect(number_format($visibleSum, 2, '.', ''))->toBe($data['total_deductions'])
+        ->and($data['total_deductions'])->toBe('250.00')
+        ->and($data['net_salary'])->toBe('5750.00');
+
+    $html = view('payroll.payslip', $data)->render();
+    expect($html)
+        ->toContain('Attendance / Proration')
+        ->toContain('Already reflected in prorated earnings')
+        ->toContain('Loan')
+        ->toContain('200.00')
+        ->toContain('Other')
+        ->toContain('50.00')
+        ->toContain('Total Deductions')
+        ->toContain('250.00');
+});
+
+test('office payslip continues to include unpaid leave as a monetary deduction', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'OFFICE-SLIP-1']);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'basic_salary' => 5000.00,
+        'housing_allowance' => 0.00,
+        'transport_allowance' => 0.00,
+        'other_allowances' => 0.00,
+        'unpaid_leave_deduction' => 200.00,
+        'loan_deduction' => 100.00,
+        'other_deductions' => 0.00,
+        'total_deductions' => 300.00,
+        'gross_salary' => 5000.00,
+        'net_salary' => 4700.00,
+        'status' => 'approved',
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+
+    $deductionLabels = collect($data['deductions'])->pluck('label')->all();
+    expect($deductionLabels)->toContain('Unpaid leave')
+        ->and($deductionLabels)->toContain('Loan');
+
+    $visibleSum = collect($data['deductions'])->sum(fn ($line) => (float) $line['amount']);
+    expect(number_format($visibleSum, 2, '.', ''))->toBe($data['total_deductions'])
+        ->and($data['total_deductions'])->toBe('300.00')
+        ->and($data['net_salary'])->toBe('4700.00');
+});

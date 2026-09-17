@@ -11,6 +11,14 @@ use App\Models\Vessel;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use Inertia\Testing\AssertableInertia as Assert;
 
+beforeEach(function (): void {
+    freezeCrewMovementTestClock();
+});
+
+afterEach(function (): void {
+    restoreCrewMovementTestClock();
+});
+
 /**
  * @return array{user: User, company: Company, employee: Employee, rank: Rank, assignment: CrewAssignment, vessel: Vessel}
  */

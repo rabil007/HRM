@@ -199,7 +199,7 @@
             <div class="section-header">
                 <table>
                     <tr>
-                        <td>Crew Attendance</td>
+                        <td>{{ ($salary_structure ?? '') === 'monthly' ? 'Attendance / Proration' : 'Crew Attendance' }}</td>
                     </tr>
                 </table>
             </div>
@@ -209,7 +209,15 @@
                     <td style="padding-right: 20px;">
                         <table class="info-table">
                             @foreach($crew_summary as $summaryRow)
-                                <tr><td class="info-label">{{ $summaryRow['label'] }}:</td><td>{{ $summaryRow['value'] ?? '0' }}</td></tr>
+                                <tr>
+                                    <td class="info-label">{{ $summaryRow['label'] }}:</td>
+                                    <td>
+                                        {{ $summaryRow['value'] ?? '0' }}
+                                        @if(!empty($summaryRow['note']))
+                                            <span class="line-detail" style="display: block; font-size: 11px; color: #6b7280; font-style: italic;">{{ $summaryRow['note'] }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
                             @endforeach
                         </table>
                     </td>

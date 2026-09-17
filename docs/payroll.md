@@ -135,7 +135,11 @@ Legacy parent flat-field pairs with only one date set (for example Sign-On Stand
 - Missing or overlapping historical Daily Crew contracts and missing historical salary revisions remain **blocking**.
 - Preview exposes `warning_issues` / `warning_count` separately from `blocking_issues` / `blocking_count`. `can_generate` depends only on true blockers and ready employees.
 
-For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days. **Unpaid leave is deducted exactly once** through that proration; `unpaid_leave_deduction` may still appear on payslips/exports as an informational line but is not subtracted from net pay again. Salary inputs use the office-style addition and deduction application for monthly crew records.
+For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days.
+
+For Monthly Crew payroll, unpaid leave is reflected through prorated earnings. The calculated unpaid-leave impact is informational and is not included again in total deductions.
+
+Salary inputs for monthly crew records use `ApplyMonthlyCrewSalaryInputs`: legitimate monetary deductions (loan, late, other, and manual unpaid-leave adjustment inputs) are applied to `total_deductions`, while the base informational unpaid-leave amount is preserved for audit/breakdown reporting and is never subtracted from net pay again. On monthly crew payslips, `PayslipData` displays the informational unpaid-leave impact under the Attendance / Proration section with a clear note ("Already reflected in prorated earnings"), and only legitimate monetary deductions appear in the deductions table, guaranteeing that visible deduction rows strictly reconcile with `total_deductions`.
 
 Daily crew uses only Sign-On Standby → Onsite → Sign-Off Standby. Monthly crew uses `unpaid_leave_days`. The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`) were intentionally removed by migration `2026_07_21_100000_replace_legacy_standby_fields_on_crew_timesheets` before any production payroll data existed; no compatibility bridge, mirroring, or source-based fallback remains.
 
@@ -651,3 +655,7 @@ Run the focused suite with:
 ```bash
 php artisan test --compact tests/Feature/Payroll tests/Unit/Support/Payroll
 ```
+
+### Crew movement test clock scoping
+
+Tests requiring deterministic historical dates (such as Crew movement operations with fixed 2026/2027 timelines) must explicitly scope the test clock in their specific test files using `freezeCrewMovementTestClock()` and `restoreCrewMovementTestClock()` from `tests/Support/organization-test-clock.php`. Fixed test clocks must never be bound globally to all Organization or Payroll tests, preventing leakage into unrelated tests (such as presence filtering in `UsersTest`).

@@ -21,6 +21,14 @@ use App\Support\Reports\CrewMovementHistoryQuery;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 
+beforeEach(function (): void {
+    freezeCrewMovementTestClock();
+});
+
+afterEach(function (): void {
+    restoreCrewMovementTestClock();
+});
+
 function transferRedeployService(): CrewMovementService
 {
     return app(CrewMovementService::class);

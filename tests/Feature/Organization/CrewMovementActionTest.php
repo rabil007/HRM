@@ -14,6 +14,14 @@ use App\Models\User;
 use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewMovementService;
 
+beforeEach(function (): void {
+    freezeCrewMovementTestClock();
+});
+
+afterEach(function (): void {
+    restoreCrewMovementTestClock();
+});
+
 /**
  * @return array{user: User, company: Company, employee: Employee, rank: Rank}
  */

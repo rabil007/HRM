@@ -11,6 +11,14 @@ use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\CrewMovementService;
 use Spatie\Activitylog\Models\Activity;
 
+beforeEach(function (): void {
+    freezeCrewMovementTestClock();
+});
+
+afterEach(function (): void {
+    restoreCrewMovementTestClock();
+});
+
 function crewMovementService(): CrewMovementService
 {
     return app(CrewMovementService::class);

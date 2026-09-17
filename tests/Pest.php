@@ -73,14 +73,6 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
-pest()->beforeEach(function (): void {
-    freezeOrganizationMovementTestClock();
-})->in('Feature/Organization');
-
-pest()->afterEach(function (): void {
-    restoreOrganizationTestClock();
-})->in('Feature/Organization');
-
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Unit/Support', 'Unit/Employees');

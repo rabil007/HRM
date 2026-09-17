@@ -156,14 +156,30 @@ final class PayslipData
             if (($breakdown['salary_structure'] ?? 'daily') === 'monthly') {
                 $salaryInputLines = self::resolveOfficeSalaryInputLines($record, $breakdown, $preloadedSalaryInputLines);
 
+                $unpaidLeaveDays = (float) ($breakdown['unpaid_leave_days'] ?? 0);
+                $unpaidLeaveImpact = (float) ($breakdown['informational_unpaid_leave_deduction']
+                    ?? $breakdown['lines']['informational_unpaid_leave']
+                    ?? $record->unpaid_leave_deduction
+                    ?? 0);
+
+                $crewSummary = [
+                    ['label' => 'Working days', 'value' => self::formatDayCount($record->working_days)],
+                    ['label' => 'Unpaid leave days', 'value' => self::formatDayCount($breakdown['unpaid_leave_days'] ?? null)],
+                ];
+
+                if ($unpaidLeaveDays > 0 && $unpaidLeaveImpact > 0) {
+                    $crewSummary[] = [
+                        'label' => 'Unpaid leave impact',
+                        'value' => self::formatAmount($unpaidLeaveImpact),
+                        'note' => 'Already reflected in prorated earnings',
+                    ];
+                }
+
                 return array_merge($base, [
                     'salary_structure' => 'monthly',
-                    'earnings' => self::officeEarnings($record, $salaryInputLines),
-                    'deductions' => self::officeDeductions($record, $salaryInputLines),
-                    'crew_summary' => [
-                        ['label' => 'Unpaid leave days', 'value' => self::formatDayCount($breakdown['unpaid_leave_days'] ?? null)],
-                        ['label' => 'Working days', 'value' => self::formatDayCount($record->working_days)],
-                    ],
+                    'earnings' => self::monthlyCrewEarnings($record, $salaryInputLines, $unpaidLeaveDays),
+                    'deductions' => self::monthlyCrewDeductions($record, $salaryInputLines),
+                    'crew_summary' => $crewSummary,
                     'working_days' => $record->working_days,
                     'present_days' => $record->present_days,
                     'absent_days' => $record->absent_days,
@@ -288,6 +304,75 @@ final class PayslipData
 
         $rows = [
             ['label' => 'Unpaid leave', 'amount' => self::formatAmount($record->unpaid_leave_deduction)],
+            ['label' => 'Late', 'amount' => self::formatAmount($record->late_deduction)],
+            ['label' => 'Loan', 'amount' => self::formatAmount($record->loan_deduction)],
+            ['label' => 'Other', 'amount' => self::formatAmount($record->other_deductions)],
+        ];
+
+        return self::filterPositiveLines($rows);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $salaryInputLines
+     * @return list<array{label: string, amount: string}>
+     */
+    private static function monthlyCrewEarnings(PayrollRecord $record, array $salaryInputLines, float $unpaidDays): array
+    {
+        $basicLabel = $unpaidDays > 0 ? 'Basic salary (prorated)' : 'Basic salary';
+
+        $coreRows = [
+            ['label' => $basicLabel, 'amount' => self::formatAmount($record->basic_salary)],
+            ['label' => 'Housing allowance', 'amount' => self::formatAmount($record->housing_allowance)],
+            ['label' => 'Transport allowance', 'amount' => self::formatAmount($record->transport_allowance)],
+            ['label' => 'Other allowances', 'amount' => self::formatAmount($record->other_allowances)],
+        ];
+
+        $optionalRows = [
+            ['label' => 'Overtime', 'amount' => self::formatAmount($record->overtime_pay)],
+        ];
+
+        foreach ($salaryInputLines as $input) {
+            if (! ($input['is_addition'] ?? false)) {
+                continue;
+            }
+
+            $optionalRows[] = [
+                'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Addition'),
+                'amount' => self::formatAmount($input['amount'] ?? 0),
+            ];
+        }
+
+        if ($salaryInputLines === [] && (float) $record->bonus > 0) {
+            $optionalRows[] = ['label' => 'Bonus', 'amount' => self::formatAmount($record->bonus)];
+        }
+
+        return array_merge($coreRows, self::filterPositiveLines($optionalRows));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $salaryInputLines
+     * @return list<array{label: string, amount: string}>
+     */
+    private static function monthlyCrewDeductions(PayrollRecord $record, array $salaryInputLines): array
+    {
+        if ($salaryInputLines !== []) {
+            $rows = [];
+
+            foreach ($salaryInputLines as $input) {
+                if ($input['is_addition'] ?? false) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Deduction'),
+                    'amount' => self::formatAmount($input['amount'] ?? 0),
+                ];
+            }
+
+            return self::filterPositiveLines($rows);
+        }
+
+        $rows = [
             ['label' => 'Late', 'amount' => self::formatAmount($record->late_deduction)],
             ['label' => 'Loan', 'amount' => self::formatAmount($record->loan_deduction)],
             ['label' => 'Other', 'amount' => self::formatAmount($record->other_deductions)],

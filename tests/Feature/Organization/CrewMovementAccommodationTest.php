@@ -27,6 +27,14 @@ use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+beforeEach(function (): void {
+    freezeCrewMovementTestClock();
+});
+
+afterEach(function (): void {
+    restoreCrewMovementTestClock();
+});
+
 /**
  * @return array{user: User, company: Company, employee: Employee, rank: Rank}
  */
