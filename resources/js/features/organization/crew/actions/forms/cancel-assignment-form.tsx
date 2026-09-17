@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { CrewPreJoinAccommodationContext } from '@/features/organization/crew/types';
 import { formatDisplayDate } from '@/lib/format-date';
+import { MovementImpactCard } from '../movement-impact-card';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
@@ -34,6 +35,10 @@ export function CancelAssignmentForm({
         context.pre_join_accommodation,
         context.post_signoff_accommodation,
     );
+    const accommodationIntegrityWarning =
+        context.pre_join_accommodation?.warning ??
+        context.post_signoff_accommodation?.warning ??
+        null;
 
     const lastAutoCheckOutDateRef = useRef(
         form.data.check_out_date || form.data.occurred_at.slice(0, 10),
@@ -102,6 +107,17 @@ export function CancelAssignmentForm({
                 </div>
             </div>
 
+            {accommodationIntegrityWarning ? (
+                <MovementImpactCard
+                    title="Accommodation issue"
+                    description={[
+                        accommodationIntegrityWarning,
+                        'Resolve accommodation data before cancelling this assignment.',
+                    ]}
+                    destructive
+                />
+            ) : null}
+
             {openAccommodation !== null ? (
                 <div className="space-y-4 rounded-lg border border-border/60 p-4">
                     <div>
@@ -142,6 +158,10 @@ export function CancelAssignmentForm({
                         <InputError message={form.errors.check_out_date} />
                     </div>
                 </div>
+            ) : null}
+
+            {openAccommodation === null && form.errors.check_out_date ? (
+                <InputError message={form.errors.check_out_date} />
             ) : null}
 
             {config.occurredAtLabel ? (

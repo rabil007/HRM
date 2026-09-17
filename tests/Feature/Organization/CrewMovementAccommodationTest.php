@@ -1465,6 +1465,115 @@ test('p5 redeploy rejects multiple open post signoff hotel stays', function () {
         ->and(CrewAssignment::query()->where('previous_assignment_id', $assignment->id)->exists())->toBeFalse();
 });
 
+test('p5 redeploy rejects source checkout after redeployment date with redeploy semantics', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::PreMobilisation->value,
+        'source_check_out_date' => '2026-12-06',
+    ], $fixtures['user']->id))->toThrow(function (CrewMovementException $exception): void {
+        expect($exception->getMessage())->toBe(
+            'Hotel check-out cannot be after the redeployment date.',
+        )->and($exception->errorCode)->toBe('check_out_after_redeploy');
+    });
+
+    $assignment->refresh()->load('currentPhase');
+    $stay->refresh();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and($stay->check_out_date)->toBeNull()
+        ->and(CrewAssignment::query()->where('previous_assignment_id', $assignment->id)->exists())->toBeFalse();
+});
+
+test('p5 redeploy to p2a rejects foreign destination hotel without mutating source', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    ['company' => $companyB] = makeCrewAssignmentFixtures();
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+    $foreignHotel = Hotel::factory()->create(['company_id' => $companyB->id]);
+    $localHotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id]);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $companyB->id,
+        'hotel_id' => $foreignHotel->id,
+    ]);
+    $service = app(CrewMovementService::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::JoinStandby->value,
+        'source_check_out_date' => '2026-12-05',
+        'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+        'hotel_id' => $foreignHotel->id,
+        'check_in_date' => '2026-12-05',
+    ], $fixtures['user']->id))->toThrow(CrewMovementException::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->fresh()->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::JoinStandby->value,
+        'source_check_out_date' => '2026-12-05',
+        'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+        'hotel_id' => $localHotel->id,
+        'room_type_id' => $foreignRoomType->id,
+        'check_in_date' => '2026-12-05',
+    ], $fixtures['user']->id))->toThrow(CrewMovementException::class);
+
+    $assignment->refresh()->load('currentPhase');
+    $stay->refresh();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and($stay->check_out_date)->toBeNull()
+        ->and(CrewAssignment::query()->where('previous_assignment_id', $assignment->id)->exists())->toBeFalse();
+});
+
+test('p5 redeploy to p2a rejects inactive destination masters without mutating source', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
+    $inactiveHotel = Hotel::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'is_active' => false,
+    ]);
+    $validHotel = Hotel::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'is_active' => true,
+    ]);
+    $inactiveRoomType = RoomType::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'hotel_id' => $validHotel->id,
+        'is_active' => false,
+    ]);
+    $service = app(CrewMovementService::class);
+    $payloadBase = [
+        'occurred_at' => '2026-12-05 09:00:00',
+        'starting_phase' => CrewPhaseCode::JoinStandby->value,
+        'source_check_out_date' => '2026-12-05',
+        'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+        'check_in_date' => '2026-12-05',
+    ];
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::Redeploy, [
+        ...$payloadBase,
+        'hotel_id' => $inactiveHotel->id,
+    ], $fixtures['user']->id))->toThrow(CrewMovementException::class);
+
+    expect(fn () => $service->perform($fixtures['company']->id, $assignment->fresh()->id, CrewMovementAction::Redeploy, [
+        ...$payloadBase,
+        'hotel_id' => $validHotel->id,
+        'room_type_id' => $inactiveRoomType->id,
+    ], $fixtures['user']->id))->toThrow(CrewMovementException::class);
+
+    $assignment->refresh()->load('currentPhase');
+    $stay->refresh();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and($stay->check_out_date)->toBeNull()
+        ->and(CrewAssignment::query()->where('previous_assignment_id', $assignment->id)->exists())->toBeFalse();
+});
+
 test('cancel from p2a closes open pre join hotel stay', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.cancel']);

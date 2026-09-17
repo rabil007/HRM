@@ -526,45 +526,34 @@ final class CrewAccommodationService
         array $payload,
         CarbonInterface $occurredAt,
     ): void {
-        $openStays = $this->openPostSignoffHotelStays($assignment);
+        $this->validateOpenPostSignoffHotelCheckOut(
+            assignment: $assignment,
+            payload: $payload,
+            occurredAt: $occurredAt,
+            integrityMessage: 'Multiple open post-sign-off hotel stays were found. Resolve accommodation data before returning home.',
+            checkOutRequiredMessage: 'Hotel check-out date is required before returning home.',
+            checkOutAfterMaxDateMessage: 'Hotel check-out cannot be after the actual return-home date.',
+            checkOutAfterMaxDateCode: 'check_out_after_return_home',
+        );
+    }
 
-        if ($openStays->count() > 1) {
-            throw CrewMovementException::make(
-                'Multiple open post-sign-off hotel stays were found. Resolve accommodation data before returning home.',
-                'post_signoff_accommodation_integrity',
-            );
-        }
-
-        $openStay = $openStays->first();
-
-        if (! $openStay instanceof CrewAccommodationStay) {
-            return;
-        }
-
-        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
-        $checkOutDate = $this->parseDate($payload['check_out_date'] ?? null, $timezone);
-        $returnHomeLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
-
-        if ($checkOutDate === null) {
-            throw CrewMovementException::make(
-                'Hotel check-out date is required before returning home.',
-                'check_out_required',
-            );
-        }
-
-        if ($openStay->check_in_date !== null && $checkOutDate->lt($openStay->check_in_date)) {
-            throw CrewMovementException::make(
-                'Hotel check-out cannot be before check-in.',
-                'check_out_before_check_in',
-            );
-        }
-
-        if ($checkOutDate->gt($returnHomeLocalDate)) {
-            throw CrewMovementException::make(
-                'Hotel check-out cannot be after the actual return-home date.',
-                'check_out_after_return_home',
-            );
-        }
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function validateRedeploySourceCheckOutPayload(
+        CrewAssignment $assignment,
+        array $payload,
+        CarbonInterface $occurredAt,
+    ): void {
+        $this->validateOpenPostSignoffHotelCheckOut(
+            assignment: $assignment,
+            payload: $payload,
+            occurredAt: $occurredAt,
+            integrityMessage: 'Multiple open post-sign-off hotel stays were found. Resolve accommodation data before redeploying.',
+            checkOutRequiredMessage: 'Hotel check-out date is required before redeploying.',
+            checkOutAfterMaxDateMessage: 'Hotel check-out cannot be after the redeployment date.',
+            checkOutAfterMaxDateCode: 'check_out_after_redeploy',
+        );
     }
 
     /**
@@ -579,7 +568,7 @@ final class CrewAccommodationService
 
         if ($openStays->count() > 1) {
             throw CrewMovementException::make(
-                'Multiple open post-sign-off hotel stays were found. Resolve accommodation data before returning home.',
+                'Multiple open post-sign-off hotel stays were found. Resolve accommodation data before closing the post-sign-off stay.',
                 'post_signoff_accommodation_integrity',
             );
         }
@@ -595,7 +584,7 @@ final class CrewAccommodationService
 
         if ($checkOutDate === null) {
             throw CrewMovementException::make(
-                'Hotel check-out date is required before returning home.',
+                'Hotel check-out date is required to close the post-sign-off stay.',
                 'check_out_required',
             );
         }
@@ -644,73 +633,6 @@ final class CrewAccommodationService
             ->merge($this->openPostSignoffHotelStays($assignment))
             ->sortBy('id')
             ->values();
-    }
-
-    /**
-     * @return array{
-     *     status: 'open_hotel'|'no_accommodation'|'missing',
-     *     stay_id: int|null,
-     *     hotel_id: int|null,
-     *     hotel_name: string|null,
-     *     room_type_id: int|null,
-     *     room_type_name: string|null,
-     *     check_in_date: string|null,
-     *     check_out_date: string|null,
-     *     stay_days: int|null,
-     *     warning: string|null
-     * }
-     */
-    public function cancellationAccommodationContext(CrewAssignment $assignment, ?string $timezone = null): array
-    {
-        $timezone ??= CompanyTimezone::forCompanyId((int) $assignment->company_id);
-        $openStays = $this->openCancellationHotelStays($assignment);
-
-        if ($openStays->count() > 1) {
-            return [
-                'status' => 'missing',
-                'stay_id' => null,
-                'hotel_id' => null,
-                'hotel_name' => null,
-                'room_type_id' => null,
-                'room_type_name' => null,
-                'check_in_date' => null,
-                'check_out_date' => null,
-                'stay_days' => null,
-                'warning' => 'Multiple open hotel stays were found. Resolve accommodation data before cancelling this assignment.',
-            ];
-        }
-
-        $openStay = $openStays->first();
-
-        if ($openStay instanceof CrewAccommodationStay) {
-            $openStay->loadMissing(['hotel', 'roomType']);
-
-            return [
-                'status' => 'open_hotel',
-                'stay_id' => $openStay->id,
-                'hotel_id' => $openStay->hotel_id,
-                'hotel_name' => $openStay->hotel?->name,
-                'room_type_id' => $openStay->room_type_id,
-                'room_type_name' => $openStay->roomType?->name,
-                'check_in_date' => $openStay->check_in_date?->toDateString(),
-                'check_out_date' => null,
-                'stay_days' => $this->stayDays($openStay->check_in_date, now($timezone), $timezone),
-                'warning' => null,
-            ];
-        }
-
-        return [
-            'status' => 'missing',
-            'stay_id' => null,
-            'hotel_id' => null,
-            'hotel_name' => null,
-            'room_type_id' => null,
-            'room_type_name' => null,
-            'check_in_date' => null,
-            'check_out_date' => null,
-            'stay_days' => null,
-            'warning' => null,
-        ];
     }
 
     /**
@@ -1018,5 +940,58 @@ final class CrewAccommodationService
         $to = $through->copy()->timezone($timezone)->startOfDay();
 
         return max(0, (int) $from->diffInDays($to));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function validateOpenPostSignoffHotelCheckOut(
+        CrewAssignment $assignment,
+        array $payload,
+        CarbonInterface $occurredAt,
+        string $integrityMessage,
+        string $checkOutRequiredMessage,
+        string $checkOutAfterMaxDateMessage,
+        string $checkOutAfterMaxDateCode,
+    ): void {
+        $openStays = $this->openPostSignoffHotelStays($assignment);
+
+        if ($openStays->count() > 1) {
+            throw CrewMovementException::make(
+                $integrityMessage,
+                'post_signoff_accommodation_integrity',
+            );
+        }
+
+        $openStay = $openStays->first();
+
+        if (! $openStay instanceof CrewAccommodationStay) {
+            return;
+        }
+
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $checkOutDate = $this->parseDate($payload['check_out_date'] ?? null, $timezone);
+        $maximumLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+        if ($checkOutDate === null) {
+            throw CrewMovementException::make(
+                $checkOutRequiredMessage,
+                'check_out_required',
+            );
+        }
+
+        if ($openStay->check_in_date !== null && $checkOutDate->lt($openStay->check_in_date)) {
+            throw CrewMovementException::make(
+                'Hotel check-out cannot be before check-in.',
+                'check_out_before_check_in',
+            );
+        }
+
+        if ($checkOutDate->gt($maximumLocalDate)) {
+            throw CrewMovementException::make(
+                $checkOutAfterMaxDateMessage,
+                $checkOutAfterMaxDateCode,
+            );
+        }
     }
 }

@@ -944,7 +944,7 @@ final class CrewMovementService
         }
 
         if ($current->phase_code === CrewPhaseCode::DemobStandby) {
-            $this->accommodation->validatePostSignoffCheckOutPayload(
+            $this->accommodation->validateRedeploySourceCheckOutPayload(
                 $assignment,
                 $this->accommodation->redeploySourceCheckoutPayload($payload),
                 $occurredAt,

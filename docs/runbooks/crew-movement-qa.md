@@ -163,7 +163,9 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] P5 Redeploy → P2A shows Destination Pre-Join Accommodation (Hotel / Room Type / Check-in / No hotel)
 - [ ] P5 Redeploy → P0 or P4 handles source accommodation but creates no destination pre-join stay
 - [ ] Cancel Assignment with one open pre-join or post-sign-off hotel stay requires Hotel Check-out Date and closes the stay atomically
-- [ ] Cancel Assignment with multiple open hotel stays is rejected with no partial mutation
+- [ ] Cancel Assignment with multiple open hotel stays shows an accommodation integrity warning, surfaces backend `check_out_date` errors when the checkout field is hidden, and is rejected with no partial mutation
+- [ ] Redeploy with `starting_phase = P0`, redeploy date changed before switching to P2A, then P0 → P2A auto-syncs Destination Check-in to the current redeploy local date unless the operator manually edited it
+- [ ] Redeploy P2A with **No hotel accommodation** keeps Check-in empty; unchecking restores the current redeploy local date
 - [ ] Void Erroneous Assignment is blocked when accommodation history exists (hotel stay or explicit no-accommodation record)
 - [ ] Movement controller redirects to the new linked assignment after transfer/redeploy
 - [ ] Daily Crew payroll board shows one employee row for multiple movement periods; Movement Periods dialog edits Manual segments; Applied Crew Operations segments are read-only

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
+import { resolveDestinationCheckInDateOnP2AEntry } from '@/features/organization/crew/lib/redeploy-destination-check-in';
 import {
     clearedDirectP4TourFields,
     defaultDestinationTourSignoffChoice,
@@ -261,6 +262,33 @@ export function RedeployForm({
                                 defaultDestinationTourSignoffChoice(rank);
                             next.planned_signoff_override_reason = '';
                             next.planned_signoff_at = '';
+                        } else if (value === 'p2a') {
+                            if (!['p1', 'p2a', 'p4'].includes(startingPhase)) {
+                                next.vessel_id = context.vessel_id;
+                                next.rank_id = context.rank_id;
+                                next.client_id = context.client_id;
+                            }
+
+                            Object.assign(next, clearedDirectP4TourFields());
+
+                            const syncedCheckIn =
+                                resolveDestinationCheckInDateOnP2AEntry({
+                                    redeployDate: form.data.occurred_at.slice(
+                                        0,
+                                        10,
+                                    ),
+                                    currentCheckInDate: form.data.check_in_date,
+                                    lastAutoCheckInDate:
+                                        lastAutoDestinationCheckInDateRef.current,
+                                    noHotelAccommodation:
+                                        form.data.no_hotel_accommodation,
+                                });
+
+                            if (syncedCheckIn !== null) {
+                                next.check_in_date = syncedCheckIn.checkInDate;
+                                lastAutoDestinationCheckInDateRef.current =
+                                    syncedCheckIn.lastAutoCheckInDate;
+                            }
                         } else {
                             if (!['p1', 'p2a', 'p4'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
