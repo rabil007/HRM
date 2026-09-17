@@ -25,6 +25,7 @@ import {
 import {
     bulkStartButtonLabel,
     isBulkCreateMode,
+    resolveCreateEffectiveEmployeeId,
     resolveCreateSubmitRoute,
     shouldShowSaveDraft,
 } from '@/features/organization/crew/lib/crew-assignment-create-mode';
@@ -157,10 +158,11 @@ export function CrewAssignmentCreateForm({
 
     const bulkMode = !fromPlanning && isBulkCreateMode(rows.length);
     const singleRow = rows[0] ?? null;
-    const planningEmployeeId = planning_context?.employee_id ?? null;
-    const effectiveEmployeeId = fromPlanning
-        ? planningEmployeeId
-        : (singleRow?.employee_id ?? null);
+    const effectiveEmployeeId = resolveCreateEffectiveEmployeeId(
+        fromPlanning,
+        planning_context?.employee_id ?? null,
+        singleRow?.employee_id ?? null,
+    );
     const currentOnVessel =
         !bulkMode && effectiveEmployeeId
             ? (form_options.active_on_vessel_by_employee?.[
@@ -320,10 +322,10 @@ export function CrewAssignmentCreateForm({
                 backLabel={backLabel}
             />
 
-            <div className="mx-auto max-w-6xl pb-28">
-                <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                    <div className="space-y-6">
-                        <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
+            <div className="mx-auto max-w-7xl pb-24">
+                <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_21rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+                    <div className="space-y-4 lg:space-y-5">
+                        <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 p-3.5">
                             <div className="flex gap-3">
                                 <Info
                                     className="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
@@ -366,10 +368,10 @@ export function CrewAssignmentCreateForm({
                         </div>
 
                         <Card className="border-border/80 dark:border-white/10">
-                            <CardContent className="p-6 md:p-8">
+                            <CardContent className="p-5 lg:p-6">
                                 <form
                                     onSubmit={handleSubmit}
-                                    className="space-y-10"
+                                    className="space-y-8"
                                 >
                                     {fromPlanning && planning_context ? (
                                         <>
@@ -488,7 +490,7 @@ export function CrewAssignmentCreateForm({
                                                 }}
                                             />
 
-                                            <div className="xl:hidden">
+                                            <div className="lg:hidden">
                                                 <CrewAssignmentReadinessPanel
                                                     employeeId={
                                                         effectiveEmployeeId
@@ -504,7 +506,7 @@ export function CrewAssignmentCreateForm({
                                     )}
 
                                     {fromPlanning ? (
-                                        <div className="xl:hidden">
+                                        <div className="lg:hidden">
                                             <CrewAssignmentReadinessPanel
                                                 employeeId={effectiveEmployeeId}
                                                 formOptions={form_options}
@@ -713,7 +715,7 @@ export function CrewAssignmentCreateForm({
                         </Card>
                     </div>
 
-                    <div className="hidden xl:block">
+                    <div className="hidden lg:block">
                         <div className="sticky top-24">
                             <CrewAssignmentReadinessPanel
                                 employeeId={effectiveEmployeeId}

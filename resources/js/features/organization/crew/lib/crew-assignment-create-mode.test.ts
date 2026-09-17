@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
     bulkStartButtonLabel,
     isBulkCreateMode,
+    resolveCreateEffectiveEmployeeId,
     resolveCreateSubmitRoute,
     shouldShowSaveDraft,
 } from './crew-assignment-create-mode.ts';
@@ -40,5 +41,19 @@ describe('bulkStartButtonLabel', () => {
     it('labels the bulk start action with the ready count', () => {
         assert.equal(bulkStartButtonLabel(1), 'Start 1 Assignment');
         assert.equal(bulkStartButtonLabel(2), 'Start 2 Assignments');
+    });
+});
+
+describe('resolveCreateEffectiveEmployeeId', () => {
+    it('returns null before an employee is selected on manual create', () => {
+        assert.equal(resolveCreateEffectiveEmployeeId(false, null, null), null);
+    });
+
+    it('returns the selected crew row employee immediately', () => {
+        assert.equal(resolveCreateEffectiveEmployeeId(false, null, 42), 42);
+    });
+
+    it('uses the planning employee when starting from Crew Planning', () => {
+        assert.equal(resolveCreateEffectiveEmployeeId(true, 99, null), 99);
     });
 });

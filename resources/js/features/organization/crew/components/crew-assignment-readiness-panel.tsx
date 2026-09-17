@@ -43,7 +43,10 @@ function ReadinessSection({
 
 function ReadinessEmptyState(): ReactElement {
     return (
-        <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
+        <div
+            data-slot="assignment-readiness-empty"
+            className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-4 text-sm text-muted-foreground"
+        >
             Select an employee to view their current crew status, assignment,
             availability, and important operational information.
         </div>
@@ -70,11 +73,11 @@ export function CrewAssignmentReadinessPanel({
     if (bulkMode) {
         return (
             <aside
-                className={cn('rounded-xl border glass-card p-5', className)}
+                className={cn('rounded-xl border glass-card p-4', className)}
                 aria-label="Assignment Readiness"
             >
                 <PanelHeader />
-                <div className="mt-4 rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
+                <div className="mt-3 rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-4 text-sm text-muted-foreground">
                     Assignment Readiness is available when starting one crew
                     member at a time. Review each bulk row status in the table
                     below.
@@ -133,18 +136,21 @@ export function CrewAssignmentReadinessPanel({
 
     return (
         <aside
-            className={cn('rounded-xl border glass-card p-5', className)}
+            className={cn('rounded-xl border glass-card p-4', className)}
             aria-label="Assignment Readiness"
             aria-live="polite"
         >
             <PanelHeader />
 
-            <div className="mt-4 space-y-5">
+            <div className="mt-3 space-y-4">
                 {!employee && !planningEmployeeName ? (
                     <ReadinessEmptyState />
                 ) : (
                     <>
-                        <div className="flex items-start gap-3">
+                        <div
+                            data-slot="assignment-readiness-employee"
+                            className="flex items-start gap-3"
+                        >
                             {employee ? (
                                 <EmployeeAvatar
                                     name={employee.name}
@@ -408,7 +414,7 @@ function PanelHeader(): ReactElement {
             <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                 Assignment Readiness
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-xs text-muted-foreground">
                 Operational context for the selected crew member.
             </p>
         </div>

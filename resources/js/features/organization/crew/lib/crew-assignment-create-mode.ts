@@ -21,3 +21,11 @@ export function bulkStartButtonLabel(readyCount: number): string {
 
     return `Start ${readyCount} Assignments`;
 }
+
+export function resolveCreateEffectiveEmployeeId(
+    fromPlanning: boolean,
+    planningEmployeeId: number | null,
+    crewEmployeeId: number | null,
+): number | null {
+    return fromPlanning ? planningEmployeeId : crewEmployeeId;
+}
