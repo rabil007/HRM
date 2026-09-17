@@ -18,6 +18,7 @@ class UpdateClientRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120', "unique:clients,name,{$clientId}"],
             'is_active' => ['nullable', 'boolean'],
+            'redirect_to_show' => ['nullable', 'boolean'],
         ];
     }
 }

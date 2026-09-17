@@ -5,6 +5,7 @@ import {
     Building2,
     Calendar,
     FolderKanban,
+    Lock,
     Pencil,
     Plus,
     Ship,
@@ -50,6 +51,16 @@ import {
 import { formatDisplayDate } from '@/lib/format-date';
 import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import { cn } from '@/lib/utils';
+import {
+    index as vesselsIndex,
+    show as vesselShow,
+} from '@/routes/organization/vessels';
+import {
+    destroy as clientDestroy,
+    index as clientsIndex,
+    update as clientUpdate,
+} from '@/routes/settings/master-data/clients';
+import { index as projectsIndex } from '@/routes/settings/master-data/projects';
 
 type ClientDetails = {
     id: number;
@@ -83,12 +94,12 @@ type ClientOperations = {
         total_count: number;
         active_count: number;
         preview: ProjectPreview[];
-    };
+    } | null;
     vessels: {
         total_count: number;
         active_count: number;
         preview: VesselPreview[];
-    };
+    } | null;
 };
 
 type ClientShowPermissions = {
@@ -120,35 +131,32 @@ export default function ClientShow({
     const form = useForm({
         name: client.name,
         is_active: client.is_active,
+        redirect_to_show: true,
     });
 
     const openEditSheet = () => {
         form.setData({
             name: client.name,
             is_active: client.is_active,
+            redirect_to_show: true,
         });
         form.clearErrors();
         setEditOpen(true);
     };
 
     const handleUpdate = () => {
-        form.put(`/settings/master-data/clients/${client.id}`, {
+        form.put(clientUpdate.url(client.id), {
             preserveScroll: true,
             onSuccess: () => setEditOpen(false),
         });
     };
 
     const handleDelete = () => {
-        router.delete(`/settings/master-data/clients/${client.id}`, {
+        router.delete(clientDestroy.url(client.id), {
             preserveScroll: false,
             onFinish: () => setDeleteOpen(false),
         });
     };
-
-    const projectsCount = operations.projects.total_count;
-    const activeProjectsCount = operations.projects.active_count;
-    const vesselsCount = operations.vessels.total_count;
-    const activeVesselsCount = operations.vessels.active_count;
 
     return (
         <Main>
@@ -174,7 +182,7 @@ export default function ClientShow({
                     </div>
                 }
                 description="Comprehensive view of client operations, linked project portfolio, and assigned fleet."
-                backHref="/settings/master-data/clients"
+                backHref={clientsIndex.url()}
                 backLabel="Back to clients"
                 actions={
                     <div className="flex flex-wrap items-center gap-2">
@@ -214,21 +222,45 @@ export default function ClientShow({
                         <Building2 className="size-3.5 text-primary" />
                         {client.name}
                     </span>
-                    <ArrowRight className="size-3.5 text-muted-foreground/40" />
-                    <span className="flex items-center gap-1.5 font-medium text-foreground">
-                        <FolderKanban className="size-3.5 text-primary" />
-                        {projectsCount}{' '}
-                        {projectsCount === 1 ? 'Project' : 'Projects'}
-                    </span>
-                    <ArrowRight className="size-3.5 text-muted-foreground/40" />
-                    <span className="flex items-center gap-1.5 font-medium text-foreground">
-                        <Ship className="size-3.5 text-primary" />
-                        {vesselsCount}{' '}
-                        {vesselsCount === 1 ? 'Vessel' : 'Vessels'}
-                        <span className="text-[10px] text-muted-foreground">
-                            (active company)
-                        </span>
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 pl-1">
+                        <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-2.5 py-1">
+                            <ArrowRight className="size-3 text-muted-foreground/50" />
+                            <FolderKanban className="size-3.5 text-primary" />
+                            {can.view_projects && operations.projects ? (
+                                <span className="font-medium text-foreground">
+                                    {operations.projects.total_count}{' '}
+                                    {operations.projects.total_count === 1
+                                        ? 'Project'
+                                        : 'Projects'}
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1 text-muted-foreground/70 italic">
+                                    <Lock className="size-3" />
+                                    Projects (Restricted)
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-2.5 py-1">
+                            <ArrowRight className="size-3 text-muted-foreground/50" />
+                            <Ship className="size-3.5 text-primary" />
+                            {can.view_vessels && operations.vessels ? (
+                                <span className="font-medium text-foreground">
+                                    {operations.vessels.total_count}{' '}
+                                    {operations.vessels.total_count === 1
+                                        ? 'Vessel'
+                                        : 'Vessels'}
+                                    <span className="ml-1 text-[10px] text-muted-foreground">
+                                        (active company)
+                                    </span>
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1 text-muted-foreground/70 italic">
+                                    <Lock className="size-3" />
+                                    Vessels (Restricted)
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* KPI Summary Cards */}
@@ -243,35 +275,55 @@ export default function ClientShow({
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-extrabold tracking-tight text-foreground">
-                                    {projectsCount}
-                                </span>
-                                <span className="text-xs font-medium text-muted-foreground">
-                                    {activeProjectsCount} active
-                                </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Operational projects registered under this
-                                client.
-                            </p>
-                            {can.view_projects ? (
-                                <div className="pt-2">
-                                    <Button
-                                        variant="link"
-                                        size="sm"
-                                        className="h-auto p-0 text-xs font-semibold text-primary"
-                                        asChild
-                                    >
-                                        <Link
-                                            href={`/settings/master-data/projects?client_id=${client.id}`}
+                            {can.view_projects && operations.projects ? (
+                                <>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-extrabold tracking-tight text-foreground">
+                                            {operations.projects.total_count}
+                                        </span>
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            {operations.projects.active_count}{' '}
+                                            active
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Operational projects registered under
+                                        this client.
+                                    </p>
+                                    <div className="pt-2">
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            className="h-auto p-0 text-xs font-semibold text-primary"
+                                            asChild
                                         >
-                                            View projects module
-                                            <ArrowUpRight className="ml-1 size-3" />
-                                        </Link>
-                                    </Button>
+                                            <Link
+                                                href={projectsIndex.url({
+                                                    query: {
+                                                        client_id: client.id,
+                                                    },
+                                                })}
+                                            >
+                                                View projects module
+                                                <ArrowUpRight className="ml-1 size-3" />
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="space-y-1 py-2">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Lock className="size-4 text-muted-foreground/60" />
+                                        <span className="text-sm font-medium">
+                                            Access Restricted
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        You do not have permission to view
+                                        operational projects.
+                                    </p>
                                 </div>
-                            ) : null}
+                            )}
                         </CardContent>
                     </Card>
 
@@ -285,35 +337,55 @@ export default function ClientShow({
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-extrabold tracking-tight text-foreground">
-                                    {vesselsCount}
-                                </span>
-                                <span className="text-xs font-medium text-muted-foreground">
-                                    {activeVesselsCount} active in company
-                                </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Vessels associated with this client in the
-                                active company.
-                            </p>
-                            {can.view_vessels ? (
-                                <div className="pt-2">
-                                    <Button
-                                        variant="link"
-                                        size="sm"
-                                        className="h-auto p-0 text-xs font-semibold text-primary"
-                                        asChild
-                                    >
-                                        <Link
-                                            href={`/organization/vessels?client_id=${client.id}`}
+                            {can.view_vessels && operations.vessels ? (
+                                <>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-extrabold tracking-tight text-foreground">
+                                            {operations.vessels.total_count}
+                                        </span>
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            {operations.vessels.active_count}{' '}
+                                            active in company
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Vessels associated with this client in
+                                        the active company.
+                                    </p>
+                                    <div className="pt-2">
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            className="h-auto p-0 text-xs font-semibold text-primary"
+                                            asChild
                                         >
-                                            View vessels module
-                                            <ArrowUpRight className="ml-1 size-3" />
-                                        </Link>
-                                    </Button>
+                                            <Link
+                                                href={vesselsIndex.url({
+                                                    query: {
+                                                        client_id: client.id,
+                                                    },
+                                                })}
+                                            >
+                                                View vessels module
+                                                <ArrowUpRight className="ml-1 size-3" />
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="space-y-1 py-2">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Lock className="size-4 text-muted-foreground/60" />
+                                        <span className="text-sm font-medium">
+                                            Access Restricted
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        You do not have permission to view
+                                        vessels.
+                                    </p>
                                 </div>
-                            ) : null}
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -328,14 +400,25 @@ export default function ClientShow({
                                 <CardTitle className="text-base font-bold text-foreground">
                                     Projects
                                 </CardTitle>
-                                <Badge
-                                    variant="secondary"
-                                    className="ml-1 text-xs"
-                                >
-                                    {projectsCount}
-                                </Badge>
+                                {can.view_projects && operations.projects ? (
+                                    <Badge
+                                        variant="secondary"
+                                        className="ml-1 text-xs"
+                                    >
+                                        {operations.projects.total_count}
+                                    </Badge>
+                                ) : (
+                                    <Badge
+                                        variant="outline"
+                                        className="ml-1 text-xs text-muted-foreground"
+                                    >
+                                        Restricted
+                                    </Badge>
+                                )}
                             </div>
-                            {can.view_projects && projectsCount > 0 ? (
+                            {can.view_projects &&
+                            operations.projects &&
+                            operations.projects.total_count > 0 ? (
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -343,7 +426,9 @@ export default function ClientShow({
                                     asChild
                                 >
                                     <Link
-                                        href={`/settings/master-data/projects?client_id=${client.id}`}
+                                        href={projectsIndex.url({
+                                            query: { client_id: client.id },
+                                        })}
                                     >
                                         View all
                                         <ArrowRight className="ml-1 size-3" />
@@ -352,100 +437,117 @@ export default function ClientShow({
                             ) : null}
                         </CardHeader>
                         <CardContent className="flex-1 p-0">
-                            {operations.projects.preview.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader className="bg-muted/30">
-                                            <TableRow className="border-border/60 hover:bg-transparent">
-                                                <TableHead className="text-xs font-semibold uppercase">
-                                                    Project
-                                                </TableHead>
-                                                <TableHead className="w-24 text-xs font-semibold uppercase">
-                                                    Status
-                                                </TableHead>
-                                                <TableHead className="w-28 text-right text-xs font-semibold uppercase">
-                                                    Created
-                                                </TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {operations.projects.preview.map(
-                                                (project) => (
-                                                    <TableRow
-                                                        key={project.id}
-                                                        className="border-border/60 hover:bg-muted/20"
-                                                    >
-                                                        <TableCell className="text-sm font-medium">
-                                                            {can.view_projects ? (
+                            {can.view_projects && operations.projects ? (
+                                operations.projects.preview.length > 0 ? (
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-muted/30">
+                                                <TableRow className="border-border/60 hover:bg-transparent">
+                                                    <TableHead className="text-xs font-semibold uppercase">
+                                                        Project
+                                                    </TableHead>
+                                                    <TableHead className="w-24 text-xs font-semibold uppercase">
+                                                        Status
+                                                    </TableHead>
+                                                    <TableHead className="w-28 text-right text-xs font-semibold uppercase">
+                                                        Created
+                                                    </TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {operations.projects.preview.map(
+                                                    (project) => (
+                                                        <TableRow
+                                                            key={project.id}
+                                                            className="border-border/60 hover:bg-muted/20"
+                                                        >
+                                                            <TableCell className="text-sm font-medium">
                                                                 <Link
-                                                                    href={`/settings/master-data/projects?client_id=${client.id}&search=${encodeURIComponent(project.title)}`}
+                                                                    href={projectsIndex.url(
+                                                                        {
+                                                                            query: {
+                                                                                client_id:
+                                                                                    client.id,
+                                                                                search: project.title,
+                                                                            },
+                                                                        },
+                                                                    )}
                                                                     className="text-foreground transition-colors hover:text-primary hover:underline"
                                                                 >
                                                                     {
                                                                         project.title
                                                                     }
                                                                 </Link>
-                                                            ) : (
-                                                                <span className="text-foreground">
-                                                                    {
-                                                                        project.title
-                                                                    }
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge
-                                                                variant="outline"
-                                                                className={cn(
-                                                                    'text-[10px] font-semibold',
-                                                                    project.is_active
-                                                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                                                        : 'border-muted bg-muted/40 text-muted-foreground',
-                                                                )}
-                                                            >
-                                                                {project.is_active
-                                                                    ? 'Active'
-                                                                    : 'Inactive'}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right text-xs text-muted-foreground">
-                                                            {project.created_at
-                                                                ? formatDisplayDate(
-                                                                      project.created_at,
-                                                                  )
-                                                                : '—'}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ),
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={cn(
+                                                                        'text-[10px] font-semibold',
+                                                                        project.is_active
+                                                                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                                                            : 'border-muted bg-muted/40 text-muted-foreground',
+                                                                    )}
+                                                                >
+                                                                    {project.is_active
+                                                                        ? 'Active'
+                                                                        : 'Inactive'}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-right text-xs text-muted-foreground">
+                                                                {project.created_at
+                                                                    ? formatDisplayDate(
+                                                                          project.created_at,
+                                                                      )
+                                                                    : '—'}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ),
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center p-8 text-center">
+                                        <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted/40 text-muted-foreground">
+                                            <FolderKanban className="size-6 text-muted-foreground/60" />
+                                        </div>
+                                        <h4 className="text-sm font-semibold text-foreground">
+                                            No projects linked yet
+                                        </h4>
+                                        <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                                            Projects created for this client
+                                            will appear here.
+                                        </p>
+                                        {can.create_project ? (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="mt-4 gap-1.5 text-xs"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={projectsIndex.url()}
+                                                >
+                                                    <Plus className="size-3.5" />
+                                                    Manage Projects
+                                                </Link>
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                )
                             ) : (
                                 <div className="flex flex-col items-center justify-center p-8 text-center">
                                     <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted/40 text-muted-foreground">
-                                        <FolderKanban className="size-6 text-muted-foreground/60" />
+                                        <Lock className="size-6 text-muted-foreground/60" />
                                     </div>
                                     <h4 className="text-sm font-semibold text-foreground">
-                                        No projects linked yet
+                                        Projects Access Restricted
                                     </h4>
                                     <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-                                        Projects created for this client will
-                                        appear here.
+                                        You do not have permission to view
+                                        projects linked to this client.
                                     </p>
-                                    {can.create_project ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="mt-4 gap-1.5 text-xs"
-                                            asChild
-                                        >
-                                            <Link href="/settings/master-data/projects">
-                                                <Plus className="size-3.5" />
-                                                Manage Projects
-                                            </Link>
-                                        </Button>
-                                    ) : null}
                                 </div>
                             )}
                         </CardContent>
@@ -459,14 +561,25 @@ export default function ClientShow({
                                 <CardTitle className="text-base font-bold text-foreground">
                                     Vessels
                                 </CardTitle>
-                                <Badge
-                                    variant="secondary"
-                                    className="ml-1 text-xs"
-                                >
-                                    {vesselsCount}
-                                </Badge>
+                                {can.view_vessels && operations.vessels ? (
+                                    <Badge
+                                        variant="secondary"
+                                        className="ml-1 text-xs"
+                                    >
+                                        {operations.vessels.total_count}
+                                    </Badge>
+                                ) : (
+                                    <Badge
+                                        variant="outline"
+                                        className="ml-1 text-xs text-muted-foreground"
+                                    >
+                                        Restricted
+                                    </Badge>
+                                )}
                             </div>
-                            {can.view_vessels && vesselsCount > 0 ? (
+                            {can.view_vessels &&
+                            operations.vessels &&
+                            operations.vessels.total_count > 0 ? (
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -474,7 +587,9 @@ export default function ClientShow({
                                     asChild
                                 >
                                     <Link
-                                        href={`/organization/vessels?client_id=${client.id}`}
+                                        href={vesselsIndex.url({
+                                            query: { client_id: client.id },
+                                        })}
                                     >
                                         View all
                                         <ArrowRight className="ml-1 size-3" />
@@ -483,106 +598,116 @@ export default function ClientShow({
                             ) : null}
                         </CardHeader>
                         <CardContent className="flex-1 p-0">
-                            {operations.vessels.preview.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader className="bg-muted/30">
-                                            <TableRow className="border-border/60 hover:bg-transparent">
-                                                <TableHead className="text-xs font-semibold uppercase">
-                                                    Vessel
-                                                </TableHead>
-                                                <TableHead className="text-xs font-semibold uppercase">
-                                                    Type
-                                                </TableHead>
-                                                <TableHead className="text-xs font-semibold uppercase">
-                                                    IMO / Call Sign
-                                                </TableHead>
-                                                <TableHead className="w-20 text-right text-xs font-semibold uppercase">
-                                                    Status
-                                                </TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {operations.vessels.preview.map(
-                                                (vessel) => (
-                                                    <TableRow
-                                                        key={vessel.id}
-                                                        className="border-border/60 hover:bg-muted/20"
-                                                    >
-                                                        <TableCell className="text-sm font-medium">
-                                                            {can.view_vessels ? (
+                            {can.view_vessels && operations.vessels ? (
+                                operations.vessels.preview.length > 0 ? (
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-muted/30">
+                                                <TableRow className="border-border/60 hover:bg-transparent">
+                                                    <TableHead className="text-xs font-semibold uppercase">
+                                                        Vessel
+                                                    </TableHead>
+                                                    <TableHead className="text-xs font-semibold uppercase">
+                                                        Type
+                                                    </TableHead>
+                                                    <TableHead className="text-xs font-semibold uppercase">
+                                                        IMO / Call Sign
+                                                    </TableHead>
+                                                    <TableHead className="w-20 text-right text-xs font-semibold uppercase">
+                                                        Status
+                                                    </TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {operations.vessels.preview.map(
+                                                    (vessel) => (
+                                                        <TableRow
+                                                            key={vessel.id}
+                                                            className="border-border/60 hover:bg-muted/20"
+                                                        >
+                                                            <TableCell className="text-sm font-medium">
                                                                 <Link
-                                                                    href={`/organization/vessels/${vessel.id}`}
+                                                                    href={vesselShow.url(
+                                                                        vessel.id,
+                                                                    )}
                                                                     className="text-foreground transition-colors hover:text-primary hover:underline"
                                                                 >
                                                                     {
                                                                         vessel.name
                                                                     }
                                                                 </Link>
-                                                            ) : (
-                                                                <span className="text-foreground">
-                                                                    {
-                                                                        vessel.name
-                                                                    }
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs text-muted-foreground">
-                                                            {vessel.vessel_type_name ??
-                                                                '—'}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs text-muted-foreground">
-                                                            {vessel.imo_no ||
-                                                                vessel.call_sign ||
-                                                                vessel.official_no ||
-                                                                '—'}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <Badge
-                                                                variant="outline"
-                                                                className={cn(
-                                                                    'text-[10px] font-semibold',
-                                                                    vessel.is_active
-                                                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                                                        : 'border-muted bg-muted/40 text-muted-foreground',
-                                                                )}
-                                                            >
-                                                                {vessel.is_active
-                                                                    ? 'Active'
-                                                                    : 'Inactive'}
-                                                            </Badge>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ),
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-xs text-muted-foreground">
+                                                                {vessel.vessel_type_name ??
+                                                                    '—'}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs text-muted-foreground">
+                                                                {vessel.imo_no ||
+                                                                    vessel.call_sign ||
+                                                                    vessel.official_no ||
+                                                                    '—'}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={cn(
+                                                                        'text-[10px] font-semibold',
+                                                                        vessel.is_active
+                                                                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                                                            : 'border-muted bg-muted/40 text-muted-foreground',
+                                                                    )}
+                                                                >
+                                                                    {vessel.is_active
+                                                                        ? 'Active'
+                                                                        : 'Inactive'}
+                                                                </Badge>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ),
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center p-8 text-center">
+                                        <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted/40 text-muted-foreground">
+                                            <Ship className="size-6 text-muted-foreground/60" />
+                                        </div>
+                                        <h4 className="text-sm font-semibold text-foreground">
+                                            No vessels linked yet
+                                        </h4>
+                                        <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                                            Vessels associated with this client
+                                            in the active company will appear
+                                            here.
+                                        </p>
+                                        {can.create_vessel ? (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="mt-4 gap-1.5 text-xs"
+                                                asChild
+                                            >
+                                                <Link href={vesselsIndex.url()}>
+                                                    <Plus className="size-3.5" />
+                                                    Manage Vessels
+                                                </Link>
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                )
                             ) : (
                                 <div className="flex flex-col items-center justify-center p-8 text-center">
                                     <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted/40 text-muted-foreground">
-                                        <Ship className="size-6 text-muted-foreground/60" />
+                                        <Lock className="size-6 text-muted-foreground/60" />
                                     </div>
                                     <h4 className="text-sm font-semibold text-foreground">
-                                        No vessels linked yet
+                                        Vessels Access Restricted
                                     </h4>
                                     <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-                                        Vessels associated with this client in
-                                        the active company will appear here.
+                                        You do not have permission to view
+                                        vessels linked to this client.
                                     </p>
-                                    {can.view_vessels ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="mt-4 gap-1.5 text-xs"
-                                            asChild
-                                        >
-                                            <Link href="/organization/vessels">
-                                                <Plus className="size-3.5" />
-                                                Manage Vessels
-                                            </Link>
-                                        </Button>
-                                    ) : null}
                                 </div>
                             )}
                         </CardContent>

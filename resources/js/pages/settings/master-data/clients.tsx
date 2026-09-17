@@ -7,6 +7,7 @@ import {
     FolderKanban,
     Info,
     Loader2,
+    Lock,
     Ship,
     Upload,
 } from 'lucide-react';
@@ -54,14 +55,17 @@ import {
 } from '@/lib/first-validation-error';
 import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import { cn } from '@/lib/utils';
+import { index as vesselsIndex } from '@/routes/organization/vessels';
+import { show as clientShow } from '@/routes/settings/master-data/clients';
+import { index as projectsIndex } from '@/routes/settings/master-data/projects';
 import type { PaginationMeta } from '@/types/pagination';
 
 type ClientRow = {
     id: number;
     name: string;
     is_active: boolean;
-    projects_count?: number;
-    vessels_count?: number;
+    projects_count?: number | null;
+    vessels_count?: number | null;
 } & MasterDataUsageFlags;
 
 export default function Clients({
@@ -335,7 +339,7 @@ export default function Clients({
                                     >
                                         <div className="col-span-5 flex min-w-0 items-center gap-2 text-sm">
                                             <Link
-                                                href={`/settings/master-data/clients/${v.id}`}
+                                                href={clientShow(v.id).url}
                                                 className="truncate font-medium text-foreground transition-colors hover:text-primary hover:underline"
                                                 title={`View ${v.name} operational overview`}
                                             >
@@ -345,32 +349,38 @@ export default function Clients({
                                         </div>
 
                                         <div className="col-span-4 flex items-center gap-2 text-xs">
-                                            {projectsCount > 0 ? (
-                                                pageCan.view_projects ? (
-                                                    <Link
-                                                        href={`/settings/master-data/projects?client_id=${v.id}`}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 font-medium text-foreground transition-colors hover:border-border hover:bg-muted"
-                                                        title={`View ${projectsCount} projects for ${v.name}`}
-                                                    >
-                                                        <FolderKanban className="size-3.5 text-primary" />
-                                                        <span>
-                                                            {projectsCount}{' '}
-                                                            {projectsCount === 1
-                                                                ? 'Project'
-                                                                : 'Projects'}
-                                                        </span>
-                                                    </Link>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1 font-medium text-muted-foreground">
-                                                        <FolderKanban className="size-3.5 text-muted-foreground" />
-                                                        <span>
-                                                            {projectsCount}{' '}
-                                                            {projectsCount === 1
-                                                                ? 'Project'
-                                                                : 'Projects'}
-                                                        </span>
+                                            {!pageCan.view_projects ||
+                                            v.projects_count === null ||
+                                            v.projects_count === undefined ? (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2 py-1 text-muted-foreground/60"
+                                                    title="Projects view restricted"
+                                                >
+                                                    <Lock className="size-3.5 text-muted-foreground/40" />
+                                                    <span>
+                                                        Projects restricted
                                                     </span>
-                                                )
+                                                </span>
+                                            ) : projectsCount > 0 ? (
+                                                <Link
+                                                    href={
+                                                        projectsIndex({
+                                                            query: {
+                                                                client_id: v.id,
+                                                            },
+                                                        }).url
+                                                    }
+                                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 font-medium text-foreground transition-colors hover:border-border hover:bg-muted"
+                                                    title={`View ${projectsCount} projects for ${v.name}`}
+                                                >
+                                                    <FolderKanban className="size-3.5 text-primary" />
+                                                    <span>
+                                                        {projectsCount}{' '}
+                                                        {projectsCount === 1
+                                                            ? 'Project'
+                                                            : 'Projects'}
+                                                    </span>
+                                                </Link>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground/60">
                                                     <FolderKanban className="size-3.5 text-muted-foreground/40" />
@@ -378,32 +388,38 @@ export default function Clients({
                                                 </span>
                                             )}
 
-                                            {vesselsCount > 0 ? (
-                                                pageCan.view_vessels ? (
-                                                    <Link
-                                                        href={`/organization/vessels?client_id=${v.id}`}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 font-medium text-foreground transition-colors hover:border-border hover:bg-muted"
-                                                        title={`View ${vesselsCount} vessels for ${v.name} in current company`}
-                                                    >
-                                                        <Ship className="size-3.5 text-primary" />
-                                                        <span>
-                                                            {vesselsCount}{' '}
-                                                            {vesselsCount === 1
-                                                                ? 'Vessel'
-                                                                : 'Vessels'}
-                                                        </span>
-                                                    </Link>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1 font-medium text-muted-foreground">
-                                                        <Ship className="size-3.5 text-muted-foreground" />
-                                                        <span>
-                                                            {vesselsCount}{' '}
-                                                            {vesselsCount === 1
-                                                                ? 'Vessel'
-                                                                : 'Vessels'}
-                                                        </span>
+                                            {!pageCan.view_vessels ||
+                                            v.vessels_count === null ||
+                                            v.vessels_count === undefined ? (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-2 py-1 text-muted-foreground/60"
+                                                    title="Vessels view restricted"
+                                                >
+                                                    <Lock className="size-3.5 text-muted-foreground/40" />
+                                                    <span>
+                                                        Vessels restricted
                                                     </span>
-                                                )
+                                                </span>
+                                            ) : vesselsCount > 0 ? (
+                                                <Link
+                                                    href={
+                                                        vesselsIndex({
+                                                            query: {
+                                                                client_id: v.id,
+                                                            },
+                                                        }).url
+                                                    }
+                                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 font-medium text-foreground transition-colors hover:border-border hover:bg-muted"
+                                                    title={`View ${vesselsCount} vessels for ${v.name} in current company`}
+                                                >
+                                                    <Ship className="size-3.5 text-primary" />
+                                                    <span>
+                                                        {vesselsCount}{' '}
+                                                        {vesselsCount === 1
+                                                            ? 'Vessel'
+                                                            : 'Vessels'}
+                                                    </span>
+                                                </Link>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground/60">
                                                     <Ship className="size-3.5 text-muted-foreground/40" />
@@ -430,7 +446,7 @@ export default function Clients({
                                                 asChild
                                             >
                                                 <Link
-                                                    href={`/settings/master-data/clients/${v.id}`}
+                                                    href={clientShow(v.id).url}
                                                 >
                                                     <Eye className="mr-1 h-3.5 w-3.5" />
                                                     View
