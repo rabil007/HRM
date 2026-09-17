@@ -6,7 +6,9 @@ use App\Mail\PayslipMail;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\SalaryInput;
 use App\Support\Payroll\Actions\GeneratePayslip;
+use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use App\Support\Payroll\PayslipData;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\Mail;
@@ -759,4 +761,307 @@ test('office payslip continues to include unpaid leave as a monetary deduction',
     expect(number_format($visibleSum, 2, '.', ''))->toBe($data['total_deductions'])
         ->and($data['total_deductions'])->toBe('300.00')
         ->and($data['net_salary'])->toBe('4700.00');
+});
+
+test('monthly crew payslip displays base deduction when addition-only salary input exists', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'processing',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-MONTHLY-ADD-1']);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'basic_salary' => 3000.00,
+        'housing_allowance' => 1000.00,
+        'transport_allowance' => 500.00,
+        'other_allowances' => 0.00,
+        'overtime_pay' => 0.00,
+        'bonus' => 0.00,
+        'other_deductions' => 50.00,
+        'loan_deduction' => 0.00,
+        'late_deduction' => 0.00,
+        'unpaid_leave_deduction' => 0.00,
+        'total_deductions' => 50.00,
+        'gross_salary' => 4500.00,
+        'net_salary' => 4450.00,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'salary_structure' => 'monthly',
+            'base' => [
+                'gross' => 4500.00,
+                'net' => 4450.00,
+                'bonus' => 0.00,
+                'other_deductions' => 50.00,
+                'unpaid_leave_deduction' => 0.00,
+            ],
+        ],
+    ]);
+
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 200,
+    ]);
+
+    app(RecalculateCrewPayroll::class)->handle($period, $employee->id);
+    $record->refresh();
+
+    $data = PayslipData::for($record, $company->id);
+
+    // Earnings must include Bonus
+    $bonusEarning = collect($data['earnings'])->firstWhere('label', 'Bonus');
+    expect($bonusEarning)->not->toBeNull()
+        ->and($bonusEarning['amount'])->toBe('200.00');
+
+    // Base deduction must remain visible
+    $deductionLabels = collect($data['deductions'])->pluck('label')->all();
+    expect($deductionLabels)->toBe(['Other'])
+        ->and(collect($data['deductions'])->firstWhere('label', 'Other')['amount'])->toBe('50.00');
+
+    // Invariant: sum of visible monetary deduction rows equals total_deductions
+    $visibleSum = collect($data['deductions'])->sum(fn ($line) => (float) $line['amount']);
+    expect(number_format($visibleSum, 2, '.', ''))->toBe($data['total_deductions'])
+        ->and($visibleSum)->toBe((float) $data['total_deductions'])
+        ->and($data['total_deductions'])->toBe('50.00')
+        ->and($data['gross_salary'])->toBe('4700.00')
+        ->and($data['net_salary'])->toBe('4650.00');
+
+    $html = view('payroll.payslip', $data)->render();
+    expect($html)
+        ->toContain('Bonus')
+        ->toContain('200.00')
+        ->toContain('Other')
+        ->toContain('50.00')
+        ->toContain('Total Deductions')
+        ->toContain('50.00');
+});
+
+test('monthly crew payslip reconciles base deduction and deduction salary input without duplication', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'processing',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-MONTHLY-DED-1']);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'basic_salary' => 3000.00,
+        'housing_allowance' => 1000.00,
+        'transport_allowance' => 500.00,
+        'other_allowances' => 0.00,
+        'overtime_pay' => 0.00,
+        'bonus' => 0.00,
+        'other_deductions' => 50.00,
+        'loan_deduction' => 0.00,
+        'late_deduction' => 0.00,
+        'unpaid_leave_deduction' => 0.00,
+        'total_deductions' => 50.00,
+        'gross_salary' => 4500.00,
+        'net_salary' => 4450.00,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'salary_structure' => 'monthly',
+            'base' => [
+                'gross' => 4500.00,
+                'net' => 4450.00,
+                'bonus' => 0.00,
+                'other_deductions' => 50.00,
+                'unpaid_leave_deduction' => 0.00,
+            ],
+        ],
+    ]);
+
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'loan'),
+        'amount' => 25,
+    ]);
+
+    app(RecalculateCrewPayroll::class)->handle($period, $employee->id);
+    $record->refresh();
+
+    $data = PayslipData::for($record, $company->id);
+
+    // Visible deductions must contain both Other (50) and Loan (25), without duplicating Loan
+    $deductionLabels = collect($data['deductions'])->pluck('label')->all();
+    expect($deductionLabels)->toBe(['Other', 'Loan'])
+        ->and(collect($data['deductions'])->where('label', 'Loan'))->toHaveCount(1)
+        ->and(collect($data['deductions'])->firstWhere('label', 'Other')['amount'])->toBe('50.00')
+        ->and(collect($data['deductions'])->firstWhere('label', 'Loan')['amount'])->toBe('25.00');
+
+    // Invariant: sum of visible monetary deduction rows equals total_deductions
+    $visibleSum = collect($data['deductions'])->sum(fn ($line) => (float) $line['amount']);
+    expect(number_format($visibleSum, 2, '.', ''))->toBe($data['total_deductions'])
+        ->and($visibleSum)->toBe((float) $data['total_deductions'])
+        ->and($data['total_deductions'])->toBe('75.00')
+        ->and($data['net_salary'])->toBe('4425.00');
+
+    $html = view('payroll.payslip', $data)->render();
+    expect($html)
+        ->toContain('Other')
+        ->toContain('50.00')
+        ->toContain('Loan')
+        ->toContain('25.00')
+        ->toContain('Total Deductions')
+        ->toContain('75.00');
+});
+
+test('monthly crew payslip excludes informational unpaid leave when loan deduction is present', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'processing',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-MONTHLY-UNPAID-LOAN']);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'basic_salary' => 2700.00,
+        'housing_allowance' => 0.00,
+        'transport_allowance' => 0.00,
+        'other_allowances' => 0.00,
+        'overtime_pay' => 0.00,
+        'bonus' => 0.00,
+        'other_deductions' => 0.00,
+        'loan_deduction' => 0.00,
+        'late_deduction' => 0.00,
+        'unpaid_leave_deduction' => 300.00,
+        'total_deductions' => 0.00,
+        'gross_salary' => 2700.00,
+        'net_salary' => 2700.00,
+        'status' => 'approved',
+        'working_days' => 30,
+        'calculation_breakdown' => [
+            'salary_structure' => 'monthly',
+            'unpaid_leave_days' => 3,
+            'informational_unpaid_leave_deduction' => 300.00,
+            'base' => [
+                'gross' => 2700.00,
+                'net' => 2700.00,
+                'bonus' => 0.00,
+                'other_deductions' => 0.00,
+                'unpaid_leave_deduction' => 300.00,
+            ],
+        ],
+    ]);
+
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'loan'),
+        'amount' => 100,
+    ]);
+
+    app(RecalculateCrewPayroll::class)->handle($period, $employee->id);
+    $record->refresh();
+
+    $data = PayslipData::for($record, $company->id);
+
+    // Automatic informational unpaid leave (300) must NOT appear in deductions table
+    $deductionLabels = collect($data['deductions'])->pluck('label')->all();
+    expect($deductionLabels)->toBe(['Loan'])
+        ->and($deductionLabels)->not->toContain('Unpaid leave')
+        ->and(collect($data['deductions'])->firstWhere('label', 'Loan')['amount'])->toBe('100.00');
+
+    // Informational unpaid leave appears under Attendance / Proration
+    $impactRow = collect($data['crew_summary'])->firstWhere('label', 'Unpaid leave impact');
+    expect($impactRow)->not->toBeNull()
+        ->and($impactRow['value'])->toBe('300.00')
+        ->and($impactRow['note'])->toBe('Already reflected in prorated earnings');
+
+    // Invariant: sum of visible monetary deduction rows equals total_deductions
+    $visibleSum = collect($data['deductions'])->sum(fn ($line) => (float) $line['amount']);
+    expect(number_format($visibleSum, 2, '.', ''))->toBe($data['total_deductions'])
+        ->and($visibleSum)->toBe((float) $data['total_deductions'])
+        ->and($data['total_deductions'])->toBe('100.00')
+        ->and($data['net_salary'])->toBe('2600.00');
+});
+
+test('monthly crew payslip includes manual unpaid leave salary input as real deduction while keeping base impact informational', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'processing',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-MONTHLY-MANUAL-UNPAID']);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'basic_salary' => 2900.00,
+        'housing_allowance' => 0.00,
+        'transport_allowance' => 0.00,
+        'other_allowances' => 0.00,
+        'overtime_pay' => 0.00,
+        'bonus' => 0.00,
+        'other_deductions' => 50.00,
+        'loan_deduction' => 0.00,
+        'late_deduction' => 0.00,
+        'unpaid_leave_deduction' => 100.00,
+        'total_deductions' => 50.00,
+        'gross_salary' => 2900.00,
+        'net_salary' => 2850.00,
+        'status' => 'approved',
+        'working_days' => 30,
+        'calculation_breakdown' => [
+            'salary_structure' => 'monthly',
+            'unpaid_leave_days' => 1,
+            'informational_unpaid_leave_deduction' => 100.00,
+            'base' => [
+                'gross' => 2900.00,
+                'net' => 2850.00,
+                'bonus' => 0.00,
+                'other_deductions' => 50.00,
+                'unpaid_leave_deduction' => 100.00,
+            ],
+        ],
+    ]);
+
+    // Manual unpaid-leave adjustment added as salary input
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'unpaid_leave'),
+        'amount' => 40,
+    ]);
+
+    app(RecalculateCrewPayroll::class)->handle($period, $employee->id);
+    $record->refresh();
+
+    $data = PayslipData::for($record, $company->id);
+
+    // Visible deductions must contain Base Other (50) and Manual Unpaid leave adjustment (40)
+    $deductionLabels = collect($data['deductions'])->pluck('label')->all();
+    expect($deductionLabels)->toBe(['Other', 'Unpaid leave'])
+        ->and(collect($data['deductions'])->firstWhere('label', 'Other')['amount'])->toBe('50.00')
+        ->and(collect($data['deductions'])->firstWhere('label', 'Unpaid leave')['amount'])->toBe('40.00');
+
+    // Informational unpaid leave remains in Attendance / Proration
+    $impactRow = collect($data['crew_summary'])->firstWhere('label', 'Unpaid leave impact');
+    expect($impactRow)->not->toBeNull()
+        ->and($impactRow['value'])->toBe('100.00')
+        ->and($impactRow['note'])->toBe('Already reflected in prorated earnings');
+
+    // Invariant: sum of visible monetary deduction rows equals total_deductions (50 + 40 = 90)
+    $visibleSum = collect($data['deductions'])->sum(fn ($line) => (float) $line['amount']);
+    expect(number_format($visibleSum, 2, '.', ''))->toBe($data['total_deductions'])
+        ->and($visibleSum)->toBe((float) $data['total_deductions'])
+        ->and($data['total_deductions'])->toBe('90.00')
+        ->and($data['net_salary'])->toBe('2810.00');
 });

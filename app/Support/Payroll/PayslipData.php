@@ -178,7 +178,7 @@ final class PayslipData
                 return array_merge($base, [
                     'salary_structure' => 'monthly',
                     'earnings' => self::monthlyCrewEarnings($record, $salaryInputLines, $unpaidLeaveDays),
-                    'deductions' => self::monthlyCrewDeductions($record, $salaryInputLines),
+                    'deductions' => self::monthlyCrewDeductions($record, $breakdown, $salaryInputLines),
                     'crew_summary' => $crewSummary,
                     'working_days' => $record->working_days,
                     'present_days' => $record->present_days,
@@ -350,35 +350,111 @@ final class PayslipData
     }
 
     /**
+     * @param  array<string, mixed>  $breakdown
      * @param  list<array<string, mixed>>  $salaryInputLines
      * @return list<array{label: string, amount: string}>
      */
-    private static function monthlyCrewDeductions(PayrollRecord $record, array $salaryInputLines): array
-    {
-        if ($salaryInputLines !== []) {
-            $rows = [];
-
-            foreach ($salaryInputLines as $input) {
-                if ($input['is_addition'] ?? false) {
-                    continue;
-                }
-
-                $rows[] = [
-                    'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Deduction'),
-                    'amount' => self::formatAmount($input['amount'] ?? 0),
-                ];
-            }
-
-            return self::filterPositiveLines($rows);
+    private static function monthlyCrewDeductions(
+        PayrollRecord $record,
+        array $breakdown,
+        array $salaryInputLines,
+    ): array {
+        if ((float) $record->total_deductions <= 0.0) {
+            return [];
         }
 
-        $rows = [
-            ['label' => 'Late', 'amount' => self::formatAmount($record->late_deduction)],
-            ['label' => 'Loan', 'amount' => self::formatAmount($record->loan_deduction)],
-            ['label' => 'Other', 'amount' => self::formatAmount($record->other_deductions)],
+        $salaryDeductionRows = [];
+        $salaryTotalsByType = [
+            'loan' => 0.0,
+            'late' => 0.0,
+            'unpaid_leave' => 0.0,
+            'other' => 0.0,
         ];
 
-        return self::filterPositiveLines($rows);
+        foreach ($salaryInputLines as $input) {
+            if ($input['is_addition'] ?? false) {
+                continue;
+            }
+
+            $amount = (float) ($input['amount'] ?? 0);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $type = (string) ($input['type'] ?? 'other');
+            if (array_key_exists($type, $salaryTotalsByType)) {
+                $salaryTotalsByType[$type] += $amount;
+            } else {
+                $salaryTotalsByType['other'] += $amount;
+            }
+
+            $salaryDeductionRows[] = [
+                'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Deduction'),
+                'amount' => self::formatAmount($amount),
+            ];
+        }
+
+        // Automatic unpaid leave is informational for monthly crew and is excluded from monetary deductions.
+        $base = is_array($breakdown['base'] ?? null) ? $breakdown['base'] : [];
+
+        $baseOther = isset($base['other_deductions'])
+            ? min((float) $base['other_deductions'], (float) $record->other_deductions)
+            : max(0.0, round((float) $record->other_deductions - $salaryTotalsByType['other'], 2));
+
+        $baseLoan = isset($base['loan_deduction'])
+            ? min((float) $base['loan_deduction'], (float) $record->loan_deduction)
+            : max(0.0, round((float) $record->loan_deduction - $salaryTotalsByType['loan'], 2));
+
+        $baseLate = isset($base['late_deduction'])
+            ? min((float) $base['late_deduction'], (float) $record->late_deduction)
+            : max(0.0, round((float) $record->late_deduction - $salaryTotalsByType['late'], 2));
+
+        // If a manual unpaid-leave adjustment exists in breakdown lines but was not in salaryInputLines:
+        $breakdownManualUnpaid = (float) ($breakdown['manual_unpaid_leave_deduction']
+            ?? $breakdown['lines']['manual_unpaid_leave_deduction']
+            ?? 0);
+        if ($salaryTotalsByType['unpaid_leave'] <= 0 && $breakdownManualUnpaid > 0) {
+            $salaryDeductionRows[] = [
+                'label' => 'Unpaid leave',
+                'amount' => self::formatAmount($breakdownManualUnpaid),
+            ];
+            $salaryTotalsByType['unpaid_leave'] += $breakdownManualUnpaid;
+        }
+
+        $expectedTotal = round((float) $record->total_deductions, 2);
+        $maxBase = max(0.0, round($expectedTotal - array_sum($salaryTotalsByType), 2));
+        $baseLate = min($baseLate, $maxBase);
+        $baseLoan = min($baseLoan, max(0.0, round($maxBase - $baseLate, 2)));
+        $baseOther = min($baseOther, max(0.0, round($maxBase - $baseLate - $baseLoan, 2)));
+
+        $accountedTotal = round(
+            $baseLate + $baseLoan + $baseOther + array_sum($salaryTotalsByType),
+            2,
+        );
+        if ($expectedTotal > $accountedTotal) {
+            $baseOther = round($baseOther + ($expectedTotal - $accountedTotal), 2);
+        }
+
+        $baseRows = [];
+        if ($baseLate > 0) {
+            $baseRows[] = ['label' => 'Late', 'amount' => self::formatAmount($baseLate)];
+        }
+        if ($baseLoan > 0) {
+            $baseRows[] = ['label' => 'Loan', 'amount' => self::formatAmount($baseLoan)];
+        }
+        if ($baseOther > 0) {
+            $baseRows[] = ['label' => 'Other', 'amount' => self::formatAmount($baseOther)];
+        }
+
+        $allRows = self::filterPositiveLines(array_merge($baseRows, $salaryDeductionRows));
+
+        if ($allRows === [] && $expectedTotal > 0) {
+            return [
+                ['label' => 'Deductions', 'amount' => self::formatAmount($expectedTotal)],
+            ];
+        }
+
+        return $allRows;
     }
 
     /**
