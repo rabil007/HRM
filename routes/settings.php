@@ -390,6 +390,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('clients', [ClientController::class, 'store'])
             ->middleware('can:settings.master-data.clients.create')
             ->name('clients.store');
+        Route::get('clients/{client}', [ClientController::class, 'show'])
+            ->middleware('can:settings.master-data.clients.view')
+            ->name('clients.show');
         Route::put('clients/{client}', [ClientController::class, 'update'])
             ->middleware('can:settings.master-data.clients.update')
             ->name('clients.update');
