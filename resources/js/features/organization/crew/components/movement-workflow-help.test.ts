@@ -11,7 +11,10 @@ describe('movement workflow help', () => {
             movementWorkflowHelpTopicForAction('transfer_vessel'),
             'transfer',
         );
-        assert.equal(movementWorkflowHelpTopicForAction('redeploy'), 'redeploy');
+        assert.equal(
+            movementWorkflowHelpTopicForAction('redeploy'),
+            'redeploy',
+        );
         assert.equal(
             movementWorkflowHelpTopicForAction('plan_future'),
             'plan_future',
