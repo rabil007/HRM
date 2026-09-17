@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
+import { CrewAssignmentReadinessPanel } from '@/features/organization/crew/components/crew-assignment-readiness-panel';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
@@ -319,48 +320,57 @@ export function CrewAssignmentCreateForm({
                 backLabel={backLabel}
             />
 
-            <div className="mx-auto max-w-6xl space-y-6">
-                <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
-                    <div className="flex gap-3">
-                        <Info
-                            className="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
-                            aria-hidden
-                        />
-                        <div className="space-y-0.5 text-sm text-sky-900 dark:text-sky-100">
-                            {fromPlanning ? (
-                                <>
-                                    <p className="font-medium">
-                                        Planning values are forecasts only.
-                                        Actual movement timestamps are recorded
-                                        when you confirm Start Assignment.
-                                    </p>
-                                    <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
-                                        Expected Vessel Join stays a forecast.
-                                        The assignment start time uses the
-                                        trusted server submit time.
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="font-medium">
-                                        Start one crew member, or add more to
-                                        start several assignments with the same
-                                        mobilisation details.
-                                    </p>
-                                    <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
-                                        Save as Draft remains available for a
-                                        single crew member. Future mobilisation
-                                        belongs in Crew Planning.
-                                    </p>
-                                </>
-                            )}
+            <div className="mx-auto max-w-6xl pb-28">
+                <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+                    <div className="space-y-6">
+                        <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
+                            <div className="flex gap-3">
+                                <Info
+                                    className="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
+                                    aria-hidden
+                                />
+                                <div className="space-y-0.5 text-sm text-sky-900 dark:text-sky-100">
+                                    {fromPlanning ? (
+                                        <>
+                                            <p className="font-medium">
+                                                Planning values are forecasts
+                                                only. Actual movement timestamps
+                                                are recorded when you confirm
+                                                Start Assignment.
+                                            </p>
+                                            <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
+                                                Expected Vessel Join stays a
+                                                forecast. The assignment start
+                                                time uses the trusted server
+                                                submit time.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="font-medium">
+                                                Start one crew member, or add
+                                                more to start several assignments
+                                                with the same mobilisation
+                                                details.
+                                            </p>
+                                            <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
+                                                Save as Draft remains available
+                                                for a single crew member. Future
+                                                mobilisation belongs in Crew
+                                                Planning.
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <Card className="border-border/80 dark:border-white/10">
-                    <CardContent className="p-6 md:p-8">
-                        <form onSubmit={handleSubmit} className="space-y-10">
+                        <Card className="border-border/80 dark:border-white/10">
+                            <CardContent className="p-6 md:p-8">
+                                <form
+                                    onSubmit={handleSubmit}
+                                    className="space-y-10"
+                                >
                             {fromPlanning && planning_context ? (
                                 <>
                                     <PlanningStartAuthoritativeFields
@@ -415,13 +425,14 @@ export function CrewAssignmentCreateForm({
                                     </div>
                                 </>
                             ) : (
-                                <CrewMembersSection
-                                    rows={rows}
-                                    formOptions={form_options}
-                                    errors={formErrors}
-                                    compact={bulkMode}
-                                    canAddRow={can.start && !fromPlanning}
-                                    onAddRow={() => {
+                                <>
+                                    <CrewMembersSection
+                                        rows={rows}
+                                        formOptions={form_options}
+                                        errors={formErrors}
+                                        compact={bulkMode}
+                                        canAddRow={can.start && !fromPlanning}
+                                        onAddRow={() => {
                                         const next = newCrewRow();
                                         setRowKeys((keys) => [
                                             ...keys,
@@ -446,19 +457,50 @@ export function CrewAssignmentCreateForm({
                                             ),
                                         );
                                     }}
-                                    onChangeRow={(
-                                        index: number,
-                                        row: BulkAddCrewRow,
-                                    ) => {
-                                        form.setData(
-                                            'crew',
-                                            form.data.crew.map((item, i) =>
-                                                i === index ? row : item,
-                                            ),
-                                        );
-                                    }}
-                                />
+                                        onChangeRow={(
+                                            index: number,
+                                            row: BulkAddCrewRow,
+                                        ) => {
+                                            form.setData(
+                                                'crew',
+                                                form.data.crew.map((item, i) =>
+                                                    i === index ? row : item,
+                                                ),
+                                            );
+                                        }}
+                                    />
+
+                                    <div className="xl:hidden">
+                                        <CrewAssignmentReadinessPanel
+                                            employeeId={effectiveEmployeeId}
+                                            formOptions={form_options}
+                                            destinationVesselId={
+                                                form.data.vessel_id
+                                            }
+                                            bulkMode={bulkMode}
+                                        />
+                                    </div>
+                                </>
                             )}
+
+                            {fromPlanning ? (
+                                <div className="xl:hidden">
+                                    <CrewAssignmentReadinessPanel
+                                        employeeId={effectiveEmployeeId}
+                                        formOptions={form_options}
+                                        destinationVesselId={
+                                            form.data.vessel_id
+                                        }
+                                        planningEmployeeName={
+                                            planning_context?.employee_name ??
+                                            null
+                                        }
+                                        planningRankName={
+                                            planning_context?.rank_name ?? null
+                                        }
+                                    />
+                                </div>
+                            ) : null}
 
                             <CrewAssignmentCommonFields
                                 form={form}
@@ -633,9 +675,28 @@ export function CrewAssignmentCreateForm({
                                     className="w-full"
                                 />
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="hidden xl:block">
+                        <div className="sticky top-24">
+                            <CrewAssignmentReadinessPanel
+                                employeeId={effectiveEmployeeId}
+                                formOptions={form_options}
+                                destinationVesselId={form.data.vessel_id}
+                                bulkMode={bulkMode}
+                                planningEmployeeName={
+                                    planning_context?.employee_name ?? null
+                                }
+                                planningRankName={
+                                    planning_context?.rank_name ?? null
+                                }
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {!bulkMode && !fromPlanning ? (

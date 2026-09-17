@@ -13,6 +13,7 @@ use App\Models\EmployeeContract;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionFieldCatalog;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -594,6 +595,100 @@ test('company_timezone is included in form_options on create page', function () 
 // ============================================================
 // Regression: P0 draft does NOT block create (has_active_assignment = false for draft)
 // ============================================================
+
+test('create page exposes max_home_days and home availability readiness for in-home employees', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    CrewOperationsSettings::saveSettings($company->id, [], 30);
+
+    $vessel = makeCrewMovementVessel('Home Readiness Vessel', $company);
+    $employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-HOME-'.uniqid(),
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::today('Asia/Dubai')->subDays(50),
+        'closed_at' => CarbonImmutable::today('Asia/Dubai')->subDays(36),
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('form_options.max_home_days', 30)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.status", 'in_home')
+            ->where("form_options.employee_status_by_employee.{$employee->id}.days_at_home", 36)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.availability_status", 'over_limit')
+            ->where("form_options.employee_status_by_employee.{$employee->id}.availability_detail", '6 days over availability limit')
+        );
+});
+
+test('create page employee options include profile fields for assignment readiness', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, ['crew_operations.assignments.create']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee->update([
+        'image' => 'employees/test-avatar.jpg',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+        );
+
+    $matched = collect($response->inertiaProps('form_options.employees'))
+        ->firstWhere('id', $employee->id);
+
+    expect($matched)->not->toBeNull()
+        ->and($matched['image'])->toBe('employees/test-avatar.jpg');
+});
+
+test('home availability readiness fields are stripped without assignments view permission', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, ['crew_operations.assignments.create']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-HOME-RESTRICTED-'.uniqid(),
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::parse('2026-06-01'),
+        'closed_at' => CarbonImmutable::parse('2026-08-01'),
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where("form_options.employee_status_by_employee.{$employee->id}.days_at_home", null)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.availability_status", null)
+            ->where("form_options.employee_status_by_employee.{$employee->id}.availability_detail", null)
+        );
+});
 
 test('P0 draft assignment does not set has_active_assignment to true', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();

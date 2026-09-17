@@ -1108,7 +1108,9 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 
 ## Create Page Behaviour
 
-`organization/crew/create` renders employee operational status intelligence immediately after the user selects an employee from the form. The status is batch-resolved on the server by `CrewAssignmentStatusResolver` and injected into `form_options.employee_status_by_employee` (keyed by employee ID integer).
+`organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows **Assignment Readiness** for the selected employee: identity summary, current crew status, current assignment context, home availability, operational warnings, and deterministic recommended actions.
+
+Operational readiness is batch-resolved on the server by `CrewAssignmentStatusResolver` and injected into `form_options.employee_status_by_employee` (keyed by employee ID integer). Home availability for In Home / Home-Redeployment employees reuses `CurrentCrewHomeQuery` against the company Availability Rule (`form_options.max_home_days`).
 
 ### Status visibility and authorization scoping
 

@@ -4,10 +4,8 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    CrewEmployeeOperationalStatus,
-    getEmployeeStatusContainerClass,
-} from '@/features/organization/crew/components/crew-employee-operational-status';
+import { getEmployeeStatusContainerClass } from '@/features/organization/crew/components/crew-employee-operational-status';
+import { CrewEmployeeStatusBadge } from '@/features/organization/crew/components/crew-employee-status-badge';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type {
@@ -90,23 +88,6 @@ export function CrewMemberFields({
               )
             : null);
 
-    const resolvedActiveOnVessel =
-        activeOnVessel ??
-        (showOperationalStatus &&
-        'active_on_vessel_by_employee' in formOptions &&
-        data.employee_id != null
-            ? lookupByEmployeeId(
-                  formOptions.active_on_vessel_by_employee,
-                  data.employee_id,
-              )
-            : null);
-
-    const companyTimezone =
-        'company_timezone' in formOptions &&
-        typeof formOptions.company_timezone === 'string'
-            ? formOptions.company_timezone
-            : 'UTC';
-
     const selectedEmployee = formOptions.employees.find(
         (employee) => employee.id === data.employee_id,
     );
@@ -147,7 +128,14 @@ export function CrewMemberFields({
                     )}
                 >
                     <div className="space-y-2">
-                        <Label htmlFor="crew-employee">Employee *</Label>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Label htmlFor="crew-employee">Employee *</Label>
+                            {showOperationalStatus && resolvedEmployeeStatus ? (
+                                <CrewEmployeeStatusBadge
+                                    status={resolvedEmployeeStatus}
+                                />
+                            ) : null}
+                        </div>
                         <AppSelect
                             value={data.employee_id?.toString() ?? ''}
                             onValueChange={(value) => {
@@ -216,14 +204,6 @@ export function CrewMemberFields({
                         ) : null}
                         <InputError message={errors[employeeErrorKey]} />
                     </div>
-
-                    {showOperationalStatus && resolvedEmployeeStatus ? (
-                        <CrewEmployeeOperationalStatus
-                            status={resolvedEmployeeStatus}
-                            activeOnVessel={resolvedActiveOnVessel}
-                            companyTimezone={companyTimezone}
-                        />
-                    ) : null}
                 </div>
             )}
 

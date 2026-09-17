@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 
@@ -18,26 +19,29 @@ final class CrewAssignmentCreateFormOptions
      * Restricted assignment details stay hidden without assignments.view.
      *
      * @return array{
-     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null}>,
+     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null, image: string|null, nationality_name: string|null}>,
      *     active_on_vessel_by_employee: array<int, array<string, mixed>>,
      *     employee_status_by_employee: array<int, array<string, mixed>>,
      *     ranks: list<array{id: int, name: string}>,
      *     vessels: list<array{id: int, name: string, client_id: int|null, is_active: bool}>,
      *     clients: list<array{id: int, name: string}>,
      *     courses: list<array{id: int, name: string}>,
-     *     company_timezone: string
+     *     company_timezone: string,
+     *     max_home_days: int
      * }
      */
     public static function for(int $companyId, ?User $user): array
     {
         $canView = $user?->can('crew_operations.assignments.view') ?? false;
         $canTransfer = CrewAssignmentPagePermissions::canTransfer($user);
+        $maxHomeDays = CrewOperationsSettings::maxHomeDays($companyId);
 
         $employeeModels = Employee::query()
             ->where('company_id', $companyId)
             ->active()
+            ->with(['nationalityRef:id,name'])
             ->orderBy('name')
-            ->get(['id', 'name', 'employee_no', 'rank_id']);
+            ->get(['id', 'name', 'employee_no', 'rank_id', 'image', 'nationality_id']);
 
         $employeeIds = $employeeModels->pluck('id')->map(fn ($id) => (int) $id)->all();
 
@@ -52,6 +56,13 @@ final class CrewAssignmentCreateFormOptions
             }
         }
 
+        $employeeStatusByEmployee = self::enrichHomeAvailability(
+            app(CrewAssignmentStatusResolver::class)
+                ->forEmployeeIds($companyId, $employeeIds, includeRestrictedFields: $canView, today: null),
+            $maxHomeDays,
+            $canView,
+        );
+
         return [
             'employees' => $employeeModels
                 ->map(fn (Employee $employee) => [
@@ -59,18 +70,94 @@ final class CrewAssignmentCreateFormOptions
                     'name' => $employee->name,
                     'employee_no' => $employee->employee_no,
                     'rank_id' => $employee->rank_id,
+                    'image' => $employee->image,
+                    'nationality_name' => $employee->nationalityRef?->name,
                 ])
                 ->values()
                 ->all(),
             'active_on_vessel_by_employee' => $activeOnVessel,
-            'employee_status_by_employee' => app(CrewAssignmentStatusResolver::class)
-                ->forEmployeeIds($companyId, $employeeIds, includeRestrictedFields: $canView, today: null),
+            'employee_status_by_employee' => $employeeStatusByEmployee,
             'ranks' => self::activeRanks(),
             'vessels' => self::activeVessels($companyId),
             'clients' => self::activeClients(),
             'courses' => self::activeCourses(),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
+            'max_home_days' => $maxHomeDays,
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $statusByEmployee
+     * @return array<int, array<string, mixed>>
+     */
+    private static function enrichHomeAvailability(
+        array $statusByEmployee,
+        int $maxHomeDays,
+        bool $includeRestrictedFields,
+    ): array {
+        foreach ($statusByEmployee as $employeeId => $status) {
+            if (! CurrentCrewHomeQuery::isOnHomeStatus((string) ($status['status'] ?? ''))) {
+                continue;
+            }
+
+            $daysAtHome = CurrentCrewHomeQuery::resolveDaysAtHome($status);
+            $availabilityStatus = CurrentCrewHomeQuery::availabilityStatus($daysAtHome, $maxHomeDays);
+
+            $statusByEmployee[$employeeId]['days_at_home'] = $includeRestrictedFields ? $daysAtHome : null;
+            $statusByEmployee[$employeeId]['availability_status'] = $includeRestrictedFields
+                ? $availabilityStatus
+                : null;
+            $statusByEmployee[$employeeId]['availability_label'] = $includeRestrictedFields
+                ? self::homeAvailabilityLabel($daysAtHome, $maxHomeDays)
+                : null;
+            $statusByEmployee[$employeeId]['availability_detail'] = $includeRestrictedFields
+                ? self::homeAvailabilityDetail($availabilityStatus, $daysAtHome, $maxHomeDays)
+                : null;
+        }
+
+        return $statusByEmployee;
+    }
+
+    private static function homeAvailabilityLabel(?int $daysAtHome, int $maxHomeDays): string
+    {
+        if ($daysAtHome === null) {
+            return 'Available';
+        }
+
+        return sprintf('%d / %d days', $daysAtHome, $maxHomeDays);
+    }
+
+    private static function homeAvailabilityDetail(
+        string $availabilityStatus,
+        ?int $daysAtHome,
+        int $maxHomeDays,
+    ): ?string {
+        if ($daysAtHome === null) {
+            return null;
+        }
+
+        if ($availabilityStatus === 'over_limit') {
+            return sprintf(
+                '%d days over availability limit',
+                $daysAtHome - $maxHomeDays,
+            );
+        }
+
+        if ($availabilityStatus === 'near_limit') {
+            return sprintf(
+                '%d days remaining',
+                max(0, $maxHomeDays - $daysAtHome),
+            );
+        }
+
+        if ($availabilityStatus === 'within_limit') {
+            return sprintf(
+                '%d days remaining',
+                max(0, $maxHomeDays - $daysAtHome),
+            );
+        }
+
+        return null;
     }
 
     /**

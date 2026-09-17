@@ -365,6 +365,8 @@ export interface CrewAssignmentFormOptions {
         name: string;
         employee_no: string | null;
         rank_id: number | null;
+        image?: string | null;
+        nationality_name?: string | null;
     }>;
     ranks: Array<{
         id: number;
@@ -397,6 +399,10 @@ export interface EmployeeOperationalStatus {
     warning: string | null;
     in_home_days: number | null;
     vessel_name: string | null;
+    days_at_home?: number | null;
+    availability_status?: CurrentCrewHomeAvailabilityStatus | null;
+    availability_label?: string | null;
+    availability_detail?: string | null;
     /** Always present. True when the employee has an Active assignment, including Active P0. False for Draft P0, completed, or no assignment. */
     has_active_assignment: boolean;
 }
@@ -406,6 +412,7 @@ export interface CrewAssignmentCreateFormOptions extends CrewAssignmentFormOptio
     employee_status_by_employee?: Record<string, EmployeeOperationalStatus>;
     /** Company IANA timezone string (e.g. 'Asia/Dubai'). Used to render all operational phase timestamps consistently. */
     company_timezone?: string;
+    max_home_days?: number;
 }
 
 export type CrewPlanningStartContext = {
