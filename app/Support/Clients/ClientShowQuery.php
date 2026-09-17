@@ -21,8 +21,8 @@ final class ClientShowQuery
      *         updated_at: string|null,
      *         is_in_use: bool,
      *         can_delete: bool,
-     *         usage_count: int,
-     *         usage_label: string|null
+     *         usage_count: null,
+     *         usage_label: null
      *     },
      *     operations: array{
      *         projects: array{
@@ -161,8 +161,10 @@ final class ClientShowQuery
                 'updated_at' => $client->updated_at?->toIso8601String(),
                 'is_in_use' => (bool) ($usageFlags['is_in_use'] ?? false),
                 'can_delete' => (bool) ($usageFlags['can_delete'] ?? false),
-                'usage_count' => (int) ($usageFlags['usage_count'] ?? 0),
-                'usage_label' => $usageFlags['usage_label'] ?? null,
+                // The usage summary spans multiple permission domains. Keep only the generic
+                // in-use/delete decision here; domain-specific counts live in guarded operations.
+                'usage_count' => null,
+                'usage_label' => null,
             ],
             'operations' => [
                 'projects' => $projectsData,
