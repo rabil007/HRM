@@ -98,9 +98,4 @@ export function crewPhaseDescription(
     return crewPhaseCopy(code)?.description ?? null;
 }
 
-export function crewPhaseGuideItems(): CrewPhaseCopy[] {
-    return CREW_PHASE_CODES.map((code) => ({
-        code,
-        ...CREW_PHASE_COPY[code],
-    }));
-}
+export { crewPhaseGuideItems } from './crew-phase-guide-content.ts';

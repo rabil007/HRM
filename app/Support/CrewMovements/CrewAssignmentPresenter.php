@@ -30,6 +30,13 @@ class CrewAssignmentPresenter
             ? $assignment->mobilisation_readiness
             : (new CrewMobilisationReadinessResolver)->forAssignment($assignment, $user, includeHrefs: false);
         $availableActions = CrewMovementAvailableActions::for($assignment);
+        $recommended = (new CrewAssignmentRecommendedActionResolver)->forAssignment(
+            $assignment,
+            $availableActions,
+            $readiness,
+            $relief,
+            $user,
+        );
 
         return [
             'id' => $assignment->id,
@@ -79,7 +86,7 @@ class CrewAssignmentPresenter
                 : CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
             'available_actions' => $availableActions,
             'mobilisation_readiness' => $readiness->applies ? $readiness->toArray(compact: true) : null,
-            'recommended_action' => null,
+            'recommended_action' => $recommended?->toArray(),
             'movement_context' => self::movementContext($assignment, $tourProgress),
         ];
     }

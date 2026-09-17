@@ -9,6 +9,7 @@ import {
     WhyStartBlockedHelp,
 } from '@/features/organization/crew/components/crew-movement-guidance-primitives';
 import { CrewMovementJourneyIndicator } from '@/features/organization/crew/components/crew-movement-journey-indicator';
+import { MovementWorkflowHelp } from '@/features/organization/crew/components/movement-workflow-help';
 import {
     buildAssignmentReadinessGuidance,
     readinessAdvisoryClassName,
@@ -158,9 +159,17 @@ export function CrewAssignmentReadinessPanel({
                         {guidance ? (
                             <div className="space-y-2">
                                 <div>
-                                    <p className="text-xs font-semibold tracking-wide text-foreground">
-                                        {guidance.phaseLabel}
-                                    </p>
+                                    <div className="flex items-center gap-0.5">
+                                        <p className="text-xs font-semibold tracking-wide text-foreground">
+                                            {guidance.phaseLabel}
+                                        </p>
+                                        {guidance.phaseLabel === 'AVAILABLE' ? (
+                                            <MovementWorkflowHelp
+                                                topic="new_assignment"
+                                                label="Explain starting a new assignment"
+                                            />
+                                        ) : null}
+                                    </div>
                                     {guidance.summaryLine ? (
                                         <p className="mt-0.5 text-xs text-muted-foreground">
                                             {guidance.summaryLine}

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
+import { CrewOperationalStatePanel } from '@/features/organization/crew/components/crew-operational-state-panel';
 import type {
     CrewAssignmentFormOptions,
     CrewMovementAction,
@@ -22,6 +23,12 @@ export function CrewRecommendedNextAction({
     formOptions,
     canViewDocuments,
     canViewPlanning,
+    canPerformMovement = true,
+    canCancel = false,
+    currentPhase,
+    status,
+    statusLabel,
+    vesselName,
 }: {
     assignmentId: number;
     recommended: CrewRecommendedAction | null;
@@ -30,6 +37,16 @@ export function CrewRecommendedNextAction({
     formOptions?: CrewAssignmentFormOptions;
     canViewDocuments: boolean;
     canViewPlanning: boolean;
+    canPerformMovement?: boolean;
+    canCancel?: boolean;
+    currentPhase?: {
+        code: string;
+        label: string;
+        status?: string;
+    } | null;
+    status?: string;
+    statusLabel?: string;
+    vesselName?: string | null;
 }): ReactElement | null {
     const [selectedAction, setSelectedAction] =
         useState<CrewMovementAction | null>(null);
@@ -81,16 +98,27 @@ export function CrewRecommendedNextAction({
                 </div>
             </CardHeader>
             <CardContent className="space-y-3">
+                <CrewOperationalStatePanel
+                    assignment={{
+                        current_phase: currentPhase
+                            ? {
+                                  ...currentPhase,
+                                  status: currentPhase.status ?? 'active',
+                              }
+                            : null,
+                        status: status ?? 'active',
+                        status_label: statusLabel ?? '',
+                        available_actions: availableActions,
+                        vessel: vesselName ? { id: 0, name: vesselName } : null,
+                    }}
+                    recommended={recommended}
+                    permissions={{
+                        perform_movement: canPerformMovement,
+                        cancel: canCancel,
+                    }}
+                />
                 {recommended ? (
                     <>
-                        <div>
-                            <p className="text-sm font-semibold text-foreground">
-                                {recommended.label}
-                            </p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                {recommended.reason}
-                            </p>
-                        </div>
                         <div className="flex flex-wrap items-center gap-2">
                             {recommendedMovement ? (
                                 <Button

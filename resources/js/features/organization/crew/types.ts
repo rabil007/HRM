@@ -176,6 +176,7 @@ export interface CrewAssignmentListItem
     planned_travel_at?: string | null;
     actual_arrival_at?: string | null;
     actual_join_at?: string | null;
+    actual_disembarkation_at?: string | null;
     created_at: string | null;
     company_timezone?: string;
     warnings: CrewAssignmentWarning[];

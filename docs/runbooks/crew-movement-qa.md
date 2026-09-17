@@ -28,6 +28,19 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Expected Vessel Join cannot be saved after an existing Planned Sign-Off; the sign-off plan is not silently changed
 - [ ] Arrival Date cannot be saved after Expected Vessel Join
 
+## 2A0. Crew Assignment index guidance
+
+- [ ] Crew Assignments index shows **Phase Guide** beside Start Assignment
+- [ ] Phase Guide opens/closes in a compact dialog with keyboard-accessible trigger and title
+- [ ] Guide shows P0 → P2A → P2B → P4 → P5 → P6 flow plus P1/P3 compatibility notes
+- [ ] Guide states that not every assignment uses every phase
+- [ ] P4 section explains Transfer Vessel as a direct onboard movement alternative
+- [ ] P5/P6 sections explain Redeploy vs Close Assignment at a high level
+- [ ] Quick detail and assignment show use the same Current state / Next normal action / Other valid actions pattern when `recommended_action` is present
+- [ ] Transfer / Redeploy / Confirm Disembarkation / Return Home / Close / Cancel dialogs show a compact **What will happen** section
+- [ ] Confirm Disembarkation copy states Planned Sign-Off does not disembark the employee
+- [ ] Bulk Start preserves a temporary browser session snapshot when Review/Open/Transfer navigates away and restores it on return to `/organization/crew/create`
+
 ## 2A. Unified Start / Bulk Create
 
 - [ ] Current Crew shows only **Start Assignment** (no separate Bulk Add Crew header action)

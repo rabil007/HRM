@@ -9,6 +9,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { MovementWorkflowHelp } from '@/features/organization/crew/components/movement-workflow-help';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import type { ActiveOnVesselAssignment } from '../types';
 
@@ -74,7 +75,13 @@ export function VesselTransferRecommendationDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Possible Vessel Transfer</DialogTitle>
+                    <div className="flex items-start gap-1">
+                        <DialogTitle>Possible Vessel Transfer</DialogTitle>
+                        <MovementWorkflowHelp
+                            topic="transfer"
+                            label="Explain Transfer Vessel"
+                        />
+                    </div>
                     <DialogDescription>
                         {employeeName} is already On Vessel on {vesselName}.
                     </DialogDescription>

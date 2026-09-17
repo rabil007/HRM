@@ -1,4 +1,4 @@
-import { Link, router, useForm } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { Info } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useCallback, useMemo, useState } from 'react';
@@ -18,6 +18,11 @@ import type { CrewMemberRowState } from '@/features/organization/crew/components
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
+import {
+    clearBulkCreateSession,
+    loadBulkCreateSession,
+    saveBulkCreateSession,
+} from '@/features/organization/crew/lib/bulk-create-session';
 import type {
     BulkPreviewFilter,
     BulkSidebarMode,
@@ -154,32 +159,61 @@ export function CrewAssignmentCreateForm({
     planning_back_query?: CrewPlanningBackQuery | null;
 }): ReactElement {
     const fromPlanning = planning_context !== null;
+    const { current_company_id: currentCompanyId } = usePage().props as {
+        current_company_id?: number | null;
+    };
     const initialRows = useMemo(
         () => createInitialRows(initial_row_count, planning_context),
         [initial_row_count, planning_context],
     );
-    const [rowKeys, setRowKeys] = useState<string[]>(initialRows.keys);
+    const restoredBulkSession = useMemo(() => {
+        if (fromPlanning || currentCompanyId == null) {
+            return null;
+        }
+
+        return loadBulkCreateSession(currentCompanyId);
+    }, [currentCompanyId, fromPlanning]);
+    const [rowKeys, setRowKeys] = useState<string[]>(
+        () => restoredBulkSession?.rowKeys ?? initialRows.keys,
+    );
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
-    const [bulkSidebarMode, setBulkSidebarMode] =
-        useState<BulkSidebarMode>('summary');
-    const [previewRowKey, setPreviewRowKey] = useState<string | null>(null);
+    const [bulkSidebarMode, setBulkSidebarMode] = useState<BulkSidebarMode>(
+        () => restoredBulkSession?.bulkSidebarMode ?? 'summary',
+    );
+    const [previewRowKey, setPreviewRowKey] = useState<string | null>(
+        () => restoredBulkSession?.previewRowKey ?? null,
+    );
     const [previewFilter, setPreviewFilter] =
         useState<BulkPreviewFilter>('all');
     const [scrollFocusedRow, setScrollFocusedRow] = useState(false);
 
     const form = useForm<UnifiedCreateFormData>({
-        client_id: planning_context?.client_id ?? null,
-        vessel_id: planning_context?.vessel_id ?? null,
-        planned_join_at: planning_context?.planned_join_at ?? '',
+        client_id:
+            restoredBulkSession?.form.client_id ??
+            planning_context?.client_id ??
+            null,
+        vessel_id:
+            restoredBulkSession?.form.vessel_id ??
+            planning_context?.vessel_id ??
+            null,
+        planned_join_at:
+            restoredBulkSession?.form.planned_join_at ??
+            planning_context?.planned_join_at ??
+            '',
         planned_arrival_at: planning_context?.planned_arrival_at ?? '',
-        remarks: planning_context?.remarks ?? '',
-        crew: initialRows.rows.map(
-            ({ employee_id, rank_id, planned_arrival_at }) => ({
-                employee_id,
-                rank_id,
-                planned_arrival_at: planned_arrival_at ?? null,
-            }),
-        ),
+        remarks:
+            restoredBulkSession?.form.remarks ??
+            planning_context?.remarks ??
+            '',
+        crew:
+            restoredBulkSession?.form.crew ??
+            initialRows.rows.map(
+                ({ employee_id, rank_id, planned_arrival_at }) => ({
+                    employee_id,
+                    rank_id,
+                    planned_arrival_at: planned_arrival_at ?? null,
+                }),
+            ),
         submission_intent: can.start ? 'start' : 'draft',
     });
 
@@ -237,6 +271,33 @@ export function CrewAssignmentCreateForm({
     );
     const { readyCount, blockedCount, incompleteCount } = bulkSummary;
     const bulkCanSubmit = canSubmitBulkBatch(bulkSummary);
+    const persistBulkCreateDraft = useCallback(() => {
+        if (fromPlanning || !bulkMode || currentCompanyId == null) {
+            return;
+        }
+
+        saveBulkCreateSession(currentCompanyId, {
+            form: {
+                client_id: form.data.client_id,
+                vessel_id: form.data.vessel_id,
+                planned_join_at: form.data.planned_join_at,
+                remarks: form.data.remarks,
+                crew: form.data.crew,
+            },
+            rowKeys,
+            bulkSidebarMode,
+            previewRowKey,
+        });
+    }, [
+        bulkMode,
+        bulkSidebarMode,
+        currentCompanyId,
+        form.data,
+        fromPlanning,
+        previewRowKey,
+        rowKeys,
+    ]);
+
     const formErrors = form.errors as Record<string, string | undefined>;
     const backHref = fromPlanning
         ? crewPlanningIndex.url({
@@ -408,6 +469,7 @@ export function CrewAssignmentCreateForm({
                     }
                     onRemoveRow={handleRemoveRow}
                     onRemoveBlockedRows={handleRemoveBlockedRows}
+                    onBeforeExternalNavigation={persistBulkCreateDraft}
                     batchError={bulkBatchError}
                 />
             );
@@ -495,6 +557,9 @@ export function CrewAssignmentCreateForm({
         }));
 
         form.post(bulkStore.url(), {
+            onSuccess: () => {
+                clearBulkCreateSession();
+            },
             onError: (errors) => {
                 focusBulkValidationError(
                     errors as Record<string, string | undefined>,

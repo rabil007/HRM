@@ -25,6 +25,7 @@ import {
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewMobilisationReadinessBadge } from '@/features/organization/crew/components/crew-mobilisation-readiness-badge';
+import { CrewOperationalStatePanel } from '@/features/organization/crew/components/crew-operational-state-panel';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
@@ -160,12 +161,24 @@ function QuickDetailContent({
         can.view_planning && isOnVessel ? reliefActionHref(assignment) : null;
     const primaryHref =
         model.needsDocumentReview && documentsHref ? documentsHref : null;
+    const recommendedMovement =
+        assignment.recommended_action?.type === 'movement' &&
+        assignment.recommended_action.action
+            ? (assignment.recommended_action.action as CrewMovementAction)
+            : null;
     const primaryLabel = primaryHref
         ? 'Review documents'
-        : model.movement
-          ? CREW_MOVEMENT_ACTION_LABELS[model.movement]
-          : null;
-    const primaryMovement = primaryHref ? null : model.movement;
+        : assignment.recommended_action?.type === 'relief' &&
+            assignment.recommended_action.label
+          ? assignment.recommended_action.label
+          : recommendedMovement
+            ? CREW_MOVEMENT_ACTION_LABELS[recommendedMovement]
+            : model.movement
+              ? CREW_MOVEMENT_ACTION_LABELS[model.movement]
+              : null;
+    const primaryMovement = primaryHref
+        ? null
+        : (recommendedMovement ?? model.movement);
     const actualDates = actualMovementDates(assignment, phase);
     const hasCriticalIssue = model.issues.some(
         (issue) => issue.severity === 'critical',
@@ -332,6 +345,18 @@ function QuickDetailContent({
                     currentPhaseCode={phase?.code ?? null}
                     legacyContext={legacyContext}
                 />
+
+                <div className="border-b border-border/60 px-4 py-4">
+                    <CrewOperationalStatePanel
+                        assignment={assignment}
+                        recommended={assignment.recommended_action}
+                        permissions={{
+                            perform_movement: can.perform_movement,
+                            cancel: can.cancel,
+                        }}
+                        showLastChange
+                    />
+                </div>
 
                 <div className="flex flex-col gap-5 px-4 py-4">
                     <section
