@@ -241,8 +241,8 @@ export function CrewTimelineReviewContent({
                             from Crew Assignments. Linked timesheets:{' '}
                             {preparation.linked_timesheet_count}. Operational
                             fields are locked; financial fields remain editable.
-                            {preparation.live_timeline_advanced
-                                ? ' Live crew timeline has advanced since this snapshot. This historical payroll snapshot remains unchanged.'
+                            {preparation.snapshot_notice
+                                ? ` ${preparation.snapshot_notice}`
                                 : null}
                         </AlertDescription>
                     </Alert>

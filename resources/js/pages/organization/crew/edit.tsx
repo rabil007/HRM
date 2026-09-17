@@ -10,9 +10,9 @@ import { CrewAssignmentCommonFields } from '@/features/organization/crew/compone
 import { CrewAssignmentEditContextPanel } from '@/features/organization/crew/components/crew-assignment-edit-context-panel';
 import { CrewMemberFields } from '@/features/organization/crew/components/crew-member-fields';
 import type {
+    CrewAssignmentCreateFormOptions,
     CrewAssignmentDetail,
     CrewAssignmentFormData,
-    CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
 import {
@@ -26,9 +26,25 @@ export default function CrewAssignmentEdit({
     can,
 }: {
     assignment: CrewAssignmentDetail;
-    form_options: CrewAssignmentFormOptions;
+    form_options: CrewAssignmentCreateFormOptions;
     can: CrewAssignmentPagePermissions;
 }) {
+    const employeeId = assignment.employee?.id ?? null;
+    const employeeStatus =
+        employeeId !== null
+            ? (form_options.employee_status_by_employee?.[String(employeeId)] ??
+              form_options.employee_status_by_employee?.[employeeId] ??
+              null)
+            : null;
+    const activeOnVessel =
+        employeeId !== null
+            ? (form_options.active_on_vessel_by_employee?.[
+                  String(employeeId)
+              ] ??
+              form_options.active_on_vessel_by_employee?.[employeeId] ??
+              null)
+            : null;
+
     const form = useForm<CrewAssignmentFormData>({
         employee_id: assignment.employee?.id ?? null,
         rank_id: assignment.rank?.id ?? null,
@@ -127,6 +143,9 @@ export default function CrewAssignmentEdit({
                                         lockEmployee
                                         employeeLabel={employeeLabel}
                                         currentPhase={assignment.current_phase}
+                                        showOperationalStatus
+                                        employeeStatus={employeeStatus}
+                                        activeOnVessel={activeOnVessel}
                                     />
                                 </section>
 

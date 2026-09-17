@@ -18,6 +18,7 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\User;
+use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
@@ -61,11 +62,16 @@ function makeDailyCrewTimelineFixtures(): array
         'start_date' => '2026-01-01',
         'end_date' => null,
         'basic_salary' => 100,
-        'site_allowance' => 50,
-        'supplementary_allowance' => 25,
+        'site_allowance' => 30,
+        'supplementary_allowance' => 20,
     ]);
 
     (new SyncContractSalaryComponentsFromContract)->handle($contract);
+    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 100,
+        'site_allowance' => 30,
+        'supplementary_allowance' => 20,
+    ], '2026-01-01', 'Timeline fixture rates');
     $employee->refresh();
 
     $period = PayrollPeriod::factory()->for($company)->crewOperations()->create([

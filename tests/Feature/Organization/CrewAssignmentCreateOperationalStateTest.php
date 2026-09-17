@@ -716,3 +716,43 @@ test('P0 draft assignment does not set has_active_assignment to true', function 
             ->where("form_options.employee_status_by_employee.{$employee->id}.has_active_assignment", false)
         );
 });
+
+test('edit assignment page includes operational status context for locked employee', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.update',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $vessel = makeCrewMovementVessel('Edit Context Vessel', $company);
+
+    $assignment = CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-EDIT-'.uniqid(),
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'source' => 'manual',
+    ]);
+
+    CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => CarbonImmutable::parse('2026-09-03 08:00:00', 'Asia/Dubai'),
+    ]);
+
+    $assignment->update(['current_phase_id' => $assignment->phases()->first()->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.edit', $assignment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where("form_options.employee_status_by_employee.{$employee->id}.status", 'join_standby')
+            ->where('form_options.max_home_days', CrewOperationsSettings::maxHomeDays($company->id))
+            ->has('form_options.company_timezone')
+        );
+});

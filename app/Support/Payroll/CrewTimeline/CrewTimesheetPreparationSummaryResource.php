@@ -59,10 +59,9 @@ final class CrewTimesheetPreparationSummaryResource
         }
 
         if ($preparation->status === CrewTimesheetPreparationStatus::Applied) {
-            $snapshotConsistent = $this->freshnessChecker->isSnapshotConsistent($preparation, $period);
             $isFresh = true;
-            $isStale = ! $snapshotConsistent;
-            $staleReason = $snapshotConsistent ? null : CrewTimelineFreshnessChecker::STALE_MESSAGE;
+            $isStale = false;
+            $staleReason = null;
         } else {
             $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
             $isStale = ! $isFresh;

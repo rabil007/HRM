@@ -30,6 +30,55 @@ final class CrewAssignmentCreateFormOptions
      *     max_home_days: int
      * }
      */
+    /**
+     * Operational status context for a focused employee set (e.g. Edit Assignment).
+     *
+     * @param  list<int>  $employeeIds
+     * @return array{
+     *     active_on_vessel_by_employee: array<int, array<string, mixed>>,
+     *     employee_status_by_employee: array<int, array<string, mixed>>,
+     *     max_home_days: int
+     * }
+     */
+    public static function operationalContextForEmployees(int $companyId, ?User $user, array $employeeIds): array
+    {
+        $employeeIds = array_values(array_unique(array_map(intval(...), $employeeIds)));
+
+        if ($employeeIds === []) {
+            return [
+                'active_on_vessel_by_employee' => [],
+                'employee_status_by_employee' => [],
+                'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),
+            ];
+        }
+
+        $canView = $user?->can('crew_operations.assignments.view') ?? false;
+        $canTransfer = CrewAssignmentPagePermissions::canTransfer($user);
+        $maxHomeDays = CrewOperationsSettings::maxHomeDays($companyId);
+
+        $activeOnVessel = [];
+
+        if ($canView) {
+            foreach (app(ActiveOnVesselAssignmentFinder::class)->forCompany($companyId, $employeeIds) as $employeeId => $current) {
+                $activeOnVessel[(int) $employeeId] = [
+                    ...$current,
+                    'can_transfer' => $canTransfer,
+                ];
+            }
+        }
+
+        return [
+            'active_on_vessel_by_employee' => $activeOnVessel,
+            'employee_status_by_employee' => self::enrichHomeAvailability(
+                app(CrewAssignmentStatusResolver::class)
+                    ->forEmployeeIds($companyId, $employeeIds, includeRestrictedFields: $canView, today: null),
+                $maxHomeDays,
+                $canView,
+            ),
+            'max_home_days' => $maxHomeDays,
+        ];
+    }
+
     public static function for(int $companyId, ?User $user): array
     {
         $canView = $user?->can('crew_operations.assignments.view') ?? false;

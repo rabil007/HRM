@@ -16,7 +16,9 @@ final class CrewTimelineFreshnessChecker
 
     public const APPLY_TIMELINE_ADVANCED_MESSAGE = 'The active crew timeline has advanced beyond this preparation’s effective cutoff. Prepare and approve a new version before applying it to payroll.';
 
-    public const APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE = 'Live crew timeline has advanced since this snapshot. This historical payroll snapshot remains unchanged.';
+    public const APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE = 'Live crew timeline has advanced since this applied snapshot. This historical payroll snapshot remains unchanged.';
+
+    public const APPLIED_LIVE_SOURCE_CHANGED_MESSAGE = 'Crew source data has changed since this applied snapshot. The historical payroll snapshot remains unchanged. Use the approved correction or replacement workflow if payroll must be adjusted.';
 
     public function __construct(
         private readonly CrewTimelinePhaseQuery $phaseQuery,
@@ -80,6 +82,17 @@ final class CrewTimelineFreshnessChecker
         return $this->isSnapshotConsistent($preparation, $period);
     }
 
+    public function liveSourceChanged(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+    ): bool {
+        if ($preparation->source_hash === null || $preparation->source_hash === '') {
+            return false;
+        }
+
+        return ! $this->isSnapshotConsistent($preparation, $period);
+    }
+
     public function staleReason(
         CrewTimesheetPreparation $preparation,
         PayrollPeriod $period,
@@ -102,8 +115,35 @@ final class CrewTimelineFreshnessChecker
         int $companyId,
         ?string $message = null,
     ): void {
-        $this->sourceLocker->lockAndReloadIssuePhases($period, $preparation, $companyId);
-        $this->assertFresh($preparation, $period, $message);
+        $lockedPhases = $this->sourceLocker->lockAndReloadIssuePhases($period, $preparation, $companyId);
+        $effectiveCutoff = $this->phaseQuery->resolveEffectiveCutoffDate(
+            $period,
+            $preparation->cutoff_date,
+            $lockedPhases,
+        );
+        $currentHash = $this->sourceHasher->hash(
+            $period,
+            $preparation->cutoff_date,
+            $lockedPhases,
+            $effectiveCutoff,
+        );
+
+        if (
+            $preparation->source_hash !== null
+            && $preparation->source_hash !== ''
+            && hash_equals((string) $preparation->source_hash, $currentHash)
+        ) {
+            return;
+        }
+
+        $isApply = ($message === self::APPLY_STALE_MESSAGE);
+        $reason = $message !== null && ! in_array($message, [self::STALE_MESSAGE, self::APPLY_STALE_MESSAGE], true)
+            ? $message
+            : $this->staleReason($preparation, $period, $isApply);
+
+        throw ValidationException::withMessages([
+            'preparation' => $reason ?? self::STALE_MESSAGE,
+        ]);
     }
 
     public function assertFresh(

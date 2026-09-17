@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { CrewEmployeeOperationalStatus } from '@/features/organization/crew/components/crew-employee-operational-status';
 import {
     GuidanceAdvisory,
     GuidanceEmployeeIdentity,
@@ -9,9 +10,9 @@ import {
 import { CrewMovementJourneyIndicator } from '@/features/organization/crew/components/crew-movement-journey-indicator';
 import { buildAssignmentEditGuidance } from '@/features/organization/crew/lib/assignment-edit-guidance';
 import type {
+    CrewAssignmentCreateFormOptions,
     CrewAssignmentDetail,
     CrewAssignmentFormData,
-    CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,7 @@ export function CrewAssignmentEditContextPanel({
 }: {
     assignment: CrewAssignmentDetail;
     formData: CrewAssignmentFormData;
-    formOptions: CrewAssignmentFormOptions;
+    formOptions: CrewAssignmentCreateFormOptions;
     permissions: Pick<
         CrewAssignmentPagePermissions,
         'perform_movement' | 'view_planning'
@@ -33,6 +34,19 @@ export function CrewAssignmentEditContextPanel({
     className?: string;
 }): ReactElement {
     const employee = assignment.employee;
+    const employeeId = employee?.id ?? null;
+    const employeeStatus =
+        employeeId !== null
+            ? (formOptions.employee_status_by_employee?.[String(employeeId)] ??
+              formOptions.employee_status_by_employee?.[employeeId] ??
+              null)
+            : null;
+    const activeOnVessel =
+        employeeId !== null
+            ? (formOptions.active_on_vessel_by_employee?.[String(employeeId)] ??
+              formOptions.active_on_vessel_by_employee?.[employeeId] ??
+              null)
+            : null;
     const employeeOption = employee
         ? formOptions.employees.find((item) => item.id === employee.id)
         : null;
@@ -66,6 +80,14 @@ export function CrewAssignmentEditContextPanel({
                         rankName={rankName}
                         nationalityName={employeeOption?.nationality_name}
                         image={employee.image ?? employeeOption?.image}
+                    />
+                ) : null}
+
+                {employeeStatus ? (
+                    <CrewEmployeeOperationalStatus
+                        status={employeeStatus}
+                        activeOnVessel={activeOnVessel}
+                        companyTimezone={formOptions.company_timezone}
                     />
                 ) : null}
 

@@ -2,10 +2,12 @@
 
 namespace App\Support\Payroll\CrewTimeline;
 
+use App\Enums\PayrollCategory;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewTimesheetPreparation;
+use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use Illuminate\Support\Collection;
@@ -13,7 +15,7 @@ use Illuminate\Support\Collection;
 /**
  * Locks crew movement source rows participating in timeline freshness before
  * a final Apply freshness assertion. Lock order matches Crew Movement:
- * assignments, then phases, then pending corrections and contracts.
+ * employees, assignments, phases, pending corrections, then crew contracts.
  */
 final class CrewTimelineSourceLocker
 {
@@ -22,6 +24,9 @@ final class CrewTimelineSourceLocker
     ) {}
 
     /**
+     * Acquires authoritative locks over every source row that can affect the
+     * preparation hash, then reloads issue phases under those locks.
+     *
      * @return Collection<int, CrewAssignmentPhase>
      */
     public function lockAndReloadIssuePhases(
@@ -30,23 +35,8 @@ final class CrewTimelineSourceLocker
         int $companyId,
     ): Collection {
         $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $preparation->cutoff_date);
-        $phases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
 
-        $assignmentIds = $phases
-            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->crew_assignment_id)
-            ->filter(fn (int $assignmentId): bool => $assignmentId > 0)
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
-
-        $phaseIds = $phases
-            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->id)
-            ->sort()
-            ->values()
-            ->all();
-
-        $employeeIds = $phases
+        $employeeIds = $this->phaseQuery->issuePhases($period, $effectiveEnd)
             ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->assignment?->employee_id)
             ->filter(fn (int $employeeId): bool => $employeeId > 0)
             ->unique()
@@ -54,42 +44,55 @@ final class CrewTimelineSourceLocker
             ->values()
             ->all();
 
+        if ($employeeIds === []) {
+            return collect();
+        }
+
+        Employee::query()
+            ->where('company_id', $companyId)
+            ->whereIn('id', $employeeIds)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        $assignmentIds = CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('employee_id', $employeeIds)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
         if ($assignmentIds !== []) {
-            CrewAssignment::query()
+            $phaseIds = CrewAssignmentPhase::query()
                 ->where('company_id', $companyId)
-                ->whereIn('id', $assignmentIds)
+                ->whereIn('crew_assignment_id', $assignmentIds)
                 ->orderBy('id')
                 ->lockForUpdate()
-                ->get();
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            if ($phaseIds !== []) {
+                CrewMovementCorrection::query()
+                    ->where('company_id', $companyId)
+                    ->pending()
+                    ->whereIn('crew_assignment_phase_id', $phaseIds)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+            }
         }
 
-        if ($phaseIds !== []) {
-            CrewAssignmentPhase::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', $phaseIds)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get();
+        EmployeeContract::query()
+            ->where('company_id', $companyId)
+            ->whereIn('employee_id', $employeeIds)
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
 
-            CrewMovementCorrection::query()
-                ->where('company_id', $companyId)
-                ->pending()
-                ->whereIn('crew_assignment_phase_id', $phaseIds)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get();
-        }
-
-        if ($employeeIds !== []) {
-            EmployeeContract::query()
-                ->where('company_id', $companyId)
-                ->whereIn('employee_id', $employeeIds)
-                ->where('status', 'active')
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get();
-        }
-
-        return $this->phaseQuery->issuePhases($period, $effectiveEnd);
+        return $this->phaseQuery->issuePhasesForUpdate($period, $effectiveEnd);
     }
 }

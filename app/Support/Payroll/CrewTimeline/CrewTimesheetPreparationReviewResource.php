@@ -78,6 +78,7 @@ final class CrewTimesheetPreparationReviewResource
                 'is_stale' => $freshness['is_stale'],
                 'stale_reason' => $freshness['stale_reason'],
                 'live_timeline_advanced' => $freshness['live_timeline_advanced'],
+                'live_source_changed' => $freshness['live_source_changed'],
                 'snapshot_notice' => $freshness['snapshot_notice'],
                 'is_latest' => $this->isLatest($preparation),
                 'prepared_by' => $this->userPayload($preparation->preparedBy),
@@ -893,6 +894,7 @@ final class CrewTimesheetPreparationReviewResource
      *     is_stale: bool,
      *     stale_reason: string|null,
      *     live_timeline_advanced: bool,
+     *     live_source_changed: bool,
      *     snapshot_notice: string|null
      * }
      */
@@ -901,19 +903,23 @@ final class CrewTimesheetPreparationReviewResource
         PayrollPeriod $period,
     ): array {
         if ($preparation->status === CrewTimesheetPreparationStatus::Applied) {
-            $liveTimelineAdvanced = $this->freshnessChecker->liveTimelineAdvanced($preparation, $period);
-            $snapshotConsistent = $this->freshnessChecker->isSnapshotConsistent($preparation, $period);
+            $liveSourceChanged = $this->freshnessChecker->liveSourceChanged($preparation, $period);
+            $liveTimelineAdvanced = ! $liveSourceChanged
+                && $this->freshnessChecker->liveTimelineAdvanced($preparation, $period);
+
+            $snapshotNotice = match (true) {
+                $liveSourceChanged => CrewTimelineFreshnessChecker::APPLIED_LIVE_SOURCE_CHANGED_MESSAGE,
+                $liveTimelineAdvanced => CrewTimelineFreshnessChecker::APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE,
+                default => null,
+            };
 
             return [
                 'is_fresh' => true,
-                'is_stale' => ! $snapshotConsistent,
-                'stale_reason' => $snapshotConsistent
-                    ? null
-                    : CrewTimelineFreshnessChecker::STALE_MESSAGE,
+                'is_stale' => false,
+                'stale_reason' => null,
                 'live_timeline_advanced' => $liveTimelineAdvanced,
-                'snapshot_notice' => $liveTimelineAdvanced
-                    ? CrewTimelineFreshnessChecker::APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE
-                    : null,
+                'live_source_changed' => $liveSourceChanged,
+                'snapshot_notice' => $snapshotNotice,
             ];
         }
 
@@ -924,6 +930,7 @@ final class CrewTimesheetPreparationReviewResource
             'is_stale' => ! $isFresh,
             'stale_reason' => $isFresh ? null : $this->freshnessChecker->staleReason($preparation, $period),
             'live_timeline_advanced' => false,
+            'live_source_changed' => false,
             'snapshot_notice' => null,
         ];
     }

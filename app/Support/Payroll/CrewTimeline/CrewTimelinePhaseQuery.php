@@ -114,6 +114,58 @@ final class CrewTimelinePhaseQuery
     }
 
     /**
+     * Same scope as {@see issuePhases()} but with row locks for Apply freshness.
+     * Must run only after parent crew movement source rows are locked.
+     *
+     * @return Collection<int, CrewAssignmentPhase>
+     */
+    public function issuePhasesForUpdate(
+        PayrollPeriod $period,
+        CarbonInterface $effectiveEnd,
+    ): Collection {
+        $boundaries = $this->utcBoundaries($period, $effectiveEnd);
+
+        if ($boundaries === null) {
+            return collect();
+        }
+
+        [$periodStartUtc, $periodEndUtc] = $boundaries;
+        $companyId = (int) $period->company_id;
+
+        return CrewAssignmentPhase::query()
+            ->where('company_id', $companyId)
+            ->whereIn('status', ['active', 'completed'])
+            ->where(function ($query) use ($periodStartUtc, $periodEndUtc): void {
+                $query->where(function ($actual) use ($periodStartUtc, $periodEndUtc): void {
+                    $actual->whereNotNull('actual_start_at')
+                        ->where('actual_start_at', '<=', $periodEndUtc)
+                        ->where(function ($inner) use ($periodStartUtc): void {
+                            $inner->whereNull('actual_end_at')
+                                ->orWhere('actual_end_at', '>=', $periodStartUtc);
+                        });
+                })->orWhere(function ($planned) use ($periodStartUtc, $periodEndUtc): void {
+                    $planned->whereNull('actual_start_at')
+                        ->whereNotNull('planned_start_at')
+                        ->where('planned_start_at', '<=', $periodEndUtc)
+                        ->where(function ($inner) use ($periodStartUtc): void {
+                            $inner->whereNull('planned_end_at')
+                                ->orWhere('planned_end_at', '>=', $periodStartUtc);
+                        });
+                });
+            })
+            ->whereHas('assignment', function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId);
+            })
+            ->with(['assignment'])
+            ->orderByRaw('actual_start_at is null')
+            ->orderBy('actual_start_at')
+            ->orderBy('planned_start_at')
+            ->orderBy('sequence')
+            ->lockForUpdate()
+            ->get();
+    }
+
+    /**
      * Safe payroll allocation end: the earliest of payroll period end,
      * company-local today, and an explicit cutoff when supplied.
      *

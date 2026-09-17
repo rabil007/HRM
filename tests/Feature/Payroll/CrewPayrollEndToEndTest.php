@@ -46,7 +46,8 @@ function setDailyCrewContractRates(array $fixtures, float $basic, float $site, f
         'supplementary_allowance' => $supp,
     ]);
 
-    (new SyncContractSalaryComponentsFromContract)->handle($contract->fresh());
+    $contract = $contract->fresh();
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
 
     return $contract->fresh();
 }
@@ -399,8 +400,33 @@ test('standby payroll keeps supplementary allowance out of basic salary componen
 
     expect((float) $record->calculation_breakdown['sign_on_standby_days'])->toBe(3.0)
         ->and((float) $record->basic_salary)->toBe(300.0)
-        ->and((float) $record->other_allowances)->toBeGreaterThan(0)
-        ->and((float) $record->gross_salary)->toBe((float) $record->basic_salary + (float) $record->other_allowances);
+        ->and((float) $record->other_allowances)->toBe(60.0)
+        ->and((float) $record->gross_salary)->toBe(360.0)
+        ->and((float) $record->net_salary)->toBe(360.0);
+
+    assertPayrollReconciles($record);
+});
+
+test('three onsite days assert exact basic site and supplementary payroll components', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-21 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    makeSeptemberDailyCrewPeriod($fixtures);
+
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-09-10 08:00:00', '2026-09-12 18:00:00', CrewPhaseStatus::Completed);
+
+    ['record' => $record] = runDailyCrewPayrollPipeline($fixtures);
+
+    $breakdown = $record->calculation_breakdown;
+
+    expect((float) $breakdown['onsite_days'])->toBe(3.0)
+        ->and((float) $record->basic_salary)->toBe(300.0)
+        ->and((float) $breakdown['lines']['site_allowance'])->toBe(90.0)
+        ->and((float) $breakdown['lines']['supplementary_allowance'])->toBe(60.0)
+        ->and((float) $record->other_allowances)->toBe(150.0)
+        ->and((float) $record->gross_salary)->toBe(450.0)
+        ->and((float) $record->net_salary)->toBe(450.0);
 
     assertPayrollReconciles($record);
 });

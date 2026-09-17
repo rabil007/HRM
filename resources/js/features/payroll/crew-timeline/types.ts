@@ -157,6 +157,7 @@ export type CrewTimelinePreparation = {
     is_stale: boolean;
     stale_reason?: string | null;
     live_timeline_advanced?: boolean;
+    live_source_changed?: boolean;
     snapshot_notice?: string | null;
     is_latest: boolean;
     prepared_by: CrewTimelineUserRef | null;

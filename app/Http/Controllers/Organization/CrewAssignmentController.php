@@ -332,6 +332,13 @@ class CrewAssignmentController extends Controller
             'phases.employeeTraining:id,source_crew_assignment_phase_id',
         ]);
 
+        $employeeId = (int) $assignment->employee_id;
+        $operationalContext = CrewAssignmentCreateFormOptions::operationalContextForEmployees(
+            $companyId,
+            $request->user(),
+            [$employeeId],
+        );
+
         $formOptions = [
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
@@ -354,6 +361,7 @@ class CrewAssignmentController extends Controller
             'clients' => $this->clientOptionsForAssignment($assignment),
             'courses' => $this->activeCourses(),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
+            ...$operationalContext,
         ];
 
         return Inertia::render('organization/crew/edit', [
