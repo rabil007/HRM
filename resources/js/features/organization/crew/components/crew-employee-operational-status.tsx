@@ -25,11 +25,14 @@ import {
 import { cn } from '@/lib/utils';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 
+export type CrewEmployeeOperationalStatusVariant = 'create' | 'edit';
+
 export interface CrewEmployeeOperationalStatusProps {
     status: EmployeeOperationalStatus | null | undefined;
     activeOnVessel?: ActiveOnVesselAssignment | null;
     companyTimezone?: string;
     className?: string;
+    variant?: CrewEmployeeOperationalStatusVariant;
 }
 
 export function getEmployeeStatusContainerClass(
@@ -104,6 +107,7 @@ export function CrewEmployeeOperationalStatus({
     activeOnVessel,
     companyTimezone = 'UTC',
     className,
+    variant = 'create',
 }: CrewEmployeeOperationalStatusProps): ReactElement | null {
     if (!status) {
         return null;
@@ -120,6 +124,8 @@ export function CrewEmployeeOperationalStatus({
     const assignmentId =
         status.assignment_id ?? activeOnVessel?.assignment_id ?? null;
     const daysInPhase = status.days_in_phase;
+    const showActiveAssignmentConflict =
+        variant === 'create' && status.has_active_assignment;
 
     // Prefer raw ISO timestamp + company timezone for consistency across all phases.
     // Fall back to activeOnVessel.actual_start_display only if no raw ISO is available.
@@ -173,11 +179,13 @@ export function CrewEmployeeOperationalStatus({
                             </p>
                         </div>
 
-                        <ActiveAssignmentConflict
-                            assignmentId={assignmentId}
-                            assignmentNo={assignmentNo}
-                            colorClass="border-amber-500/30 bg-amber-500/20 text-amber-950 dark:text-amber-100"
-                        />
+                        {showActiveAssignmentConflict ? (
+                            <ActiveAssignmentConflict
+                                assignmentId={assignmentId}
+                                assignmentNo={assignmentNo}
+                                colorClass="border-amber-500/30 bg-amber-500/20 text-amber-950 dark:text-amber-100"
+                            />
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -235,7 +243,7 @@ export function CrewEmployeeOperationalStatus({
                             ) : null}
                         </div>
 
-                        {status.has_active_assignment ? (
+                        {showActiveAssignmentConflict ? (
                             <ActiveAssignmentConflict
                                 assignmentId={assignmentId}
                                 assignmentNo={assignmentNo}
@@ -299,7 +307,7 @@ export function CrewEmployeeOperationalStatus({
                             ) : null}
                         </div>
 
-                        {status.has_active_assignment ? (
+                        {showActiveAssignmentConflict ? (
                             <ActiveAssignmentConflict
                                 assignmentId={assignmentId}
                                 assignmentNo={assignmentNo}
@@ -418,7 +426,7 @@ export function CrewEmployeeOperationalStatus({
                         </p>
                     ) : null}
 
-                    {status.has_active_assignment ? (
+                    {showActiveAssignmentConflict ? (
                         <ActiveAssignmentConflict
                             assignmentId={assignmentId}
                             assignmentNo={assignmentNo}

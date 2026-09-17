@@ -45,8 +45,6 @@ final class ResolveCrewContractForPayrollPeriod
         }
 
         $companyId = (int) $period->company_id;
-        $periodStart = $period->start_date?->toDateString();
-        $periodEnd = $period->end_date?->toDateString();
 
         /** @var Collection<int, EmployeeContract> $contracts */
         $contracts = EmployeeContract::query()
@@ -55,6 +53,32 @@ final class ResolveCrewContractForPayrollPeriod
             ->where('payroll_category', PayrollCategory::Crew)
             ->when($with !== [], fn ($query) => $query->with($with))
             ->get();
+
+        return $this->resolveManyFromCollection($period, $employeeIds, $contracts);
+    }
+
+    /**
+     * Resolves applicable contracts from an already-loaded (and optionally locked)
+     * crew contract collection using the same overlap and fallback rules as
+     * {@see resolveMany()}.
+     *
+     * @param  list<int>  $employeeIds
+     * @param  Collection<int, EmployeeContract>  $contracts
+     * @return Collection<int, EmployeeContract|null>
+     */
+    public function resolveManyFromCollection(
+        PayrollPeriod $period,
+        array $employeeIds,
+        Collection $contracts,
+    ): Collection {
+        $employeeIds = array_values(array_unique(array_map(intval(...), $employeeIds)));
+
+        if ($employeeIds === []) {
+            return collect();
+        }
+
+        $periodStart = $period->start_date?->toDateString();
+        $periodEnd = $period->end_date?->toDateString();
 
         /** @var Collection<int, Collection<int, EmployeeContract>> $byEmployee */
         $byEmployee = $contracts->groupBy(fn (EmployeeContract $contract): int => (int) $contract->employee_id);
@@ -75,6 +99,31 @@ final class ResolveCrewContractForPayrollPeriod
 
             return [$employeeId => $contract];
         });
+    }
+
+    /**
+     * Employee IDs with crew contracts that could participate in payroll for the
+     * period. Used to establish Apply lock boundaries when no issue phases exist.
+     *
+     * @return list<int>
+     */
+    public function crewEmployeeIdsOverlappingPeriod(PayrollPeriod $period): array
+    {
+        $companyId = (int) $period->company_id;
+        $periodStart = $period->start_date?->toDateString();
+        $periodEnd = $period->end_date?->toDateString();
+
+        return EmployeeContract::query()
+            ->where('company_id', $companyId)
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->get(['id', 'employee_id', 'start_date', 'end_date'])
+            ->filter(fn (EmployeeContract $contract): bool => $this->overlapsPeriod($contract, $periodStart, $periodEnd))
+            ->pluck('employee_id')
+            ->map(intval(...))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     /**

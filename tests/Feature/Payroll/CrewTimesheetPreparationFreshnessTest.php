@@ -1030,6 +1030,57 @@ test('apply rejects when period-applicable contract source changes after approva
     })->toThrow(ValidationException::class);
 });
 
+test('apply rejects when new crew source appears after empty preparation was approved', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+
+    expect($preparation->fresh()->lines)->toHaveCount(0);
+
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-10 08:00:00',
+        '2026-09-15 18:00:00',
+        CrewPhaseStatus::Completed,
+    );
+
+    expect(function () use ($fixtures, $preparation) {
+        app(ApplyCrewTimesheetPreparation::class)->handle(
+            $fixtures['period'],
+            $preparation->fresh(),
+            $fixtures['user'],
+            (int) $fixtures['company']->id,
+        );
+    })->toThrow(ValidationException::class);
+});
+
 test('apply succeeds when approved preparation source remains unchanged', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
 

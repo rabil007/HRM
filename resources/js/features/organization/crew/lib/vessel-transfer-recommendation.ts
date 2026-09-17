@@ -45,6 +45,25 @@ export function canTransferFromP4(
 }
 
 /**
+ * A vessel transfer is the operationally correct workflow when the employee is
+ * already On Vessel and the selected destination differs from the current vessel.
+ */
+export function isTransferWorkflowAppropriate(
+    employeeStatus:
+        | Pick<EmployeeOperationalStatus, 'status'>
+        | null
+        | undefined,
+    currentOnVessel: CurrentVessel | null,
+    destinationVesselId: number | null,
+): boolean {
+    if (employeeStatus?.status !== 'on_vessel') {
+        return false;
+    }
+
+    return hasSelectedTransferDestination(currentOnVessel, destinationVesselId);
+}
+
+/**
  * Manual Start may open the Transfer Vessel recommendation when the employee
  * is already On Vessel on a different vessel. Planning handoff must never use
  * that path because the planning row is not carried into the transfer flow.

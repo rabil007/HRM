@@ -115,16 +115,16 @@ final class CrewTimelineFreshnessChecker
         int $companyId,
         ?string $message = null,
     ): void {
-        $lockedPhases = $this->sourceLocker->lockAndReloadIssuePhases($period, $preparation, $companyId);
+        $lockedSource = $this->sourceLocker->lockSource($period, $preparation, $companyId);
         $effectiveCutoff = $this->phaseQuery->resolveEffectiveCutoffDate(
             $period,
             $preparation->cutoff_date,
-            $lockedPhases,
+            $lockedSource->phases,
         );
-        $currentHash = $this->sourceHasher->hash(
+        $currentHash = $this->sourceHasher->hashLockedSource(
             $period,
             $preparation->cutoff_date,
-            $lockedPhases,
+            $lockedSource,
             $effectiveCutoff,
         );
 

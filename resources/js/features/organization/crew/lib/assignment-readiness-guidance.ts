@@ -6,6 +6,7 @@ import type {
 import {
     canTransferFromP4,
     hasSelectedTransferDestination,
+    isTransferWorkflowAppropriate,
 } from './vessel-transfer-recommendation.ts';
 
 export type ReadinessSeverity = 'info' | 'attention' | 'conflict' | 'blocked';
@@ -503,7 +504,7 @@ function buildPhaseGuidance(
             };
 
         case 'on_vessel': {
-            const canTransfer = canTransferFromP4(
+            const canExecuteTransfer = canTransferFromP4(
                 activeOnVessel,
                 permissions.perform_movement,
             );
@@ -511,23 +512,26 @@ function buildPhaseGuidance(
                 activeOnVessel,
                 context.destinationVesselId,
             );
+            const transferWorkflowAppropriate =
+                isTransferWorkflowAppropriate(
+                    status,
+                    activeOnVessel,
+                    context.destinationVesselId,
+                ) || destinationAdvisory?.severity === 'conflict';
             let transferPermissionNote: string | undefined;
 
             addAction(actions, openAssignmentAction());
 
-            if (canTransfer) {
+            if (canExecuteTransfer) {
                 addAction(
                     actions,
                     transferAction(
                         hasDestination ? context.destinationVesselName : null,
                     ),
                 );
-            } else if (
-                !permissions.perform_movement &&
-                activeOnVessel?.can_transfer === true
-            ) {
+            } else if (transferWorkflowAppropriate) {
                 transferPermissionNote =
-                    'Transfer requires additional permission.';
+                    'A vessel transfer is the correct workflow for this change. You do not have permission to perform this movement. Ask an authorized Crewing user.';
             }
 
             addAction(actions, planFutureAction(permissions));

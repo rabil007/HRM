@@ -621,6 +621,14 @@ describe('buildAssignmentReadinessGuidance', () => {
             ),
             false,
         );
+        assert.match(
+            guidance?.transferPermissionNote ?? '',
+            /A vessel transfer is the correct workflow/,
+        );
+        assert.match(
+            guidance?.transferPermissionNote ?? '',
+            /You do not have permission to perform this movement/,
+        );
     });
 
     it('omits planning action when planning permission is missing', () => {

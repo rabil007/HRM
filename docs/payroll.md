@@ -401,7 +401,7 @@ Overlap detection:
 
 Empty Applied preparation:
 
-- An Approved preparation with zero payable Daily employees can be applied, is marked Applied with zero applied employees, remains idempotent on repeated apply, and does not block generation.
+- An Approved preparation with zero payable Daily employees can be applied, is marked Applied with zero applied employees, remains idempotent on repeated apply, and does not block generation. Apply locks employees with period-overlapping crew contracts even when no issue phases exist yet, and the final freshness hash uses locked phases, contracts, and pending corrections without ordinary re-queries.
 
 Concurrency & history:
 

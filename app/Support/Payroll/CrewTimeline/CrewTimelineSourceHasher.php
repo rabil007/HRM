@@ -30,19 +30,54 @@ final class CrewTimelineSourceHasher
         Collection $phases,
         ?CarbonInterface $effectiveCutoffDate = null,
     ): string {
-        $employeeIds = $phases
-            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->assignment?->employee_id)
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $employeeIds = $this->employeeIdsFromPhases($phases);
+        $phaseIds = $this->phaseIdsFromPhases($phases);
 
-        $phaseIds = $phases
-            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->id)
-            ->filter()
-            ->values()
-            ->all();
+        return $this->buildHash(
+            $period,
+            $cutoffDate,
+            $phases,
+            $effectiveCutoffDate,
+            $this->contractFingerprints($period, $employeeIds),
+            $this->pendingCorrectionFingerprints((int) $period->company_id, $phaseIds),
+        );
+    }
 
+    /**
+     * Builds the authoritative Apply hash from locked source rows. Performs no
+     * additional ordinary source queries for phases, contracts, or corrections.
+     */
+    public function hashLockedSource(
+        PayrollPeriod $period,
+        ?CarbonInterface $cutoffDate,
+        LockedCrewTimelineSource $source,
+        ?CarbonInterface $effectiveCutoffDate = null,
+    ): string {
+        $employeeIds = $this->employeeIdsFromPhases($source->phases);
+
+        return $this->buildHash(
+            $period,
+            $cutoffDate,
+            $source->phases,
+            $effectiveCutoffDate,
+            $this->contractFingerprintsFromResolved($employeeIds, $source->contractsByEmployeeId),
+            $this->pendingCorrectionFingerprintsFromCollection($source->pendingCorrections),
+        );
+    }
+
+    /**
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @param  list<array<string, mixed>>  $contractFingerprints
+     * @param  list<array<string, mixed>>  $pendingCorrectionFingerprints
+     */
+    private function buildHash(
+        PayrollPeriod $period,
+        ?CarbonInterface $cutoffDate,
+        Collection $phases,
+        ?CarbonInterface $effectiveCutoffDate,
+        array $contractFingerprints,
+        array $pendingCorrectionFingerprints,
+    ): string {
         $payload = [
             'period_id' => (int) $period->id,
             'period_start' => $period->start_date?->toDateString(),
@@ -66,11 +101,39 @@ final class CrewTimelineSourceHasher
                 ])
                 ->values()
                 ->all(),
-            'contracts' => $this->contractFingerprints($period, $employeeIds),
-            'pending_corrections' => $this->pendingCorrectionFingerprints((int) $period->company_id, $phaseIds),
+            'contracts' => $contractFingerprints,
+            'pending_corrections' => $pendingCorrectionFingerprints,
         ];
 
         return hash('sha256', (string) json_encode($payload));
+    }
+
+    /**
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @return list<int>
+     */
+    private function employeeIdsFromPhases(Collection $phases): array
+    {
+        return $phases
+            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->assignment?->employee_id)
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @return list<int>
+     */
+    private function phaseIdsFromPhases(Collection $phases): array
+    {
+        return $phases
+            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->id)
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -84,6 +147,20 @@ final class CrewTimelineSourceHasher
         }
 
         $contracts = $this->resolveContract->resolveMany($period, $employeeIds);
+
+        return $this->contractFingerprintsFromResolved($employeeIds, $contracts);
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @param  Collection<int, EmployeeContract|null>  $contracts
+     * @return list<array<string, mixed>>
+     */
+    private function contractFingerprintsFromResolved(array $employeeIds, Collection $contracts): array
+    {
+        if ($employeeIds === []) {
+            return [];
+        }
 
         return collect($employeeIds)
             ->sort()
@@ -114,12 +191,25 @@ final class CrewTimelineSourceHasher
             return [];
         }
 
-        return CrewMovementCorrection::query()
+        $corrections = CrewMovementCorrection::query()
             ->where('company_id', $companyId)
             ->pending()
             ->whereIn('crew_assignment_phase_id', $phaseIds)
             ->orderBy('id')
-            ->get(['id', 'crew_assignment_phase_id', 'status', 'updated_at'])
+            ->get(['id', 'crew_assignment_phase_id', 'status', 'updated_at']);
+
+        return $this->pendingCorrectionFingerprintsFromCollection($corrections);
+    }
+
+    /**
+     * @param  Collection<int, CrewMovementCorrection>  $corrections
+     * @return list<array<string, mixed>>
+     */
+    private function pendingCorrectionFingerprintsFromCollection(Collection $corrections): array
+    {
+        return $corrections
+            ->sortBy('id')
+            ->values()
             ->map(fn (CrewMovementCorrection $correction): array => [
                 'id' => (int) $correction->id,
                 'phase_id' => (int) $correction->crew_assignment_phase_id,

@@ -32,7 +32,7 @@ function assertPayrollReconciles(PayrollRecord $record): void
 {
     $gross = (float) $record->gross_salary;
     $net = (float) $record->net_salary;
-    $deductions = (float) $record->other_deductions;
+    $deductions = (float) $record->total_deductions;
     $bonus = (float) $record->bonus;
 
     expect(round($gross - $deductions, 2))->toBe(round($net, 2))

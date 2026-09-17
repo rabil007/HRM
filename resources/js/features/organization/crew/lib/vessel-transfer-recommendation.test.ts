@@ -5,6 +5,7 @@ import {
     canUseManualTransferRecommendation,
     hasPlanningStartActiveAssignmentConflict,
     hasSelectedTransferDestination,
+    isTransferWorkflowAppropriate,
     recommendsVesselTransfer,
     shouldShowPlanningTransferGuidance,
 } from './vessel-transfer-recommendation.ts';
@@ -26,6 +27,30 @@ const activeEmployeeStatus = {
     vessel_name: 'Vessel A',
     has_active_assignment: true,
 };
+
+describe('isTransferWorkflowAppropriate', () => {
+    it('is true for On Vessel employees with a different destination selected', () => {
+        assert.equal(
+            isTransferWorkflowAppropriate(
+                activeEmployeeStatus,
+                currentOnVessel,
+                649,
+            ),
+            true,
+        );
+    });
+
+    it('is false when the employee is not On Vessel', () => {
+        assert.equal(
+            isTransferWorkflowAppropriate(
+                { status: 'join_standby' },
+                currentOnVessel,
+                649,
+            ),
+            false,
+        );
+    });
+});
 
 describe('canTransferFromP4', () => {
     it('allows transfer when movement permission and domain transfer flag are present', () => {

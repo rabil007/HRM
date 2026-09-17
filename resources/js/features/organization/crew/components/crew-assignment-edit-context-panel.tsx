@@ -88,6 +88,7 @@ export function CrewAssignmentEditContextPanel({
                         status={employeeStatus}
                         activeOnVessel={activeOnVessel}
                         companyTimezone={formOptions.company_timezone}
+                        variant="edit"
                     />
                 ) : null}
 
