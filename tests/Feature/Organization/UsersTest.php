@@ -648,7 +648,7 @@ test('users directory can be filtered by presence and exposes two_factor_enabled
     $company = $pair['companyA'];
     grantCompanyPermissions($admin, $company, ['users.view']);
 
-    $now = time();
+    $now = now()->getTimestamp();
 
     // Online user (active session 2 minutes ago) with confirmed 2FA
     $onlineUser = User::factory()->withTwoFactor()->create([
@@ -849,7 +849,7 @@ test('users directory summary counts are tenant-scoped and match presence filter
     $companyB = $pair['companyB'];
     grantCompanyPermissions($admin, $companyA, ['users.view']);
 
-    $now = time();
+    $now = now()->getTimestamp();
 
     $onlineUser = User::factory()->create([
         'company_id' => $companyA->id,
@@ -1022,7 +1022,7 @@ test('presence summary cards compose with role filters instead of replacing them
 
     app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
 
-    $now = time();
+    $now = now()->getTimestamp();
 
     $role = Role::query()->create([
         'company_id' => $company->id,

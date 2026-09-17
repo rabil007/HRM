@@ -24,7 +24,7 @@ class UserDirectoryQuery
         string $roleId = '',
         string $presence = ''
     ): LengthAwarePaginator {
-        $now = time();
+        $now = now()->getTimestamp();
         $onlineThreshold = $now - (5 * 60);
         $recentThreshold = $now - (30 * 60);
 
@@ -111,7 +111,7 @@ class UserDirectoryQuery
      */
     public function summaryForCompany(int $companyId): array
     {
-        $now = time();
+        $now = now()->getTimestamp();
         $onlineThreshold = $now - (5 * 60);
 
         $hasSessionsTable = Schema::hasTable('sessions');
