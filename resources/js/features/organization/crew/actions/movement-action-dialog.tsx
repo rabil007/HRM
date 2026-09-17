@@ -2,6 +2,7 @@ import { useForm } from '@inertiajs/react';
 import type { ReactElement, RefObject } from 'react';
 import { Fragment } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { ActionImpactPreview } from '@/components/action-impact-preview';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +16,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { MovementWorkflowHelp } from '@/features/organization/crew/components/movement-workflow-help';
 import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
+import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
 import {
     defaultDestinationTourSignoffChoice,
     findRankTourOption,
@@ -44,7 +46,6 @@ import { TransferVesselForm } from './forms/transfer-vessel-form';
 import { TravelHomeForm } from './forms/travel-home-form';
 import { getMovementActionConfig } from './movement-action-config';
 import { MovementContextCard } from './movement-context-card';
-import { MovementImpactCard } from './movement-impact-card';
 import { VesselTransferRecommendationDialog } from './vessel-transfer-recommendation-dialog';
 import type { VesselTransferPrefill } from './vessel-transfer-recommendation-dialog';
 
@@ -506,6 +507,13 @@ export function MovementActionDialog({
         action,
         movementContext.current_phase_code,
     );
+    const impactPreview = buildMovementImpactPreview({
+        action,
+        config,
+        context: movementContext,
+        formData: form.data,
+        formOptions,
+    });
     const isDestructive = Boolean(config.destructive);
     const isLarge =
         action === 'join_vessel' ||
@@ -563,11 +571,9 @@ export function MovementActionDialog({
                             firstFieldRef={firstFieldRef}
                         />
 
-                        <MovementImpactCard
-                            title={config.impactTitle}
-                            description={config.impactDescription}
-                            destructive={isDestructive}
-                        />
+                        {impactPreview ? (
+                            <ActionImpactPreview {...impactPreview} />
+                        ) : null}
 
                         <InputError
                             message={

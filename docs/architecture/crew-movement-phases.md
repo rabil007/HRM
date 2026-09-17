@@ -1,5 +1,7 @@
 # Crew Movement Phases
 
+High-impact crew movement actions use the shared impact-preview pattern documented in [high-impact-actions.md](./high-impact-actions.md).
+
 CrewAssignment is the **single source of truth** for crew movement.
 
 ```text

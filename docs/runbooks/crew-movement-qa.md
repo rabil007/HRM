@@ -38,7 +38,11 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] P5/P6 sections explain Redeploy vs Close Assignment at a high level
 - [ ] Quick detail and assignment show use the same Current state / Next normal action / Other valid actions pattern when `recommended_action` is present
 - [ ] Transfer / Redeploy / Confirm Disembarkation / Return Home / Close / Cancel dialogs show a compact **What will happen** section
+- [ ] Transfer / Join Vessel final buttons use explicit labels (**Confirm Transfer**, **Confirm Join**)
 - [ ] Confirm Disembarkation copy states Planned Sign-Off does not disembark the employee
+- [ ] Plan Sign-Off keeps its normal Save/Update flow with no extra impact confirmation block
+- [ ] Void Assignment and Request Correction dialogs show destructive/high-impact preview before final submit
+- [ ] Movement dialogs do not open a second confirmation popup after the form submit button
 - [ ] Bulk Start preserves a temporary browser session snapshot when Review/Open/Transfer navigates away and restores it on return to `/organization/crew/create`
 
 ## 2A. Unified Start / Bulk Create

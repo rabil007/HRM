@@ -50,6 +50,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AnnouncementAiAssistDialog } from '@/features/organization/announcements/announcement-ai-assist-dialog';
 import { AnnouncementMessageEditorSkeleton } from '@/features/organization/announcements/announcement-message-editor-skeleton';
 import { EmailPreview } from '@/features/organization/announcements/email-preview';
+import { SendAnnouncementConfirmDialog } from '@/features/organization/announcements/send-announcement-confirm-dialog';
 import { SendAnnouncementTestDialog } from '@/features/organization/announcements/send-announcement-test-dialog';
 import type {
     AnnouncementAiAssistAction,
@@ -825,6 +826,7 @@ export default function AnnouncementFormPage({
     const [channelPreviews, setChannelPreviews] =
         useState<AnnouncementChannelPreviews | null>(null);
     const [channelPreviewLoading, setChannelPreviewLoading] = useState(false);
+    const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
     const [testDialogOpen, setTestDialogOpen] = useState(false);
     const [testSending, setTestSending] = useState(false);
     const [testError, setTestError] = useState<string | null>(null);
@@ -2193,13 +2195,24 @@ export default function AnnouncementFormPage({
                             <Button
                                 type="button"
                                 disabled={form.processing}
-                                onClick={() => submit('send_now')}
+                                onClick={() => setSendConfirmOpen(true)}
                             >
                                 <CheckCircle2 className="size-4" /> Send now
                             </Button>
                         </div>
                     </div>
                 </div>
+                <SendAnnouncementConfirmDialog
+                    open={sendConfirmOpen}
+                    onOpenChange={setSendConfirmOpen}
+                    recipientCount={preview?.selected_employees ?? 0}
+                    channels={form.data.channels}
+                    processing={form.processing}
+                    onConfirm={() => {
+                        setSendConfirmOpen(false);
+                        submit('send_now');
+                    }}
+                />
                 <SendAnnouncementTestDialog
                     open={testDialogOpen}
                     onOpenChange={(open) => {
