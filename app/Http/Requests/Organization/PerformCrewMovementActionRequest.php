@@ -421,6 +421,17 @@ class PerformCrewMovementActionRequest extends FormRequest
                 );
             }
 
+            if ($occurredAt !== null && $this->actionRequiresActualTimestamp($action)) {
+                $now = Carbon::now($timezone);
+
+                if ($occurredAt->gt($now)) {
+                    $validator->errors()->add(
+                        'occurred_at',
+                        'Actual movement events cannot be recorded in the future.',
+                    );
+                }
+            }
+
             if ($action === 'approve_mobilisation') {
                 $isDraft = $assignment->status === CrewAssignmentStatus::Draft;
                 $isPreMob = $assignment->currentPhase === null || $assignment->currentPhase->phase_code === CrewPhaseCode::PreMobilisation;
@@ -849,6 +860,26 @@ class PerformCrewMovementActionRequest extends FormRequest
                 );
             }
         });
+    }
+
+    private function actionRequiresActualTimestamp(string $action): bool
+    {
+        return in_array($action, [
+            'approve_mobilisation',
+            'record_arrival',
+            'start_join_standby',
+            'send_to_training',
+            'complete_training',
+            'mark_ready',
+            'join_vessel',
+            'confirm_disembarkation',
+            'start_demob_standby',
+            'travel_home',
+            'transfer_vessel',
+            'redeploy',
+            'close_assignment',
+            'cancel_assignment',
+        ], true);
     }
 
     /**

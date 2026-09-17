@@ -46,6 +46,7 @@ final class CrewMovementService
         private CrewJoinVesselSignoffApplier $signoffApplier = new CrewJoinVesselSignoffApplier,
         private SyncCrewTrainingToEmployeeTraining $trainingSync = new SyncCrewTrainingToEmployeeTraining,
         private CrewAccommodationService $accommodation = new CrewAccommodationService,
+        private CrewActualMovementTimestampGuard $actualMovementTimestamps = new CrewActualMovementTimestampGuard,
     ) {}
 
     /**
@@ -1082,16 +1083,41 @@ final class CrewMovementService
             ? $this->parseTimestamp($assignment->company_id, (string) $payload['occurred_at'])
             : now($this->companyTimezone($assignment->company_id));
 
+        $this->actualMovementTimestamps->assertNotFuture($assignment->company_id, $occurredAt);
+
+        if ($current !== null
+            && $current->actual_start_at !== null
+            && $occurredAt->lt($current->actual_start_at)) {
+            throw CrewMovementException::make(
+                'Cancellation cannot occur before the current phase started.',
+                'cancel_before_phase_start',
+            );
+        }
+
         $this->accommodation->validateCancellationCheckOutPayload($assignment, $payload, $occurredAt);
         $this->accommodation->recordCancellationCheckOut($assignment, $payload, $actorId);
 
         if ($current !== null && $current->status !== CrewPhaseStatus::Cancelled) {
-            $current->update([
-                'status' => CrewPhaseStatus::Cancelled,
-                'actual_end_at' => $occurredAt,
-                'completed_by' => $actorId,
-                'remarks' => trim(($current->remarks ? $current->remarks."\n" : '').'Cancelled: '.$reason),
-            ]);
+            $remarks = trim(($current->remarks ? $current->remarks."\n" : '').'Cancelled: '.$reason);
+
+            if ($current->actual_start_at !== null) {
+                $this->completePhase(
+                    $current,
+                    $current->actual_start_at,
+                    $occurredAt,
+                    $actorId,
+                );
+                $current->update([
+                    'remarks' => $remarks,
+                ]);
+            } else {
+                $current->update([
+                    'status' => CrewPhaseStatus::Cancelled,
+                    'actual_end_at' => $occurredAt,
+                    'completed_by' => $actorId,
+                    'remarks' => $remarks,
+                ]);
+            }
         }
 
         $assignment->update([
@@ -1688,7 +1714,10 @@ final class CrewMovementService
             );
         }
 
-        return $this->parseTimestamp($companyId, (string) $payload['occurred_at']);
+        $occurredAt = $this->parseTimestamp($companyId, (string) $payload['occurred_at']);
+        $this->actualMovementTimestamps->assertNotFuture($companyId, $occurredAt);
+
+        return $occurredAt;
     }
 
     private function parseTimestamp(int $companyId, string $value): CarbonInterface
