@@ -1,12 +1,12 @@
 import type { ReactElement } from 'react';
 import { useEffect, useRef } from 'react';
+import { ActionImpactPreview } from '@/components/action-impact-preview';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { CrewPreJoinAccommodationContext } from '@/features/organization/crew/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import { MovementImpactCard } from '../movement-impact-card';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
@@ -108,13 +108,13 @@ export function CancelAssignmentForm({
             </div>
 
             {accommodationIntegrityWarning ? (
-                <MovementImpactCard
+                <ActionImpactPreview
+                    severity="destructive"
                     title="Accommodation issue"
-                    description={[
+                    impacts={[
                         accommodationIntegrityWarning,
                         'Resolve accommodation data before cancelling this assignment.',
                     ]}
-                    destructive
                 />
             ) : null}
 

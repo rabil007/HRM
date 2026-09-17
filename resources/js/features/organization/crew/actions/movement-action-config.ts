@@ -1,5 +1,8 @@
+import type { ActionImpactSeverity } from '@/components/action-impact-preview';
 import type { CrewMovementAction } from '../types.ts';
 import { CREW_PHASE_LABELS } from '../types.ts';
+
+export type MovementImpactPreviewLevel = 'none' | 'light' | 'full';
 
 export type MovementNextPhaseOption = {
     value: string;
@@ -14,6 +17,8 @@ export type MovementActionConfig = {
     submitLabel: string;
     impactTitle: string;
     impactDescription: string | string[];
+    impactPreview: MovementImpactPreviewLevel;
+    impactSeverity: ActionImpactSeverity;
     destructive?: boolean;
     fixedNextPhase?: string;
     nextPhaseLabel?: string;
@@ -21,6 +26,18 @@ export type MovementActionConfig = {
     completionIntentLabel?: string;
     completionIntentOptions?: MovementNextPhaseOption[];
     keepOpenLabel?: string;
+};
+
+const LIGHT_IMPACT_DEFAULTS = {
+    impactPreview: 'light' as const,
+    impactSeverity: 'normal' as const,
+    impactTitle: 'What will happen',
+};
+
+const FULL_IMPACT_DEFAULTS = {
+    impactPreview: 'full' as const,
+    impactSeverity: 'high' as const,
+    impactTitle: 'What will happen',
 };
 
 export const MOVEMENT_ACTION_CONFIG: Partial<
@@ -32,9 +49,9 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'This activates the draft Pre-Mobilisation assignment so operational movement can begin.',
         occurredAtLabel: 'Started at',
         submitLabel: 'Start Assignment',
-        impactTitle: 'What this does',
+        ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
-            'This activates the draft Pre-Mobilisation assignment. The employee enters active Pre-Mobilisation.',
+            'The assignment becomes active Pre-Mobilisation at the selected time.',
     },
     record_arrival: {
         title: 'Record Arrival',
@@ -42,9 +59,18 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             "This records the crew member's actual arrival and starts Join Standby.",
         occurredAtLabel: 'Arrival date and time',
         submitLabel: 'Record Arrival',
-        impactTitle: 'What this does',
+        ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
             "This records the crew member's actual arrival and starts Join Standby.",
+        fixedNextPhase: 'p2a',
+    },
+    start_join_standby: {
+        title: 'Start Join Standby',
+        description: 'This starts Join Standby for the assignment.',
+        occurredAtLabel: 'Join standby started at',
+        submitLabel: 'Start Join Standby',
+        ...LIGHT_IMPACT_DEFAULTS,
+        impactDescription: 'This starts P2A Join Standby.',
         fixedNextPhase: 'p2a',
     },
     send_to_training: {
@@ -52,7 +78,7 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         description: 'This completes Join Standby and starts P2B Training.',
         occurredAtLabel: 'Training started at',
         submitLabel: 'Send to Training',
-        impactTitle: 'What this does',
+        ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
             'This completes Join Standby and starts P2B Training.',
         fixedNextPhase: 'p2b',
@@ -63,7 +89,7 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'Record training completion and return the employee to Join Standby.',
         occurredAtLabel: 'Training completed at',
         submitLabel: 'Complete Training',
-        impactTitle: 'What this does',
+        ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
             'This completes P2B Training and returns the employee to Join Standby.',
         fixedNextPhase: 'p2a',
@@ -74,7 +100,7 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'This completes Join Standby and moves the employee to P3 Ready to Join. The next operational action will be Join Vessel.',
         occurredAtLabel: 'Ready from',
         submitLabel: 'Mark Ready',
-        impactTitle: 'What this does',
+        ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
             'This moves the employee from P2A Join Standby to P3 Ready to Join.',
         fixedNextPhase: 'p3',
@@ -84,15 +110,9 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         description:
             'Record the actual join time and vessel details. Planned sign-off is optional and is not an actual disembarkation.',
         occurredAtLabel: 'Actual join date and time',
-        submitLabel: 'Join Vessel',
-        impactTitle: 'This action will',
-        impactDescription: [
-            'Move the employee to P4 On Vessel.',
-            'Mark the employee as onboard in Crew Assignments.',
-            'Create or update the linked Planning Gantt bar.',
-            'Use the actual join date as the Planning start date.',
-            'Sea Service is created only after actual disembarkation.',
-        ],
+        submitLabel: 'Confirm Join',
+        ...LIGHT_IMPACT_DEFAULTS,
+        impactDescription: [`This will start: ${CREW_PHASE_LABELS.p4}`],
         fixedNextPhase: 'p4',
     },
     plan_signoff: {
@@ -102,8 +122,9 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         occurredAtLabel: null,
         submitLabel: 'Plan Sign-Off',
         impactTitle: 'What this does',
-        impactDescription:
-            'The employee remains in P4 On Vessel. This updates the linked Planning bar but does not record an actual disembarkation.',
+        impactDescription: '',
+        impactPreview: 'none',
+        impactSeverity: 'normal',
         fixedNextPhase: 'p4',
     },
     confirm_disembarkation: {
@@ -112,12 +133,12 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'Record the actual disembarkation and choose the next demobilisation phase. Planned Sign-Off does not disembark the employee.',
         occurredAtLabel: 'Actual disembarkation date and time',
         submitLabel: 'Confirm Disembarkation',
-        impactTitle: 'What will happen',
+        ...FULL_IMPACT_DEFAULTS,
         impactDescription: [
             'P4 On Vessel ends at the selected movement time.',
+            'Actual disembarkation is recorded at the selected movement time.',
             'Sea service is finalized according to existing logic.',
             'The assignment moves into the next configured movement stage (P5 or P6).',
-            'Planned Sign-Off alone does not disembark the crew member.',
         ],
         nextPhaseLabel: 'After disembarkation',
         nextPhaseOptions: [
@@ -135,13 +156,24 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             },
         ],
     },
+    start_demob_standby: {
+        title: 'Start Demobilisation Standby',
+        description:
+            'Record the actual disembarkation and start demobilisation standby.',
+        occurredAtLabel: 'Actual disembarkation date and time',
+        submitLabel: 'Start Demobilisation Standby',
+        ...LIGHT_IMPACT_DEFAULTS,
+        impactDescription:
+            'This ends P4 On Vessel and starts P5 Demobilisation Standby.',
+        fixedNextPhase: 'p5',
+    },
     travel_home: {
         title: 'Return Home',
         description:
             'Record when the crew member returned home and choose whether this mobilisation cycle is complete.',
         occurredAtLabel: 'Date & Time',
         submitLabel: 'Return Home & Close Assignment',
-        impactTitle: 'What will happen',
+        ...FULL_IMPACT_DEFAULTS,
         impactDescription: [
             'Demobilisation standby ends at the selected movement time.',
             'Home / Redeployment stage begins using the actual return-home timestamp.',
@@ -169,25 +201,28 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         description:
             'Closing completes this mobilisation cycle. No further standard movement actions will be available.',
         occurredAtLabel: 'Assignment closed at',
-        submitLabel: 'Complete Assignment',
-        impactTitle: 'What will happen',
+        submitLabel: 'Close Assignment',
+        ...FULL_IMPACT_DEFAULTS,
         impactDescription: [
             'The assignment becomes Completed and this mobilisation cycle ends.',
             'No current active mobilisation remains on this assignment record.',
+            'Historical movement data remains preserved.',
             'The employee becomes available according to normal status rules when no other active assignment exists.',
         ],
     },
     cancel_assignment: {
         title: 'Cancel Assignment',
         description:
-            'Use only when the mobilisation should be stopped. Movement history already recorded remains preserved.',
+            'You are about to cancel this mobilisation. Movement history already recorded remains preserved.',
         occurredAtLabel: 'Cancellation effective at',
         submitLabel: 'Cancel Assignment',
-        impactTitle: 'What will happen',
+        impactPreview: 'full',
+        impactSeverity: 'destructive',
+        impactTitle: 'This may affect',
         impactDescription: [
-            'The assignment is marked Cancelled when permitted for the current phase.',
+            'Operational follow-up and planning links for this mobilisation.',
+            'The assignment state, which becomes Cancelled when permitted for the current phase.',
             'Historical movement and sea-service data already recorded remain preserved.',
-            'Before P4, the linked future Planning bar is removed according to existing rules.',
             'Active P4 On Vessel assignments cannot be cancelled directly.',
         ],
         destructive: true,
@@ -198,8 +233,8 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         description:
             'Complete the current On Vessel assignment and start a linked assignment directly in P4 on the destination vessel. No standby or travel phases are invented.',
         occurredAtLabel: 'Actual transfer date and time',
-        submitLabel: 'Transfer Vessel',
-        impactTitle: 'What will happen',
+        submitLabel: 'Confirm Transfer',
+        ...FULL_IMPACT_DEFAULTS,
         impactDescription: [
             'The current P4 On Vessel phase ends at the selected movement time.',
             'Current assignment history on the source vessel remains preserved.',
@@ -214,8 +249,8 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         description:
             'Complete the current demobilisation or home phase and start a linked assignment at the chosen real starting phase. Earlier phases are not invented.',
         occurredAtLabel: 'Actual redeployment date and time',
-        submitLabel: 'Redeploy',
-        impactTitle: 'What will happen',
+        submitLabel: 'Confirm Redeploy',
+        ...FULL_IMPACT_DEFAULTS,
         impactDescription: [
             'The current mobilisation is completed according to existing Redeploy logic.',
             'A linked destination assignment is created and remains connected to the source history.',
@@ -225,36 +260,35 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     },
 };
 
+function lightRecordArrivalConfig(
+    impactDescription: string,
+): MovementActionConfig {
+    return {
+        title: 'Record Arrival',
+        description:
+            "This records the crew member's actual arrival and starts Join Standby.",
+        occurredAtLabel: 'Arrival date and time',
+        submitLabel: 'Record Arrival',
+        ...LIGHT_IMPACT_DEFAULTS,
+        impactDescription,
+        fixedNextPhase: 'p2a',
+    };
+}
+
 export function getMovementActionConfig(
     action: CrewMovementAction,
     currentPhase?: string | null,
 ): MovementActionConfig {
     if (action === 'record_arrival' && currentPhase === 'p0') {
-        return {
-            title: 'Record Arrival',
-            description:
-                "This records the crew member's actual arrival and starts Join Standby.",
-            occurredAtLabel: 'Arrival date and time',
-            submitLabel: 'Record Arrival',
-            impactTitle: 'What this does',
-            impactDescription:
-                "This records the crew member's actual arrival and transitions the assignment from Pre-Mobilisation into Join Standby.",
-            fixedNextPhase: 'p2a',
-        };
+        return lightRecordArrivalConfig(
+            "This records the crew member's actual arrival and transitions the assignment from Pre-Mobilisation into Join Standby.",
+        );
     }
 
     if (action === 'record_arrival' && currentPhase === 'p1') {
-        return {
-            title: 'Record Arrival',
-            description:
-                "This records the crew member's actual arrival and starts Join Standby.",
-            occurredAtLabel: 'Arrival date and time',
-            submitLabel: 'Record Arrival',
-            impactTitle: 'What this does',
-            impactDescription:
-                'This completes Travel In and moves the employee into Join Standby.',
-            fixedNextPhase: 'p2a',
-        };
+        return lightRecordArrivalConfig(
+            'This completes Travel In and moves the employee into Join Standby.',
+        );
     }
 
     return (
@@ -266,6 +300,8 @@ export function getMovementActionConfig(
             impactTitle: 'What this does',
             impactDescription:
                 'Record this crew movement action for the assignment.',
+            impactPreview: 'light',
+            impactSeverity: 'normal',
         }
     );
 }
