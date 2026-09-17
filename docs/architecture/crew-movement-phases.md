@@ -1108,7 +1108,10 @@ Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank
 
 ## Create Page Behaviour
 
-`organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows compact **Movement Guidance** for the selected employee: identity, one-line phase summary, compact journey indicator, a short explanation, up to three action buttons (Open Assignment, Transfer Vessel, Plan Future, etc.), one consolidated warning when another active assignment blocks Start, optional destination/planned-date advisories, and a collapsed “Why is Start Assignment blocked?” help item.
+`organization/crew/create` uses a two-column Start Assignment workspace. The left column keeps the existing create/bulk form. The right column shows compact guidance:
+
+- **Single employee:** **Movement Guidance** — identity, one-line phase summary, compact journey indicator, a short explanation, up to three action buttons (Open Assignment, Transfer Vessel, Plan Future, etc.), one consolidated warning when another active assignment blocks Start, optional destination/planned-date advisories, and a collapsed “Why is Start Assignment blocked?” help item.
+- **Bulk (2+ rows):** **Bulk Readiness** — default **Batch Summary** (counts, shared target, needs-attention list) and **Employee Preview** with Previous/Next inspection for one crew member at a time. Blocked employees must be resolved through existing individual workflows (Transfer, Open Assignment, etc.) or removed from the batch before Start. Bulk Start remains all-or-nothing.
 
 The panel is UX intelligence only. It does **not** change `CrewAssignment` state, create movement phases, or weaken backend validation. It guides operators toward the current assignment, Transfer Vessel, Redeploy, Return Home, Close Assignment, or Crew Planning as appropriate. One Active Crew Assignment per employee remains authoritative.
 

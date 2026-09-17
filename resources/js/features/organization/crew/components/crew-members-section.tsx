@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     dataTableActionsCellClass,
@@ -53,6 +54,8 @@ export function CrewMembersSection({
     errors,
     compact,
     canAddRow,
+    focusedRowKey = null,
+    scrollFocusedRow = false,
     onAddRow,
     onRemoveRow,
     onChangeRow,
@@ -62,10 +65,29 @@ export function CrewMembersSection({
     errors: Record<string, string | undefined>;
     compact: boolean;
     canAddRow: boolean;
+    focusedRowKey?: string | null;
+    scrollFocusedRow?: boolean;
     onAddRow: () => void;
     onRemoveRow: (index: number) => void;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
 }): ReactElement {
+    const focusedRowRef = useRef<HTMLTableRowElement | null>(null);
+    const focusedCardRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!scrollFocusedRow || focusedRowKey == null) {
+            return;
+        }
+
+        focusedRowRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+        });
+        focusedCardRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+        });
+    }, [focusedRowKey, scrollFocusedRow]);
     const selectedEmployeeIds = new Set(
         rows
             .map((row) => row.employee_id)
@@ -125,6 +147,12 @@ export function CrewMembersSection({
                                             selectedEmployeeIds
                                         }
                                         canRemove={rows.length > 1}
+                                        isFocused={focusedRowKey === row.key}
+                                        rowRef={
+                                            focusedRowKey === row.key
+                                                ? focusedRowRef
+                                                : undefined
+                                        }
                                         onChangeRow={onChangeRow}
                                         onRemoveRow={onRemoveRow}
                                     />
@@ -148,6 +176,12 @@ export function CrewMembersSection({
                                 errors={errors}
                                 selectedEmployeeIds={selectedEmployeeIds}
                                 canRemove={rows.length > 1}
+                                isFocused={focusedRowKey === row.key}
+                                cardRef={
+                                    focusedRowKey === row.key
+                                        ? focusedCardRef
+                                        : undefined
+                                }
                                 onChangeRow={onChangeRow}
                                 onRemoveRow={onRemoveRow}
                             />
@@ -226,6 +260,8 @@ function BulkDesktopRow({
     errors,
     selectedEmployeeIds,
     canRemove,
+    isFocused = false,
+    rowRef,
     onChangeRow,
     onRemoveRow,
 }: {
@@ -235,6 +271,8 @@ function BulkDesktopRow({
     errors: Record<string, string | undefined>;
     selectedEmployeeIds: Set<number>;
     canRemove: boolean;
+    isFocused?: boolean;
+    rowRef?: React.RefObject<HTMLTableRowElement | null>;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
     onRemoveRow: (index: number) => void;
 }): ReactElement {
@@ -252,10 +290,13 @@ function BulkDesktopRow({
 
     return (
         <TableRow
+            ref={rowRef}
+            data-bulk-row-key={row.key}
             className={cn(
                 dataTableBodyRowClass(false),
                 (blocked || incomplete) &&
                     'bg-destructive/5 dark:bg-destructive/10',
+                isFocused && 'bg-primary/5 ring-2 ring-primary/40 ring-inset',
             )}
         >
             <td className={dataTableCellClass()}>
@@ -322,6 +363,8 @@ function BulkMobileCard({
     errors,
     selectedEmployeeIds,
     canRemove,
+    isFocused = false,
+    cardRef,
     onChangeRow,
     onRemoveRow,
 }: {
@@ -331,6 +374,8 @@ function BulkMobileCard({
     errors: Record<string, string | undefined>;
     selectedEmployeeIds: Set<number>;
     canRemove: boolean;
+    isFocused?: boolean;
+    cardRef?: React.RefObject<HTMLDivElement | null>;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
     onRemoveRow: (index: number) => void;
 }): ReactElement {
@@ -348,6 +393,8 @@ function BulkMobileCard({
 
     return (
         <div
+            ref={cardRef}
+            data-bulk-row-key={row.key}
             className={cn(
                 'space-y-4 rounded-xl border p-4',
                 blocked || incomplete
@@ -355,6 +402,7 @@ function BulkMobileCard({
                     : status
                       ? getEmployeeStatusContainerClass(status.status)
                       : 'border-border/60 bg-muted/10',
+                isFocused && 'ring-2 ring-primary/40',
             )}
         >
             <div className="flex items-start justify-between gap-3">

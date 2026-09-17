@@ -1,7 +1,7 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { Info } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
@@ -11,12 +11,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
+import { CrewAssignmentBulkReadinessPanel } from '@/features/organization/crew/components/crew-assignment-bulk-readiness-panel';
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
 import { CrewAssignmentReadinessPanel } from '@/features/organization/crew/components/crew-assignment-readiness-panel';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
+import type {
+    BulkPreviewFilter,
+    BulkSidebarMode,
+} from '@/features/organization/crew/lib/bulk-readiness-preview';
+import {
+    bulkStartHelperText,
+    indicesOfBlockedRows,
+    resolveNextPreviewRowKey,
+} from '@/features/organization/crew/lib/bulk-readiness-preview';
 import {
     bulkFieldError,
     canSubmitBulkBatch,
@@ -41,7 +51,6 @@ import type {
     CrewPlanningBackQuery,
     CrewPlanningStartContext,
 } from '@/features/organization/crew/types';
-import { formatDisplayDate } from '@/lib/format-date';
 import { dashboard } from '@/routes';
 import {
     bulkStore,
@@ -110,6 +119,23 @@ function lookupStatus(
     );
 }
 
+function findBulkRowValidationError(
+    errors: Record<string, string | undefined>,
+): { index: number; message: string } | null {
+    for (const [key, message] of Object.entries(errors)) {
+        const match = /^crew\.(\d+)\.employee_id$/.exec(key);
+
+        if (match && message) {
+            return {
+                index: Number(match[1]),
+                message,
+            };
+        }
+    }
+
+    return null;
+}
+
 type UnifiedCreateFormData = BulkAddCrewFormData & {
     submission_intent?: 'start' | 'draft';
 };
@@ -134,6 +160,12 @@ export function CrewAssignmentCreateForm({
     );
     const [rowKeys, setRowKeys] = useState<string[]>(initialRows.keys);
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
+    const [bulkSidebarMode, setBulkSidebarMode] =
+        useState<BulkSidebarMode>('summary');
+    const [previewRowKey, setPreviewRowKey] = useState<string | null>(null);
+    const [previewFilter, setPreviewFilter] =
+        useState<BulkPreviewFilter>('all');
+    const [scrollFocusedRow, setScrollFocusedRow] = useState(false);
 
     const form = useForm<UnifiedCreateFormData>({
         client_id: planning_context?.client_id ?? null,
@@ -218,7 +250,6 @@ export function CrewAssignmentCreateForm({
         : can.view
           ? 'Back to Crew Assignments'
           : 'Back to Dashboard';
-    const vesselName = destinationVessel?.name ?? 'Not selected';
     const readinessPermissions = {
         view: can.view,
         update: can.update,
@@ -230,6 +261,141 @@ export function CrewAssignmentCreateForm({
         vessel_id: form.data.vessel_id,
         rank_id: singleRow?.rank_id ?? null,
         client_id: form.data.client_id,
+    };
+    const bulkRowValidationError = findBulkRowValidationError(formErrors);
+    const bulkBatchError =
+        bulkFieldError(formErrors, 'error') ??
+        bulkRowValidationError?.message ??
+        null;
+    const bulkHelperText = bulkMode ? bulkStartHelperText(bulkSummary) : null;
+
+    const reviewBulkRow = useCallback(
+        (rowKey: string, options?: { scroll?: boolean }) => {
+            setBulkSidebarMode('preview');
+            setPreviewRowKey(rowKey);
+            setScrollFocusedRow(options?.scroll ?? false);
+        },
+        [],
+    );
+
+    const handleRemoveRow = useCallback(
+        (index: number) => {
+            const removedKey = rowKeys[index];
+            const nextKeys = rowKeys.filter(
+                (_, rowIndex) => rowIndex !== index,
+            );
+            const nextCrew = form.data.crew.filter(
+                (_, rowIndex) => rowIndex !== index,
+            );
+            const nextRows: CrewMemberRowState[] = nextCrew.map(
+                (row, rowIndex) => ({
+                    ...row,
+                    key: nextKeys[rowIndex] ?? `crew-row-fallback-${rowIndex}`,
+                }),
+            );
+
+            setRowKeys(nextKeys);
+            form.setData('crew', nextCrew);
+
+            if (previewRowKey === removedKey) {
+                const nextPreviewKey = resolveNextPreviewRowKey(
+                    nextRows,
+                    form_options,
+                    index,
+                    previewFilter,
+                );
+
+                setPreviewRowKey(nextPreviewKey);
+
+                if (nextPreviewKey === null) {
+                    setBulkSidebarMode('summary');
+                }
+            }
+        },
+        [form, form_options, previewFilter, previewRowKey, rowKeys],
+    );
+
+    const handleRemoveBlockedRows = useCallback(() => {
+        const blockedIndices = indicesOfBlockedRows(rows, form_options).sort(
+            (left, right) => right - left,
+        );
+
+        if (blockedIndices.length === 0) {
+            return;
+        }
+
+        const nextKeys = [...rowKeys];
+        const nextCrew = [...form.data.crew];
+
+        for (const index of blockedIndices) {
+            nextKeys.splice(index, 1);
+            nextCrew.splice(index, 1);
+        }
+
+        setRowKeys(nextKeys);
+        form.setData('crew', nextCrew);
+        setBulkSidebarMode('summary');
+        setPreviewRowKey(null);
+    }, [form, form_options, rowKeys, rows]);
+
+    const focusBulkValidationError = useCallback(
+        (errors: Record<string, string | undefined>) => {
+            const rowError = findBulkRowValidationError(errors);
+
+            if (rowError === null) {
+                return;
+            }
+
+            const rowKey = rows[rowError.index]?.key;
+
+            if (rowKey) {
+                setBulkSidebarMode('summary');
+                setPreviewRowKey(rowKey);
+                setScrollFocusedRow(true);
+            }
+        },
+        [rows],
+    );
+
+    const renderGuidanceSidebar = (): ReactElement => {
+        if (bulkMode) {
+            return (
+                <CrewAssignmentBulkReadinessPanel
+                    rows={rows}
+                    formOptions={form_options}
+                    permissions={readinessPermissions}
+                    summary={bulkSummary}
+                    clientId={form.data.client_id}
+                    vesselId={form.data.vessel_id}
+                    plannedJoinAt={form.data.planned_join_at || null}
+                    sidebarMode={bulkSidebarMode}
+                    onSidebarModeChange={setBulkSidebarMode}
+                    previewRowKey={previewRowKey}
+                    onPreviewRowKeyChange={setPreviewRowKey}
+                    previewFilter={previewFilter}
+                    onPreviewFilterChange={setPreviewFilter}
+                    onReviewRow={(rowKey) =>
+                        reviewBulkRow(rowKey, { scroll: true })
+                    }
+                    onRemoveRow={handleRemoveRow}
+                    onRemoveBlockedRows={handleRemoveBlockedRows}
+                    batchError={bulkBatchError}
+                />
+            );
+        }
+
+        return (
+            <CrewAssignmentReadinessPanel
+                employeeId={effectiveEmployeeId}
+                formOptions={form_options}
+                permissions={readinessPermissions}
+                destinationVesselId={form.data.vessel_id}
+                plannedJoinAt={form.data.planned_join_at || null}
+                transferPrefill={transferPrefill}
+                planningEmployeeName={planning_context?.employee_name ?? null}
+                planningRankName={planning_context?.rank_name ?? null}
+            />
+        );
     };
 
     const submitSingle = (intent: 'start' | 'draft'): void => {
@@ -300,6 +466,11 @@ export function CrewAssignmentCreateForm({
         }));
 
         form.post(bulkStore.url(), {
+            onError: (errors) => {
+                focusBulkValidationError(
+                    errors as Record<string, string | undefined>,
+                );
+            },
             onFinish: () => form.transform((data) => data),
         });
     };
@@ -452,6 +623,14 @@ export function CrewAssignmentCreateForm({
                                                 formOptions={form_options}
                                                 errors={formErrors}
                                                 compact={bulkMode}
+                                                focusedRowKey={
+                                                    bulkMode
+                                                        ? previewRowKey
+                                                        : null
+                                                }
+                                                scrollFocusedRow={
+                                                    scrollFocusedRow
+                                                }
                                                 canAddRow={
                                                     can.start && !fromPlanning
                                                 }
@@ -471,21 +650,7 @@ export function CrewAssignmentCreateForm({
                                                         },
                                                     ]);
                                                 }}
-                                                onRemoveRow={(index) => {
-                                                    setRowKeys((keys) =>
-                                                        keys.filter(
-                                                            (_, i) =>
-                                                                i !== index,
-                                                        ),
-                                                    );
-                                                    form.setData(
-                                                        'crew',
-                                                        form.data.crew.filter(
-                                                            (_, i) =>
-                                                                i !== index,
-                                                        ),
-                                                    );
-                                                }}
+                                                onRemoveRow={handleRemoveRow}
                                                 onChangeRow={(
                                                     index: number,
                                                     row: BulkAddCrewRow,
@@ -503,27 +668,7 @@ export function CrewAssignmentCreateForm({
                                             />
 
                                             <div className="lg:hidden">
-                                                <CrewAssignmentReadinessPanel
-                                                    employeeId={
-                                                        effectiveEmployeeId
-                                                    }
-                                                    formOptions={form_options}
-                                                    permissions={
-                                                        readinessPermissions
-                                                    }
-                                                    destinationVesselId={
-                                                        form.data.vessel_id
-                                                    }
-                                                    plannedJoinAt={
-                                                        form.data
-                                                            .planned_join_at ||
-                                                        null
-                                                    }
-                                                    transferPrefill={
-                                                        transferPrefill
-                                                    }
-                                                    bulkMode={bulkMode}
-                                                />
+                                                {renderGuidanceSidebar()}
                                             </div>
                                         </>
                                     )}
@@ -560,42 +705,6 @@ export function CrewAssignmentCreateForm({
                                         formOptions={form_options}
                                         showMasterFields={!fromPlanning}
                                     />
-
-                                    {bulkMode ? (
-                                        <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm">
-                                            <p className="font-semibold">
-                                                {readyCount === 1
-                                                    ? '1 crew member ready'
-                                                    : `${readyCount} crew members ready`}
-                                            </p>
-                                            {incompleteCount > 0 ? (
-                                                <p className="mt-1 font-medium text-destructive">
-                                                    {incompleteCount === 1
-                                                        ? '1 incomplete'
-                                                        : `${incompleteCount} incomplete`}
-                                                </p>
-                                            ) : null}
-                                            {blockedCount > 0 ? (
-                                                <p className="mt-1 font-medium text-destructive">
-                                                    {blockedCount === 1
-                                                        ? '1 blocked'
-                                                        : `${blockedCount} blocked`}
-                                                </p>
-                                            ) : null}
-                                            <p className="mt-1 text-muted-foreground">
-                                                Vessel: {vesselName}
-                                            </p>
-                                            <p className="text-muted-foreground">
-                                                Expected Join:{' '}
-                                                {form.data.planned_join_at
-                                                    ? formatDisplayDate(
-                                                          form.data
-                                                              .planned_join_at,
-                                                      )
-                                                    : 'Not set'}
-                                            </p>
-                                        </div>
-                                    ) : null}
 
                                     <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
                                         {can.start &&
@@ -693,19 +802,9 @@ export function CrewAssignmentCreateForm({
                                             </p>
                                         ) : null}
 
-                                        {bulkMode && incompleteCount > 0 ? (
-                                            <p className="w-full text-sm font-medium text-destructive">
-                                                {incompleteCount === 1
-                                                    ? '1 crew member incomplete. Select an employee or remove this row.'
-                                                    : `${incompleteCount} crew members incomplete. Select an employee or remove each highlighted row.`}
-                                            </p>
-                                        ) : null}
-
-                                        {bulkMode && blockedCount > 0 ? (
-                                            <p className="w-full text-sm font-medium text-destructive">
-                                                {blockedCount === 1
-                                                    ? '1 crew member cannot be started. Resolve the highlighted row before continuing.'
-                                                    : `${blockedCount} crew members cannot be started. Resolve the highlighted rows before continuing.`}
+                                        {bulkHelperText ? (
+                                            <p className="w-full text-xs font-medium text-destructive">
+                                                {bulkHelperText}
                                             </p>
                                         ) : null}
 
@@ -746,23 +845,7 @@ export function CrewAssignmentCreateForm({
 
                     <div className="hidden lg:block">
                         <div className="sticky top-24">
-                            <CrewAssignmentReadinessPanel
-                                employeeId={effectiveEmployeeId}
-                                formOptions={form_options}
-                                permissions={readinessPermissions}
-                                destinationVesselId={form.data.vessel_id}
-                                plannedJoinAt={
-                                    form.data.planned_join_at || null
-                                }
-                                transferPrefill={transferPrefill}
-                                bulkMode={bulkMode}
-                                planningEmployeeName={
-                                    planning_context?.employee_name ?? null
-                                }
-                                planningRankName={
-                                    planning_context?.rank_name ?? null
-                                }
-                            />
+                            {renderGuidanceSidebar()}
                         </div>
                     </div>
                 </div>

@@ -72,7 +72,6 @@ export function CrewAssignmentReadinessPanel({
     transferPrefill,
     planningEmployeeName = null,
     planningRankName = null,
-    bulkMode = false,
     className,
 }: {
     employeeId: number | null;
@@ -90,24 +89,8 @@ export function CrewAssignmentReadinessPanel({
     };
     planningEmployeeName?: string | null;
     planningRankName?: string | null;
-    bulkMode?: boolean;
     className?: string;
 }): ReactElement {
-    if (bulkMode) {
-        return (
-            <aside
-                className={cn('rounded-xl border glass-card p-3.5', className)}
-                aria-label="Movement Guidance"
-            >
-                <MovementGuidanceHeader />
-                <div className="mt-2.5 rounded-lg border border-dashed border-border/70 bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
-                    Movement guidance is available when starting one crew member
-                    at a time.
-                </div>
-            </aside>
-        );
-    }
-
     const employee =
         employeeId != null
             ? formOptions.employees.find((item) => item.id === employeeId)

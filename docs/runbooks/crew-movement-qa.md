@@ -48,6 +48,9 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Single mode: On Vessel on a different vessel opens Transfer Vessel recommendation on submit (not bulk auto-transfer)
 - [ ] Bulk mode: On Vessel rows stay blocked with transfer guidance; no transfer dialogs
 - [ ] Movement Guidance stays compact (no duplicate intent cards / recommended-actions stack); collapsed help explains why Start is blocked
+- [ ] Bulk mode shows Bulk Readiness (Summary default, Preview with Previous/Next); Review focuses the matching row
+- [ ] Bulk Start stays disabled until blockedCount=0 and incompleteCount=0; Remove Blocked is explicit and never silent
+- [ ] P4 blocked bulk preview offers Transfer Vessel individually; bulk submit never executes transfer
 - [ ] Edit Assignment uses two-column workspace with phase-aware editing guidance; generic Edit still unavailable from P4 onward
 - [ ] An active-assignment employee blocks bulk submission; removing that row lets the rest of a valid batch start
 - [ ] Start N Assignments is all-or-nothing: a blocked row creates zero assignments from that submission
