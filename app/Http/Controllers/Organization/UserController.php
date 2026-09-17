@@ -145,7 +145,7 @@ class UserController extends Controller
         $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
         $companyPayload = $this->companyPayload($company);
 
-        $now = time();
+        $now = now()->getTimestamp();
         $onlineThreshold = $now - (5 * 60);
         $recentThreshold = $now - (30 * 60);
 

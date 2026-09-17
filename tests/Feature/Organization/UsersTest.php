@@ -7,11 +7,23 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\UserInvitation;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+
+beforeEach(function (): void {
+    restoreOrganizationTestClock();
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+});
+
+afterEach(function (): void {
+    restoreOrganizationTestClock();
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+});
 
 test('guests cannot access users page', function () {
     $this->get('/organization/users')->assertRedirect(route('login'));
@@ -636,6 +648,8 @@ test('users directory can be filtered by presence and exposes two_factor_enabled
     $company = $pair['companyA'];
     grantCompanyPermissions($admin, $company, ['users.view']);
 
+    $now = now()->getTimestamp();
+
     // Online user (active session 2 minutes ago) with confirmed 2FA
     $onlineUser = User::factory()->withTwoFactor()->create([
         'company_id' => $company->id,
@@ -647,7 +661,7 @@ test('users directory can be filtered by presence and exposes two_factor_enabled
         'ip_address' => '127.0.0.1',
         'user_agent' => 'Pest',
         'payload' => 'payload',
-        'last_activity' => time() - 120, // 2 mins ago
+        'last_activity' => $now - 120,
     ]);
 
     // Never-active user (no login, no session) without 2FA
@@ -835,10 +849,12 @@ test('users directory summary counts are tenant-scoped and match presence filter
     $companyB = $pair['companyB'];
     grantCompanyPermissions($admin, $companyA, ['users.view']);
 
+    $now = now()->getTimestamp();
+
     $onlineUser = User::factory()->create([
         'company_id' => $companyA->id,
         'status' => 'active',
-        'last_login_at' => now(),
+        'last_login_at' => Carbon::createFromTimestamp($now),
     ]);
     DB::table('sessions')->insert([
         'id' => 'summary-online-session',
@@ -846,7 +862,7 @@ test('users directory summary counts are tenant-scoped and match presence filter
         'ip_address' => '127.0.0.1',
         'user_agent' => 'Pest',
         'payload' => 'payload',
-        'last_activity' => time() - 60,
+        'last_activity' => $now - 60,
     ]);
 
     $neverUser = User::factory()->create([
@@ -1006,6 +1022,8 @@ test('presence summary cards compose with role filters instead of replacing them
 
     app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
 
+    $now = now()->getTimestamp();
+
     $role = Role::query()->create([
         'company_id' => $company->id,
         'name' => 'HR Manager',
@@ -1015,7 +1033,7 @@ test('presence summary cards compose with role filters instead of replacing them
     $onlineHr = User::factory()->create([
         'company_id' => $company->id,
         'status' => 'active',
-        'last_login_at' => now(),
+        'last_login_at' => Carbon::createFromTimestamp($now),
     ]);
     $onlineHr->assignRole($role);
     DB::table('sessions')->insert([
@@ -1024,13 +1042,13 @@ test('presence summary cards compose with role filters instead of replacing them
         'ip_address' => '127.0.0.1',
         'user_agent' => 'Pest',
         'payload' => 'payload',
-        'last_activity' => time() - 30,
+        'last_activity' => $now - 30,
     ]);
 
     $onlineOther = User::factory()->create([
         'company_id' => $company->id,
         'status' => 'active',
-        'last_login_at' => now(),
+        'last_login_at' => Carbon::createFromTimestamp($now),
     ]);
     DB::table('sessions')->insert([
         'id' => 'online-other-session',
@@ -1038,7 +1056,7 @@ test('presence summary cards compose with role filters instead of replacing them
         'ip_address' => '127.0.0.1',
         'user_agent' => 'Pest',
         'payload' => 'payload',
-        'last_activity' => time() - 30,
+        'last_activity' => $now - 30,
     ]);
 
     $response = $this->actingAs($admin)
