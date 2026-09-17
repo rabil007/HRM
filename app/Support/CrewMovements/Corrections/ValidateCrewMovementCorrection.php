@@ -15,6 +15,7 @@ use App\Models\CrewMovementCorrection;
 use App\Models\EmployeeTraining;
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Support\CrewMovements\CrewActualMovementTimestampGuard;
 use App\Support\CrewMovements\CrewMovementMasterDataGuard;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -25,6 +26,7 @@ final class ValidateCrewMovementCorrection
         private readonly CrewMovementCorrectionFieldCatalog $catalog = new CrewMovementCorrectionFieldCatalog,
         private readonly CrewMovementCorrectionValueSnapshot $snapshot = new CrewMovementCorrectionValueSnapshot,
         private readonly CrewMovementMasterDataGuard $masterDataGuard = new CrewMovementMasterDataGuard,
+        private readonly CrewActualMovementTimestampGuard $actualMovementTimestamps = new CrewActualMovementTimestampGuard,
     ) {}
 
     /**
@@ -138,6 +140,7 @@ final class ValidateCrewMovementCorrection
         }
 
         $this->assertTimeline($assignment, $phase, $normalized);
+        $this->assertActualTimestampsNotFuture($assignment, $normalized);
 
         return $normalized;
     }
@@ -370,6 +373,24 @@ final class ValidateCrewMovementCorrection
         }
 
         return (string) ($left ?? '') === (string) ($right ?? '');
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalized
+     */
+    private function assertActualTimestampsNotFuture(CrewAssignment $assignment, array $normalized): void
+    {
+        foreach (['actual_start_at', 'actual_end_at'] as $field) {
+            if (! array_key_exists($field, $normalized)) {
+                continue;
+            }
+
+            $value = $normalized[$field];
+
+            if ($value instanceof CarbonInterface) {
+                $this->actualMovementTimestamps->assertNotFuture((int) $assignment->company_id, $value);
+            }
+        }
     }
 
     private function parseTimestamp(int $companyId, string $value): CarbonInterface

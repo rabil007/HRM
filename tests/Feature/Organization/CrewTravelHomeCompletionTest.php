@@ -14,7 +14,18 @@ use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+
+beforeEach(function (): void {
+    Carbon::setTestNow(Carbon::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+});
+
+afterEach(function (): void {
+    Carbon::setTestNow();
+    CarbonImmutable::setTestNow();
+});
 
 /**
  * @return array{
@@ -174,7 +185,7 @@ test('travel home cannot close an already completed assignment', function () {
     ], $user->id);
 
     expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::TravelHome, [
-        'occurred_at' => '2026-09-17 19:00:00',
+        'occurred_at' => '2026-09-17 11:00:00',
         'completion_intent' => 'close',
     ], $user->id))->toThrow(CrewMovementException::class);
 });
@@ -188,11 +199,11 @@ test('standalone close assignment still works from active p6', function () {
     ], $user->id);
 
     $result = $service->perform($company->id, $assignment->id, CrewMovementAction::CloseAssignment, [
-        'occurred_at' => '2026-09-20 08:00:00',
+        'occurred_at' => '2026-09-17 11:00:00',
     ], $user->id);
 
     expect($result->status)->toBe(CrewAssignmentStatus::Completed)
-        ->and($result->closed_at?->toDateTimeString())->toBe('2026-09-20 08:00:00');
+        ->and($result->closed_at?->toDateTimeString())->toBe('2026-09-17 11:00:00');
 });
 
 test('invalid travel home timestamp does not partially mutate p5', function () {

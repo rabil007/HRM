@@ -22,6 +22,10 @@ final class CrewPhaseIntervalOverlapDetector
         CarbonInterface $rightStart,
         CarbonInterface $rightEnd,
     ): bool {
+        if (! $leftStart->lt($leftEnd) || ! $rightStart->lt($rightEnd)) {
+            return false;
+        }
+
         return $leftStart->lt($rightEnd) && $rightStart->lt($leftEnd);
     }
 }
