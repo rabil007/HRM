@@ -24,7 +24,7 @@ final class ApplicationPermissionDefinitions
             1 => [
                 'name' => 'announcements.create',
                 'label' => 'Create Announcements',
-                'description' => 'Allows the user to create new Announcements records for the active company.',
+                'description' => 'Allows the user to draft announcements for the active company before publishing or scheduling delivery.',
                 'group' => 'Announcements',
             ],
             2 => [
@@ -101,14 +101,14 @@ final class ApplicationPermissionDefinitions
             ],
             14 => [
                 'name' => 'attendance.leave-requests.create',
-                'label' => 'Create Leave requests',
-                'description' => 'Allows the user to create new Leave requests records for the active company.',
+                'label' => 'Create Leave Requests',
+                'description' => 'Allows the user to submit leave requests for employees they are authorized to manage in the active company.',
                 'group' => 'Attendance',
             ],
             15 => [
                 'name' => 'attendance.leave-requests.delete',
-                'label' => 'Delete Leave requests',
-                'description' => 'Allows the user to delete Leave requests records according to the application\'s existing deletion rules.',
+                'label' => 'Delete Leave Requests',
+                'description' => 'Allows the user to delete leave requests according to existing leave workflow and deletion rules.',
                 'group' => 'Attendance',
             ],
             16 => [
@@ -119,14 +119,14 @@ final class ApplicationPermissionDefinitions
             ],
             17 => [
                 'name' => 'attendance.leave-requests.update',
-                'label' => 'Update Leave requests',
-                'description' => 'Allows the user to update existing Leave requests records within the active company.',
+                'label' => 'Update Leave Requests',
+                'description' => 'Allows the user to update leave requests within permitted workflow states in the active company.',
                 'group' => 'Attendance',
             ],
             18 => [
                 'name' => 'attendance.leave-requests.view',
-                'label' => 'View Leave requests',
-                'description' => 'Allows the user to view Leave requests records available within the active company.',
+                'label' => 'View Leave Requests',
+                'description' => 'Allows the user to view leave requests they are authorized to access in the active company.',
                 'group' => 'Attendance',
             ],
             19 => [
@@ -143,14 +143,14 @@ final class ApplicationPermissionDefinitions
             ],
             21 => [
                 'name' => 'attendance.records.create',
-                'label' => 'Create Records',
-                'description' => 'Allows the user to create new Records records for the active company.',
+                'label' => 'Create Attendance Records',
+                'description' => 'Allows the user to add manual attendance entries for employees in the active company.',
                 'group' => 'Attendance',
             ],
             22 => [
                 'name' => 'attendance.records.delete',
-                'label' => 'Delete Records',
-                'description' => 'Allows the user to delete Records records according to the application\'s existing deletion rules.',
+                'label' => 'Delete Attendance Records',
+                'description' => 'Allows the user to delete attendance entries according to existing attendance rules.',
                 'group' => 'Attendance',
             ],
             23 => [
@@ -161,38 +161,38 @@ final class ApplicationPermissionDefinitions
             ],
             24 => [
                 'name' => 'attendance.records.update',
-                'label' => 'Update Records',
-                'description' => 'Allows the user to update existing Records records within the active company.',
+                'label' => 'Update Attendance Records',
+                'description' => 'Allows the user to correct or update employee attendance entries in the active company.',
                 'group' => 'Attendance',
             ],
             25 => [
                 'name' => 'attendance.records.view',
-                'label' => 'View Records',
-                'description' => 'Allows the user to view Records records available within the active company.',
+                'label' => 'View Attendance Records',
+                'description' => 'Allows the user to view employee attendance records they are authorized to access.',
                 'group' => 'Attendance',
             ],
             26 => [
                 'name' => 'attendance.types.create',
-                'label' => 'Create Types',
-                'description' => 'Allows the user to create new Types records for the active company.',
+                'label' => 'Create Leave Types',
+                'description' => 'Allows the user to define leave types used in attendance and leave workflows for the active company.',
                 'group' => 'Attendance',
             ],
             27 => [
                 'name' => 'attendance.types.delete',
-                'label' => 'Delete Types',
-                'description' => 'Allows the user to delete Types records according to the application\'s existing deletion rules.',
+                'label' => 'Delete Leave Types',
+                'description' => 'Allows the user to delete leave types according to existing usage-protection rules.',
                 'group' => 'Attendance',
             ],
             28 => [
                 'name' => 'attendance.types.update',
-                'label' => 'Update Types',
-                'description' => 'Allows the user to update existing Types records within the active company.',
+                'label' => 'Update Leave Types',
+                'description' => 'Allows the user to update leave type definitions for the active company.',
                 'group' => 'Attendance',
             ],
             29 => [
                 'name' => 'attendance.types.view',
-                'label' => 'View Types',
-                'description' => 'Allows the user to view Types records available within the active company.',
+                'label' => 'View Leave Types',
+                'description' => 'Allows the user to view leave type definitions available to the active company.',
                 'group' => 'Attendance',
             ],
             30 => [
@@ -414,7 +414,7 @@ final class ApplicationPermissionDefinitions
             66 => [
                 'name' => 'crew_operations.assignments.create',
                 'label' => 'Create Crew Assignments',
-                'description' => 'Allows the user to create crew assignments and begin a new crew mobilisation cycle.',
+                'description' => 'Allows the user to create a new crew assignment and begin a crew mobilisation cycle.',
                 'group' => 'Crew Operations',
             ],
             67 => [
@@ -432,7 +432,7 @@ final class ApplicationPermissionDefinitions
             69 => [
                 'name' => 'crew_operations.assignments.void',
                 'label' => 'Void Erroneous Crew Assignments',
-                'description' => 'Allows the user to void erroneous crew assignments when additional void guards permit the action. High-trust permission.',
+                'description' => 'Allows trusted users to void an assignment created in error when all additional void safeguards are satisfied.',
                 'group' => 'Crew Operations',
             ],
             70 => [
@@ -726,7 +726,7 @@ final class ApplicationPermissionDefinitions
             118 => [
                 'name' => 'documents.view',
                 'label' => 'View Employee Documents',
-                'description' => 'Allows the user to view Employee Documents records available within the active company.',
+                'description' => 'Allows the user to browse employee documents they are authorized to access in the active company.',
                 'group' => 'Employee Documents',
             ],
             119 => [
@@ -756,25 +756,25 @@ final class ApplicationPermissionDefinitions
             123 => [
                 'name' => 'education.create',
                 'label' => 'Create Education Records',
-                'description' => 'Allows the user to create new Education Records records for the active company.',
+                'description' => 'Allows the user to add education history to employee profiles in the active company.',
                 'group' => 'Education Records',
             ],
             124 => [
                 'name' => 'education.delete',
                 'label' => 'Delete Education Records',
-                'description' => 'Allows the user to delete Education Records records according to the application\'s existing deletion rules.',
+                'description' => 'Allows the user to remove employee education records according to existing deletion rules.',
                 'group' => 'Education Records',
             ],
             125 => [
                 'name' => 'education.update',
                 'label' => 'Update Education Records',
-                'description' => 'Allows the user to update existing Education Records records within the active company.',
+                'description' => 'Allows the user to update employee education history within the active company.',
                 'group' => 'Education Records',
             ],
             126 => [
                 'name' => 'education.view',
                 'label' => 'View Education Records',
-                'description' => 'Allows the user to view Education Records records available within the active company.',
+                'description' => 'Allows the user to view employee education history they are authorized to access.',
                 'group' => 'Education Records',
             ],
             127 => [
@@ -918,25 +918,25 @@ final class ApplicationPermissionDefinitions
             150 => [
                 'name' => 'languages.create',
                 'label' => 'Create Language Records',
-                'description' => 'Allows the user to create new Language Records records for the active company.',
+                'description' => 'Allows the user to add language proficiency records to employee profiles in the active company.',
                 'group' => 'Language Records',
             ],
             151 => [
                 'name' => 'languages.delete',
                 'label' => 'Delete Language Records',
-                'description' => 'Allows the user to delete Language Records records according to the application\'s existing deletion rules.',
+                'description' => 'Allows the user to remove employee language records according to existing deletion rules.',
                 'group' => 'Language Records',
             ],
             152 => [
                 'name' => 'languages.update',
                 'label' => 'Update Language Records',
-                'description' => 'Allows the user to update existing Language Records records within the active company.',
+                'description' => 'Allows the user to update employee language proficiency records within the active company.',
                 'group' => 'Language Records',
             ],
             153 => [
                 'name' => 'languages.view',
                 'label' => 'View Language Records',
-                'description' => 'Allows the user to view Language Records records available within the active company.',
+                'description' => 'Allows the user to view employee language records they are authorized to access.',
                 'group' => 'Language Records',
             ],
             154 => [
@@ -1037,14 +1037,14 @@ final class ApplicationPermissionDefinitions
             ],
             170 => [
                 'name' => 'payroll.periods.create',
-                'label' => 'Create Periods',
-                'description' => 'Allows the user to create new Periods records for the active company.',
+                'label' => 'Create Payroll Periods',
+                'description' => 'Allows the user to open new payroll periods for the active company.',
                 'group' => 'Payroll',
             ],
             171 => [
                 'name' => 'payroll.periods.delete',
-                'label' => 'Delete Periods',
-                'description' => 'Allows the user to delete Periods records according to the application\'s existing deletion rules.',
+                'label' => 'Delete Payroll Periods',
+                'description' => 'Allows the user to delete payroll periods according to existing payroll workflow rules.',
                 'group' => 'Payroll',
             ],
             172 => [
@@ -1079,14 +1079,14 @@ final class ApplicationPermissionDefinitions
             ],
             177 => [
                 'name' => 'payroll.periods.update',
-                'label' => 'Update Periods',
-                'description' => 'Allows the user to update existing Periods records within the active company.',
+                'label' => 'Update Payroll Periods',
+                'description' => 'Allows the user to update payroll period details within permitted workflow states.',
                 'group' => 'Payroll',
             ],
             178 => [
                 'name' => 'payroll.periods.view',
-                'label' => 'View Periods',
-                'description' => 'Allows the user to view Periods records available within the active company.',
+                'label' => 'View Payroll Periods',
+                'description' => 'Allows the user to view payroll periods and related processing status for the active company.',
                 'group' => 'Payroll',
             ],
             179 => [
@@ -1200,13 +1200,13 @@ final class ApplicationPermissionDefinitions
             197 => [
                 'name' => 'sea_services.create',
                 'label' => 'Create Sea Service Records',
-                'description' => 'Allows the user to create new Sea Service Records records for the active company.',
+                'description' => 'Allows the user to add sea service history to employee profiles in the active company.',
                 'group' => 'Sea Service Records',
             ],
             198 => [
                 'name' => 'sea_services.delete',
                 'label' => 'Delete Sea Service Records',
-                'description' => 'Allows the user to delete Sea Service Records records according to the application\'s existing deletion rules.',
+                'description' => 'Allows the user to remove employee sea service records according to existing deletion rules.',
                 'group' => 'Sea Service Records',
             ],
             199 => [
@@ -1218,13 +1218,13 @@ final class ApplicationPermissionDefinitions
             200 => [
                 'name' => 'sea_services.update',
                 'label' => 'Update Sea Service Records',
-                'description' => 'Allows the user to update existing Sea Service Records records within the active company.',
+                'description' => 'Allows the user to update employee sea service history within the active company.',
                 'group' => 'Sea Service Records',
             ],
             201 => [
                 'name' => 'sea_services.view',
                 'label' => 'View Sea Service Records',
-                'description' => 'Allows the user to view Sea Service Records records available within the active company.',
+                'description' => 'Allows the user to view employee sea service history they are authorized to access.',
                 'group' => 'Sea Service Records',
             ],
             202 => [
@@ -1740,13 +1740,13 @@ final class ApplicationPermissionDefinitions
             287 => [
                 'name' => 'training.create',
                 'label' => 'Create Training Records',
-                'description' => 'Allows the user to create new Training Records records for the active company.',
+                'description' => 'Allows the user to add training history to employee profiles in the active company.',
                 'group' => 'Training Records',
             ],
             288 => [
                 'name' => 'training.delete',
                 'label' => 'Delete Training Records',
-                'description' => 'Allows the user to delete Training Records records according to the application\'s existing deletion rules.',
+                'description' => 'Allows the user to remove employee training records according to existing deletion rules.',
                 'group' => 'Training Records',
             ],
             289 => [
@@ -1758,13 +1758,13 @@ final class ApplicationPermissionDefinitions
             290 => [
                 'name' => 'training.update',
                 'label' => 'Update Training Records',
-                'description' => 'Allows the user to update existing Training Records records within the active company.',
+                'description' => 'Allows the user to update employee training history within the active company.',
                 'group' => 'Training Records',
             ],
             291 => [
                 'name' => 'training.view',
                 'label' => 'View Training Records',
-                'description' => 'Allows the user to view Training Records records available within the active company.',
+                'description' => 'Allows the user to view employee training history they are authorized to access.',
                 'group' => 'Training Records',
             ],
             292 => [
@@ -1812,13 +1812,13 @@ final class ApplicationPermissionDefinitions
             299 => [
                 'name' => 'vaccination.create',
                 'label' => 'Create Vaccination Records',
-                'description' => 'Allows the user to create new Vaccination Records records for the active company.',
+                'description' => 'Allows the user to add vaccination information to employee profiles in the active company.',
                 'group' => 'Vaccination Records',
             ],
             300 => [
                 'name' => 'vaccination.delete',
                 'label' => 'Delete Vaccination Records',
-                'description' => 'Allows the user to delete Vaccination Records records according to the application\'s existing deletion rules.',
+                'description' => 'Allows the user to remove employee vaccination records according to existing deletion rules.',
                 'group' => 'Vaccination Records',
             ],
             301 => [
@@ -1830,25 +1830,25 @@ final class ApplicationPermissionDefinitions
             302 => [
                 'name' => 'vaccination.update',
                 'label' => 'Update Vaccination Records',
-                'description' => 'Allows the user to update existing Vaccination Records records within the active company.',
+                'description' => 'Allows the user to update employee vaccination records within the active company.',
                 'group' => 'Vaccination Records',
             ],
             303 => [
                 'name' => 'vaccination.view',
                 'label' => 'View Vaccination Records',
-                'description' => 'Allows the user to view Vaccination Records records available within the active company.',
+                'description' => 'Allows the user to view employee vaccination records they are authorized to access.',
                 'group' => 'Vaccination Records',
             ],
             304 => [
                 'name' => 'work_experience.create',
                 'label' => 'Create Work Experience Records',
-                'description' => 'Allows the user to create new Work Experience Records records for the active company.',
+                'description' => 'Allows the user to add work experience history to employee profiles in the active company.',
                 'group' => 'Work Experience Records',
             ],
             305 => [
                 'name' => 'work_experience.delete',
                 'label' => 'Delete Work Experience Records',
-                'description' => 'Allows the user to delete Work Experience Records records according to the application\'s existing deletion rules.',
+                'description' => 'Allows the user to remove employee work experience records according to existing deletion rules.',
                 'group' => 'Work Experience Records',
             ],
             306 => [
@@ -1860,13 +1860,13 @@ final class ApplicationPermissionDefinitions
             307 => [
                 'name' => 'work_experience.update',
                 'label' => 'Update Work Experience Records',
-                'description' => 'Allows the user to update existing Work Experience Records records within the active company.',
+                'description' => 'Allows the user to update employee work experience history within the active company.',
                 'group' => 'Work Experience Records',
             ],
             308 => [
                 'name' => 'work_experience.view',
                 'label' => 'View Work Experience Records',
-                'description' => 'Allows the user to view Work Experience Records records available within the active company.',
+                'description' => 'Allows the user to view employee work experience history they are authorized to access.',
                 'group' => 'Work Experience Records',
             ],
         ];

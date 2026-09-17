@@ -50,6 +50,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { AnnouncementAiAssistDialog } from '@/features/organization/announcements/announcement-ai-assist-dialog';
 import { AnnouncementMessageEditorSkeleton } from '@/features/organization/announcements/announcement-message-editor-skeleton';
 import { EmailPreview } from '@/features/organization/announcements/email-preview';
+import {
+    audiencesForRequest,
+    canStartSendConfirmPreview,
+    channelsForSendConfirmDialog,
+    recipientCountForSendConfirmDialog,
+    resolveSendConfirmPreviewResponse,
+    SEND_CONFIRM_PREVIEW_ERROR,
+    shouldApplyPreviewRequestResult,
+    shouldOpenSendConfirmDialog,
+    shouldSubmitSendNow,
+} from '@/features/organization/announcements/lib/send-announcement-confirm-flow';
+import type { SendConfirmSnapshot } from '@/features/organization/announcements/lib/send-announcement-confirm-flow';
 import { SendAnnouncementConfirmDialog } from '@/features/organization/announcements/send-announcement-confirm-dialog';
 import { SendAnnouncementTestDialog } from '@/features/organization/announcements/send-announcement-test-dialog';
 import type {
@@ -66,6 +78,7 @@ import type {
     RecipientPreview,
 } from '@/features/organization/announcements/types';
 import { WhatsAppDocumentTemplatePreview } from '@/features/settings/whatsapp-document-template-preview';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     aiAssist as announcementAiAssist,
@@ -827,6 +840,12 @@ export default function AnnouncementFormPage({
         useState<AnnouncementChannelPreviews | null>(null);
     const [channelPreviewLoading, setChannelPreviewLoading] = useState(false);
     const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+    const [sendConfirmPreviewLoading, setSendConfirmPreviewLoading] =
+        useState(false);
+    const [sendConfirmSnapshot, setSendConfirmSnapshot] =
+        useState<SendConfirmSnapshot | null>(null);
+    const sendConfirmPreviewRequestIdRef = useRef(0);
+    const sendNowSubmittingRef = useRef(false);
     const [testDialogOpen, setTestDialogOpen] = useState(false);
     const [testSending, setTestSending] = useState(false);
     const [testError, setTestError] = useState<string | null>(null);
@@ -957,35 +976,6 @@ export default function AnnouncementFormPage({
         form.setData('audiences', [...otherAudiences, ...newTypeAudiences]);
     };
 
-    const audiencesForRequest = (
-        audiences: { type: string; id: number | null }[],
-    ) => {
-        if (audiences.some((audience) => audience.type === 'all_employees')) {
-            return [{ type: 'all_employees', id: null }];
-        }
-
-        const employeeIds = audiences
-            .filter((audience) => audience.type === 'employee')
-            .map((audience) => audience.id)
-            .filter((id): id is number => id !== null);
-        const otherAudiences = audiences.filter(
-            (audience) => audience.type !== 'employee',
-        );
-
-        if (
-            otherAudiences.length === 0 &&
-            options.employees.length > 0 &&
-            employeeIds.length === options.employees.length &&
-            options.employees.every((employee) =>
-                employeeIds.includes(employee.id),
-            )
-        ) {
-            return [{ type: 'all_employees', id: null }];
-        }
-
-        return audiences;
-    };
-
     const previewRequestIdRef = useRef(0);
 
     const loadPreview = (
@@ -993,7 +983,10 @@ export default function AnnouncementFormPage({
         audiences: { type: string; id: number | null }[],
     ) => {
         const requestId = ++previewRequestIdRef.current;
-        const requestAudiences = audiencesForRequest(audiences);
+        const requestAudiences = audiencesForRequest(
+            audiences,
+            options.employees,
+        );
 
         if (requestAudiences.length === 0) {
             setPreview(null);
@@ -1006,7 +999,12 @@ export default function AnnouncementFormPage({
         http.transform(() => ({ channels, audiences: requestAudiences }));
         http.post('/organization/announcements/preview-recipients')
             .then((data) => {
-                if (requestId !== previewRequestIdRef.current) {
+                if (
+                    !shouldApplyPreviewRequestResult(
+                        requestId,
+                        previewRequestIdRef.current,
+                    )
+                ) {
                     return;
                 }
 
@@ -1015,11 +1013,107 @@ export default function AnnouncementFormPage({
             .finally(() => {
                 http.transform((data) => data);
 
-                if (requestId === previewRequestIdRef.current) {
+                if (
+                    shouldApplyPreviewRequestResult(
+                        requestId,
+                        previewRequestIdRef.current,
+                    )
+                ) {
                     setPreviewLoading(false);
                 }
             });
     };
+
+    const loadSendConfirmPreview = () => {
+        const requestId = ++sendConfirmPreviewRequestIdRef.current;
+        const channels = form.data.channels;
+        const requestAudiences = audiencesForRequest(
+            form.data.audiences,
+            options.employees,
+        );
+
+        setSendConfirmPreviewLoading(true);
+
+        http.transform(() => ({ channels, audiences: requestAudiences }));
+
+        return http
+            .post('/organization/announcements/preview-recipients')
+            .then((data) => {
+                const result = resolveSendConfirmPreviewResponse(
+                    requestId,
+                    sendConfirmPreviewRequestIdRef.current,
+                    data as RecipientPreview,
+                    channels,
+                    false,
+                );
+
+                if (shouldOpenSendConfirmDialog(result)) {
+                    setSendConfirmSnapshot(result.snapshot);
+                    setSendConfirmOpen(true);
+                }
+            })
+            .catch(() => {
+                const result = resolveSendConfirmPreviewResponse(
+                    requestId,
+                    sendConfirmPreviewRequestIdRef.current,
+                    null,
+                    channels,
+                    true,
+                );
+
+                if (result.kind === 'failure') {
+                    toast.error(SEND_CONFIRM_PREVIEW_ERROR);
+                }
+            })
+            .finally(() => {
+                http.transform((data) => data);
+
+                if (
+                    shouldApplyPreviewRequestResult(
+                        requestId,
+                        sendConfirmPreviewRequestIdRef.current,
+                    )
+                ) {
+                    setSendConfirmPreviewLoading(false);
+                }
+            });
+    };
+
+    const handleSendNow = () => {
+        if (
+            !canStartSendConfirmPreview({
+                loading: sendConfirmPreviewLoading,
+                dialogOpen: sendConfirmOpen,
+                formProcessing: form.processing,
+            })
+        ) {
+            return;
+        }
+
+        void loadSendConfirmPreview();
+    };
+
+    const handleConfirmSendNow = () => {
+        if (
+            !shouldSubmitSendNow({
+                formProcessing: form.processing,
+                alreadySubmitting: sendNowSubmittingRef.current,
+            })
+        ) {
+            return;
+        }
+
+        sendNowSubmittingRef.current = true;
+        setSendConfirmOpen(false);
+        setSendConfirmSnapshot(null);
+        submit('send_now');
+    };
+
+    useEffect(() => {
+        if (!form.processing) {
+            sendNowSubmittingRef.current = false;
+        }
+    }, [form.processing]);
 
     // Auto-refresh preview whenever channels or audiences change (debounced 500ms)
     useEffect(() => {
@@ -1042,7 +1136,10 @@ export default function AnnouncementFormPage({
     const submit = (mode: AnnouncementFormData['publish_mode']) => {
         const payload = {
             ...form.data,
-            audiences: audiencesForRequest(form.data.audiences),
+            audiences: audiencesForRequest(
+                form.data.audiences,
+                options.employees,
+            ),
             publish_mode: mode,
         };
 
@@ -2194,8 +2291,10 @@ export default function AnnouncementFormPage({
                             </Button>
                             <Button
                                 type="button"
-                                disabled={form.processing}
-                                onClick={() => setSendConfirmOpen(true)}
+                                disabled={
+                                    form.processing || sendConfirmPreviewLoading
+                                }
+                                onClick={handleSendNow}
                             >
                                 <CheckCircle2 className="size-4" /> Send now
                             </Button>
@@ -2204,14 +2303,24 @@ export default function AnnouncementFormPage({
                 </div>
                 <SendAnnouncementConfirmDialog
                     open={sendConfirmOpen}
-                    onOpenChange={setSendConfirmOpen}
-                    recipientCount={preview?.selected_employees ?? 0}
-                    channels={form.data.channels}
-                    processing={form.processing}
-                    onConfirm={() => {
-                        setSendConfirmOpen(false);
-                        submit('send_now');
+                    onOpenChange={(open) => {
+                        setSendConfirmOpen(open);
+
+                        if (!open) {
+                            setSendConfirmSnapshot(null);
+                        }
                     }}
+                    recipientCount={
+                        recipientCountForSendConfirmDialog(
+                            sendConfirmSnapshot,
+                        ) ?? 0
+                    }
+                    channels={
+                        channelsForSendConfirmDialog(sendConfirmSnapshot) ??
+                        form.data.channels
+                    }
+                    processing={form.processing}
+                    onConfirm={handleConfirmSendNow}
                 />
                 <SendAnnouncementTestDialog
                     open={testDialogOpen}

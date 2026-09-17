@@ -14,8 +14,11 @@ use Spatie\Permission\Models\Role;
 
 test('every application permission definition includes meaningful metadata', function () {
     $placeholders = ApplicationPermissionRegistry::placeholderDescriptionPatterns();
+    $names = [];
 
     foreach (ApplicationPermissionRegistry::definitions() as $permission) {
+        expect(isset($names[$permission['name']]))->toBeFalse();
+        $names[$permission['name']] = true;
         expect($permission)->toHaveKeys(['name', 'label', 'description', 'group'])
             ->and($permission['name'])->toBeString()->not->toBeEmpty()
             ->and($permission['label'])->toBeString()->not->toBeEmpty()
@@ -24,7 +27,7 @@ test('every application permission definition includes meaningful metadata', fun
             ->and(strlen($permission['description']))->toBeGreaterThan(20);
 
         foreach ($placeholders as $placeholder) {
-            expect(str_contains($permission['description'], $placeholder))->toBeFalse();
+            expect(str_contains(strtolower($permission['description']), strtolower($placeholder)))->toBeFalse();
         }
     }
 });

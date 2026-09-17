@@ -1,36 +1,48 @@
 export function formatPermissionGroupLabel(segment: string): string {
-    return segment.replace(/[-_]/g, ' ').toUpperCase();
+    return segment
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-const PERMISSION_MAIN_GROUP_ALIASES: Record<string, string> = {
-    company_documents: 'companies',
-    bulk_documents: 'documents',
-};
+export function resolvePermissionSubGroup(permissionName: string): string {
+    const parts = permissionName.split('.');
+    const root = parts[0] || 'other';
 
-export function resolvePermissionGroups(permission: string): {
+    if (root === 'company_documents') {
+        return 'Documents';
+    }
+
+    if (root === 'bulk_documents') {
+        return 'Generate & Track';
+    }
+
+    if (parts.length > 2) {
+        return parts
+            .slice(1, -1)
+            .map((part) => formatPermissionGroupLabel(part))
+            .join(' • ');
+    }
+
+    if (parts.length === 2 && root === 'settings') {
+        return 'Core';
+    }
+
+    return 'General';
+}
+
+export function resolvePermissionGroups(
+    permissionName: string,
+    registryGroup?: string | null,
+): {
     mainGroup: string;
     subGroup: string;
 } {
-    const parts = permission.split('.');
-    const root = parts[0] || 'other';
-    const mainGroup = formatPermissionGroupLabel(
-        PERMISSION_MAIN_GROUP_ALIASES[root] ?? root,
-    );
+    const mainGroup =
+        registryGroup?.trim() ||
+        formatPermissionGroupLabel(permissionName.split('.')[0] || 'other');
 
-    let subGroup = 'GENERAL';
-
-    if (root === 'company_documents') {
-        subGroup = 'DOCUMENTS';
-    } else if (root === 'bulk_documents') {
-        subGroup = 'GENERATE & TRACK';
-    } else if (parts.length > 2) {
-        subGroup = parts
-            .slice(1, -1)
-            .map((p) => formatPermissionGroupLabel(p))
-            .join(' • ');
-    } else if (parts.length === 2 && mainGroup === 'SETTINGS') {
-        subGroup = 'CORE';
-    }
-
-    return { mainGroup, subGroup };
+    return {
+        mainGroup,
+        subGroup: resolvePermissionSubGroup(permissionName),
+    };
 }

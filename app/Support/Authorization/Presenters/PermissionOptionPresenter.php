@@ -56,7 +56,7 @@ final class PermissionOptionPresenter
         return [
             'id' => (int) ($permission['id'] ?? 0),
             'name' => $permission['name'],
-            'label' => $permission['label'] ?: ($definition['label'] ?? self::fallbackLabel($permission['name'])),
+            'label' => ($permission['label'] ?? null) ?: ($definition['label'] ?? self::fallbackLabel($permission['name'])),
             'description' => $permission['description'] ?? null,
             'group' => $definition['group'] ?? self::fallbackGroup($permission['name']),
         ];

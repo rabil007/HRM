@@ -3,83 +3,150 @@ import { describe, it } from 'node:test';
 import { resolvePermissionGroups } from './role-permission-groups.ts';
 
 describe('role permission grouping', () => {
-    it('places library document permissions under DOCUMENTS / GENERAL', () => {
-        assert.deepEqual(resolvePermissionGroups('documents.view'), {
-            mainGroup: 'DOCUMENTS',
-            subGroup: 'GENERAL',
-        });
-        assert.deepEqual(resolvePermissionGroups('documents.upload'), {
-            mainGroup: 'DOCUMENTS',
-            subGroup: 'GENERAL',
-        });
+    it('uses registry group as the authoritative main category', () => {
+        assert.deepEqual(
+            resolvePermissionGroups('documents.view', 'Employee Documents'),
+            {
+                mainGroup: 'Employee Documents',
+                subGroup: 'General',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'crew_operations.assignments.create',
+                'Crew Operations',
+            ),
+            {
+                mainGroup: 'Crew Operations',
+                subGroup: 'Assignments',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('employees.view', 'Employees'),
+            {
+                mainGroup: 'Employees',
+                subGroup: 'General',
+            },
+        );
     });
 
-    it('places bulk document permissions under DOCUMENTS / GENERATE & TRACK', () => {
-        assert.deepEqual(resolvePermissionGroups('bulk_documents.view'), {
-            mainGroup: 'DOCUMENTS',
-            subGroup: 'GENERATE & TRACK',
-        });
-        assert.deepEqual(resolvePermissionGroups('bulk_documents.generate'), {
-            mainGroup: 'DOCUMENTS',
-            subGroup: 'GENERATE & TRACK',
-        });
+    it('places library document permissions under Employee Documents / General', () => {
+        assert.deepEqual(
+            resolvePermissionGroups('documents.view', 'Employee Documents'),
+            {
+                mainGroup: 'Employee Documents',
+                subGroup: 'General',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('documents.upload', 'Employee Documents'),
+            {
+                mainGroup: 'Employee Documents',
+                subGroup: 'General',
+            },
+        );
     });
 
-    it('does not produce BULK DOCUMENTS as a top-level category', () => {
+    it('places bulk document permissions under Documents / Generate & Track', () => {
+        assert.deepEqual(
+            resolvePermissionGroups('bulk_documents.view', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Generate & Track',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('bulk_documents.generate', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Generate & Track',
+            },
+        );
+    });
+
+    it('does not produce Bulk Documents as a top-level category', () => {
         const mainGroups = new Set(
             [
-                'documents.view',
-                'documents.templates.view',
-                'bulk_documents.view',
-                'bulk_documents.generate',
-                'bulk_documents.delete',
-                'bulk_documents.email',
+                ['documents.view', 'Employee Documents'],
+                ['documents.templates.view', 'Employee Documents'],
+                ['bulk_documents.view', 'Documents'],
+                ['bulk_documents.generate', 'Documents'],
+                ['bulk_documents.delete', 'Documents'],
+                ['bulk_documents.email', 'Documents'],
             ].map(
-                (permission) => resolvePermissionGroups(permission).mainGroup,
+                ([permission, group]) =>
+                    resolvePermissionGroups(permission, group).mainGroup,
             ),
         );
 
-        assert.deepEqual([...mainGroups], ['DOCUMENTS']);
-        assert.equal(mainGroups.has('BULK DOCUMENTS'), false);
+        assert.deepEqual([...mainGroups], ['Employee Documents', 'Documents']);
+        assert.equal(mainGroups.has('Bulk Documents'), false);
     });
 
-    it('keeps existing nested document subgroups', () => {
-        assert.deepEqual(resolvePermissionGroups('documents.templates.view'), {
-            mainGroup: 'DOCUMENTS',
-            subGroup: 'TEMPLATES',
-        });
-        assert.deepEqual(resolvePermissionGroups('documents.requests.view'), {
-            mainGroup: 'DOCUMENTS',
-            subGroup: 'REQUESTS',
-        });
+    it('keeps nested document subgroups from permission names', () => {
         assert.deepEqual(
-            resolvePermissionGroups('documents.recipient-requests.view'),
+            resolvePermissionGroups(
+                'documents.templates.view',
+                'Employee Documents',
+            ),
             {
-                mainGroup: 'DOCUMENTS',
-                subGroup: 'RECIPIENT REQUESTS',
+                mainGroup: 'Employee Documents',
+                subGroup: 'Templates',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'documents.requests.view',
+                'Employee Documents',
+            ),
+            {
+                mainGroup: 'Employee Documents',
+                subGroup: 'Requests',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'documents.recipient-requests.view',
+                'Employee Documents',
+            ),
+            {
+                mainGroup: 'Employee Documents',
+                subGroup: 'Recipient Requests',
             },
         );
     });
 
-    it('leaves unrelated permission categories unchanged', () => {
+    it('derives subgroups from permission names while preserving registry main groups', () => {
+        assert.deepEqual(
+            resolvePermissionGroups('company_documents.view', 'Companies'),
+            {
+                mainGroup: 'Companies',
+                subGroup: 'Documents',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('settings.appearance.view', 'Settings'),
+            {
+                mainGroup: 'Settings',
+                subGroup: 'Appearance',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'crew_operations.overview.view',
+                'Crew Operations',
+            ),
+            {
+                mainGroup: 'Crew Operations',
+                subGroup: 'Overview',
+            },
+        );
+    });
+
+    it('falls back to a name-based main group when registry group is missing', () => {
         assert.deepEqual(resolvePermissionGroups('employees.view'), {
-            mainGroup: 'EMPLOYEES',
-            subGroup: 'GENERAL',
+            mainGroup: 'Employees',
+            subGroup: 'General',
         });
-        assert.deepEqual(resolvePermissionGroups('company_documents.view'), {
-            mainGroup: 'COMPANIES',
-            subGroup: 'DOCUMENTS',
-        });
-        assert.deepEqual(resolvePermissionGroups('settings.appearance.view'), {
-            mainGroup: 'SETTINGS',
-            subGroup: 'APPEARANCE',
-        });
-        assert.deepEqual(
-            resolvePermissionGroups('crew_operations.overview.view'),
-            {
-                mainGroup: 'CREW OPERATIONS',
-                subGroup: 'OVERVIEW',
-            },
-        );
     });
 });

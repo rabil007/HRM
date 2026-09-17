@@ -83,6 +83,8 @@ final class ApplicationPermissionRegistry
             'TBD',
             'Permission description',
             'Lorem ipsum',
+            'records records',
+            'types records',
         ];
     }
 }

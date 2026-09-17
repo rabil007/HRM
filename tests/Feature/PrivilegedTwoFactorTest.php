@@ -13,12 +13,17 @@ use App\Models\WhatsAppSetting;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\Settings\SettingKey;
+use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
+
+beforeEach(function (): void {
+    $this->seed(PermissionsSeeder::class);
+});
 
 test('unenrolled authorized users are blocked from privileged mutations and can still enroll', function () {
     enablePrivilegedTwoFactorEnforcement();
