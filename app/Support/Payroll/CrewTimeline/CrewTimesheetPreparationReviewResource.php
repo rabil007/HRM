@@ -31,7 +31,8 @@ final class CrewTimesheetPreparationReviewResource
         CrewTimesheetPreparation $preparation,
         ?CrewTimesheetPreparationReviewFilters $filters = null,
     ): array {
-        $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
+        $freshness = $this->resolveFreshnessPresentation($preparation, $period);
+        $isFresh = $freshness['is_fresh'];
         $prepLines = $this->preparationLines($preparation);
         $hasPreparationCrossCompany = $prepLines->contains(
             fn (CrewTimesheetPreparationLine $line): bool => $line->warning_code === CrewTimelineWarningCode::CrossCompanyReference->value,
@@ -74,8 +75,10 @@ final class CrewTimesheetPreparationReviewResource
                 'effective_cutoff_date' => $preparation->effective_cutoff_date?->toDateString() ?? $preparation->resolveEffectiveCutoffDate($period)->toDateString(),
                 'source_hash' => $preparation->source_hash,
                 'is_fresh' => $isFresh,
-                'is_stale' => ! $isFresh,
-                'stale_reason' => ! $isFresh ? $this->freshnessChecker->staleReason($preparation, $period) : null,
+                'is_stale' => $freshness['is_stale'],
+                'stale_reason' => $freshness['stale_reason'],
+                'live_timeline_advanced' => $freshness['live_timeline_advanced'],
+                'snapshot_notice' => $freshness['snapshot_notice'],
                 'is_latest' => $this->isLatest($preparation),
                 'prepared_by' => $this->userPayload($preparation->preparedBy),
                 'prepared_at' => $preparation->prepared_at?->toIso8601String(),
@@ -882,6 +885,47 @@ final class CrewTimesheetPreparationReviewResource
         return $preparation->skips()
             ->where('company_id', (int) $preparation->company_id)
             ->get();
+    }
+
+    /**
+     * @return array{
+     *     is_fresh: bool,
+     *     is_stale: bool,
+     *     stale_reason: string|null,
+     *     live_timeline_advanced: bool,
+     *     snapshot_notice: string|null
+     * }
+     */
+    private function resolveFreshnessPresentation(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+    ): array {
+        if ($preparation->status === CrewTimesheetPreparationStatus::Applied) {
+            $liveTimelineAdvanced = $this->freshnessChecker->liveTimelineAdvanced($preparation, $period);
+            $snapshotConsistent = $this->freshnessChecker->isSnapshotConsistent($preparation, $period);
+
+            return [
+                'is_fresh' => true,
+                'is_stale' => ! $snapshotConsistent,
+                'stale_reason' => $snapshotConsistent
+                    ? null
+                    : CrewTimelineFreshnessChecker::STALE_MESSAGE,
+                'live_timeline_advanced' => $liveTimelineAdvanced,
+                'snapshot_notice' => $liveTimelineAdvanced
+                    ? CrewTimelineFreshnessChecker::APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE
+                    : null,
+            ];
+        }
+
+        $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
+
+        return [
+            'is_fresh' => $isFresh,
+            'is_stale' => ! $isFresh,
+            'stale_reason' => $isFresh ? null : $this->freshnessChecker->staleReason($preparation, $period),
+            'live_timeline_advanced' => false,
+            'snapshot_notice' => null,
+        ];
     }
 
     /** @var array<string, bool> */

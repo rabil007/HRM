@@ -74,9 +74,10 @@ final class ApplyCrewTimesheetPreparation
                 'Only approved preparations can be applied to timesheets.',
             );
 
-            $this->freshnessChecker->assertFresh(
+            $this->freshnessChecker->assertFreshAfterLockingSource(
                 $preparation,
                 $period,
+                $companyId,
                 CrewTimelineFreshnessChecker::APPLY_STALE_MESSAGE,
             );
             $this->guard->assertNoBlockingWarnings($preparation);

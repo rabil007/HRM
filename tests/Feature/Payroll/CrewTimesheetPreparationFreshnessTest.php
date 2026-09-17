@@ -1,23 +1,409 @@
 <?php
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
+use App\Enums\PayrollCategory;
+use App\Models\CrewAssignment;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparationLine;
+use App\Models\Employee;
+use App\Models\EmployeeContract;
+use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\Actions\ApproveCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\Actions\SubmitCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewResource;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
 afterEach(function () {
     CarbonImmutable::setTestNow();
+});
+
+test('monthly crew open phase does not invalidate daily crew preparation when clock advances', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-10 08:00:00',
+        '2026-09-15 18:00:00',
+        CrewPhaseStatus::Completed,
+    );
+
+    $monthlyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+    $monthlyContract = EmployeeContract::factory()->create([
+        'employee_id' => $monthlyEmployee->id,
+        'company_id' => $fixtures['company']->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => ContractSalaryStructure::Monthly,
+        'status' => 'active',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'basic_salary' => 5000,
+    ]);
+    (new SyncContractSalaryComponentsFromContract)->handle($monthlyContract);
+
+    $monthlyAssignment = CrewAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'assignment_no' => 'CA-MONTHLY-'.fake()->unique()->numerify('######'),
+        'employee_id' => $monthlyEmployee->id,
+        'rank_id' => $fixtures['rank']->id,
+        'vessel_id' => $fixtures['vessel']->id,
+        'status' => CrewAssignmentStatus::Active,
+        'source' => 'manual',
+    ]);
+
+    addTimelinePhase(
+        $monthlyAssignment,
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-12 08:00:00',
+        null,
+        CrewPhaseStatus::Active,
+    );
+
+    $checker = app(CrewTimelineFreshnessChecker::class);
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    expect($checker->isFresh($preparation, $fixtures['period']))->toBeTrue()
+        ->and($preparation->effective_cutoff_date?->toDateString())->toBe('2026-09-15');
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-18 12:00:00', 'Asia/Dubai'));
+
+    expect($checker->isFresh($preparation, $fixtures['period']))->toBeTrue()
+        ->and($checker->staleReason($preparation, $fixtures['period']))->toBeNull();
+});
+
+test('excluded open daily phase does not invalidate preparation when clock advances', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-10 08:00:00',
+        '2026-09-15 18:00:00',
+        CrewPhaseStatus::Completed,
+    );
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::HomeRedeploy,
+        2,
+        '2026-09-16 08:00:00',
+        null,
+        CrewPhaseStatus::Active,
+    );
+
+    $checker = app(CrewTimelineFreshnessChecker::class);
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    expect($checker->isFresh($preparation, $fixtures['period']))->toBeTrue()
+        ->and($preparation->effective_cutoff_date?->toDateString())->toBe('2026-09-15');
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-18 12:00:00', 'Asia/Dubai'));
+
+    expect($checker->isFresh($preparation, $fixtures['period']))->toBeTrue()
+        ->and($checker->staleReason($preparation, $fixtures['period']))->toBeNull();
+});
+
+test('mixed population with monthly and excluded open phases does not create false daily staleness', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-10 08:00:00',
+        '2026-09-15 18:00:00',
+        CrewPhaseStatus::Completed,
+    );
+
+    $monthlyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+    $monthlyContract = EmployeeContract::factory()->create([
+        'employee_id' => $monthlyEmployee->id,
+        'company_id' => $fixtures['company']->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => ContractSalaryStructure::Monthly,
+        'status' => 'active',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'basic_salary' => 5000,
+    ]);
+    (new SyncContractSalaryComponentsFromContract)->handle($monthlyContract);
+
+    $monthlyAssignment = CrewAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'assignment_no' => 'CA-MONTHLY-'.fake()->unique()->numerify('######'),
+        'employee_id' => $monthlyEmployee->id,
+        'rank_id' => $fixtures['rank']->id,
+        'vessel_id' => $fixtures['vessel']->id,
+        'status' => CrewAssignmentStatus::Active,
+        'source' => 'manual',
+    ]);
+    addTimelinePhase(
+        $monthlyAssignment,
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-12 08:00:00',
+        null,
+        CrewPhaseStatus::Active,
+    );
+
+    $excludedEmployee = createCrewEmployeeWithContract($fixtures['company'], 'EXCL-1', 100, 30, 20);
+    $excludedAssignment = CrewAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'assignment_no' => 'CA-EXCL-'.fake()->unique()->numerify('######'),
+        'employee_id' => $excludedEmployee->id,
+        'rank_id' => $fixtures['rank']->id,
+        'vessel_id' => $fixtures['vessel']->id,
+        'status' => CrewAssignmentStatus::Active,
+        'source' => 'manual',
+    ]);
+    addTimelinePhase(
+        $excludedAssignment,
+        CrewPhaseCode::HomeRedeploy,
+        1,
+        '2026-09-14 08:00:00',
+        null,
+        CrewPhaseStatus::Active,
+    );
+
+    $checker = app(CrewTimelineFreshnessChecker::class);
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-18 12:00:00', 'Asia/Dubai'));
+
+    expect($checker->isFresh($preparation, $fixtures['period']))->toBeTrue();
+});
+
+test('monthly crew phase timestamp edit still invalidates preparation through source hash', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-10 08:00:00',
+        '2026-09-15 18:00:00',
+        CrewPhaseStatus::Completed,
+    );
+
+    $monthlyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'rank_id' => $fixtures['rank']->id,
+        'status' => 'active',
+    ]);
+    $monthlyContract = EmployeeContract::factory()->create([
+        'employee_id' => $monthlyEmployee->id,
+        'company_id' => $fixtures['company']->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => ContractSalaryStructure::Monthly,
+        'status' => 'active',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'basic_salary' => 5000,
+    ]);
+    (new SyncContractSalaryComponentsFromContract)->handle($monthlyContract);
+
+    $monthlyAssignment = CrewAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'assignment_no' => 'CA-MONTHLY-'.fake()->unique()->numerify('######'),
+        'employee_id' => $monthlyEmployee->id,
+        'rank_id' => $fixtures['rank']->id,
+        'vessel_id' => $fixtures['vessel']->id,
+        'status' => CrewAssignmentStatus::Active,
+        'source' => 'manual',
+    ]);
+    $monthlyPhase = addTimelinePhase(
+        $monthlyAssignment,
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-12 08:00:00',
+        null,
+        CrewPhaseStatus::Active,
+    );
+
+    $checker = app(CrewTimelineFreshnessChecker::class);
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    expect($checker->isFresh($preparation, $fixtures['period']))->toBeTrue();
+
+    $monthlyPhase->update(['actual_start_at' => CarbonImmutable::parse('2026-09-13 08:00:00', 'Asia/Dubai')]);
+
+    expect($checker->isFresh($preparation, $fixtures['period']))->toBeFalse()
+        ->and($checker->staleReason($preparation, $fixtures['period']))->toBe(CrewTimelineFreshnessChecker::STALE_MESSAGE);
+});
+
+test('apply rejects stale preparation after crew movement completes open phase post approval', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    $phase = addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-10 08:00:00',
+        null,
+        CrewPhaseStatus::Active,
+    );
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+
+    $phase->update([
+        'actual_end_at' => CarbonImmutable::parse('2026-09-17 18:00:00', 'Asia/Dubai'),
+        'status' => CrewPhaseStatus::Completed,
+    ]);
+
+    expect(function () use ($fixtures, $preparation) {
+        app(ApplyCrewTimesheetPreparation::class)->handle(
+            $fixtures['period'],
+            $preparation->fresh(),
+            $fixtures['user'],
+            (int) $fixtures['company']->id,
+        );
+    })->toThrow(ValidationException::class);
+});
+
+test('applied preparation reports live timeline advanced without ordinary stale presentation', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        1,
+        '2026-09-10 08:00:00',
+        null,
+        CrewPhaseStatus::Active,
+    );
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-18 12:00:00', 'Asia/Dubai'));
+
+    $payload = app(CrewTimesheetPreparationReviewResource::class)
+        ->toArray($fixtures['period'], $preparation->fresh())['preparation'];
+
+    expect($payload['is_fresh'])->toBeTrue()
+        ->and($payload['is_stale'])->toBeFalse()
+        ->and($payload['live_timeline_advanced'])->toBeTrue()
+        ->and($payload['snapshot_notice'])->toBe(CrewTimelineFreshnessChecker::APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE);
 });
 
 test('open phase overnight makes previous unapplied preparation stale and new preparation includes newly eligible day', function () {

@@ -28,6 +28,16 @@ test('company timezone falls back when company missing', function () {
     expect(CompanyTimezone::forCompany(null))->toBe('UTC');
 });
 
+test('updated company timezone is observed without process static cache', function () {
+    $company = makeTimezoneCompany('Asia/Dubai');
+
+    expect(CompanyTimezone::forCompanyId((int) $company->id))->toBe('Asia/Dubai');
+
+    $company->update(['timezone' => 'Europe/London']);
+
+    expect(CompanyTimezone::forCompanyId((int) $company->id))->toBe('Europe/London');
+});
+
 function makeTimezoneCompany(string $timezone): Company
 {
     $country = Country::query()->firstOrCreate(

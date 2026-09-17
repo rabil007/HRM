@@ -211,6 +211,8 @@ export function CrewTimelineReviewContent({
                     isStale={preparation.is_stale}
                     staleReason={preparation.stale_reason}
                     breakdown={warning_breakdown}
+                    isAppliedSnapshot={preparation.status === 'applied'}
+                    snapshotNotice={preparation.snapshot_notice}
                 />
 
                 {preparation.status === 'approved' ? (
@@ -228,12 +230,20 @@ export function CrewTimelineReviewContent({
                 {preparation.status === 'applied' ? (
                     <Alert>
                         <FileSpreadsheet className="h-4 w-4" />
-                        <AlertTitle>Applied</AlertTitle>
+                        <AlertTitle>Applied snapshot</AlertTitle>
                         <AlertDescription>
-                            Crew Timesheet operational values were written from
-                            Crew Assignments. Linked timesheets:{' '}
+                            Prepared through{' '}
+                            {formatDisplayDate(
+                                preparation.effective_cutoff_date ??
+                                    preparation.cutoff_date,
+                            )}
+                            . Crew Timesheet operational values were written
+                            from Crew Assignments. Linked timesheets:{' '}
                             {preparation.linked_timesheet_count}. Operational
                             fields are locked; financial fields remain editable.
+                            {preparation.live_timeline_advanced
+                                ? ' Live crew timeline has advanced since this snapshot. This historical payroll snapshot remains unchanged.'
+                                : null}
                         </AlertDescription>
                     </Alert>
                 ) : null}
@@ -275,7 +285,13 @@ export function CrewTimelineReviewContent({
                                 icon={Calendar}
                             />
                         ) : null}
-                        <MetaFreshness isFresh={preparation.is_fresh} />
+                        <MetaFreshness
+                            isFresh={preparation.is_fresh}
+                            isAppliedSnapshot={preparation.status === 'applied'}
+                            liveTimelineAdvanced={
+                                preparation.live_timeline_advanced ?? false
+                            }
+                        />
                         {preparation.linked_timesheet_count > 0 ? (
                             <Meta
                                 label="Linked timesheets"
@@ -462,12 +478,28 @@ function MetaWithIcon({
     );
 }
 
-function MetaFreshness({ isFresh }: { isFresh: boolean }) {
+function MetaFreshness({
+    isFresh,
+    isAppliedSnapshot = false,
+    liveTimelineAdvanced = false,
+}: {
+    isFresh: boolean;
+    isAppliedSnapshot?: boolean;
+    liveTimelineAdvanced?: boolean;
+}) {
+    const label = isAppliedSnapshot
+        ? liveTimelineAdvanced
+            ? 'Historical snapshot (live timeline advanced)'
+            : 'Historical snapshot'
+        : isFresh
+          ? 'Fresh'
+          : 'Crew Assignment data changed';
+
     return (
         <div className="space-y-1">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
                 <RefreshCw className="size-3 shrink-0" />
-                Source freshness
+                {isAppliedSnapshot ? 'Snapshot status' : 'Source freshness'}
             </p>
             <p
                 className={cn(
@@ -482,7 +514,7 @@ function MetaFreshness({ isFresh }: { isFresh: boolean }) {
                 ) : (
                     <RefreshCw className="size-3.5 shrink-0" />
                 )}
-                {isFresh ? 'Fresh' : 'Crew Assignment data changed'}
+                {label}
             </p>
         </div>
     );

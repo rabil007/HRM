@@ -101,10 +101,10 @@ Future payable days are never generated. Existing preparation versions remain im
 
 Each preparation persists an explicit `effective_cutoff_date` (`CrewTimesheetPreparation.effective_cutoff_date`), resolved by `CrewTimelinePhaseQuery::resolveEffectiveCutoffDate()`:
 
-1. **Open active timelines**:
-   - If any phase in the period has `actual_start_at <= effectiveEnd` and is open (`actual_end_at === null` or ends after `effectiveEnd`), the preparation's effective cutoff is `effectiveEnd` (company-local today, capped by period end or explicit user cutoff).
-   - As company-local wall-clock date advances overnight, `effectiveEnd` advances. Because the active phase is still open, recalculating today would include the newly eligible day.
-   - Consequently, the source hash recalculation detects the advanced effective cutoff boundary, and the unapplied preparation becomes **stale**. A newly prepared version includes the new day.
+1. **Open Daily Crew payable timelines**:
+   - The effective cutoff advances with company-local today only when an **open phase can affect automatic Daily Crew payable allocation** (`DailyCrewPayablePhaseEligibility`): actual-started, Daily Crew contract (not Monthly), and a payable Crew Timesheet category (not P0/P1/P6 excluded phases).
+   - Monthly Crew open phases and excluded open phases (for example P6 Home / Redeployment) do **not** advance the cutoff overnight when the Daily Crew payable result cannot change.
+   - When an eligible open Daily payable phase exists, `effectiveEnd` advances with wall-clock date and unapplied preparations become **stale** so a new version includes the newly eligible day.
 
 2. **Closed historical timelines**:
    - When all overlapping phases in the period are completed (`actual_end_at <= effectiveEnd`), the preparation's effective cutoff is bounded by the latest actual movement date of the closed timeline (`min(effectiveEnd, max(latestClosedActualDate, periodStart))`).
@@ -253,7 +253,9 @@ Stale preparations cannot be submitted, approved, or applied.
 - If underlying Crew Assignment facts, contracts, or pending corrections changed:
   > Crew Assignment data changed after this preparation was created (or approved). Prepare a new version before continuing.
 
-Approval does not grant permission to apply stale data: if a preparation becomes stale between approval and apply, application blocks and requires re-preparation and re-approval. Applied timesheets remain immutable historical snapshots and are never mutated automatically when days advance.
+Approval does not grant permission to apply stale data: if a preparation becomes stale between approval and apply, application blocks and requires re-preparation and re-approval. `ApplyCrewTimesheetPreparation` locks participating crew assignments, phases, pending corrections, and active contracts in deterministic order, then re-validates freshness before writing timesheets.
+
+**Applied snapshot semantics:** an Applied preparation is a historical payroll input snapshot. When the live crew timeline advances after Apply, the review UI shows an informational notice that the live timeline has advanced while the Applied snapshot remains unchanged. Applied preparations are not presented as ordinary stale Draft/Approved preparations requiring “Prepare a new version” merely because wall-clock time advanced.
 
 Do not update the old preparation’s `source_hash`.
 
@@ -541,7 +543,26 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 - Phase 1E: `tests/Feature/Payroll/CrewTimesheetModePhase1ETest.php`
 - Skip Crew Timesheet Data: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationSkipTest.php`
 - Hardening: `tests/Feature/Payroll/CrewPayrollHardeningTest.php`, `tests/Unit/Support/Payroll/ResolveCrewContractForPayrollPeriodTest.php`
+- Phase 4 freshness closeout: `tests/Feature/Payroll/CrewTimesheetPreparationFreshnessTest.php`
+- Phase 5 end-to-end crew payroll integrity: `tests/Feature/Payroll/CrewPayrollEndToEndTest.php`
 - Shared fixtures: `tests/Support/crew-timeline-fixtures.php`
+
+### Phase 5 regression matrix (summary)
+
+| Scenario | Primary assertion |
+| --- | --- |
+| Normal mobilisation | Payable days by category through preparation → timesheet → payroll |
+| Training loop | Repeated P2B/P3 standby days allocated once |
+| Vessel transfer | Shared calendar day allocated once; segment provenance preserved |
+| Cancellation after/before activity | Legitimate standby preserved; zero fake pay when no actuals |
+| P4 → P5 → P6 | Onsite / sign-off / excluded classification |
+| Movement correction | Unapplied preparation invalidated; rebuilt payroll uses corrected timeline |
+| Month boundary | Each period receives only its legitimate dates |
+| Open onboard / historical period cap | Allocation capped at company today or period end |
+| Contract rate boundary | Per work-date contract resolution in payroll |
+| Additions / deductions | Financial fields preserved through Apply into net salary |
+| Monthly Crew | No Daily automatic preparation lines |
+| Readiness / tenant / immutability | Applied required for generation; cross-company apply blocked; Applied snapshot immutable |
 
 ## Out of scope until later phases
 

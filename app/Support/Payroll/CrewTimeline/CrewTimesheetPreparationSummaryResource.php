@@ -3,6 +3,7 @@
 namespace App\Support\Payroll\CrewTimeline;
 
 use App\Enums\CrewTimelineWarningCode;
+use App\Enums\CrewTimesheetPreparationStatus;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
 
@@ -57,7 +58,16 @@ final class CrewTimesheetPreparationSummaryResource
             }
         }
 
-        $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
+        if ($preparation->status === CrewTimesheetPreparationStatus::Applied) {
+            $snapshotConsistent = $this->freshnessChecker->isSnapshotConsistent($preparation, $period);
+            $isFresh = true;
+            $isStale = ! $snapshotConsistent;
+            $staleReason = $snapshotConsistent ? null : CrewTimelineFreshnessChecker::STALE_MESSAGE;
+        } else {
+            $isFresh = $this->freshnessChecker->isFresh($preparation, $period);
+            $isStale = ! $isFresh;
+            $staleReason = $isFresh ? null : $this->freshnessChecker->staleReason($preparation, $period);
+        }
 
         return [
             'id' => $preparation->id,
@@ -65,8 +75,8 @@ final class CrewTimesheetPreparationSummaryResource
             'status' => $preparation->status->value,
             'status_label' => $preparation->status->label(),
             'is_fresh' => $isFresh,
-            'is_stale' => ! $isFresh,
-            'stale_reason' => ! $isFresh ? $this->freshnessChecker->staleReason($preparation, $period) : null,
+            'is_stale' => $isStale,
+            'stale_reason' => $staleReason,
             'effective_cutoff_date' => $preparation->effective_cutoff_date?->toDateString() ?? $preparation->resolveEffectiveCutoffDate()->toDateString(),
             'blocking_warning_count' => $blocking,
             'informational_warning_count' => $informational,

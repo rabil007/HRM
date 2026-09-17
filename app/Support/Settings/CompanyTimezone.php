@@ -23,16 +23,13 @@ final class CompanyTimezone
         return self::forCompany($companyId);
     }
 
-    /** @var array<int, ?Company> */
-    private static array $resolvedCompanies = [];
-
+    /**
+     * Retained for Company model hooks. Timezone resolution no longer uses a
+     * process-static cache so long-lived queue workers always read current data.
+     */
     public static function flushCache(?int $companyId = null): void
     {
-        if ($companyId !== null) {
-            unset(self::$resolvedCompanies[$companyId]);
-        } else {
-            self::$resolvedCompanies = [];
-        }
+        // No-op: cross-process correctness requires querying current company rows.
     }
 
     private static function resolveCompany(int|Company|null $company): ?Company
@@ -45,7 +42,7 @@ final class CompanyTimezone
             return null;
         }
 
-        return self::$resolvedCompanies[$company] ??= Company::query()
+        return Company::query()
             ->select(['id', 'timezone'])
             ->find($company);
     }

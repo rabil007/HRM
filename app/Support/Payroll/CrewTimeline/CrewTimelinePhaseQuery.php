@@ -11,6 +11,10 @@ use Illuminate\Support\Collection;
 
 final class CrewTimelinePhaseQuery
 {
+    public function __construct(
+        private readonly DailyCrewPayablePhaseEligibility $payablePhaseEligibility,
+    ) {}
+
     /**
      * Payable-allocation query: only phases with an actual start contribute
      * payable days. Period boundaries are resolved in the company timezone and
@@ -139,8 +143,9 @@ final class CrewTimelinePhaseQuery
     /**
      * Resolves the effective preparation cutoff ("as-of") date.
      *
-     * For open active phases overlapping the period, the effective cutoff advances
-     * with company-local today up to period end or explicit cutoff ($effectiveEnd).
+     * For open Daily Crew payable phases overlapping the period, the effective
+     * cutoff advances with company-local today up to period end or explicit cutoff
+     * ($effectiveEnd). Monthly Crew and excluded phases do not advance the cutoff.
      *
      * For completed historical phases, the effective cutoff is bounded by the
      * latest actual movement date of the closed timeline, avoiding unnecessary
@@ -157,7 +162,10 @@ final class CrewTimelinePhaseQuery
         $effectiveEnd = $this->effectiveEndDate($period, $cutoffDate);
         $periodStart = CarbonImmutable::parse($period->start_date->toDateString(), $timezone)->startOfDay();
 
-        $hasOpenPhase = false;
+        if ($this->payablePhaseEligibility->hasOpenPayableDailyPhase($period, $effectiveEnd, $phases)) {
+            return $effectiveEnd;
+        }
+
         $latestClosedActualDate = null;
 
         foreach ($phases as $phase) {
@@ -172,24 +180,18 @@ final class CrewTimelinePhaseQuery
             }
 
             if ($phase->actual_end_at === null) {
-                $hasOpenPhase = true;
-                break;
+                continue;
             }
 
             $phaseEnd = CarbonImmutable::parse($phase->actual_end_at, $timezone)->startOfDay();
 
             if ($phaseEnd->gt($effectiveEnd)) {
-                $hasOpenPhase = true;
-                break;
+                continue;
             }
 
             if ($latestClosedActualDate === null || $phaseEnd->gt($latestClosedActualDate)) {
                 $latestClosedActualDate = $phaseEnd;
             }
-        }
-
-        if ($hasOpenPhase) {
-            return $effectiveEnd;
         }
 
         if ($latestClosedActualDate === null) {

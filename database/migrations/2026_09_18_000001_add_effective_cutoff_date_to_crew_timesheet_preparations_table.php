@@ -3,6 +3,7 @@
 use App\Models\CrewTimesheetPreparation;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -27,9 +28,13 @@ return new class extends Migration
                 ->with(['payrollPeriod', 'company'])
                 ->chunkById(100, function ($preparations): void {
                     foreach ($preparations as $preparation) {
-                        $preparation->forceFill([
-                            'effective_cutoff_date' => $preparation->resolveEffectiveCutoffDate()->toDateString(),
-                        ])->saveQuietly();
+                        DB::table('crew_timesheet_preparations')
+                            ->where('id', $preparation->id)
+                            ->update([
+                                'effective_cutoff_date' => $preparation
+                                    ->resolveEffectiveCutoffDate()
+                                    ->toDateString(),
+                            ]);
                     }
                 });
         }

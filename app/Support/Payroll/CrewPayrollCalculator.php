@@ -548,6 +548,10 @@ final class CrewPayrollCalculator
      */
     private function movementSegments(CrewTimesheet $timesheet): array
     {
+        if ($timesheet->relationLoaded('segments')) {
+            $timesheet->segments->loadMissing(['assignment.vessel', 'assignment.client', 'assignment.rank']);
+        }
+
         return collect($timesheet->segments)->map(function ($segment) {
             $assignment = is_array($segment) ? ($segment['assignment'] ?? null) : $segment->assignment;
 

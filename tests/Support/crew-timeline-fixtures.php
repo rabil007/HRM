@@ -11,12 +11,18 @@ use App\Enums\PayrollPeriodStatus;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
+use App\Models\PayrollRecord;
 use App\Models\User;
+use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
+use App\Support\Payroll\CrewTimeline\Actions\ApproveCrewTimesheetPreparation;
+use App\Support\Payroll\CrewTimeline\Actions\SubmitCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -121,6 +127,77 @@ function grantApplyPermissions(User $user, Company $company, array $extra = []):
 /**
  * @return array{preparation: CrewTimesheetPreparation, approver: User}
  */
+/**
+ * @param  array<string, mixed>  $financial
+ * @return array{preparation: CrewTimesheetPreparation, timesheet: CrewTimesheet, record: PayrollRecord|null}
+ */
+function runDailyCrewPayrollPipeline(
+    array $fixtures,
+    ?User $approver = null,
+    array $financial = [],
+): array {
+    grantApplyPermissions($fixtures['user'], $fixtures['company']);
+    $approver ??= $fixtures['user'];
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $approver,
+        (int) $fixtures['company']->id,
+    );
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $approver,
+        (int) $fixtures['company']->id,
+    );
+
+    $timesheet = CrewTimesheet::query()
+        ->where('period_id', $fixtures['period']->id)
+        ->where('employee_id', $fixtures['employee']->id)
+        ->firstOrFail();
+
+    if ($financial !== []) {
+        $timesheet->update($financial);
+    }
+
+    app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh());
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $fixtures['period']->id)
+        ->where('employee_id', $fixtures['employee']->id)
+        ->first();
+
+    return [
+        'preparation' => $preparation->fresh(),
+        'timesheet' => $timesheet->fresh(['segments']),
+        'record' => $record,
+    ];
+}
+
+function makeSeptemberDailyCrewPeriod(array $fixtures): PayrollPeriod
+{
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    return $fixtures['period']->fresh();
+}
+
 function prepareApprovedTimeline(array $fixtures, ?User $approver = null): array
 {
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');

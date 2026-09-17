@@ -77,11 +77,15 @@ export function CrewTimelineWarningPanel({
     isStale,
     staleReason,
     breakdown,
+    isAppliedSnapshot = false,
+    snapshotNotice,
 }: {
     summary: CrewTimelineSummary;
     isStale: boolean;
     staleReason?: string | null;
     breakdown: CrewTimelineWarningBreakdownItem[];
+    isAppliedSnapshot?: boolean;
+    snapshotNotice?: string | null;
 }) {
     const unresolvedBlockers =
         summary.unresolved_blocking_warning_count ??
@@ -90,6 +94,7 @@ export function CrewTimelineWarningPanel({
 
     if (
         !isStale &&
+        !snapshotNotice &&
         summary.blocking_warning_count === 0 &&
         summary.informational_warning_count === 0 &&
         skippedCount === 0
@@ -105,7 +110,15 @@ export function CrewTimelineWarningPanel({
 
     return (
         <div className="space-y-3">
-            {isStale ? (
+            {snapshotNotice ? (
+                <Alert className="border-sky-500/30 bg-sky-500/5 text-sky-950 dark:bg-sky-500/10 dark:text-sky-100">
+                    <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                    <AlertTitle>Applied snapshot</AlertTitle>
+                    <AlertDescription>{snapshotNotice}</AlertDescription>
+                </Alert>
+            ) : null}
+
+            {isStale && !isAppliedSnapshot ? (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Crew Timesheet source changed</AlertTitle>

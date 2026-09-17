@@ -16,9 +16,12 @@ final class CrewTimelineFreshnessChecker
 
     public const APPLY_TIMELINE_ADVANCED_MESSAGE = 'The active crew timeline has advanced beyond this preparation’s effective cutoff. Prepare and approve a new version before applying it to payroll.';
 
+    public const APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE = 'Live crew timeline has advanced since this snapshot. This historical payroll snapshot remains unchanged.';
+
     public function __construct(
         private readonly CrewTimelinePhaseQuery $phaseQuery,
         private readonly CrewTimelineSourceHasher $sourceHasher,
+        private readonly CrewTimelineSourceLocker $sourceLocker,
     ) {}
 
     public function currentHash(
@@ -46,6 +49,37 @@ final class CrewTimelineFreshnessChecker
         );
     }
 
+    public function isSnapshotConsistent(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+    ): bool {
+        if ($preparation->source_hash === null || $preparation->source_hash === '') {
+            return false;
+        }
+
+        $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $preparation->cutoff_date);
+        $phases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
+        $hashWithPrepCutoff = $this->sourceHasher->hash(
+            $period,
+            $preparation->cutoff_date,
+            $phases,
+            $preparation->resolveEffectiveCutoffDate($period),
+        );
+
+        return hash_equals((string) $preparation->source_hash, $hashWithPrepCutoff);
+    }
+
+    public function liveTimelineAdvanced(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+    ): bool {
+        if ($this->isFresh($preparation, $period)) {
+            return false;
+        }
+
+        return $this->isSnapshotConsistent($preparation, $period);
+    }
+
     public function staleReason(
         CrewTimesheetPreparation $preparation,
         PayrollPeriod $period,
@@ -55,20 +89,21 @@ final class CrewTimelineFreshnessChecker
             return null;
         }
 
-        $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $preparation->cutoff_date);
-        $phases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
-        $hashWithPrepCutoff = $this->sourceHasher->hash(
-            $period,
-            $preparation->cutoff_date,
-            $phases,
-            $preparation->resolveEffectiveCutoffDate(),
-        );
-
-        if (hash_equals((string) $preparation->source_hash, $hashWithPrepCutoff)) {
+        if ($this->isSnapshotConsistent($preparation, $period)) {
             return $isApplyContext ? self::APPLY_TIMELINE_ADVANCED_MESSAGE : self::TIMELINE_ADVANCED_MESSAGE;
         }
 
         return $isApplyContext ? self::APPLY_STALE_MESSAGE : self::STALE_MESSAGE;
+    }
+
+    public function assertFreshAfterLockingSource(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+        int $companyId,
+        ?string $message = null,
+    ): void {
+        $this->sourceLocker->lockAndReloadIssuePhases($period, $preparation, $companyId);
+        $this->assertFresh($preparation, $period, $message);
     }
 
     public function assertFresh(
