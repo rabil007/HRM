@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { BulkPreviewRowInput } from './bulk-readiness-preview.ts';
 import { buildAssignmentReadinessGuidance } from './assignment-readiness-guidance.ts';
+import type { BulkPreviewRowInput } from './bulk-readiness-preview.ts';
 import {
     buildBulkAttentionList,
     buildBulkPreviewRows,
