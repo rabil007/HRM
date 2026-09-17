@@ -457,6 +457,23 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 | `cancel_assignment` | Draft/Active → Cancelled (not from active P4) |
 | `void_erroneous_assignment` | Privileged admin cleanup (any P0–P6; separate route) |
 
+### Actual movement timestamps vs planning forecasts
+
+Future dates belong to **planning** (`planned_join_at`, `planned_signoff_at`, `planned_travel_at`, Crew Planning bars). They are forecasts and never become actual movement timestamps automatically.
+
+**Actual movement events** (`occurred_at` on movement actions and corrected `actual_start_at` / `actual_end_at`) cannot be recorded in the future. Backend validation uses the company timezone and trusted server time; the HTTP form request and `CrewMovementService` both enforce this. Planning-only actions such as `plan_signoff` continue to accept future planned dates.
+
+### Cancel Assignment semantics
+
+Cancel Assignment marks the **assignment** `Cancelled` with `closed_at` at the cancellation timestamp. Phase handling depends on whether the current phase actually started:
+
+| Current phase state | Phase result on cancel | Payroll / history |
+| --- | --- | --- |
+| `actual_start_at` is null (planned/unstarted) | Phase `Cancelled` | Genuinely cancelled activity; non-payable |
+| `actual_start_at` is present (elapsed actual activity) | Phase `Completed` with `actual_end_at = cancellation time` | Historical fact preserved for Crew Timesheet preparation and movement history |
+
+Cancellation time must be on or after the current phase `actual_start_at` when that start exists. Cancelling does not delete prior phases or invent disembarkation/travel phases.
+
 ## Void Erroneous Assignment
 
 **Void** is not Cancel.
@@ -527,7 +544,7 @@ HEA KRAKEN P4 ends   26 Aug 16:30
 PLB 648 P4 starts    26 Aug 16:30
 ```
 
-That is the Transfer Vessel case. Intervals are half-open: a genuine overlap is `left.start < right.end` and `right.start < left.end`. Equal start/end is a valid handoff, not an overlap.
+That is the Transfer Vessel case. Intervals are half-open `[start, end)`: a genuine overlap requires **positive duration on both intervals** and `left.start < right.end` and `right.start < left.end`. Equal start/end at a handoff is valid, not an overlap. Zero-duration intervals (`start == end`) are not treated as positive-duration overlaps. Reversed ranges (`end < start`) remain invalid and are rejected by movement invariants / correction validation, not reinterpreted as non-overlaps.
 
 This is not a transfer:
 

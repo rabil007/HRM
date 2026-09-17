@@ -413,7 +413,25 @@ test('cancel assignment works before p4', function () {
     expect($assignment->status)->toBe(CrewAssignmentStatus::Cancelled)
         ->and($assignment->closed_at)->not->toBeNull()
         ->and($assignment->remarks)->toContain('Medical hold')
-        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Cancelled);
+        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Completed)
+        ->and($assignment->currentPhase?->actual_start_at)->not->toBeNull()
+        ->and($assignment->currentPhase?->actual_end_at)->not->toBeNull();
+});
+
+test('cancel assignment before mobilisation marks planned phase as cancelled', function () {
+    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+    $service = crewMovementService();
+
+    $assignment = $service->createDraft($company->id, $employee->id, [], $user->id);
+
+    $assignment = $service->perform($company->id, $assignment->id, CrewMovementAction::CancelAssignment, [
+        'reason' => 'No longer required',
+        'occurred_at' => '2026-01-01 08:00:00',
+    ], $user->id);
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Cancelled)
+        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Cancelled)
+        ->and($assignment->currentPhase?->actual_start_at)->toBeNull();
 });
 
 test('phase sequence remains consistent across movements', function () {
