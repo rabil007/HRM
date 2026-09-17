@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { Button } from '@/components/ui/button';
 import { CrewEmployeeStatusBadge } from '@/features/organization/crew/components/crew-employee-status-badge';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import {
@@ -14,13 +14,13 @@ import type {
     CrewAssignmentCreateFormOptions,
     EmployeeOperationalStatus,
 } from '@/features/organization/crew/types';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import {
     formatDisplayDate,
     formatDisplayDateTimeInTimezone,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
-import { Button } from '@/components/ui/button';
 
 function ReadinessSection({
     title,
@@ -70,10 +70,7 @@ export function CrewAssignmentReadinessPanel({
     if (bulkMode) {
         return (
             <aside
-                className={cn(
-                    'rounded-xl border glass-card p-5',
-                    className,
-                )}
+                className={cn('rounded-xl border glass-card p-5', className)}
                 aria-label="Assignment Readiness"
             >
                 <PanelHeader />
@@ -375,8 +372,7 @@ export function CrewAssignmentReadinessPanel({
                                     )}
                                 >
                                     <div className="flex items-start gap-2">
-                                        {recommendation.tone ===
-                                        'positive' ? (
+                                        {recommendation.tone === 'positive' ? (
                                             <CheckCircle2
                                                 className="mt-0.5 size-3.5 shrink-0"
                                                 aria-hidden

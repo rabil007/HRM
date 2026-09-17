@@ -87,9 +87,7 @@ describe('buildAssignmentReadinessAttentionItems', () => {
             null,
         );
 
-        assert.ok(
-            items.some((item) => item.id === 'existing-assignment'),
-        );
+        assert.ok(items.some((item) => item.id === 'existing-assignment'));
         assert.ok(items.some((item) => item.id === 'potential-conflict'));
     });
 
@@ -163,10 +161,7 @@ describe('buildAssignmentReadinessRecommendation', () => {
             8,
         );
 
-        assert.match(
-            recommendation?.title ?? '',
-            /Transfer Vessel/i,
-        );
+        assert.match(recommendation?.title ?? '', /Transfer Vessel/i);
     });
 
     it('recommends availability for home employees without active assignments', () => {

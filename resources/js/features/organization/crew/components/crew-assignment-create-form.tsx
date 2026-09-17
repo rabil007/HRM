@@ -349,9 +349,9 @@ export function CrewAssignmentCreateForm({
                                         <>
                                             <p className="font-medium">
                                                 Start one crew member, or add
-                                                more to start several assignments
-                                                with the same mobilisation
-                                                details.
+                                                more to start several
+                                                assignments with the same
+                                                mobilisation details.
                                             </p>
                                             <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
                                                 Save as Draft remains available
@@ -371,310 +371,343 @@ export function CrewAssignmentCreateForm({
                                     onSubmit={handleSubmit}
                                     className="space-y-10"
                                 >
-                            {fromPlanning && planning_context ? (
-                                <>
-                                    <PlanningStartAuthoritativeFields
-                                        context={planning_context}
-                                    />
-                                    {planningActiveAssignmentConflict ? (
-                                        <PlanningStartActiveAssignmentConflict
-                                            planningContext={planning_context}
-                                            employeeStatus={
-                                                currentEmployeeStatus
-                                            }
-                                            activeOnVessel={currentOnVessel}
-                                            destinationVesselId={
-                                                form.data.vessel_id
-                                            }
-                                            canViewAssignment={can.view}
-                                        />
+                                    {fromPlanning && planning_context ? (
+                                        <>
+                                            <PlanningStartAuthoritativeFields
+                                                context={planning_context}
+                                            />
+                                            {planningActiveAssignmentConflict ? (
+                                                <PlanningStartActiveAssignmentConflict
+                                                    planningContext={
+                                                        planning_context
+                                                    }
+                                                    employeeStatus={
+                                                        currentEmployeeStatus
+                                                    }
+                                                    activeOnVessel={
+                                                        currentOnVessel
+                                                    }
+                                                    destinationVesselId={
+                                                        form.data.vessel_id
+                                                    }
+                                                    canViewAssignment={can.view}
+                                                />
+                                            ) : null}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="planning-planned-arrival-at">
+                                                    Arrival Date{' '}
+                                                    <span className="font-normal text-muted-foreground">
+                                                        (optional)
+                                                    </span>
+                                                </Label>
+                                                <Input
+                                                    id="planning-planned-arrival-at"
+                                                    type="date"
+                                                    className="h-11 sm:max-w-md"
+                                                    value={
+                                                        form.data
+                                                            .planned_arrival_at ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'planned_arrival_at',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    Expected date the crew
+                                                    member will arrive at the
+                                                    joining location. Actual
+                                                    arrival is recorded later
+                                                    through Record Arrival.
+                                                </p>
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .planned_arrival_at
+                                                    }
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CrewMembersSection
+                                                rows={rows}
+                                                formOptions={form_options}
+                                                errors={formErrors}
+                                                compact={bulkMode}
+                                                canAddRow={
+                                                    can.start && !fromPlanning
+                                                }
+                                                onAddRow={() => {
+                                                    const next = newCrewRow();
+                                                    setRowKeys((keys) => [
+                                                        ...keys,
+                                                        next.key,
+                                                    ]);
+                                                    form.setData('crew', [
+                                                        ...form.data.crew,
+                                                        {
+                                                            employee_id:
+                                                                next.employee_id,
+                                                            rank_id:
+                                                                next.rank_id,
+                                                        },
+                                                    ]);
+                                                }}
+                                                onRemoveRow={(index) => {
+                                                    setRowKeys((keys) =>
+                                                        keys.filter(
+                                                            (_, i) =>
+                                                                i !== index,
+                                                        ),
+                                                    );
+                                                    form.setData(
+                                                        'crew',
+                                                        form.data.crew.filter(
+                                                            (_, i) =>
+                                                                i !== index,
+                                                        ),
+                                                    );
+                                                }}
+                                                onChangeRow={(
+                                                    index: number,
+                                                    row: BulkAddCrewRow,
+                                                ) => {
+                                                    form.setData(
+                                                        'crew',
+                                                        form.data.crew.map(
+                                                            (item, i) =>
+                                                                i === index
+                                                                    ? row
+                                                                    : item,
+                                                        ),
+                                                    );
+                                                }}
+                                            />
+
+                                            <div className="xl:hidden">
+                                                <CrewAssignmentReadinessPanel
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    formOptions={form_options}
+                                                    destinationVesselId={
+                                                        form.data.vessel_id
+                                                    }
+                                                    bulkMode={bulkMode}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {fromPlanning ? (
+                                        <div className="xl:hidden">
+                                            <CrewAssignmentReadinessPanel
+                                                employeeId={effectiveEmployeeId}
+                                                formOptions={form_options}
+                                                destinationVesselId={
+                                                    form.data.vessel_id
+                                                }
+                                                planningEmployeeName={
+                                                    planning_context?.employee_name ??
+                                                    null
+                                                }
+                                                planningRankName={
+                                                    planning_context?.rank_name ??
+                                                    null
+                                                }
+                                            />
+                                        </div>
                                     ) : null}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="planning-planned-arrival-at">
-                                            Arrival Date{' '}
-                                            <span className="font-normal text-muted-foreground">
-                                                (optional)
-                                            </span>
-                                        </Label>
-                                        <Input
-                                            id="planning-planned-arrival-at"
-                                            type="date"
-                                            className="h-11 sm:max-w-md"
-                                            value={
-                                                form.data.planned_arrival_at ??
-                                                ''
+
+                                    <CrewAssignmentCommonFields
+                                        form={form}
+                                        formOptions={form_options}
+                                        showMasterFields={!fromPlanning}
+                                    />
+
+                                    {bulkMode ? (
+                                        <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm">
+                                            <p className="font-semibold">
+                                                {readyCount === 1
+                                                    ? '1 crew member ready'
+                                                    : `${readyCount} crew members ready`}
+                                            </p>
+                                            {incompleteCount > 0 ? (
+                                                <p className="mt-1 font-medium text-destructive">
+                                                    {incompleteCount === 1
+                                                        ? '1 incomplete'
+                                                        : `${incompleteCount} incomplete`}
+                                                </p>
+                                            ) : null}
+                                            {blockedCount > 0 ? (
+                                                <p className="mt-1 font-medium text-destructive">
+                                                    {blockedCount === 1
+                                                        ? '1 blocked'
+                                                        : `${blockedCount} blocked`}
+                                                </p>
+                                            ) : null}
+                                            <p className="mt-1 text-muted-foreground">
+                                                Vessel: {vesselName}
+                                            </p>
+                                            <p className="text-muted-foreground">
+                                                Expected Join:{' '}
+                                                {form.data.planned_join_at
+                                                    ? formatDisplayDate(
+                                                          form.data
+                                                              .planned_join_at,
+                                                      )
+                                                    : 'Not set'}
+                                            </p>
+                                        </div>
+                                    ) : null}
+
+                                    <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
+                                        {can.start &&
+                                        !planningActiveAssignmentConflict ? (
+                                            <Button
+                                                type="submit"
+                                                disabled={
+                                                    form.processing ||
+                                                    (bulkMode
+                                                        ? !bulkCanSubmit
+                                                        : hasActiveAssignmentConflict)
+                                                }
+                                                title={
+                                                    bulkMode
+                                                        ? incompleteCount > 0
+                                                            ? 'Complete or remove every crew row before starting.'
+                                                            : blockedCount > 0
+                                                              ? 'Resolve blocked crew members before starting.'
+                                                              : undefined
+                                                        : transferRequiredButUnauthorized
+                                                          ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
+                                                          : hasActiveAssignmentConflict
+                                                            ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
+                                                            : undefined
+                                                }
+                                                className="h-11 rounded-xl px-6"
+                                            >
+                                                {form.processing ? (
+                                                    <Spinner className="mr-2" />
+                                                ) : null}
+                                                {bulkMode
+                                                    ? bulkStartButtonLabel(
+                                                          readyCount,
+                                                      )
+                                                    : 'Start Assignment'}
+                                            </Button>
+                                        ) : null}
+
+                                        {shouldShowSaveDraft(rows.length) &&
+                                        !fromPlanning ? (
+                                            <Button
+                                                type="button"
+                                                variant={
+                                                    can.start
+                                                        ? 'outline'
+                                                        : 'default'
+                                                }
+                                                className="h-11 rounded-xl px-6"
+                                                disabled={
+                                                    form.processing ||
+                                                    hasActiveAssignmentConflict
+                                                }
+                                                onClick={saveDraft}
+                                            >
+                                                {form.processing &&
+                                                form.data.submission_intent ===
+                                                    'draft' ? (
+                                                    <Spinner className="mr-2" />
+                                                ) : null}
+                                                Save as Draft
+                                            </Button>
+                                        ) : null}
+
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="h-11 rounded-xl px-6"
+                                            onClick={() =>
+                                                router.visit(backHref)
                                             }
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    'planned_arrival_at',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Expected date the crew member will
-                                            arrive at the joining location.
-                                            Actual arrival is recorded later
-                                            through Record Arrival.
-                                        </p>
+                                        >
+                                            Cancel
+                                        </Button>
+
+                                        {!can.start ? (
+                                            <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                Starting an operational
+                                                assignment requires movement
+                                                permission. You can still save a
+                                                Draft for one crew member, or
+                                                ask an authorized Operations
+                                                user to start the assignment.
+                                            </p>
+                                        ) : null}
+
+                                        {can.view_planning ? (
+                                            <p className="w-full text-xs text-muted-foreground">
+                                                Planning this for later?{' '}
+                                                <Link
+                                                    href={crewPlanningIndex.url()}
+                                                    className="font-medium text-primary hover:underline"
+                                                >
+                                                    Plan Crew Instead →
+                                                </Link>
+                                            </p>
+                                        ) : null}
+
+                                        {bulkMode && incompleteCount > 0 ? (
+                                            <p className="w-full text-sm font-medium text-destructive">
+                                                {incompleteCount === 1
+                                                    ? '1 crew member incomplete. Select an employee or remove this row.'
+                                                    : `${incompleteCount} crew members incomplete. Select an employee or remove each highlighted row.`}
+                                            </p>
+                                        ) : null}
+
+                                        {bulkMode && blockedCount > 0 ? (
+                                            <p className="w-full text-sm font-medium text-destructive">
+                                                {blockedCount === 1
+                                                    ? '1 crew member cannot be started. Resolve the highlighted row before continuing.'
+                                                    : `${blockedCount} crew members cannot be started. Resolve the highlighted rows before continuing.`}
+                                            </p>
+                                        ) : null}
+
+                                        {!bulkMode &&
+                                        transferRequiredButUnauthorized ? (
+                                            <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                Vessel Transfer is required for
+                                                this move. You do not have
+                                                permission to perform it; ask an
+                                                authorized Operations user to
+                                                continue.
+                                            </p>
+                                        ) : !bulkMode &&
+                                          hasActiveAssignmentConflict &&
+                                          !planningActiveAssignmentConflict &&
+                                          !formErrors.error ? (
+                                            <p className="w-full text-xs font-medium text-destructive">
+                                                This employee already has an
+                                                active Crew Assignment. Resolve
+                                                the conflict above before
+                                                creating a new one.
+                                            </p>
+                                        ) : null}
+
                                         <InputError
                                             message={
-                                                form.errors.planned_arrival_at
+                                                bulkFieldError(
+                                                    formErrors,
+                                                    'error',
+                                                ) ?? formErrors.error
                                             }
+                                            className="w-full"
                                         />
                                     </div>
-                                </>
-                            ) : (
-                                <>
-                                    <CrewMembersSection
-                                        rows={rows}
-                                        formOptions={form_options}
-                                        errors={formErrors}
-                                        compact={bulkMode}
-                                        canAddRow={can.start && !fromPlanning}
-                                        onAddRow={() => {
-                                        const next = newCrewRow();
-                                        setRowKeys((keys) => [
-                                            ...keys,
-                                            next.key,
-                                        ]);
-                                        form.setData('crew', [
-                                            ...form.data.crew,
-                                            {
-                                                employee_id: next.employee_id,
-                                                rank_id: next.rank_id,
-                                            },
-                                        ]);
-                                    }}
-                                    onRemoveRow={(index) => {
-                                        setRowKeys((keys) =>
-                                            keys.filter((_, i) => i !== index),
-                                        );
-                                        form.setData(
-                                            'crew',
-                                            form.data.crew.filter(
-                                                (_, i) => i !== index,
-                                            ),
-                                        );
-                                    }}
-                                        onChangeRow={(
-                                            index: number,
-                                            row: BulkAddCrewRow,
-                                        ) => {
-                                            form.setData(
-                                                'crew',
-                                                form.data.crew.map((item, i) =>
-                                                    i === index ? row : item,
-                                                ),
-                                            );
-                                        }}
-                                    />
-
-                                    <div className="xl:hidden">
-                                        <CrewAssignmentReadinessPanel
-                                            employeeId={effectiveEmployeeId}
-                                            formOptions={form_options}
-                                            destinationVesselId={
-                                                form.data.vessel_id
-                                            }
-                                            bulkMode={bulkMode}
-                                        />
-                                    </div>
-                                </>
-                            )}
-
-                            {fromPlanning ? (
-                                <div className="xl:hidden">
-                                    <CrewAssignmentReadinessPanel
-                                        employeeId={effectiveEmployeeId}
-                                        formOptions={form_options}
-                                        destinationVesselId={
-                                            form.data.vessel_id
-                                        }
-                                        planningEmployeeName={
-                                            planning_context?.employee_name ??
-                                            null
-                                        }
-                                        planningRankName={
-                                            planning_context?.rank_name ?? null
-                                        }
-                                    />
-                                </div>
-                            ) : null}
-
-                            <CrewAssignmentCommonFields
-                                form={form}
-                                formOptions={form_options}
-                                showMasterFields={!fromPlanning}
-                            />
-
-                            {bulkMode ? (
-                                <div className="rounded-xl border border-border/60 bg-muted/15 p-4 text-sm">
-                                    <p className="font-semibold">
-                                        {readyCount === 1
-                                            ? '1 crew member ready'
-                                            : `${readyCount} crew members ready`}
-                                    </p>
-                                    {incompleteCount > 0 ? (
-                                        <p className="mt-1 font-medium text-destructive">
-                                            {incompleteCount === 1
-                                                ? '1 incomplete'
-                                                : `${incompleteCount} incomplete`}
-                                        </p>
-                                    ) : null}
-                                    {blockedCount > 0 ? (
-                                        <p className="mt-1 font-medium text-destructive">
-                                            {blockedCount === 1
-                                                ? '1 blocked'
-                                                : `${blockedCount} blocked`}
-                                        </p>
-                                    ) : null}
-                                    <p className="mt-1 text-muted-foreground">
-                                        Vessel: {vesselName}
-                                    </p>
-                                    <p className="text-muted-foreground">
-                                        Expected Join:{' '}
-                                        {form.data.planned_join_at
-                                            ? formatDisplayDate(
-                                                  form.data.planned_join_at,
-                                              )
-                                            : 'Not set'}
-                                    </p>
-                                </div>
-                            ) : null}
-
-                            <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
-                                {can.start &&
-                                !planningActiveAssignmentConflict ? (
-                                    <Button
-                                        type="submit"
-                                        disabled={
-                                            form.processing ||
-                                            (bulkMode
-                                                ? !bulkCanSubmit
-                                                : hasActiveAssignmentConflict)
-                                        }
-                                        title={
-                                            bulkMode
-                                                ? incompleteCount > 0
-                                                    ? 'Complete or remove every crew row before starting.'
-                                                    : blockedCount > 0
-                                                      ? 'Resolve blocked crew members before starting.'
-                                                      : undefined
-                                                : transferRequiredButUnauthorized
-                                                  ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
-                                                  : hasActiveAssignmentConflict
-                                                    ? 'This employee already has an active Crew Assignment. Resolve the conflict above before creating a new one.'
-                                                    : undefined
-                                        }
-                                        className="h-11 rounded-xl px-6"
-                                    >
-                                        {form.processing ? (
-                                            <Spinner className="mr-2" />
-                                        ) : null}
-                                        {bulkMode
-                                            ? bulkStartButtonLabel(readyCount)
-                                            : 'Start Assignment'}
-                                    </Button>
-                                ) : null}
-
-                                {shouldShowSaveDraft(rows.length) &&
-                                !fromPlanning ? (
-                                    <Button
-                                        type="button"
-                                        variant={
-                                            can.start ? 'outline' : 'default'
-                                        }
-                                        className="h-11 rounded-xl px-6"
-                                        disabled={
-                                            form.processing ||
-                                            hasActiveAssignmentConflict
-                                        }
-                                        onClick={saveDraft}
-                                    >
-                                        {form.processing &&
-                                        form.data.submission_intent ===
-                                            'draft' ? (
-                                            <Spinner className="mr-2" />
-                                        ) : null}
-                                        Save as Draft
-                                    </Button>
-                                ) : null}
-
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="h-11 rounded-xl px-6"
-                                    onClick={() => router.visit(backHref)}
-                                >
-                                    Cancel
-                                </Button>
-
-                                {!can.start ? (
-                                    <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">
-                                        Starting an operational assignment
-                                        requires movement permission. You can
-                                        still save a Draft for one crew member,
-                                        or ask an authorized Operations user to
-                                        start the assignment.
-                                    </p>
-                                ) : null}
-
-                                {can.view_planning ? (
-                                    <p className="w-full text-xs text-muted-foreground">
-                                        Planning this for later?{' '}
-                                        <Link
-                                            href={crewPlanningIndex.url()}
-                                            className="font-medium text-primary hover:underline"
-                                        >
-                                            Plan Crew Instead →
-                                        </Link>
-                                    </p>
-                                ) : null}
-
-                                {bulkMode && incompleteCount > 0 ? (
-                                    <p className="w-full text-sm font-medium text-destructive">
-                                        {incompleteCount === 1
-                                            ? '1 crew member incomplete. Select an employee or remove this row.'
-                                            : `${incompleteCount} crew members incomplete. Select an employee or remove each highlighted row.`}
-                                    </p>
-                                ) : null}
-
-                                {bulkMode && blockedCount > 0 ? (
-                                    <p className="w-full text-sm font-medium text-destructive">
-                                        {blockedCount === 1
-                                            ? '1 crew member cannot be started. Resolve the highlighted row before continuing.'
-                                            : `${blockedCount} crew members cannot be started. Resolve the highlighted rows before continuing.`}
-                                    </p>
-                                ) : null}
-
-                                {!bulkMode &&
-                                transferRequiredButUnauthorized ? (
-                                    <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">
-                                        Vessel Transfer is required for this
-                                        move. You do not have permission to
-                                        perform it; ask an authorized Operations
-                                        user to continue.
-                                    </p>
-                                ) : !bulkMode &&
-                                  hasActiveAssignmentConflict &&
-                                  !planningActiveAssignmentConflict &&
-                                  !formErrors.error ? (
-                                    <p className="w-full text-xs font-medium text-destructive">
-                                        This employee already has an active Crew
-                                        Assignment. Resolve the conflict above
-                                        before creating a new one.
-                                    </p>
-                                ) : null}
-
-                                <InputError
-                                    message={
-                                        bulkFieldError(formErrors, 'error') ??
-                                        formErrors.error
-                                    }
-                                    className="w-full"
-                                />
-                            </div>
                                 </form>
                             </CardContent>
                         </Card>

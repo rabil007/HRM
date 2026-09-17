@@ -17,8 +17,7 @@ const STATUS_BADGE_STYLES: Record<string, string> = {
         'border-emerald-500/35 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100',
     training:
         'border-blue-500/30 bg-blue-500/10 text-blue-950 dark:text-blue-100',
-    ready_to_join:
-        'border-primary/30 bg-primary/10 text-primary-foreground',
+    ready_to_join: 'border-primary/30 bg-primary/10 text-primary-foreground',
     pre_mobilisation:
         'border-blue-500/30 bg-blue-500/10 text-blue-950 dark:text-blue-100',
     travel_in:

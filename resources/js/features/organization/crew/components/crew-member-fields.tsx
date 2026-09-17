@@ -66,7 +66,6 @@ export function CrewMemberFields({
     lockEmployee = false,
     employeeLabel,
     employeeStatus,
-    activeOnVessel,
     showOperationalStatus = false,
     currentPhase = null,
     selectedEmployeeIds,

@@ -219,7 +219,9 @@ export function shouldShowTransferVesselSuggestion(
     );
 }
 
-export function readinessStatusLabel(statusCode: string | null | undefined): string {
+export function readinessStatusLabel(
+    statusCode: string | null | undefined,
+): string {
     switch (statusCode) {
         case 'on_vessel':
             return 'On Vessel';
