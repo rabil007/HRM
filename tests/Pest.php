@@ -1,5 +1,7 @@
 <?php
 
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Composer\Autoload\ClassLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -71,6 +73,19 @@ require __DIR__.'/Support/document-expiry-alert-fixtures.php';
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+// Crew movement tests use fixed 2026 fixture timestamps for occurred_at. Freeze
+// organization feature tests after those dates so CI calendar time cannot reject
+// legitimate historical movement actions as "future".
+pest()->beforeEach(function (): void {
+    Carbon::setTestNow(Carbon::parse('2027-01-15 12:00:00', 'Asia/Dubai'));
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2027-01-15 12:00:00', 'Asia/Dubai'));
+})->in('Feature/Organization');
+
+pest()->afterEach(function (): void {
+    Carbon::setTestNow();
+    CarbonImmutable::setTestNow();
+})->in('Feature/Organization');
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)

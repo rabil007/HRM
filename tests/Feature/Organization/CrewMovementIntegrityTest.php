@@ -203,7 +203,7 @@ test('actual movement actions reject future occurred_at timestamps', function (s
         ->from(route('organization.crew-assignments.show', $assignment))
         ->post(route('organization.crew-assignments.perform-action', $assignment), array_merge([
             'action' => $action,
-            'occurred_at' => '2026-09-25 08:00:00',
+            'occurred_at' => '2027-08-01 08:00:00',
         ], $extraPayload))
         ->assertSessionHasErrors('occurred_at');
 
@@ -260,7 +260,7 @@ test('movement correction rejects future actual timestamps', function () {
         $phase,
         $user,
         [
-            'actual_start_at' => '2026-09-25 08:00:00',
+            'actual_start_at' => '2027-08-01 08:00:00',
             'remarks' => 'Future correction attempt',
         ],
         'Attempted future correction',
