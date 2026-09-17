@@ -28,6 +28,18 @@ use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
+function assertPayrollReconciles(PayrollRecord $record): void
+{
+    $gross = (float) $record->gross_salary;
+    $net = (float) $record->net_salary;
+    $deductions = (float) $record->other_deductions;
+    $bonus = (float) $record->bonus;
+
+    expect(round($gross - $deductions, 2))->toBe(round($net, 2))
+        ->and(round((float) $record->basic_salary + (float) $record->other_allowances + (float) $record->overtime_pay + $bonus, 2))
+        ->toBeGreaterThanOrEqual(round($gross - 0.01, 2));
+}
+
 function overlapWarningExists(int $preparationId): bool
 {
     return CrewTimesheetPreparationLine::query()

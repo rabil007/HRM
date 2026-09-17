@@ -15,7 +15,6 @@ use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetSegment;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
-use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
@@ -50,18 +49,6 @@ function setDailyCrewContractRates(array $fixtures, float $basic, float $site, f
     (new SyncContractSalaryComponentsFromContract)->handle($contract);
 
     return $contract->fresh();
-}
-
-function assertPayrollReconciles(PayrollRecord $record): void
-{
-    $gross = (float) $record->gross_salary;
-    $net = (float) $record->net_salary;
-    $deductions = (float) $record->other_deductions;
-    $bonus = (float) $record->bonus;
-
-    expect(round($gross - $deductions, 2))->toBe(round($net, 2))
-        ->and(round((float) $record->basic_salary + (float) $record->other_allowances + (float) $record->overtime_pay + $bonus, 2))
-        ->toBeGreaterThanOrEqual(round($gross - 0.01, 2));
 }
 
 test('normal mobilisation produces correct payable days and payroll record', function () {
