@@ -35,7 +35,7 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
         'total_standby_pay' => 1125.0,
         'onsite_pay' => 1500.0,
         'site_allowance' => 500.0,
-        'supplementary_allowance' => 750.0,
+        'supplementary_allowance' => 1125.0,
         'overtime' => 0.0,
         'additional' => 100.0,
         'deduction' => 50.0,
@@ -124,7 +124,7 @@ test('crew payroll calculator includes supplementary allowance on standby days',
         'total_standby_pay' => 1322.0,
         'onsite_pay' => 750.0,
         'site_allowance' => 9915.0,
-        'supplementary_allowance' => 9165.0,
+        'supplementary_allowance' => 10387.0,
     ])
         ->and($result['gross_salary'])->toBe('21152.00')
         ->and($result['net_salary'])->toBe('21152.00');

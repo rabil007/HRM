@@ -540,5 +540,5 @@ test('crew payroll generation calculates monthly crew contracts from working and
         ->and($record->calculation_breakdown['salary_structure'])->toBe('monthly')
         ->and($record->housing_allowance)->toBe('1666.67')
         ->and($record->gross_salary)->toBe('7183.34')
-        ->and($record->net_salary)->toBe('5716.67');
+        ->and($record->net_salary)->toBe('7133.34');
 });

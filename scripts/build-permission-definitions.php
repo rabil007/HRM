@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\Authorization\ApplicationPermissionDefinitions;
+
 /**
  * One-off generator for ApplicationPermissionDefinitions.php.
  * Run: php scripts/build-permission-definitions.php
@@ -14,7 +16,7 @@ if (preg_match('/\$permissions\s*=\s*\[(.*?)\];/s', $content, $permissionsMatch)
     require_once __DIR__.'/../vendor/autoload.php';
 
     $names = array_column(
-        App\Support\Authorization\ApplicationPermissionDefinitions::all(),
+        ApplicationPermissionDefinitions::all(),
         'name',
     );
 
