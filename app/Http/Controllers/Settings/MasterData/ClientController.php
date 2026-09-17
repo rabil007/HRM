@@ -26,16 +26,27 @@ class ClientController extends Controller
     public function index(): InertiaResponse
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+        $user = request()->user();
+        $canViewProjects = (bool) ($user?->can('settings.master-data.projects.view'));
+        $canViewVessels = (bool) ($user?->can('crew_operations.vessels.view'));
 
         $query = Client::query()
             ->orderBy('name')
-            ->select(['id', 'name', 'is_active'])
-            ->withCount([
-                'projects',
-                'vessels' => fn ($vesselQuery) => $companyId > 0
-                    ? $vesselQuery->where('company_id', $companyId)
-                    : $vesselQuery->whereRaw('1 = 0'),
-            ]);
+            ->select(['id', 'name', 'is_active']);
+
+        $withCount = [];
+        if ($canViewProjects) {
+            $withCount[] = 'projects';
+        }
+        if ($canViewVessels) {
+            $withCount['vessels'] = fn ($vesselQuery) => $companyId > 0
+                ? $vesselQuery->where('company_id', $companyId)
+                : $vesselQuery->whereRaw('1 = 0');
+        }
+
+        if (! empty($withCount)) {
+            $query->withCount($withCount);
+        }
 
         $page = $this->withMasterDataUsage(
             $this->paginateMasterDataIndex(
@@ -46,15 +57,13 @@ class ClientController extends Controller
             'settings.master-data.clients.delete',
         );
 
-        $user = request()->user();
-
-        $page['items'] = collect($page['items'])->map(function (Client $client): array {
+        $page['items'] = collect($page['items'])->map(function (Client $client) use ($canViewProjects, $canViewVessels): array {
             return [
                 'id' => (int) $client->id,
                 'name' => (string) $client->name,
                 'is_active' => (bool) $client->is_active,
-                'projects_count' => (int) ($client->projects_count ?? 0),
-                'vessels_count' => (int) ($client->vessels_count ?? 0),
+                'projects_count' => $canViewProjects ? (int) ($client->projects_count ?? 0) : null,
+                'vessels_count' => $canViewVessels ? (int) ($client->vessels_count ?? 0) : null,
                 'is_in_use' => (bool) $client->getAttribute('is_in_use'),
                 'can_delete' => (bool) $client->getAttribute('can_delete'),
                 'usage_count' => $client->getAttribute('usage_count') !== null ? (int) $client->getAttribute('usage_count') : null,
@@ -67,8 +76,8 @@ class ClientController extends Controller
             'pagination' => $page['pagination'],
             'search' => $page['search'],
             'can' => [
-                'view_projects' => (bool) ($user?->can('settings.master-data.projects.view')),
-                'view_vessels' => (bool) ($user?->can('crew_operations.vessels.view')),
+                'view_projects' => $canViewProjects,
+                'view_vessels' => $canViewVessels,
             ],
         ]);
     }
@@ -102,7 +111,7 @@ class ClientController extends Controller
 
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse
     {
-        $client->update($request->validated());
+        $client->update($request->safe()->only(['name', 'is_active']));
 
         if ($request->boolean('redirect_to_show') || str_contains((string) $request->header('referer'), "/settings/master-data/clients/{$client->id}")) {
             return redirect()->route('settings.master-data.clients.show', $client)->with('success', 'Client updated successfully.');

@@ -1,7 +1,33 @@
 <?php
 
+use Composer\Autoload\ClassLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+
+// Normalize rootPath and classmap for git worktrees with symlinked vendor
+if (function_exists('spl_autoload_functions')) {
+    foreach (spl_autoload_functions() as $autoloader) {
+        if (is_array($autoloader) && isset($autoloader[0]) && $autoloader[0] instanceof ClassLoader) {
+            $loader = $autoloader[0];
+            $currentAppPath = dirname(__DIR__).'/app/';
+            $currentTestsPath = dirname(__DIR__).'/tests/';
+
+            $ref = new ReflectionProperty($loader, 'classMap');
+            $map = $ref->getValue($loader);
+            foreach ($map as $class => $path) {
+                if (str_starts_with($class, 'App\\')) {
+                    $map[$class] = $currentAppPath.str_replace('\\', '/', substr($class, 4)).'.php';
+                } elseif (str_starts_with($class, 'Tests\\')) {
+                    $map[$class] = $currentTestsPath.str_replace('\\', '/', substr($class, 6)).'.php';
+                }
+            }
+            $ref->setValue($loader, $map);
+            $loader->setPsr4('App\\', [$currentAppPath]);
+            $loader->setPsr4('Tests\\', [$currentTestsPath]);
+            break;
+        }
+    }
+}
 
 require __DIR__.'/Support/application-settings.php';
 require __DIR__.'/Support/ai-settings.php';

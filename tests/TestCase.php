@@ -7,6 +7,14 @@ use Laravel\Fortify\Features;
 
 abstract class TestCase extends BaseTestCase
 {
+    public function createApplication()
+    {
+        $_ENV['APP_BASE_PATH'] = dirname(__DIR__);
+        $_SERVER['APP_BASE_PATH'] = dirname(__DIR__);
+
+        return parent::createApplication();
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

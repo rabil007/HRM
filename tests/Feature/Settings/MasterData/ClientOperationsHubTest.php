@@ -207,12 +207,14 @@ test('tenancy isolation: client show and index pages only expose vessels for the
         );
 });
 
-test('zero related records state is handled cleanly on show and index pages', function () {
+test('zero related records state is handled cleanly on show and index pages when authorized', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'settings.master-data.clients.view',
+        'settings.master-data.projects.view',
+        'crew_operations.vessels.view',
     ]);
 
     $client = Client::query()->create([
@@ -242,6 +244,172 @@ test('zero related records state is handled cleanly on show and index pages', fu
         );
 });
 
+test('project data and counts are hidden when user lacks projects view permission', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+        'crew_operations.vessels.view',
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'Secret Project Client '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    Project::query()->create([
+        'title' => 'Secret Project Alpha',
+        'client_id' => $client->id,
+        'is_active' => true,
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'Tug '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => $client->id,
+        'vessel_type_id' => $vesselType->id,
+        'name' => 'Visible Vessel',
+        'is_active' => true,
+    ]);
+
+    $this->get(route('settings.master-data.clients.index', ['search' => $client->name]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/clients')
+            ->where('clients.0.id', $client->id)
+            ->where('clients.0.projects_count', null)
+            ->where('clients.0.vessels_count', 1)
+            ->where('can.view_projects', false)
+            ->where('can.view_vessels', true)
+        );
+
+    $this->get(route('settings.master-data.clients.show', $client))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/client-show')
+            ->where('operations.projects', null)
+            ->where('operations.vessels.total_count', 1)
+            ->where('operations.vessels.preview.0.name', 'Visible Vessel')
+            ->where('can.view_projects', false)
+            ->where('can.view_vessels', true)
+        );
+});
+
+test('vessel data and counts are hidden when user lacks vessels view permission', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+        'settings.master-data.projects.view',
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'Secret Vessel Client '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    Project::query()->create([
+        'title' => 'Visible Project',
+        'client_id' => $client->id,
+        'is_active' => true,
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'Barge '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => $client->id,
+        'vessel_type_id' => $vesselType->id,
+        'name' => 'Secret Vessel',
+        'is_active' => true,
+    ]);
+
+    $this->get(route('settings.master-data.clients.index', ['search' => $client->name]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/clients')
+            ->where('clients.0.id', $client->id)
+            ->where('clients.0.projects_count', 1)
+            ->where('clients.0.vessels_count', null)
+            ->where('can.view_projects', true)
+            ->where('can.view_vessels', false)
+        );
+
+    $this->get(route('settings.master-data.clients.show', $client))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/client-show')
+            ->where('operations.projects.total_count', 1)
+            ->where('operations.projects.preview.0.title', 'Visible Project')
+            ->where('operations.vessels', null)
+            ->where('can.view_projects', true)
+            ->where('can.view_vessels', false)
+        );
+});
+
+test('all operations data is hidden when user only has clients view permission', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'Restricted Operations Client '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    Project::query()->create([
+        'title' => 'Unseen Project',
+        'client_id' => $client->id,
+        'is_active' => true,
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'Support Vessel '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    Vessel::query()->create([
+        'company_id' => $company->id,
+        'client_id' => $client->id,
+        'vessel_type_id' => $vesselType->id,
+        'name' => 'Unseen Vessel',
+        'is_active' => true,
+    ]);
+
+    $this->get(route('settings.master-data.clients.index', ['search' => $client->name]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/clients')
+            ->where('clients.0.id', $client->id)
+            ->where('clients.0.projects_count', null)
+            ->where('clients.0.vessels_count', null)
+            ->where('can.view_projects', false)
+            ->where('can.view_vessels', false)
+        );
+
+    $this->get(route('settings.master-data.clients.show', $client))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/client-show')
+            ->where('operations.projects', null)
+            ->where('operations.vessels', null)
+            ->where('can.view_projects', false)
+            ->where('can.view_vessels', false)
+        );
+});
+
 test('client update from show page redirects back to show', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
@@ -266,4 +434,56 @@ test('client update from show page redirects back to show', function () {
         ->assertRedirect($showUrl);
 
     expect($client->fresh()->name)->toBe('Renamed Client');
+});
+
+test('client update with redirect_to_show explicitly redirects to show page', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+        'settings.master-data.clients.update',
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'Explicit Show Redirect '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    $showUrl = route('settings.master-data.clients.show', $client);
+
+    $this->put("/settings/master-data/clients/{$client->id}", [
+        'name' => 'Renamed Explicit',
+        'is_active' => true,
+        'redirect_to_show' => true,
+    ])
+        ->assertRedirect($showUrl);
+
+    expect($client->fresh()->name)->toBe('Renamed Explicit');
+});
+
+test('client update without redirect_to_show redirects back or to index', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+        'settings.master-data.clients.update',
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'Index Redirect Client '.Str::random(4),
+        'is_active' => true,
+    ]);
+
+    $indexUrl = route('settings.master-data.clients.index');
+
+    $this->from($indexUrl)
+        ->put("/settings/master-data/clients/{$client->id}", [
+            'name' => 'Updated from Index',
+            'is_active' => true,
+        ])
+        ->assertRedirect($indexUrl);
+
+    expect($client->fresh()->name)->toBe('Updated from Index');
 });
