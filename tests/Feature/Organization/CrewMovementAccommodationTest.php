@@ -1866,7 +1866,15 @@ test('current crew bulk loads p5 accommodation without per assignment presenter 
     DB::disableQueryLog();
 
     expect($page->total())->toBe(3)
-        ->and($items->pluck('movement_context.post_signoff_accommodation.status')->all())
-        ->toEqual(['open_hotel', 'open_hotel', 'missing'])
+        ->and(
+            $items
+                ->pluck('movement_context.post_signoff_accommodation.status')
+                ->countBy()
+                ->all(),
+        )
+        ->toEqual([
+            'open_hotel' => 2,
+            'missing' => 1,
+        ])
         ->and($presenterQueries)->toBeLessThanOrEqual(2);
 });
