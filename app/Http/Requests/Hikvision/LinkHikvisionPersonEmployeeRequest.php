@@ -21,7 +21,7 @@ class LinkHikvisionPersonEmployeeRequest extends FormRequest
             'employee_id' => [
                 'nullable',
                 'integer',
-                ActiveCompanyEmployeeRule::exists($companyId),
+                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
         ];
     }

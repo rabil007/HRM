@@ -19,6 +19,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
@@ -426,7 +427,7 @@ test('scheduled announcement publish does not expand after role broadens', funct
         ->and($announcement->authorized_employee_ids)->toBe([$marine->id]);
 
     $role = $user->roles()->where('spatie_roles.company_id', $company->id)->first();
-    $role->update(['employee_visibility_scope' => \App\Models\Role::SCOPE_ALL]);
+    $role->update(['employee_visibility_scope' => Role::SCOPE_ALL]);
     $role->employeeVisibilityDepartments()->detach();
 
     $this->artisan('announcements:publish-scheduled')->assertSuccessful();

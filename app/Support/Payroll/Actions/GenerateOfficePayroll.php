@@ -113,6 +113,7 @@ final class GenerateOfficePayroll
             $workingDaysInPeriod,
             $excludedEmployeeIds,
             $employeeDates,
+            $user,
             &$generatedCount,
             &$errors,
         ): void {
@@ -226,7 +227,7 @@ final class GenerateOfficePayroll
             $period->update($periodUpdates);
 
             if ($generatedCount > 0) {
-                $this->recalculateOfficePayroll->handle($period->fresh());
+                $this->recalculateOfficePayroll->handle($period->fresh(), null, $user);
             }
         });
 

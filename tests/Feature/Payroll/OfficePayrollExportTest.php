@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\PayrollPeriodStatus;
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Position;
+use App\Models\User;
 use App\Support\Payroll\Services\OfficePayrollSalarySheetExporter;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -67,11 +69,11 @@ test('approved office payroll export downloads office payroll workbook', functio
 });
 
 test('office payroll salary sheet export populates payroll data without client or project columns', function () {
-    ['company' => $company] = makePayrollFixtures();
+    [$user, $company] = makeOfficePayrollExportFixtures();
 
     [$period, $employee, $department, $position] = createApprovedOfficeExportFixture($company);
 
-    $result = app(OfficePayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $result = app(OfficePayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheet = IOFactory::load($result['path'])->getSheetByName(OfficePayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheet)->not->toBeNull()
@@ -94,11 +96,11 @@ test('office payroll salary sheet export populates payroll data without client o
 });
 
 test('office payroll salary sheet export highlights missing department and position in red', function () {
-    ['company' => $company] = makePayrollFixtures();
+    [$user, $company] = makeOfficePayrollExportFixtures();
 
     [$period, $employee] = createApprovedOfficeExportFixture($company, withOrgData: false);
 
-    $result = app(OfficePayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $result = app(OfficePayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheet = IOFactory::load($result['path'])->getSheetByName(OfficePayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheet->getStyle('D3')->getFill()->getStartColor()->getRGB())->toBe('FF0000')
@@ -122,7 +124,7 @@ test('office payroll salary sheet export highlights missing department and posit
         'position_id' => $position->id,
     ]);
 
-    $resultWithData = app(OfficePayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $resultWithData = app(OfficePayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheetWithData = IOFactory::load($resultWithData['path'])->getSheetByName(OfficePayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheetWithData->getCell('D3')->getValue())->toBe('Offshore')
@@ -166,3 +168,17 @@ test('paid office payroll show page exposes export permission flag', function ()
             ->where('permissions.export_payroll', true)
         );
 });
+
+/**
+ * @return array{0: User, 1: Company}
+ */
+function makeOfficePayrollExportFixtures(): array
+{
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+    ]);
+
+    return [$user, $company];
+}

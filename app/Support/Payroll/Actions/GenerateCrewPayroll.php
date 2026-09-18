@@ -312,7 +312,7 @@ final class GenerateCrewPayroll
             $lockedPeriod->update($periodUpdates);
 
             if ($generatedCount > 0 && $this->periodHasSalaryInputs($lockedPeriod, $readyIds)) {
-                $this->recalculateCrewPayroll->handle($lockedPeriod->fresh());
+                $this->recalculateCrewPayroll->handle($lockedPeriod->fresh(), null, $user);
             }
         });
 
