@@ -267,12 +267,16 @@ test('authorized users can restore a soft deleted employee', function () {
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.delete']);
 
-    $this->from('/organization/employees/deleted')
-        ->post("/organization/employees/deleted/{$deleted->id}/restore")
-        ->assertRedirect('/organization/employees/deleted')
-        ->assertSessionHas('success');
+    $this->from('/organization/employees/deleted?search=REST&per_page=10')
+        ->post("/organization/employees/deleted/{$deleted->id}/restore?search=REST&per_page=10")
+        ->assertRedirect('/organization/employees/deleted?search=REST&per_page=10')
+        ->assertSessionHas(
+            'success',
+            'Employee No. REST-001 restored successfully. The employee retains their previous status.',
+        );
 
-    expect($deleted->fresh()->trashed())->toBeFalse();
+    expect($deleted->fresh()->trashed())->toBeFalse()
+        ->and($deleted->fresh()->status)->toBe('active');
 
     $this->assertDatabaseHas('activity_log', [
         'company_id' => $company->id,
@@ -280,6 +284,38 @@ test('authorized users can restore a soft deleted employee', function () {
         'subject_type' => Employee::class,
         'subject_id' => $deleted->id,
     ]);
+});
+
+test('restore redirects to the previous page when the current page becomes empty', function () {
+    ['user' => $user, 'company' => $company] = makeEmployeeTrashFixtures();
+    $this->actingAs($user);
+
+    foreach (range(1, 10) as $index) {
+        $employee = Employee::factory()
+            ->forCompany($company)
+            ->create([
+                'employee_no' => sprintf('KEEP-%03d', $index),
+                'name' => "Keep Deleted {$index}",
+            ]);
+        $employee->delete();
+    }
+
+    $lastOnPage = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'LAST-001',
+            'name' => 'Last On Page',
+        ]);
+    $lastOnPage->delete();
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.delete']);
+
+    $this->from('/organization/employees/deleted?page=2&per_page=10')
+        ->post("/organization/employees/deleted/{$lastOnPage->id}/restore?page=2&per_page=10")
+        ->assertRedirect('/organization/employees/deleted?per_page=10')
+        ->assertSessionHas('success');
+
+    expect($lastOnPage->fresh()->trashed())->toBeFalse();
 });
 
 test('company a cannot view or restore company b deleted employees', function () {
