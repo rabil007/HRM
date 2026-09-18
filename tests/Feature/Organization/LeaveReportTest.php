@@ -2,6 +2,7 @@
 
 use App\Exports\LeaveReportExport;
 use App\Models\Company;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Support\Reports\LeaveReportFilters;
@@ -400,6 +401,235 @@ test('leave report leave type filter includes inactive types used historically',
         ->assertInertia(fn (Assert $page) => $page
             ->has('leave_requests', 1)
             ->where('leave_requests.0.id', $historical->id));
+});
+
+/**
+ * @return list<int>
+ */
+function leaveReportDepartmentTreeIds(mixed $tree): array
+{
+    $ids = [];
+
+    foreach (collect($tree) as $node) {
+        if (($node['id'] ?? null) !== null) {
+            $ids[] = (int) $node['id'];
+        }
+
+        if (! empty($node['children'])) {
+            $ids = array_merge($ids, leaveReportDepartmentTreeIds($node['children']));
+        }
+    }
+
+    return $ids;
+}
+
+test('leave report department tree hides unauthorized departments', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    $user->update(['current_company_id' => $company->id]);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+    grantCompanyPermissions($user, $company, ['reports.leave.view']);
+
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $marine->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $office->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('department_tree', function ($tree) use ($marineDept, $officeDept): bool {
+                $departmentIds = leaveReportDepartmentTreeIds($tree);
+
+                return in_array($marineDept->id, $departmentIds, true)
+                    && ! in_array($officeDept->id, $departmentIds, true);
+            }));
+});
+
+test('leave report department tree counts include inactive and terminated employees with leave history', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $activeEmployee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+
+    $terminatedEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'terminated',
+        'department_id' => $activeEmployee->department_id,
+        'name' => 'Former Crew',
+        'employee_no' => 'LR-TERM',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $activeEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $terminatedEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2025-01-01',
+        'end_date' => '2025-01-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $departmentId = (int) $activeEmployee->department_id;
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('department_tree', function ($tree) use ($departmentId): bool {
+                $departmentNode = collect($tree)->firstWhere('id', $departmentId);
+
+                return $departmentNode !== null && $departmentNode['count'] === 2;
+            }));
+});
+
+test('leave report filter options exclude employees with only soft deleted leave history', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employeeWithValidLeave, 'leaveType' => $leaveType] = authorizeLeaveReport();
+
+    $validDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Valid History Dept',
+        'code' => 'VHD',
+        'status' => 'active',
+    ]);
+
+    $isolatedDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deleted Only Dept',
+        'code' => 'DOD',
+        'status' => 'active',
+    ]);
+
+    $employeeWithValidLeave->update(['department_id' => $validDepartment->id]);
+
+    $deletedOnlyEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Deleted History Only',
+        'employee_no' => 'LR-DEL',
+        'department_id' => $isolatedDepartment->id,
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employeeWithValidLeave->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $deletedRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $deletedOnlyEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-08-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+    $deletedRequest->delete();
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filter_options.employees', fn ($options) => collect($options)->pluck('id')->all() === [$employeeWithValidLeave->id])
+            ->where('filter_options.departments', fn ($options) => collect($options)->pluck('id')->all() === [$validDepartment->id])
+            ->where('department_tree', function ($tree) use ($isolatedDepartment, $validDepartment): bool {
+                $departmentIds = leaveReportDepartmentTreeIds($tree);
+
+                return ! in_array($isolatedDepartment->id, $departmentIds, true)
+                    && in_array($validDepartment->id, $departmentIds, true);
+            }));
+});
+
+test('leave report filter options exclude inactive leave types with only soft deleted leave history', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $activeType] = authorizeLeaveReport();
+
+    $inactiveType = LeaveType::factory()->for($company)->create([
+        'name' => 'Retired Leave',
+        'status' => 'inactive',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $activeType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $deletedRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $inactiveType->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-01-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+    $deletedRequest->delete();
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filter_options.leave_types', fn ($options) => collect($options)->pluck('id')->all() === [$activeType->id]));
+});
+
+test('leave report department tree shows departments for unrestricted users', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Unrestricted Dept',
+        'code' => 'UND',
+        'status' => 'active',
+    ]);
+
+    $employee->update(['department_id' => $department->id]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('department_tree', function ($tree) use ($department): bool {
+                $departmentIds = leaveReportDepartmentTreeIds($tree);
+
+                return in_array($department->id, $departmentIds, true);
+            }));
 });
 
 test('leave report export headings exclude sensitive fields', function () {

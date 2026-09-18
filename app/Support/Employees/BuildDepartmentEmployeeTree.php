@@ -22,15 +22,35 @@ final class BuildDepartmentEmployeeTree
     /**
      * @param  (callable(Builder<Employee>): void)|null  $employeeScope
      * @param  list<int>|null  $limitToRootDepartmentIds
+     * @param  list<int>|null  $allowedDepartmentIds  When non-null, only these departments appear in the tree. An empty list fails closed (All node only). Null means all company departments.
      */
     public static function for(
         int $companyId,
         EmployeeDirectoryFilters $filters,
         ?callable $employeeScope = null,
         ?array $limitToRootDepartmentIds = null,
+        ?array $allowedDepartmentIds = null,
     ): array {
-        $departments = Department::query()
-            ->where('company_id', $companyId)
+        if ($allowedDepartmentIds !== null && $allowedDepartmentIds === []) {
+            return [
+                [
+                    'id' => null,
+                    'name' => 'All',
+                    'count' => self::countEmployees($companyId, $filters, $employeeScope),
+                    'children' => [],
+                    'positions' => [],
+                ],
+            ];
+        }
+
+        $departmentsQuery = Department::query()
+            ->where('company_id', $companyId);
+
+        if ($allowedDepartmentIds !== null) {
+            $departmentsQuery->whereIn('id', $allowedDepartmentIds);
+        }
+
+        $departments = $departmentsQuery
             ->orderBy('name')
             ->get(['id', 'name', 'parent_id']);
 
