@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Employees\EmployeeVisibilityScope;
 use Composer\Autoload\ClassLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -71,10 +72,16 @@ require __DIR__.'/Support/document-expiry-alert-fixtures.php';
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        EmployeeVisibilityScope::clearCache();
+    })
     ->in('Feature');
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function (): void {
+        EmployeeVisibilityScope::clearCache();
+    })
     ->in('Unit/Support', 'Unit/Employees');
 
 /*

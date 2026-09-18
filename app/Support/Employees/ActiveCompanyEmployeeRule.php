@@ -20,7 +20,13 @@ final class ActiveCompanyEmployeeRule
                 ->whereNull('deleted_at');
 
             if ($user !== null) {
-                EmployeeVisibilityScope::apply($query, $user, $companyId);
+                $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+                if ($allowedIds === []) {
+                    $query->whereRaw('1 = 0');
+                } elseif ($allowedIds !== null) {
+                    $query->whereIn('department_id', $allowedIds);
+                }
             }
         });
     }

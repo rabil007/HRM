@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
 final class TrainingDepartmentTree
@@ -30,21 +31,24 @@ final class TrainingDepartmentTree
         return BuildDepartmentEmployeeTree::for(
             $companyId,
             $filters,
-            self::employeeScope($companyId, $context),
-            $user ?? auth()->user(),
+            self::employeeScope($companyId, $context, $user),
         );
     }
 
     /**
      * @return callable(Builder<Employee>): void
      */
-    private static function employeeScope(int $companyId, string $context): callable
+    private static function employeeScope(int $companyId, string $context, ?User $user): callable
     {
         return match ($context) {
-            self::CONTEXT_INDEX => function (Builder $query) use ($companyId): void {
+            self::CONTEXT_INDEX => function (Builder $query) use ($companyId, $user): void {
                 $query->whereHas('trainings', function (Builder $trainingQuery) use ($companyId): void {
                     $trainingQuery->where('company_id', $companyId);
                 });
+
+                if ($user !== null) {
+                    EmployeeVisibilityScope::apply($query, $user, $companyId);
+                }
             },
             default => throw new \InvalidArgumentException("Unknown training department tree context: {$context}"),
         };

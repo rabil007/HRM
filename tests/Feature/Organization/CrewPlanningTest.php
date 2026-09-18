@@ -5,7 +5,6 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAssignment;
-use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Department;
@@ -186,7 +185,7 @@ test('planning crew list includes employees with active assignments', function (
         );
 });
 
-test('planning index employees list respects pool department settings', function () {
+test('planning index employees list respects role employee visibility scope', function () {
     ['user' => $user, 'company' => $company, 'captain' => $captain] = makeCrewPlanningFixtures();
 
     $crewDept = Department::query()->create([
@@ -217,10 +216,7 @@ test('planning index employees list respects pool department settings', function
         'name' => 'Beta Office',
     ]);
 
-    CrewOperationsSetting::query()->create([
-        'company_id' => $company->id,
-        'pool_department_ids' => [$crewDept->id],
-    ]);
+    restrictTestRoleEmployeeVisibility($user, $company, [$crewDept->id]);
 
     $this->actingAs($user)
         ->get(route('organization.crew-planning.index'))
@@ -263,7 +259,7 @@ test('planning index only includes employees with a profile rank', function () {
         );
 });
 
-test('planning pool settings include employees from child departments when parent is selected', function () {
+test('role employee visibility includes employees from child departments when parent is selected', function () {
     ['user' => $user, 'company' => $company, 'captain' => $captain] = makeCrewPlanningFixtures();
 
     $parentDept = Department::query()->create([
@@ -295,10 +291,7 @@ test('planning pool settings include employees from child departments when paren
         'name' => 'Child Crew',
     ]);
 
-    CrewOperationsSetting::query()->create([
-        'company_id' => $company->id,
-        'pool_department_ids' => [$parentDept->id],
-    ]);
+    restrictTestRoleEmployeeVisibility($user, $company, [$parentDept->id]);
 
     $this->actingAs($user)
         ->get(route('organization.crew-planning.index'))

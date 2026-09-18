@@ -12,6 +12,7 @@ use App\Models\DocumentSigningPreset;
 use App\Models\DocumentWorkflowPreset;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -33,16 +34,33 @@ function giveCompanyPermission(User $user, Company $company, string $permission)
     addCompanyMembership($user, $company);
 
     app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
-    $user->givePermissionTo(Permission::query()->firstOrCreate([
-        'name' => $permission,
-        'guard_name' => 'web',
-    ]));
+
+    $permissionNames = [$permission];
 
     if (in_array($permission, ['documents.requests.review', 'documents.requests.approve'], true)) {
+        $permissionNames[] = 'documents.requests.view';
+    }
+
+    foreach ($permissionNames as $name) {
         $user->givePermissionTo(Permission::query()->firstOrCreate([
-            'name' => 'documents.requests.view',
+            'name' => $name,
             'guard_name' => 'web',
         ]));
+    }
+
+    $visibilityRole = Role::query()->firstOrCreate(
+        [
+            'company_id' => $company->id,
+            'name' => 'fixture-visibility-'.$user->id,
+            'guard_name' => 'web',
+        ],
+        [
+            'employee_visibility_scope' => Role::SCOPE_ALL,
+        ],
+    );
+
+    if (! $user->hasRole($visibilityRole)) {
+        $user->assignRole($visibilityRole);
     }
 }
 

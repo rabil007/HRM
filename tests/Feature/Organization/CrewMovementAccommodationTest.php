@@ -485,7 +485,12 @@ test('assignment show exposes accommodation summary and missing pre join warning
             ->where('assignment.movement_context.pre_join_accommodation.status', 'open_hotel')
         );
 
-    ['employee' => $legacyEmployee] = makeCrewAssignmentFixtures();
+    $legacyEmployee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'rank_id' => $rank->id,
+            'status' => 'active',
+        ]);
     $legacyAssignment = makeCurrentCrewPhaseAssignment($company, $legacyEmployee, $rank, $vessel, CrewPhaseCode::JoinStandby);
 
     $this->actingAs($user)

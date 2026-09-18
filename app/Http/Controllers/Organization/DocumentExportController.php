@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\Documents\DocumentsLibraryQueryState;
+use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentComplianceQuery;
 use App\Support\EmployeeDocuments\DocumentExpiry;
