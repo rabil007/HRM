@@ -165,6 +165,7 @@ use App\Http\Controllers\Organization\EmployeeTrainingCertificateFileController;
 use App\Http\Controllers\Organization\EmployeeTrainingController;
 use App\Http\Controllers\Organization\EmployeeTrainingsBrowseController;
 use App\Http\Controllers\Organization\EmployeeTrainingShowController;
+use App\Http\Controllers\Organization\EmployeeTrashController;
 use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
@@ -723,6 +724,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/smart-search/interpret', EmployeeSmartSearchController::class)
         ->middleware(['can:employees.view', 'throttle:30,1'])
         ->name('organization.employees.smart-search.interpret');
+    Route::get('organization/employees/deleted', [EmployeeTrashController::class, 'index'])
+        ->middleware(['can:employees.view', 'can:employees.delete'])
+        ->name('organization.employees.deleted');
+    Route::post('organization/employees/deleted/{employeeId}/restore', [EmployeeTrashController::class, 'restore'])
+        ->whereNumber('employeeId')
+        ->middleware(['can:employees.view', 'can:employees.delete'])
+        ->name('organization.employees.deleted.restore');
     Route::get('organization/employees/{employee}/cv', EmployeeCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.cv');
     Route::get('organization/employees/{employee}/offshore-cv', EmployeeOffshoreCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.offshore-cv');
     Route::get('organization/employees/{employee}/salary-certificate', EmployeeSalaryCertificatePrintController::class)->middleware('can:employees.salary_certificate.print')->name('organization.employees.salary-certificate');

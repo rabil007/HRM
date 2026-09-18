@@ -51,6 +51,7 @@ Do not delete or hide these when an employee later becomes inactive or terminate
 | Area | Behaviour |
 |------|-----------|
 | Employee profile / show | Still reachable for authorized HR |
+| Soft-deleted employees | Removed from the active directory; Employee No. stays reserved; restore via Employees > Deleted when the user has `employees.view` and `employees.delete` |
 | Per-employee documents, contracts, bank accounts, training, qualifications, vaccinations, languages, work experience | History on the profile |
 | Sea service directory, profile, import, and completed P4 sea-service sync | History of all statuses in the company |
 | Attendance **record list**, calendar history, YTD/trend event counts | Records remain |
