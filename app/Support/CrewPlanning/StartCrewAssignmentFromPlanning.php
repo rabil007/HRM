@@ -26,11 +26,12 @@ final class StartCrewAssignmentFromPlanning
     public function handle(
         CrewPlanningAssignment $planning,
         array $operatorChoices,
-        ?User $actor = null,
+        User|int|null $actor = null,
     ): array {
-        $actorId = $actor?->id;
+        $actorUser = $actor instanceof User ? $actor : null;
+        $actorId = $actorUser?->id ?? (is_int($actor) ? $actor : null);
 
-        return DB::transaction(function () use ($planning, $operatorChoices, $actor, $actorId): array {
+        return DB::transaction(function () use ($planning, $operatorChoices, $actorUser, $actorId): array {
             $planning = CrewPlanningAssignment::query()
                 ->whereKey($planning->id)
                 ->lockForUpdate()
@@ -47,7 +48,7 @@ final class StartCrewAssignmentFromPlanning
                 ];
             }
 
-            $masters = $this->handoff->authoritativeStartMasters($planning, $companyId, $actor);
+            $masters = $this->handoff->authoritativeStartMasters($planning, $companyId, $actorUser);
 
             $plannedSignoffAt = $planning->planned_leave_date !== null
                 ? $planning->planned_leave_date->toDateString().' 00:00:00'

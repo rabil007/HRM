@@ -60,6 +60,8 @@ final class EmployeeVisibilityScope
             return false;
         }
 
+        $employee = self::resolveEmployeeForAccess($employee, $companyId);
+
         if ((int) $employee->company_id !== $companyId) {
             return false;
         }
@@ -79,6 +81,35 @@ final class EmployeeVisibilityScope
         }
 
         return in_array((int) $employee->department_id, $allowedIds, true);
+    }
+
+    /**
+     * Ensure visibility checks use persisted employee scope columns even when
+     * the model was eager-loaded with a partial column selection.
+     */
+    private static function resolveEmployeeForAccess(Employee $employee, int $companyId): Employee
+    {
+        if ($employee->id === null) {
+            return $employee;
+        }
+
+        $attributes = $employee->getAttributes();
+        $required = ['company_id', 'department_id', 'user_id'];
+        $missing = array_filter(
+            $required,
+            fn (string $key): bool => ! array_key_exists($key, $attributes),
+        );
+
+        if ($missing === []) {
+            return $employee;
+        }
+
+        $fresh = Employee::query()
+            ->whereKey($employee->id)
+            ->where('company_id', $companyId)
+            ->first(array_merge(['id'], $required));
+
+        return $fresh ?? $employee;
     }
 
     /**
