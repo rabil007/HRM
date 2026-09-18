@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\BulkDocuments\EmailBulkDocumentsRequest;
 use App\Jobs\SendBulkDocumentEmailsJob;
 use App\Models\BulkDocumentEmailBatch;
-use App\Models\Employee;
+use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Http\RedirectResponse;
 
 class EmailBulkDocumentsController extends Controller
@@ -31,11 +32,12 @@ class EmailBulkDocumentsController extends Controller
             ]);
         }
 
-        $employeeIds = Employee::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->whereIn('id', $request->employeeIds())
-            ->orderBy('id')
+        $employeeIds = BulkDocumentRosterQuery::employeeQuery(
+            $companyId,
+            EmployeeDirectoryFilters::fromArray(['status' => 'active']),
+            $request->employeeIds(),
+            $request->user(),
+        )
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
             ->all();

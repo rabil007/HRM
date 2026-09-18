@@ -4,7 +4,6 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewOperationsSetting;
 use App\Models\Currency;
-use App\Models\Department;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -71,24 +70,10 @@ test('authorized users can view the crew operations settings index', function ()
 
     grantCompanyPermissions($user, $company, ['crew_operations.settings.view']);
 
-    $dept = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Crew Dept',
-        'code' => 'CREW',
-        'status' => 'active',
-    ]);
-
-    $childDepartment = Department::query()->create([
-        'company_id' => $company->id,
-        'parent_id' => $dept->id,
-        'name' => 'Crew Planning',
-        'code' => 'PLAN',
-        'status' => 'active',
-    ]);
-
     CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
-        'pool_department_ids' => [$dept->id],
+        'max_home_days' => 30,
+        'sync_sea_service' => true,
     ]);
 
     $this->actingAs($user)
@@ -96,14 +81,8 @@ test('authorized users can view the crew operations settings index', function ()
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew-operations/settings')
-            ->has('department_tree', 1)
-            ->where('department_tree.0.id', $dept->id)
-            ->where('department_tree.0.name', 'Crew Dept')
-            ->where('department_tree.0.children.0.id', $childDepartment->id)
-            ->where('department_tree.0.children.0.name', 'Crew Planning')
             ->where('company_timezone', 'Asia/Dubai')
             ->has('crew_settings')
-            ->where('crew_settings.pool_department_ids', [$dept->id])
             ->where('crew_settings.max_home_days', 30)
             ->where('crew_settings.sync_sea_service', true)
             ->where('crew_settings.notifications_enabled', false)
@@ -133,16 +112,8 @@ test('authorized user can update crew operations settings', function () {
         'crew_operations.settings.update',
     ]);
 
-    $dept = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Engine Crew',
-        'code' => 'ENG',
-        'status' => 'active',
-    ]);
-
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
-            'pool_department_ids' => [$dept->id],
             'max_home_days' => 45,
             'sync_sea_service' => true,
             'notifications_enabled' => true,
@@ -161,59 +132,12 @@ test('authorized user can update crew operations settings', function () {
     $setting = CrewOperationsSetting::query()->where('company_id', $company->id)->first();
 
     expect($setting)->not->toBeNull()
-        ->and($setting->pool_department_ids)->toBe([$dept->id])
         ->and($setting->max_home_days)->toBe(45)
         ->and($setting->sync_sea_service)->toBeTrue()
         ->and($setting->notifications_enabled)->toBeTrue()
         ->and($setting->notification_email_delivery_mode->value)->toBe('scheduled')
         ->and($setting->notification_email_digest_at)->toBe('09:30')
         ->and($setting->notification_email_critical_immediate)->toBeFalse();
-});
-
-test('clearing pool department settings works', function () {
-    ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.settings.view',
-        'crew_operations.settings.update',
-    ]);
-
-    $dept = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Crew Pool',
-        'code' => 'POOL',
-        'status' => 'active',
-    ]);
-
-    CrewOperationsSetting::query()->create([
-        'company_id' => $company->id,
-        'pool_department_ids' => [$dept->id],
-        'max_home_days' => 30,
-        'sync_sea_service' => true,
-    ]);
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-operations.settings.update'), [
-            'pool_department_ids' => [],
-            'max_home_days' => 30,
-            'sync_sea_service' => true,
-            'notifications_enabled' => false,
-            'notification_recipient_user_ids' => [],
-            'alert_signoff_overdue' => true,
-            'alert_signoff_no_relief' => true,
-            'alert_relief_not_ready' => true,
-            'alert_current_manning_gap' => true,
-            'alert_projected_manning_gap' => true,
-            'notification_email_delivery_mode' => 'scheduled',
-            'notification_email_digest_at' => '08:00',
-            'notification_email_critical_immediate' => true,
-        ])
-        ->assertRedirect();
-
-    $setting = CrewOperationsSetting::query()->where('company_id', $company->id)->first();
-
-    expect($setting)->not->toBeNull()
-        ->and($setting->pool_department_ids)->toBeNull();
 });
 
 test('users without update permission cannot change settings', function () {
@@ -223,7 +147,6 @@ test('users without update permission cannot change settings', function () {
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
-            'pool_department_ids' => [],
             'max_home_days' => 30,
             'sync_sea_service' => false,
             'notifications_enabled' => false,
@@ -250,7 +173,6 @@ test('planning update permission does not allow changing crew operations setting
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
-            'pool_department_ids' => [],
             'max_home_days' => 30,
             'sync_sea_service' => false,
             'notifications_enabled' => false,
@@ -267,40 +189,6 @@ test('planning update permission does not allow changing crew operations setting
         ->assertForbidden();
 });
 
-test('settings reject departments from another company', function () {
-    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany] = makeCrewOperationsSettingsFixtures();
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.settings.view',
-        'crew_operations.settings.update',
-    ]);
-
-    $foreignDept = Department::query()->create([
-        'company_id' => $otherCompany->id,
-        'name' => 'Foreign Dept',
-        'code' => 'FOR',
-        'status' => 'active',
-    ]);
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-operations.settings.update'), [
-            'pool_department_ids' => [$foreignDept->id],
-            'max_home_days' => 30,
-            'sync_sea_service' => true,
-            'notifications_enabled' => false,
-            'notification_recipient_user_ids' => [],
-            'alert_signoff_overdue' => true,
-            'alert_signoff_no_relief' => true,
-            'alert_relief_not_ready' => true,
-            'alert_current_manning_gap' => true,
-            'alert_projected_manning_gap' => true,
-            'notification_email_delivery_mode' => 'scheduled',
-            'notification_email_digest_at' => '08:00',
-            'notification_email_critical_immediate' => true,
-        ])
-        ->assertSessionHasErrors(['pool_department_ids.0']);
-});
-
 test('invalid email delivery mode and digest time are rejected', function () {
     ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
 
@@ -311,7 +199,6 @@ test('invalid email delivery mode and digest time are rejected', function () {
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
-            'pool_department_ids' => [],
             'max_home_days' => 30,
             'sync_sea_service' => true,
             'notifications_enabled' => false,
@@ -341,14 +228,12 @@ test('disabling sea service sync is logged with old and new values', function ()
 
     CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
-        'pool_department_ids' => null,
         'max_home_days' => 30,
         'sync_sea_service' => true,
     ]);
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
-            'pool_department_ids' => [],
             'max_home_days' => 30,
             'sync_sea_service' => false,
             'notifications_enabled' => false,

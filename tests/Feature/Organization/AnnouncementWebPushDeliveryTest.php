@@ -369,6 +369,11 @@ test('web push job notifies all subscriptions for the recipient user', function 
 test('scheduled publishing queues web push when in-app is selected', function () {
     Queue::fake();
     ['user' => $user, 'company' => $company] = makeWebPushAnnouncementFixtures();
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.publish',
+    ]);
 
     $employeeUser = User::factory()->create();
     Employee::factory()->forCompany($company)->create([

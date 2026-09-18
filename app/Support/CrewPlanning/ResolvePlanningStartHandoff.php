@@ -9,7 +9,9 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
+use App\Models\User;
 use App\Models\Vessel;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
 
 final class ResolvePlanningStartHandoff
@@ -29,9 +31,9 @@ final class ResolvePlanningStartHandoff
      *     remarks: string|null
      * }
      */
-    public function prefill(CrewPlanningAssignment $planning, int $companyId): array
+    public function prefill(CrewPlanningAssignment $planning, int $companyId, ?User $actor = null): array
     {
-        $this->assertAuthoritativeForStart($planning, $companyId);
+        $this->assertAuthoritativeForStart($planning, $companyId, $actor);
 
         $planning->loadMissing(['employee:id,name', 'rank:id,name', 'vessel:id,name,client_id']);
 
@@ -75,9 +77,12 @@ final class ResolvePlanningStartHandoff
      *     planned_join_at: string
      * }
      */
-    public function authoritativeStartMasters(CrewPlanningAssignment $planning, int $companyId): array
-    {
-        $this->assertAuthoritativeForStart($planning, $companyId);
+    public function authoritativeStartMasters(
+        CrewPlanningAssignment $planning,
+        int $companyId,
+        ?User $actor = null,
+    ): array {
+        $this->assertAuthoritativeForStart($planning, $companyId, $actor);
 
         $clientId = ClientAssignmentRules::resolveClientIdFromVessel(
             $companyId,
@@ -93,8 +98,11 @@ final class ResolvePlanningStartHandoff
         ];
     }
 
-    public function assertAuthoritativeForStart(CrewPlanningAssignment $planning, int $companyId): void
-    {
+    public function assertAuthoritativeForStart(
+        CrewPlanningAssignment $planning,
+        int $companyId,
+        ?User $actor = null,
+    ): void {
         if ((int) $planning->company_id !== $companyId) {
             throw CrewMovementException::make(
                 'Planning assignment could not be found.',
@@ -104,7 +112,7 @@ final class ResolvePlanningStartHandoff
 
         $this->assertStartable($planning);
         $this->assertJoinBeforeLeave($planning);
-        $this->assertEmployeeIsActive($planning, $companyId);
+        $this->assertEmployeeIsActive($planning, $companyId, $actor);
         $this->assertMastersAreValid($planning, $companyId);
         ValidatesCrewPlanningReliefLink::assertOrThrow($planning);
     }
@@ -169,14 +177,24 @@ final class ResolvePlanningStartHandoff
         }
     }
 
-    private function assertEmployeeIsActive(CrewPlanningAssignment $planning, int $companyId): void
-    {
+    private function assertEmployeeIsActive(
+        CrewPlanningAssignment $planning,
+        int $companyId,
+        ?User $actor = null,
+    ): void {
         $employee = Employee::query()
             ->where('company_id', $companyId)
             ->whereKey((int) $planning->employee_id)
-            ->first(['id', 'status']);
+            ->first(['id', 'status', 'department_id', 'user_id']);
 
         if ($employee === null) {
+            throw CrewMovementException::make(
+                'The selected employee could not be found in this company.',
+                'planning_employee_not_found',
+            );
+        }
+
+        if ($actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $companyId)) {
             throw CrewMovementException::make(
                 'The selected employee could not be found in this company.',
                 'planning_employee_not_found',

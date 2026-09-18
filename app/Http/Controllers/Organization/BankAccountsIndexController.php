@@ -24,7 +24,7 @@ class BankAccountsIndexController extends Controller
         $filters = BankAccountDirectoryFilters::fromRequest($request);
         $perPage = $this->resolvePerPage($request, default: 25);
 
-        $paginator = (new BankAccountDirectoryQuery($companyId, $filters))->paginate($perPage);
+        $paginator = (new BankAccountDirectoryQuery($companyId, $filters, $request->user()))->paginate($perPage);
 
         $banks = Bank::query()
             ->where('is_active', true)
@@ -32,7 +32,7 @@ class BankAccountsIndexController extends Controller
             ->get(['id', 'name']);
 
         return Inertia::render('organization/bank-accounts/index', [
-            'summary' => $summaryQuery->forCompany($companyId),
+            'summary' => $summaryQuery->forCompany($companyId, $request->user()),
             'search' => $filters->search,
             'bank_id' => $filters->bankId,
             'is_primary' => $filters->isPrimary,
@@ -43,6 +43,7 @@ class BankAccountsIndexController extends Controller
                 $companyId,
                 new EmployeeDirectoryFilters(departmentId: $filters->departmentId),
                 BankAccountDepartmentTree::CONTEXT_INDEX,
+                user: $request->user(),
             ),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'bank_accounts' => $paginator->items(),

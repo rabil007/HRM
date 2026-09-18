@@ -1869,6 +1869,18 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to view employee work experience history they are authorized to access.',
                 'group' => 'Work Experience Records',
             ],
+            309 => [
+                'name' => 'reports.leave.export',
+                'label' => 'Export Leave Report',
+                'description' => 'Allows the user to export leave reporting data available to them within the active company.',
+                'group' => 'Reports',
+            ],
+            310 => [
+                'name' => 'reports.leave.view',
+                'label' => 'View Leave Report',
+                'description' => 'Allows the user to view leave reporting data available to them within the active company.',
+                'group' => 'Reports',
+            ],
         ];
     }
 }

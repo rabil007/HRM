@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization\BulkDocuments;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,9 +21,11 @@ class BulkDocumentEmployeeSearchController extends Controller
 
         $like = '%'.addcslashes($search, '%_\\').'%';
 
-        $employees = Employee::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
+        $employees = EmployeeVisibilityScope::apply(
+            Employee::query()->where('status', 'active'),
+            $request->user(),
+            $companyId,
+        )
             ->where(function ($query) use ($like): void {
                 $query->where('name', 'like', $like)
                     ->orWhere('employee_no', 'like', $like);

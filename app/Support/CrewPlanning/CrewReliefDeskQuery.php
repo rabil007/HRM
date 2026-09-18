@@ -16,6 +16,7 @@ use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\CrewMovements\CrewReliefReadinessResult;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentOnboardCrewQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -56,7 +57,7 @@ final class CrewReliefDeskQuery
     ): array {
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $today = CarbonImmutable::now($timezone)->startOfDay();
-        $resolved = $this->resolveCandidates($companyId, $filters, $today, $timezone);
+        $resolved = $this->resolveCandidates($companyId, $filters, $today, $timezone, $user);
         $summary = $this->summarize($resolved);
         $filtered = $this->applyFocusAndReliefFilters($resolved, $filters);
         $sorted = $this->sortRows($filtered);
@@ -147,10 +148,11 @@ final class CrewReliefDeskQuery
         array $filters,
         CarbonImmutable $today,
         string $timezone,
+        User $user,
     ): Collection {
         $query = CrewAssignment::query();
-        CurrentOnboardCrewQuery::applyConstraint($query, $companyId);
-        $this->applySqlFilters($query, $companyId, $filters, $today, $timezone);
+        CurrentOnboardCrewQuery::applyConstraint($query, $companyId, $user);
+        $this->applySqlFilters($query, $companyId, $filters, $today, $timezone, $user);
 
         $assignments = $query
             ->with([
@@ -193,26 +195,29 @@ final class CrewReliefDeskQuery
         array $filters,
         CarbonImmutable $today,
         string $timezone,
+        User $user,
     ): void {
         $search = trim((string) ($filters['search'] ?? ''));
 
         if ($search !== '') {
-            $query->where(function (Builder $q) use ($search, $companyId): void {
+            $query->where(function (Builder $q) use ($search, $companyId, $user): void {
                 $q->where('assignment_no', 'like', '%'.$search.'%')
-                    ->orWhereHas('employee', fn (Builder $e) => $e
-                        ->where('company_id', $companyId)
-                        ->where(function (Builder $employeeSearch) use ($search): void {
+                    ->orWhereHas('employee', function (Builder $e) use ($search, $companyId, $user): void {
+                        EmployeeVisibilityScope::apply($e, $user, $companyId);
+                        $e->where(function (Builder $employeeSearch) use ($search): void {
                             $employeeSearch->where('name', 'like', '%'.$search.'%')
                                 ->orWhere('employee_no', 'like', '%'.$search.'%');
-                        }))
+                        });
+                    })
                     ->orWhereHas('vessel', fn (Builder $v) => $v->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'))
-                    ->orWhereHas('reliefPlanningAssignments', function (Builder $planning) use ($search, $companyId): void {
+                    ->orWhereHas('reliefPlanningAssignments', function (Builder $planning) use ($search, $companyId, $user): void {
                         $planning->where('company_id', $companyId)
-                            ->whereHas('employee', fn (Builder $e) => $e
-                                ->where('company_id', $companyId)
-                                ->where('name', 'like', '%'.$search.'%'));
+                            ->whereHas('employee', function (Builder $e) use ($search, $companyId, $user): void {
+                                EmployeeVisibilityScope::apply($e, $user, $companyId);
+                                $e->where('name', 'like', '%'.$search.'%');
+                            });
                     });
             });
         }
@@ -437,11 +442,14 @@ final class CrewReliefDeskQuery
             return collect();
         }
 
-        $linked = CrewAssignment::query()
+        $linkedQuery = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('id', $linkedIds)
-            ->with(['employee', 'currentPhase'])
-            ->get();
+            ->with(['employee', 'currentPhase']);
+
+        EmployeeVisibilityScope::whereHas($linkedQuery, $user, $companyId, 'employee');
+
+        $linked = $linkedQuery->get();
 
         $this->readinessResolver->attachForAssignments($linked, $companyId, $user);
 

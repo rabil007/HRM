@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeEducationQualification;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,7 @@ class EmployeeEducationQualificationController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: false), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -52,6 +54,7 @@ class EmployeeEducationQualificationController extends Controller
             && $qualification->company_id === $companyId,
             403,
         );
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: false), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -83,6 +86,7 @@ class EmployeeEducationQualificationController extends Controller
             && $qualification->company_id === $companyId,
             403,
         );
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: false), 404);
 
         $qualification->delete();
 

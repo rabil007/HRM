@@ -11,9 +11,11 @@ use App\Enums\PayrollCategory;
 use App\Enums\SalaryPaymentMethod;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Models\User;
 use App\Support\Contracts\ContractSalaryStructureFilter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
 final class PayrollPeriodBoardEmployeeScope
@@ -28,6 +30,7 @@ final class PayrollPeriodBoardEmployeeScope
         ?string $search,
         PayrollPeriodBoardFilters $filters,
         bool $exceptDepartmentFilters = false,
+        ?User $user = null,
     ): void {
         $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
 
@@ -36,6 +39,12 @@ final class PayrollPeriodBoardEmployeeScope
             : PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
 
         $query->whereIn('employees.id', $periodEmployees->select('employees.id'));
+
+        // Apply Role Employee Access Scope so managers only see employees
+        // within their authorized department set.
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        }
 
         self::applySearch($query, $search);
 

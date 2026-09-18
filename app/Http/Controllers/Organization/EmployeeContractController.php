@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\TransferEmployeeVisaCompanyContract;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
+use App\Support\Contracts\ContractAccess;
 use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Payroll\PayrollRecordLinkage;
@@ -27,7 +28,7 @@ class EmployeeContractController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $this->validateContract($request, $employee);
 
@@ -59,6 +60,8 @@ class EmployeeContractController extends Controller
             && $employeeContract->company_id === $companyId,
             403,
         );
+
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $this->validateContract($request, $employee);
 
@@ -93,6 +96,8 @@ class EmployeeContractController extends Controller
             && $employeeContract->company_id === $companyId,
             403,
         );
+
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $request->validate([
             'company_visa_type_id' => ['required', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)],
@@ -147,6 +152,8 @@ class EmployeeContractController extends Controller
             && $employeeContract->company_id === $companyId,
             403,
         );
+
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         if (PayrollRecordLinkage::contractHasRecords((int) $employeeContract->id)) {
             return back()->withErrors([

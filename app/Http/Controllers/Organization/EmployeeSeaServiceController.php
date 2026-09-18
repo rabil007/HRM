@@ -8,6 +8,7 @@ use App\Http\Requests\Organization\Employee\ImportEmployeeSeaServiceRequest;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Employees\SeaServiceDuration;
 use App\Support\SeaServices\SeaServiceImportOrchestrator;
 use App\Support\SeaServices\SeaServiceImportTemplateExporter;
@@ -25,7 +26,7 @@ class EmployeeSeaServiceController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        $this->assertEmployeeVisible($request, $employee, $companyId);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -61,11 +62,11 @@ class EmployeeSeaServiceController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
+        $this->assertEmployeeVisible($request, $employee, $companyId);
         abort_unless(
-            $employee->company_id === $companyId
-            && $seaService->employee_id === $employee->id
+            $seaService->employee_id === $employee->id
             && $seaService->company_id === $companyId,
-            403,
+            404,
         );
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
@@ -92,11 +93,11 @@ class EmployeeSeaServiceController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
+        $this->assertEmployeeVisible($request, $employee, $companyId);
         abort_unless(
-            $employee->company_id === $companyId
-            && $seaService->employee_id === $employee->id
+            $seaService->employee_id === $employee->id
             && $seaService->company_id === $companyId,
-            403,
+            404,
         );
 
         $seaService->delete();
@@ -110,7 +111,7 @@ class EmployeeSeaServiceController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        $this->assertEmployeeVisible($request, $employee, $companyId);
 
         $deleted = EmployeeSeaService::query()
             ->where('employee_id', $employee->id)
@@ -131,7 +132,7 @@ class EmployeeSeaServiceController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        $this->assertEmployeeVisible($request, $employee, $companyId);
 
         $validated = $request->validate([
             'order' => ['required', 'array'],
@@ -171,7 +172,7 @@ class EmployeeSeaServiceController extends Controller
     ) {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless((int) $employee->company_id === $companyId, 404);
+        $this->assertEmployeeVisible($request, $employee, $companyId);
 
         try {
             $result = $exporter->exportForEmployee($companyId, $employee);
@@ -193,7 +194,7 @@ class EmployeeSeaServiceController extends Controller
     ): JsonResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless((int) $employee->company_id === $companyId, 404);
+        $this->assertEmployeeVisible($request, $employee, $companyId);
 
         try {
             $result = $orchestrator->preview(
@@ -217,7 +218,7 @@ class EmployeeSeaServiceController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless((int) $employee->company_id === $companyId, 404);
+        $this->assertEmployeeVisible($request, $employee, $companyId);
 
         try {
             $result = $orchestrator->execute(
@@ -234,6 +235,15 @@ class EmployeeSeaServiceController extends Controller
         return back()->with(
             'success',
             "Imported {$result['imported']} sea service row(s). Skipped {$result['skipped']} row(s).",
+        );
+    }
+
+    private function assertEmployeeVisible(Request $request, Employee $employee, int $companyId): void
+    {
+        abort_unless((int) $employee->company_id === $companyId, 404);
+        abort_unless(
+            EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId),
+            404,
         );
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization\Payroll;
 
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ShowCrewPayrollGenerationPreviewRequest extends FormRequest
@@ -16,9 +17,11 @@ class ShowCrewPayrollGenerationPreviewRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
             'excluded_employee_ids' => ['sometimes', 'array'],
-            'excluded_employee_ids.*' => ['integer'],
+            'excluded_employee_ids.*' => ['integer', ActiveCompanyEmployeeRule::exists($companyId, $this->user())],
         ];
     }
 }

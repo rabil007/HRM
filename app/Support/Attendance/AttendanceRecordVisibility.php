@@ -5,6 +5,7 @@ namespace App\Support\Attendance;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
 final class AttendanceRecordVisibility
@@ -34,6 +35,10 @@ final class AttendanceRecordVisibility
     public function applyIndexScope($query, ?User $user, int $companyId): void
     {
         if ($this->canManageAll($user)) {
+            // Managers may view all attendance records, but still restricted
+            // to employees within their Role Employee Access Scope.
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+
             return;
         }
 
@@ -55,7 +60,10 @@ final class AttendanceRecordVisibility
         }
 
         if ($this->canManageAll($user)) {
-            return true;
+            // Still restricted to the manager's Role Employee Access Scope.
+            $employee = $record->employee ?? Employee::query()->find($record->employee_id);
+
+            return $employee !== null && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
         }
 
         $employeeId = $this->linkedEmployeeId($user, $companyId);
@@ -78,17 +86,17 @@ final class AttendanceRecordVisibility
             return false;
         }
 
-        $employeeExistsInCompany = Employee::query()
+        $employee = Employee::query()
             ->where('company_id', $companyId)
-            ->whereKey($employeeId)
-            ->exists();
+            ->find($employeeId);
 
-        if (! $employeeExistsInCompany) {
+        if ($employee === null) {
             return false;
         }
 
         if ($this->canManageAll($user)) {
-            return true;
+            // Managers may only write for employees within their Role Employee Access Scope.
+            return EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
         }
 
         $linkedId = $this->linkedEmployeeId($user, $companyId);

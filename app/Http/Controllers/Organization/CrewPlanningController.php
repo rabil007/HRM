@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Rank;
+use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewOperations\CrewOperationsSettings;
@@ -110,7 +111,7 @@ class CrewPlanningController extends Controller
             Gate::authorize('viewAny', CrewAssignment::class);
 
             $onboardFilters = CurrentCrewRequestFilters::fromRequest($request);
-            $paginator = CurrentCrewVesselQuery::paginate($companyId, $onboardFilters);
+            $paginator = CurrentCrewVesselQuery::paginate($companyId, $onboardFilters, $request->user());
 
             return Inertia::render('organization/crew-planning/index', [
                 ...$shared,
@@ -151,8 +152,16 @@ class CrewPlanningController extends Controller
                 $vesselId,
                 $rankId,
                 $projectionPositions,
+                $request->user(),
             ),
-            'bars' => CrewPlanningGanttQuery::bars($companyId, $from, $to, $vesselId, $rankId),
+            'bars' => CrewPlanningGanttQuery::bars(
+                $companyId,
+                $from,
+                $to,
+                $vesselId,
+                $rankId,
+                $request->user(),
+            ),
             'tree' => CrewPlanningGanttQuery::tree(
                 $companyId,
                 $from,
@@ -160,8 +169,9 @@ class CrewPlanningController extends Controller
                 $vesselId,
                 $rankId,
                 $projectionPositions,
+                $request->user(),
             ),
-            'employees' => CrewOperationsSettings::poolEmployees($companyId),
+            'employees' => CrewOperationsSettings::poolEmployees($companyId, $request->user()),
             'projection' => $projection,
             'relief_prefill' => $this->reliefPrefill($request, $companyId),
             'onboard_vessels' => [],
@@ -278,10 +288,11 @@ class CrewPlanningController extends Controller
         }
 
         if ($relievesId !== null) {
-            $source = CrewAssignment::query()
-                ->where('company_id', $companyId)
-                ->with(['employee:id,name'])
-                ->find($relievesId);
+            $source = CrewAssignmentAccess::findForCompany(
+                $companyId,
+                $relievesId,
+                $request->user(),
+            );
 
             if ($source === null) {
                 $relievesId = null;

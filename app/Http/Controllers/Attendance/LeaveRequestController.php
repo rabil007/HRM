@@ -28,6 +28,7 @@ use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
@@ -160,6 +161,8 @@ class LeaveRequestController extends Controller
                 fn ($query) => $query->whereKey($linkedEmployeeId),
                 fn ($query) => $query->whereRaw('1 = 0'),
             );
+        } else {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
         }
 
         $countsQuery = LeaveRequest::query()
@@ -252,6 +255,8 @@ class LeaveRequestController extends Controller
                 fn ($query) => $query->whereKey($linkedEmployeeId),
                 fn ($query) => $query->whereRaw('1 = 0'),
             );
+        } else {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
         }
 
         return Inertia::render('attendance/leave-request', [

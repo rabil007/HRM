@@ -25,7 +25,7 @@ trait LeaveApprovalPolicyValidationRules
             'steps.*.approver_employee_id' => [
                 'nullable',
                 'integer',
-                ActiveCompanyEmployeeRule::exists($companyId),
+                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
             'steps.*.is_required' => ['sometimes', 'boolean'],
         ];

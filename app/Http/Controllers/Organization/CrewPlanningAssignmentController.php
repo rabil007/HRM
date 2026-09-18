@@ -9,6 +9,7 @@ use App\Http\Requests\Organization\CrewPlanning\StoreCrewPlanningAssignmentReque
 use App\Http\Requests\Organization\CrewPlanning\UpdateCrewPlanningAssignmentRequest;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use App\Support\CrewPlanning\SaveCrewPlanningAssignment;
 use App\Support\CrewPlanning\StartCrewAssignmentFromPlanning;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +25,7 @@ class CrewPlanningAssignmentController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        $save->create($companyId, $request->validated());
+        $save->create($companyId, $request->validated(), $request->user());
 
         return back()->with('success', 'Assignment created.');
     }
@@ -34,7 +35,8 @@ class CrewPlanningAssignmentController extends Controller
         CrewPlanningAssignment $assignment,
         SaveCrewPlanningAssignment $save,
     ): RedirectResponse {
-        abort_if($assignment->company_id !== (int) $request->attributes->get('current_company_id'), 404);
+        $companyId = (int) $request->attributes->get('current_company_id');
+        CrewPlanningAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         if ($assignment->crew_assignment_id !== null) {
             throw ValidationException::withMessages([
@@ -42,9 +44,7 @@ class CrewPlanningAssignmentController extends Controller
             ]);
         }
 
-        $companyId = (int) $request->attributes->get('current_company_id');
-
-        $save->update($assignment, $companyId, $request->validated());
+        $save->update($assignment, $companyId, $request->validated(), $request->user());
 
         return back()->with('success', 'Assignment updated.');
     }
@@ -54,7 +54,7 @@ class CrewPlanningAssignmentController extends Controller
         CrewPlanningAssignment $assignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        abort_if($assignment->company_id !== $companyId, 404);
+        CrewPlanningAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         if (! $request->user()?->can('crew_operations.planning.view')
             || ! $request->user()->can('crew_operations.assignments.create')
@@ -79,7 +79,7 @@ class CrewPlanningAssignmentController extends Controller
         StartCrewAssignmentFromPlanning $startFromPlanning,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        abort_if($assignment->company_id !== $companyId, 404);
+        CrewPlanningAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         Gate::authorize('start', CrewAssignment::class);
 
@@ -87,7 +87,7 @@ class CrewPlanningAssignmentController extends Controller
             $result = $startFromPlanning->handle(
                 $assignment,
                 $request->validated(),
-                $request->user()?->id,
+                $request->user(),
             );
         } catch (CrewMovementException $exception) {
             throw ValidationException::withMessages([
@@ -113,7 +113,8 @@ class CrewPlanningAssignmentController extends Controller
 
     public function destroy(Request $request, CrewPlanningAssignment $assignment): RedirectResponse
     {
-        abort_if($assignment->company_id !== (int) $request->attributes->get('current_company_id'), 404);
+        $companyId = (int) $request->attributes->get('current_company_id');
+        CrewPlanningAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         if ($assignment->crew_assignment_id !== null) {
             throw ValidationException::withMessages([

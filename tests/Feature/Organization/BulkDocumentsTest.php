@@ -996,6 +996,7 @@ test('bulk generation job skips existing documents in fill gaps mode', function 
         ['status' => 'active'],
         $run->id,
         false,
+        [$existingEmployee->id, $missingEmployee->id],
     ))->handle(app(StoresEmployeeDocument::class), app(DocumentDeletionService::class));
 
     $run->refresh();
@@ -1417,6 +1418,46 @@ test('bulk document selection respects generation filter', function () {
         ->assertJsonPath('total', 1)
         ->assertJsonPath('employee_ids.0', $withDoc->id)
         ->assertJsonCount(1, 'document_ids');
+});
+
+test('restricted bulk generate snapshots only visible employees', function () {
+    Queue::fake();
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view', 'bulk_documents.generate']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.documents.bulk.generate'), [
+            'document_type_key' => 'salary_certificate',
+            'status' => 'active',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    Queue::assertPushed(GenerateBulkDocumentsJob::class, function (GenerateBulkDocumentsJob $job) use ($marine, $office) {
+        return $job->employeeIds === [$marine->id]
+            && ! in_array($office->id, $job->employeeIds ?? [], true);
+    });
+});
+
+test('forged hidden employee id is rejected during bulk generate validation', function () {
+    Queue::fake();
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view', 'bulk_documents.generate']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.documents.bulk.generate'), [
+            'document_type_key' => 'salary_certificate',
+            'employee_ids' => [$office->id],
+        ])
+        ->assertSessionHasErrors('employee_ids.0');
+
+    Queue::assertNothingPushed();
 });
 
 test('bulk document selection requires view permission', function () {

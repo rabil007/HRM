@@ -34,6 +34,7 @@ use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
@@ -76,14 +77,14 @@ class CrewAssignmentController extends Controller
         );
 
         if ($view === CurrentCrewRequestFilters::VIEW_VESSEL) {
-            $vesselPaginator = CurrentCrewVesselQuery::paginate($companyId, $filters);
+            $vesselPaginator = CurrentCrewVesselQuery::paginate($companyId, $filters, $request->user());
             $assignments = [];
             $homeCrew = [];
             $vessels = $vesselPaginator->items();
             $pagination = $this->paginationMeta($vesselPaginator);
         } elseif ($view === CurrentCrewRequestFilters::VIEW_ON_HOME) {
             $filters['page'] = max(1, (int) $request->query('page', 1));
-            $homePaginator = CurrentCrewHomeQuery::paginate($companyId, $filters);
+            $homePaginator = CurrentCrewHomeQuery::paginate($companyId, $filters, $request->user());
             $assignments = [];
             $vessels = [];
             $homeCrew = collect($homePaginator->items())
@@ -95,7 +96,7 @@ class CrewAssignmentController extends Controller
                 ->all();
             $pagination = $this->paginationMeta($homePaginator);
         } else {
-            $paginator = CurrentCrewQuery::paginate($companyId, $filters, $view);
+            $paginator = CurrentCrewQuery::paginate($companyId, $filters, $view, $request->user());
             $assignments = $paginator->through(
                 fn (CrewAssignment $assignment) => CrewAssignmentPresenter::listItem($assignment, $request->user()),
             )->items();
@@ -162,7 +163,7 @@ class CrewAssignmentController extends Controller
             }
 
             try {
-                $planningContext = $planningHandoff->prefill($planning, $companyId);
+                $planningContext = $planningHandoff->prefill($planning, $companyId, $request->user());
             } catch (CrewMovementException $exception) {
                 return redirect()
                     ->route('organization.crew-planning.index')
@@ -262,7 +263,7 @@ class CrewAssignmentController extends Controller
         Gate::authorize('view', $assignment);
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         $user = $request->user();
         if ($user !== null) {
@@ -334,7 +335,7 @@ class CrewAssignmentController extends Controller
         Gate::authorize('update', $assignment);
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         if (! CrewAssignmentEditability::isEditable($assignment)) {
             return redirect()
@@ -358,10 +359,14 @@ class CrewAssignmentController extends Controller
             [$employeeId],
         );
 
+        $employeeQuery = Employee::query()
+            ->where('company_id', $companyId)
+            ->active();
+
+        $employeeQuery = EmployeeVisibilityScope::apply($employeeQuery, $request->user(), $companyId);
+
         $formOptions = [
-            'employees' => Employee::query()
-                ->where('company_id', $companyId)
-                ->active()
+            'employees' => $employeeQuery
                 ->with(['nationalityRef:id,name'])
                 ->orderBy('name')
                 ->get(['id', 'name', 'employee_no', 'rank_id', 'image', 'nationality_id'])
@@ -395,7 +400,7 @@ class CrewAssignmentController extends Controller
         Gate::authorize('update', $assignment);
 
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         $validated = $request->validated();
 

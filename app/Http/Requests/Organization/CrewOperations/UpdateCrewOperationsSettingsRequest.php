@@ -42,16 +42,7 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
      */
     public function rules(): array
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
-
         return [
-            'pool_department_ids' => ['nullable', 'array'],
-            'pool_department_ids.*' => [
-                'integer',
-                Rule::exists('departments', 'id')->where(fn ($query) => $query
-                    ->where('company_id', $companyId)
-                    ->where('status', 'active')),
-            ],
             'max_home_days' => ['required', 'integer', 'min:0'],
             'sync_sea_service' => ['required', 'boolean'],
             'sync_training_to_employee_training' => ['sometimes', 'boolean'],

@@ -23,7 +23,7 @@ class ContractsIndexController extends Controller
         $filters = ContractDirectoryFilters::fromRequest($request);
         $perPage = $this->resolvePerPage($request, default: 25);
 
-        $paginator = (new ContractDirectoryQuery($companyId, $filters))->paginate($perPage);
+        $paginator = (new ContractDirectoryQuery($companyId, $filters, $request->user()))->paginate($perPage);
 
         return Inertia::render('organization/contracts/index', [
             'summary' => $summaryQuery->forCompany($companyId, $filters),

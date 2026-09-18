@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\Documents\DocumentsLibraryQueryState;
+use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentComplianceQuery;
 use App\Support\EmployeeDocuments\DocumentExpiry;
@@ -33,6 +34,9 @@ class DocumentExportController extends Controller
         $format = strtolower((string) $request->query('format', 'xlsx'));
         $timestamp = now()->format('Y-m-d_His');
 
+        $browse = $browse->forUser($user);
+        $compliance = $compliance->forUser($user);
+
         $ids = $this->parseSelectedIds($request);
         $employeeId = $request->query('employee_id');
 
@@ -40,6 +44,8 @@ class DocumentExportController extends Controller
             $employee = Employee::query()
                 ->where('company_id', $companyId)
                 ->findOrFail((int) $employeeId);
+
+            DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404, $user);
 
             $query = EmployeeDocument::query()
                 ->forCompany($companyId)

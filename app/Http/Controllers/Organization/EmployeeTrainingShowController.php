@@ -21,9 +21,9 @@ class EmployeeTrainingShowController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404);
-        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 404);
-        TrainingAccess::assertTrainingInCompany($training, $companyId, 404);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404, allowSelf: true);
+        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 404, allowSelf: true);
+        TrainingAccess::assertTrainingInCompany($training, $companyId, 404, allowSelf: true);
 
         $employee->loadMissing('employeeProfileTemplate:id,name,configuration_json');
 

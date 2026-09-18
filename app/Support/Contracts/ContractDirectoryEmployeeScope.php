@@ -3,8 +3,10 @@
 namespace App\Support\Contracts;
 
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
 final class ContractDirectoryEmployeeScope
@@ -16,11 +18,18 @@ final class ContractDirectoryEmployeeScope
         Builder $employeeQuery,
         int $companyId,
         ContractDirectoryFilters $filters,
+        ?User $user = null,
     ): void {
         $directoryFilters = new EmployeeDirectoryFilters(
             branchId: $filters->branchId,
             departmentId: $filters->departmentId,
         );
+
+        $currentUser = $user ?? auth()->user();
+
+        if ($currentUser instanceof User) {
+            EmployeeVisibilityScope::apply($employeeQuery, $currentUser, $companyId);
+        }
 
         EmployeeDirectoryQuery::applyAttributeFilters(
             $employeeQuery,
@@ -28,6 +37,7 @@ final class ContractDirectoryEmployeeScope
             $directoryFilters,
             exceptDepartment: false,
             exceptPosition: true,
+            user: $currentUser,
         );
 
         if ($filters->payrollCategory !== ''

@@ -9,6 +9,7 @@ use App\Http\Requests\Attendance\UpdateAttendanceRecordRequest;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Support\Attendance\AttendanceRecordVisibility;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -55,6 +56,8 @@ class AttendanceRecordController extends Controller
                 fn ($query) => $query->whereKey($linkedEmployeeId),
                 fn ($query) => $query->whereRaw('1 = 0'),
             );
+        } else {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
         }
 
         return Inertia::render('attendance/records', [

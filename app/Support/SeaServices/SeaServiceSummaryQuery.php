@@ -3,6 +3,7 @@
 namespace App\Support\SeaServices;
 
 use App\Models\EmployeeSeaService;
+use App\Models\User;
 
 final class SeaServiceSummaryQuery
 {
@@ -12,10 +13,10 @@ final class SeaServiceSummaryQuery
      *     active: int
      * }
      */
-    public function forCompany(int $companyId, ?SeaServiceDirectoryFilters $filters = null): array
+    public function forCompany(int $companyId, ?SeaServiceDirectoryFilters $filters = null, ?User $user = null): array
     {
         $query = $filters !== null
-            ? (new SeaServiceDirectoryQuery($companyId, $filters))->summaryQuery()
+            ? (new SeaServiceDirectoryQuery($companyId, $filters, $user))->summaryQuery()
             : EmployeeSeaService::query()->where('employee_sea_services.company_id', $companyId);
 
         $row = $query

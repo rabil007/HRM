@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization\CrewPlanning\Concerns;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewPlanning\ValidatesCrewPlanningReliefLink;
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -21,10 +22,7 @@ trait ValidatesCrewPlanningAssignmentFields
         return [
             'nullable',
             'integer',
-            Rule::exists('employees', 'id')->where(fn ($query) => $query
-                ->where('company_id', $companyId)
-                ->where('status', 'active')
-                ->whereNotNull('rank_id')),
+            ActiveCompanyEmployeeRule::exists($companyId, $this->user())->whereNotNull('rank_id'),
         ];
     }
 
@@ -99,7 +97,7 @@ trait ValidatesCrewPlanningAssignmentFields
                 'vessel_id' => $vesselId,
                 'rank_id' => $assignmentRankId,
                 'employee_id' => $rawEmployeeId,
-            ], $existing);
+            ], $existing, $this->user());
         });
     }
 }

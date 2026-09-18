@@ -4,7 +4,9 @@ namespace App\Support\BankAccounts;
 
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 final class BankAccountSummaryQuery
 {
@@ -17,12 +19,18 @@ final class BankAccountSummaryQuery
      *     no_account_employees: int
      * }
      */
-    public function forCompany(int $companyId): array
+    public function forCompany(int $companyId, ?User $user = null): array
     {
+        $currentUser = $user ?? auth()->user();
+
         $accountsQuery = EmployeeBankAccount::query()
             ->where('company_id', $companyId);
 
         ActiveEmployeeConstraint::whereHas($accountsQuery, $companyId);
+
+        if ($currentUser instanceof User) {
+            EmployeeVisibilityScope::whereHas($accountsQuery, $currentUser, $companyId, 'employee');
+        }
 
         $row = $accountsQuery
             ->selectRaw('COUNT(*) as total_accounts')
@@ -32,18 +40,27 @@ final class BankAccountSummaryQuery
 
         $ansariQuery = EmployeeBankAccount::query()
             ->where('employee_bank_accounts.company_id', $companyId)
-            ->whereHas('employee', function ($query) use ($companyId) {
+            ->whereHas('employee', function ($query) use ($companyId, $currentUser) {
                 ActiveEmployeeConstraint::apply($query, $companyId)
                     ->where('salary_payment_method', 'cash_ansari');
+
+                if ($currentUser instanceof User) {
+                    EmployeeVisibilityScope::apply($query, $currentUser, $companyId);
+                }
             });
 
         $ansariCount = $ansariQuery->count();
 
-        $noAccountCount = Employee::query()
+        $noAccountQuery = Employee::query()
             ->where('company_id', $companyId)
             ->active()
-            ->whereDoesntHave('bankAccounts')
-            ->count();
+            ->whereDoesntHave('bankAccounts');
+
+        if ($currentUser instanceof User) {
+            EmployeeVisibilityScope::apply($noAccountQuery, $currentUser, $companyId);
+        }
+
+        $noAccountCount = $noAccountQuery->count();
 
         return [
             'total_bank_accounts' => (int) ($row->total_accounts ?? 0),

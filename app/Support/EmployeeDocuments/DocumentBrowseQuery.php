@@ -4,14 +4,33 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class DocumentBrowseQuery
 {
+    public function __construct(
+        private ?User $user = null,
+    ) {}
+
+    public function forUser(?User $user): self
+    {
+        $clone = clone $this;
+        $clone->user = $user;
+
+        return $clone;
+    }
+
+    private function resolveUser(?User $user = null): ?User
+    {
+        return $user ?? $this->user ?? auth()->user();
+    }
+
     /**
      * @return Collection<int, array{employee_id: int, employee_name: string, employee_no: string, document_count: int}>
      */
@@ -19,28 +38,37 @@ class DocumentBrowseQuery
         int $companyId,
         ?string $search = null,
         string $departmentId = '',
+        ?User $user = null,
     ): Collection {
+        $actor = $this->resolveUser($user);
         $search = $search !== null ? trim($search) : '';
 
-        return Employee::query()
+        $query = Employee::query()
             ->where('company_id', $companyId)
             ->active()
             ->whereHas('documents', fn ($query) => $query->where('company_id', $companyId))
             ->withCount([
                 'documents as document_count' => fn ($query) => $query->where('company_id', $companyId),
-            ])
+            ]);
+
+        if ($actor !== null) {
+            EmployeeVisibilityScope::apply($query, $actor, $companyId);
+        }
+
+        return $query
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
                         ->orWhere('employee_no', 'like', "%{$search}%");
                 });
             })
-            ->when($departmentId !== '', function ($query) use ($companyId, $departmentId): void {
+            ->when($departmentId !== '', function ($query) use ($companyId, $departmentId, $actor): void {
                 EmployeeDirectoryQuery::applyAttributeFilters(
                     $query,
                     $companyId,
                     new EmployeeDirectoryFilters(departmentId: $departmentId),
                     exceptPosition: true,
+                    user: $actor,
                 );
             })
             ->orderBy('name')
@@ -261,13 +289,21 @@ class DocumentBrowseQuery
         Builder $query,
         int $companyId,
         string $departmentId = '',
+        ?User $user = null,
     ): void {
-        $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $departmentId): void {
+        $actor = $this->resolveUser($user);
+
+        if ($actor !== null) {
+            EmployeeVisibilityScope::whereHas($query, $actor, $companyId, 'employee');
+        }
+
+        $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $departmentId, $actor): void {
             EmployeeDirectoryQuery::applyAttributeFilters(
                 $employeeQuery,
                 $companyId,
                 new EmployeeDirectoryFilters(departmentId: $departmentId),
                 exceptPosition: true,
+                user: $actor,
             );
         });
     }
@@ -285,8 +321,14 @@ class DocumentBrowseQuery
     /**
      * @return array{employee: array{id: int, name: string, employee_no: string}, documents: list<array<string, mixed>>}
      */
-    public function documentsForEmployee(int $companyId, Employee $employee): array
+    public function documentsForEmployee(int $companyId, Employee $employee, ?User $user = null): array
     {
+        $actor = $this->resolveUser($user);
+
+        if ($actor !== null) {
+            abort_unless(EmployeeVisibilityScope::canAccess($actor, $employee, $companyId, allowSelf: true), 404);
+        }
+
         $documents = EmployeeDocument::query()
             ->forCompany($companyId)
             ->where('employee_id', $employee->id)

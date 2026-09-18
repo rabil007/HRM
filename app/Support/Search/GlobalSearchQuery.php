@@ -10,6 +10,7 @@ use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -46,19 +47,19 @@ final class GlobalSearchQuery
 
         if ($user->can('employees.view')) {
             $this->pushGroup($groups, 'employees', 'Employees', $this->presenter->employees(
-                $this->employees($companyId, $query, $escaped),
+                $this->employees($companyId, $user, $query, $escaped),
             ));
         }
 
         if ($user->can('documents.view')) {
             $this->pushGroup($groups, 'documents', 'Documents', $this->presenter->documents(
-                $this->documents($companyId, $query, $escaped),
+                $this->documents($companyId, $user, $query, $escaped),
             ));
         }
 
         if ($user->can('crew_operations.assignments.view')) {
             $this->pushGroup($groups, 'crew', 'Crew', $this->presenter->crew(
-                $this->crew($companyId, $query, $escaped),
+                $this->crew($companyId, $user, $query, $escaped),
             ));
         }
 
@@ -109,16 +110,20 @@ final class GlobalSearchQuery
     /**
      * @return Collection<int, Employee>
      */
-    private function employees(int $companyId, string $query, string $escaped)
+    private function employees(int $companyId, User $user, string $query, string $escaped)
     {
         return $this->ranked(
-            Employee::query()
-                ->where('company_id', $companyId)
-                ->with(['department:id,name', 'position:id,title'])
-                ->where(function (Builder $inner) use ($escaped): void {
-                    $this->addContains($inner, 'employee_no', $escaped);
-                    $this->addContains($inner, 'name', $escaped, true);
-                }),
+            EmployeeVisibilityScope::apply(
+                Employee::query()
+                    ->where('company_id', $companyId)
+                    ->with(['department:id,name', 'position:id,title'])
+                    ->where(function (Builder $inner) use ($escaped): void {
+                        $this->addContains($inner, 'employee_no', $escaped);
+                        $this->addContains($inner, 'name', $escaped, true);
+                    }),
+                $user,
+                $companyId,
+            ),
             ['employee_no', 'name'],
             $query,
             $escaped,
@@ -128,31 +133,36 @@ final class GlobalSearchQuery
     /**
      * @return Collection<int, EmployeeDocument>
      */
-    private function documents(int $companyId, string $query, string $escaped)
+    private function documents(int $companyId, User $user, string $query, string $escaped)
     {
         return $this->ranked(
-            EmployeeDocument::query()
-                ->forCompany($companyId)
-                ->with([
-                    'employee:id,name,employee_no,company_id',
-                    'documentType:id,title',
-                ])
-                ->whereHas('employee', function (Builder $employee) use ($companyId): void {
-                    $employee->where('company_id', $companyId);
-                })
-                ->where(function (Builder $inner) use ($companyId, $escaped): void {
-                    $this->addContains($inner, 'document_number', $escaped);
-                    $this->addContains($inner, 'title', $escaped, true);
-                    $inner->orWhereHas('documentType', function (Builder $type) use ($escaped): void {
-                        $this->addContains($type, 'title', $escaped);
-                    })->orWhereHas('employee', function (Builder $employee) use ($companyId, $escaped): void {
-                        $employee->where('company_id', $companyId)
-                            ->where(function (Builder $match) use ($escaped): void {
-                                $this->addContains($match, 'name', $escaped);
-                                $this->addContains($match, 'employee_no', $escaped, true);
-                            });
-                    });
-                }),
+            EmployeeVisibilityScope::whereHas(
+                EmployeeDocument::query()
+                    ->forCompany($companyId)
+                    ->with([
+                        'employee:id,name,employee_no,company_id',
+                        'documentType:id,title',
+                    ])
+                    ->whereHas('employee', function (Builder $employee) use ($companyId): void {
+                        $employee->where('company_id', $companyId);
+                    })
+                    ->where(function (Builder $inner) use ($companyId, $escaped): void {
+                        $this->addContains($inner, 'document_number', $escaped);
+                        $this->addContains($inner, 'title', $escaped, true);
+                        $inner->orWhereHas('documentType', function (Builder $type) use ($escaped): void {
+                            $this->addContains($type, 'title', $escaped);
+                        })->orWhereHas('employee', function (Builder $employee) use ($companyId, $escaped): void {
+                            $employee->where('company_id', $companyId)
+                                ->where(function (Builder $match) use ($escaped): void {
+                                    $this->addContains($match, 'name', $escaped);
+                                    $this->addContains($match, 'employee_no', $escaped, true);
+                                });
+                        });
+                    }),
+                $user,
+                $companyId,
+                'employee',
+            ),
             ['document_number', 'title'],
             $query,
             $escaped,
@@ -162,29 +172,34 @@ final class GlobalSearchQuery
     /**
      * @return Collection<int, CrewAssignment>
      */
-    private function crew(int $companyId, string $query, string $escaped)
+    private function crew(int $companyId, User $user, string $query, string $escaped)
     {
         return $this->ranked(
-            CrewAssignment::query()
-                ->where('company_id', $companyId)
-                ->with([
-                    'employee:id,name,employee_no,company_id',
-                    'vessel:id,name,company_id',
-                    'currentPhase:id,phase_code',
-                ])
-                ->where(function (Builder $inner) use ($companyId, $escaped): void {
-                    $this->addContains($inner, 'assignment_no', $escaped);
-                    $inner->orWhereHas('employee', function (Builder $employee) use ($companyId, $escaped): void {
-                        $employee->where('company_id', $companyId)
-                            ->where(function (Builder $match) use ($escaped): void {
-                                $this->addContains($match, 'name', $escaped);
-                                $this->addContains($match, 'employee_no', $escaped, true);
-                            });
-                    })->orWhereHas('vessel', function (Builder $vessel) use ($companyId, $escaped): void {
-                        $vessel->where('company_id', $companyId);
-                        $this->addContains($vessel, 'name', $escaped);
-                    });
-                }),
+            EmployeeVisibilityScope::whereHas(
+                CrewAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->with([
+                        'employee:id,name,employee_no,company_id',
+                        'vessel:id,name,company_id',
+                        'currentPhase:id,phase_code',
+                    ])
+                    ->where(function (Builder $inner) use ($companyId, $escaped): void {
+                        $this->addContains($inner, 'assignment_no', $escaped);
+                        $inner->orWhereHas('employee', function (Builder $employee) use ($companyId, $escaped): void {
+                            $employee->where('company_id', $companyId)
+                                ->where(function (Builder $match) use ($escaped): void {
+                                    $this->addContains($match, 'name', $escaped);
+                                    $this->addContains($match, 'employee_no', $escaped, true);
+                                });
+                        })->orWhereHas('vessel', function (Builder $vessel) use ($companyId, $escaped): void {
+                            $vessel->where('company_id', $companyId);
+                            $this->addContains($vessel, 'name', $escaped);
+                        });
+                    }),
+                $user,
+                $companyId,
+                'employee',
+            ),
             ['assignment_no'],
             $query,
             $escaped,

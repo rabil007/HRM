@@ -11,6 +11,8 @@ use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\User;
+use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\Services\Concerns\SpreadsheetPayrollExportFormatting;
 use App\Support\Settings\CompanyCurrency;
 use Carbon\CarbonImmutable;
@@ -47,18 +49,21 @@ final class CrewPayrollSalarySheetExporter
     /**
      * @return array{path: string, filename: string}
      */
-    public function export(int $companyId, PayrollPeriod $period): array
+    public function export(int $companyId, PayrollPeriod $period, ?User $user = null): array
     {
-        $records = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $period->id)
-            ->where('payroll_category', PayrollCategory::Crew)
-            ->with([
-                'employee.position:id,title',
-                'employee.project:id,title',
-                'employee.client:id,name',
-            ])
-            ->get()
+        $records = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $period->id)
+                ->where('payroll_category', PayrollCategory::Crew)
+                ->with([
+                    'employee.position:id,title',
+                    'employee.project:id,title',
+                    'employee.client:id,name',
+                ]),
+            $user,
+            $companyId,
+        )->get()
             ->sortBy([
                 fn (PayrollRecord $record) => mb_strtolower((string) ($record->employee?->name ?? '')),
                 fn (PayrollRecord $record) => (string) ($record->employee?->employee_no ?? ''),

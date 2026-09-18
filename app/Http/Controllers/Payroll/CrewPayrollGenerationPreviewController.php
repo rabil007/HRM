@@ -27,7 +27,7 @@ class CrewPayrollGenerationPreviewController extends Controller
             ),
         )));
 
-        $preview = $buildPreview->handle($payrollPeriod, $companyId, $excluded);
+        $preview = $buildPreview->handle($payrollPeriod, $companyId, $excluded, $request->user());
 
         return response()->json($preview->toPublicArray());
     }

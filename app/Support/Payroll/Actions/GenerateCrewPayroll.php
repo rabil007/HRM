@@ -13,6 +13,7 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Models\User;
 use App\Support\Payroll\AssertCrewPayrollCalculationFreshness;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\BuildDailyCrewPayrollAllocationPlan;
@@ -20,6 +21,7 @@ use App\Support\Payroll\CrewMonthlyPayrollCalculator;
 use App\Support\Payroll\CrewOvertimeMonthlySalary;
 use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
+use App\Support\Payroll\MergePayrollPeriodExclusions;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
 use App\Support\Payroll\PersistPayrollWorkAllocations;
@@ -45,7 +47,7 @@ final class GenerateCrewPayroll
         private readonly AssertCrewPayrollCalculationFreshness $calculationFreshness,
     ) {}
 
-    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
+    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], ?User $user = null): GeneratePayrollResult
     {
         abort_unless($period->isCrew(), 404);
 
@@ -55,12 +57,21 @@ final class GenerateCrewPayroll
             ]);
         }
 
-        $excludedEmployeeIds = array_values(array_unique(array_map(
-            intval(...),
-            array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
-        )));
+        $companyId = (int) $period->company_id;
+        $excludedEmployeeIds = MergePayrollPeriodExclusions::resolve(
+            $period->excluded_employee_ids ?? [],
+            $excludedEmployeeIds,
+            $user,
+            $companyId,
+        );
+        $enforceableExcludedEmployeeIds = MergePayrollPeriodExclusions::enforceableForActor(
+            $excludedEmployeeIds,
+            $user,
+            $companyId,
+        );
 
         $generatedCount = 0;
+        $generatedEmployeeIds = [];
         $skippedEmployees = [];
         $errors = [];
         $skippedMissing = 0;
@@ -71,8 +82,11 @@ final class GenerateCrewPayroll
         DB::transaction(function () use (
             $period,
             $excludedEmployeeIds,
+            $enforceableExcludedEmployeeIds,
             $workingDaysInPeriod,
+            $user,
             &$generatedCount,
+            &$generatedEmployeeIds,
             &$skippedEmployees,
             &$errors,
             &$skippedMissing,
@@ -97,6 +111,7 @@ final class GenerateCrewPayroll
                 $lockedPeriod,
                 (int) $lockedPeriod->company_id,
                 $excludedEmployeeIds,
+                $user,
             );
             $previewArray = $preview->toArray();
 
@@ -138,7 +153,7 @@ final class GenerateCrewPayroll
             $notReadyIds = array_values(array_unique(array_merge(
                 $preview->missingTimesheetEmployeeIds,
                 $preview->awaitingApprovalEmployeeIds,
-                $excludedEmployeeIds,
+                $enforceableExcludedEmployeeIds,
             )));
 
             $this->softDeleteDraftRecordsForEmployees($lockedPeriod, $notReadyIds);
@@ -282,6 +297,7 @@ final class GenerateCrewPayroll
                 }
 
                 $generatedCount++;
+                $generatedEmployeeIds[] = (int) $employee->id;
             }
 
             $periodUpdates = [
@@ -298,8 +314,12 @@ final class GenerateCrewPayroll
 
             $lockedPeriod->update($periodUpdates);
 
-            if ($generatedCount > 0 && $this->periodHasSalaryInputs($lockedPeriod, $readyIds)) {
-                $this->recalculateCrewPayroll->handle($lockedPeriod->fresh());
+            if ($generatedEmployeeIds !== [] && $this->periodHasSalaryInputs($lockedPeriod, $generatedEmployeeIds)) {
+                $this->recalculateCrewPayroll->handleEmployees(
+                    $lockedPeriod->fresh(),
+                    $generatedEmployeeIds,
+                    $user,
+                );
             }
         });
 

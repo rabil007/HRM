@@ -4,6 +4,7 @@ namespace App\Support\Employees;
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -12,11 +13,17 @@ final class EmployeeDirectoryQuery
     public function __construct(
         private readonly int $companyId,
         private readonly EmployeeDirectoryFilters $filters,
+        private readonly ?User $user = null,
     ) {}
 
     public function apply(Builder $query): Builder
     {
-        self::applyAttributeFilters($query, $this->companyId, $this->filters);
+        self::applyAttributeFilters(
+            $query,
+            $this->companyId,
+            $this->filters,
+            user: $this->user,
+        );
 
         return $query->orderBy('name')->orderBy('id');
     }
@@ -28,9 +35,15 @@ final class EmployeeDirectoryQuery
         bool $exceptDepartment = false,
         bool $exceptPosition = false,
         bool $exceptStatus = false,
+        ?User $user = null,
     ): void {
+        $query->where('company_id', $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        }
+
         $query
-            ->where('company_id', $companyId)
             ->when($filters->branchId, fn (Builder $q) => $q->where('branch_id', $filters->branchId))
             ->when(! $exceptDepartment && $filters->departmentId, function (Builder $q) use ($companyId, $filters): void {
                 $departmentId = (int) $filters->departmentId;

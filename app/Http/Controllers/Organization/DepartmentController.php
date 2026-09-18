@@ -54,7 +54,7 @@ class DepartmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'parent_id', 'name']);
 
-        $managers = EmployeeFormOptions::managersForSelect($companyId);
+        $managers = EmployeeFormOptions::managersForSelect($companyId, request()->user());
 
         $leaveApprovalPolicies = LeaveApprovalPolicy::query()
             ->where('company_id', $companyId)
@@ -221,7 +221,7 @@ class DepartmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
-        $managers = EmployeeFormOptions::managersForSelect($companyId);
+        $managers = EmployeeFormOptions::managersForSelect($companyId, request()->user());
 
         $leaveApprovalPolicies = LeaveApprovalPolicy::query()
             ->where('company_id', $companyId)

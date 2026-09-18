@@ -22,7 +22,8 @@ type DepartmentFilterControlsProps = {
     department_tree_selected_position_id: number | null;
     selectionCount?: number;
     onSelectDepartment: (id: number | null) => void;
-    onSelectPosition: (positionId: number, departmentId: number) => void;
+    onSelectPosition?: (positionId: number, departmentId: number) => void;
+    showPositions?: boolean;
     buttonClassName?: string;
 };
 
@@ -33,6 +34,7 @@ export function DepartmentFilterControls({
     selectionCount,
     onSelectDepartment,
     onSelectPosition,
+    showPositions = true,
     buttonClassName,
 }: DepartmentFilterControlsProps) {
     const [isDepartmentsOpen, setIsDepartmentsOpen] = useState(false);
@@ -41,7 +43,8 @@ export function DepartmentFilterControls({
 
     const activeSelectionCount =
         selectionCount ??
-        (department_tree_selected_id || department_tree_selected_position_id
+        (department_tree_selected_id ||
+        (showPositions && department_tree_selected_position_id)
             ? 1
             : 0);
 
@@ -52,7 +55,7 @@ export function DepartmentFilterControls({
     };
 
     const handlePositionSelect = (positionId: number, departmentId: number) => {
-        onSelectPosition(positionId, departmentId);
+        onSelectPosition?.(positionId, departmentId);
         setIsDepartmentsOpen(false);
         setIsDepartmentsPopoverOpen(false);
     };
@@ -99,6 +102,7 @@ export function DepartmentFilterControls({
                         }
                         onSelectDepartment={handleDepartmentSelect}
                         onSelectPosition={handlePositionSelect}
+                        showPositions={showPositions}
                     />
                 </PopoverContent>
             </Popover>
@@ -130,6 +134,7 @@ export function DepartmentFilterControls({
                             }
                             onSelectDepartment={handleDepartmentSelect}
                             onSelectPosition={handlePositionSelect}
+                            showPositions={showPositions}
                         />
                     </div>
                 </SheetContent>

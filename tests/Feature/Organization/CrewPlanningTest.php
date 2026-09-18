@@ -5,7 +5,6 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAssignment;
-use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Department;
@@ -186,7 +185,7 @@ test('planning crew list includes employees with active assignments', function (
         );
 });
 
-test('planning index employees list respects pool department settings', function () {
+test('planning index employees list respects role employee visibility scope', function () {
     ['user' => $user, 'company' => $company, 'captain' => $captain] = makeCrewPlanningFixtures();
 
     $crewDept = Department::query()->create([
@@ -217,10 +216,7 @@ test('planning index employees list respects pool department settings', function
         'name' => 'Beta Office',
     ]);
 
-    CrewOperationsSetting::query()->create([
-        'company_id' => $company->id,
-        'pool_department_ids' => [$crewDept->id],
-    ]);
+    restrictTestRoleEmployeeVisibility($user, $company, [$crewDept->id]);
 
     $this->actingAs($user)
         ->get(route('organization.crew-planning.index'))
@@ -263,7 +259,7 @@ test('planning index only includes employees with a profile rank', function () {
         );
 });
 
-test('planning pool settings include employees from child departments when parent is selected', function () {
+test('role employee visibility includes employees from child departments when parent is selected', function () {
     ['user' => $user, 'company' => $company, 'captain' => $captain] = makeCrewPlanningFixtures();
 
     $parentDept = Department::query()->create([
@@ -295,10 +291,7 @@ test('planning pool settings include employees from child departments when paren
         'name' => 'Child Crew',
     ]);
 
-    CrewOperationsSetting::query()->create([
-        'company_id' => $company->id,
-        'pool_department_ids' => [$parentDept->id],
-    ]);
+    restrictTestRoleEmployeeVisibility($user, $company, [$parentDept->id]);
 
     $this->actingAs($user)
         ->get(route('organization.crew-planning.index'))
@@ -1114,4 +1107,137 @@ test('planning projection ignores vacant planning and counts linked assignment o
     expect($afterLink->inertiaProps('projection.rows.0.minimum_projected_count'))->toBe($beforeMax)
         ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($assignmentCountBefore)
         ->and(EmployeeSeaService::query()->where('company_id', $company->id)->count())->toBe($seaServiceCountBefore);
+});
+
+test('planning gantt bars do not expose hidden employee', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeCrewPlanningFixtures();
+
+    $crewDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck Crew',
+        'code' => 'DECK',
+        'status' => 'active',
+    ]);
+    $officeDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Staff',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $visible = Employee::factory()->create([
+        'company_id' => $company->id,
+        'department_id' => $crewDept->id,
+        'rank_id' => $captain->id,
+        'name' => 'Visible Crew',
+        'status' => 'active',
+    ]);
+    $hidden = Employee::factory()->create([
+        'company_id' => $company->id,
+        'department_id' => $officeDept->id,
+        'rank_id' => $captain->id,
+        'name' => 'Hidden Office',
+        'status' => 'active',
+    ]);
+
+    $from = now()->startOfMonth()->toDateString();
+    $to = now()->addMonth()->endOfMonth()->toDateString();
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => $visible->id,
+        'planned_join_date' => $from,
+        'planned_leave_date' => $to,
+    ]);
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => $hidden->id,
+        'planned_join_date' => $from,
+        'planned_leave_date' => $to,
+    ]);
+
+    restrictTestRoleEmployeeVisibility($user, $company, [$crewDept->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', ['from' => $from, 'to' => $to]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('bars', 1)
+            ->where('bars.0.employee_id', $visible->id)
+            ->where('bars.0.employee_name', 'Visible Crew')
+        );
+});
+
+test('vacant planning position remains visible under restricted scope', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeCrewPlanningFixtures();
+
+    $crewDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck Crew',
+        'code' => 'DECK',
+        'status' => 'active',
+    ]);
+
+    $from = now()->startOfMonth()->toDateString();
+    $to = now()->addMonth()->endOfMonth()->toDateString();
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'employee_id' => null,
+        'planned_join_date' => $from,
+        'planned_leave_date' => $to,
+    ]);
+
+    restrictTestRoleEmployeeVisibility($user, $company, [$crewDept->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', ['from' => $from, 'to' => $to]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('bars', 1)
+            ->where('bars.0.employee_id', null)
+            ->where('bars.0.employee_name', 'Vacant')
+        );
+});
+
+test('store planning assignment with hidden employee is rejected', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeCrewPlanningFixtures();
+    grantCompanyPermissions($user, $company, ['crew_operations.planning.create']);
+
+    $crewDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck Crew',
+        'code' => 'DECK',
+        'status' => 'active',
+    ]);
+    $officeDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Staff',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $hidden = Employee::factory()->create([
+        'company_id' => $company->id,
+        'department_id' => $officeDept->id,
+        'rank_id' => $captain->id,
+        'status' => 'active',
+    ]);
+
+    restrictTestRoleEmployeeVisibility($user, $company, [$crewDept->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $captain->id,
+            'employee_id' => $hidden->id,
+            'planned_join_date' => now()->toDateString(),
+        ])
+        ->assertSessionHasErrors('employee_id');
 });

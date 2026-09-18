@@ -70,6 +70,7 @@ class GenerateCustomDocumentsController extends Controller
                 $companyId,
                 $directoryFilters,
                 $employeeIds,
+                $request->user(),
             )->pluck('id')->all();
         } else {
             $targetEmployeeIds = CustomDocumentRosterQuery::matchingSelection(
@@ -77,6 +78,7 @@ class GenerateCustomDocumentsController extends Controller
                 $version,
                 $directoryFilters,
                 'missing',
+                $request->user(),
             )['employee_ids'];
         }
         $targetCount = count($targetEmployeeIds);

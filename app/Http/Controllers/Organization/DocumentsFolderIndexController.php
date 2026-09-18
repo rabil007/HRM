@@ -41,6 +41,9 @@ class DocumentsFolderIndexController extends Controller
             ? (int) $libraryQuery->documentTypeId
             : null;
 
+        $browse = $browse->forUser($request->user());
+        $compliance = $compliance->forUser($request->user());
+
         $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);
         $summary = $browse->expirySummary($companyId, departmentId: $departmentId);
         $perPage = max(1, min(100, (int) $request->query('per_page', 25)));
@@ -53,7 +56,7 @@ class DocumentsFolderIndexController extends Controller
             'search' => $search,
             'department_id' => $departmentId,
             'document_type_id' => $libraryQuery->documentTypeId,
-            'department_tree' => DocumentDepartmentTree::for($companyId, $directoryFilters),
+            'department_tree' => DocumentDepartmentTree::for($companyId, $directoryFilters, user: $request->user()),
             'department_tree_selected_id' => $departmentId !== '' ? (int) $departmentId : null,
             'employees' => [],
             'searchDocuments' => null,

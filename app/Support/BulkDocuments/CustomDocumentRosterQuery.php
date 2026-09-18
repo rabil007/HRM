@@ -9,6 +9,7 @@ use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentInstance;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\User;
 use App\Support\Documents\Process\DocumentOperationalProcessPresenter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -39,8 +40,9 @@ final class CustomDocumentRosterQuery
         DocumentGenerationTemplateVersion $version,
         EmployeeDirectoryFilters $filters,
         ?array $employeeIds = null,
+        ?User $user = null,
     ): array {
-        $query = BulkDocumentRosterQuery::employeeQuery($companyId, $filters, $employeeIds);
+        $query = BulkDocumentRosterQuery::employeeQuery($companyId, $filters, $employeeIds, $user);
         $targeted = (clone $query)->count();
         $historicalIds = self::historicalCompletedEmployeeIds($companyId, $template);
 
@@ -121,10 +123,11 @@ final class CustomDocumentRosterQuery
         DocumentGenerationTemplateVersion $version,
         EmployeeDirectoryFilters $filters,
         string $filter = 'all',
+        ?User $user = null,
     ): array {
         $version->loadMissing('template');
 
-        $employeeIds = self::filteredEmployeeQuery($companyId, $version, $filters, $filter, $version->template)
+        $employeeIds = self::filteredEmployeeQuery($companyId, $version, $filters, $filter, $version->template, $user)
             ->orderBy('name')
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
@@ -160,8 +163,9 @@ final class CustomDocumentRosterQuery
         int $perPage,
         string $filter = 'all',
         ?int $generationRunId = null,
+        ?User $user = null,
     ): LengthAwarePaginator {
-        $paginator = self::filteredEmployeeQuery($companyId, $version, $filters, $filter, $template)
+        $paginator = self::filteredEmployeeQuery($companyId, $version, $filters, $filter, $template, $user)
             ->with([
                 'department:id,name',
                 'position:id,title',
@@ -262,8 +266,9 @@ final class CustomDocumentRosterQuery
         EmployeeDirectoryFilters $filters,
         string $filter,
         ?DocumentGenerationTemplate $template = null,
+        ?User $user = null,
     ): Builder {
-        $query = BulkDocumentRosterQuery::employeeQuery($companyId, $filters);
+        $query = BulkDocumentRosterQuery::employeeQuery($companyId, $filters, null, $user);
         $template ??= $version->template;
         $historicalIds = $template !== null
             ? self::historicalCompletedEmployeeIds($companyId, $template)

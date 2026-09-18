@@ -25,10 +25,10 @@ class TrainingsIndexController extends Controller
         $filters = TrainingDirectoryFilters::fromRequest($request);
         $perPage = $this->resolvePerPage($request, default: 25);
 
-        $paginator = (new TrainingDirectoryQuery($companyId, $filters))->paginate($perPage);
+        $paginator = (new TrainingDirectoryQuery($companyId, $filters, $request->user()))->paginate($perPage);
 
         return Inertia::render('organization/training/index', [
-            'summary' => $summaryQuery->forCompany($companyId, $filters),
+            'summary' => $summaryQuery->forCompany($companyId, $filters, $request->user()),
             'expiry' => $filters->expiry,
             'search' => $filters->search,
             'issue_date' => $filters->issueDate,
@@ -40,6 +40,8 @@ class TrainingsIndexController extends Controller
             'department_tree' => TrainingDepartmentTree::for(
                 $companyId,
                 new EmployeeDirectoryFilters(departmentId: $filters->departmentId),
+                context: TrainingDepartmentTree::CONTEXT_INDEX,
+                user: $request->user(),
             ),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'trainings' => $paginator->items(),

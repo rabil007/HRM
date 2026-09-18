@@ -292,7 +292,7 @@ test('multi-segment employee produces one payroll record with movement breakdown
         ->and((float) ($record->calculation_breakdown['onsite_days'] ?? 0))->toBe(23.0);
 
     $period->update(['status' => PayrollPeriodStatus::Approved]);
-    $export = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $export = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $spreadsheet = IOFactory::load($export['path']);
     $movement = $spreadsheet->getSheetByName('Movement Details');
     $salary = $spreadsheet->getSheet(0);

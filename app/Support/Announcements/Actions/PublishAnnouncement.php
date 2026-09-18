@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\ResolveAnnouncementAudience;
 use App\Support\Announcements\ResolveEmployeeAnnouncementEmail;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -62,7 +63,7 @@ final class PublishAnnouncement
                 ])
                 ->all();
 
-            $employees = $this->resolveAudience->handle((int) $locked->company_id, $audiences);
+            $employees = $this->resolveEmployees($locked, $audiences, $publisher);
             $channels = array_values(array_map('strval', $locked->channels ?? []));
 
             AnnouncementRecipient::query()
@@ -142,6 +143,25 @@ final class PublishAnnouncement
 
             return $locked->fresh(['audiences', 'attachments', 'recipients.deliveries', 'creator', 'publisher']) ?? $locked;
         });
+    }
+
+    /**
+     * @param  list<array{type: string, id?: int|null}>  $audiences
+     * @return Collection<int, Employee>
+     */
+    private function resolveEmployees(Announcement $announcement, array $audiences, User $publisher): Collection
+    {
+        $snapshotIds = $announcement->authorized_employee_ids;
+
+        if (is_array($snapshotIds)) {
+            return $this->resolveAudience->handleWithinAuthorizedEmployees(
+                (int) $announcement->company_id,
+                $audiences,
+                $snapshotIds,
+            );
+        }
+
+        return $this->resolveAudience->handle((int) $announcement->company_id, $audiences, $publisher);
     }
 
     private function initialStatus(AnnouncementChannel $channel, AnnouncementRecipient $recipient): AnnouncementDeliveryStatus

@@ -2,9 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import {
     AlertTriangle,
     Bell,
-    Check,
     CheckCircle2,
-    ChevronRight,
     Clock3,
     Home,
     Mail,
@@ -32,11 +30,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -47,14 +40,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import {
-    applyDepartmentToggle,
-    flattenDepartmentTreeIds,
-    getDepartmentCheckState,
-} from '@/features/organization/crew-planning/lib/department-tree';
 import type {
     NotificationUserOption,
-    PlanningDepartmentNode,
     PlanningSettings,
 } from '@/features/organization/crew-planning/types';
 import { cn } from '@/lib/utils';
@@ -62,7 +49,6 @@ import { cn } from '@/lib/utils';
 type FormData = PlanningSettings;
 
 type Props = {
-    department_tree: PlanningDepartmentNode[];
     crew_settings: PlanningSettings;
     notification_users: NotificationUserOption[];
     company_timezone?: string;
@@ -94,92 +80,7 @@ const ALERT_TYPE_FIELDS = [
     },
 ];
 
-function DepartmentTreeNodeRow({
-    node,
-    depth,
-    selectedIds,
-    onToggle,
-}: {
-    node: PlanningDepartmentNode;
-    depth: number;
-    selectedIds: Set<number>;
-    onToggle: (node: PlanningDepartmentNode, checked: boolean) => void;
-}): ReactElement {
-    const [open, setOpen] = useState(false);
-    const checkState = getDepartmentCheckState(node, selectedIds);
-    const hasChildren = node.children.length > 0;
-
-    return (
-        <Collapsible open={open} onOpenChange={setOpen}>
-            <div
-                className={cn(
-                    'group flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-all',
-                    depth === 0
-                        ? 'border-border/70 bg-card/80 shadow-xs hover:border-primary/25'
-                        : 'mt-1.5 border-transparent bg-muted/20 hover:border-border/60 hover:bg-muted/40',
-                )}
-                style={{ marginLeft: depth * 12 }}
-            >
-                {hasChildren ? (
-                    <CollapsibleTrigger asChild>
-                        <button
-                            type="button"
-                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
-                            aria-label={`Toggle ${node.name}`}
-                        >
-                            <ChevronRight
-                                className={cn(
-                                    'h-3.5 w-3.5 transition-transform',
-                                    open && 'rotate-90',
-                                )}
-                            />
-                        </button>
-                    </CollapsibleTrigger>
-                ) : (
-                    <span className="inline-flex h-6 w-6 shrink-0" />
-                )}
-
-                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 select-none">
-                    <Checkbox
-                        checked={
-                            checkState === 'indeterminate'
-                                ? 'indeterminate'
-                                : checkState === 'checked'
-                        }
-                        onCheckedChange={(value) =>
-                            onToggle(node, value === true)
-                        }
-                    />
-                    <span
-                        className={cn(
-                            'truncate text-sm',
-                            depth === 0 ? 'font-semibold' : 'font-medium',
-                        )}
-                    >
-                        {node.name}
-                    </span>
-                </label>
-            </div>
-
-            {hasChildren ? (
-                <CollapsibleContent>
-                    {node.children.map((child) => (
-                        <DepartmentTreeNodeRow
-                            key={child.id}
-                            node={child}
-                            depth={depth + 1}
-                            selectedIds={selectedIds}
-                            onToggle={onToggle}
-                        />
-                    ))}
-                </CollapsibleContent>
-            ) : null}
-        </Collapsible>
-    );
-}
-
 export default function CrewOperationsSettings({
-    department_tree,
     crew_settings,
     notification_users,
     company_timezone,
@@ -196,19 +97,6 @@ export default function CrewOperationsSettings({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crew_settings]);
 
-    const selectedSet = new Set(form.data.pool_department_ids);
-    const allDepartmentIds = flattenDepartmentTreeIds(department_tree);
-
-    const toggleDepartment = (
-        node: PlanningDepartmentNode,
-        checked: boolean,
-    ): void => {
-        form.setData(
-            'pool_department_ids',
-            applyDepartmentToggle(form.data.pool_department_ids, node, checked),
-        );
-    };
-
     const handleSubmit = (e: React.FormEvent): void => {
         e.preventDefault();
 
@@ -220,15 +108,6 @@ export default function CrewOperationsSettings({
             preserveScroll: true,
         });
     };
-
-    const allSelected =
-        allDepartmentIds.length > 0 &&
-        allDepartmentIds.every((id) => selectedSet.has(id));
-    const noneSelected = form.data.pool_department_ids.length === 0;
-    const selectionLabel =
-        noneSelected || allSelected
-            ? 'All active employees'
-            : 'Custom department pool';
 
     return (
         <Main>
@@ -245,130 +124,6 @@ export default function CrewOperationsSettings({
                 className="grid max-w-6xl items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(19rem,0.75fr)]"
             >
                 <div className="space-y-6">
-                    <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
-                        <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/[0.07] via-muted/20 to-transparent p-5 sm:p-6 dark:border-white/6">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="flex items-start gap-3">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                                        <Sliders className="h-5 w-5" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <CardTitle className="text-lg font-bold tracking-tight">
-                                            Crew departments pool
-                                        </CardTitle>
-                                        <CardDescription className="max-w-xl text-sm leading-relaxed">
-                                            Control which employees are
-                                            available in the planning sidebar
-                                            and assignment picker.
-                                        </CardDescription>
-                                    </div>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-2 self-start rounded-full border border-border/70 bg-background/60 px-3 py-1.5 text-xs font-semibold shadow-xs">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                                    {selectionLabel}
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-5 p-5 sm:p-6">
-                            <div className="rounded-xl border border-primary/15 bg-primary/[0.05] p-4">
-                                <p className="text-sm font-semibold text-foreground">
-                                    How department filtering works
-                                </p>
-                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                    Selecting a parent includes every child
-                                    department. Leave the selection empty to
-                                    make every active employee available to Crew
-                                    Planning.
-                                </p>
-                            </div>
-
-                            <div className="flex flex-col gap-4">
-                                <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
-                                        <p className="text-xs font-bold tracking-wider text-muted-foreground/80 uppercase">
-                                            Available departments
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-muted-foreground">
-                                            {allDepartmentIds.length} active
-                                            across your organization
-                                        </p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 rounded-lg bg-background/50 px-3 text-xs"
-                                            disabled={
-                                                allDepartmentIds.length === 0
-                                            }
-                                            onClick={() =>
-                                                form.setData(
-                                                    'pool_department_ids',
-                                                    allDepartmentIds,
-                                                )
-                                            }
-                                        >
-                                            Select all
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 rounded-lg px-3 text-xs"
-                                            onClick={() =>
-                                                form.setData(
-                                                    'pool_department_ids',
-                                                    [],
-                                                )
-                                            }
-                                        >
-                                            Clear
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/80 px-4 py-3 text-xs text-muted-foreground">
-                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                        <Check className="h-3.5 w-3.5" />
-                                    </span>
-                                    <span>
-                                        {noneSelected
-                                            ? 'No filter applied — every active employee is available.'
-                                            : allSelected
-                                              ? 'Every department is selected — all active employees are available.'
-                                              : 'A department filter is active. Parent departments include all of their children.'}
-                                    </span>
-                                </div>
-
-                                {department_tree.length === 0 ? (
-                                    <p className="py-4 text-center text-sm text-muted-foreground/80">
-                                        No active departments found for this
-                                        company.
-                                    </p>
-                                ) : (
-                                    <div className="grid items-start gap-3 md:grid-cols-2">
-                                        {department_tree.map((node) => (
-                                            <DepartmentTreeNodeRow
-                                                key={node.id}
-                                                node={node}
-                                                depth={0}
-                                                selectedIds={selectedSet}
-                                                onToggle={toggleDepartment}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                {form.errors.pool_department_ids ? (
-                                    <p className="text-xs font-medium text-destructive">
-                                        {form.errors.pool_department_ids}
-                                    </p>
-                                ) : null}
-                            </div>
-                        </CardContent>
-                    </Card>
-
                     <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
                         <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/[0.07] via-muted/20 to-transparent p-5 sm:p-6 dark:border-white/6">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

@@ -6,6 +6,7 @@ use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -26,6 +27,7 @@ final class PayrollPeriodBoardQuery
         ?string $search = null,
         int $perPage = 25,
         ?PayrollPeriodBoardFilters $filters = null,
+        ?User $user = null,
     ): LengthAwarePaginator {
         $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
         $filters ??= new PayrollPeriodBoardFilters;
@@ -54,7 +56,7 @@ final class PayrollPeriodBoardQuery
             ]);
         }
 
-        PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters);
+        PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters, user: $user);
 
         $paginator = $query
             ->orderBy('employees.name')
@@ -159,6 +161,7 @@ final class PayrollPeriodBoardQuery
         PayrollPeriod $period,
         ?string $search = null,
         ?PayrollPeriodBoardFilters $filters = null,
+        ?User $user = null,
     ): array {
         $filters ??= new PayrollPeriodBoardFilters;
 
@@ -167,7 +170,7 @@ final class PayrollPeriodBoardQuery
             ? PayrollEmployeeQuery::forPeriod($period, PayrollCategory::Office)
             : PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
 
-        PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters);
+        PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters, user: $user);
 
         return $query
             ->orderBy('employees.name')

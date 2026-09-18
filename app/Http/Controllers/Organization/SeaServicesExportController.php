@@ -20,7 +20,7 @@ class SeaServicesExportController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = SeaServiceDirectoryFilters::fromRequest($request);
 
-        $query = (new SeaServiceDirectoryQuery($companyId, $filters))->exportQuery();
+        $query = (new SeaServiceDirectoryQuery($companyId, $filters, $request->user()))->exportQuery();
         $selectedIds = SelectedRecordIds::fromRequest($request);
 
         if ($selectedIds !== []) {

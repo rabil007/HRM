@@ -18,7 +18,7 @@ class PreviewAnnouncementRecipientsController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $data = $request->validated();
 
-        $employees = $resolveAudience->handle($companyId, $data['audiences']);
+        $employees = $resolveAudience->handle($companyId, $data['audiences'], $request->user());
         $preview = $buildPreview->handle($employees, $data['channels']);
 
         return response()->json($preview);

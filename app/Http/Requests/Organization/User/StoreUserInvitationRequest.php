@@ -37,7 +37,7 @@ class StoreUserInvitationRequest extends FormRequest
             'employee_id' => [
                 'nullable',
                 'integer',
-                ActiveCompanyEmployeeRule::exists($companyId)->whereNull('user_id'),
+                ActiveCompanyEmployeeRule::exists($companyId, $this->user())->whereNull('user_id'),
             ],
         ];
     }

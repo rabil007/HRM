@@ -10,6 +10,7 @@ use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Contracts\Actions\DeleteContractSalaryRevision;
 use App\Support\Contracts\Actions\UpdateContractSalaryRevision;
+use App\Support\Contracts\ContractAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -34,6 +35,8 @@ class ContractSalaryRevisionController extends Controller
             && $employeeContract->company_id === $companyId,
             403,
         );
+
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $request->validated();
 
@@ -65,6 +68,8 @@ class ContractSalaryRevisionController extends Controller
             403,
         );
 
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
+
         $validated = $request->validated();
 
         $this->updateSalaryRevision->handle(
@@ -94,6 +99,8 @@ class ContractSalaryRevisionController extends Controller
             && $salaryRevision->company_id === $companyId,
             403,
         );
+
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $this->deleteSalaryRevision->handle($employeeContract, $salaryRevision);
 
