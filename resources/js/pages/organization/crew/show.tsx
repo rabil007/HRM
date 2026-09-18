@@ -310,12 +310,15 @@ export default function CrewAssignmentShow({
                                                                             Current
                                                                         </Badge>
                                                                     ) : null}
-                                                                    {phase.has_pending_correction ? (
+                                                                    {(can.view_corrections ||
+                                                                        can.request_correction) &&
+                                                                    phase.has_pending_correction ? (
                                                                         <Badge variant="warning">
                                                                             Pending
                                                                             Correction
                                                                         </Badge>
-                                                                    ) : phase.has_approved_correction ? (
+                                                                    ) : can.view_corrections &&
+                                                                      phase.has_approved_correction ? (
                                                                         <Badge variant="secondary">
                                                                             Corrected
                                                                         </Badge>

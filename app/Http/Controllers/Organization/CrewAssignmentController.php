@@ -281,8 +281,6 @@ class CrewAssignmentController extends Controller
             'currentPhase',
             'accommodationStays.hotel',
             'accommodationStays.roomType',
-            'phases.pendingCorrections',
-            'phases.corrections' => fn ($query) => $query->where('status', 'approved')->latest('decided_at'),
             'phases.employeeTraining:id,source_crew_assignment_phase_id',
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
@@ -294,10 +292,14 @@ class CrewAssignmentController extends Controller
         ];
 
         if ($canViewCorrections) {
+            $eagerLoads[] = 'phases.pendingCorrections';
+            $eagerLoads['phases.corrections'] = fn ($query) => $query->where('status', 'approved')->latest('decided_at');
             $eagerLoads[] = 'corrections.requester:id,name';
             $eagerLoads[] = 'corrections.decisionMaker:id,name';
             $eagerLoads[] = 'corrections.phase';
             $eagerLoads[] = 'corrections.company:id,timezone';
+        } elseif ($canRequestCorrection) {
+            $eagerLoads[] = 'phases.pendingCorrections';
         }
 
         $assignment->load($eagerLoads);

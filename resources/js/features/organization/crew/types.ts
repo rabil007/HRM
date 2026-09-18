@@ -572,10 +572,10 @@ export interface CorrectablePhase {
     phase_label: string;
     status: string;
     status_label: string;
-    actual_start_at: string | null;
-    actual_end_at: string | null;
-    remarks: string | null;
-    details: Record<string, unknown> | null;
+    actual_start_at?: string | null;
+    actual_end_at?: string | null;
+    remarks?: string | null;
+    details?: Record<string, unknown> | null;
     is_legacy?: boolean;
     legacy_context_label?: string | null;
     allowed_fields: string[];

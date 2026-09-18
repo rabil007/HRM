@@ -124,12 +124,17 @@ class CrewAssignmentPresenter
         $relieves = self::relievesContext($assignment);
         $tourRepair = (new ApplyMissingCrewTourOfDuty)->inspect($assignment);
 
+        $canViewCorrections = $user?->can('crew_operations.corrections.view') ?? false;
+        $canRequestCorrections = $user?->can('crew_operations.corrections.request') ?? false;
+
         $phaseTimeline = $assignment->phases
-            ->map(function ($phase) {
-                $hasPending = $phase->relationLoaded('pendingCorrections')
+            ->map(function ($phase) use ($canViewCorrections, $canRequestCorrections) {
+                $hasPending = ($canViewCorrections || $canRequestCorrections)
+                    && $phase->relationLoaded('pendingCorrections')
                     ? $phase->pendingCorrections->isNotEmpty()
                     : false;
-                $hasApproved = $phase->relationLoaded('corrections')
+                $hasApproved = $canViewCorrections
+                    && $phase->relationLoaded('corrections')
                     ? $phase->corrections->where('status', CrewMovementCorrectionStatus::Approved)->isNotEmpty()
                     : false;
                 $employeeTrainingId = $phase->relationLoaded('employeeTraining')

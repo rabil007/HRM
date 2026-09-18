@@ -183,6 +183,39 @@ final class CrewMovementCorrectionPresenter
     }
 
     /**
+     * Minimal correctable phase data required for the request form only.
+     * Excludes remarks, raw details, actual_start_at, and actual_end_at.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function requestContextPhases(CrewAssignment $assignment): array
+    {
+        return $assignment->phases
+            ->filter(fn (CrewAssignmentPhase $phase) => $phase->actual_start_at !== null
+                && in_array($phase->status->value, ['active', 'completed'], true))
+            ->map(fn (CrewAssignmentPhase $phase) => [
+                'id' => $phase->id,
+                'phase_code' => $phase->phase_code->value,
+                'phase_label' => $phase->phase_code->label(),
+                'status' => $phase->status->value,
+                'status_label' => $phase->status->label(),
+                'is_legacy' => $phase->phase_code->isLegacy(),
+                'legacy_context_label' => $phase->phase_code->legacyContextLabel(),
+                'allowed_fields' => $this->catalog->allowedFields($phase),
+                'has_pending_correction' => $phase->relationLoaded('pendingCorrections')
+                    ? $phase->pendingCorrections->isNotEmpty()
+                    : $phase->pendingCorrections()->exists(),
+                'current_values' => $this->snapshot->capture(
+                    $assignment,
+                    $phase,
+                    $this->catalog->allowedFields($phase),
+                ),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * Minimal request context needed when a user can request corrections
      * but does not have permission to view full correction history/details.
      *
@@ -191,7 +224,7 @@ final class CrewMovementCorrectionPresenter
     public function correctionRequestContext(CrewAssignment $assignment): array
     {
         return [
-            'correctable_phases' => $this->correctablePhases($assignment),
+            'correctable_phases' => $this->requestContextPhases($assignment),
         ];
     }
 
