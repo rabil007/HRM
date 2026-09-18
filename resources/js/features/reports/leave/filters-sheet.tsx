@@ -148,18 +148,6 @@ export function LeaveReportFiltersSheet({
         >
             <div className="space-y-6">
                 <section className="space-y-4">
-                    <h3 className="text-sm font-semibold">Leave period</h3>
-                    <DateRange
-                        label="Leave period"
-                        hint="Show leave that overlaps this period."
-                        from={draft.leave_from}
-                        to={draft.leave_to}
-                        onFromChange={(value) => set('leave_from', value)}
-                        onToChange={(value) => set('leave_to', value)}
-                    />
-                </section>
-
-                <section className="space-y-4">
                     <h3 className="text-sm font-semibold">
                         Employee & organization
                     </h3>

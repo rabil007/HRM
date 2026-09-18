@@ -23,16 +23,21 @@ import {
 import { formatDisplayDate } from '@/lib/format-date';
 import { exportMethod } from '@/routes/organization/reports/leave';
 import { LeaveReportFiltersSheet } from './filters-sheet';
+import { LeavePeriodFilter } from './leave-period-filter';
 import { LeaveReportTable } from './report-table';
 import { LeaveReportSummaryCards } from './summary-cards';
 import type { LeaveReportFilters, LeaveReportProps } from './types';
 import { useLeaveReportFilters } from './use-leave-report-filters';
 
-const CHIP_EXCLUDED = new Set(['search', 'sort', 'direction']);
+const CHIP_EXCLUDED = new Set([
+    'search',
+    'sort',
+    'direction',
+    'leave_from',
+    'leave_to',
+]);
 
 const FILTER_LABELS: Partial<Record<keyof LeaveReportFilters, string>> = {
-    leave_from: 'Leave from',
-    leave_to: 'Leave to',
     employee_id: 'Employee',
     leave_type_id: 'Leave type',
     status: 'Status',
@@ -178,13 +183,24 @@ export function LeaveReportContent(props: LeaveReportProps) {
                     value={controls.searchInput}
                     onChange={controls.changeSearch}
                     right={
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-end gap-2">
+                            <LeavePeriodFilter
+                                from={filters.leave_from}
+                                to={filters.leave_to}
+                                onFromChange={(value) =>
+                                    controls.apply({ leave_from: value })
+                                }
+                                onToChange={(value) =>
+                                    controls.apply({ leave_to: value })
+                                }
+                            />
                             {controls.isLoading ? (
-                                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                                <Loader2 className="mb-3 size-4 animate-spin text-muted-foreground" />
                             ) : null}
                             <Button
                                 type="button"
                                 variant="secondary"
+                                className="mb-0.5"
                                 onClick={() => setFiltersOpen(true)}
                             >
                                 <Filter className="mr-2 size-4" />
@@ -199,6 +215,7 @@ export function LeaveReportContent(props: LeaveReportProps) {
                                 <Button
                                     type="button"
                                     variant="ghost"
+                                    className="mb-0.5"
                                     onClick={controls.clear}
                                 >
                                     Clear filters
