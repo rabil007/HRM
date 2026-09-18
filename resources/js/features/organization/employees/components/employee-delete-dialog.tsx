@@ -16,13 +16,13 @@ export function EmployeeDeleteDialog({
         <ConfirmDeleteDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="Delete employee"
+            title="Move employee to Deleted?"
             description={
                 employee
-                    ? `This will permanently delete ${employee.name}. Employees included in pay runs cannot be deleted.`
-                    : 'This will permanently delete this employee. Employees included in pay runs cannot be deleted.'
+                    ? `The employee will be removed from the active employee directory, but their Employee No. will remain reserved and the record can be restored later from Employees > Deleted. Employees included in pay runs cannot be deleted.`
+                    : 'The employee will be removed from the active employee directory, but their Employee No. will remain reserved and the record can be restored later from Employees > Deleted. Employees included in pay runs cannot be deleted.'
             }
-            confirmText="Delete"
+            confirmText="Move to Deleted"
             onConfirm={onConfirm}
         />
     );
