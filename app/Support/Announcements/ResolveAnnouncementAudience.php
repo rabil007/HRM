@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\Position;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -25,17 +26,63 @@ final class ResolveAnnouncementAudience
         $audiences = $this->normalizeAudiences($companyId, $audiences, $publisher);
 
         $query = Employee::query()
+            ->where('company_id', $companyId)
             ->where('status', 'active')
             ->with(['user:id,email']);
 
         EmployeeVisibilityScope::apply($query, $publisher, $companyId);
 
+        return $this->applyBusinessAudiences($query, $audiences)->orderBy('name')->get();
+    }
+
+    /**
+     * Resolve scheduled announcement recipients within a frozen authorization snapshot.
+     *
+     * Current business audience eligibility is intersected with the stored snapshot.
+     *
+     * @param  list<array{type: string, id?: int|null}>  $audiences
+     * @param  list<int>  $authorizedEmployeeIds
+     * @return Collection<int, Employee>
+     */
+    public function handleWithinAuthorizedEmployees(
+        int $companyId,
+        array $audiences,
+        array $authorizedEmployeeIds,
+    ): Collection {
+        $authorizedEmployeeIds = array_values(array_unique(array_filter(
+            array_map(intval(...), $authorizedEmployeeIds),
+            fn (int $id): bool => $id > 0,
+        )));
+
+        if ($authorizedEmployeeIds === []) {
+            return Collection::make();
+        }
+
+        $this->assertAudiencesBelongToCompany($companyId, $audiences);
+        $audiences = $this->normalizeAudiences($companyId, $audiences);
+
+        $query = Employee::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->whereIn('id', $authorizedEmployeeIds)
+            ->with(['user:id,email']);
+
+        return $this->applyBusinessAudiences($query, $audiences)->orderBy('name')->get();
+    }
+
+    /**
+     * @param  Builder<Employee>  $query
+     * @param  list<array{type: string, id?: int|null}>  $audiences
+     * @return Builder<Employee>
+     */
+    private function applyBusinessAudiences(Builder $query, array $audiences): Builder
+    {
         $hasAll = collect($audiences)->contains(
             fn (array $audience): bool => ($audience['type'] ?? '') === AnnouncementAudienceType::AllEmployees->value
         );
 
         if ($hasAll) {
-            return $query->orderBy('name')->get();
+            return $query;
         }
 
         $departmentIds = $this->idsForType($audiences, AnnouncementAudienceType::Department);
@@ -49,7 +96,7 @@ final class ResolveAnnouncementAudience
             ]);
         }
 
-        $query->where(function ($builder) use ($departmentIds, $branchIds, $positionIds, $employeeIds): void {
+        return $query->where(function ($builder) use ($departmentIds, $branchIds, $positionIds, $employeeIds): void {
             if ($departmentIds !== []) {
                 $builder->orWhereIn('department_id', $departmentIds);
             }
@@ -66,8 +113,6 @@ final class ResolveAnnouncementAudience
                 $builder->orWhereIn('id', $employeeIds);
             }
         });
-
-        return $query->orderBy('name')->get();
     }
 
     /**

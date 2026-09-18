@@ -26,7 +26,7 @@ final class PayrollRecordAccess
         ?User $user,
         PayrollRecord $record,
         int $companyId,
-        bool $allowSelf = true,
+        bool $allowSelf = false,
     ): void {
         abort_unless((int) $record->company_id === $companyId, 404);
 

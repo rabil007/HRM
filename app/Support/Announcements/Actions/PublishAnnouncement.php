@@ -12,7 +12,6 @@ use App\Jobs\DeliverAnnouncementWhatsAppJob;
 use App\Models\Announcement;
 use App\Models\AnnouncementDelivery;
 use App\Models\AnnouncementRecipient;
-use App\Models\Employee;
 use App\Models\User;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\ResolveAnnouncementAudience;
@@ -154,14 +153,12 @@ final class PublishAnnouncement
     {
         $snapshotIds = $announcement->authorized_employee_ids;
 
-        if (is_array($snapshotIds) && $snapshotIds !== []) {
-            return Employee::query()
-                ->where('company_id', (int) $announcement->company_id)
-                ->where('status', 'active')
-                ->whereIn('id', array_map(intval(...), $snapshotIds))
-                ->with(['user:id,email'])
-                ->orderBy('name')
-                ->get();
+        if (is_array($snapshotIds)) {
+            return $this->resolveAudience->handleWithinAuthorizedEmployees(
+                (int) $announcement->company_id,
+                $audiences,
+                $snapshotIds,
+            );
         }
 
         return $this->resolveAudience->handle((int) $announcement->company_id, $audiences, $publisher);

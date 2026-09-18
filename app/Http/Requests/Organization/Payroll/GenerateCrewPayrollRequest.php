@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Organization\Payroll;
 
 use App\Support\Employees\ActiveCompanyEmployeeRule;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Validator;
 
 class GenerateCrewPayrollRequest extends FormRequest
 {
@@ -29,39 +29,38 @@ class GenerateCrewPayrollRequest extends FormRequest
         ];
     }
 
-    public function withValidator(Validator $validator): void
+    protected function prepareForValidation(): void
     {
-        $validator->after(function (Validator $validator): void {
-            if ($validator->errors()->isNotEmpty()) {
-                return;
-            }
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $user = $this->user();
 
-            $companyId = (int) $this->attributes->get('current_company_id');
-            $employeeDates = $this->input('employee_dates', []);
+        if ($user === null || $companyId <= 0) {
+            return;
+        }
 
-            if (! is_array($employeeDates)) {
-                return;
-            }
+        if ($this->has('excluded_employee_ids') && is_array($this->input('excluded_employee_ids'))) {
+            $this->merge([
+                'excluded_employee_ids' => EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                    $user,
+                    $companyId,
+                    array_map(intval(...), $this->input('excluded_employee_ids')),
+                ),
+            ]);
+        }
 
-            foreach (array_keys($employeeDates) as $employeeId) {
-                $employeeId = (int) $employeeId;
+        if ($this->has('employee_dates') && is_array($this->input('employee_dates'))) {
+            $authorizedIds = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                $user,
+                $companyId,
+                array_map(intval(...), array_keys($this->input('employee_dates'))),
+            );
 
-                if ($employeeId <= 0) {
-                    $validator->errors()->add('employee_dates', 'One or more employee selections are invalid.');
-
-                    return;
-                }
-
-                $rule = ActiveCompanyEmployeeRule::exists($companyId, $this->user());
-                $passes = validator(
-                    ['employee_id' => $employeeId],
-                    ['employee_id' => $rule],
-                )->passes();
-
-                if (! $passes) {
-                    $validator->errors()->add('employee_dates', 'One or more employee selections are invalid.');
-                }
-            }
-        });
+            $this->merge([
+                'employee_dates' => array_intersect_key(
+                    $this->input('employee_dates'),
+                    array_flip($authorizedIds),
+                ),
+            ]);
+        }
     }
 }

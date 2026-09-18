@@ -441,3 +441,218 @@ test('scheduled announcement publish does not expand after role broadens', funct
             ->where('employee_id', $office->id)
             ->exists())->toBeFalse();
 });
+
+test('scheduled announcement with empty authorization snapshot publishes zero recipients after role broadens', function () {
+    Queue::fake();
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.publish',
+    ]);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+    $marine->update(['department_id' => $officeDept->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.announcements.store'), [
+            'title' => 'Empty Snapshot',
+            'body_html' => '<p>Hello</p>',
+            'category' => 'general',
+            'priority' => 'normal',
+            'channels' => ['in_app'],
+            'audiences' => [['type' => 'all_employees', 'id' => null]],
+            'publish_mode' => 'schedule',
+            'scheduled_at' => now()->addHour()->toIso8601String(),
+        ])
+        ->assertRedirect();
+
+    $announcement = Announcement::query()->where('company_id', $company->id)->latest('id')->first();
+
+    expect($announcement)->not->toBeNull()
+        ->and($announcement->authorized_employee_ids)->toBe([]);
+
+    $announcement->update(['scheduled_at' => now()->subMinute()]);
+
+    $role = $user->roles()->where('spatie_roles.company_id', $company->id)->first();
+    $role->update(['employee_visibility_scope' => Role::SCOPE_ALL]);
+    $role->employeeVisibilityDepartments()->detach();
+
+    $this->artisan('announcements:publish-scheduled')->assertSuccessful();
+
+    expect(AnnouncementRecipient::query()
+        ->where('announcement_id', $announcement->id)
+        ->count())->toBe(0);
+});
+
+test('scheduled marine announcement excludes employee who left marine before publish', function () {
+    Queue::fake();
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $alice] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.publish',
+        'announcements.update',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.announcements.store'), [
+            'title' => 'Marine Only',
+            'body_html' => '<p>Hello</p>',
+            'category' => 'general',
+            'priority' => 'normal',
+            'channels' => ['in_app'],
+            'audiences' => [['type' => 'department', 'id' => $marineDept->id]],
+            'publish_mode' => 'schedule',
+            'scheduled_at' => now()->addHour()->toIso8601String(),
+        ])
+        ->assertRedirect();
+
+    $announcement = Announcement::query()->where('company_id', $company->id)->latest('id')->first();
+
+    expect($announcement->authorized_employee_ids)->toBe([$alice->id]);
+
+    $alice->update(['department_id' => $officeDept->id]);
+    $announcement->update(['scheduled_at' => now()->subMinute()]);
+
+    $this->artisan('announcements:publish-scheduled')->assertSuccessful();
+
+    expect(AnnouncementRecipient::query()
+        ->where('announcement_id', $announcement->id)
+        ->pluck('employee_id')
+        ->all())->toBe([]);
+});
+
+test('scheduled marine announcement delivers to employee who remains marine', function () {
+    Queue::fake();
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $alice] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.publish',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.announcements.store'), [
+            'title' => 'Marine Remains',
+            'body_html' => '<p>Hello</p>',
+            'category' => 'general',
+            'priority' => 'normal',
+            'channels' => ['in_app'],
+            'audiences' => [['type' => 'department', 'id' => $marineDept->id]],
+            'publish_mode' => 'schedule',
+            'scheduled_at' => now()->addHour()->toIso8601String(),
+        ])
+        ->assertRedirect();
+
+    $announcement = Announcement::query()->where('company_id', $company->id)->latest('id')->first();
+    $announcement->update(['scheduled_at' => now()->subMinute()]);
+
+    $this->artisan('announcements:publish-scheduled')->assertSuccessful();
+
+    expect(AnnouncementRecipient::query()
+        ->where('announcement_id', $announcement->id)
+        ->pluck('employee_id')
+        ->all())->toBe([$alice->id]);
+});
+
+test('scheduled marine announcement does not include employee who joined marine after scheduling', function () {
+    Queue::fake();
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $alice] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.publish',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.announcements.store'), [
+            'title' => 'Marine Snapshot',
+            'body_html' => '<p>Hello</p>',
+            'category' => 'general',
+            'priority' => 'normal',
+            'channels' => ['in_app'],
+            'audiences' => [['type' => 'department', 'id' => $marineDept->id]],
+            'publish_mode' => 'schedule',
+            'scheduled_at' => now()->addHour()->toIso8601String(),
+        ])
+        ->assertRedirect();
+
+    $announcement = Announcement::query()->where('company_id', $company->id)->latest('id')->first();
+
+    $bob = Employee::factory()->forCompany($company)->create([
+        'department_id' => $marineDept->id,
+        'status' => 'active',
+        'name' => 'Bob Marine',
+    ]);
+
+    $announcement->update(['scheduled_at' => now()->subMinute()]);
+
+    $this->artisan('announcements:publish-scheduled')->assertSuccessful();
+
+    expect(AnnouncementRecipient::query()
+        ->where('announcement_id', $announcement->id)
+        ->pluck('employee_id')
+        ->all())->toBe([$alice->id])
+        ->and(AnnouncementRecipient::query()
+            ->where('announcement_id', $announcement->id)
+            ->where('employee_id', $bob->id)
+            ->exists())->toBeFalse();
+});
+
+test('editing and rescheduling an announcement refreshes the authorization snapshot', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.update',
+    ]);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.announcements.store'), [
+            'title' => 'Restricted Schedule',
+            'body_html' => '<p>Hello</p>',
+            'category' => 'general',
+            'priority' => 'normal',
+            'channels' => ['in_app'],
+            'audiences' => [['type' => 'all_employees', 'id' => null]],
+            'publish_mode' => 'schedule',
+            'scheduled_at' => now()->addHour()->toIso8601String(),
+        ])
+        ->assertRedirect();
+
+    $announcement = Announcement::query()->where('company_id', $company->id)->latest('id')->first();
+
+    expect($announcement->authorized_employee_ids)->toBe([$marine->id]);
+
+    $role = $user->roles()->where('spatie_roles.company_id', $company->id)->first();
+    $role->update(['employee_visibility_scope' => Role::SCOPE_ALL]);
+    $role->employeeVisibilityDepartments()->detach();
+
+    $this->put(route('organization.announcements.update', $announcement), [
+        'title' => 'Refreshed Schedule',
+        'body_html' => '<p>Updated</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'channels' => ['in_app'],
+        'audiences' => [['type' => 'all_employees', 'id' => null]],
+        'publish_mode' => 'schedule',
+        'scheduled_at' => now()->addHours(2)->toIso8601String(),
+    ])->assertRedirect();
+
+    $announcement->refresh();
+
+    expect(collect($announcement->authorized_employee_ids)->sort()->values()->all())
+        ->toBe(collect([$marine->id, $office->id])->sort()->values()->all());
+});

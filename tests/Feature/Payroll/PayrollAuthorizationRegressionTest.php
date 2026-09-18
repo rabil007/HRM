@@ -13,6 +13,7 @@ use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
 use App\Models\User;
 use App\Support\Payroll\Actions\GeneratePayslip;
+use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
@@ -645,6 +646,312 @@ test('platform access without membership cannot open payroll urls', function () 
             'format' => 'sif',
         ])
         ->assertForbidden();
+});
+
+test('restricted payroll user generates office payroll for visible employees only', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $marineEmployee = createOfficeEmployeeWithContract($company, 'VIS-MAR-1', 10000, 0, 0, 0);
+    $marineEmployee->update(['department_id' => $marineDept->id]);
+
+    $officeEmployee = createOfficeEmployeeWithContract($company, 'VIS-OFF-1', 8000, 0, 0, 0);
+    $officeEmployee->update(['department_id' => $officeDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    expect(PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $marineEmployee->id)
+        ->exists())->toBeTrue()
+        ->and(PayrollRecord::query()
+            ->where('period_id', $period->id)
+            ->where('employee_id', $officeEmployee->id)
+            ->exists())->toBeFalse();
+});
+
+test('restricted payroll generation recalculates generated visible records with salary inputs', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept] = makeEmployeeVisibilityFixtures();
+
+    app(ProvisionDefaultSalaryInputTypes::class)->handle($company->id);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $marineEmployee = createOfficeEmployeeWithContract($company, 'VIS-MAR-RC', 10000, 0, 0, 0);
+    $marineEmployee->update(['department_id' => $marineDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $marineEmployee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 250,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $marineEmployee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->bonus)->toBe('250.00');
+});
+
+test('restricted payroll generation preserves hidden excluded employee ids', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $marineEmployee = createOfficeEmployeeWithContract($company, 'VIS-MAR-EX', 10000, 0, 0, 0);
+    $marineEmployee->update(['department_id' => $marineDept->id]);
+
+    $officeEmployee = createOfficeEmployeeWithContract($company, 'VIS-OFF-EX', 8000, 0, 0, 0);
+    $officeEmployee->update(['department_id' => $officeDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+        'excluded_employee_ids' => [$officeEmployee->id, $marineEmployee->id],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [],
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    expect($period->fresh()->excluded_employee_ids)->toBe([$officeEmployee->id]);
+});
+
+test('restricted payroll user can add a visible employee exclusion', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $marineEmployee = createOfficeEmployeeWithContract($company, 'VIS-MAR-ADD-EX', 10000, 0, 0, 0);
+    $marineEmployee->update(['department_id' => $marineDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+        'excluded_employee_ids' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [$marineEmployee->id],
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    expect($period->fresh()->excluded_employee_ids)->toBe([$marineEmployee->id]);
+});
+
+test('forged hidden employee exclusion does not alter hidden payroll configuration', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    createOfficeEmployeeWithContract($company, 'VIS-MAR-FG', 10000, 0, 0, 0)
+        ->update(['department_id' => $marineDept->id]);
+
+    $officeEmployee = createOfficeEmployeeWithContract($company, 'VIS-OFF-FG', 8000, 0, 0, 0);
+    $officeEmployee->update(['department_id' => $officeDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+        'excluded_employee_ids' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [$officeEmployee->id],
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    expect($period->fresh()->excluded_employee_ids)->toBe([]);
+});
+
+test('forged hidden employee_dates cannot affect hidden office payroll records', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $marineEmployee = createOfficeEmployeeWithContract($company, 'VIS-MAR-DT', 10000, 0, 0, 0);
+    $marineEmployee->update(['department_id' => $marineDept->id]);
+
+    $officeEmployee = createOfficeEmployeeWithContract($company, 'VIS-OFF-DT', 8000, 0, 0, 0);
+    $officeEmployee->update(['department_id' => $officeDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $officeEmployee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'working_days' => 30,
+        'present_days' => 30,
+        'net_salary' => 8000,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'employee_dates' => [
+                $officeEmployee->id => [
+                    'start_date' => '2026-06-10',
+                    'end_date' => '2026-06-20',
+                ],
+            ],
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    $hiddenRecord = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $officeEmployee->id)
+        ->first();
+
+    expect($hiddenRecord)->not->toBeNull()
+        ->and($hiddenRecord->working_days)->toBe(30)
+        ->and($hiddenRecord->present_days)->toBe(30);
+});
+
+test('restricted payroll user cannot run whole-period recalculation', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.recalculate']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $marineEmployee = createOfficeEmployeeWithContract($company, 'VIS-MAR-WP', 10000, 0, 0, 0);
+    $marineEmployee->update(['department_id' => $marineDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'status' => PayrollPeriodStatus::Processing,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $marineEmployee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'gross_salary' => 10000,
+        'net_salary' => 10000,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('payroll.show', $period))
+        ->post(route('payroll.recalculate', $period))
+        ->assertRedirect(route('payroll.show', $period))
+        ->assertSessionHasErrors('period_id');
+});
+
+test('unrestricted payroll user can run whole-period recalculation', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.recalculate']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'status' => PayrollPeriodStatus::Processing,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+    $employee = createOfficeEmployeeWithContract($company, 'VIS-ALL-RC', 10000, 0, 0, 0);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'gross_salary' => 10000,
+        'net_salary' => 10000,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.recalculate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertSessionHas('success');
+});
+
+test('restricted payroll admin cannot remove their own out-of-scope payroll record', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'officeEmployee' => $officeEmployee] = makeEmployeeVisibilityFixtures();
+
+    $user->update(['employee_id' => $officeEmployee->id]);
+    $officeEmployee->update(['user_id' => $user->id, 'department_id' => $officeDept->id]);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $officeEmployee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'net_salary' => 5000,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->delete(route('payroll.records.destroy', [$period, $record]))
+        ->assertNotFound();
+
+    expect(PayrollRecord::query()->whereKey($record->id)->exists())->toBeTrue();
+});
+
+test('user can still read their own payslip when out of role employee scope', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'officeEmployee' => $officeEmployee] = makeEmployeeVisibilityFixtures();
+
+    $user->update(['employee_id' => $officeEmployee->id]);
+    $officeEmployee->update(['user_id' => $user->id, 'department_id' => $officeDept->id]);
+
+    grantCompanyPermissions($user, $company, ['payroll.records.view']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    Storage::fake('local');
+
+    $record = makeApprovedPayrollRecord($company, 'SELF-PAY-001');
+    $record->update(['employee_id' => $officeEmployee->id]);
+    app(GeneratePayslip::class)->handle($record->fresh());
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.payslips.show', $record))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
 });
 
 function makeApprovedPayrollRecord(Company $company, string $employeeNo, ?PayrollPeriod $period = null): PayrollRecord

@@ -95,4 +95,79 @@ final class RecalculateCrewPayroll
         return is_array($breakdown)
             && ($breakdown['salary_structure'] ?? 'daily') === 'monthly';
     }
+
+    /**
+     * @param  list<int>  $employeeIds
+     */
+    public function handleEmployees(PayrollPeriod $period, array $employeeIds, ?User $user = null): int
+    {
+        $employeeIds = array_values(array_unique(array_filter(
+            array_map(intval(...), $employeeIds),
+            fn (int $id): bool => $id > 0,
+        )));
+
+        if ($employeeIds === []) {
+            return 0;
+        }
+
+        abort_unless($period->isCrew(), 404);
+
+        if (! $period->canGenerateCrewPayroll()) {
+            throw ValidationException::withMessages([
+                'period_id' => 'Crew payroll can only be recalculated for draft or processing periods.',
+            ]);
+        }
+
+        if ($user !== null) {
+            $employeeIds = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                $user,
+                (int) $period->company_id,
+                $employeeIds,
+            );
+
+            if ($employeeIds === []) {
+                return 0;
+            }
+        }
+
+        $recordsQuery = PayrollRecord::query()
+            ->where('company_id', $period->company_id)
+            ->where('period_id', $period->id)
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->whereIn('employee_id', $employeeIds);
+
+        $recordsQuery = PayrollRecordAccess::apply($recordsQuery, $user, (int) $period->company_id);
+
+        $records = $recordsQuery->get();
+
+        if ($records->isEmpty()) {
+            return 0;
+        }
+
+        /** @var Collection<int, Collection<int, SalaryInput>> $inputsByEmployee */
+        $inputsByEmployee = SalaryInput::query()
+            ->where('company_id', $period->company_id)
+            ->where('period_id', $period->id)
+            ->with('salaryInputType')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('employee_id');
+
+        $updatedCount = 0;
+
+        DB::transaction(function () use ($records, $inputsByEmployee, &$updatedCount): void {
+            foreach ($records as $record) {
+                /** @var PayrollRecord $record */
+                $inputs = $inputsByEmployee->get($record->employee_id, Collection::make());
+                $adjusted = $this->isMonthlyCrewRecord($record)
+                    ? $this->applyMonthlyCrewSalaryInputs->apply($record, $inputs)
+                    : $this->applyCrewSalaryInputs->apply($record, $inputs);
+
+                $record->update($adjusted);
+                $updatedCount++;
+            }
+        });
+
+        return $updatedCount;
+    }
 }

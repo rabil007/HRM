@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\CountWorkingDaysInRange;
 use App\Support\Payroll\GeneratePayrollResult;
+use App\Support\Payroll\MergePayrollPeriodExclusions;
 use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
@@ -46,18 +47,19 @@ final class GenerateOfficePayroll
         }
 
         $companyId = (int) $period->company_id;
-        $excludedEmployeeIds = array_values(array_unique(array_map(
-            intval(...),
-            array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
-        )));
+        $excludedEmployeeIds = MergePayrollPeriodExclusions::resolve(
+            $period->excluded_employee_ids ?? [],
+            $excludedEmployeeIds,
+            $user,
+            $companyId,
+        );
+        $enforceableExcludedEmployeeIds = MergePayrollPeriodExclusions::enforceableForActor(
+            $excludedEmployeeIds,
+            $user,
+            $companyId,
+        );
 
         if ($user !== null) {
-            $excludedEmployeeIds = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
-                $user,
-                $companyId,
-                $excludedEmployeeIds,
-            );
-
             $employeeDates = array_intersect_key(
                 $employeeDates,
                 array_flip(EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
@@ -102,6 +104,7 @@ final class GenerateOfficePayroll
         $emptyLeaveSummary = $this->leavePeriodSummary->empty($period->company_id);
 
         $generatedCount = 0;
+        $generatedEmployeeIds = [];
         $errors = [];
 
         DB::transaction(function () use (
@@ -112,15 +115,17 @@ final class GenerateOfficePayroll
             $emptyLeaveSummary,
             $workingDaysInPeriod,
             $excludedEmployeeIds,
+            $enforceableExcludedEmployeeIds,
             $employeeDates,
             $user,
             &$generatedCount,
+            &$generatedEmployeeIds,
             &$errors,
         ): void {
-            if (! empty($excludedEmployeeIds)) {
+            if ($enforceableExcludedEmployeeIds !== []) {
                 PayrollRecord::query()
                     ->where('period_id', $period->id)
-                    ->whereIn('employee_id', $excludedEmployeeIds)
+                    ->whereIn('employee_id', $enforceableExcludedEmployeeIds)
                     ->forceDelete();
             }
             foreach ($employees as $employee) {
@@ -210,6 +215,7 @@ final class GenerateOfficePayroll
                 );
 
                 $generatedCount++;
+                $generatedEmployeeIds[] = (int) $employee->id;
             }
 
             $periodUpdates = [
@@ -226,8 +232,12 @@ final class GenerateOfficePayroll
 
             $period->update($periodUpdates);
 
-            if ($generatedCount > 0) {
-                $this->recalculateOfficePayroll->handle($period->fresh(), null, $user);
+            if ($generatedEmployeeIds !== []) {
+                $this->recalculateOfficePayroll->handleEmployees(
+                    $period->fresh(),
+                    $generatedEmployeeIds,
+                    $user,
+                );
             }
         });
 
