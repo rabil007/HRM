@@ -4843,7 +4843,9 @@ test('employee update rejects employee number reserved by a soft deleted employe
             'employee_no' => '1',
             'name' => $employee->name,
         ])
-        ->assertSessionHasErrors('employee_no');
+        ->assertSessionHasErrors([
+            'employee_no' => 'Employee No. 1 belongs to a deleted employee. Restore the existing employee from Employees > Deleted instead of creating a duplicate.',
+        ]);
 
     expect($employee->fresh()->employee_no)->toBe('DRAFT-NEW');
 });

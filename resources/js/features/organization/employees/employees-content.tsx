@@ -1,5 +1,12 @@
 import { router } from '@inertiajs/react';
-import { Download, Filter, FolderTree, Plus, Upload } from 'lucide-react';
+import {
+    Download,
+    Filter,
+    FolderTree,
+    History,
+    Plus,
+    Upload,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -65,6 +72,7 @@ import type { SavedView } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { employees as employeesIndex } from '@/routes/organization';
+import { deleted as deletedEmployeesIndex } from '@/routes/organization/employees';
 import type { PaginationMeta } from '@/types/pagination';
 import {
     buildEmployeeListQuery,
@@ -291,6 +299,19 @@ export function EmployeesContent({
                 description="Manage employee directory and assignments."
                 right={
                     <>
+                        {can.manage_deleted ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                                onClick={() =>
+                                    router.visit(deletedEmployeesIndex.url())
+                                }
+                            >
+                                <History className="mr-2 h-4 w-4" />
+                                Deleted
+                            </Button>
+                        ) : null}
                         {can.import ? (
                             <Button
                                 type="button"

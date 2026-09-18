@@ -173,6 +173,20 @@ export type EmployeePageCan = {
     delete: boolean;
     export: boolean;
     import: boolean;
+    manage_deleted: boolean;
+};
+
+export type DeletedEmployee = {
+    id: number;
+    employee_no: string;
+    name: string;
+    branch: { id: number; name: string | null } | null;
+    department: { id: number; name: string | null } | null;
+    position: { id: number; title: string | null } | null;
+    work_email: string | null;
+    phone: string | null;
+    status: string;
+    deleted_at: string | null;
 };
 
 export type EmployeeFormData = {
