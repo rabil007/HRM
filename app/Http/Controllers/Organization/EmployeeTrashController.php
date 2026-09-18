@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Support\Employees\EmployeePagePermissions;
 use App\Support\Employees\EmployeeTrashDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Employees\Resources\EmployeeDeletedListResource;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -23,7 +24,7 @@ class EmployeeTrashController extends Controller
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
 
-        $paginator = EmployeeTrashDirectoryQuery::for($companyId, $search)
+        $paginator = EmployeeTrashDirectoryQuery::for($companyId, $search, $request->user())
             ->paginate($perPage)
             ->withQueryString();
 
@@ -46,6 +47,8 @@ class EmployeeTrashController extends Controller
         $employee = Employee::onlyTrashed()
             ->where('company_id', $companyId)
             ->findOrFail($employeeId);
+
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId), 404);
 
         $employeeNo = $employee->employee_no;
         $employee->restore();

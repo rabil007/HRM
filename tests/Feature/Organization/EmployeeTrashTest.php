@@ -333,3 +333,66 @@ test('users without employee delete permission cannot access deleted employees o
 
     expect($deleted->fresh()->trashed())->toBeTrue();
 });
+
+test('deleted employees directory respects role employee visibility scope', function () {
+    ['user' => $user, 'company' => $company, 'branch' => $branch] = makeEmployeeTrashFixtures();
+    $this->actingAs($user);
+
+    $crewDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'name' => 'Crew Department',
+        'code' => 'CREW',
+        'status' => 'active',
+    ]);
+
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'name' => 'Office Department',
+        'code' => 'OFFICE',
+        'status' => 'active',
+    ]);
+
+    $deletedCrewEmployee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'CREW-DEL-001',
+            'name' => 'Deleted Crew Employee',
+            'department_id' => $crewDepartment->id,
+        ]);
+    $deletedCrewEmployee->delete();
+
+    $deletedOfficeEmployee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'OFFICE-DEL-001',
+            'name' => 'Deleted Office Employee',
+            'department_id' => $officeDepartment->id,
+        ]);
+    $deletedOfficeEmployee->delete();
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.delete']);
+    restrictTestRoleEmployeeVisibility($user, $company, [$crewDepartment->id]);
+
+    $this->get('/organization/employees/deleted')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employees-deleted')
+            ->has('employees', 1)
+            ->where('employees.0.id', $deletedCrewEmployee->id)
+            ->where('employees.0.employee_no', 'CREW-DEL-001'));
+
+    $this->from('/organization/employees/deleted')
+        ->post("/organization/employees/deleted/{$deletedOfficeEmployee->id}/restore")
+        ->assertNotFound();
+
+    expect($deletedOfficeEmployee->fresh()->trashed())->toBeTrue();
+
+    $this->from('/organization/employees/deleted')
+        ->post("/organization/employees/deleted/{$deletedCrewEmployee->id}/restore")
+        ->assertRedirect('/organization/employees/deleted')
+        ->assertSessionHas('success');
+
+    expect($deletedCrewEmployee->fresh()->trashed())->toBeFalse();
+});
