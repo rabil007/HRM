@@ -15,6 +15,10 @@ final class PayrollRecordAccess
      */
     public static function apply(Builder $query, ?User $user, int $companyId): Builder
     {
+        if ($user === null) {
+            return $query;
+        }
+
         return EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
     }
 
