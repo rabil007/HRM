@@ -30,15 +30,15 @@ final class CrewTimelineSourceHasher
         Collection $phases,
         ?CarbonInterface $effectiveCutoffDate = null,
     ): string {
-        $employeeIds = $this->employeeIdsFromPhases($phases);
         $phaseIds = $this->phaseIdsFromPhases($phases);
+        $contractEmployeeIds = $this->contractEmployeeIdsForHash($period, $phases);
 
         return $this->buildHash(
             $period,
             $cutoffDate,
             $phases,
             $effectiveCutoffDate,
-            $this->contractFingerprints($period, $employeeIds),
+            $this->contractFingerprints($period, $contractEmployeeIds),
             $this->pendingCorrectionFingerprints((int) $period->company_id, $phaseIds),
         );
     }
@@ -53,14 +53,14 @@ final class CrewTimelineSourceHasher
         LockedCrewTimelineSource $source,
         ?CarbonInterface $effectiveCutoffDate = null,
     ): string {
-        $employeeIds = $this->employeeIdsFromPhases($source->phases);
+        $contractEmployeeIds = $this->contractEmployeeIdsForHash($period, $source->phases);
 
         return $this->buildHash(
             $period,
             $cutoffDate,
             $source->phases,
             $effectiveCutoffDate,
-            $this->contractFingerprintsFromResolved($employeeIds, $source->contractsByEmployeeId),
+            $this->contractFingerprintsFromResolved($contractEmployeeIds, $source->contractsByEmployeeId),
             $this->pendingCorrectionFingerprintsFromCollection($source->pendingCorrections),
         );
     }
@@ -132,6 +132,20 @@ final class CrewTimelineSourceHasher
         return $phases
             ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->id)
             ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @return list<int>
+     */
+    private function contractEmployeeIdsForHash(PayrollPeriod $period, Collection $phases): array
+    {
+        return collect($this->employeeIdsFromPhases($phases))
+            ->merge($this->resolveContract->crewEmployeeIdsResolvableForPeriod($period))
+            ->unique()
+            ->sort()
             ->values()
             ->all();
     }

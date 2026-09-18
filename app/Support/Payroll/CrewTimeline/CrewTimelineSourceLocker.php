@@ -7,12 +7,10 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewTimesheetPreparation;
-use App\Models\CrewTimesheetPreparationLine;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
-use Carbon\CarbonInterface;
 
 /**
  * Locks crew movement source rows participating in timeline freshness before
@@ -25,6 +23,7 @@ final class CrewTimelineSourceLocker
     public function __construct(
         private readonly CrewTimelinePhaseQuery $phaseQuery,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly CrewPayrollSourceEmployeeBoundary $employeeBoundary,
     ) {}
 
     /**
@@ -37,7 +36,7 @@ final class CrewTimelineSourceLocker
         int $companyId,
     ): LockedCrewTimelineSource {
         $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $preparation->cutoff_date);
-        $employeeIds = $this->resolveBoundaryEmployeeIds($period, $preparation, $effectiveEnd, $companyId);
+        $employeeIds = $this->employeeBoundary->stableEmployeeIds($companyId, $period, $preparation);
 
         if ($employeeIds === []) {
             return new LockedCrewTimelineSource(
@@ -98,36 +97,5 @@ final class CrewTimelineSourceLocker
             contractsByEmployeeId: $contractsByEmployeeId,
             pendingCorrections: $pendingCorrections,
         );
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function resolveBoundaryEmployeeIds(
-        PayrollPeriod $period,
-        CrewTimesheetPreparation $preparation,
-        CarbonInterface $effectiveEnd,
-        int $companyId,
-    ): array {
-        $fromPhases = $this->phaseQuery->issuePhases($period, $effectiveEnd)
-            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->assignment?->employee_id)
-            ->filter(fn (int $employeeId): bool => $employeeId > 0);
-
-        $fromLines = CrewTimesheetPreparationLine::query()
-            ->where('company_id', $companyId)
-            ->where('crew_timesheet_preparation_id', $preparation->id)
-            ->pluck('employee_id')
-            ->map(fn ($id): int => (int) $id)
-            ->filter(fn (int $employeeId): bool => $employeeId > 0);
-
-        $fromContracts = $this->resolveContract->crewEmployeeIdsResolvableForPeriod($period);
-
-        return collect($fromPhases->all())
-            ->merge($fromLines->all())
-            ->merge($fromContracts)
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
     }
 }

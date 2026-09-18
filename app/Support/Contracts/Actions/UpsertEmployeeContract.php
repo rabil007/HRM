@@ -2,11 +2,13 @@
 
 namespace App\Support\Contracts\Actions;
 
+use App\Enums\PayrollCategory;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class UpsertEmployeeContract
@@ -20,6 +22,53 @@ final class UpsertEmployeeContract
      * @param  array<string, mixed>  $attributes
      */
     public function handle(
+        int $companyId,
+        Employee $employee,
+        array $attributes,
+        ?EmployeeContract $existing = null,
+        ?int $createdBy = null,
+        ?string $revisionEffectiveFrom = null,
+        ?string $revisionReason = null,
+    ): EmployeeContract {
+        if ($this->participatesInCrewPayrollSource($attributes, $existing)) {
+            return DB::transaction(function () use (
+                $companyId,
+                $employee,
+                $attributes,
+                $existing,
+                $createdBy,
+                $revisionEffectiveFrom,
+                $revisionReason,
+            ): EmployeeContract {
+                $this->lockEmployeeForContract($companyId, (int) $employee->id);
+
+                return $this->performUpsert(
+                    $companyId,
+                    $employee,
+                    $attributes,
+                    $existing,
+                    $createdBy,
+                    $revisionEffectiveFrom,
+                    $revisionReason,
+                );
+            });
+        }
+
+        return $this->performUpsert(
+            $companyId,
+            $employee,
+            $attributes,
+            $existing,
+            $createdBy,
+            $revisionEffectiveFrom,
+            $revisionReason,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function performUpsert(
         int $companyId,
         Employee $employee,
         array $attributes,
@@ -198,5 +247,36 @@ final class UpsertEmployeeContract
         }
 
         $employee->update(['company_visa_type_id' => $contract->company_visa_type_id]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function participatesInCrewPayrollSource(array $attributes, ?EmployeeContract $existing): bool
+    {
+        $rawCategory = $attributes['payroll_category'] ?? $existing?->payroll_category ?? null;
+        $category = $rawCategory instanceof PayrollCategory
+            ? $rawCategory
+            : PayrollCategory::tryFrom((string) ($rawCategory ?? ''));
+
+        return $category === PayrollCategory::Crew
+            || $existing?->payroll_category === PayrollCategory::Crew;
+    }
+
+    private function lockEmployeeForContract(int $companyId, int $employeeId): Employee
+    {
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($employee === null) {
+            throw ValidationException::withMessages([
+                'employee' => 'Employee not found in this company.',
+            ]);
+        }
+
+        return $employee;
     }
 }

@@ -199,8 +199,10 @@ final class CrewMovementService
         array $payload = [],
         ?int $actorId = null,
     ): CrewAssignment {
-        return DB::transaction(function () use ($companyId, $assignmentId, $action, $payload, $actorId): CrewAssignment {
-            $assignment = $this->lockAssignmentForMovement($companyId, $assignmentId);
+        $identity = $this->resolveAssignmentIdentity($companyId, $assignmentId);
+
+        return DB::transaction(function () use ($identity, $action, $payload, $actorId): CrewAssignment {
+            $assignment = $this->lockAssignmentForMovement($identity);
             $this->invariants->assertValid($assignment);
 
             $result = match ($action) {
@@ -229,11 +231,11 @@ final class CrewMovementService
                 ),
             };
 
-            $result = $this->reloadLocked($companyId, $result->id);
+            $result = $this->reloadLocked($identity->companyId, $result->id);
             $this->invariants->assertValid($result);
             $this->planningSync->sync($result);
 
-            return $this->reloadLocked($companyId, $result->id);
+            return $this->reloadLocked($identity->companyId, $result->id);
         });
     }
 
@@ -1388,12 +1390,12 @@ final class CrewMovementService
         return $startedAt;
     }
 
-    private function lockAssignmentForMovement(int $companyId, int $assignmentId): CrewAssignment
+    private function resolveAssignmentIdentity(int $companyId, int $assignmentId): CrewMovementAssignmentIdentity
     {
         $identity = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereKey($assignmentId)
-            ->first();
+            ->first(['id', 'company_id', 'employee_id']);
 
         if ($identity === null) {
             throw CrewMovementException::make(
@@ -1402,9 +1404,18 @@ final class CrewMovementService
             );
         }
 
-        $this->lockEmployee($companyId, (int) $identity->employee_id);
+        return new CrewMovementAssignmentIdentity(
+            companyId: (int) $identity->company_id,
+            assignmentId: (int) $identity->id,
+            employeeId: (int) $identity->employee_id,
+        );
+    }
 
-        return $this->reloadLocked($companyId, $assignmentId);
+    private function lockAssignmentForMovement(CrewMovementAssignmentIdentity $identity): CrewAssignment
+    {
+        $this->lockEmployee($identity->companyId, $identity->employeeId);
+
+        return $this->reloadLocked($identity->companyId, $identity->assignmentId);
     }
 
     private function lockEmployee(int $companyId, int $employeeId): Employee

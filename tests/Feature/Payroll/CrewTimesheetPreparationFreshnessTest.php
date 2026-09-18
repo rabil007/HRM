@@ -2,6 +2,7 @@
 
 use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimesheetPayCategory;
@@ -13,6 +14,9 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\PayrollPeriod;
+use App\Support\Contracts\Actions\UpsertEmployeeContract;
+use App\Support\CrewMovements\CrewMovementService;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\Actions\ApproveCrewTimesheetPreparation;
@@ -1419,6 +1423,119 @@ test('apply lock boundary includes fallback crew contract employees without peri
             $preparation->fresh(),
             $fixtures['user'],
             (int) $fixtures['company']->id,
+        );
+    })->toThrow(ValidationException::class);
+});
+
+test('apply rejects empty approved preparation after no-contract employee starts crew assignment', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'Asia/Dubai']);
+    EmployeeContract::query()->where('employee_id', $employee->id)->delete();
+    CrewAssignment::query()->where('employee_id', $employee->id)->delete();
+
+    $period = PayrollPeriod::factory()->for($company)->crewOperations()->create([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $period,
+        (int) $company->id,
+        (int) $user->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $period,
+        $preparation,
+        $user,
+        (int) $company->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $period,
+        $preparation->fresh(),
+        $user,
+        (int) $company->id,
+    );
+
+    $vessel = makeCrewMovementVessel('No Contract Vessel', $company);
+    $service = app(CrewMovementService::class);
+
+    $assignment = $service->createDraft($company->id, $employee->id, [
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+    ], $user->id);
+
+    $service->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-09-10 08:00:00',
+    ], $user->id);
+
+    $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-09-10 09:00:00',
+    ], $user->id);
+
+    expect(function () use ($period, $preparation, $user, $company) {
+        app(ApplyCrewTimesheetPreparation::class)->handle(
+            $period,
+            $preparation->fresh(),
+            $user,
+            (int) $company->id,
+        );
+    })->toThrow(ValidationException::class);
+});
+
+test('apply rejects empty approved preparation after new daily crew contract is created', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'Asia/Dubai']);
+    EmployeeContract::query()->where('employee_id', $employee->id)->delete();
+    CrewAssignment::query()->where('employee_id', $employee->id)->delete();
+
+    $period = PayrollPeriod::factory()->for($company)->crewOperations()->create([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $period,
+        (int) $company->id,
+        (int) $user->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $period,
+        $preparation,
+        $user,
+        (int) $company->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $period,
+        $preparation->fresh(),
+        $user,
+        (int) $company->id,
+    );
+
+    app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => ContractSalaryStructure::Daily,
+        'status' => 'active',
+        'start_date' => '2026-09-01',
+        'end_date' => null,
+        'basic_salary' => 100,
+        'site_allowance' => 30,
+        'supplementary_allowance' => 20,
+    ], createdBy: $user->id);
+
+    expect(function () use ($period, $preparation, $user, $company) {
+        app(ApplyCrewTimesheetPreparation::class)->handle(
+            $period,
+            $preparation->fresh(),
+            $user,
+            (int) $company->id,
         );
     })->toThrow(ValidationException::class);
 });
