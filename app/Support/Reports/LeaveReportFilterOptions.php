@@ -23,7 +23,8 @@ final class LeaveReportFilterOptions
                 $subQuery->selectRaw('1')
                     ->from('leave_requests')
                     ->whereColumn('leave_requests.employee_id', 'employees.id')
-                    ->where('leave_requests.company_id', $companyId);
+                    ->where('leave_requests.company_id', $companyId)
+                    ->whereNull('leave_requests.deleted_at');
             })
             ->orderBy('employees.name');
 
@@ -78,7 +79,8 @@ final class LeaveReportFilterOptions
                 $subQuery->selectRaw('1')
                     ->from('leave_requests')
                     ->whereColumn('leave_requests.employee_id', 'employees.id')
-                    ->where('leave_requests.company_id', $companyId);
+                    ->where('leave_requests.company_id', $companyId)
+                    ->whereNull('leave_requests.deleted_at');
             })
             ->tap(fn (Builder $query) => EmployeeVisibilityScope::apply($query, $user, $companyId))
             ->distinct()
