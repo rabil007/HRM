@@ -601,6 +601,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/crew/{assignment}/corrections', [CrewMovementCorrectionController::class, 'store'])
         ->middleware('can:crew_operations.corrections.request')
         ->name('organization.crew-assignments.corrections.store');
+    Route::post('organization/crew/{assignment}/corrections/override', [CrewMovementCorrectionController::class, 'override'])
+        ->middleware(['can:crew_operations.corrections.override', 'privileged.2fa'])
+        ->name('organization.crew-assignments.corrections.override');
 
     Route::get('organization/crew-movement-corrections', [CrewMovementCorrectionController::class, 'index'])
         ->middleware('can:crew_operations.corrections.view')

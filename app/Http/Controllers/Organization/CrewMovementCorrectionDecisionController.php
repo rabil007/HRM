@@ -106,6 +106,12 @@ class CrewMovementCorrectionDecisionController extends Controller
             ]);
         }
 
+        if (! $request->user()?->can('crew_operations.corrections.view')) {
+            return redirect()
+                ->route('organization.crew-assignments.show', $correction->crew_assignment_id)
+                ->with('success', 'Correction cancelled.');
+        }
+
         return redirect()
             ->route('organization.crew-movement-corrections.index')
             ->with('success', 'Correction cancelled.');

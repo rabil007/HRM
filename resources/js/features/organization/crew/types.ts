@@ -283,6 +283,8 @@ export interface PhaseTimelineItem {
     remarks: string | null;
     has_pending_correction: boolean;
     has_approved_correction: boolean;
+    own_pending_correction_id?: number | null;
+    can_cancel_pending?: boolean;
     employee_training_id?: number | null;
 }
 

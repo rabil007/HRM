@@ -126,10 +126,12 @@ class CrewAssignmentPresenter
 
         $canViewCorrections = $user?->can('crew_operations.corrections.view') ?? false;
         $canRequestCorrections = $user?->can('crew_operations.corrections.request') ?? false;
+        $canOverrideCorrections = $user?->can('crew_operations.corrections.override') ?? false;
+        $canSeePending = $canViewCorrections || $canRequestCorrections || $canOverrideCorrections;
 
         $phaseTimeline = $assignment->phases
-            ->map(function ($phase) use ($canViewCorrections, $canRequestCorrections) {
-                $hasPending = ($canViewCorrections || $canRequestCorrections)
+            ->map(function ($phase) use ($canViewCorrections, $canSeePending, $user) {
+                $hasPending = $canSeePending
                     && $phase->relationLoaded('pendingCorrections')
                     ? $phase->pendingCorrections->isNotEmpty()
                     : false;
@@ -140,6 +142,12 @@ class CrewAssignmentPresenter
                 $employeeTrainingId = $phase->relationLoaded('employeeTraining')
                     ? $phase->employeeTraining?->id
                     : null;
+
+                $ownPendingCorrection = null;
+                if ($hasPending && $user !== null && $phase->relationLoaded('pendingCorrections')) {
+                    $ownPendingCorrection = $phase->pendingCorrections
+                        ->first(fn ($c) => (int) $c->requested_by === (int) $user->id);
+                }
 
                 return [
                     'id' => $phase->id,
@@ -156,6 +164,8 @@ class CrewAssignmentPresenter
                     'remarks' => $phase->remarks,
                     'has_pending_correction' => $hasPending,
                     'has_approved_correction' => $hasApproved,
+                    'own_pending_correction_id' => $ownPendingCorrection?->id,
+                    'can_cancel_pending' => $ownPendingCorrection !== null,
                     'employee_training_id' => $employeeTrainingId,
                 ];
             })

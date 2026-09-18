@@ -1,10 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, FilePenLine, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApplyTourOfDutyDialog } from '@/features/organization/crew/actions/apply-tour-of-duty-dialog';
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
@@ -34,6 +35,7 @@ import {
     edit as editAssignment,
     show as showAssignment,
 } from '@/routes/organization/crew-assignments';
+import { cancel as cancelCorrection } from '@/routes/organization/crew-movement-corrections';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
 
@@ -150,6 +152,12 @@ export default function CrewAssignmentShow({
     can: CrewAssignmentPagePermissions;
 }) {
     const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
+    const [correctionDialogMode, setCorrectionDialogMode] = useState<
+        'request' | 'override'
+    >('request');
+    const [correctionInitialPhaseId, setCorrectionInitialPhaseId] = useState<
+        number | null
+    >(null);
     const [transferDismissed, setTransferDismissed] = useState(false);
     const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
     const [isApplyTourDialogOpen, setIsApplyTourDialogOpen] = useState(false);
@@ -176,10 +184,37 @@ export default function CrewAssignmentShow({
               ? 'Open Relief Plan'
               : 'Open Relief Assignment');
 
-    const correctablePhases =
-        corrections?.correctable_phases ??
-        correction_request_context?.correctable_phases ??
-        [];
+    const correctablePhases = useMemo(
+        () =>
+            corrections?.correctable_phases ??
+            correction_request_context?.correctable_phases ??
+            [],
+        [
+            corrections?.correctable_phases,
+            correction_request_context?.correctable_phases,
+        ],
+    );
+
+    const correctablePhaseIds = useMemo(
+        () => new Set(correctablePhases.map((phase) => phase.id)),
+        [correctablePhases],
+    );
+
+    const handleCancelPendingCorrection = (correctionId: number): void => {
+        if (
+            confirm(
+                'Are you sure you want to cancel this pending correction request?',
+            )
+        ) {
+            router.post(
+                cancelCorrection.url(correctionId),
+                {},
+                {
+                    preserveScroll: true,
+                },
+            );
+        }
+    };
 
     return (
         <>
@@ -312,7 +347,8 @@ export default function CrewAssignmentShow({
                                                                         </Badge>
                                                                     ) : null}
                                                                     {(can.view_corrections ||
-                                                                        can.request_correction) &&
+                                                                        can.request_correction ||
+                                                                        can.override_corrections) &&
                                                                     phase.has_pending_correction ? (
                                                                         <Badge variant="warning">
                                                                             Pending
@@ -323,6 +359,54 @@ export default function CrewAssignmentShow({
                                                                         <Badge variant="secondary">
                                                                             Corrected
                                                                         </Badge>
+                                                                    ) : null}
+                                                                    {can.override_corrections &&
+                                                                    !phase.has_pending_correction &&
+                                                                    correctablePhaseIds.has(
+                                                                        phase.id,
+                                                                    ) ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-6 px-2 text-xs font-medium text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400"
+                                                                            onClick={() => {
+                                                                                setCorrectionDialogMode(
+                                                                                    'override',
+                                                                                );
+                                                                                setCorrectionInitialPhaseId(
+                                                                                    phase.id,
+                                                                                );
+                                                                                setIsCorrectionDialogOpen(
+                                                                                    true,
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <FilePenLine className="mr-1 size-3" />
+                                                                            Correct
+                                                                        </Button>
+                                                                    ) : null}
+                                                                    {phase.can_cancel_pending &&
+                                                                    phase.own_pending_correction_id ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-6 px-2 text-xs font-medium text-destructive hover:bg-destructive/10"
+                                                                            onClick={() => {
+                                                                                if (
+                                                                                    phase.own_pending_correction_id
+                                                                                ) {
+                                                                                    handleCancelPendingCorrection(
+                                                                                        phase.own_pending_correction_id,
+                                                                                    );
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <X className="mr-1 size-3" />
+                                                                            Cancel
+                                                                            Request
+                                                                        </Button>
                                                                     ) : null}
                                                                     {phase.phase_code ===
                                                                         'p2b' &&
@@ -475,9 +559,16 @@ export default function CrewAssignmentShow({
                             reliefHref={reliefHref}
                             reliefActionLabel={reliefActionLabel}
                             onApplyTour={() => setIsApplyTourDialogOpen(true)}
-                            onRequestCorrection={() =>
-                                setIsCorrectionDialogOpen(true)
-                            }
+                            onRequestCorrection={() => {
+                                setCorrectionDialogMode('request');
+                                setCorrectionInitialPhaseId(null);
+                                setIsCorrectionDialogOpen(true);
+                            }}
+                            onOverrideCorrection={() => {
+                                setCorrectionDialogMode('override');
+                                setCorrectionInitialPhaseId(null);
+                                setIsCorrectionDialogOpen(true);
+                            }}
                             onVoid={() => setIsVoidDialogOpen(true)}
                             onEdit={() =>
                                 router.visit(editAssignment.url(assignment.id))
@@ -487,7 +578,8 @@ export default function CrewAssignmentShow({
                 </div>
             </Main>
 
-            {can.request_correction && correctablePhases.length > 0 ? (
+            {(can.request_correction || can.override_corrections) &&
+            correctablePhases.length > 0 ? (
                 <RequestCorrectionDialog
                     open={isCorrectionDialogOpen}
                     onOpenChange={setIsCorrectionDialogOpen}
@@ -497,6 +589,8 @@ export default function CrewAssignmentShow({
                     companyTimezone={
                         assignment.movement_context?.company_timezone
                     }
+                    mode={correctionDialogMode}
+                    initialPhaseId={correctionInitialPhaseId}
                 />
             ) : null}
 

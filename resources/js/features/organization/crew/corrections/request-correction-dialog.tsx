@@ -25,7 +25,10 @@ import {
     useCompanyTimezone,
 } from '@/lib/company-timezone';
 import { cn } from '@/lib/utils';
-import { store as storeCorrection } from '@/routes/organization/crew-assignments/corrections';
+import {
+    store as storeCorrection,
+    override as overrideCorrection,
+} from '@/routes/organization/crew-assignments/corrections';
 import {
     CORRECTION_DATE_FIELDS,
     CORRECTION_SELECT_OPTIONS,
@@ -49,6 +52,8 @@ export function RequestCorrectionDialog({
     correctablePhases,
     formOptions,
     companyTimezone,
+    mode = 'request',
+    initialPhaseId = null,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -56,6 +61,8 @@ export function RequestCorrectionDialog({
     correctablePhases: CorrectablePhase[];
     formOptions?: CrewAssignmentFormOptions;
     companyTimezone?: string;
+    mode?: 'request' | 'override';
+    initialPhaseId?: number | null;
 }): ReactElement {
     const effectiveTimezone = useCompanyTimezone(companyTimezone);
     const timezoneLabel = formatCompanyTimezoneLabel(effectiveTimezone);
@@ -87,12 +94,34 @@ export function RequestCorrectionDialog({
             return;
         }
 
-        setStep(1);
-        setSelectedPhaseId(null);
         form.reset();
         form.clearErrors();
+
+        if (initialPhaseId !== null) {
+            const phase = correctablePhases.find(
+                (p) => p.id === initialPhaseId,
+            );
+
+            if (phase && !phase.has_pending_correction) {
+                setSelectedPhaseId(phase.id);
+                form.setData({
+                    crew_assignment_phase_id: phase.id,
+                    proposed_values: initialCorrectionValues(
+                        phase,
+                        effectiveTimezone,
+                    ),
+                    reason: '',
+                });
+                setStep(2);
+
+                return;
+            }
+        }
+
+        setStep(1);
+        setSelectedPhaseId(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset state when dialog opens
-    }, [open]);
+    }, [open, initialPhaseId]);
 
     const selectPhase = (phase: CorrectablePhase): void => {
         if (phase.has_pending_correction) {
@@ -133,7 +162,12 @@ export function RequestCorrectionDialog({
             return;
         }
 
-        form.post(storeCorrection.url(assignmentId), {
+        const endpoint =
+            mode === 'override'
+                ? overrideCorrection.url(assignmentId)
+                : storeCorrection.url(assignmentId);
+
+        form.post(endpoint, {
             preserveScroll: true,
             onSuccess: () => onOpenChange(false),
         });
@@ -169,13 +203,19 @@ export function RequestCorrectionDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden glass-card p-0 sm:max-w-lg">
                 <DialogHeader className="shrink-0 space-y-1.5 border-b border-border/60 px-6 py-4 text-left">
-                    <DialogTitle>Request movement correction</DialogTitle>
+                    <DialogTitle>
+                        {mode === 'override'
+                            ? 'Correct movement directly'
+                            : 'Request movement correction'}
+                    </DialogTitle>
                     <DialogDescription>
                         {step === 1
                             ? 'Select the recorded phase you want to correct.'
                             : step === 2
                               ? 'Update the fields that need correcting.'
-                              : 'Explain why this correction is needed.'}
+                              : mode === 'override'
+                                ? 'Explain why this direct correction is needed and review immediate impact.'
+                                : 'Explain why this correction is needed.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -362,7 +402,11 @@ export function RequestCorrectionDialog({
                         <div className="space-y-4">
                             <ActionImpactPreview
                                 severity="high"
-                                title="Correction summary"
+                                title={
+                                    mode === 'override'
+                                        ? 'Immediate override impact'
+                                        : 'Correction summary'
+                                }
                                 subject={[
                                     selectedPhase.phase_code.toUpperCase(),
                                     selectedPhase.phase_label,
@@ -373,7 +417,11 @@ export function RequestCorrectionDialog({
                                     formOptions,
                                     effectiveTimezone,
                                 )}
-                                warning="This change may affect downstream operational history after approval."
+                                warning={
+                                    mode === 'override'
+                                        ? 'This privileged override takes effect immediately, updating official assignment records and dependent timelines without manager approval.'
+                                        : 'This change may affect downstream operational history after approval.'
+                                }
                             />
                             <div className="space-y-2">
                                 <Label htmlFor="correction-reason">
@@ -441,7 +489,9 @@ export function RequestCorrectionDialog({
                                 {form.processing ? (
                                     <Spinner className="mr-2" />
                                 ) : null}
-                                Confirm Correction
+                                {mode === 'override'
+                                    ? 'Apply Correction Immediately'
+                                    : 'Confirm Correction'}
                             </Button>
                         ) : null}
                     </div>

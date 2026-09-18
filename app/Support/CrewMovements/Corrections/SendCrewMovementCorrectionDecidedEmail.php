@@ -24,6 +24,10 @@ final class SendCrewMovementCorrectionDecidedEmail
             return;
         }
 
+        if ($correction->requested_by !== null && (int) $correction->requested_by === (int) $correction->decided_by) {
+            return;
+        }
+
         if (! in_array($correction->status, [
             CrewMovementCorrectionStatus::Approved,
             CrewMovementCorrectionStatus::Rejected,

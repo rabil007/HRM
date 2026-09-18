@@ -3,8 +3,6 @@
 namespace App\Support\CrewMovements\Corrections;
 
 use App\Enums\CrewMovementCorrectionStatus;
-use App\Enums\CrewPhaseCode;
-use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -14,25 +12,25 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
-use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
-use App\Support\CrewMovements\SeaServiceSyncService;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
-use App\Support\Settings\CompanyTimezone;
-use Carbon\Carbon;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 final class ApproveCrewMovementCorrection
 {
+    private readonly ValidateCrewMovementCorrection $validator;
+
+    private readonly CrewMovementCorrectionValueSnapshot $snapshot;
+
+    private readonly ApplyCrewMovementCorrectionPipeline $pipeline;
+
     public function __construct(
-        private readonly ValidateCrewMovementCorrection $validator = new ValidateCrewMovementCorrection,
-        private readonly CrewMovementCorrectionValueSnapshot $snapshot = new CrewMovementCorrectionValueSnapshot,
-        private readonly ApplyCrewMovementCorrection $applier = new ApplyCrewMovementCorrection,
-        private readonly CrewAssignmentInvariantGuard $invariantGuard = new CrewAssignmentInvariantGuard,
-        private readonly SyncPlanningAssignmentFromCrewAssignment $planningSync = new SyncPlanningAssignmentFromCrewAssignment,
-        private readonly SeaServiceSyncService $seaServiceSync = new SeaServiceSyncService,
-        private readonly RecalculateTourSignoffAfterP4StartCorrection $tourSignoffRecalc = new RecalculateTourSignoffAfterP4StartCorrection,
-    ) {}
+        ?ValidateCrewMovementCorrection $validator = null,
+        ?CrewMovementCorrectionValueSnapshot $snapshot = null,
+        ?ApplyCrewMovementCorrectionPipeline $pipeline = null,
+    ) {
+        $this->validator = $validator ?? app(ValidateCrewMovementCorrection::class);
+        $this->snapshot = $snapshot ?? app(CrewMovementCorrectionValueSnapshot::class);
+        $this->pipeline = $pipeline ?? app(ApplyCrewMovementCorrectionPipeline::class);
+    }
 
     public function handle(
         CrewMovementCorrection $correction,
@@ -124,58 +122,13 @@ final class ApproveCrewMovementCorrection
                 $correction->id,
             );
 
-            $this->applier->apply($assignment, $phase, $normalized);
-
-            $assignment->refresh();
-            $phase->refresh();
-
-            $this->tourSignoffRecalc->handle($assignment, $phase, $normalized, $approver);
-
-            $assignment->refresh();
-            $phase->refresh();
-            $assignment->load(['employee', 'phases', 'currentPhase', 'previousAssignment', 'planningAssignment']);
-
-            $this->invariantGuard->assertValid($assignment);
-            $this->planningSync->sync($assignment);
-
-            if ($phase->phase_code === CrewPhaseCode::OnVessel
-                && $phase->status === CrewPhaseStatus::Completed) {
-                $synced = $this->seaServiceSync->syncFromPhase($phase->fresh(['assignment.employee', 'assignment.vessel']));
-
-                if ($synced === null && $this->seaServiceSync->isEnabled($companyId)) {
-                    throw CrewMovementException::make(
-                        'Approved correction would leave completed on-vessel sea service unsyncable.',
-                        'correction_sea_service_unsyncable',
-                    );
-                }
-            }
-
-            if ($phase->phase_code === CrewPhaseCode::Training
-                && $phase->status === CrewPhaseStatus::Completed) {
-                $employeeTraining = EmployeeTraining::query()
-                    ->where('source_crew_assignment_phase_id', $phase->id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($employeeTraining !== null) {
-                    $trainingUpdates = [];
-                    if (array_key_exists('actual_end_at', $normalized) && $phase->actual_end_at instanceof CarbonInterface) {
-                        $timezone = CompanyTimezone::forCompanyId($companyId);
-                        $trainingUpdates['issue_date'] = Carbon::parse($phase->actual_end_at)->timezone($timezone)->toDateString();
-                    }
-                    if (array_key_exists('details.provider', $normalized)) {
-                        $trainingUpdates['institute_center'] = is_array($phase->details) ? ($phase->details['provider'] ?? null) : null;
-                    }
-                    if (array_key_exists('details.course_id', $normalized)) {
-                        $trainingUpdates['course_id'] = (int) $normalized['details.course_id'];
-                    }
-                    if ($trainingUpdates !== []) {
-                        $employeeTraining->update($trainingUpdates);
-                    }
-                }
-            }
-
-            $applied = $this->snapshot->capture($assignment, $phase, array_keys($normalized));
+            $applied = $this->pipeline->execute(
+                $assignment,
+                $phase,
+                $normalized,
+                $approver,
+                $companyId,
+            );
 
             $correction->fill([
                 'status' => CrewMovementCorrectionStatus::Approved,

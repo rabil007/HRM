@@ -24,6 +24,7 @@ export function CrewAssignmentOperationsCenter({
     reliefActionLabel,
     onApplyTour,
     onRequestCorrection,
+    onOverrideCorrection,
     onVoid,
     onEdit,
 }: {
@@ -36,6 +37,7 @@ export function CrewAssignmentOperationsCenter({
     reliefActionLabel: string;
     onApplyTour: () => void;
     onRequestCorrection: () => void;
+    onOverrideCorrection?: () => void;
     onVoid: () => void;
     onEdit: () => void;
 }): ReactElement {
@@ -52,11 +54,17 @@ export function CrewAssignmentOperationsCenter({
         0;
     const canRequestCorrection =
         can.request_correction && correctablePhasesCount > 0;
+    const canOverrideCorrection =
+        can.override_corrections && correctablePhasesCount > 0;
     const canEdit = can.update && assignment.is_editable;
     const canVoid = can.void;
 
     const showOperationalActionsCard =
-        canApplyTour || canRequestCorrection || canEdit || canVoid;
+        canApplyTour ||
+        canRequestCorrection ||
+        canOverrideCorrection ||
+        canEdit ||
+        canVoid;
 
     return (
         <div className="space-y-4">
@@ -141,6 +149,18 @@ export function CrewAssignmentOperationsCenter({
                             >
                                 <Clock className="mr-2 size-3.5 text-primary" />
                                 Apply Tour of Duty
+                            </Button>
+                        ) : null}
+
+                        {canOverrideCorrection ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-start border-amber-500/30 text-xs font-medium text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-500/20"
+                                onClick={onOverrideCorrection}
+                            >
+                                <FilePenLine className="mr-2 size-3.5 text-amber-500" />
+                                Correct Movement
                             </Button>
                         ) : null}
 
