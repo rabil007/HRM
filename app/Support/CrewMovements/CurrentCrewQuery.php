@@ -14,6 +14,7 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -31,10 +32,15 @@ class CurrentCrewQuery
         int $companyId,
         array $filters = [],
         string $view = CurrentCrewRequestFilters::VIEW_CREW,
+        ?User $user = null,
     ): LengthAwarePaginator {
         $view = CurrentCrewRequestFilters::normalizeView($view);
         $query = CrewAssignment::query()
             ->where('company_id', $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        }
 
         if (CurrentCrewRequestFilters::isOperationalListView($view)) {
             self::applyOperationalListView($query, $companyId, $view);

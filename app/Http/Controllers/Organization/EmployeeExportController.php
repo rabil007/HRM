@@ -69,7 +69,7 @@ class EmployeeExportController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $directoryFilters = EmployeeDirectoryFilters::fromRequest($request);
 
-        $query = (new EmployeeDirectoryQuery($companyId, $directoryFilters))
+        $query = (new EmployeeDirectoryQuery($companyId, $directoryFilters, $request->user()))
             ->apply(
                 Employee::query()->with(self::EXPORT_RELATIONS),
             );

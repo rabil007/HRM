@@ -3,8 +3,10 @@
 namespace App\Support\CrewMovements;
 
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -20,9 +22,9 @@ final class CurrentCrewHomeQuery
      * @param  array<string, mixed>  $filters
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public static function paginate(int $companyId, array $filters = []): LengthAwarePaginator
+    public static function paginate(int $companyId, array $filters = [], ?User $user = null): LengthAwarePaginator
     {
-        $pool = self::resolvePool($companyId, $filters);
+        $pool = self::resolvePool($companyId, $filters, $user);
         $sorted = self::sortPool($pool, CrewOperationsSettings::maxHomeDays($companyId));
         $perPage = CurrentCrewQuery::resolvePerPage($filters['per_page'] ?? null);
         $page = max(1, (int) ($filters['page'] ?? 1));
@@ -48,10 +50,10 @@ final class CurrentCrewHomeQuery
      *     max_home_days: int
      * }
      */
-    public static function summaryCounts(int $companyId): array
+    public static function summaryCounts(int $companyId, ?User $user = null): array
     {
         $maxHomeDays = CrewOperationsSettings::maxHomeDays($companyId);
-        $pool = self::resolvePool($companyId, []);
+        $pool = self::resolvePool($companyId, [], $user);
         $overLimit = $pool->filter(
             fn (array $item): bool => self::availabilityStatus(
                 $item['days_at_home'],
@@ -108,10 +110,14 @@ final class CurrentCrewHomeQuery
      * @param  array<string, mixed>  $filters
      * @return Collection<int, array<string, mixed>>
      */
-    private static function resolvePool(int $companyId, array $filters): Collection
+    private static function resolvePool(int $companyId, array $filters, ?User $user = null): Collection
     {
         $query = ActiveEmployeeConstraint::apply(Employee::query(), $companyId)
             ->with(['rank:id,name']);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        }
 
         self::applyFilters($query, $companyId, $filters);
 

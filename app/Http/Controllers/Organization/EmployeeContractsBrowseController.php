@@ -19,7 +19,7 @@ class EmployeeContractsBrowseController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        ContractAccess::assertEmployeeInCompany($employee, $companyId, 404);
+        ContractAccess::assertEmployeeInCompany($employee, $companyId, 404, $request->user());
 
         $employee->load('employeeProfileTemplate:id,name,configuration_json');
 

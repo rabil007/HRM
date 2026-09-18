@@ -6,17 +6,20 @@ use App\Exports\RolesExport;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Support\Authorization\ApplicationPermissionRegistry;
 use App\Support\Authorization\Presenters\PermissionOptionPresenter;
+use App\Support\Departments\BuildDepartmentTree;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
 {
@@ -42,6 +45,7 @@ class RoleController extends Controller
         $roles = $paginator->through(fn (Role $role) => [
             'id' => $role->id,
             'name' => $role->name,
+            'employee_visibility_scope' => $role->employee_visibility_scope ?? Role::SCOPE_ALL,
             'permissions' => $role->permissions->pluck('name')->all(),
             'created_at' => $role->created_at,
         ]);
@@ -65,19 +69,29 @@ class RoleController extends Controller
         abort_unless((int) $role->company_id === $companyId, 404);
 
         $permissions = self::applicationPermissionOptions();
-
         $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
+        $departmentTree = BuildDepartmentTree::forCompany($companyId);
+        $departmentIds = $role->employeeVisibilityDepartments()
+            ->where('departments.company_id', $companyId)
+            ->pluck('departments.id')
+            ->map(intval(...))
+            ->all();
 
         return Inertia::render('organization/role', [
             'role' => [
                 'id' => $role->id,
                 'name' => $role->name,
+                'employee_visibility_scope' => $role->name === 'Owner'
+                    ? Role::SCOPE_ALL
+                    : ($role->employee_visibility_scope ?? Role::SCOPE_ALL),
+                'department_ids' => $role->name === 'Owner' ? [] : $departmentIds,
                 'permissions' => $role->permissions()->pluck('name')->all(),
                 'created_at' => $role->created_at,
                 'updated_at' => $role->updated_at,
             ],
             'company' => $company,
             'permissions' => $permissions,
+            'department_tree' => $departmentTree,
         ]);
     }
 
@@ -85,15 +99,32 @@ class RoleController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        $data = $request->validate(self::roleValidationRules());
+        $data = $request->validate(self::roleValidationRules($companyId));
 
-        $role = Role::query()->create([
-            'company_id' => $companyId,
-            'name' => $data['name'],
-            'guard_name' => 'web',
-        ]);
+        $role = DB::transaction(function () use ($companyId, $data) {
+            $scope = $data['employee_visibility_scope'] ?? Role::SCOPE_ALL;
 
-        $role->syncPermissions($data['permissions'] ?? []);
+            $role = Role::query()->create([
+                'company_id' => $companyId,
+                'name' => $data['name'],
+                'guard_name' => 'web',
+                'employee_visibility_scope' => $scope,
+            ]);
+
+            $role->syncPermissions($data['permissions'] ?? []);
+
+            if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS && ! empty($data['department_ids'])) {
+                $syncData = [];
+                foreach ($data['department_ids'] as $departmentId) {
+                    $syncData[(int) $departmentId] = ['company_id' => $companyId];
+                }
+                $role->employeeVisibilityDepartments()->sync($syncData);
+            }
+
+            EmployeeVisibilityScope::clearCache();
+
+            return $role;
+        });
 
         return redirect()
             ->route('organization.roles.show', $role)
@@ -105,7 +136,7 @@ class RoleController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $role->company_id === $companyId, 404);
 
-        $data = $request->validate(self::roleValidationRules());
+        $data = $request->validate(self::roleValidationRules($companyId));
 
         if ($role->name === 'Owner') {
             if ($data['name'] !== 'Owner' || $request->exists('permissions')) {
@@ -114,18 +145,42 @@ class RoleController extends Controller
                 ]);
             }
 
+            if (($data['employee_visibility_scope'] ?? Role::SCOPE_ALL) !== Role::SCOPE_ALL
+                || ! empty($data['department_ids'])) {
+                throw ValidationException::withMessages([
+                    'employee_visibility_scope' => 'The Owner role employee visibility cannot be restricted.',
+                ]);
+            }
+
             return redirect()
                 ->route('organization.roles')
                 ->with('success', 'Role updated successfully.');
         }
 
-        $role->update([
-            'name' => $data['name'],
-        ]);
+        DB::transaction(function () use ($role, $companyId, $data, $request) {
+            $scope = $data['employee_visibility_scope'] ?? Role::SCOPE_ALL;
 
-        if ($request->exists('permissions')) {
-            $role->syncPermissions($data['permissions'] ?? []);
-        }
+            $role->update([
+                'name' => $data['name'],
+                'employee_visibility_scope' => $scope,
+            ]);
+
+            if ($request->exists('permissions')) {
+                $role->syncPermissions($data['permissions'] ?? []);
+            }
+
+            if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS) {
+                $syncData = [];
+                foreach ($data['department_ids'] ?? [] as $departmentId) {
+                    $syncData[(int) $departmentId] = ['company_id' => $companyId];
+                }
+                $role->employeeVisibilityDepartments()->sync($syncData);
+            } else {
+                $role->employeeVisibilityDepartments()->detach();
+            }
+
+            EmployeeVisibilityScope::clearCache();
+        });
 
         return redirect()
             ->route('organization.roles')
@@ -143,7 +198,11 @@ class RoleController extends Controller
             ]);
         }
 
-        $role->delete();
+        DB::transaction(function () use ($role) {
+            $role->employeeVisibilityDepartments()->detach();
+            $role->delete();
+            EmployeeVisibilityScope::clearCache();
+        });
 
         return redirect()
             ->route('organization.roles')
@@ -151,12 +210,30 @@ class RoleController extends Controller
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, list<mixed>>
      */
-    private static function roleValidationRules(): array
+    private static function roleValidationRules(int $companyId): array
     {
         return [
             'name' => ['required', 'string', 'max:100'],
+            'employee_visibility_scope' => [
+                'sometimes',
+                'string',
+                Rule::in([Role::SCOPE_ALL, Role::SCOPE_SELECTED_DEPARTMENTS]),
+            ],
+            'department_ids' => [
+                'nullable',
+                'array',
+                'required_if:employee_visibility_scope,'.Role::SCOPE_SELECTED_DEPARTMENTS,
+                Rule::prohibitedIf(fn () => request()->input('employee_visibility_scope') === Role::SCOPE_ALL),
+            ],
+            'department_ids.*' => [
+                'integer',
+                Rule::exists('departments', 'id')->where(function ($query) use ($companyId): void {
+                    $query->where('company_id', $companyId)
+                        ->where('status', 'active');
+                }),
+            ],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string', 'max:100', Rule::in(ApplicationPermissionRegistry::names())],
         ];

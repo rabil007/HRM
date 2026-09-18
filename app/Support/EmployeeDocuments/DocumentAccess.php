@@ -5,12 +5,23 @@ namespace App\Support\EmployeeDocuments;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeDocumentVersion;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 class DocumentAccess
 {
-    public static function assertEmployeeInCompany(Employee $employee, int $companyId, int $status = 403): void
-    {
-        abort_unless($employee->company_id === $companyId, $status);
+    public static function assertEmployeeInCompany(
+        Employee $employee,
+        int $companyId,
+        int $status = 403,
+        ?User $user = null,
+    ): void {
+        abort_unless((int) $employee->company_id === $companyId, $status);
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+        }
     }
 
     public static function assertDocumentBelongsToEmployee(
@@ -18,16 +29,36 @@ class DocumentAccess
         EmployeeDocument $document,
         int $companyId,
         int $status = 403,
+        ?User $user = null,
     ): void {
         abort_unless(
-            $employee->company_id === $companyId && $document->employee_id === $employee->id,
+            (int) $employee->company_id === $companyId && (int) $document->employee_id === (int) $employee->id,
             $status,
         );
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+        }
     }
 
-    public static function assertDocumentInCompany(EmployeeDocument $document, int $companyId): void
-    {
-        abort_unless($document->company_id === $companyId, 404);
+    public static function assertDocumentInCompany(
+        EmployeeDocument $document,
+        int $companyId,
+        ?User $user = null,
+    ): void {
+        abort_unless((int) $document->company_id === $companyId, 404);
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            $employee = $document->relationLoaded('employee')
+                ? $document->employee
+                : Employee::query()->where('company_id', $companyId)->find($document->employee_id);
+
+            if ($employee !== null) {
+                abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+            }
+        }
     }
 
     public static function assertVersionBelongsToDocument(

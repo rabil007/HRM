@@ -20,7 +20,7 @@ class TrainingsExportController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = TrainingDirectoryFilters::fromRequest($request);
 
-        $query = (new TrainingDirectoryQuery($companyId, $filters))->exportQuery();
+        $query = (new TrainingDirectoryQuery($companyId, $filters, $request->user()))->exportQuery();
         $selectedIds = SelectedRecordIds::fromRequest($request);
 
         if ($selectedIds !== []) {

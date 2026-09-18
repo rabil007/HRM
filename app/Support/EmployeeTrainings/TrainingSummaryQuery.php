@@ -2,6 +2,8 @@
 
 namespace App\Support\EmployeeTrainings;
 
+use App\Models\User;
+
 final class TrainingSummaryQuery
 {
     /**
@@ -13,7 +15,7 @@ final class TrainingSummaryQuery
      *     expiring_7: int
      * }
      */
-    public function forCompany(int $companyId, ?TrainingDirectoryFilters $filters = null): array
+    public function forCompany(int $companyId, ?TrainingDirectoryFilters $filters = null, ?User $user = null): array
     {
         $today = now()->toDateString();
         $in7 = now()->addDays(7)->toDateString();
@@ -23,6 +25,7 @@ final class TrainingSummaryQuery
         $query = (new TrainingDirectoryQuery(
             $companyId,
             $filters ?? new TrainingDirectoryFilters,
+            $user,
         ))->summaryQuery();
 
         $row = $query

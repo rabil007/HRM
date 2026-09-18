@@ -27,10 +27,10 @@ class SeaServicesIndexController extends Controller
         $filters = SeaServiceDirectoryFilters::fromRequest($request);
         $perPage = $this->resolvePerPage($request, default: 25);
 
-        $paginator = (new SeaServiceDirectoryQuery($companyId, $filters))->paginate($perPage);
+        $paginator = (new SeaServiceDirectoryQuery($companyId, $filters, $request->user()))->paginate($perPage);
 
         return Inertia::render('organization/sea-services/index', [
-            'summary' => $summaryQuery->forCompany($companyId, $filters),
+            'summary' => $summaryQuery->forCompany($companyId, $filters, $request->user()),
             'search' => $filters->search,
             'vessel_id' => $filters->vesselId,
             'vessel_type_id' => $filters->vesselTypeId,

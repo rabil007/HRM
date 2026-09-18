@@ -3,6 +3,7 @@
 namespace App\Support\Employees;
 
 use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 final class ResolveEmployeeNavigation
@@ -16,9 +17,13 @@ final class ResolveEmployeeNavigation
      *     list_query: array<string, string>
      * }|null
      */
-    public function resolve(Employee $employee, int $companyId, EmployeeDirectoryFilters $filters): ?array
-    {
-        $directoryQuery = new EmployeeDirectoryQuery($companyId, $filters);
+    public function resolve(
+        Employee $employee,
+        int $companyId,
+        EmployeeDirectoryFilters $filters,
+        ?User $user = null,
+    ): ?array {
+        $directoryQuery = new EmployeeDirectoryQuery($companyId, $filters, $user);
         $scoped = $directoryQuery->base();
 
         if (! $scoped->clone()->whereKey($employee->id)->exists()) {

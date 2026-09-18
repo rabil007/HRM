@@ -33,6 +33,9 @@ class DocumentExportController extends Controller
         $format = strtolower((string) $request->query('format', 'xlsx'));
         $timestamp = now()->format('Y-m-d_His');
 
+        $browse = $browse->forUser($user);
+        $compliance = $compliance->forUser($user);
+
         $ids = $this->parseSelectedIds($request);
         $employeeId = $request->query('employee_id');
 
@@ -40,6 +43,8 @@ class DocumentExportController extends Controller
             $employee = Employee::query()
                 ->where('company_id', $companyId)
                 ->findOrFail((int) $employeeId);
+
+            DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404, $user);
 
             $query = EmployeeDocument::query()
                 ->forCompany($companyId)

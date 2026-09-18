@@ -19,7 +19,7 @@ class ApplyCrewTourOfDutyController extends Controller
         ApplyMissingCrewTourOfDuty $action,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         Gate::authorize('performMovement', $assignment);
 

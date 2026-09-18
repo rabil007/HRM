@@ -26,6 +26,7 @@ use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Employees\EmployeeExportFieldRegistry;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\EmployeePagePermissions;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
@@ -34,6 +35,7 @@ use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
 use App\Support\Uploads\UploadedFileStorage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -55,7 +57,7 @@ class EmployeeController extends Controller
         $perPage = $this->resolvePerPage(request());
         $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
 
-        $paginator = (new EmployeeDirectoryQuery($companyId, $directoryFilters))
+        $paginator = (new EmployeeDirectoryQuery($companyId, $directoryFilters, request()->user()))
             ->apply(
                 Employee::query()->with([
                     'branch:id,name',
@@ -118,7 +120,11 @@ class EmployeeController extends Controller
             'banks' => fn () => $formOptions()['banks'],
             'roles' => fn () => $formOptions()['roles'],
             'export_field_options' => fn () => EmployeeExportFieldRegistry::optionsForUser(request()->user()),
-            'department_tree' => fn () => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
+            'department_tree' => fn () => BuildDepartmentEmployeeTree::for(
+                $companyId,
+                $directoryFilters,
+                fn (Builder $q) => EmployeeVisibilityScope::apply($q, request()->user(), $companyId),
+            ),
             'department_tree_selected_id' => $directoryFilters->departmentId !== '' ? (int) $directoryFilters->departmentId : null,
             'department_tree_selected_position_id' => $directoryFilters->positionId !== '' ? (int) $directoryFilters->positionId : null,
             'can' => fn () => EmployeePagePermissions::for(request()->user()),
@@ -147,6 +153,7 @@ class EmployeeController extends Controller
                 ->where('id', $employeeId)
                 ->first();
             abort_unless($employee instanceof Employee, 404);
+            abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
             $employee->load([
                 'branch:id,name',
                 'department:id,name',
@@ -200,6 +207,7 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
+        abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
 
         $user = request()->user();
         if ($user !== null) {
@@ -232,6 +240,7 @@ class EmployeeController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
+        abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
 
         $employee->loadMissing('employeeProfileTemplate');
 
@@ -338,6 +347,7 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
+        abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
 
         if (PayrollRecordLinkage::employeeHasRecords((int) $employee->id)) {
             return redirect()
@@ -358,6 +368,7 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
+        abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
 
         $status = $request->validated('status');
 
@@ -378,6 +389,7 @@ class EmployeeController extends Controller
     ) {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
+        abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
 
         $hadProfileTemplate = $employee->employee_profile_template_id !== null;
 

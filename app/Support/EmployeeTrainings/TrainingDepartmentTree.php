@@ -3,6 +3,7 @@
 namespace App\Support\EmployeeTrainings;
 
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,11 +25,13 @@ final class TrainingDepartmentTree
         int $companyId,
         EmployeeDirectoryFilters $filters,
         string $context = self::CONTEXT_INDEX,
+        ?User $user = null,
     ): array {
         return BuildDepartmentEmployeeTree::for(
             $companyId,
             $filters,
             self::employeeScope($companyId, $context),
+            $user ?? auth()->user(),
         );
     }
 

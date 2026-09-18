@@ -3,6 +3,7 @@
 namespace App\Support\CrewMovements;
 
 use App\Models\CrewAssignment;
+use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -28,10 +29,10 @@ final class CurrentCrewVesselQuery
      *     crew: list<array<string, mixed>>
      * }>
      */
-    public static function paginate(int $companyId, array $filters = []): LengthAwarePaginator
+    public static function paginate(int $companyId, array $filters = [], ?User $user = null): LengthAwarePaginator
     {
         $perPage = CurrentCrewQuery::resolvePerPage($filters['per_page'] ?? null);
-        $assignmentsQuery = CurrentOnboardCrewQuery::assignments($companyId, $filters);
+        $assignmentsQuery = CurrentOnboardCrewQuery::assignments($companyId, $filters, $user);
 
         $vessels = Vessel::query()
             ->where('company_id', $companyId)
@@ -41,7 +42,7 @@ final class CurrentCrewVesselQuery
             ->withQueryString();
 
         $pageVesselIds = $vessels->getCollection()->pluck('id')->map(fn ($id): int => (int) $id)->all();
-        $crewByVessel = self::matchingCrewByVessel($companyId, $filters, $pageVesselIds);
+        $crewByVessel = self::matchingCrewByVessel($companyId, $filters, $pageVesselIds, $user);
         $requiredByVessel = self::requiredCountsByVessel($companyId, $pageVesselIds, $filters);
 
         $vessels->setCollection(
@@ -83,9 +84,9 @@ final class CurrentCrewVesselQuery
      * @param  array<string, mixed>  $filters
      * @return Collection<int, CrewAssignment>
      */
-    public static function exportAssignments(int $companyId, array $filters = [], mixed $assignmentIds = [], bool $selectedOnly = false): Collection
+    public static function exportAssignments(int $companyId, array $filters = [], mixed $assignmentIds = [], bool $selectedOnly = false, ?User $user = null): Collection
     {
-        $query = CurrentOnboardCrewQuery::assignments($companyId, $filters);
+        $query = CurrentOnboardCrewQuery::assignments($companyId, $filters, $user);
 
         $selectedIds = self::sanitizeAssignmentIds($assignmentIds);
 
@@ -116,13 +117,13 @@ final class CurrentCrewVesselQuery
      * @param  list<int>  $vesselIds
      * @return Collection<int, Collection<int, CrewAssignment>>
      */
-    private static function matchingCrewByVessel(int $companyId, array $filters, array $vesselIds): Collection
+    private static function matchingCrewByVessel(int $companyId, array $filters, array $vesselIds, ?User $user = null): Collection
     {
         if ($vesselIds === []) {
             return collect();
         }
 
-        $query = CurrentOnboardCrewQuery::assignments($companyId, $filters)
+        $query = CurrentOnboardCrewQuery::assignments($companyId, $filters, $user)
             ->whereIn('vessel_id', $vesselIds);
 
         CurrentCrewQuery::eagerLoadForList($query);

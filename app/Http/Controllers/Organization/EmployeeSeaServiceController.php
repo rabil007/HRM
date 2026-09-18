@@ -8,6 +8,7 @@ use App\Http\Requests\Organization\Employee\ImportEmployeeSeaServiceRequest;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Employees\SeaServiceDuration;
 use App\Support\SeaServices\SeaServiceImportOrchestrator;
 use App\Support\SeaServices\SeaServiceImportTemplateExporter;
@@ -26,6 +27,7 @@ class EmployeeSeaServiceController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,

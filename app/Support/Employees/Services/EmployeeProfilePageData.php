@@ -71,6 +71,7 @@ final class EmployeeProfilePageData
             $employee,
             $companyId,
             $directoryFilters,
+            $authUser,
         );
 
         $formOptions = EmployeeFormOptions::for($companyId);

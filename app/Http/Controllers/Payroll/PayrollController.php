@@ -30,6 +30,7 @@ use App\Models\SalaryInputType;
 use App\Support\Contracts\ContractSalaryStructureFilter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\Actions\ApprovePayrollPeriod;
 use App\Support\Payroll\Actions\CancelPayrollPeriod;
@@ -296,6 +297,7 @@ class PayrollController extends Controller
             search: $boardSearch,
             perPage: $perPage,
             filters: $boardFilters,
+            user: $user,
         );
 
         $allBoardEmployeeIds = $boardQuery->allEmployeeIds(
@@ -303,6 +305,7 @@ class PayrollController extends Controller
             period: $payrollPeriod,
             search: $boardSearch,
             filters: $boardFilters,
+            user: $user,
         );
 
         $payrollRecordsProps = $this->paginatedPayrollRecordsProps(
@@ -359,6 +362,11 @@ class PayrollController extends Controller
             : [];
 
         $allCategoryEmployeesQuery = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
+
+        // Scope to the user's Role Employee Access Scope.
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($allCategoryEmployeesQuery, $user, $companyId);
+        }
 
         if ($boardFilters->isActive()) {
             EmployeeDirectoryQuery::applyAttributeFilters(

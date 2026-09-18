@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 
@@ -85,9 +86,13 @@ final class CrewAssignmentCreateFormOptions
         $canTransfer = CrewAssignmentPagePermissions::canTransfer($user);
         $maxHomeDays = CrewOperationsSettings::maxHomeDays($companyId);
 
-        $employeeModels = Employee::query()
+        $employeeQuery = Employee::query()
             ->where('company_id', $companyId)
-            ->active()
+            ->active();
+
+        $employeeQuery = EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
+
+        $employeeModels = $employeeQuery
             ->with(['nationalityRef:id,name'])
             ->orderBy('name')
             ->get(['id', 'name', 'employee_no', 'rank_id', 'image', 'nationality_id']);

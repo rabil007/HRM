@@ -65,7 +65,7 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
                 'required',
                 'integer',
                 'distinct',
-                ActiveCompanyEmployeeRule::exists($companyId),
+                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
             'crew.*.rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
             'crew.*.planned_arrival_at' => ['nullable', 'date'],

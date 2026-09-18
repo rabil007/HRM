@@ -12,7 +12,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Departments\BuildDepartmentTree;
-use App\Support\Employees\DepartmentDescendantIds;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -61,23 +61,6 @@ final class CrewOperationsSettings
         $cache = app('crew_operations_settings_cache');
         unset($cache[$companyId]);
         app()->instance('crew_operations_settings_cache', $cache);
-    }
-
-    /**
-     * @return list<int>
-     */
-    public static function poolDepartmentIds(int $companyId): array
-    {
-        $setting = self::findForCompany($companyId);
-
-        if ($setting === null || $setting->pool_department_ids === null) {
-            return [];
-        }
-
-        return array_values(array_unique(array_map(
-            intval(...),
-            array_filter($setting->pool_department_ids, fn ($id) => is_numeric($id)),
-        )));
     }
 
     public static function maxHomeDays(int $companyId): int
@@ -249,19 +232,26 @@ final class CrewOperationsSettings
      */
     public static function saveSettings(
         int $companyId,
-        array $departmentIds,
-        int $maxHomeDays,
-        bool $syncSeaService = true,
-        array $options = [],
+        int|array $maxHomeDays,
+        bool|int $syncSeaService = true,
+        array|bool $options = [],
+        array $extraOptions = [],
     ): CrewOperationsSetting {
-        $normalized = array_values(array_unique(array_map(intval(...), $departmentIds)));
+        if (is_array($maxHomeDays)) {
+            $actualMaxHomeDays = (int) $syncSeaService;
+            $actualSyncSeaService = (bool) $options;
+            $actualOptions = $extraOptions;
+        } else {
+            $actualMaxHomeDays = (int) $maxHomeDays;
+            $actualSyncSeaService = (bool) $syncSeaService;
+            $actualOptions = is_array($options) ? $options : [];
+        }
 
         $setting = DB::transaction(function () use (
             $companyId,
-            $normalized,
-            $maxHomeDays,
-            $syncSeaService,
-            $options,
+            $actualMaxHomeDays,
+            $actualSyncSeaService,
+            $actualOptions,
         ): CrewOperationsSetting {
             $existing = CrewOperationsSetting::query()
                 ->where('company_id', $companyId)
@@ -275,70 +265,69 @@ final class CrewOperationsSettings
                 ? false
                 : (bool) $existing->sync_training_to_employee_training;
 
-            $trainingSync = array_key_exists('sync_training_to_employee_training', $options)
-                ? (bool) $options['sync_training_to_employee_training']
+            $trainingSync = array_key_exists('sync_training_to_employee_training', $actualOptions)
+                ? (bool) $actualOptions['sync_training_to_employee_training']
                 : $previousTrainingSync;
 
-            $recipientIds = array_key_exists('notification_recipient_user_ids', $options)
+            $recipientIds = array_key_exists('notification_recipient_user_ids', $actualOptions)
                 ? self::normalizeRecipientUserIds(
                     $companyId,
-                    $options['notification_recipient_user_ids'] ?? [],
+                    $actualOptions['notification_recipient_user_ids'] ?? [],
                 )
                 : self::notificationRecipientUserIds($companyId, $existing);
 
             $setting = CrewOperationsSetting::query()->updateOrCreate(
                 ['company_id' => $companyId],
                 [
-                    'pool_department_ids' => $normalized === [] ? null : $normalized,
-                    'max_home_days' => $maxHomeDays,
-                    'sync_sea_service' => $syncSeaService,
+                    'max_home_days' => $actualMaxHomeDays,
+                    'sync_sea_service' => $actualSyncSeaService,
                     'sync_training_to_employee_training' => $trainingSync,
-                    'notifications_enabled' => array_key_exists('notifications_enabled', $options)
-                        ? (bool) $options['notifications_enabled']
+                    'notifications_enabled' => array_key_exists('notifications_enabled', $actualOptions)
+                        ? (bool) $actualOptions['notifications_enabled']
                         : (bool) ($existing?->notifications_enabled ?? false),
                     'notification_recipient_user_ids' => $recipientIds === [] ? null : $recipientIds,
-                    'alert_signoff_overdue' => array_key_exists('alert_signoff_overdue', $options)
-                        ? (bool) $options['alert_signoff_overdue']
+                    'alert_signoff_overdue' => array_key_exists('alert_signoff_overdue', $actualOptions)
+                        ? (bool) $actualOptions['alert_signoff_overdue']
                         : (bool) ($existing?->alert_signoff_overdue ?? true),
-                    'alert_signoff_no_relief' => array_key_exists('alert_signoff_no_relief', $options)
-                        ? (bool) $options['alert_signoff_no_relief']
+                    'alert_signoff_no_relief' => array_key_exists('alert_signoff_no_relief', $actualOptions)
+                        ? (bool) $actualOptions['alert_signoff_no_relief']
                         : (bool) ($existing?->alert_signoff_no_relief ?? true),
-                    'alert_relief_not_ready' => array_key_exists('alert_relief_not_ready', $options)
-                        ? (bool) $options['alert_relief_not_ready']
+                    'alert_relief_not_ready' => array_key_exists('alert_relief_not_ready', $actualOptions)
+                        ? (bool) $actualOptions['alert_relief_not_ready']
                         : (bool) ($existing?->alert_relief_not_ready ?? true),
-                    'alert_current_manning_gap' => array_key_exists('alert_current_manning_gap', $options)
-                        ? (bool) $options['alert_current_manning_gap']
+                    'alert_current_manning_gap' => array_key_exists('alert_current_manning_gap', $actualOptions)
+                        ? (bool) $actualOptions['alert_current_manning_gap']
                         : (bool) ($existing?->alert_current_manning_gap ?? true),
-                    'alert_projected_manning_gap' => array_key_exists('alert_projected_manning_gap', $options)
-                        ? (bool) $options['alert_projected_manning_gap']
+                    'alert_projected_manning_gap' => array_key_exists('alert_projected_manning_gap', $actualOptions)
+                        ? (bool) $actualOptions['alert_projected_manning_gap']
                         : (bool) ($existing?->alert_projected_manning_gap ?? true),
-                    'notification_email_delivery_mode' => array_key_exists('notification_email_delivery_mode', $options)
-                        ? ($options['notification_email_delivery_mode'] instanceof CrewOperationalAlertEmailDeliveryMode
-                            ? $options['notification_email_delivery_mode']->value
-                            : (string) $options['notification_email_delivery_mode'])
+                    'notification_email_delivery_mode' => array_key_exists('notification_email_delivery_mode', $actualOptions)
+                        ? ($actualOptions['notification_email_delivery_mode'] instanceof CrewOperationalAlertEmailDeliveryMode
+                            ? $actualOptions['notification_email_delivery_mode']->value
+                            : (string) $actualOptions['notification_email_delivery_mode'])
                         : ($existing?->notification_email_delivery_mode?->value ?? (is_string($existing?->notification_email_delivery_mode) ? $existing->notification_email_delivery_mode : 'scheduled')),
-                    'notification_email_digest_at' => array_key_exists('notification_email_digest_at', $options)
-                        ? (string) $options['notification_email_digest_at']
+                    'notification_email_digest_at' => array_key_exists('notification_email_digest_at', $actualOptions)
+                        ? (string) $actualOptions['notification_email_digest_at']
                         : ($existing?->notification_email_digest_at ?? '08:00'),
-                    'notification_email_critical_immediate' => array_key_exists('notification_email_critical_immediate', $options)
-                        ? (bool) $options['notification_email_critical_immediate']
+                    'notification_email_critical_immediate' => array_key_exists('notification_email_critical_immediate', $actualOptions)
+                        ? (bool) $actualOptions['notification_email_critical_immediate']
                         : (bool) ($existing?->notification_email_critical_immediate ?? true),
                 ],
             );
 
-            if ($previousSync !== $syncSeaService) {
+            if ($previousSync !== $actualSyncSeaService) {
                 $activity = activity()
                     ->performedOn($setting)
                     ->withProperties([
                         'company_id' => $companyId,
                         'setting_key' => self::CONFIG_SYNC_SEA_SERVICE,
                         'old' => ['sync_sea_service' => $previousSync],
-                        'attributes' => ['sync_sea_service' => $syncSeaService],
+                        'attributes' => ['sync_sea_service' => $actualSyncSeaService],
                         'old_values' => ['sync_sea_service' => $previousSync],
-                        'new_values' => ['sync_sea_service' => $syncSeaService],
+                        'new_values' => ['sync_sea_service' => $actualSyncSeaService],
                     ]);
 
-                $actorId = $options['actor_id'] ?? null;
+                $actorId = $actualOptions['actor_id'] ?? null;
 
                 if (is_int($actorId) && $actorId > 0) {
                     $activity->causedBy($actorId);
@@ -359,7 +348,7 @@ final class CrewOperationsSettings
                         'new_values' => ['sync_training_to_employee_training' => $trainingSync],
                     ]);
 
-                $actorId = $options['actor_id'] ?? null;
+                $actorId = $actualOptions['actor_id'] ?? null;
 
                 if (is_int($actorId) && $actorId > 0) {
                     $activity->causedBy($actorId);
@@ -476,41 +465,6 @@ final class CrewOperationsSettings
     }
 
     /**
-     * Expands configured pool departments to include all descendant departments.
-     *
-     * @return list<int>
-     */
-    public static function expandedPoolDepartmentIds(int $companyId): array
-    {
-        $selected = self::poolDepartmentIds($companyId);
-
-        if ($selected === []) {
-            return [];
-        }
-
-        $departments = Department::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->get(['id', 'parent_id'])
-            ->map(fn (Department $department): array => [
-                'id' => $department->id,
-                'parent_id' => $department->parent_id,
-            ])
-            ->all();
-
-        $expanded = [];
-
-        foreach ($selected as $departmentId) {
-            $expanded = array_merge(
-                $expanded,
-                DepartmentDescendantIds::includingSelf($departmentId, $departments),
-            );
-        }
-
-        return array_values(array_unique($expanded));
-    }
-
-    /**
      * @return list<array{id: int, name: string, children: list<mixed>}>
      */
     public static function activeDepartmentTree(int $companyId): array
@@ -548,21 +502,22 @@ final class CrewOperationsSettings
     /**
      * All active ranked employees for the planning crew sidebar and assign picker.
      *
-     * Filtered by configured pool departments (including descendants) when set.
+     * Scoped by the user's role employee visibility scope.
      * Does not exclude employees based on deployment or crew availability status.
      *
      * @return list<array{id: int, name: string, rank_id: int, rank_name: string}>
      */
-    public static function poolEmployees(int $companyId): array
+    public static function poolEmployees(int $companyId, ?User $user = null): array
     {
-        $departmentIds = self::expandedPoolDepartmentIds($companyId);
-
-        return Employee::query()
+        $query = Employee::query()
             ->where('employees.company_id', $companyId)
             ->active()
             ->whereNull('employees.termination_date')
-            ->whereNotNull('employees.rank_id')
-            ->when($departmentIds !== [], fn (Builder $q) => $q->whereIn('employees.department_id', $departmentIds))
+            ->whereNotNull('employees.rank_id');
+
+        $query = EmployeeVisibilityScope::apply($query, $user, $companyId);
+
+        return $query
             ->join('ranks', 'employees.rank_id', '=', 'ranks.id')
             ->whereNull('ranks.deleted_at')
             ->where('ranks.is_active', true)

@@ -3,6 +3,7 @@
 namespace App\Support\BankAccounts;
 
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,11 +28,13 @@ final class BankAccountDepartmentTree
         int $companyId,
         EmployeeDirectoryFilters $filters,
         string $context,
+        ?User $user = null,
     ): array {
         return BuildDepartmentEmployeeTree::for(
             $companyId,
             $filters,
             self::employeeScope($companyId, $context),
+            $user ?? auth()->user(),
         );
     }
 

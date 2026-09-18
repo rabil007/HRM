@@ -20,7 +20,7 @@ class ContractsExportController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = ContractDirectoryFilters::fromRequest($request);
 
-        $query = (new ContractDirectoryQuery($companyId, $filters))->exportQuery();
+        $query = (new ContractDirectoryQuery($companyId, $filters, $request->user()))->exportQuery();
         $selectedIds = SelectedRecordIds::fromRequest($request);
 
         if ($selectedIds !== []) {

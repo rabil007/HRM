@@ -110,7 +110,7 @@ class CrewPlanningController extends Controller
             Gate::authorize('viewAny', CrewAssignment::class);
 
             $onboardFilters = CurrentCrewRequestFilters::fromRequest($request);
-            $paginator = CurrentCrewVesselQuery::paginate($companyId, $onboardFilters);
+            $paginator = CurrentCrewVesselQuery::paginate($companyId, $onboardFilters, $request->user());
 
             return Inertia::render('organization/crew-planning/index', [
                 ...$shared,
@@ -161,7 +161,7 @@ class CrewPlanningController extends Controller
                 $rankId,
                 $projectionPositions,
             ),
-            'employees' => CrewOperationsSettings::poolEmployees($companyId),
+            'employees' => CrewOperationsSettings::poolEmployees($companyId, $request->user()),
             'projection' => $projection,
             'relief_prefill' => $this->reliefPrefill($request, $companyId),
             'onboard_vessels' => [],

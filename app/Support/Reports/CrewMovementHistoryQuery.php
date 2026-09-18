@@ -9,7 +9,9 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
+use App\Models\User;
 use App\Models\Vessel;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,6 +36,7 @@ final class CrewMovementHistoryQuery
         private readonly int $companyId,
         private readonly CrewMovementHistoryFilters $filters,
         private readonly string $timezone,
+        private readonly ?User $user = null,
     ) {}
 
     /**
@@ -89,6 +92,10 @@ final class CrewMovementHistoryQuery
     {
         $query = CrewAssignment::query()
             ->where('crew_assignments.company_id', $this->companyId);
+
+        if ($this->user !== null) {
+            EmployeeVisibilityScope::whereHas($query, $this->user, $this->companyId, 'employee');
+        }
 
         if ($withRelations) {
             $query->with([

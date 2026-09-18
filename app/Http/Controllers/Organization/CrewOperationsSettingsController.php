@@ -21,12 +21,10 @@ class CrewOperationsSettingsController extends Controller
         $companyTimezone = CompanyTimezone::forCompanyId($companyId);
 
         return Inertia::render('organization/crew-operations/settings', [
-            'department_tree' => CrewOperationsSettings::activeDepartmentTree($companyId),
             'notification_users' => CrewOperationsSettings::notificationRecipientOptions($companyId),
             'company_timezone' => $companyTimezone,
             'can' => CrewOperationsSettingsPagePermissions::for($request->user()),
             'crew_settings' => [
-                'pool_department_ids' => CrewOperationsSettings::poolDepartmentIds($companyId),
                 'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),
                 'sync_sea_service' => CrewOperationsSettings::syncSeaServiceEnabled($companyId),
                 'sync_training_to_employee_training' => CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled($companyId),
@@ -59,7 +57,6 @@ class CrewOperationsSettingsController extends Controller
 
         CrewOperationsSettings::saveSettings(
             $companyId,
-            $request->validated('pool_department_ids') ?? [],
             (int) $request->validated('max_home_days'),
             $request->boolean('sync_sea_service'),
             $options,

@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -37,6 +38,10 @@ final class LeaveRequestVisibility
     public function applyIndexScope(Builder $query, ?User $user, int $companyId): void
     {
         if ($this->canViewAll($user)) {
+            // Managers may see all leave requests, but only for employees
+            // within their Role Employee Access Scope.
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+
             return;
         }
 
@@ -108,7 +113,10 @@ final class LeaveRequestVisibility
         }
 
         if ($this->canViewAll($user)) {
-            return true;
+            // Managers are still limited to employees within their visibility scope.
+            $employee = $leaveRequest->employee ?? Employee::query()->find($leaveRequest->employee_id);
+
+            return $employee !== null && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
         }
 
         if ($user === null) {

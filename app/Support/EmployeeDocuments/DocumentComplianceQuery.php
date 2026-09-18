@@ -4,8 +4,10 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -15,7 +17,21 @@ final class DocumentComplianceQuery
 {
     public function __construct(
         private readonly DocumentRequirementResolver $resolver = new DocumentRequirementResolver,
+        private ?User $user = null,
     ) {}
+
+    public function forUser(?User $user): self
+    {
+        $clone = clone $this;
+        $clone->user = $user;
+
+        return $clone;
+    }
+
+    private function resolveUser(?User $user = null): ?User
+    {
+        return $user ?? $this->user ?? auth()->user();
+    }
 
     /**
      * @return array{required: int, valid: int, expiring: int, expired: int, missing: int}
@@ -305,12 +321,19 @@ final class DocumentComplianceQuery
         ?string $search = null,
         array $employeeIds = [],
     ): Builder {
+        $actor = $this->resolveUser();
         $employees = Employee::query();
+
+        if ($actor !== null) {
+            EmployeeVisibilityScope::apply($employees, $actor, $companyId);
+        }
+
         EmployeeDirectoryQuery::applyAttributeFilters(
             $employees,
             $companyId,
             new EmployeeDirectoryFilters(departmentId: $departmentId),
             exceptPosition: true,
+            user: $actor,
         );
 
         if ($employeeIds !== []) {

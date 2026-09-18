@@ -3,6 +3,7 @@
 namespace App\Support\Contracts;
 
 use App\Models\EmployeeContract;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -12,6 +13,7 @@ final class ContractDirectoryQuery
     public function __construct(
         private readonly int $companyId,
         private readonly ContractDirectoryFilters $filters,
+        private readonly ?User $user = null,
     ) {}
 
     /**
@@ -114,6 +116,7 @@ final class ContractDirectoryQuery
                     $employeeQuery,
                     $this->companyId,
                     $this->filters,
+                    $this->user,
                 );
             });
     }
