@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { History, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -11,6 +11,7 @@ import {
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
+import { MobileRecordList } from '@/components/mobile-record-list';
 import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
@@ -20,10 +21,14 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { DeletedEmployeeMobileCard } from '@/features/organization/employees/components/deleted-employee-mobile-card';
 import { EmployeeRestoreDialog } from '@/features/organization/employees/components/employee-restore-dialog';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDateTime } from '@/lib/format-date';
-import { DESKTOP_OPERATIONAL_TABLE_CLASS } from '@/lib/mobile-operational-list';
+import {
+    DESKTOP_OPERATIONAL_TABLE_CLASS,
+    MOBILE_OPERATIONAL_LIST_CLASS,
+} from '@/lib/mobile-operational-list';
 import { employees as employeesIndex } from '@/routes/organization';
 import { deleted as deletedEmployeesIndex } from '@/routes/organization/employees';
 import deletedEmployeeRoutes from '@/routes/organization/employees/deleted';
@@ -57,13 +62,27 @@ export function DeletedEmployeesContent({
     const [restoreEmployee, setRestoreEmployee] =
         useState<DeletedEmployee | null>(null);
 
+    const restoreListQuery = useMemo(
+        () => ({
+            search: initialSearch || undefined,
+            page:
+                pagination.current_page > 1
+                    ? pagination.current_page
+                    : undefined,
+            per_page: pagination.per_page,
+        }),
+        [initialSearch, pagination.current_page, pagination.per_page],
+    );
+
     const confirmRestore = () => {
         if (!restoreEmployee) {
             return;
         }
 
         router.post(
-            deletedEmployeeRoutes.restore.url(restoreEmployee.id),
+            deletedEmployeeRoutes.restore.url(restoreEmployee.id, {
+                query: restoreListQuery,
+            }),
             {},
             {
                 preserveScroll: true,
@@ -114,108 +133,131 @@ export function DeletedEmployeesContent({
                         }
                     />
                 ) : (
-                    <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
-                        <OrganizationDataTable minWidth="min-w-[1280px]">
-                            <TableHeader>
-                                <DataTableHeaderRow>
-                                    <DataTableHead>Employee No.</DataTableHead>
-                                    <DataTableHead>Name</DataTableHead>
-                                    <DataTableHead>Branch</DataTableHead>
-                                    <DataTableHead>Department</DataTableHead>
-                                    <DataTableHead>Position</DataTableHead>
-                                    <DataTableHead>Work email</DataTableHead>
-                                    <DataTableHead>Phone</DataTableHead>
-                                    <DataTableHead>
-                                        Previous status
-                                    </DataTableHead>
-                                    <DataTableHead>Deleted</DataTableHead>
-                                    <DataTableHead className="text-right">
-                                        Actions
-                                    </DataTableHead>
-                                </DataTableHeaderRow>
-                            </TableHeader>
-                            <TableBody>
+                    <>
+                        <div className={MOBILE_OPERATIONAL_LIST_CLASS}>
+                            <MobileRecordList>
                                 {employees.map((employee) => (
-                                    <TableRow
+                                    <DeletedEmployeeMobileCard
                                         key={employee.id}
-                                        className={dataTableBodyRowClass()}
-                                    >
-                                        <TableCell
-                                            className={dataTableCellPrimaryClass()}
-                                        >
-                                            {employee.employee_no}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {employee.name}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {employee.branch?.name ?? '—'}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {employee.department?.name ?? '—'}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {employee.position?.title ?? '—'}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {employee.work_email ?? '—'}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {employee.phone ?? '—'}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {formatEmployeeStatus(
-                                                employee.status,
-                                            )}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            {employee.deleted_at
-                                                ? formatDisplayDateTime(
-                                                      employee.deleted_at,
-                                                  )
-                                                : '—'}
-                                        </TableCell>
-                                        <TableCell
-                                            className={dataTableActionsCellClass()}
-                                        >
-                                            {can.manage_deleted ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    className="h-9 rounded-lg"
-                                                    onClick={() =>
-                                                        setRestoreEmployee(
-                                                            employee,
-                                                        )
-                                                    }
-                                                >
-                                                    <RotateCcw className="mr-2 h-4 w-4" />
-                                                    Restore
-                                                </Button>
-                                            ) : null}
-                                        </TableCell>
-                                    </TableRow>
+                                        employee={employee}
+                                        canRestore={can.manage_deleted}
+                                        onRestore={setRestoreEmployee}
+                                    />
                                 ))}
-                            </TableBody>
-                        </OrganizationDataTable>
-                    </div>
+                            </MobileRecordList>
+                        </div>
+
+                        <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
+                            <OrganizationDataTable minWidth="min-w-[1280px]">
+                                <TableHeader>
+                                    <DataTableHeaderRow>
+                                        <DataTableHead>
+                                            Employee No.
+                                        </DataTableHead>
+                                        <DataTableHead>Name</DataTableHead>
+                                        <DataTableHead>Branch</DataTableHead>
+                                        <DataTableHead>
+                                            Department
+                                        </DataTableHead>
+                                        <DataTableHead>Position</DataTableHead>
+                                        <DataTableHead>
+                                            Work email
+                                        </DataTableHead>
+                                        <DataTableHead>Phone</DataTableHead>
+                                        <DataTableHead>
+                                            Previous status
+                                        </DataTableHead>
+                                        <DataTableHead>Deleted</DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Actions
+                                        </DataTableHead>
+                                    </DataTableHeaderRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {employees.map((employee) => (
+                                        <TableRow
+                                            key={employee.id}
+                                            className={dataTableBodyRowClass()}
+                                        >
+                                            <TableCell
+                                                className={dataTableCellPrimaryClass()}
+                                            >
+                                                {employee.employee_no}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {employee.name}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {employee.branch?.name ?? '—'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {employee.department?.name ??
+                                                    '—'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {employee.position?.title ??
+                                                    '—'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {employee.work_email ?? '—'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {employee.phone ?? '—'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {formatEmployeeStatus(
+                                                    employee.status,
+                                                )}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                {employee.deleted_at
+                                                    ? formatDisplayDateTime(
+                                                          employee.deleted_at,
+                                                      )
+                                                    : '—'}
+                                            </TableCell>
+                                            <TableCell
+                                                className={dataTableActionsCellClass()}
+                                            >
+                                                {can.manage_deleted ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        className="h-9 rounded-lg"
+                                                        onClick={() =>
+                                                            setRestoreEmployee(
+                                                                employee,
+                                                            )
+                                                        }
+                                                    >
+                                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                                        Restore
+                                                    </Button>
+                                                ) : null}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </OrganizationDataTable>
+                        </div>
+                    </>
                 )}
             </OrganizationListPageShell>
 

@@ -29,8 +29,8 @@ export function EmployeeRestoreDialog({
                     <AlertDialogTitle>Restore employee?</AlertDialogTitle>
                     <AlertDialogDescription>
                         {employee
-                            ? `This will restore Employee No. ${employee.employee_no} and return the employee to the Employees directory.`
-                            : 'This will restore the employee and return them to the Employees directory.'}
+                            ? `This will restore Employee No. ${employee.employee_no} with their previous employee status.`
+                            : 'This will restore the employee with their previous employee status.'}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
