@@ -8,11 +8,13 @@ export function EmployeeProfileLink({
     children,
     className,
     stopRowNavigation = false,
+    'aria-label': ariaLabel,
 }: {
     employeeId: number;
     children: ReactNode;
     className?: string;
     stopRowNavigation?: boolean;
+    'aria-label'?: string;
 }): ReactElement {
     const handleClick = (event: MouseEvent): void => {
         if (stopRowNavigation) {
@@ -28,6 +30,7 @@ export function EmployeeProfileLink({
                 className,
             )}
             onClick={handleClick}
+            aria-label={ariaLabel}
         >
             {children}
         </Link>
