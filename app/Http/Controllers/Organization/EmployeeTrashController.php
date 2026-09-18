@@ -53,8 +53,25 @@ class EmployeeTrashController extends Controller
         $employeeNo = $employee->employee_no;
         $employee->restore();
 
+        $search = trim((string) $request->query('search', ''));
+        $perPage = $this->resolvePerPage($request);
+        $page = max(1, (int) $request->query('page', 1));
+
+        $remainingCount = EmployeeTrashDirectoryQuery::for($companyId, $search)->count();
+        $lastPage = max(1, (int) ceil($remainingCount / $perPage));
+
+        if ($page > $lastPage) {
+            $page = $lastPage;
+        }
+
+        $redirectParams = array_filter([
+            'search' => $search !== '' ? $search : null,
+            'page' => $page > 1 ? $page : null,
+            'per_page' => $perPage !== 20 ? $perPage : null,
+        ], fn ($value) => $value !== null && $value !== '');
+
         return redirect()
-            ->route('organization.employees.deleted', $request->only(['search', 'page', 'per_page']))
-            ->with('success', "Employee No. {$employeeNo} has been restored and returned to the Employees directory.");
+            ->route('organization.employees.deleted', $redirectParams)
+            ->with('success', "Employee No. {$employeeNo} restored successfully. The employee retains their previous status.");
     }
 }
