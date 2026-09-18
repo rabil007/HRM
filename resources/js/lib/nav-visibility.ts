@@ -218,6 +218,8 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'crew_operations.corrections.view'),
     '/organization/reports/crew-movement-history': (permissions) =>
         has(permissions, 'reports.crew_movement_history.view'),
+    '/organization/reports/leave': (permissions) =>
+        has(permissions, 'reports.leave.view'),
     '/organization/documents': (permissions) =>
         has(permissions, 'documents.view'),
     '/organization/documents/library': (permissions) =>

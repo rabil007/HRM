@@ -47,6 +47,7 @@ final class NavigationDestinationCatalog
             ['key' => 'crew.corrections', 'label' => 'Movement Corrections', 'href' => '/organization/crew-movement-corrections', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.corrections.view'], 'platform' => null],
             ['key' => 'crew.settings', 'label' => 'Settings', 'href' => '/organization/crew-operations/settings', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.settings.view'], 'platform' => null],
             ['key' => 'reports.crew-movement-history', 'label' => 'Crew Movement History', 'href' => '/organization/reports/crew-movement-history', 'group' => 'Reports', 'permissions' => ['reports.crew_movement_history.view'], 'platform' => null],
+            ['key' => 'reports.leave', 'label' => 'Leave Report', 'href' => '/organization/reports/leave', 'group' => 'Reports', 'permissions' => ['reports.leave.view'], 'platform' => null],
             ['key' => 'hikvision.persons', 'label' => 'Persons', 'href' => '/hikvision/persons', 'group' => 'Hikvision', 'permissions' => ['hikvision.persons.view'], 'platform' => null],
             ['key' => 'hikvision.access-events', 'label' => 'Access Events', 'href' => '/hikvision/access-events', 'group' => 'Hikvision', 'permissions' => ['hikvision.events.view'], 'platform' => null],
             ['key' => 'attendance.overview', 'label' => 'Overview', 'href' => '/attendance/overview', 'group' => 'Attendance', 'permissions' => ['attendance.overview.view'], 'platform' => null],
