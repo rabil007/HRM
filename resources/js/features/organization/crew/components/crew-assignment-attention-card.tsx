@@ -13,11 +13,14 @@ import { show as showCorrection } from '@/routes/organization/crew-movement-corr
 export function CrewAssignmentAttentionCard({
     warnings,
     corrections,
+    canViewCorrections = false,
 }: {
     warnings: CrewAssignmentWarning[];
-    corrections?: CorrectionsSummary;
+    corrections?: CorrectionsSummary | null;
+    canViewCorrections?: boolean;
 }): ReactElement | null {
-    const pendingCorrections = corrections?.pending ?? [];
+    const pendingCorrections =
+        canViewCorrections && corrections?.pending ? corrections.pending : [];
     const totalCount = warnings.length + pendingCorrections.length;
 
     if (totalCount === 0) {

@@ -28,7 +28,7 @@ export function DetailsHeader({
     return (
         <div
             className={cn(
-                'mb-8 flex flex-col gap-6 md:flex-row md:flex-wrap md:items-start md:justify-between',
+                'mb-8 flex flex-col gap-6 md:flex-row md:flex-wrap md:items-end md:justify-between',
                 className,
             )}
         >
@@ -46,9 +46,8 @@ export function DetailsHeader({
                     <div className="flex flex-wrap items-center gap-3">
                         <h1
                             className={cn(
-                                'text-3xl font-extrabold tracking-tight md:text-4xl',
-                                titleClassName ??
-                                    'bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent',
+                                'bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent',
+                                titleClassName,
                             )}
                         >
                             {title}

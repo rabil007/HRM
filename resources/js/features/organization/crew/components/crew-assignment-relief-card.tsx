@@ -13,10 +13,12 @@ export function CrewAssignmentReliefCard({
     assignment,
     reliefHref,
     reliefActionLabel,
+    canViewAssignments = true,
 }: {
     assignment: CrewAssignmentDetail;
     reliefHref: string | null;
     reliefActionLabel: string;
+    canViewAssignments?: boolean;
 }): ReactElement {
     return (
         <Card className="border-border/80 dark:border-white/10">
@@ -80,14 +82,21 @@ export function CrewAssignmentReliefCard({
                         <CrewMetadataField
                             label="Relief assignment"
                             value={
-                                <Link
-                                    href={showAssignment.url(
-                                        assignment.relief_crew_assignment_id,
-                                    )}
-                                    className="font-mono text-primary hover:underline"
-                                >
-                                    Open assignment
-                                </Link>
+                                canViewAssignments ? (
+                                    <Link
+                                        href={showAssignment.url(
+                                            assignment.relief_crew_assignment_id,
+                                        )}
+                                        className="font-mono text-primary hover:underline"
+                                    >
+                                        Open assignment
+                                    </Link>
+                                ) : (
+                                    <span className="font-mono text-muted-foreground">
+                                        Assignment #
+                                        {assignment.relief_crew_assignment_id}
+                                    </span>
+                                )
                             }
                         />
                     ) : null}

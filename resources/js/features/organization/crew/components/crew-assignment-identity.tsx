@@ -23,20 +23,32 @@ export function CrewAssignmentIdentity({
     onEdit: () => void;
 }): ReactElement {
     const employee = assignment.employee;
+    const canViewEmployee = can.view_employee;
 
     const avatarNode = employee ? (
-        <EmployeeProfileLink
-            employeeId={employee.id}
-            aria-label={`View ${employee.name}'s profile`}
-            className="shrink-0 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none md:rounded-2xl"
-        >
-            <EmployeeAvatar
-                name={employee.name}
-                image={employee.image}
-                size="md"
-                className="size-12 rounded-xl text-lg font-bold shadow-sm ring-1 ring-border/50 transition-transform hover:scale-[1.02] md:size-16 md:rounded-2xl md:text-xl"
-            />
-        </EmployeeProfileLink>
+        canViewEmployee ? (
+            <EmployeeProfileLink
+                employeeId={employee.id}
+                aria-label={`View ${employee.name}'s profile`}
+                className="shrink-0 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none md:rounded-2xl"
+            >
+                <EmployeeAvatar
+                    name={employee.name}
+                    image={employee.image}
+                    size="md"
+                    className="size-12 rounded-xl text-lg font-bold shadow-sm ring-1 ring-border/50 transition-transform hover:scale-[1.02] md:size-16 md:rounded-2xl md:text-xl"
+                />
+            </EmployeeProfileLink>
+        ) : (
+            <div className="shrink-0">
+                <EmployeeAvatar
+                    name={employee.name}
+                    image={employee.image}
+                    size="md"
+                    className="size-12 rounded-xl text-lg font-bold shadow-sm ring-1 ring-border/50 md:size-16 md:rounded-2xl md:text-xl"
+                />
+            </div>
+        )
     ) : (
         <div
             className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground ring-1 ring-border/50 md:size-16 md:rounded-2xl"
@@ -47,19 +59,25 @@ export function CrewAssignmentIdentity({
     );
 
     const titleNode = employee ? (
-        <EmployeeProfileLink
-            employeeId={employee.id}
-            aria-label={`View ${employee.name}'s profile`}
-            className="group inline-flex items-center gap-1.5 rounded-sm font-extrabold text-foreground transition-colors hover:text-foreground/85 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
-        >
-            <span className="tracking-tight underline-offset-4 group-hover:underline">
+        canViewEmployee ? (
+            <EmployeeProfileLink
+                employeeId={employee.id}
+                aria-label={`View ${employee.name}'s profile`}
+                className="group inline-flex items-center gap-1.5 rounded-sm font-extrabold text-foreground transition-colors hover:text-foreground/85 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+            >
+                <span className="tracking-tight underline-offset-4 group-hover:underline">
+                    {employee.name}
+                </span>
+                <ArrowUpRight
+                    className="size-5 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground md:size-6"
+                    aria-hidden="true"
+                />
+            </EmployeeProfileLink>
+        ) : (
+            <span className="font-extrabold tracking-tight text-foreground">
                 {employee.name}
             </span>
-            <ArrowUpRight
-                className="size-5 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground md:size-6"
-                aria-hidden="true"
-            />
-        </EmployeeProfileLink>
+        )
     ) : (
         <span className="text-foreground">{assignment.assignment_no}</span>
     );
@@ -124,9 +142,10 @@ export function CrewAssignmentIdentity({
     return (
         <DetailsHeader
             kicker="Crew Assignments"
+            className="md:items-start"
             avatar={avatarNode}
             title={titleNode}
-            titleClassName="text-foreground"
+            titleClassName="text-3xl font-extrabold tracking-tight md:text-4xl text-foreground bg-none"
             description={descriptionNode}
             badges={badgesNode}
             backHref={crewAssignmentsIndex.url()}

@@ -24,11 +24,13 @@ import type {
     CrewAssignmentDetail,
     CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
+    CrewCorrectionRequestContext,
 } from '@/features/organization/crew/types';
 
 export function CrewAssignmentOperationsCenter({
     assignment,
     corrections,
+    correctionRequestContext,
     can,
     formOptions,
     reliefHref,
@@ -39,7 +41,8 @@ export function CrewAssignmentOperationsCenter({
     onEdit,
 }: {
     assignment: CrewAssignmentDetail;
-    corrections?: CorrectionsSummary;
+    corrections?: CorrectionsSummary | null;
+    correctionRequestContext?: CrewCorrectionRequestContext | null;
     can: CrewAssignmentPagePermissions;
     formOptions?: CrewAssignmentFormOptions;
     reliefHref: string | null;
@@ -56,9 +59,12 @@ export function CrewAssignmentOperationsCenter({
 
     const canApplyTour =
         can.perform_movement && assignment.can_apply_tour_of_duty;
+    const correctablePhasesCount =
+        corrections?.correctable_phases.length ??
+        correctionRequestContext?.correctable_phases.length ??
+        0;
     const canRequestCorrection =
-        can.request_correction &&
-        (corrections?.correctable_phases.length ?? 0) > 0;
+        can.request_correction && correctablePhasesCount > 0;
     const hasMoreActions = (can.update && assignment.is_editable) || can.void;
 
     const showQuickActionsCard =
@@ -108,6 +114,7 @@ export function CrewAssignmentOperationsCenter({
             <CrewAssignmentAttentionCard
                 warnings={assignment.warnings}
                 corrections={corrections}
+                canViewCorrections={can.view_corrections}
             />
 
             {/* 3. Mobilisation Checks */}
@@ -124,6 +131,7 @@ export function CrewAssignmentOperationsCenter({
                     assignment={assignment}
                     reliefHref={reliefHref}
                     reliefActionLabel={reliefActionLabel}
+                    canViewAssignments={can.view}
                 />
             ) : null}
 

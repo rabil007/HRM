@@ -29,7 +29,15 @@ class CrewAssignmentPagePermissions
      *     perform_movement: bool,
      *     cancel: bool,
      *     void: bool,
-     *     view_audit: bool
+     *     view_audit: bool,
+     *     request_correction: bool,
+     *     view_corrections: bool,
+     *     approve_corrections: bool,
+     *     override_corrections: bool,
+     *     view_documents: bool,
+     *     view_training: bool,
+     *     view_planning: bool,
+     *     view_employee: bool
      * }
      */
     public static function for(?User $user): array
@@ -53,6 +61,7 @@ class CrewAssignmentPagePermissions
             'view_documents' => $user?->can('documents.view') ?? false,
             'view_training' => $user?->can('training.view') ?? false,
             'view_planning' => $user?->can('crew_operations.planning.view') ?? false,
+            'view_employee' => $user?->can('employees.view') ?? false,
         ];
     }
 }

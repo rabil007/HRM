@@ -144,33 +144,54 @@ final class CrewMovementCorrectionPresenter
                 ->all(),
             'pending_count' => $pending->count(),
             'approved_count' => $corrections->where('status', CrewMovementCorrectionStatus::Approved)->count(),
-            'correctable_phases' => $assignment->phases
-                ->filter(fn (CrewAssignmentPhase $phase) => $phase->actual_start_at !== null
-                    && in_array($phase->status->value, ['active', 'completed'], true))
-                ->map(fn (CrewAssignmentPhase $phase) => [
-                    'id' => $phase->id,
-                    'phase_code' => $phase->phase_code->value,
-                    'phase_label' => $phase->phase_code->label(),
-                    'status' => $phase->status->value,
-                    'status_label' => $phase->status->label(),
-                    'actual_start_at' => $phase->actual_start_at?->toIso8601String(),
-                    'actual_end_at' => $phase->actual_end_at?->toIso8601String(),
-                    'remarks' => $phase->remarks,
-                    'details' => $phase->details,
-                    'is_legacy' => $phase->phase_code->isLegacy(),
-                    'legacy_context_label' => $phase->phase_code->legacyContextLabel(),
-                    'allowed_fields' => $this->catalog->allowedFields($phase),
-                    'has_pending_correction' => $phase->relationLoaded('pendingCorrections')
-                        ? $phase->pendingCorrections->isNotEmpty()
-                        : $phase->pendingCorrections()->exists(),
-                    'current_values' => $this->snapshot->capture(
-                        $assignment,
-                        $phase,
-                        $this->catalog->allowedFields($phase),
-                    ),
-                ])
-                ->values()
-                ->all(),
+            'correctable_phases' => $this->correctablePhases($assignment),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function correctablePhases(CrewAssignment $assignment): array
+    {
+        return $assignment->phases
+            ->filter(fn (CrewAssignmentPhase $phase) => $phase->actual_start_at !== null
+                && in_array($phase->status->value, ['active', 'completed'], true))
+            ->map(fn (CrewAssignmentPhase $phase) => [
+                'id' => $phase->id,
+                'phase_code' => $phase->phase_code->value,
+                'phase_label' => $phase->phase_code->label(),
+                'status' => $phase->status->value,
+                'status_label' => $phase->status->label(),
+                'actual_start_at' => $phase->actual_start_at?->toIso8601String(),
+                'actual_end_at' => $phase->actual_end_at?->toIso8601String(),
+                'remarks' => $phase->remarks,
+                'details' => $phase->details,
+                'is_legacy' => $phase->phase_code->isLegacy(),
+                'legacy_context_label' => $phase->phase_code->legacyContextLabel(),
+                'allowed_fields' => $this->catalog->allowedFields($phase),
+                'has_pending_correction' => $phase->relationLoaded('pendingCorrections')
+                    ? $phase->pendingCorrections->isNotEmpty()
+                    : $phase->pendingCorrections()->exists(),
+                'current_values' => $this->snapshot->capture(
+                    $assignment,
+                    $phase,
+                    $this->catalog->allowedFields($phase),
+                ),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Minimal request context needed when a user can request corrections
+     * but does not have permission to view full correction history/details.
+     *
+     * @return array{correctable_phases: array<int, array<string, mixed>>}
+     */
+    public function correctionRequestContext(CrewAssignment $assignment): array
+    {
+        return [
+            'correctable_phases' => $this->correctablePhases($assignment),
         ];
     }
 

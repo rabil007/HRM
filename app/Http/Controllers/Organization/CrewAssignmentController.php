@@ -269,7 +269,10 @@ class CrewAssignmentController extends Controller
             $recordRecentItem->handle($user, $companyId, RecentItemType::CrewAssignment, $assignment->id);
         }
 
-        $assignment->load([
+        $canViewCorrections = $user?->can('crew_operations.corrections.view') ?? false;
+        $canRequestCorrection = $user?->can('crew_operations.corrections.request') ?? false;
+
+        $eagerLoads = [
             'company:id,timezone',
             'employee',
             'rank',
@@ -288,14 +291,27 @@ class CrewAssignmentController extends Controller
             'previousAssignment.vessel:id,name',
             'nextAssignments:id,assignment_no,status,vessel_id,source,previous_assignment_id,started_at',
             'nextAssignments.vessel:id,name',
-            'corrections.requester:id,name',
-            'corrections.decisionMaker:id,name',
-            'corrections.phase',
-            'corrections.company:id,timezone',
-        ]);
+        ];
+
+        if ($canViewCorrections) {
+            $eagerLoads[] = 'corrections.requester:id,name';
+            $eagerLoads[] = 'corrections.decisionMaker:id,name';
+            $eagerLoads[] = 'corrections.phase';
+            $eagerLoads[] = 'corrections.company:id,timezone';
+        }
+
+        $assignment->load($eagerLoads);
 
         $detail = CrewAssignmentPresenter::detail($assignment, $request->user());
-        $corrections = app(CrewMovementCorrectionPresenter::class)->assignmentSummary($assignment);
+        $correctionPresenter = app(CrewMovementCorrectionPresenter::class);
+
+        $corrections = $canViewCorrections
+            ? $correctionPresenter->assignmentSummary($assignment)
+            : null;
+
+        $correctionRequestContext = $canRequestCorrection
+            ? $correctionPresenter->correctionRequestContext($assignment)
+            : null;
 
         $recentActivity = Gate::allows('viewAudit', CrewAssignment::class)
             ? RecentActivityQuery::for($request->user(), $companyId, CrewAssignment::class, $assignment->id)
@@ -304,6 +320,7 @@ class CrewAssignmentController extends Controller
         return Inertia::render('organization/crew/show', [
             'assignment' => $detail,
             'corrections' => $corrections,
+            'correction_request_context' => $correctionRequestContext,
             'recent_activity' => $recentActivity,
             'form_options' => $this->movementFormOptions($companyId),
             'can' => CrewAssignmentPagePermissions::for($request->user()),

@@ -11,8 +11,10 @@ import { index as crewPlanningIndex } from '@/routes/organization/crew-planning'
 
 export function CrewAssignmentRelationships({
     assignment,
+    canViewPlanning = false,
 }: {
     assignment: CrewAssignmentDetail;
+    canViewPlanning?: boolean;
 }): ReactElement | null {
     const hasLinked =
         Boolean(assignment.previous_assignment) ||
@@ -156,31 +158,33 @@ export function CrewAssignmentRelationships({
                                 )}
                             />
                         </div>
-                        <div className="pt-2">
-                            <Button
-                                asChild
-                                variant="link"
-                                className="h-auto p-0 text-xs"
-                            >
-                                <Link
-                                    href={crewPlanningIndex.url({
-                                        query: {
-                                            vessel_id:
-                                                assignment.vessel?.id ??
-                                                undefined,
-                                            rank_id:
-                                                assignment.rank?.id ??
-                                                undefined,
-                                            search:
-                                                assignment.employee?.name ??
-                                                undefined,
-                                        },
-                                    })}
+                        {canViewPlanning ? (
+                            <div className="pt-2">
+                                <Button
+                                    asChild
+                                    variant="link"
+                                    className="h-auto p-0 text-xs"
                                 >
-                                    Open Crew Planning
-                                </Link>
-                            </Button>
-                        </div>
+                                    <Link
+                                        href={crewPlanningIndex.url({
+                                            query: {
+                                                vessel_id:
+                                                    assignment.vessel?.id ??
+                                                    undefined,
+                                                rank_id:
+                                                    assignment.rank?.id ??
+                                                    undefined,
+                                                search:
+                                                    assignment.employee?.name ??
+                                                    undefined,
+                                            },
+                                        })}
+                                    >
+                                        Open Crew Planning
+                                    </Link>
+                                </Button>
+                            </div>
+                        ) : null}
                     </div>
                 ) : null}
 
@@ -197,15 +201,17 @@ export function CrewAssignmentRelationships({
                                 .
                             </p>
                         </div>
-                        <Button
-                            asChild
-                            variant="link"
-                            className="h-auto p-0 text-xs font-medium"
-                        >
-                            <Link href={crewPlanningIndex.url()}>
-                                Open Crew Planning
-                            </Link>
-                        </Button>
+                        {canViewPlanning ? (
+                            <Button
+                                asChild
+                                variant="link"
+                                className="h-auto p-0 text-xs font-medium"
+                            >
+                                <Link href={crewPlanningIndex.url()}>
+                                    Open Crew Planning
+                                </Link>
+                            </Button>
+                        ) : null}
                     </div>
                 ) : null}
             </CardContent>

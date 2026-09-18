@@ -146,7 +146,7 @@ export function CrewAssignmentOperationalSummary({
     corrections,
 }: {
     assignment: CrewAssignmentDetail;
-    corrections?: CorrectionsSummary;
+    corrections?: CorrectionsSummary | null;
 }): ReactElement {
     const completedPhases = assignment.phase_timeline.filter(
         (phase) => phase.status === 'completed',
@@ -215,7 +215,15 @@ export function CrewAssignmentOperationalSummary({
                     detail={
                         attentionSignals === 0
                             ? `${completedPhases} completed phase${completedPhases === 1 ? '' : 's'} · ${actualMovementDates} actual movement record${actualMovementDates === 1 ? '' : 's'}`
-                            : `${assignment.warnings.length} warning${assignment.warnings.length === 1 ? '' : 's'} · ${readinessProblems} readiness · ${corrections?.pending_count ?? 0} correction`
+                            : [
+                                  `${assignment.warnings.length} warning${assignment.warnings.length === 1 ? '' : 's'}`,
+                                  `${readinessProblems} readiness`,
+                                  corrections
+                                      ? `${corrections.pending_count} correction`
+                                      : null,
+                              ]
+                                  .filter(Boolean)
+                                  .join(' · ')
                     }
                     icon={attentionSignals === 0 ? CheckCircle2 : AlertTriangle}
                     tone={

@@ -227,6 +227,7 @@ test('crew assignment show page renders successfully with corrections without la
     grantCompanyPermissions($user, $company, [
         'audit.view',
         'crew_operations.assignments.view',
+        'crew_operations.corrections.view',
     ]);
 
     $vessel = makeCrewMovementVessel('Show Vessel', $company);

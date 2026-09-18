@@ -26,6 +26,7 @@ import type {
     CrewAssignmentDetail,
     CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
+    CrewCorrectionRequestContext,
 } from '@/features/organization/crew/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -72,10 +73,18 @@ function requestedTransferPrefill(
     };
 }
 
-function reliefActionHref(assignment: CrewAssignmentDetail): string {
+function reliefActionHref(
+    assignment: CrewAssignmentDetail,
+    canViewPlanning: boolean,
+    canViewAssignments: boolean,
+): string | null {
     const status = assignment.relief_status;
 
     if (!status || status === 'no_relief') {
+        if (!canViewPlanning) {
+            return null;
+        }
+
         return crewPlanningIndex.url({
             query: {
                 vessel_id: assignment.vessel?.id,
@@ -91,6 +100,10 @@ function reliefActionHref(assignment: CrewAssignmentDetail): string {
     }
 
     if (status === 'relief_planned') {
+        if (!canViewPlanning) {
+            return null;
+        }
+
         return crewPlanningIndex.url({
             query: {
                 vessel_id: assignment.vessel?.id ?? undefined,
@@ -101,7 +114,15 @@ function reliefActionHref(assignment: CrewAssignmentDetail): string {
     }
 
     if (assignment.relief_crew_assignment_id) {
+        if (!canViewAssignments) {
+            return null;
+        }
+
         return showAssignment.url(assignment.relief_crew_assignment_id);
+    }
+
+    if (!canViewPlanning) {
+        return null;
     }
 
     return crewPlanningIndex.url({
@@ -116,12 +137,14 @@ function reliefActionHref(assignment: CrewAssignmentDetail): string {
 export default function CrewAssignmentShow({
     assignment,
     corrections,
+    correction_request_context,
     recent_activity,
     form_options,
     can,
 }: {
     assignment: CrewAssignmentDetail;
-    corrections?: CorrectionsSummary;
+    corrections?: CorrectionsSummary | null;
+    correction_request_context?: CrewCorrectionRequestContext | null;
     recent_activity: RecentActivityItem[];
     form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
@@ -142,7 +165,9 @@ export default function CrewAssignmentShow({
     const transferPrefill = transferDismissed ? null : requestedTransfer;
 
     const isOnVessel = assignment.current_phase?.code === 'p4';
-    const reliefHref = isOnVessel ? reliefActionHref(assignment) : null;
+    const reliefHref = isOnVessel
+        ? reliefActionHref(assignment, can.view_planning, can.view)
+        : null;
     const reliefActionLabel =
         assignment.relief_action_label ??
         (assignment.relief_status === 'no_relief'
@@ -150,6 +175,11 @@ export default function CrewAssignmentShow({
             : assignment.relief_status === 'relief_planned'
               ? 'Open Relief Plan'
               : 'Open Relief Assignment');
+
+    const correctablePhases =
+        corrections?.correctable_phases ??
+        correction_request_context?.correctable_phases ??
+        [];
 
     return (
         <>
@@ -377,7 +407,10 @@ export default function CrewAssignmentShow({
                         </Card>
 
                         {/* F. Assignment Relationships */}
-                        <CrewAssignmentRelationships assignment={assignment} />
+                        <CrewAssignmentRelationships
+                            assignment={assignment}
+                            canViewPlanning={can.view_planning}
+                        />
 
                         {/* G. Correction History */}
                         {can.view_corrections && corrections ? (
@@ -426,10 +459,13 @@ export default function CrewAssignmentShow({
                     </div>
 
                     {/* ── RIGHT COLUMN: Operations Center (sticky sidebar on desktop) ── */}
-                    <div className="order-1 min-w-0 xl:sticky xl:top-4 xl:order-2 xl:self-start">
+                    <div className="order-1 min-w-0 [scrollbar-width:thin] xl:sticky xl:top-4 xl:order-2 xl:max-h-[calc(100vh-2rem)] xl:self-start xl:overflow-y-auto xl:pr-1.5">
                         <CrewAssignmentOperationsCenter
                             assignment={assignment}
                             corrections={corrections}
+                            correctionRequestContext={
+                                correction_request_context
+                            }
                             can={can}
                             formOptions={form_options}
                             reliefHref={reliefHref}
@@ -447,12 +483,12 @@ export default function CrewAssignmentShow({
                 </div>
             </Main>
 
-            {corrections ? (
+            {can.request_correction && correctablePhases.length > 0 ? (
                 <RequestCorrectionDialog
                     open={isCorrectionDialogOpen}
                     onOpenChange={setIsCorrectionDialogOpen}
                     assignmentId={assignment.id}
-                    correctablePhases={corrections.correctable_phases}
+                    correctablePhases={correctablePhases}
                     formOptions={form_options}
                     companyTimezone={
                         assignment.movement_context?.company_timezone

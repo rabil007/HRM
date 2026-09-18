@@ -563,6 +563,7 @@ export interface CrewAssignmentPagePermissions {
     view_documents: boolean;
     view_training: boolean;
     view_planning: boolean;
+    view_employee: boolean;
 }
 
 export interface CorrectablePhase {
@@ -580,6 +581,10 @@ export interface CorrectablePhase {
     allowed_fields: string[];
     has_pending_correction: boolean;
     current_values: Record<string, CrewMovementCorrectionFieldValue>;
+}
+
+export interface CrewCorrectionRequestContext {
+    correctable_phases: CorrectablePhase[];
 }
 
 export interface CorrectionsSummary {
