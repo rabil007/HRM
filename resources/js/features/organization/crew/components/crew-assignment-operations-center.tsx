@@ -1,20 +1,7 @@
-import {
-    Clock,
-    FilePenLine,
-    MoreHorizontal,
-    Pencil,
-    Trash2,
-} from 'lucide-react';
+import { Clock, FilePenLine, Pencil, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { CrewAssignmentAttentionCard } from '@/features/organization/crew/components/crew-assignment-attention-card';
 import { CrewAssignmentReliefCard } from '@/features/organization/crew/components/crew-assignment-relief-card';
 import { CrewMobilisationReadinessCard } from '@/features/organization/crew/components/crew-mobilisation-readiness-card';
@@ -65,10 +52,11 @@ export function CrewAssignmentOperationsCenter({
         0;
     const canRequestCorrection =
         can.request_correction && correctablePhasesCount > 0;
-    const hasMoreActions = (can.update && assignment.is_editable) || can.void;
+    const canEdit = can.update && assignment.is_editable;
+    const canVoid = can.void;
 
-    const showQuickActionsCard =
-        canApplyTour || canRequestCorrection || hasMoreActions;
+    const showOperationalActionsCard =
+        canApplyTour || canRequestCorrection || canEdit || canVoid;
 
     return (
         <div className="space-y-4">
@@ -135,8 +123,8 @@ export function CrewAssignmentOperationsCenter({
                 />
             ) : null}
 
-            {/* 5. Quick Actions & More Actions */}
-            {showQuickActionsCard ? (
+            {/* 5. Operational Actions */}
+            {showOperationalActionsCard ? (
                 <Card className="border-border/80 dark:border-white/10">
                     <CardHeader className="border-b border-border/50 pb-3 dark:border-white/5">
                         <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -168,47 +156,28 @@ export function CrewAssignmentOperationsCenter({
                             </Button>
                         ) : null}
 
-                        {hasMoreActions ? (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="w-full justify-between text-xs font-medium text-muted-foreground hover:text-foreground"
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <MoreHorizontal className="size-3.5" />
-                                            More Actions
-                                        </span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="w-48"
-                                >
-                                    {can.update && assignment.is_editable ? (
-                                        <DropdownMenuItem onClick={onEdit}>
-                                            <Pencil className="mr-2 size-3.5" />
-                                            Edit Assignment
-                                        </DropdownMenuItem>
-                                    ) : null}
-                                    {can.void ? (
-                                        <>
-                                            {can.update &&
-                                            assignment.is_editable ? (
-                                                <DropdownMenuSeparator />
-                                            ) : null}
-                                            <DropdownMenuItem
-                                                variant="destructive"
-                                                onClick={onVoid}
-                                            >
-                                                <Trash2 className="mr-2 size-3.5" />
-                                                Void Assignment
-                                            </DropdownMenuItem>
-                                        </>
-                                    ) : null}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                        {canEdit ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-start text-xs font-medium"
+                                onClick={onEdit}
+                            >
+                                <Pencil className="mr-2 size-3.5 text-primary" />
+                                Edit Assignment
+                            </Button>
+                        ) : null}
+
+                        {canVoid ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-start border-destructive/30 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20"
+                                onClick={onVoid}
+                            >
+                                <Trash2 className="mr-2 size-3.5 text-destructive" />
+                                Void Assignment
+                            </Button>
                         ) : null}
                     </CardContent>
                 </Card>
