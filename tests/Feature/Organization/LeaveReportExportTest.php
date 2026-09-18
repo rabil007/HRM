@@ -154,3 +154,37 @@ test('leave report export excludes other company records', function () {
 
     expect($employeeIds)->toBe([$employee->id]);
 });
+
+test('leave report export includes historical inactive employee records', function () {
+    Excel::fake();
+    ['user' => $user, 'company' => $company, 'leaveType' => $leaveType] = makeLeaveReportExportFixture();
+
+    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'terminated',
+        'name' => 'Former Crew',
+        'employee_no' => 'LR-TERM',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $inactiveEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2025-03-01',
+        'end_date' => '2025-03-05',
+        'total_days' => 5,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.export', [
+            'format' => 'xlsx',
+            'employee_id' => $inactiveEmployee->id,
+        ]))
+        ->assertOk();
+
+    Excel::assertDownloaded(
+        'leave-report-'.now()->toDateString().'.xlsx',
+        fn (LeaveReportExport $export): bool => $export->query()->count() === 1
+            && $export->query()->first()?->employee_id === $inactiveEmployee->id,
+    );
+});

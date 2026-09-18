@@ -106,6 +106,7 @@ function DepartmentTreeNodeRow({
     onToggleExpand,
     onSelectDepartment,
     onSelectPosition,
+    showPositions,
 }: {
     node: DepartmentTreeNode;
     depth: number;
@@ -115,9 +116,10 @@ function DepartmentTreeNodeRow({
     onToggleExpand: (id: number, open: boolean) => void;
     onSelectDepartment: (id: number | null) => void;
     onSelectPosition: (positionId: number, departmentId: number) => void;
+    showPositions: boolean;
 }) {
     const hasChildDepartments = node.children.length > 0;
-    const hasPositions = node.positions.length > 0;
+    const hasPositions = showPositions && node.positions.length > 0;
     const hasExpandableContent = hasChildDepartments || hasPositions;
     const isAllNode = node.id === null;
     const isSelected = isAllNode
@@ -192,19 +194,25 @@ function DepartmentTreeNodeRow({
                         onToggleExpand={onToggleExpand}
                         onSelectDepartment={onSelectDepartment}
                         onSelectPosition={onSelectPosition}
+                        showPositions={showPositions}
                     />
                 ))}
-                {node.positions.map((position) => (
-                    <PositionTreeNodeRow
-                        key={position.id}
-                        position={position}
-                        depth={depth + 1}
-                        selectedPositionId={selectedPositionId}
-                        onSelectPosition={(positionId) =>
-                            onSelectPosition(positionId, node.id as number)
-                        }
-                    />
-                ))}
+                {hasPositions
+                    ? node.positions.map((position) => (
+                          <PositionTreeNodeRow
+                              key={position.id}
+                              position={position}
+                              depth={depth + 1}
+                              selectedPositionId={selectedPositionId}
+                              onSelectPosition={(positionId) =>
+                                  onSelectPosition(
+                                      positionId,
+                                      node.id as number,
+                                  )
+                              }
+                          />
+                      ))
+                    : null}
             </CollapsibleContent>
         </Collapsible>
     );
@@ -216,6 +224,7 @@ export function DepartmentEmployeeTree({
     selectedPositionId,
     onSelectDepartment,
     onSelectPosition,
+    showPositions = true,
     className,
 }: {
     nodes: DepartmentTreeNode[];
@@ -223,6 +232,7 @@ export function DepartmentEmployeeTree({
     selectedPositionId: number | null;
     onSelectDepartment: (id: number | null) => void;
     onSelectPosition: (positionId: number, departmentId: number) => void;
+    showPositions?: boolean;
     className?: string;
 }) {
     const departmentRoots = useMemo(
@@ -304,6 +314,7 @@ export function DepartmentEmployeeTree({
                         onToggleExpand={handleToggleExpand}
                         onSelectDepartment={onSelectDepartment}
                         onSelectPosition={onSelectPosition}
+                        showPositions={showPositions}
                     />
                 ) : null}
 
@@ -318,6 +329,7 @@ export function DepartmentEmployeeTree({
                         onToggleExpand={handleToggleExpand}
                         onSelectDepartment={onSelectDepartment}
                         onSelectPosition={onSelectPosition}
+                        showPositions={showPositions}
                     />
                 ))}
             </div>

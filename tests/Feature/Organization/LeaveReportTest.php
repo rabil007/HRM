@@ -290,8 +290,120 @@ test('soft deleted leave requests are excluded from leave report', function () {
     ))->exportQuery()->count())->toBe(1);
 });
 
+test('leave report employee filter includes inactive employees with leave history', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $activeEmployee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+
+    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'inactive',
+        'name' => 'Former Employee',
+        'employee_no' => 'LR-OLD',
+    ]);
+
+    $historical = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $inactiveEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2025-02-01',
+        'end_date' => '2025-02-05',
+        'total_days' => 5,
+        'status' => 'approved',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $activeEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-05',
+        'total_days' => 5,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('leave_requests', 2)
+            ->where('filter_options.employees', fn ($options) => collect($options)->pluck('id')->sort()->values()->all() === collect([$activeEmployee->id, $inactiveEmployee->id])->sort()->values()->all()));
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index', [
+            'employee_id' => $inactiveEmployee->id,
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('leave_requests', 1)
+            ->where('leave_requests.0.id', $historical->id));
+});
+
+test('leave report employee filter excludes hidden historical employees', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    $user->update(['current_company_id' => $company->id]);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+    grantCompanyPermissions($user, $company, ['reports.leave.view']);
+
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $office->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2025-01-01',
+        'end_date' => '2025-01-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('leave_requests', 0)
+            ->where('filter_options.employees', fn ($options) => collect($options)->pluck('id')->all() === []));
+});
+
+test('leave report leave type filter includes inactive types used historically', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $activeType] = authorizeLeaveReport();
+
+    $inactiveType = LeaveType::factory()->for($company)->create([
+        'name' => 'Emergency Leave',
+        'status' => 'inactive',
+    ]);
+
+    $historical = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $inactiveType->id,
+        'start_date' => '2024-06-01',
+        'end_date' => '2024-06-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $activeType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-05',
+        'total_days' => 5,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filter_options.leave_types', fn ($options) => collect($options)->pluck('id')->sort()->values()->all() === collect([$activeType->id, $inactiveType->id])->sort()->values()->all()));
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index', [
+            'leave_type_id' => $inactiveType->id,
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('leave_requests', 1)
+            ->where('leave_requests.0.id', $historical->id));
+});
+
 test('leave report export headings exclude sensitive fields', function () {
-    ['company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
 
     createLeaveRequestRecord([
         'company_id' => $company->id,
@@ -305,7 +417,7 @@ test('leave report export headings exclude sensitive fields', function () {
         'attachments' => ['secret.pdf'],
     ]);
 
-    $query = new LeaveReportQuery($company->id, new LeaveReportFilters, $company->timezone);
+    $query = new LeaveReportQuery($company->id, new LeaveReportFilters, $company->timezone, $user);
     $export = LeaveReportExport::forQuery($query->exportQuery(), $company->timezone);
     $leaveRequest = $query->exportQuery()->firstOrFail();
     $mapped = $export->map($leaveRequest);

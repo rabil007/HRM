@@ -22,7 +22,7 @@ final class LeaveReportDepartmentTree
     public static function for(
         int $companyId,
         EmployeeDirectoryFilters $filters,
-        ?User $user = null,
+        User $user,
     ): array {
         return BuildDepartmentEmployeeTree::for(
             $companyId,
@@ -35,9 +35,7 @@ final class LeaveReportDepartmentTree
                         ->where('leave_requests.company_id', $companyId);
                 });
 
-                if ($user !== null) {
-                    EmployeeVisibilityScope::apply($query, $user, $companyId);
-                }
+                EmployeeVisibilityScope::apply($query, $user, $companyId);
             },
         );
     }

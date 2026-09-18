@@ -5,14 +5,11 @@ namespace App\Http\Controllers\Organization;
 use App\Exports\LeaveReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
-use App\Models\Department;
-use App\Models\Employee;
-use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
-use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Reports\LeaveReportDepartmentTree;
+use App\Support\Reports\LeaveReportFilterOptions;
 use App\Support\Reports\LeaveReportFilters;
 use App\Support\Reports\LeaveReportPagePermissions;
 use App\Support\Reports\LeaveReportPresenter;
@@ -29,6 +26,7 @@ class LeaveReportController extends Controller
     public function index(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        /** @var User $user */
         $user = $request->user();
         $filters = LeaveReportFilters::fromRequest($request);
         $timezone = $this->companyTimezone($companyId);
@@ -47,21 +45,9 @@ class LeaveReportController extends Controller
                         'label' => LeaveReportPresenter::statusLabel($status),
                     ])
                     ->all(),
-                'employees' => $this->visibleEmployeeOptions($user, $companyId),
-                'leave_types' => LeaveType::query()
-                    ->where('company_id', $companyId)
-                    ->where('status', 'active')
-                    ->orderBy('name')
-                    ->get(['id', 'name', 'code', 'color'])
-                    ->map(fn ($type) => [
-                        'id' => (int) $type->id,
-                        'name' => (string) $type->name,
-                        'code' => (string) $type->code,
-                        'color' => $type->color,
-                    ])
-                    ->values()
-                    ->all(),
-                'departments' => $this->visibleDepartmentOptions($user, $companyId),
+                'employees' => LeaveReportFilterOptions::employees($user, $companyId),
+                'leave_types' => LeaveReportFilterOptions::leaveTypes($user, $companyId),
+                'departments' => LeaveReportFilterOptions::departments($user, $companyId),
             ],
             'department_tree' => LeaveReportDepartmentTree::for(
                 $companyId,
@@ -76,9 +62,11 @@ class LeaveReportController extends Controller
     public function export(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        /** @var User $user */
+        $user = $request->user();
         $filters = LeaveReportFilters::fromRequest($request);
         $timezone = $this->companyTimezone($companyId);
-        $query = new LeaveReportQuery($companyId, $filters, $timezone, $request->user());
+        $query = new LeaveReportQuery($companyId, $filters, $timezone, $user);
         $export = LeaveReportExport::forQuery($query->exportQuery(), $timezone);
         $filename = 'leave-report-'.now()->toDateString();
         $format = strtolower((string) $request->query('format', 'xlsx'));
@@ -90,56 +78,6 @@ class LeaveReportController extends Controller
         }
 
         return Excel::download($export, "{$filename}.xlsx", ExcelWriter::XLSX);
-    }
-
-    /**
-     * @return list<array{id: int, name: string, employee_no: string|null}>
-     */
-    private function visibleEmployeeOptions(?User $user, int $companyId): array
-    {
-        $query = Employee::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->orderBy('name');
-
-        EmployeeVisibilityScope::apply($query, $user, $companyId);
-
-        return $query
-            ->get(['id', 'employee_no', 'name'])
-            ->map(fn (Employee $employee) => [
-                'id' => (int) $employee->id,
-                'name' => (string) $employee->name,
-                'employee_no' => $employee->employee_no,
-            ])
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @return list<array{id: int, name: string}>
-     */
-    private function visibleDepartmentOptions(?User $user, int $companyId): array
-    {
-        $query = Department::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->orderBy('name');
-
-        if ($user !== null) {
-            $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
-
-            if ($allowedIds === []) {
-                $query->whereRaw('1 = 0');
-            } elseif ($allowedIds !== null) {
-                $query->whereIn('id', $allowedIds);
-            }
-        }
-
-        return $query
-            ->get(['id', 'name'])
-            ->map(fn (Department $department) => ['id' => (int) $department->id, 'name' => (string) $department->name])
-            ->values()
-            ->all();
     }
 
     private function companyTimezone(int $companyId): string

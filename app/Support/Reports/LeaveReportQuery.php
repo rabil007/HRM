@@ -27,7 +27,7 @@ final class LeaveReportQuery
         private readonly int $companyId,
         private readonly LeaveReportFilters $filters,
         private readonly string $timezone,
-        private readonly ?User $user = null,
+        private readonly User $user,
     ) {}
 
     /**
@@ -88,9 +88,7 @@ final class LeaveReportQuery
         $query = LeaveRequest::query()
             ->where('leave_requests.company_id', $this->companyId);
 
-        if ($this->user !== null) {
-            EmployeeVisibilityScope::whereHas($query, $this->user, $this->companyId, 'employee');
-        }
+        EmployeeVisibilityScope::whereHas($query, $this->user, $this->companyId, 'employee');
 
         if ($withRelations) {
             $query->with([

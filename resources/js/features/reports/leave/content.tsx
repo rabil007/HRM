@@ -135,15 +135,11 @@ export function LeaveReportContent(props: LeaveReportProps) {
                                         departmentTreeSelectedId
                                     }
                                     department_tree_selected_position_id={null}
+                                    showPositions={false}
                                     onSelectDepartment={(id) =>
                                         controls.apply({
                                             department_id:
                                                 id != null ? String(id) : '',
-                                        })
-                                    }
-                                    onSelectPosition={(_, departmentId) =>
-                                        controls.apply({
-                                            department_id: String(departmentId),
                                         })
                                     }
                                     buttonClassName="h-11"
