@@ -192,6 +192,7 @@ export default function CrewAssignmentShow({
                     onEdit={() =>
                         router.visit(editAssignment.url(assignment.id))
                     }
+                    onVoid={() => setIsVoidDialogOpen(true)}
                 />
 
                 {/* ── TOP: Operational Summary ── */}

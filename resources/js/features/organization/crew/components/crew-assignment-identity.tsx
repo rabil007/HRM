@@ -1,4 +1,4 @@
-import { ArrowUpRight, Pencil, User } from 'lucide-react';
+import { ArrowUpRight, Pencil, Trash2, User } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Badge } from '@/components/ui/badge';
@@ -17,10 +17,12 @@ export function CrewAssignmentIdentity({
     assignment,
     can,
     onEdit,
+    onVoid,
 }: {
     assignment: CrewAssignmentDetail;
     can: CrewAssignmentPagePermissions;
     onEdit: () => void;
+    onVoid?: () => void;
 }): ReactElement {
     const employee = assignment.employee;
     const canViewEmployee = can.view_employee;
@@ -151,16 +153,32 @@ export function CrewAssignmentIdentity({
             backHref={crewAssignmentsIndex.url()}
             backLabel="Back to Crew Assignments"
             actions={
-                can.update && assignment.is_editable ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="h-10 rounded-lg px-4"
-                        onClick={onEdit}
-                    >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit Assignment
-                    </Button>
+                (can.update && assignment.is_editable) ||
+                (can.void && onVoid) ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                        {can.update && assignment.is_editable ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="h-10 rounded-lg px-4"
+                                onClick={onEdit}
+                            >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit Assignment
+                            </Button>
+                        ) : null}
+                        {can.void && onVoid ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="h-10 rounded-lg border-destructive/30 px-4 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20"
+                                onClick={onVoid}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                                Void Assignment
+                            </Button>
+                        ) : null}
+                    </div>
                 ) : null
             }
         />

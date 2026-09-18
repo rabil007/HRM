@@ -5,7 +5,6 @@ import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
-import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewOperationalStatePanel } from '@/features/organization/crew/components/crew-operational-state-panel';
 import type {
     CrewAssignmentFormOptions,
@@ -65,6 +64,9 @@ export function CrewRecommendedNextAction({
         recommended?.type === 'movement' && recommended.action
             ? recommended.action
             : null;
+    const otherActions = availableActions.filter(
+        (action) => action !== recommendedMovement,
+    );
     const recommendedHref =
         recommended?.href &&
         ((recommended.type === 'readiness' && canViewDocuments) ||
@@ -166,18 +168,28 @@ export function CrewRecommendedNextAction({
                                         'Start Assignment Anyway'}
                                 </Button>
                             ) : null}
-                            <MovementActionMenu
-                                assignmentId={assignmentId}
-                                availableActions={availableActions}
-                                movementContext={movementContext}
-                                formOptions={formOptions}
-                                triggerLabel="More Actions"
-                                excludeActions={
-                                    recommendedMovement
-                                        ? [recommendedMovement]
-                                        : []
-                                }
-                            />
+                            {otherActions.map((actionValue) => {
+                                const action =
+                                    actionValue as CrewMovementAction;
+                                const isCancel = action === 'cancel_assignment';
+
+                                return (
+                                    <Button
+                                        key={action}
+                                        type="button"
+                                        variant="outline"
+                                        className={
+                                            isCancel
+                                                ? 'border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20'
+                                                : undefined
+                                        }
+                                        onClick={() => openAction(action)}
+                                    >
+                                        {CREW_MOVEMENT_ACTION_LABELS[action] ??
+                                            action}
+                                    </Button>
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="flex flex-wrap items-center gap-2">
@@ -185,19 +197,30 @@ export function CrewRecommendedNextAction({
                                 Choose any allowed movement. Recommendations are
                                 guidance only.
                             </p>
-                            <MovementActionMenu
-                                assignmentId={assignmentId}
-                                availableActions={availableActions}
-                                movementContext={movementContext}
-                                formOptions={formOptions}
-                                triggerLabel="Record Movement"
-                            />
+                            {availableActions.map((actionValue) => {
+                                const action =
+                                    actionValue as CrewMovementAction;
+                                const isCancel = action === 'cancel_assignment';
+
+                                return (
+                                    <Button
+                                        key={action}
+                                        type="button"
+                                        variant="outline"
+                                        className={
+                                            isCancel
+                                                ? 'border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20'
+                                                : undefined
+                                        }
+                                        onClick={() => openAction(action)}
+                                    >
+                                        {CREW_MOVEMENT_ACTION_LABELS[action] ??
+                                            action}
+                                    </Button>
+                                );
+                            })}
                         </div>
                     )}
-                    <p className="text-[11px] text-muted-foreground/70">
-                        Other permitted movements remain available under More
-                        Actions.
-                    </p>
                 </div>
             </CardContent>
             <MovementActionDialog
