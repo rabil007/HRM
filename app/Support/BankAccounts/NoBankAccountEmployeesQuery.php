@@ -3,8 +3,10 @@
 namespace App\Support\BankAccounts;
 
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 final class NoBankAccountEmployeesQuery
@@ -18,12 +20,19 @@ final class NoBankAccountEmployeesQuery
      *     third_party: int
      * }
      */
-    public function summary(int $companyId): array
+    public function summary(int $companyId, ?User $user = null): array
     {
-        $row = Employee::query()
+        $query = Employee::query()
             ->where('company_id', $companyId)
             ->active()
-            ->whereDoesntHave('bankAccounts')
+            ->whereDoesntHave('bankAccounts');
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            EmployeeVisibilityScope::apply($query, $currentUser, $companyId);
+        }
+
+        $row = $query
             ->selectRaw('COUNT(*) as total_no_account')
             ->selectRaw("SUM(CASE WHEN salary_payment_method IS NULL OR salary_payment_method = 'bank_transfer' THEN 1 ELSE 0 END) as bank_transfer")
             ->selectRaw("SUM(CASE WHEN salary_payment_method = 'cash_c3' THEN 1 ELSE 0 END) as cash_c3")
@@ -43,13 +52,20 @@ final class NoBankAccountEmployeesQuery
     /**
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function paginate(int $companyId, string $search, string $paymentMethod, string $departmentId, int $perPage): LengthAwarePaginator
+    public function paginate(int $companyId, string $search, string $paymentMethod, string $departmentId, int $perPage, ?User $user = null): LengthAwarePaginator
     {
-        return Employee::query()
+        $query = Employee::query()
             ->where('company_id', $companyId)
             ->active()
-            ->whereDoesntHave('bankAccounts')
-            ->when($departmentId !== '', function ($query) use ($companyId, $departmentId) {
+            ->whereDoesntHave('bankAccounts');
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            EmployeeVisibilityScope::apply($query, $currentUser, $companyId);
+        }
+
+        return $query
+            ->when($departmentId !== '', function ($query) use ($companyId, $departmentId, $currentUser) {
                 $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);
 
                 EmployeeDirectoryQuery::applyAttributeFilters(
@@ -58,6 +74,7 @@ final class NoBankAccountEmployeesQuery
                     $directoryFilters,
                     exceptDepartment: false,
                     exceptPosition: true,
+                    user: $currentUser,
                 );
             })
             ->when($paymentMethod !== '', function ($query) use ($paymentMethod) {

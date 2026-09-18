@@ -6,12 +6,23 @@ use App\Models\Employee;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 class TrainingAccess
 {
-    public static function assertEmployeeInCompany(Employee $employee, int $companyId, int $status = 403): void
-    {
-        abort_unless($employee->company_id === $companyId, $status);
+    public static function assertEmployeeInCompany(
+        Employee $employee,
+        int $companyId,
+        int $status = 403,
+        ?User $user = null,
+        bool $allowSelf = false,
+    ): void {
+        abort_unless((int) $employee->company_id === $companyId, $status);
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, $allowSelf), 404);
+        }
     }
 
     public static function assertTrainingBelongsToEmployee(
@@ -19,17 +30,40 @@ class TrainingAccess
         EmployeeTraining $training,
         int $companyId,
         int $status = 403,
+        ?User $user = null,
+        bool $allowSelf = false,
     ): void {
         abort_unless(
-            $training->employee_id === $employee->id
-            && $training->company_id === $companyId,
+            (int) $training->employee_id === (int) $employee->id
+            && (int) $training->company_id === $companyId,
             $status,
         );
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, $allowSelf), 404);
+        }
     }
 
-    public static function assertTrainingInCompany(EmployeeTraining $training, int $companyId, int $status = 403): void
-    {
-        abort_unless($training->company_id === $companyId, $status);
+    public static function assertTrainingInCompany(
+        EmployeeTraining $training,
+        int $companyId,
+        int $status = 403,
+        ?User $user = null,
+        bool $allowSelf = false,
+    ): void {
+        abort_unless((int) $training->company_id === $companyId, $status);
+
+        $currentUser = $user ?? auth()->user();
+        if ($currentUser instanceof User) {
+            $employee = $training->relationLoaded('employee')
+                ? $training->employee
+                : Employee::query()->where('company_id', $companyId)->find($training->employee_id);
+
+            if ($employee !== null) {
+                abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, $allowSelf), 404);
+            }
+        }
     }
 
     public static function assertCanAccessCertificate(?User $user): void

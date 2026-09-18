@@ -23,7 +23,7 @@ class UpdateLeaveApprovalSettingRequest extends FormRequest
         $employeeRule = [
             'nullable',
             'integer',
-            ActiveCompanyEmployeeRule::exists($companyId),
+            ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
         ];
 
         return [

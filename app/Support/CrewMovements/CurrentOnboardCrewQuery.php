@@ -6,7 +6,9 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -19,7 +21,7 @@ final class CurrentOnboardCrewQuery
      * @param  Builder<CrewAssignment>  $query
      * @return Builder<CrewAssignment>
      */
-    public static function applyConstraint(Builder $query, int $companyId): Builder
+    public static function applyConstraint(Builder $query, int $companyId, ?User $user = null): Builder
     {
         $query
             ->where($query->qualifyColumn('company_id'), $companyId)
@@ -31,6 +33,10 @@ final class CurrentOnboardCrewQuery
             });
 
         ActiveEmployeeConstraint::whereHas($query, $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        }
 
         return $query;
     }
@@ -44,10 +50,10 @@ final class CurrentOnboardCrewQuery
      * @param  array<string, mixed>  $filters
      * @return Builder<CrewAssignment>
      */
-    public static function assignments(int $companyId, array $filters = []): Builder
+    public static function assignments(int $companyId, array $filters = [], ?User $user = null): Builder
     {
         $query = CrewAssignment::query();
-        self::applyConstraint($query, $companyId);
+        self::applyConstraint($query, $companyId, $user);
 
         if (self::filtersExcludeOnboard($filters)) {
             $query->whereRaw('0 = 1');

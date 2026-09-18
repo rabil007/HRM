@@ -5,6 +5,8 @@ namespace App\Support\Payroll\Wps;
 use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\User;
+use App\Support\Payroll\PayrollRecordAccess;
 
 final class WpsExportPreview
 {
@@ -20,14 +22,15 @@ final class WpsExportPreview
      *     company: array{wps_mol_uid: string|null, wps_agent_code: string|null, wps_employer_iban: string|null}
      * }
      */
-    public function forPeriod(Company $company, PayrollPeriod $period): array
+    public function forPeriod(Company $company, PayrollPeriod $period, ?User $user = null): array
     {
-        $records = PayrollRecord::query()
+        $recordsQuery = PayrollRecord::query()
             ->where('company_id', $company->id)
             ->where('period_id', $period->id)
             ->with(['employee.currentContract', 'employee.contracts', 'employee.primaryBankAccount.bank'])
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        $records = PayrollRecordAccess::apply($recordsQuery, $user, (int) $company->id)->get();
 
         $partition = $this->validator->partition($company, $period, $records);
 

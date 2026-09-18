@@ -19,7 +19,7 @@ class CrewMovementActionController extends Controller
     public function __invoke(PerformCrewMovementActionRequest $request, CrewAssignment $assignment)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         $validated = $request->validated();
         $actionValue = (string) $validated['action'];

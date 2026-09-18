@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\EmployeeContract;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Contracts\ContractAccess;
 use App\Support\Contracts\ContractListResource;
 use App\Support\Contracts\ContractPagePermissions;
 use App\Support\Contracts\ContractShowBackNavigation;
@@ -29,6 +30,10 @@ class ContractShowController extends Controller
                 ->with('lines')
                 ->orderByDesc('version'),
         ]);
+
+        if ($employeeContract->employee !== null) {
+            ContractAccess::assertEmployeeInCompany($employeeContract->employee, $companyId, 404, $request->user());
+        }
 
         $employeeContract->setAttribute(
             'total_contracts',

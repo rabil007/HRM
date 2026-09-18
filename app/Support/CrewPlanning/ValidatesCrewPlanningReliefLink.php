@@ -8,7 +8,9 @@ use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
+use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Validator;
 
@@ -49,8 +51,12 @@ final class ValidatesCrewPlanningReliefLink
      *     employee_id: int|string|null
      * }  $data
      */
-    public static function validate(Validator $validator, array $data, ?CrewPlanningAssignment $existing = null): void
-    {
+    public static function validate(
+        Validator $validator,
+        array $data,
+        ?CrewPlanningAssignment $existing = null,
+        ?User $user = null,
+    ): void {
         if ($existing?->crew_assignment_id !== null) {
             return;
         }
@@ -70,6 +76,16 @@ final class ValidatesCrewPlanningReliefLink
             ->find($relievesId);
 
         if ($assignment === null) {
+            $validator->errors()->add(
+                'relieves_crew_assignment_id',
+                'The selected assignment could not be found.',
+            );
+
+            return;
+        }
+
+        if ($user !== null && $assignment->employee !== null
+            && ! EmployeeVisibilityScope::canAccess($user, $assignment->employee, $companyId)) {
             $validator->errors()->add(
                 'relieves_crew_assignment_id',
                 'The selected assignment could not be found.',

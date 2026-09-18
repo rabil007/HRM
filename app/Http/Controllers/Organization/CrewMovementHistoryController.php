@@ -31,7 +31,7 @@ class CrewMovementHistoryController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = CrewMovementHistoryFilters::fromRequest($request);
         $timezone = $this->companyTimezone($companyId);
-        $query = new CrewMovementHistoryQuery($companyId, $filters, $timezone);
+        $query = new CrewMovementHistoryQuery($companyId, $filters, $timezone, $request->user());
         $paginator = $query->paginate($this->resolvePerPage($request, default: 25, allowed: [25, 50, 100]));
 
         return Inertia::render('organization/reports/crew-movement-history/index', [
@@ -70,7 +70,7 @@ class CrewMovementHistoryController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = CrewMovementHistoryFilters::fromRequest($request);
-        $query = new CrewMovementHistoryQuery($companyId, $filters, $this->companyTimezone($companyId));
+        $query = new CrewMovementHistoryQuery($companyId, $filters, $this->companyTimezone($companyId), $request->user());
         $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
         $filename = 'crew-movement-history-'.now()->toDateString();
         $format = strtolower((string) $request->query('format', 'xlsx'));

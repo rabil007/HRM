@@ -3,12 +3,14 @@
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\Position;
 use App\Models\Project;
+use App\Models\User;
 use App\Support\Payroll\Services\CrewPayrollSalarySheetExporter;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -91,11 +93,11 @@ test('approved crew payroll export downloads salary sheet workbook', function ()
 });
 
 test('crew payroll salary sheet export populates payroll and timesheet data', function () {
-    ['company' => $company] = makePayrollFixtures();
+    [$user, $company] = makeCrewPayrollExportFixtures();
 
     [$period, $employee, $client, $project] = createApprovedCrewExportFixture($company);
 
-    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheet = IOFactory::load($result['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheet)->not->toBeNull()
@@ -123,7 +125,7 @@ test('crew payroll salary sheet export populates payroll and timesheet data', fu
 });
 
 test('crew payroll salary sheet export includes overtime pay and formats standby days as numbers', function () {
-    ['company' => $company] = makePayrollFixtures();
+    [$user, $company] = makeCrewPayrollExportFixtures();
 
     [$period, $employee, $client, $project] = createApprovedCrewExportFixture($company);
 
@@ -161,7 +163,7 @@ test('crew payroll salary sheet export includes overtime pay and formats standby
             ],
         ]);
 
-    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheet = IOFactory::load($result['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheet->getCell('I3')->getFormattedValue())->toBe('0')
@@ -172,7 +174,7 @@ test('crew payroll salary sheet export includes overtime pay and formats standby
 });
 
 test('crew payroll salary sheet export includes salary structure column for monthly crew', function () {
-    ['company' => $company] = makePayrollFixtures();
+    [$user, $company] = makeCrewPayrollExportFixtures();
 
     [$period, $employee] = createApprovedCrewExportFixture($company);
 
@@ -200,7 +202,7 @@ test('crew payroll salary sheet export includes salary structure column for mont
             ],
         ]);
 
-    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheet = IOFactory::load($result['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheet->getCell('V2')->getValue())->toBe('SALARY STRUCTURE')
@@ -210,7 +212,7 @@ test('crew payroll salary sheet export includes salary structure column for mont
 });
 
 test('crew payroll salary sheet export includes arrears column and presentation line movement details', function () {
-    ['company' => $company] = makePayrollFixtures();
+    [$user, $company] = makeCrewPayrollExportFixtures();
 
     [$period, $employee] = createApprovedCrewExportFixture($company);
 
@@ -267,7 +269,7 @@ test('crew payroll salary sheet export includes arrears column and presentation 
             ],
         ]);
 
-    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $spreadsheet = IOFactory::load($result['path']);
     $sheet = $spreadsheet->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
     $movement = $spreadsheet->getSheetByName('Movement Details');
@@ -288,11 +290,11 @@ test('crew payroll salary sheet export includes arrears column and presentation 
 });
 
 test('crew payroll salary sheet export highlights missing client in red', function () {
-    ['company' => $company] = makePayrollFixtures();
+    [$user, $company] = makeCrewPayrollExportFixtures();
 
     [$period, $employee] = createApprovedCrewExportFixture($company, withClient: false);
 
-    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheet = IOFactory::load($result['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheet->getStyle('E3')->getFill()->getFillType())->toBe(Fill::FILL_SOLID)
@@ -307,7 +309,7 @@ test('crew payroll salary sheet export highlights missing client in red', functi
             ])->id,
         ]);
 
-    $resultWithClient = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $resultWithClient = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
     $sheetWithClient = IOFactory::load($resultWithClient['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
 
     expect($sheetWithClient->getCell('E3')->getValue())->toBe('TARGET')
@@ -355,6 +357,21 @@ test('paid crew payroll show page exposes export permission flag', function () {
             ->where('permissions.export_payroll', true)
         );
 });
+
+/**
+ * @return array{0: User, 1: Company}
+ */
+function makeCrewPayrollExportFixtures(): array
+{
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.crew_timesheets.view',
+    ]);
+
+    return [$user, $company];
+}
 
 /**
  * @return array{0: PayrollPeriod, 1: Employee, 2: Client, 3: Project}

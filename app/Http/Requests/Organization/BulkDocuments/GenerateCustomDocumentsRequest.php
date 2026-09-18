@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Organization\BulkDocuments;
 
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class GenerateCustomDocumentsRequest extends FormRequest
 {
@@ -25,7 +25,7 @@ class GenerateCustomDocumentsRequest extends FormRequest
             'employee_ids.*' => [
                 'integer',
                 'distinct',
-                Rule::exists('employees', 'id')->where('company_id', $companyId),
+                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
             'search' => ['nullable', 'string', 'max:255'],
             'branch_id' => ['nullable', 'string'],

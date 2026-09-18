@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\BulkDocuments;
 
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,12 +19,13 @@ class BulkDocumentActionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
         $typeKeys = collect(BulkDocumentTypeRegistry::definitions())->pluck('key')->all();
 
         return [
             'document_type_key' => ['required', 'string', Rule::in($typeKeys)],
             'employee_ids' => ['required', 'array', 'min:1'],
-            'employee_ids.*' => ['integer', 'distinct'],
+            'employee_ids.*' => ['integer', 'distinct', ActiveCompanyEmployeeRule::exists($companyId, $this->user())],
         ];
     }
 

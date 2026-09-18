@@ -9,6 +9,8 @@ use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\SalaryInputType;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\CrewTimesheetImportSchema;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
@@ -42,9 +44,15 @@ final class CrewTimesheetTemplateExporter
     /**
      * @return array{path: string, filename: string}
      */
-    public function export(int $companyId, PayrollPeriod $period): array
+    public function export(int $companyId, PayrollPeriod $period, ?User $user = null): array
     {
-        $employees = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+        $query = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        }
+
+        $employees = $query
             ->with(['department.parent:id,name', 'position:id,title'])
             ->get()
             ->sortBy([

@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\BulkDocuments\GenerateBulkDocumentsRequest;
 use App\Jobs\GenerateBulkDocumentsJob;
 use App\Models\BulkDocumentGenerationRun;
+use App\Models\User;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 
@@ -17,33 +19,34 @@ class GenerateBulkDocumentsController extends Controller
     public function store(GenerateBulkDocumentsRequest $request): RedirectResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $userId = (int) $request->user()?->id;
+        $user = $request->user();
+        $userId = (int) $user?->id;
         $documentTypeKey = (string) $request->input('document_type_key');
-        $employeeIds = $request->employeeIds();
-        $replaceExisting = $employeeIds !== [];
+        $requestedEmployeeIds = $request->employeeIds();
+        $replaceExisting = $requestedEmployeeIds !== [];
 
         $filters = $request->filters();
         $filters['status'] = 'active';
 
         $directoryFilters = EmployeeDirectoryFilters::fromArray($filters);
-        $counts = BulkDocumentRosterQuery::counts(
+
+        $snapshotEmployeeIds = $this->resolveAuthorizedTargetEmployeeIds(
             $companyId,
             $documentTypeKey,
             $directoryFilters,
-            $employeeIds !== [] ? $employeeIds : null,
+            $requestedEmployeeIds,
+            $replaceExisting,
+            $user,
         );
 
-        $targetCount = $replaceExisting
-            ? count($employeeIds)
-            : $counts['not_generated'];
-
-        if ($targetCount === 0) {
+        if ($snapshotEmployeeIds === []) {
             return back()->with('info', 'No employees need document generation for the current selection.');
         }
 
         BulkDocumentTypeRegistry::find($documentTypeKey);
 
         $correlationId = (string) Str::uuid();
+        $targetCount = count($snapshotEmployeeIds);
 
         $run = BulkDocumentGenerationRun::query()->create([
             'company_id' => $companyId,
@@ -62,7 +65,7 @@ class GenerateBulkDocumentsController extends Controller
             $filters,
             $run->id,
             $replaceExisting,
-            $employeeIds !== [] ? $employeeIds : null,
+            $snapshotEmployeeIds,
         );
 
         $label = BulkDocumentTypeRegistry::find($documentTypeKey)['label'];
@@ -71,5 +74,49 @@ class GenerateBulkDocumentsController extends Controller
             'success',
             "Generating {$label} for {$targetCount} employee(s).",
         );
+    }
+
+    /**
+     * @param  list<int>  $requestedEmployeeIds
+     * @return list<int>
+     */
+    private function resolveAuthorizedTargetEmployeeIds(
+        int $companyId,
+        string $documentTypeKey,
+        EmployeeDirectoryFilters $directoryFilters,
+        array $requestedEmployeeIds,
+        bool $replaceExisting,
+        ?User $user,
+    ): array {
+        if ($replaceExisting) {
+            return EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                $user,
+                $companyId,
+                $requestedEmployeeIds,
+            );
+        }
+
+        $selection = BulkDocumentRosterQuery::matchingSelection(
+            $companyId,
+            $documentTypeKey,
+            $directoryFilters,
+            'missing',
+            'all',
+            $user,
+        );
+
+        $authorizedIds = $selection['employee_ids'];
+
+        if ($requestedEmployeeIds !== []) {
+            $requested = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                $user,
+                $companyId,
+                $requestedEmployeeIds,
+            );
+
+            $authorizedIds = array_values(array_intersect($authorizedIds, $requested));
+        }
+
+        return array_values(array_unique(array_map('intval', $authorizedIds)));
     }
 }

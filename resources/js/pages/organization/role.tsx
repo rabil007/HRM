@@ -6,23 +6,43 @@ import {
     Circle,
     LayoutGrid,
     Users,
+    ChevronRight,
+    Building2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+    applyDepartmentToggle,
+    flattenDepartmentTreeIds,
+    getDepartmentCheckState,
+} from '@/features/organization/crew-planning/lib/department-tree';
 import type {
     Company,
     PermissionOption,
+    PlanningDepartmentNode,
     Role,
     RoleFormData,
 } from '@/features/organization/roles/types';
+import { cn } from '@/lib/utils';
 import { resolveEffectiveActiveGroup } from '@/pages/organization/_lib/role-permission-active-group';
 import { resolvePermissionGroups } from '@/pages/organization/_lib/role-permission-groups';
 import { permissionMatchesQuery } from '@/pages/organization/_lib/role-permission-search';
@@ -33,18 +53,153 @@ function normalizePermissions(value: string[]): string[] {
     ).sort();
 }
 
+function DepartmentTreeNodeRow({
+    node,
+    depth,
+    selectedIds,
+    onToggle,
+    disabled = false,
+}: {
+    node: PlanningDepartmentNode;
+    depth: number;
+    selectedIds: Set<number>;
+    onToggle: (node: PlanningDepartmentNode, checked: boolean) => void;
+    disabled?: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const checkState = getDepartmentCheckState(node, selectedIds);
+    const hasChildren = node.children.length > 0;
+
+    return (
+        <Collapsible open={open} onOpenChange={setOpen}>
+            <div
+                className={cn(
+                    'group flex items-center gap-2 rounded-xl border px-3 py-2 transition-all',
+                    depth === 0
+                        ? 'border-border/70 bg-card/80 shadow-xs hover:border-primary/25'
+                        : 'mt-1.5 border-transparent bg-muted/20 hover:border-border/60 hover:bg-muted/40',
+                )}
+                style={{ marginLeft: depth * 16 }}
+            >
+                {hasChildren ? (
+                    <CollapsibleTrigger asChild>
+                        <button
+                            type="button"
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+                            aria-label={`Toggle ${node.name}`}
+                        >
+                            <ChevronRight
+                                className={cn(
+                                    'h-3.5 w-3.5 transition-transform',
+                                    open && 'rotate-90',
+                                )}
+                            />
+                        </button>
+                    </CollapsibleTrigger>
+                ) : (
+                    <span className="inline-flex h-6 w-6 shrink-0" />
+                )}
+
+                <label
+                    className={cn(
+                        'flex min-w-0 flex-1 items-center gap-3 select-none',
+                        disabled
+                            ? 'cursor-not-allowed opacity-60'
+                            : 'cursor-pointer',
+                    )}
+                >
+                    <Checkbox
+                        disabled={disabled}
+                        checked={
+                            checkState === 'indeterminate'
+                                ? 'indeterminate'
+                                : checkState === 'checked'
+                        }
+                        onCheckedChange={(value) =>
+                            onToggle(node, value === true)
+                        }
+                    />
+                    <span
+                        className={cn(
+                            'truncate text-sm',
+                            depth === 0 ? 'font-semibold' : 'font-medium',
+                        )}
+                    >
+                        {node.name}
+                    </span>
+                </label>
+            </div>
+
+            {hasChildren ? (
+                <CollapsibleContent>
+                    {node.children.map((child) => (
+                        <DepartmentTreeNodeRow
+                            key={child.id}
+                            node={child}
+                            depth={depth + 1}
+                            selectedIds={selectedIds}
+                            onToggle={onToggle}
+                            disabled={disabled}
+                        />
+                    ))}
+                </CollapsibleContent>
+            ) : null}
+        </Collapsible>
+    );
+}
+
 export default function RoleDetails({
     role,
     company,
     permissions,
+    department_tree = [],
 }: {
-    role: Role & { updated_at?: string };
+    role: Role & {
+        updated_at?: string;
+        employee_visibility_scope?: 'all' | 'selected_departments';
+        department_ids?: number[];
+    };
     company: (Company & { slug?: string }) | null;
     permissions: PermissionOption[];
+    department_tree?: PlanningDepartmentNode[];
 }) {
+    const isOwner = role.name === 'Owner';
     const form = useForm<RoleFormData>({
         name: role.name ?? '',
+        employee_visibility_scope: isOwner
+            ? 'all'
+            : (role.employee_visibility_scope ?? 'all'),
+        department_ids: isOwner ? [] : (role.department_ids ?? []),
     });
+
+    const [visibilityScope, setVisibilityScope] = useState<
+        'all' | 'selected_departments'
+    >(isOwner ? 'all' : (role.employee_visibility_scope ?? 'all'));
+    const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<
+        number[]
+    >(role.department_ids ?? []);
+
+    const selectedDeptSet = useMemo(
+        () => new Set(selectedDepartmentIds),
+        [selectedDepartmentIds],
+    );
+    const allDepartmentIds = useMemo(
+        () => flattenDepartmentTreeIds(department_tree),
+        [department_tree],
+    );
+
+    const toggleDepartment = (
+        node: PlanningDepartmentNode,
+        checked: boolean,
+    ): void => {
+        if (isOwner) {
+            return;
+        }
+
+        setSelectedDepartmentIds((prev) =>
+            applyDepartmentToggle(prev, node, checked),
+        );
+    };
 
     const [permissionQuery, setPermissionQuery] = useState('');
     const [permissionView, setPermissionView] = useState<
@@ -186,6 +341,14 @@ export default function RoleDetails({
                                         {
                                             name: form.data.name,
                                             permissions: selectedPermissions,
+                                            employee_visibility_scope: isOwner
+                                                ? 'all'
+                                                : visibilityScope,
+                                            department_ids:
+                                                isOwner ||
+                                                visibilityScope === 'all'
+                                                    ? []
+                                                    : selectedDepartmentIds,
                                         },
                                         {
                                             preserveScroll: true,
@@ -259,19 +422,18 @@ export default function RoleDetails({
                                     ].map((view) => (
                                         <Button
                                             key={view.id}
-                                            type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className={`h-9 gap-2 rounded-lg px-4 text-xs font-bold transition-all ${
-                                                permissionView === view.id
-                                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                                                    : 'text-muted-foreground hover:bg-accent dark:hover:bg-white/5'
-                                            }`}
                                             onClick={() =>
                                                 setPermissionView(
-                                                    view.id as any,
+                                                    view.id as typeof permissionView,
                                                 )
                                             }
+                                            className={`h-9 gap-2 rounded-lg px-3 text-xs font-bold transition-all ${
+                                                permissionView === view.id
+                                                    ? 'bg-card text-foreground shadow-sm dark:bg-white/10'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
                                         >
                                             <view.icon className="h-3.5 w-3.5" />
                                             {view.label}
@@ -279,6 +441,186 @@ export default function RoleDetails({
                                     ))}
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Employee Access Scope Section */}
+                    <Card className="border-border bg-card dark:border-white/5 dark:bg-white/5">
+                        <CardHeader className="p-5 pb-3 sm:p-6 sm:pb-4">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                        <Building2 className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-base font-bold tracking-tight">
+                                            Employee Access Scope
+                                        </CardTitle>
+                                        <CardDescription className="text-xs leading-relaxed">
+                                            Controls which employees users with
+                                            this role can access throughout
+                                            OMS-HRM. Module permissions still
+                                            determine which features and
+                                            employee data they can use.
+                                        </CardDescription>
+                                    </div>
+                                </div>
+                                {isOwner ? (
+                                    <Badge
+                                        variant="secondary"
+                                        className="self-start rounded-full px-3 py-1 text-xs font-medium"
+                                    >
+                                        Protected Owner Role
+                                    </Badge>
+                                ) : null}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 p-5 pt-0 sm:p-6 sm:pt-0">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label
+                                    className={cn(
+                                        'flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all',
+                                        visibilityScope === 'all'
+                                            ? 'border-primary/50 bg-primary/5 shadow-xs'
+                                            : 'border-border/70 hover:border-border hover:bg-muted/30 dark:border-white/10 dark:hover:bg-white/5',
+                                        isOwner && 'cursor-default',
+                                    )}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="employee_visibility_scope"
+                                        value="all"
+                                        checked={visibilityScope === 'all'}
+                                        disabled={isOwner}
+                                        onChange={() =>
+                                            setVisibilityScope('all')
+                                        }
+                                        className="mt-0.5 h-4 w-4 text-primary"
+                                    />
+                                    <div className="space-y-1">
+                                        <span className="text-sm font-semibold">
+                                            All departments
+                                        </span>
+                                        <p className="text-xs text-muted-foreground">
+                                            Users with this role may access
+                                            employees across all departments in
+                                            the active company.
+                                        </p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    className={cn(
+                                        'flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all',
+                                        visibilityScope ===
+                                            'selected_departments'
+                                            ? 'border-primary/50 bg-primary/5 shadow-xs'
+                                            : 'border-border/70 hover:border-border hover:bg-muted/30 dark:border-white/10 dark:hover:bg-white/5',
+                                        isOwner &&
+                                            'cursor-not-allowed opacity-50',
+                                    )}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="employee_visibility_scope"
+                                        value="selected_departments"
+                                        checked={
+                                            visibilityScope ===
+                                            'selected_departments'
+                                        }
+                                        disabled={isOwner}
+                                        onChange={() =>
+                                            setVisibilityScope(
+                                                'selected_departments',
+                                            )
+                                        }
+                                        className="mt-0.5 h-4 w-4 text-primary"
+                                    />
+                                    <div className="space-y-1">
+                                        <span className="text-sm font-semibold">
+                                            Selected departments
+                                        </span>
+                                        <p className="text-xs text-muted-foreground">
+                                            Users with this role may only access
+                                            employees whose current department
+                                            belongs to one of the selected
+                                            departments or their descendants.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            {visibilityScope === 'selected_departments' &&
+                            !isOwner ? (
+                                <div className="mt-4 space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="text-xs font-semibold text-foreground">
+                                                Department Hierarchy
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Selecting a parent department
+                                                automatically includes its child
+                                                departments.
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 text-xs font-medium"
+                                                onClick={() =>
+                                                    setSelectedDepartmentIds(
+                                                        allDepartmentIds,
+                                                    )
+                                                }
+                                            >
+                                                Select All
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 text-xs font-medium"
+                                                onClick={() =>
+                                                    setSelectedDepartmentIds([])
+                                                }
+                                            >
+                                                Clear
+                                            </Button>
+                                            <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                            >
+                                                {selectedDepartmentIds.length}{' '}
+                                                selected
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    {department_tree.length === 0 ? (
+                                        <p className="py-4 text-center text-xs text-muted-foreground">
+                                            No active departments available for
+                                            this company.
+                                        </p>
+                                    ) : (
+                                        <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                                            {department_tree.map((node) => (
+                                                <DepartmentTreeNodeRow
+                                                    key={node.id}
+                                                    node={node}
+                                                    depth={0}
+                                                    selectedIds={
+                                                        selectedDeptSet
+                                                    }
+                                                    onToggle={toggleDepartment}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : null}
                         </CardContent>
                     </Card>
 

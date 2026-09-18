@@ -10,6 +10,7 @@ use App\Models\PayrollPeriod;
 use App\Models\RecentItem;
 use App\Models\User;
 use App\Models\Vessel;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Search\GlobalSearchResultPresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -64,7 +65,7 @@ final class ListRecentItems
                 continue;
             }
 
-            foreach ($this->present($type, $this->loadRecords($type, $companyId, $ids)) as $item) {
+            foreach ($this->present($type, $this->loadRecords($type, $companyId, $user, $ids)) as $item) {
                 $presentedById[$item['id']] = [
                     ...$item,
                     'type' => $type->value,
@@ -116,34 +117,45 @@ final class ListRecentItems
      * @param  list<int>  $ids
      * @return Collection<int, Employee|EmployeeDocument|CrewAssignment|Vessel|PayrollPeriod>
      */
-    private function loadRecords(RecentItemType $type, int $companyId, array $ids): Collection
+    private function loadRecords(RecentItemType $type, int $companyId, ?User $user, array $ids): Collection
     {
         return match ($type) {
-            RecentItemType::Employee => Employee::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', $ids)
-                ->with(['department:id,name', 'position:id,title'])
-                ->get(['id', 'name', 'employee_no', 'department_id', 'position_id']),
-            RecentItemType::Document => EmployeeDocument::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', $ids)
-                ->with([
-                    'employee:id,name,employee_no,company_id',
-                    'documentType:id,title',
-                ])
-                ->whereHas('employee', function (Builder $employee) use ($companyId): void {
-                    $employee->where('company_id', $companyId);
-                })
-                ->get(['id', 'employee_id', 'document_type_id', 'title', 'document_number', 'expiry_date']),
-            RecentItemType::CrewAssignment => CrewAssignment::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', $ids)
-                ->with([
-                    'employee:id,name,employee_no,company_id',
-                    'vessel:id,name,company_id',
-                    'currentPhase:id,phase_code',
-                ])
-                ->get(['id', 'assignment_no', 'employee_id', 'vessel_id', 'current_phase_id']),
+            RecentItemType::Employee => EmployeeVisibilityScope::apply(
+                Employee::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('id', $ids)
+                    ->with(['department:id,name', 'position:id,title']),
+                $user,
+                $companyId,
+            )->get(['id', 'name', 'employee_no', 'department_id', 'position_id']),
+            RecentItemType::Document => EmployeeVisibilityScope::whereHas(
+                EmployeeDocument::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('id', $ids)
+                    ->with([
+                        'employee:id,name,employee_no,company_id',
+                        'documentType:id,title',
+                    ])
+                    ->whereHas('employee', function (Builder $employee) use ($companyId): void {
+                        $employee->where('company_id', $companyId);
+                    }),
+                $user,
+                $companyId,
+                'employee',
+            )->get(['id', 'employee_id', 'document_type_id', 'title', 'document_number', 'expiry_date']),
+            RecentItemType::CrewAssignment => EmployeeVisibilityScope::whereHas(
+                CrewAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('id', $ids)
+                    ->with([
+                        'employee:id,name,employee_no,company_id',
+                        'vessel:id,name,company_id',
+                        'currentPhase:id,phase_code',
+                    ]),
+                $user,
+                $companyId,
+                'employee',
+            )->get(['id', 'assignment_no', 'employee_id', 'vessel_id', 'current_phase_id']),
             RecentItemType::Vessel => Vessel::query()
                 ->where('company_id', $companyId)
                 ->whereIn('id', $ids)

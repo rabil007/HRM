@@ -8,6 +8,7 @@ use App\Http\Requests\Organization\Payroll\ExportWpsRequest;
 use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\Wps\WpsExcelExporter;
 use App\Support\Payroll\Wps\WpsExportValidator;
 use App\Support\Payroll\Wps\WpsSifExporter;
@@ -28,11 +29,15 @@ class WpsExportController extends Controller
             ->findOrFail((int) $request->validated('period_id'));
 
         $company = Company::query()->findOrFail($companyId);
-        $recordsQuery = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $period->id)
-            ->with(['employee.currentContract', 'employee.contracts', 'employee.primaryBankAccount.bank'])
-            ->orderBy('id');
+        $recordsQuery = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $period->id)
+                ->with(['employee.currentContract', 'employee.contracts', 'employee.primaryBankAccount.bank'])
+                ->orderBy('id'),
+            $request->user(),
+            $companyId,
+        );
 
         if ($request->filled('record_ids')) {
             $recordsQuery->whereIn('id', $request->validated('record_ids'));

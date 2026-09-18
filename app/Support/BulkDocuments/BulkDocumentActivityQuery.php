@@ -4,6 +4,7 @@ namespace App\Support\BulkDocuments;
 
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -18,8 +19,9 @@ final class BulkDocumentActivityQuery
         EmployeeDirectoryFilters $filters,
         int $perPage,
         int $page,
+        ?User $user = null,
     ): LengthAwarePaginator {
-        $items = self::items($companyId, $documentTypeKey, $filters);
+        $items = self::items($companyId, $documentTypeKey, $filters, $user);
         $total = $items->count();
         $page = max(1, $page);
 
@@ -47,6 +49,7 @@ final class BulkDocumentActivityQuery
         int $companyId,
         string $documentTypeKey,
         EmployeeDirectoryFilters $filters,
+        ?User $user = null,
     ): Collection {
         $hasEmployeeFilters = self::hasEmployeeFilters($filters);
 
@@ -84,9 +87,9 @@ final class BulkDocumentActivityQuery
             ->with(['triggeredBy:id,name', 'emailTemplate:id,label']);
 
         if ($hasEmployeeFilters) {
-            $batchesQuery->whereHas('sends', function ($sendQuery) use ($companyId, $filters): void {
-                $sendQuery->whereHas('employee', function ($employeeQuery) use ($companyId, $filters): void {
-                    EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+            $batchesQuery->whereHas('sends', function ($sendQuery) use ($companyId, $filters, $user): void {
+                $sendQuery->whereHas('employee', function ($employeeQuery) use ($companyId, $filters, $user): void {
+                    EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters, user: $user);
                 });
             });
         }

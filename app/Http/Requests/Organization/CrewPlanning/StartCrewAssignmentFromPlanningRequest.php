@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\CrewPlanning;
 
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -28,8 +29,8 @@ class StartCrewAssignmentFromPlanningRequest extends FormRequest
         $planning = $this->route('assignment');
         $companyId = (int) $this->attributes->get('current_company_id');
 
-        if ($planning !== null && (int) $planning->company_id !== $companyId) {
-            abort(404);
+        if ($planning !== null) {
+            CrewPlanningAssignmentAccess::assertInCompany($planning, $companyId, $user);
         }
 
         return true;

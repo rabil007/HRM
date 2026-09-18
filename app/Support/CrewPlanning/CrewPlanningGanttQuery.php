@@ -3,7 +3,9 @@
 namespace App\Support\CrewPlanning;
 
 use App\Models\CrewPlanningAssignment;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,11 +46,12 @@ final class CrewPlanningGanttQuery
         ?int $vesselId = null,
         ?int $rankId = null,
         ?array $projectionPositions = null,
+        ?User $user = null,
     ): array {
         $assignments = self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
             'vessel:id,name',
             'rank:id,name',
-        ]);
+        ], $user);
 
         $grouped = [];
 
@@ -142,6 +145,7 @@ final class CrewPlanningGanttQuery
         string $to,
         ?int $vesselId = null,
         ?int $rankId = null,
+        ?User $user = null,
     ): array {
         return self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
             'employee:id,name',
@@ -150,13 +154,18 @@ final class CrewPlanningGanttQuery
             'relievedAssignment.employee:id,name,employee_no',
             'relievedAssignment.vessel:id,name',
             'relievedAssignment.rank:id,name',
-        ])
-            ->map(function (CrewPlanningAssignment $assignment) use ($to) {
+        ], $user)
+            ->map(function (CrewPlanningAssignment $assignment) use ($to, $user, $companyId) {
                 $joinDate = $assignment->planned_join_date->toDateString();
                 $leaveDate = $assignment->planned_leave_date?->toDateString();
                 $isOpenEnded = $leaveDate === null;
                 $displayEnd = $leaveDate ?? $to;
                 $planningKind = self::planningKind($assignment);
+
+                $relievedEmployee = $assignment->relievedAssignment?->employee;
+                $canSeeRelievedEmployee = $relievedEmployee === null
+                    || $user === null
+                    || EmployeeVisibilityScope::canAccess($user, $relievedEmployee, $companyId);
 
                 return [
                     'id' => $assignment->id,
@@ -173,12 +182,24 @@ final class CrewPlanningGanttQuery
                     'vessel_name' => $assignment->vessel?->name,
                     'notes' => $assignment->notes,
                     'crew_assignment_id' => $assignment->crew_assignment_id,
-                    'relieves_crew_assignment_id' => $assignment->relieves_crew_assignment_id,
-                    'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
-                    'relieves_assignment_no' => $assignment->relievedAssignment?->assignment_no,
-                    'relieves_vessel_name' => $assignment->relievedAssignment?->vessel?->name,
-                    'relieves_rank_name' => $assignment->relievedAssignment?->rank?->name,
-                    'relieves_planned_signoff_at' => $assignment->relievedAssignment?->planned_signoff_at?->toDateString(),
+                    'relieves_crew_assignment_id' => $canSeeRelievedEmployee
+                        ? $assignment->relieves_crew_assignment_id
+                        : null,
+                    'relieves_employee_name' => $canSeeRelievedEmployee
+                        ? $assignment->relievedAssignment?->employee?->name
+                        : null,
+                    'relieves_assignment_no' => $canSeeRelievedEmployee
+                        ? $assignment->relievedAssignment?->assignment_no
+                        : null,
+                    'relieves_vessel_name' => $canSeeRelievedEmployee
+                        ? $assignment->relievedAssignment?->vessel?->name
+                        : null,
+                    'relieves_rank_name' => $canSeeRelievedEmployee
+                        ? $assignment->relievedAssignment?->rank?->name
+                        : null,
+                    'relieves_planned_signoff_at' => $canSeeRelievedEmployee
+                        ? $assignment->relievedAssignment?->planned_signoff_at?->toDateString()
+                        : null,
                     'is_assigned' => $assignment->crew_assignment_id !== null,
                     'planning_kind' => $planningKind,
                     'planning_kind_label' => self::planningKindLabel($planningKind),
@@ -257,13 +278,14 @@ final class CrewPlanningGanttQuery
         ?int $vesselId = null,
         ?int $rankId = null,
         ?array $projectionPositions = null,
+        ?User $user = null,
     ): array {
         $assignments = self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
             'vessel:id,name',
             'rank:id,name',
             'employee:id,name',
             'relievedAssignment.employee:id,name',
-        ]);
+        ], $user);
 
         $grouped = [];
 
@@ -292,12 +314,21 @@ final class CrewPlanningGanttQuery
                 'rank_name' => $rank->name,
                 'required_count' => $rowAssignments->count(),
                 'crew' => $rowAssignments
-                    ->map(fn (CrewPlanningAssignment $assignment): array => [
-                        'employee_id' => $assignment->employee_id,
-                        'employee_name' => $assignment->employee?->name ?? 'Vacant',
-                        'is_assigned' => $assignment->crew_assignment_id !== null,
-                        'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
-                    ])
+                    ->map(function (CrewPlanningAssignment $assignment) use ($user, $companyId): array {
+                        $relievedEmployee = $assignment->relievedAssignment?->employee;
+                        $canSeeRelievedEmployee = $relievedEmployee === null
+                            || $user === null
+                            || EmployeeVisibilityScope::canAccess($user, $relievedEmployee, $companyId);
+
+                        return [
+                            'employee_id' => $assignment->employee_id,
+                            'employee_name' => $assignment->employee?->name ?? 'Vacant',
+                            'is_assigned' => $assignment->crew_assignment_id !== null,
+                            'relieves_employee_name' => $canSeeRelievedEmployee
+                                ? $assignment->relievedAssignment?->employee?->name
+                                : null,
+                        ];
+                    })
                     ->values()
                     ->all(),
             ];
@@ -369,8 +400,9 @@ final class CrewPlanningGanttQuery
         ?int $vesselId,
         ?int $rankId,
         array $with,
+        ?User $user = null,
     ): Collection {
-        return CrewPlanningAssignment::query()
+        $query = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->whereNotNull('vessel_id')
             ->whereNotNull('rank_id')
@@ -392,7 +424,26 @@ final class CrewPlanningGanttQuery
                     });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId))
+            ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId));
+
+        if ($user !== null) {
+            $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+            if ($allowedIds === []) {
+                $query->whereNull('employee_id');
+            } elseif ($allowedIds !== null) {
+                $query->where(function (Builder $visibilityQuery) use ($companyId, $allowedIds): void {
+                    $visibilityQuery->whereNull('employee_id')
+                        ->orWhereHas('employee', function (Builder $employeeQuery) use ($companyId, $allowedIds): void {
+                            $employeeQuery
+                                ->where('employees.company_id', $companyId)
+                                ->whereIn('employees.department_id', $allowedIds);
+                        });
+                });
+            }
+        }
+
+        return $query
             ->with($with)
             ->orderBy('vessel_id')
             ->orderBy('rank_id')

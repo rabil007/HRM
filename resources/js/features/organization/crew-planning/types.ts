@@ -265,7 +265,6 @@ export type PlanningProjection = {
 };
 
 export type PlanningSettings = {
-    pool_department_ids: number[];
     max_home_days: number;
     sync_sea_service: boolean;
     sync_training_to_employee_training?: boolean;

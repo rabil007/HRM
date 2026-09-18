@@ -20,7 +20,7 @@ class BankAccountsExportController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = BankAccountDirectoryFilters::fromRequest($request);
 
-        $query = (new BankAccountDirectoryQuery($companyId, $filters))->exportQuery();
+        $query = (new BankAccountDirectoryQuery($companyId, $filters, $request->user()))->exportQuery();
         $selectedIds = SelectedRecordIds::fromRequest($request);
 
         if ($selectedIds !== []) {

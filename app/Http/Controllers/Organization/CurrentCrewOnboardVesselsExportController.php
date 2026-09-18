@@ -41,6 +41,7 @@ class CurrentCrewOnboardVesselsExportController extends Controller
                 $filters,
                 $assignmentIds,
                 selectedOnly: true,
+                user: $request->user(),
             );
 
             if ($assignments->isEmpty()) {
@@ -49,7 +50,7 @@ class CurrentCrewOnboardVesselsExportController extends Controller
                 ]);
             }
         } else {
-            $assignments = CurrentCrewVesselQuery::exportAssignments($companyId, $filters);
+            $assignments = CurrentCrewVesselQuery::exportAssignments($companyId, $filters, user: $request->user());
         }
 
         $export = new CurrentCrewOnboardVesselsExport($assignments);

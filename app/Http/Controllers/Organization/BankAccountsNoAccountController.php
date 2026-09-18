@@ -24,10 +24,10 @@ class BankAccountsNoAccountController extends Controller
         $departmentId = (string) $request->query('department_id', '');
         $perPage = $this->resolvePerPage($request, default: 25);
 
-        $paginator = $query->paginate($companyId, $search, $paymentMethod, $departmentId, $perPage);
+        $paginator = $query->paginate($companyId, $search, $paymentMethod, $departmentId, $perPage, $request->user());
 
         return Inertia::render('organization/bank-accounts/no-account', [
-            'summary' => $query->summary($companyId),
+            'summary' => $query->summary($companyId, $request->user()),
             'employees' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
@@ -37,6 +37,7 @@ class BankAccountsNoAccountController extends Controller
                 $companyId,
                 new EmployeeDirectoryFilters(departmentId: $departmentId),
                 BankAccountDepartmentTree::CONTEXT_NO_ACCOUNT,
+                user: $request->user(),
             ),
             'department_tree_selected_id' => $departmentId !== '' ? (int) $departmentId : null,
             'can' => BankAccountPagePermissions::for($request->user()),

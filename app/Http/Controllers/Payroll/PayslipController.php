@@ -14,6 +14,7 @@ use App\Support\Payroll\Actions\GeneratePayrollPayslips;
 use App\Support\Payroll\Actions\GeneratePayslip;
 use App\Support\Payroll\Actions\GeneratePayslipsFromSalarySheet;
 use App\Support\Payroll\Actions\SendPayslipEmails;
+use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\PayslipData;
 use App\Support\Payroll\Services\SalarySheetPayslipParser;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -35,8 +36,8 @@ class PayslipController extends Controller
     public function show(Request $request, PayrollRecord $payrollRecord): BinaryFileResponse|Response|StreamedResponse|View|\Symfony\Component\HttpFoundation\Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless((int) $payrollRecord->company_id === $companyId, 404);
         $this->authorizeAccess($request);
+        PayrollRecordAccess::assertRecord($request->user(), $payrollRecord, $companyId, allowSelf: true);
 
         if ($request->header('X-Inertia') && $request->query('view') !== 'html') {
             return Inertia::location(route('payroll.payslips.show', $payrollRecord));
@@ -65,8 +66,8 @@ class PayslipController extends Controller
     public function download(Request $request, PayrollRecord $payrollRecord): StreamedResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless((int) $payrollRecord->company_id === $companyId, 404);
         $this->authorizeAccess($request);
+        PayrollRecordAccess::assertRecord($request->user(), $payrollRecord, $companyId, allowSelf: true);
 
         if (filled($payrollRecord->payslip_path) && Storage::disk('local')->exists($payrollRecord->payslip_path)) {
             $filename = basename($payrollRecord->payslip_path);
@@ -90,12 +91,15 @@ class PayslipController extends Controller
 
         abort_unless(filled($periodId), 400, 'Period ID is required.');
 
-        $records = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', (int) $periodId)
-            ->whereNotNull('payslip_path')
-            ->with('employee')
-            ->get();
+        $records = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', (int) $periodId)
+                ->whereNotNull('payslip_path')
+                ->with('employee'),
+            $request->user(),
+            $companyId,
+        )->get();
 
         if ($records->isEmpty()) {
             return back()->with('error', 'No generated payslips found for this period.');
@@ -138,13 +142,16 @@ class PayslipController extends Controller
 
         abort_unless(filled($periodId), 400, 'Period ID is required.');
 
-        $records = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', (int) $periodId)
-            ->whereNotNull('payslip_path')
-            ->with('employee')
-            ->orderBy('id')
-            ->get();
+        $records = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', (int) $periodId)
+                ->whereNotNull('payslip_path')
+                ->with('employee')
+                ->orderBy('id'),
+            $request->user(),
+            $companyId,
+        )->get();
 
         if ($records->isEmpty()) {
             return back()->with('error', 'No generated payslips found for this period.');
@@ -225,7 +232,7 @@ class PayslipController extends Controller
                 ->where('company_id', $companyId)
                 ->findOrFail((int) $validated['period_id']);
 
-            $queued = $generatePayrollPayslips->regenerateForPeriod($period);
+            $queued = $generatePayrollPayslips->regenerateForPeriod($period, $request->user());
 
             if ($queued === 0) {
                 return back()->with('error', 'No payroll records found to regenerate.');
@@ -234,7 +241,7 @@ class PayslipController extends Controller
             return back()->with('success', "Re-generating {$queued} payslip(s) in the background.");
         }
 
-        $records = $this->resolveRecords($companyId, $validated);
+        $records = $this->resolveRecords($request, $companyId, $validated);
 
         $generated = 0;
 
@@ -251,7 +258,7 @@ class PayslipController extends Controller
         SendPayslipEmails $sendPayslipEmails,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $records = $this->resolveRecords($companyId, $request->validated());
+        $records = $this->resolveRecords($request, $companyId, $request->validated());
         $result = $sendPayslipEmails->handle($records);
 
         $message = "Queued {$result['sent']} payslip email(s).";
@@ -267,16 +274,23 @@ class PayslipController extends Controller
      * @param  array<string, mixed>  $validated
      * @return Collection<int, PayrollRecord>
      */
-    private function resolveRecords(int $companyId, array $validated): Collection
+    private function resolveRecords(Request $request, int $companyId, array $validated): Collection
     {
         if (! empty($validated['record_ids'])) {
-            return PayrollRecord::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', $validated['record_ids'])
-                ->get();
+            return PayrollRecordAccess::apply(
+                PayrollRecord::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('id', $validated['record_ids']),
+                $request->user(),
+                $companyId,
+            )->get();
         }
 
-        $query = PayrollRecord::query()->where('company_id', $companyId);
+        $query = PayrollRecordAccess::apply(
+            PayrollRecord::query()->where('company_id', $companyId),
+            $request->user(),
+            $companyId,
+        );
 
         if (! empty($validated['period_id'])) {
             $query->where('period_id', (int) $validated['period_id']);

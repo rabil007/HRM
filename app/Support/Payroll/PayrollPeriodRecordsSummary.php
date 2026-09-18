@@ -6,6 +6,8 @@ use App\Enums\PayrollCategory;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 final class PayrollPeriodRecordsSummary
 {
@@ -22,11 +24,15 @@ final class PayrollPeriodRecordsSummary
      *     total_overtime_hours: string,
      * }
      */
-    public static function forPeriod(PayrollPeriod $period): array
+    public static function forPeriod(PayrollPeriod $period, ?User $user = null): array
     {
-        $row = PayrollRecord::query()
+        $recordsQuery = PayrollRecord::query()
             ->where('company_id', $period->company_id)
-            ->where('period_id', $period->id)
+            ->where('period_id', $period->id);
+
+        PayrollRecordAccess::apply($recordsQuery, $user, (int) $period->company_id);
+
+        $row = (clone $recordsQuery)
             ->selectRaw('COUNT(*) as employee_count, COALESCE(SUM(gross_salary), 0) as total_gross, COALESCE(SUM(net_salary), 0) as total_net, COALESCE(SUM(total_deductions), 0) as total_deductions, COALESCE(SUM(overtime_pay), 0) as total_overtime_pay, COALESCE(SUM(overtime_hours), 0) as total_overtime_hours')
             ->first();
 
@@ -34,19 +40,20 @@ final class PayrollPeriodRecordsSummary
         $monthlyEmployeeCount = 0;
 
         if ($period->payroll_category === PayrollCategory::Crew) {
-            $base = PayrollRecord::query()
-                ->where('company_id', $period->company_id)
-                ->where('period_id', $period->id);
-
-            $dailyEmployeeCount = (clone $base)->crewDaily()->count();
-            $monthlyEmployeeCount = (clone $base)->crewMonthly()->count();
+            $dailyEmployeeCount = (clone $recordsQuery)->crewDaily()->count();
+            $monthlyEmployeeCount = (clone $recordsQuery)->crewMonthly()->count();
         }
 
-        $totalAdditions = SalaryInput::query()
+        $salaryInputsQuery = SalaryInput::query()
             ->where('company_id', $period->company_id)
             ->where('period_id', $period->id)
-            ->whereHas('salaryInputType', fn ($query) => $query->where('is_addition', true))
-            ->sum('amount');
+            ->whereHas('salaryInputType', fn ($query) => $query->where('is_addition', true));
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($salaryInputsQuery, $user, (int) $period->company_id, 'employee');
+        }
+
+        $totalAdditions = $salaryInputsQuery->sum('amount');
 
         return [
             'employee_count' => (int) ($row->employee_count ?? 0),

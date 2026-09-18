@@ -19,7 +19,7 @@ class EmployeeBankAccountsBrowseController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        BankAccountAccess::assertEmployeeInCompany($employee, $companyId, 404);
+        BankAccountAccess::assertEmployeeInCompany($employee, $companyId, 404, $request->user());
 
         $employee->load('employeeProfileTemplate:id,name,configuration_json');
 

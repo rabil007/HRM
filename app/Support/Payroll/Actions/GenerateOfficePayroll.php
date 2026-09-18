@@ -9,8 +9,11 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\CountWorkingDaysInRange;
 use App\Support\Payroll\GeneratePayrollResult;
+use App\Support\Payroll\MergePayrollPeriodExclusions;
 use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
@@ -33,7 +36,7 @@ final class GenerateOfficePayroll
         private readonly ResolveOfficeContractForPayrollPeriod $resolveContract,
     ) {}
 
-    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], array $employeeDates = []): GeneratePayrollResult
+    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], array $employeeDates = [], ?User $user = null): GeneratePayrollResult
     {
         abort_unless($period->isOffice(), 404);
 
@@ -43,14 +46,37 @@ final class GenerateOfficePayroll
             ]);
         }
 
-        $excludedEmployeeIds = array_values(array_unique(array_map(
-            intval(...),
-            array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
-        )));
+        $companyId = (int) $period->company_id;
+        $excludedEmployeeIds = MergePayrollPeriodExclusions::resolve(
+            $period->excluded_employee_ids ?? [],
+            $excludedEmployeeIds,
+            $user,
+            $companyId,
+        );
+        $enforceableExcludedEmployeeIds = MergePayrollPeriodExclusions::enforceableForActor(
+            $excludedEmployeeIds,
+            $user,
+            $companyId,
+        );
+
+        if ($user !== null) {
+            $employeeDates = array_intersect_key(
+                $employeeDates,
+                array_flip(EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                    $user,
+                    $companyId,
+                    array_map(intval(...), array_keys($employeeDates)),
+                )),
+            );
+        }
 
         $workingDaysInPeriod = (int) $period->start_date->diffInDays($period->end_date) + 1;
 
         $employeesQuery = PayrollEmployeeQuery::forPeriod($period, PayrollCategory::Office);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+        }
 
         if (! empty($excludedEmployeeIds)) {
             $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
@@ -78,6 +104,7 @@ final class GenerateOfficePayroll
         $emptyLeaveSummary = $this->leavePeriodSummary->empty($period->company_id);
 
         $generatedCount = 0;
+        $generatedEmployeeIds = [];
         $errors = [];
 
         DB::transaction(function () use (
@@ -88,14 +115,17 @@ final class GenerateOfficePayroll
             $emptyLeaveSummary,
             $workingDaysInPeriod,
             $excludedEmployeeIds,
+            $enforceableExcludedEmployeeIds,
             $employeeDates,
+            $user,
             &$generatedCount,
+            &$generatedEmployeeIds,
             &$errors,
         ): void {
-            if (! empty($excludedEmployeeIds)) {
+            if ($enforceableExcludedEmployeeIds !== []) {
                 PayrollRecord::query()
                     ->where('period_id', $period->id)
-                    ->whereIn('employee_id', $excludedEmployeeIds)
+                    ->whereIn('employee_id', $enforceableExcludedEmployeeIds)
                     ->forceDelete();
             }
             foreach ($employees as $employee) {
@@ -185,6 +215,7 @@ final class GenerateOfficePayroll
                 );
 
                 $generatedCount++;
+                $generatedEmployeeIds[] = (int) $employee->id;
             }
 
             $periodUpdates = [
@@ -201,8 +232,12 @@ final class GenerateOfficePayroll
 
             $period->update($periodUpdates);
 
-            if ($generatedCount > 0) {
-                $this->recalculateOfficePayroll->handle($period->fresh());
+            if ($generatedEmployeeIds !== []) {
+                $this->recalculateOfficePayroll->handleEmployees(
+                    $period->fresh(),
+                    $generatedEmployeeIds,
+                    $user,
+                );
             }
         });
 

@@ -18,7 +18,7 @@ trait AttendanceRecordValidationRules
         $companyId = (int) $this->attributes->get('current_company_id');
 
         $employeeRule = $requireActiveEmployee
-            ? ActiveCompanyEmployeeRule::exists($companyId)
+            ? ActiveCompanyEmployeeRule::exists($companyId, $this->user())
             : Rule::exists(Employee::class, 'id')->where(fn ($query) => $query->where('company_id', $companyId));
 
         return [

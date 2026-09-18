@@ -7,6 +7,8 @@ use App\Enums\SalaryPaymentMethod;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\User;
+use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\Services\Concerns\SpreadsheetPayrollExportFormatting;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -21,17 +23,20 @@ final class OfficePayrollSalarySheetExporter
     /**
      * @return array{path: string, filename: string}
      */
-    public function export(int $companyId, PayrollPeriod $period): array
+    public function export(int $companyId, PayrollPeriod $period, ?User $user = null): array
     {
-        $records = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $period->id)
-            ->where('payroll_category', PayrollCategory::Office)
-            ->with([
-                'employee.department.parent:id,name',
-                'employee.position:id,title',
-            ])
-            ->get()
+        $records = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $period->id)
+                ->where('payroll_category', PayrollCategory::Office)
+                ->with([
+                    'employee.department.parent:id,name',
+                    'employee.position:id,title',
+                ]),
+            $user,
+            $companyId,
+        )->get()
             ->sortBy([
                 fn (PayrollRecord $record) => mb_strtolower((string) ($record->employee?->name ?? '')),
                 fn (PayrollRecord $record) => (string) ($record->employee?->employee_no ?? ''),

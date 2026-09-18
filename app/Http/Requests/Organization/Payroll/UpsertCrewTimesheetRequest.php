@@ -8,6 +8,8 @@ use App\Enums\PayrollCategory;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Support\Attendance\CalculateLeaveRequestDays;
+use App\Support\Employees\ActiveCompanyEmployeeRule;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -92,9 +94,7 @@ class UpsertCrewTimesheetRequest extends FormRequest
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where(fn ($query) => $query
-                    ->where('company_id', $companyId)
-                    ->where('status', 'active')),
+                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
             'unpaid_leave_days' => ['nullable', 'numeric', 'min:0'],
             'overtime_hours' => ['nullable', 'numeric', 'min:0'],
@@ -355,7 +355,15 @@ class UpsertCrewTimesheetRequest extends FormRequest
 
     public function employee(): Employee
     {
-        return Employee::query()->findOrFail((int) $this->validated('employee_id'));
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $employee = Employee::query()->findOrFail((int) $this->validated('employee_id'));
+
+        abort_unless(
+            EmployeeVisibilityScope::canAccess($this->user(), $employee, $companyId),
+            404,
+        );
+
+        return $employee;
     }
 
     /**

@@ -17,7 +17,7 @@ class VoidCrewAssignmentController extends Controller
         VoidCrewAssignment $voidAssignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         $user = $request->user();
         abort_unless($user !== null, 403);

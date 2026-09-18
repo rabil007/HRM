@@ -26,6 +26,7 @@ class Announcement extends Model
             'priority' => AnnouncementPriority::class,
             'status' => AnnouncementStatus::class,
             'channels' => 'array',
+            'authorized_employee_ids' => 'array',
             'scheduled_at' => 'datetime',
             'published_at' => 'datetime',
             'expires_at' => 'datetime',

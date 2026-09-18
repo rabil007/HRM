@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
+use App\Support\BankAccounts\BankAccountAccess;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\RedirectResponse;
@@ -18,7 +19,7 @@ class EmployeeBankAccountController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless((int) $employee->company_id === $companyId, 403);
+        BankAccountAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_bank_accounts', [
             'bank_id' => ['nullable', 'integer', Rule::exists('banks', 'id')],
@@ -94,6 +95,8 @@ class EmployeeBankAccountController extends Controller
             403,
         );
 
+        BankAccountAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
+
         $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_bank_accounts', [
             'bank_id' => ['nullable', 'integer', Rule::exists('banks', 'id')],
             'iban' => ['nullable', 'string', 'max:50'],
@@ -165,6 +168,8 @@ class EmployeeBankAccountController extends Controller
                 && (int) $bankAccount->company_id === $companyId,
             403,
         );
+
+        BankAccountAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         if (PayrollRecordLinkage::employeeBankAccountHasRecords((int) $bankAccount->id)) {
             return back()->withErrors([

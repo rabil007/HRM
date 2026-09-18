@@ -17,9 +17,9 @@ class TrainingCertificateDownloadService
         int $companyId,
         bool $inline = false,
     ): Response {
-        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404);
-        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 404);
-        TrainingAccess::assertTrainingInCompany($training, $companyId, 404);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404, allowSelf: true);
+        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 404, allowSelf: true);
+        TrainingAccess::assertTrainingInCompany($training, $companyId, 404, allowSelf: true);
 
         $path = (string) ($training->certificate_path ?? '');
 
@@ -43,9 +43,9 @@ class TrainingCertificateDownloadService
         int $companyId,
         bool $inline = false,
     ): Response {
-        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404);
-        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 404);
-        TrainingAccess::assertTrainingInCompany($training, $companyId, 404);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404, allowSelf: true);
+        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 404, allowSelf: true);
+        TrainingAccess::assertTrainingInCompany($training, $companyId, 404, allowSelf: true);
         TrainingAccess::assertVersionBelongsToTraining($training, $version, $companyId);
 
         return $this->respond(

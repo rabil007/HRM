@@ -3,6 +3,7 @@
 namespace App\Support\SeaServices;
 
 use App\Models\EmployeeSeaService;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -14,6 +15,7 @@ final class SeaServiceDirectoryQuery
     public function __construct(
         private readonly int $companyId,
         private readonly SeaServiceDirectoryFilters $filters,
+        private readonly ?User $user = null,
     ) {}
 
     /**
@@ -160,6 +162,7 @@ final class SeaServiceDirectoryQuery
                     exceptDepartment: false,
                     exceptPosition: true,
                     exceptStatus: true,
+                    user: $this->user,
                 );
             });
     }

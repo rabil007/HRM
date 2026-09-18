@@ -3,8 +3,10 @@
 namespace App\Support\BankAccounts;
 
 use App\Models\EmployeeBankAccount;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -14,6 +16,7 @@ final class BankAccountDirectoryQuery
     public function __construct(
         private readonly int $companyId,
         private readonly BankAccountDirectoryFilters $filters,
+        private readonly ?User $user = null,
     ) {}
 
     /**
@@ -114,12 +117,19 @@ final class BankAccountDirectoryQuery
                     departmentId: $this->filters->departmentId,
                 );
 
+                $currentUser = $this->user ?? auth()->user();
+
+                if ($currentUser instanceof User) {
+                    EmployeeVisibilityScope::apply($employeeQuery, $currentUser, $this->companyId);
+                }
+
                 EmployeeDirectoryQuery::applyAttributeFilters(
                     $employeeQuery,
                     $this->companyId,
                     $directoryFilters,
                     exceptDepartment: false,
                     exceptPosition: true,
+                    user: $currentUser,
                 );
             });
     }

@@ -8,7 +8,9 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
+use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -27,11 +29,11 @@ final class SaveCrewPlanningAssignment
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function create(int $companyId, array $attributes): CrewPlanningAssignment
+    public function create(int $companyId, array $attributes, ?User $actor = null): CrewPlanningAssignment
     {
-        return DB::transaction(function () use ($companyId, $attributes): CrewPlanningAssignment {
-            $this->assertEmployeeIsActive($companyId, $attributes);
-            $this->assertReliefConstraints($companyId, $attributes);
+        return DB::transaction(function () use ($companyId, $attributes, $actor): CrewPlanningAssignment {
+            $this->assertEmployeeIsActive($companyId, $attributes, $actor);
+            $this->assertReliefConstraints($companyId, $attributes, null, $actor);
 
             return CrewPlanningAssignment::query()->create([
                 ...$attributes,
@@ -43,9 +45,13 @@ final class SaveCrewPlanningAssignment
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function update(CrewPlanningAssignment $assignment, int $companyId, array $attributes): CrewPlanningAssignment
-    {
-        return DB::transaction(function () use ($assignment, $companyId, $attributes): CrewPlanningAssignment {
+    public function update(
+        CrewPlanningAssignment $assignment,
+        int $companyId,
+        array $attributes,
+        ?User $actor = null,
+    ): CrewPlanningAssignment {
+        return DB::transaction(function () use ($assignment, $companyId, $attributes, $actor): CrewPlanningAssignment {
             $locked = CrewPlanningAssignment::query()
                 ->where('company_id', $companyId)
                 ->whereKey($assignment->id)
@@ -73,8 +79,8 @@ final class SaveCrewPlanningAssignment
                     : $locked->employee_id,
             ];
 
-            $this->assertEmployeeIsActive($companyId, $merged);
-            $this->assertReliefConstraints($companyId, $merged, (int) $locked->id);
+            $this->assertEmployeeIsActive($companyId, $merged, $actor);
+            $this->assertReliefConstraints($companyId, $merged, (int) $locked->id, $actor);
 
             $locked->update($attributes);
 
@@ -85,7 +91,7 @@ final class SaveCrewPlanningAssignment
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function assertEmployeeIsActive(int $companyId, array $attributes): void
+    private function assertEmployeeIsActive(int $companyId, array $attributes, ?User $actor = null): void
     {
         $employeeId = $attributes['employee_id'] ?? null;
 
@@ -96,11 +102,17 @@ final class SaveCrewPlanningAssignment
         $employee = Employee::query()
             ->where('company_id', $companyId)
             ->whereKey((int) $employeeId)
-            ->first(['id', 'status']);
+            ->first(['id', 'status', 'department_id', 'user_id']);
 
         if ($employee === null || $employee->status !== 'active') {
             throw ValidationException::withMessages([
                 'employee_id' => 'The selected employee must be an active employee in this company.',
+            ]);
+        }
+
+        if ($actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $companyId)) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'The selected employee could not be found.',
             ]);
         }
     }
@@ -112,6 +124,7 @@ final class SaveCrewPlanningAssignment
         int $companyId,
         array $attributes,
         ?int $exceptPlanningId = null,
+        ?User $actor = null,
     ): void {
         $relievesId = $attributes['relieves_crew_assignment_id'] ?? null;
 
@@ -129,6 +142,13 @@ final class SaveCrewPlanningAssignment
             ->first();
 
         if ($source === null) {
+            throw ValidationException::withMessages([
+                'relieves_crew_assignment_id' => 'The selected assignment could not be found.',
+            ]);
+        }
+
+        if ($actor !== null && $source->employee !== null
+            && ! EmployeeVisibilityScope::canAccess($actor, $source->employee, $companyId)) {
             throw ValidationException::withMessages([
                 'relieves_crew_assignment_id' => 'The selected assignment could not be found.',
             ]);
@@ -183,9 +203,15 @@ final class SaveCrewPlanningAssignment
             $employee = Employee::query()
                 ->where('company_id', $companyId)
                 ->whereKey((int) $employeeId)
-                ->first(['id', 'status', 'rank_id']);
+                ->first(['id', 'status', 'rank_id', 'department_id', 'user_id']);
 
             if ($employee === null) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The selected relief employee could not be found.',
+                ]);
+            }
+
+            if ($actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $companyId)) {
                 throw ValidationException::withMessages([
                     'employee_id' => 'The selected relief employee could not be found.',
                 ]);

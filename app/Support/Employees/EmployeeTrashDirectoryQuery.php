@@ -3,13 +3,14 @@
 namespace App\Support\Employees;
 
 use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 final class EmployeeTrashDirectoryQuery
 {
-    public static function for(int $companyId, string $search = ''): Builder
+    public static function for(int $companyId, string $search = '', ?User $user = null): Builder
     {
-        return Employee::onlyTrashed()
+        $query = Employee::onlyTrashed()
             ->where('company_id', $companyId)
             ->with([
                 'branch:id,name',
@@ -27,5 +28,11 @@ final class EmployeeTrashDirectoryQuery
             ->orderByDesc('deleted_at')
             ->orderBy('name')
             ->orderBy('id');
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        }
+
+        return $query;
     }
 }

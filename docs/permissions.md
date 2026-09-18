@@ -57,6 +57,33 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 
 **Protected Owner role:** The tenant `Owner` role is system-protected in role management. It cannot be renamed, deleted, or have its permissions modified. These restrictions are enforced on the backend and preserve the literal `Owner` role used by the last-active-Owner safeguards. Other tenant roles remain editable and deletable subject to their normal authorization and company scope.
 
+## Role Employee Access Scope
+
+Spatie permissions answer **what** a role may do. **Employee Access Scope** answers **which employees** that role may do it for.
+
+Effective access for employee-linked data is:
+
+`company tenancy` **AND** `module permission` **AND** `employee visibility` **AND** workflow/business rules.
+
+Each tenant role stores `employee_visibility_scope`:
+
+| Scope | Behaviour |
+| ----- | --------- |
+| `all` | Every active employee in the current company (default for existing roles) |
+| `selected_departments` | Only employees in the selected departments and their active descendants |
+
+`Owner` is always `all` and cannot be restricted. If any assigned role is `all`, the user has unrestricted employee access. Selected departments with no configured departments fail closed.
+
+Canonical enforcement: `App\Support\Employees\EmployeeVisibilityScope` (`apply`, `canAccess`, `whereHas`). Operational employee pickers also use `ActiveCompanyEmployeeRule::exists($companyId, $user)`.
+
+**Exceptions (intentional):**
+
+- **Self-service** — only where a workflow explicitly allows `allowSelf: true` (for example payslip self-view), not for administrative profile mutations.
+- **Explicit workflow assignment** — an approver assigned to a leave approval step may process that request even when the employee is outside normal scope; this does not grant profile, payroll, or directory access.
+- **System/background jobs** — scheduled company-wide processing (compliance sync, period approval jobs) may process all company employees; user-initiated queued work must not exceed the population the initiating user was authorized to target.
+
+**Retired:** Crew Operations department pool (`pool_department_ids`) is removed. Role Employee Access Scope is the single source of truth for operational employee pickers and filters.
+
 ## Permission groups
 
 | Area                                                     | Current permission families                                                                                                                                                                                                                                                                                                                                                                                                                                                |

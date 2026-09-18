@@ -3,8 +3,10 @@
 namespace App\Support\EmployeeTrainings;
 
 use App\Models\EmployeeTraining;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -13,6 +15,7 @@ final class TrainingDirectoryQuery
     public function __construct(
         private readonly int $companyId,
         private readonly TrainingDirectoryFilters $filters,
+        private readonly ?User $user = null,
     ) {}
 
     /**
@@ -134,12 +137,19 @@ final class TrainingDirectoryQuery
                     departmentId: $this->filters->departmentId,
                 );
 
+                $currentUser = $this->user ?? auth()->user();
+
+                if ($currentUser instanceof User) {
+                    EmployeeVisibilityScope::apply($employeeQuery, $currentUser, $this->companyId);
+                }
+
                 EmployeeDirectoryQuery::applyAttributeFilters(
                     $employeeQuery,
                     $this->companyId,
                     $directoryFilters,
                     exceptDepartment: false,
                     exceptPosition: true,
+                    user: $currentUser,
                 );
             });
     }

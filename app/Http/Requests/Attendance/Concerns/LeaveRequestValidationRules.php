@@ -18,7 +18,7 @@ trait LeaveRequestValidationRules
             'employee_id' => [
                 'required',
                 'integer',
-                ActiveCompanyEmployeeRule::exists($companyId),
+                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
             'leave_type_id' => [
                 'required',
