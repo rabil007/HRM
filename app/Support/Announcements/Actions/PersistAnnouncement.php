@@ -42,7 +42,7 @@ final class PersistAnnouncement
     public function create(int $companyId, User $user, array $data): Announcement
     {
         $this->resolveAudience->assertAudiencesBelongToCompany($companyId, $data['audiences']);
-        $data['audiences'] = $this->resolveAudience->normalizeAudiences($companyId, $data['audiences']);
+        $data['audiences'] = $this->resolveAudience->normalizeAudiences($companyId, $data['audiences'], $user);
         $whatsAppFields = $this->whatsAppFields($data);
 
         return DB::transaction(function () use ($companyId, $user, $data, $whatsAppFields): Announcement {
@@ -87,7 +87,7 @@ final class PersistAnnouncement
      *     scheduled_at?: string|null
      * }  $data
      */
-    public function update(Announcement $announcement, array $data): Announcement
+    public function update(Announcement $announcement, array $data, User $user): Announcement
     {
         if (! $announcement->status->isEditable()) {
             throw ValidationException::withMessages([
@@ -96,7 +96,7 @@ final class PersistAnnouncement
         }
 
         $this->resolveAudience->assertAudiencesBelongToCompany((int) $announcement->company_id, $data['audiences']);
-        $data['audiences'] = $this->resolveAudience->normalizeAudiences((int) $announcement->company_id, $data['audiences']);
+        $data['audiences'] = $this->resolveAudience->normalizeAudiences((int) $announcement->company_id, $data['audiences'], $user);
         $whatsAppFields = $this->whatsAppFields($data);
 
         return DB::transaction(function () use ($announcement, $data, $whatsAppFields): Announcement {

@@ -27,6 +27,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
 use App\Models\SalaryInputType;
+use App\Models\User;
 use App\Support\Contracts\ContractSalaryStructureFilter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
@@ -56,6 +57,7 @@ use App\Support\Payroll\PayrollPeriodDepartmentTree;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodRecordsSummary;
 use App\Support\Payroll\PayrollPeriodResource;
+use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
 use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
@@ -252,11 +254,10 @@ class PayrollController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
-        if (! $this->isPayslipPollOnly($request)) {
-            $user = $request->user();
-            if ($user !== null) {
-                $recordRecentItem->handle($user, $companyId, RecentItemType::PayrollPeriod, $payrollPeriod->id);
-            }
+        $user = $request->user();
+
+        if (! $this->isPayslipPollOnly($request) && $user !== null) {
+            $recordRecentItem->handle($user, $companyId, RecentItemType::PayrollPeriod, $payrollPeriod->id);
         }
 
         $payrollPeriod->load('approvedBy')->loadCount('payrollRecords');
@@ -275,6 +276,7 @@ class PayrollController extends Controller
                 $perPage,
                 $search,
                 $boardFilters,
+                $user,
             );
         }
 
@@ -314,6 +316,7 @@ class PayrollController extends Controller
             $search,
             $boardFilters,
             $perPage,
+            $user,
         );
 
         $payrollRecords = $payrollRecordsProps['payroll_records'];
@@ -321,28 +324,35 @@ class PayrollController extends Controller
         $payrollRecordsMonthly = $payrollRecordsProps['payroll_records_monthly'];
         $payrollRecordsMonthlyPagination = $payrollRecordsProps['payroll_records_monthly_pagination'];
 
-        $salaryInputsByEmployee = SalaryInputResource::groupByEmployee(
-            SalaryInput::query()
-                ->where('company_id', $companyId)
-                ->where('period_id', $payrollPeriod->id)
-                ->with('salaryInputType')
-                ->orderBy('id')
-                ->get(),
-        );
-
-        $allPayrollRecordIds = PayrollRecord::query()
+        $salaryInputsQuery = SalaryInput::query()
             ->where('company_id', $companyId)
             ->where('period_id', $payrollPeriod->id)
-            ->orderBy('id')
+            ->with('salaryInputType')
+            ->orderBy('id');
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($salaryInputsQuery, $user, $companyId, 'employee');
+        }
+
+        $salaryInputsByEmployee = SalaryInputResource::groupByEmployee($salaryInputsQuery->get());
+
+        $allPayrollRecordIds = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $payrollPeriod->id)
+                ->orderBy('id'),
+            $user,
+            $companyId,
+        )
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
 
         $company = Company::query()->findOrFail($companyId);
-        $payslipSummary = PayslipSummary::forPeriod($payrollPeriod);
+        $payslipSummary = PayslipSummary::forPeriod($payrollPeriod, $user);
         $wpsPreview = $isFinalizedPeriod && $payrollPeriod->payroll_records_count > 0
-            ? app(WpsExportPreview::class)->forPeriod($company, $payrollPeriod)
+            ? app(WpsExportPreview::class)->forPeriod($company, $payrollPeriod, $user)
             : null;
 
         $leaveTypes = $payrollPeriod->isOffice()
@@ -432,7 +442,7 @@ class PayrollController extends Controller
             'payroll_records_monthly_pagination' => $payrollRecordsMonthlyPagination,
             'all_payroll_record_ids' => $allPayrollRecordIds,
             'payroll_records_summary' => $payrollPeriod->payroll_records_count > 0
-                ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod)
+                ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod, $user)
                 : null,
             'salary_inputs_by_employee' => $salaryInputsByEmployee,
             'salary_input_type_options' => SalaryInputType::query()
@@ -470,6 +480,7 @@ class PayrollController extends Controller
                 $directoryFilters,
                 $boardSearch,
                 $boardFilters,
+                $user,
             ),
             'department_tree_selected_id' => $boardFilters->departmentId !== ''
                 ? (int) $boardFilters->departmentId
@@ -546,12 +557,14 @@ class PayrollController extends Controller
         string $search,
         PayrollPeriodBoardFilters $boardFilters,
         int $perPage,
+        ?User $user = null,
     ): array {
         $recordsQuery = $this->payrollPeriodRecordsQuery(
             $companyId,
             $payrollPeriod,
             $search,
             $boardFilters,
+            $user,
         );
 
         $salaryInputCountsByEmployee = SalaryInput::query()
@@ -639,6 +652,7 @@ class PayrollController extends Controller
         int $perPage,
         string $search,
         PayrollPeriodBoardFilters $boardFilters,
+        ?User $user = null,
     ): InertiaResponse {
         $payrollRecordsProps = $this->paginatedPayrollRecordsProps(
             $companyId,
@@ -646,10 +660,11 @@ class PayrollController extends Controller
             $search,
             $boardFilters,
             $perPage,
+            $user,
         );
 
         return Inertia::render('payroll/show', [
-            'payslip_summary' => PayslipSummary::forPeriod($payrollPeriod),
+            'payslip_summary' => PayslipSummary::forPeriod($payrollPeriod, $user),
             ...$payrollRecordsProps,
         ]);
     }
@@ -662,15 +677,20 @@ class PayrollController extends Controller
         PayrollPeriod $payrollPeriod,
         string $search,
         PayrollPeriodBoardFilters $boardFilters,
+        ?User $user = null,
     ): Builder {
-        $recordsQuery = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $payrollPeriod->id)
-            ->with([
-                'employee.primaryBankAccount.bank:id,name',
-                'employee.department.parent:id,name',
-                'employee.position:id,title',
-            ]);
+        $recordsQuery = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $payrollPeriod->id)
+                ->with([
+                    'employee.primaryBankAccount.bank:id,name',
+                    'employee.department.parent:id,name',
+                    'employee.position:id,title',
+                ]),
+            $user,
+            $companyId,
+        );
 
         if ($search !== '') {
             $recordsQuery->whereHas('employee', function ($query) use ($search) {
@@ -830,7 +850,7 @@ class PayrollController extends Controller
         if ($payrollPeriod->isCrew()) {
             abort_unless(request()->user()?->can('payroll.crew_timesheets.view'), 403);
 
-            $result = $crewExporter->export($companyId, $payrollPeriod);
+            $result = $crewExporter->export($companyId, $payrollPeriod, request()->user());
 
             return response()
                 ->download($result['path'], $result['filename'])
@@ -840,7 +860,7 @@ class PayrollController extends Controller
         abort_unless($payrollPeriod->isOffice(), 404);
         abort_unless(request()->user()?->can('payroll.periods.view'), 403);
 
-        $result = $officeExporter->export($companyId, $payrollPeriod);
+        $result = $officeExporter->export($companyId, $payrollPeriod, request()->user());
 
         return response()
             ->download($result['path'], $result['filename'])
@@ -953,6 +973,8 @@ class PayrollController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        PayrollRecordAccess::assertRecord($request->user(), $payrollRecord, $companyId, allowSelf: true);
 
         $deletePayrollRecord->handle($payrollPeriod, $payrollRecord);
 

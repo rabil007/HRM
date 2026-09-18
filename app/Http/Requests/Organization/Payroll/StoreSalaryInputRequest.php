@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\Payroll;
 
 use App\Models\Employee;
 use App\Models\SalaryInputType;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -53,7 +54,15 @@ class StoreSalaryInputRequest extends FormRequest
 
     public function employee(): Employee
     {
-        return Employee::query()->findOrFail((int) $this->validated('employee_id'));
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $employee = Employee::query()->findOrFail((int) $this->validated('employee_id'));
+
+        abort_unless(
+            EmployeeVisibilityScope::canAccess($this->user(), $employee, $companyId, allowSelf: true),
+            404,
+        );
+
+        return $employee;
     }
 
     public function salaryInputType(): SalaryInputType

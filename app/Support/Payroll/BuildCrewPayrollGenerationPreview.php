@@ -12,6 +12,8 @@ use App\Models\CrewTimesheetPreparation;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Collection;
 
 final class BuildCrewPayrollGenerationPreview
@@ -30,6 +32,7 @@ final class BuildCrewPayrollGenerationPreview
         PayrollPeriod $period,
         int $companyId,
         array $excludedEmployeeIds = [],
+        ?User $user = null,
     ): CrewPayrollGenerationPreview {
         if ((int) $period->company_id !== $companyId) {
             abort(404);
@@ -45,10 +48,10 @@ final class BuildCrewPayrollGenerationPreview
         )));
 
         if ($period->requiresExclusiveCrewOperationsTimesheets()) {
-            return $this->exclusiveCrewOperationsPreview($period, $companyId, $excludedEmployeeIds);
+            return $this->exclusiveCrewOperationsPreview($period, $companyId, $excludedEmployeeIds, $user);
         }
 
-        return $this->hybridOrManualPreview($period, $companyId, $excludedEmployeeIds);
+        return $this->hybridOrManualPreview($period, $companyId, $excludedEmployeeIds, $user);
     }
 
     /**
@@ -58,8 +61,9 @@ final class BuildCrewPayrollGenerationPreview
         PayrollPeriod $period,
         int $companyId,
         array $excludedEmployeeIds,
+        ?User $user = null,
     ): CrewPayrollGenerationPreview {
-        $employees = $this->loadEmployees($companyId, $excludedEmployeeIds);
+        $employees = $this->loadEmployees($companyId, $excludedEmployeeIds, $user);
         $legacy = $this->legacyGuard->validateReadiness($period, $employees, $companyId);
 
         if (! $legacy['ready']) {
@@ -116,8 +120,15 @@ final class BuildCrewPayrollGenerationPreview
         PayrollPeriod $period,
         int $companyId,
         array $excludedEmployeeIds,
+        ?User $user = null,
     ): CrewPayrollGenerationPreview {
-        $allEmployees = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+        $allEmployeesQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($allEmployeesQuery, $user, $companyId);
+        }
+
+        $allEmployees = $allEmployeesQuery
             ->orderBy('employees.name')
             ->get();
 
@@ -440,9 +451,13 @@ final class BuildCrewPayrollGenerationPreview
      * @param  list<int>  $excludedEmployeeIds
      * @return Collection<int, Employee>
      */
-    private function loadEmployees(int $companyId, array $excludedEmployeeIds): Collection
+    private function loadEmployees(int $companyId, array $excludedEmployeeIds, ?User $user = null): Collection
     {
         $query = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        }
 
         if ($excludedEmployeeIds !== []) {
             $query->whereNotIn('employees.id', $excludedEmployeeIds);

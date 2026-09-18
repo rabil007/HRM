@@ -165,7 +165,7 @@ class AnnouncementController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 403);
 
-        $announcement = $persist->update($announcement, $data);
+        $announcement = $persist->update($announcement, $data, $user);
 
         if (($data['publish_mode'] ?? '') === 'send_now') {
             $announcement = $publish->handle($announcement, $user);

@@ -6,6 +6,7 @@ use App\Enums\PayrollCategory;
 use App\Http\Controllers\Controller;
 use App\Models\PayrollRecord;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\PayrollRecordIndexResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -27,10 +28,16 @@ class PayrollRecordController extends Controller
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
 
-        $query = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->with(['employee', 'period'])
-            ->orderByDesc('id');
+        $user = $request->user();
+
+        $query = PayrollRecordAccess::apply(
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->with(['employee', 'period'])
+                ->orderByDesc('id'),
+            $user,
+            $companyId,
+        );
 
         if ($search !== '') {
             $term = '%'.mb_strtolower($search).'%';

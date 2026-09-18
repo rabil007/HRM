@@ -6,6 +6,7 @@ use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Models\Employee;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -94,27 +95,54 @@ class UpdateEmployeeRequest extends FormRequest
                 return;
             }
 
-            if (! $this->has('client_id') && ! $this->has('project_id')) {
-                return;
+            if ($this->has('client_id') || $this->has('project_id')) {
+                /** @var Employee|null $employee */
+                $employee = $this->route('employee');
+
+                $clientId = $this->has('client_id')
+                    ? ($this->input('client_id') !== null && $this->input('client_id') !== ''
+                        ? (int) $this->input('client_id')
+                        : null)
+                    : ($employee?->client_id !== null ? (int) $employee->client_id : null);
+
+                $projectId = $this->has('project_id')
+                    ? ($this->input('project_id') !== null && $this->input('project_id') !== ''
+                        ? (int) $this->input('project_id')
+                        : null)
+                    : ($employee?->project_id !== null ? (int) $employee->project_id : null);
+
+                ClientAssignmentRules::projectBelongsToClient($validator, $clientId, $projectId);
             }
 
-            /** @var Employee|null $employee */
-            $employee = $this->route('employee');
-
-            $clientId = $this->has('client_id')
-                ? ($this->input('client_id') !== null && $this->input('client_id') !== ''
-                    ? (int) $this->input('client_id')
-                    : null)
-                : ($employee?->client_id !== null ? (int) $employee->client_id : null);
-
-            $projectId = $this->has('project_id')
-                ? ($this->input('project_id') !== null && $this->input('project_id') !== ''
-                    ? (int) $this->input('project_id')
-                    : null)
-                : ($employee?->project_id !== null ? (int) $employee->project_id : null);
-
-            ClientAssignmentRules::projectBelongsToClient($validator, $clientId, $projectId);
+            if ($this->has('department_id')) {
+                $this->assertDepartmentIsAllowed($validator);
+            }
         });
+    }
+
+    private function assertDepartmentIsAllowed(Validator $validator): void
+    {
+        $departmentId = $this->input('department_id');
+
+        if ($departmentId === null || $departmentId === '') {
+            return;
+        }
+
+        $user = $this->user();
+        if ($user === null) {
+            return;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+        if ($allowedIds === null) {
+            return;
+        }
+
+        if ($allowedIds === [] || ! in_array((int) $departmentId, $allowedIds, true)) {
+            $validator->errors()->add('department_id', 'The selected department is not available.');
+        }
     }
 
     /**

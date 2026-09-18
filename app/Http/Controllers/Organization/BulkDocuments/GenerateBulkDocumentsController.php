@@ -31,6 +31,8 @@ class GenerateBulkDocumentsController extends Controller
             $documentTypeKey,
             $directoryFilters,
             $employeeIds !== [] ? $employeeIds : null,
+            'all',
+            $request->user(),
         );
 
         $targetCount = $replaceExisting

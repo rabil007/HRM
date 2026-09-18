@@ -636,7 +636,7 @@ test('platform access without membership cannot open payroll urls', function () 
     $this->actingAs($platformUser)
         ->withSession([])
         ->get(route('payroll.payslips.show', $record))
-        ->assertNotFound();
+        ->assertForbidden();
 
     $this->actingAs($platformUser)
         ->withSession([])

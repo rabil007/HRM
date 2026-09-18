@@ -3,6 +3,7 @@
 namespace App\Support\Payroll;
 
 use App\Models\PayrollPeriod;
+use App\Models\User;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,11 +25,12 @@ final class PayrollPeriodDepartmentTree
         EmployeeDirectoryFilters $directoryFilters,
         ?string $search,
         PayrollPeriodBoardFilters $boardFilters,
+        ?User $user = null,
     ): array {
         return BuildDepartmentEmployeeTree::for(
             $companyId,
             $directoryFilters,
-            function (Builder $query) use ($companyId, $period, $search, $boardFilters): void {
+            function (Builder $query) use ($companyId, $period, $search, $boardFilters, $user): void {
                 PayrollPeriodBoardEmployeeScope::apply(
                     $query,
                     $companyId,
@@ -36,6 +38,7 @@ final class PayrollPeriodDepartmentTree
                     $search,
                     $boardFilters,
                     exceptDepartmentFilters: true,
+                    user: $user,
                 );
             },
         );

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeLanguage;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -16,6 +17,7 @@ class EmployeeLanguageController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -57,6 +59,7 @@ class EmployeeLanguageController extends Controller
             && $language->company_id === $companyId,
             403,
         );
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -88,6 +91,7 @@ class EmployeeLanguageController extends Controller
             && $language->company_id === $companyId,
             403,
         );
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         $language->delete();
 

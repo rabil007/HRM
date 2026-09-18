@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Payroll;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\StoreSalaryInputRequest;
 use App\Http\Requests\Organization\Payroll\UpdateSalaryInputRequest;
+use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\SalaryInput;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\Actions\DeleteSalaryInput;
 use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use App\Support\Payroll\Actions\RecalculateOfficePayroll;
@@ -28,6 +30,7 @@ class SalaryInputController extends Controller
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
         $employee = $request->employee();
+        $this->assertEmployeeVisible($request, $employee, $companyId);
 
         $storeSalaryInput->handle(
             $payrollPeriod,
@@ -55,6 +58,7 @@ class SalaryInputController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        $this->assertSalaryInputVisible($request, $salaryInput, $companyId);
 
         $updateSalaryInput->handle(
             $payrollPeriod,
@@ -88,6 +92,7 @@ class SalaryInputController extends Controller
 
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        $this->assertSalaryInputVisible($request, $salaryInput, $companyId);
 
         $employeeId = $salaryInput->employee_id;
 
@@ -140,6 +145,23 @@ class SalaryInputController extends Controller
         }
 
         $recalculateCrewPayroll->handle($payrollPeriod, $employeeId);
+    }
+
+    private function assertEmployeeVisible(Request $request, Employee $employee, int $companyId): void
+    {
+        abort_unless(
+            EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true),
+            404,
+        );
+    }
+
+    private function assertSalaryInputVisible(Request $request, SalaryInput $salaryInput, int $companyId): void
+    {
+        abort_unless((int) $salaryInput->company_id === $companyId, 404);
+
+        $salaryInput->loadMissing('employee');
+        abort_unless($salaryInput->employee !== null, 404);
+        $this->assertEmployeeVisible($request, $salaryInput->employee, $companyId);
     }
 
     private function redirectAfterMutation(

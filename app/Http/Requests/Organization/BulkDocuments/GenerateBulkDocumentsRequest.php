@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\BulkDocuments;
 
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\LegacySalaryDeclarationSigning;
+use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -20,12 +21,13 @@ class GenerateBulkDocumentsRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
         $typeKeys = collect(BulkDocumentTypeRegistry::definitions())->pluck('key')->all();
 
         return [
             'document_type_key' => ['required', 'string', Rule::in($typeKeys)],
             'employee_ids' => ['nullable', 'array'],
-            'employee_ids.*' => ['integer', 'distinct'],
+            'employee_ids.*' => ['integer', 'distinct', ActiveCompanyEmployeeRule::exists($companyId, $this->user())],
             'search' => ['nullable', 'string', 'max:255'],
             'branch_id' => ['nullable', 'string'],
             'department_id' => ['nullable', 'string'],

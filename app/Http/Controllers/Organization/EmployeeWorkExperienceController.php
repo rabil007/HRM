@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeWorkExperience;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateCsvImport;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class EmployeeWorkExperienceController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -71,6 +73,7 @@ class EmployeeWorkExperienceController extends Controller
             && $workExperience->company_id === $companyId,
             403,
         );
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -102,6 +105,7 @@ class EmployeeWorkExperienceController extends Controller
             && $workExperience->company_id === $companyId,
             403,
         );
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         $workExperience->delete();
 
@@ -113,6 +117,7 @@ class EmployeeWorkExperienceController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         EmployeeProfileTemplateRequestRules::assertTabForTable($employee, 'employee_work_experiences');
 
@@ -140,6 +145,7 @@ class EmployeeWorkExperienceController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
 
         try {
             EmployeeProfileTemplateCsvImport::assertImportAvailable(

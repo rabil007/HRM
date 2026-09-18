@@ -158,7 +158,9 @@ class RoleController extends Controller
         }
 
         DB::transaction(function () use ($role, $companyId, $data, $request) {
-            $scope = $data['employee_visibility_scope'] ?? Role::SCOPE_ALL;
+            $scope = $request->has('employee_visibility_scope')
+                ? ($data['employee_visibility_scope'] ?? Role::SCOPE_ALL)
+                : ($role->employee_visibility_scope ?? Role::SCOPE_ALL);
 
             $role->update([
                 'name' => $data['name'],
@@ -169,13 +171,13 @@ class RoleController extends Controller
                 $role->syncPermissions($data['permissions'] ?? []);
             }
 
-            if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS) {
+            if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS && $request->has('department_ids')) {
                 $syncData = [];
                 foreach ($data['department_ids'] ?? [] as $departmentId) {
                     $syncData[(int) $departmentId] = ['company_id' => $companyId];
                 }
                 $role->employeeVisibilityDepartments()->sync($syncData);
-            } else {
+            } elseif ($request->has('employee_visibility_scope') && $scope === Role::SCOPE_ALL) {
                 $role->employeeVisibilityDepartments()->detach();
             }
 

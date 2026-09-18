@@ -5,6 +5,7 @@ namespace App\Support\BulkDocuments;
 use App\Models\BulkDocumentEmailSend;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\User;
 use App\Support\Documents\Process\DocumentOperationalProcessPresenter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
@@ -38,10 +39,11 @@ final class BulkDocumentRosterQuery
         string $documentTypeKey,
         EmployeeDirectoryFilters $filters,
         ?array $employeeIds = null,
+        ?User $user = null,
     ): array {
         return [
-            'counts' => self::counts($companyId, $documentTypeKey, $filters, $employeeIds),
-            'employees' => self::rosterEmployees($companyId, $documentTypeKey, $filters, $employeeIds),
+            'counts' => self::counts($companyId, $documentTypeKey, $filters, $employeeIds, 'all', $user),
+            'employees' => self::rosterEmployees($companyId, $documentTypeKey, $filters, $employeeIds, $user),
         ];
     }
 
@@ -55,9 +57,10 @@ final class BulkDocumentRosterQuery
         EmployeeDirectoryFilters $filters,
         ?array $employeeIds = null,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): array {
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
-        $query = self::baseEmployeeQuery($companyId, $filters, $employeeIds);
+        $query = self::baseEmployeeQuery($companyId, $filters, $employeeIds, $user);
 
         self::applyEmailFilter($query, $companyId, $documentTypeKey, $emailFilter);
 
@@ -75,6 +78,7 @@ final class BulkDocumentRosterQuery
                 $documentTypeKey,
                 $filters,
                 $emailFilter,
+                $user,
             )
             : 0;
 
@@ -84,6 +88,7 @@ final class BulkDocumentRosterQuery
                 $documentTypeKey,
                 $filters,
                 $emailFilter,
+                $user,
             )
             : 0;
 
@@ -93,6 +98,7 @@ final class BulkDocumentRosterQuery
                 $documentTypeKey,
                 $filters,
                 $emailFilter,
+                $user,
             )
             : 0;
 
@@ -122,10 +128,11 @@ final class BulkDocumentRosterQuery
         int $perPage,
         string $generationFilter = 'all',
         string $emailFilter = 'all',
+        ?User $user = null,
     ): LengthAwarePaginator {
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
 
-        $query = self::baseEmployeeQuery($companyId, $filters)
+        $query = self::baseEmployeeQuery($companyId, $filters, null, $user)
             ->with([
                 'department:id,name',
                 'position:id,title',
@@ -171,8 +178,9 @@ final class BulkDocumentRosterQuery
         int $companyId,
         EmployeeDirectoryFilters $filters,
         ?array $employeeIds = null,
+        ?User $user = null,
     ): Builder {
-        return self::baseEmployeeQuery($companyId, $filters, $employeeIds)->orderBy('id');
+        return self::baseEmployeeQuery($companyId, $filters, $employeeIds, $user)->orderBy('id');
     }
 
     /**
@@ -188,6 +196,7 @@ final class BulkDocumentRosterQuery
         EmployeeDirectoryFilters $filters,
         string $generationFilter = 'all',
         string $emailFilter = 'all',
+        ?User $user = null,
     ): array {
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
 
@@ -198,6 +207,7 @@ final class BulkDocumentRosterQuery
             $filters,
             $generationFilter,
             $emailFilter,
+            $user,
         )
             ->orderBy('name')
             ->pluck('id')
@@ -225,8 +235,9 @@ final class BulkDocumentRosterQuery
         EmployeeDirectoryFilters $filters,
         string $generationFilter,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): Builder {
-        $query = self::baseEmployeeQuery($companyId, $filters);
+        $query = self::baseEmployeeQuery($companyId, $filters, null, $user);
 
         self::applyGenerationFilter($query, $companyId, $documentTypeId, $generationFilter);
         self::applyEmailFilter($query, $companyId, $documentTypeKey, $emailFilter);
@@ -314,10 +325,11 @@ final class BulkDocumentRosterQuery
         string $documentTypeKey,
         EmployeeDirectoryFilters $filters,
         ?array $employeeIds = null,
+        ?User $user = null,
     ): array {
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
 
-        $employees = self::baseEmployeeQuery($companyId, $filters, $employeeIds)
+        $employees = self::baseEmployeeQuery($companyId, $filters, $employeeIds, $user)
             ->with([
                 'department:id,name',
                 'position:id,title',
@@ -367,12 +379,13 @@ final class BulkDocumentRosterQuery
         int $companyId,
         EmployeeDirectoryFilters $filters,
         ?array $employeeIds = null,
+        ?User $user = null,
     ): Builder {
         $query = Employee::query()
             ->where('company_id', $companyId)
             ->active();
 
-        EmployeeDirectoryQuery::applyAttributeFilters($query, $companyId, $filters);
+        EmployeeDirectoryQuery::applyAttributeFilters($query, $companyId, $filters, user: $user);
 
         if ($employeeIds !== null && $employeeIds !== []) {
             $query->whereIn('id', $employeeIds);

@@ -18,7 +18,9 @@ use App\Support\Documents\DocumentsModuleAccess;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -30,6 +32,7 @@ class BulkDocumentsController extends Controller
     public function __invoke(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
         $requestedTypeKey = trim((string) $request->query('document_type_key', ''));
 
         $customTemplates = DocumentGenerationTemplate::query()
@@ -103,6 +106,7 @@ class BulkDocumentsController extends Controller
                 $perPage,
                 $processFilter,
                 isset($latestRun['id']) ? (int) $latestRun['id'] : null,
+                $user,
             );
 
             return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
@@ -124,6 +128,8 @@ class BulkDocumentsController extends Controller
                     $customTemplate,
                     $customVersion,
                     $filters,
+                    null,
+                    $user,
                 ),
                 'employees' => $paginator->items(),
                 'pagination' => $this->paginationMeta($paginator),
@@ -165,6 +171,7 @@ class BulkDocumentsController extends Controller
                 $filters,
                 $perPage,
                 $page,
+                $user,
             );
 
             return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
@@ -179,7 +186,7 @@ class BulkDocumentsController extends Controller
                 'view' => 'history',
                 'activity' => $activityPaginator->items(),
                 'employees' => [],
-                'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter),
+                'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter, $user),
                 'pagination' => $this->paginationMeta($activityPaginator),
                 'process_filter' => $processFilter,
                 'generation_filter' => $generationFilter,
@@ -226,6 +233,7 @@ class BulkDocumentsController extends Controller
             $perPage,
             $processFilter,
             $emailFilter,
+            $user,
         );
 
         return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
@@ -239,7 +247,7 @@ class BulkDocumentsController extends Controller
         ) + [
             'view' => 'roster',
             'activity' => [],
-            'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter),
+            'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter, $user),
             'employees' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
             'process_filter' => $processFilter,
@@ -301,7 +309,11 @@ class BulkDocumentsController extends Controller
             'departments' => $formOptions['departments'],
             'positions' => $formOptions['positions'],
             'company_visa_types' => $formOptions['company_visa_types'],
-            'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $filters),
+            'department_tree' => BuildDepartmentEmployeeTree::for(
+                $companyId,
+                $filters,
+                fn (Builder $q) => EmployeeVisibilityScope::apply($q, $request->user(), $companyId),
+            ),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'department_tree_selected_position_id' => $filters->positionId !== '' ? (int) $filters->positionId : null,
             'company_name' => (string) Company::query()->whereKey($companyId)->value('name'),

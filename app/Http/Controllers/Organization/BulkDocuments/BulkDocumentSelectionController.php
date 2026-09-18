@@ -17,6 +17,7 @@ class BulkDocumentSelectionController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
         $documentTypeKey = (string) $request->query('document_type_key', 'salary_declaration');
 
         if (GenerateDocumentTypeKey::isCustom($documentTypeKey)) {
@@ -44,6 +45,7 @@ class BulkDocumentSelectionController extends Controller
                     $version,
                     $filters,
                     $generationFilter,
+                    $user,
                 ),
             );
         }
@@ -82,6 +84,7 @@ class BulkDocumentSelectionController extends Controller
                     $filters,
                     $signatureFilter,
                     $emailFilter,
+                    $user,
                 ),
             );
         }
@@ -100,6 +103,7 @@ class BulkDocumentSelectionController extends Controller
                 $filters,
                 $generationFilter,
                 $emailFilter,
+                $user,
             ),
         );
     }

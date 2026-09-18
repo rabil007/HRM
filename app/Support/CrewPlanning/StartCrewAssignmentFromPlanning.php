@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
+use App\Models\User;
 use App\Support\CrewMovements\CrewMovementService;
 use Illuminate\Support\Facades\DB;
 
@@ -25,9 +26,11 @@ final class StartCrewAssignmentFromPlanning
     public function handle(
         CrewPlanningAssignment $planning,
         array $operatorChoices,
-        ?int $actorId = null,
+        ?User $actor = null,
     ): array {
-        return DB::transaction(function () use ($planning, $operatorChoices, $actorId): array {
+        $actorId = $actor?->id;
+
+        return DB::transaction(function () use ($planning, $operatorChoices, $actor, $actorId): array {
             $planning = CrewPlanningAssignment::query()
                 ->whereKey($planning->id)
                 ->lockForUpdate()
@@ -44,7 +47,7 @@ final class StartCrewAssignmentFromPlanning
                 ];
             }
 
-            $masters = $this->handoff->authoritativeStartMasters($planning, $companyId);
+            $masters = $this->handoff->authoritativeStartMasters($planning, $companyId, $actor);
 
             $plannedSignoffAt = $planning->planned_leave_date !== null
                 ? $planning->planned_leave_date->toDateString().' 00:00:00'

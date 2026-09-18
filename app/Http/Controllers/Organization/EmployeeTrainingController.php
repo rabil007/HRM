@@ -13,6 +13,7 @@ use App\Models\Employee;
 use App\Models\EmployeeTraining;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
+use App\Support\EmployeeTrainings\TrainingAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,7 +43,7 @@ class EmployeeTrainingController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -94,7 +95,7 @@ class EmployeeTrainingController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $request->validated();
 
@@ -150,12 +151,7 @@ class EmployeeTrainingController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless(
-            $employee->company_id === $companyId
-            && $training->employee_id === $employee->id
-            && $training->company_id === $companyId,
-            403,
-        );
+        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -196,12 +192,7 @@ class EmployeeTrainingController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless(
-            $employee->company_id === $companyId
-            && $training->employee_id === $employee->id
-            && $training->company_id === $companyId,
-            403,
-        );
+        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
 
         $this->certificateStore->replace(
             $training,
@@ -219,12 +210,7 @@ class EmployeeTrainingController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless(
-            $employee->company_id === $companyId
-            && $training->employee_id === $employee->id
-            && $training->company_id === $companyId,
-            403,
-        );
+        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
 
         $this->certificateStore->deleteForTraining($training);
         $training->delete();
@@ -238,7 +224,7 @@ class EmployeeTrainingController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $trainings = EmployeeTraining::query()
             ->where('employee_id', $employee->id)
@@ -265,7 +251,7 @@ class EmployeeTrainingController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         EmployeeProfileTemplateRequestRules::assertTabForTable($employee, 'employee_trainings');
 
@@ -281,7 +267,7 @@ class EmployeeTrainingController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         EmployeeProfileTemplateRequestRules::assertTabForTable($employee, 'employee_trainings');
 

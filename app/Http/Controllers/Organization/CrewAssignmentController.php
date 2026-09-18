@@ -163,7 +163,7 @@ class CrewAssignmentController extends Controller
             }
 
             try {
-                $planningContext = $planningHandoff->prefill($planning, $companyId);
+                $planningContext = $planningHandoff->prefill($planning, $companyId, $request->user());
             } catch (CrewMovementException $exception) {
                 return redirect()
                     ->route('organization.crew-planning.index')

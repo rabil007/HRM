@@ -5,10 +5,12 @@ namespace App\Support\CrewPlanning;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
 use App\Models\CrewAssignment;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMobilisationReadinessResult;
 use App\Support\CrewMovements\CrewReliefReadinessResult;
 use App\Support\CrewMovements\CrewTourProgress;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 
 final class CrewReliefDeskPresenter
@@ -80,7 +82,7 @@ final class CrewReliefDeskPresenter
             'relief_status_label' => $relief->status->label(),
             'relief_risk' => $relief->risk->value,
             'relief_risk_label' => $this->deskRiskLabel($relief->risk),
-            'relief_employee' => $this->reliefEmployeePayload($relief, $canViewEmployees),
+            'relief_employee' => $this->reliefEmployeePayload($relief, $canViewEmployees, $user, $companyId),
             'relief_planning_assignment_id' => $relief->reliefPlanningAssignmentId,
             'relief_crew_assignment_id' => $canViewAssignments
                 ? $relief->reliefCrewAssignmentId
@@ -171,9 +173,22 @@ final class CrewReliefDeskPresenter
     /**
      * @return array{id: int, name: string, employee_no: string|null, href: string|null}|null
      */
-    private function reliefEmployeePayload(CrewReliefReadinessResult $relief, bool $canViewEmployees): ?array
-    {
+    private function reliefEmployeePayload(
+        CrewReliefReadinessResult $relief,
+        bool $canViewEmployees,
+        User $user,
+        int $companyId,
+    ): ?array {
         if ($relief->reliefEmployee === null) {
+            return null;
+        }
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey((int) $relief->reliefEmployee['id'])
+            ->first(['id', 'company_id', 'department_id', 'user_id']);
+
+        if ($employee === null || ! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
             return null;
         }
 

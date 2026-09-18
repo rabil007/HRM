@@ -7,6 +7,8 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -16,16 +18,17 @@ final class ResolveAnnouncementAudience
      * @param  list<array{type: string, id?: int|null}>  $audiences
      * @return Collection<int, Employee>
      */
-    public function handle(int $companyId, array $audiences): Collection
+    public function handle(int $companyId, array $audiences, ?User $publisher = null): Collection
     {
         $this->assertAudiencesBelongToCompany($companyId, $audiences);
 
-        $audiences = $this->normalizeAudiences($companyId, $audiences);
+        $audiences = $this->normalizeAudiences($companyId, $audiences, $publisher);
 
         $query = Employee::query()
-            ->where('company_id', $companyId)
             ->where('status', 'active')
             ->with(['user:id,email']);
+
+        EmployeeVisibilityScope::apply($query, $publisher, $companyId);
 
         $hasAll = collect($audiences)->contains(
             fn (array $audience): bool => ($audience['type'] ?? '') === AnnouncementAudienceType::AllEmployees->value
@@ -125,7 +128,7 @@ final class ResolveAnnouncementAudience
      * @param  list<array{type: string, id?: int|null}>  $audiences
      * @return list<array{type: string, id?: int|null}>
      */
-    public function normalizeAudiences(int $companyId, array $audiences): array
+    public function normalizeAudiences(int $companyId, array $audiences, ?User $publisher = null): array
     {
         if (collect($audiences)->contains(
             fn (array $audience): bool => ($audience['type'] ?? '') === AnnouncementAudienceType::AllEmployees->value
@@ -145,10 +148,13 @@ final class ResolveAnnouncementAudience
             return $audiences;
         }
 
-        $activeEmployeeIds = Employee::query()
-            ->where('company_id', $companyId)
+        $activeEmployeeQuery = Employee::query()
             ->where('status', 'active')
-            ->orderBy('id')
+            ->orderBy('id');
+
+        EmployeeVisibilityScope::apply($activeEmployeeQuery, $publisher, $companyId);
+
+        $activeEmployeeIds = $activeEmployeeQuery
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
             ->all();

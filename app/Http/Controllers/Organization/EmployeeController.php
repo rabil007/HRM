@@ -96,7 +96,7 @@ class EmployeeController extends Controller
             fn (Employee $employee) => EmployeeListResource::toArray($employee, $crewStatusByEmployeeId),
         );
 
-        $formOptions = fn (): array => once(fn (): array => EmployeeFormOptions::for($companyId));
+        $formOptions = fn (): array => once(fn (): array => EmployeeFormOptions::for($companyId, request()->user()));
 
         return Inertia::render('organization/employees', [
             'employees' => $employees->items(),
@@ -106,7 +106,7 @@ class EmployeeController extends Controller
             'branches' => fn () => $formOptions()['branches'],
             'departments' => fn () => $formOptions()['departments'],
             'positions' => fn () => $formOptions()['positions'],
-            'managers' => fn () => EmployeeFormOptions::departmentManagersForFilter($companyId),
+            'managers' => fn () => EmployeeFormOptions::departmentManagersForFilter($companyId, request()->user()),
             'users' => fn () => $formOptions()['users'],
             'countries' => fn () => $formOptions()['countries'],
             'religions' => fn () => $formOptions()['religions'],

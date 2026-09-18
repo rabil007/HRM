@@ -74,7 +74,7 @@ final class EmployeeProfilePageData
             $authUser,
         );
 
-        $formOptions = EmployeeFormOptions::for($companyId);
+        $formOptions = EmployeeFormOptions::for($companyId, $authUser);
 
         $roles = SpatieRole::query()
             ->where('company_id', $companyId)
@@ -229,13 +229,13 @@ final class EmployeeProfilePageData
 
         $profileTemplates = self::activeProfileTemplates($companyId);
 
-        $formOptions = EmployeeFormOptions::for($companyId);
+        $formOptions = EmployeeFormOptions::for($companyId, $authUser);
         $profileLookups = $employee !== null
             ? EmployeeFormOptions::forProfile($companyId, $employee, [])
             : [
-                'ranks' => EmployeeFormOptions::forCreate($companyId)['ranks'],
-                'projects' => EmployeeFormOptions::forCreate($companyId)['projects'],
-                'clients' => EmployeeFormOptions::forCreate($companyId)['clients'],
+                'ranks' => EmployeeFormOptions::forCreate($companyId, $authUser)['ranks'],
+                'projects' => EmployeeFormOptions::forCreate($companyId, $authUser)['projects'],
+                'clients' => EmployeeFormOptions::forCreate($companyId, $authUser)['clients'],
             ];
 
         $employeeId = $employee?->id;

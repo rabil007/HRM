@@ -4,6 +4,7 @@ namespace App\Support\BulkDocuments;
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\BulkDocumentSignatureRequest;
+use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -19,6 +20,7 @@ final class BulkDocumentSignatureRosterQuery
         int $page,
         ?string $statusFilter = null,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): LengthAwarePaginator {
         $query = self::filteredQuery(
             $companyId,
@@ -26,6 +28,7 @@ final class BulkDocumentSignatureRosterQuery
             $filters,
             $statusFilter,
             $emailFilter,
+            $user,
         )
             ->with([
                 'employee:id,name,employee_no,image,department_id,position_id',
@@ -55,6 +58,7 @@ final class BulkDocumentSignatureRosterQuery
         EmployeeDirectoryFilters $filters,
         ?string $statusFilter = null,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): array {
         $rows = self::filteredQuery(
             $companyId,
@@ -62,6 +66,7 @@ final class BulkDocumentSignatureRosterQuery
             $filters,
             $statusFilter,
             $emailFilter,
+            $user,
         )
             ->orderBy('id')
             ->get(['id', 'employee_id']);
@@ -92,12 +97,13 @@ final class BulkDocumentSignatureRosterQuery
         EmployeeDirectoryFilters $filters,
         ?string $statusFilter = null,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): Builder {
         $query = BulkDocumentSignatureRequest::query()
             ->forCompany($companyId)
             ->where('document_type_key', $documentTypeKey)
-            ->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
-                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+            ->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter, $user): void {
+                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters, user: $user);
                 BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
             });
 
@@ -113,6 +119,7 @@ final class BulkDocumentSignatureRosterQuery
         string $documentTypeKey,
         ?EmployeeDirectoryFilters $filters = null,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): int {
         $query = BulkDocumentSignatureRequest::query()
             ->forCompany($companyId)
@@ -120,8 +127,8 @@ final class BulkDocumentSignatureRosterQuery
             ->where('status', BulkDocumentSignatureRequestStatus::Submitted);
 
         if ($filters !== null) {
-            $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
-                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+            $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter, $user): void {
+                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters, user: $user);
                 BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
             });
         }
@@ -134,6 +141,7 @@ final class BulkDocumentSignatureRosterQuery
         string $documentTypeKey,
         ?EmployeeDirectoryFilters $filters = null,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): int {
         $query = BulkDocumentSignatureRequest::query()
             ->forCompany($companyId)
@@ -141,8 +149,8 @@ final class BulkDocumentSignatureRosterQuery
             ->where('status', BulkDocumentSignatureRequestStatus::AwaitingSignature);
 
         if ($filters !== null) {
-            $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
-                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+            $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter, $user): void {
+                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters, user: $user);
                 BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
             });
         }
@@ -155,6 +163,7 @@ final class BulkDocumentSignatureRosterQuery
         string $documentTypeKey,
         ?EmployeeDirectoryFilters $filters = null,
         string $emailFilter = 'all',
+        ?User $user = null,
     ): int {
         $query = BulkDocumentSignatureRequest::query()
             ->forCompany($companyId)
@@ -162,8 +171,8 @@ final class BulkDocumentSignatureRosterQuery
             ->where('status', BulkDocumentSignatureRequestStatus::Approved);
 
         if ($filters !== null) {
-            $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
-                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+            $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter, $user): void {
+                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters, user: $user);
                 BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
             });
         }

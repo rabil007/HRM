@@ -62,7 +62,7 @@ final class PublishAnnouncement
                 ])
                 ->all();
 
-            $employees = $this->resolveAudience->handle((int) $locked->company_id, $audiences);
+            $employees = $this->resolveAudience->handle((int) $locked->company_id, $audiences, $publisher);
             $channels = array_values(array_map('strval', $locked->channels ?? []));
 
             AnnouncementRecipient::query()

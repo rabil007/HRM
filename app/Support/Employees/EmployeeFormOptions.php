@@ -19,6 +19,7 @@ use App\Models\Religion;
 use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Role;
 
@@ -45,11 +46,11 @@ final class EmployeeFormOptions
      *     roles: Collection
      * }
      */
-    public static function for(int $companyId): array
+    public static function for(int $companyId, ?User $user = null): array
     {
         return [
             'branches' => self::branchesForDirectory($companyId),
-            'departments' => self::departmentsForDirectory($companyId),
+            'departments' => self::departmentsForDirectory($companyId, $user),
             'positions' => self::positionsForDirectory($companyId),
             'users' => self::users($companyId),
             'countries' => self::countries(),
@@ -83,11 +84,11 @@ final class EmployeeFormOptions
      *     document_types: Collection
      * }
      */
-    public static function forCreate(int $companyId): array
+    public static function forCreate(int $companyId, ?User $user = null): array
     {
         return [
             'branches' => self::branchesForCreate($companyId),
-            'departments' => self::departmentsForCreate($companyId),
+            'departments' => self::departmentsForCreate($companyId, $user),
             'positions' => self::positionsForCreate($companyId),
             'countries' => self::countries(),
             'religions' => self::religions(),
@@ -130,7 +131,7 @@ final class EmployeeFormOptions
      *
      * @return Collection<int, Employee>
      */
-    public static function departmentManagersForFilter(int $companyId): Collection
+    public static function departmentManagersForFilter(int $companyId, ?User $user = null): Collection
     {
         $managerIds = Department::query()
             ->where('company_id', $companyId)
@@ -145,10 +146,16 @@ final class EmployeeFormOptions
             return collect();
         }
 
-        return Employee::query()
-            ->where('company_id', $companyId)
+        $query = Employee::query()->whereIn('id', $managerIds);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        } else {
+            $query->where('company_id', $companyId);
+        }
+
+        return $query
             ->active()
-            ->whereIn('id', $managerIds)
             ->orderBy('name')
             ->get(['id', 'name', 'employee_no']);
     }
@@ -158,10 +165,17 @@ final class EmployeeFormOptions
      *
      * @return Collection<int, Employee>
      */
-    public static function managersForSelect(int $companyId): Collection
+    public static function managersForSelect(int $companyId, ?User $user = null): Collection
     {
-        return Employee::query()
-            ->where('company_id', $companyId)
+        $query = Employee::query();
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        } else {
+            $query->where('company_id', $companyId);
+        }
+
+        return $query
             ->active()
             ->orderBy('name')
             ->get(['id', 'name', 'employee_no']);
@@ -183,18 +197,16 @@ final class EmployeeFormOptions
             ->get(['id', 'name']));
     }
 
-    private static function departmentsForDirectory(int $companyId)
+    private static function departmentsForDirectory(int $companyId, ?User $user = null)
     {
-        return once(fn () => Department::query()
-            ->where('company_id', $companyId)
+        return once(fn () => self::scopedDepartmentsQuery($companyId, $user)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']));
     }
 
-    private static function departmentsForCreate(int $companyId)
+    private static function departmentsForCreate(int $companyId, ?User $user = null)
     {
-        return once(fn () => Department::query()
-            ->where('company_id', $companyId)
+        return once(fn () => self::scopedDepartmentsQuery($companyId, $user)
             ->orderBy('name')
             ->get(['id', 'name']));
     }
@@ -376,5 +388,25 @@ final class EmployeeFormOptions
             })
             ->orderBy('name')
             ->get(['id', 'name']);
+    }
+
+    /**
+     * @return Builder<Department>
+     */
+    private static function scopedDepartmentsQuery(int $companyId, ?User $user)
+    {
+        $query = Department::query()->where('company_id', $companyId);
+
+        if ($user !== null) {
+            $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+            if ($allowedIds === []) {
+                $query->whereRaw('1 = 0');
+            } elseif ($allowedIds !== null) {
+                $query->whereIn('id', $allowedIds);
+            }
+        }
+
+        return $query;
     }
 }

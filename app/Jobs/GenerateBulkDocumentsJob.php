@@ -6,6 +6,7 @@ use App\Models\BulkDocumentGenerationRun;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\User;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
@@ -72,6 +73,7 @@ class GenerateBulkDocumentsJob implements ShouldQueue
         }
 
         $directoryFilters = EmployeeDirectoryFilters::fromArray($this->filters);
+        $user = User::query()->find($this->userId);
 
         $generated = 0;
         $replaced = 0;
@@ -83,6 +85,7 @@ class GenerateBulkDocumentsJob implements ShouldQueue
             $this->companyId,
             $directoryFilters,
             $this->employeeIds,
+            $user,
         )
             ->when($this->afterEmployeeId !== null, function ($query): void {
                 $query->where('id', '>', $this->afterEmployeeId);
@@ -154,6 +157,7 @@ class GenerateBulkDocumentsJob implements ShouldQueue
                 $this->companyId,
                 $directoryFilters,
                 $this->employeeIds,
+                $user,
             )
                 ->where('id', '>', $lastProcessedEmployeeId)
                 ->exists();

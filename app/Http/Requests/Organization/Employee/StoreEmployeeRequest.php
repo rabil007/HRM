@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\Employee;
 
 use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -121,6 +122,33 @@ class StoreEmployeeRequest extends FormRequest
                 $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 $projectId !== null && $projectId !== '' ? (int) $projectId : null,
             );
+
+            $this->assertDepartmentIsAllowed($validator);
         });
+    }
+
+    private function assertDepartmentIsAllowed(Validator $validator): void
+    {
+        $departmentId = $this->input('department_id');
+
+        if ($departmentId === null || $departmentId === '') {
+            return;
+        }
+
+        $user = $this->user();
+        if ($user === null) {
+            return;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+        if ($allowedIds === null) {
+            return;
+        }
+
+        if ($allowedIds === [] || ! in_array((int) $departmentId, $allowedIds, true)) {
+            $validator->errors()->add('department_id', 'The selected department is not available.');
+        }
     }
 }
