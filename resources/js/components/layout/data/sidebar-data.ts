@@ -60,6 +60,7 @@ import {
     configuration as documentsConfiguration,
 } from '@/routes/organization/documents';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
+import { index as leaveReport } from '@/routes/organization/reports/leave';
 import type { SidebarData } from '../types';
 
 const baseSidebarData: SidebarData = {
@@ -233,6 +234,11 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Reports',
             items: [
+                {
+                    title: 'Leave Report',
+                    url: leaveReport.url(),
+                    icon: CalendarRange,
+                },
                 {
                     title: 'Crew Movement History',
                     url: crewMovementHistory.url(),
