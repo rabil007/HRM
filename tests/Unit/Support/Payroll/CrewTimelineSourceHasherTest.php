@@ -1,17 +1,21 @@
 <?php
 
+use App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker;
+use App\Support\Payroll\CrewTimeline\CrewTimelinePhaseQuery;
 use App\Support\Payroll\CrewTimeline\CrewTimelineSourceHasher;
+use App\Support\Payroll\CrewTimeline\CrewTimelineSourceLocker;
+use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use Illuminate\Support\Facades\DB;
 
 test('hashLockedSource performs no database queries', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
     DB::transaction(function () use ($fixtures): void {
-        $locker = app(\App\Support\Payroll\CrewTimeline\CrewTimelineSourceLocker::class);
+        $locker = app(CrewTimelineSourceLocker::class);
         $hasher = app(CrewTimelineSourceHasher::class);
-        $phaseQuery = app(\App\Support\Payroll\CrewTimeline\CrewTimelinePhaseQuery::class);
+        $phaseQuery = app(CrewTimelinePhaseQuery::class);
 
-        $preparation = app(\App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline::class)->handle(
+        $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
             $fixtures['period'],
             (int) $fixtures['company']->id,
             (int) $fixtures['user']->id,
@@ -49,12 +53,12 @@ test('hashLockedSource matches ordinary hash for unchanged representative locked
     $fixtures = makeDailyCrewTimelineFixtures();
 
     DB::transaction(function () use ($fixtures): void {
-        $checker = app(\App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker::class);
-        $locker = app(\App\Support\Payroll\CrewTimeline\CrewTimelineSourceLocker::class);
+        $checker = app(CrewTimelineFreshnessChecker::class);
+        $locker = app(CrewTimelineSourceLocker::class);
         $hasher = app(CrewTimelineSourceHasher::class);
-        $phaseQuery = app(\App\Support\Payroll\CrewTimeline\CrewTimelinePhaseQuery::class);
+        $phaseQuery = app(CrewTimelinePhaseQuery::class);
 
-        $preparation = app(\App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline::class)->handle(
+        $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
             $fixtures['period'],
             (int) $fixtures['company']->id,
             (int) $fixtures['user']->id,
