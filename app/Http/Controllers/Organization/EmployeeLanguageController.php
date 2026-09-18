@@ -17,7 +17,7 @@ class EmployeeLanguageController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
-        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: false), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -59,7 +59,7 @@ class EmployeeLanguageController extends Controller
             && $language->company_id === $companyId,
             403,
         );
-        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: false), 404);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -91,7 +91,7 @@ class EmployeeLanguageController extends Controller
             && $language->company_id === $companyId,
             403,
         );
-        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true), 404);
+        abort_unless(EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: false), 404);
 
         $language->delete();
 

@@ -6,12 +6,9 @@ use App\Models\BulkDocumentGenerationRun;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
-use App\Models\User;
-use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
-use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\UploadedFile;
@@ -72,24 +69,29 @@ class GenerateBulkDocumentsJob implements ShouldQueue
             ]);
         }
 
-        $directoryFilters = EmployeeDirectoryFilters::fromArray($this->filters);
-        $user = User::query()->find($this->userId);
-
         $generated = 0;
         $replaced = 0;
         $skipped = 0;
         $failed = 0;
         $lastProcessedEmployeeId = $this->afterEmployeeId;
 
-        $employees = BulkDocumentRosterQuery::employeeQuery(
-            $this->companyId,
-            $directoryFilters,
-            $this->employeeIds,
-            $user,
-        )
+        if ($this->employeeIds === null || $this->employeeIds === []) {
+            $run->update([
+                'status' => 'failed',
+                'finished_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $employees = Employee::query()
+            ->where('company_id', $this->companyId)
+            ->active()
+            ->whereIn('id', $this->employeeIds)
             ->when($this->afterEmployeeId !== null, function ($query): void {
                 $query->where('id', '>', $this->afterEmployeeId);
             })
+            ->orderBy('id')
             ->limit(self::EMPLOYEES_PER_CHUNK)
             ->get();
 
@@ -153,12 +155,10 @@ class GenerateBulkDocumentsJob implements ShouldQueue
 
         $hasMore = $employees->count() === self::EMPLOYEES_PER_CHUNK
             && $lastProcessedEmployeeId !== null
-            && BulkDocumentRosterQuery::employeeQuery(
-                $this->companyId,
-                $directoryFilters,
-                $this->employeeIds,
-                $user,
-            )
+            && Employee::query()
+                ->where('company_id', $this->companyId)
+                ->active()
+                ->whereIn('id', $this->employeeIds)
                 ->where('id', '>', $lastProcessedEmployeeId)
                 ->exists();
 

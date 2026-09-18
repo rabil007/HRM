@@ -6,8 +6,11 @@ use App\Enums\PayrollCategory;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\ApplyCrewSalaryInputs;
 use App\Support\Payroll\ApplyMonthlyCrewSalaryInputs;
+use App\Support\Payroll\PayrollRecordAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,13 +22,19 @@ final class RecalculateCrewPayroll
         private readonly ApplyMonthlyCrewSalaryInputs $applyMonthlyCrewSalaryInputs,
     ) {}
 
-    public function handle(PayrollPeriod $period, ?int $employeeId = null): int
+    public function handle(PayrollPeriod $period, ?int $employeeId = null, ?User $user = null): int
     {
         abort_unless($period->isCrew(), 404);
 
         if (! $period->canGenerateCrewPayroll()) {
             throw ValidationException::withMessages([
                 'period_id' => 'Crew payroll can only be recalculated for draft or processing periods.',
+            ]);
+        }
+
+        if ($employeeId === null && $user !== null && ! EmployeeVisibilityScope::hasUnrestrictedAccess($user, (int) $period->company_id)) {
+            throw ValidationException::withMessages([
+                'period_id' => 'Whole-period recalculation requires unrestricted employee access.',
             ]);
         }
 
@@ -37,6 +46,8 @@ final class RecalculateCrewPayroll
         if ($employeeId !== null) {
             $recordsQuery->where('employee_id', $employeeId);
         }
+
+        $recordsQuery = PayrollRecordAccess::apply($recordsQuery, $user, (int) $period->company_id);
 
         $records = $recordsQuery->get();
 

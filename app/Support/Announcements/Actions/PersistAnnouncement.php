@@ -41,12 +41,15 @@ final class PersistAnnouncement
      */
     public function create(int $companyId, User $user, array $data): Announcement
     {
-        $this->resolveAudience->assertAudiencesBelongToCompany($companyId, $data['audiences']);
+        $this->resolveAudience->assertAudiencesBelongToCompany($companyId, $data['audiences'], $user);
         $data['audiences'] = $this->resolveAudience->normalizeAudiences($companyId, $data['audiences'], $user);
         $whatsAppFields = $this->whatsAppFields($data);
+        $status = $this->statusForPublishMode($data['publish_mode']);
+        $authorizedEmployeeIds = $status === AnnouncementStatus::Scheduled
+            ? $this->resolveAudience->authorizedEmployeeIds($companyId, $data['audiences'], $user)
+            : null;
 
-        return DB::transaction(function () use ($companyId, $user, $data, $whatsAppFields): Announcement {
-            $status = $this->statusForPublishMode($data['publish_mode']);
+        return DB::transaction(function () use ($companyId, $user, $data, $whatsAppFields, $status, $authorizedEmployeeIds): Announcement {
             $channels = array_values($data['channels']);
 
             $announcement = Announcement::query()->create([
@@ -61,6 +64,7 @@ final class PersistAnnouncement
                 'whatsapp_message' => $whatsAppFields['whatsapp_message'],
                 'whatsapp_template_id' => $whatsAppFields['whatsapp_template_id'],
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
+                'authorized_employee_ids' => $authorizedEmployeeIds,
                 'expires_at' => $data['expires_at'] ?? null,
                 'created_by' => $user->id,
             ]);
@@ -95,12 +99,16 @@ final class PersistAnnouncement
             ]);
         }
 
-        $this->resolveAudience->assertAudiencesBelongToCompany((int) $announcement->company_id, $data['audiences']);
-        $data['audiences'] = $this->resolveAudience->normalizeAudiences((int) $announcement->company_id, $data['audiences'], $user);
+        $companyId = (int) $announcement->company_id;
+        $this->resolveAudience->assertAudiencesBelongToCompany($companyId, $data['audiences'], $user);
+        $data['audiences'] = $this->resolveAudience->normalizeAudiences($companyId, $data['audiences'], $user);
         $whatsAppFields = $this->whatsAppFields($data);
+        $status = $this->statusForPublishMode($data['publish_mode']);
+        $authorizedEmployeeIds = $status === AnnouncementStatus::Scheduled
+            ? $this->resolveAudience->authorizedEmployeeIds($companyId, $data['audiences'], $user)
+            : null;
 
-        return DB::transaction(function () use ($announcement, $data, $whatsAppFields): Announcement {
-            $status = $this->statusForPublishMode($data['publish_mode']);
+        return DB::transaction(function () use ($announcement, $data, $whatsAppFields, $status, $authorizedEmployeeIds): Announcement {
             $channels = array_values($data['channels']);
 
             $announcement->update([
@@ -116,6 +124,7 @@ final class PersistAnnouncement
                 'whatsapp_message' => $whatsAppFields['whatsapp_message'],
                 'whatsapp_template_id' => $whatsAppFields['whatsapp_template_id'],
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
+                'authorized_employee_ids' => $authorizedEmployeeIds,
                 'expires_at' => $data['expires_at'] ?? null,
             ]);
 

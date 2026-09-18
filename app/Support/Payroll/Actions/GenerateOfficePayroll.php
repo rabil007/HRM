@@ -9,6 +9,8 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\CountWorkingDaysInRange;
 use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\OfficeLeavePeriodSummary;
@@ -33,7 +35,7 @@ final class GenerateOfficePayroll
         private readonly ResolveOfficeContractForPayrollPeriod $resolveContract,
     ) {}
 
-    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], array $employeeDates = []): GeneratePayrollResult
+    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], array $employeeDates = [], ?User $user = null): GeneratePayrollResult
     {
         abort_unless($period->isOffice(), 404);
 
@@ -43,14 +45,36 @@ final class GenerateOfficePayroll
             ]);
         }
 
+        $companyId = (int) $period->company_id;
         $excludedEmployeeIds = array_values(array_unique(array_map(
             intval(...),
             array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
         )));
 
+        if ($user !== null) {
+            $excludedEmployeeIds = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                $user,
+                $companyId,
+                $excludedEmployeeIds,
+            );
+
+            $employeeDates = array_intersect_key(
+                $employeeDates,
+                array_flip(EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                    $user,
+                    $companyId,
+                    array_map(intval(...), array_keys($employeeDates)),
+                )),
+            );
+        }
+
         $workingDaysInPeriod = (int) $period->start_date->diffInDays($period->end_date) + 1;
 
         $employeesQuery = PayrollEmployeeQuery::forPeriod($period, PayrollCategory::Office);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+        }
 
         if (! empty($excludedEmployeeIds)) {
             $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);

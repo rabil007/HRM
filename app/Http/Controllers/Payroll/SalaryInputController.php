@@ -124,8 +124,8 @@ class SalaryInputController extends Controller
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
         $updatedCount = $payrollPeriod->isOffice()
-            ? $recalculateOfficePayroll->handle($payrollPeriod)
-            : $recalculateCrewPayroll->handle($payrollPeriod);
+            ? $recalculateOfficePayroll->handle($payrollPeriod, null, $request->user())
+            : $recalculateCrewPayroll->handle($payrollPeriod, null, $request->user());
 
         return redirect()
             ->route('payroll.show', $payrollPeriod)
@@ -138,19 +138,21 @@ class SalaryInputController extends Controller
         RecalculateOfficePayroll $recalculateOfficePayroll,
         RecalculateCrewPayroll $recalculateCrewPayroll,
     ): void {
+        $user = request()->user();
+
         if ($payrollPeriod->isOffice()) {
-            $recalculateOfficePayroll->handle($payrollPeriod, $employeeId);
+            $recalculateOfficePayroll->handle($payrollPeriod, $employeeId, $user);
 
             return;
         }
 
-        $recalculateCrewPayroll->handle($payrollPeriod, $employeeId);
+        $recalculateCrewPayroll->handle($payrollPeriod, $employeeId, $user);
     }
 
     private function assertEmployeeVisible(Request $request, Employee $employee, int $companyId): void
     {
         abort_unless(
-            EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId, allowSelf: true),
+            EmployeeVisibilityScope::canAccess($request->user(), $employee, $companyId),
             404,
         );
     }

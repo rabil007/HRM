@@ -22,6 +22,7 @@ use App\Support\Announcements\AnnouncementPagePermissions;
 use App\Support\Announcements\ListAnnouncementWhatsAppTemplates;
 use App\Support\Announcements\ResolveAnnouncementTestDestination;
 use App\Support\Announcements\Resources\AnnouncementResource;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -243,12 +244,15 @@ class AnnouncementController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'employees' => Employee::query()
-                ->where('company_id', $companyId)
-                ->active()
-                ->orderBy('name')
-                ->limit(500)
-                ->get(['id', 'name', 'employee_no']),
+            'employees' => EmployeeVisibilityScope::apply(
+                Employee::query()
+                    ->where('company_id', $companyId)
+                    ->active()
+                    ->orderBy('name')
+                    ->limit(500),
+                $user,
+                $companyId,
+            )->get(['id', 'name', 'employee_no']),
             'whatsapp_templates' => app(ListAnnouncementWhatsAppTemplates::class)->handle(),
             'ai_assist_available' => $aiSettings->isProviderConfigured(),
             'test_destinations' => $includeTestDestinations && $user !== null

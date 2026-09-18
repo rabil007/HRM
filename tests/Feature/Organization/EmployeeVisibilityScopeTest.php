@@ -210,6 +210,53 @@ test('restricted actor cannot create employee in hidden department', function ()
         ->assertSessionHasErrors('department_id');
 });
 
+test('role scope changes take effect without clearCache', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+    expect(EmployeeVisibilityScope::canAccess($user, $marine, $company->id))->toBeTrue()
+        ->and(EmployeeVisibilityScope::canAccess($user, $office, $company->id))->toBeFalse();
+
+    restrictUserToDepartments($user, $company, [$officeDept->id]);
+
+    expect(EmployeeVisibilityScope::canAccess($user, $office, $company->id))->toBeTrue()
+        ->and(EmployeeVisibilityScope::canAccess($user, $marine, $company->id))->toBeFalse();
+});
+
+test('restricted actor cannot create employee with null department', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept] = makeEmployeeVisibilityFixtures();
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.store'), [
+            'name' => 'Unassigned Hire',
+            'employee_no' => 'UNA-001',
+            'department_id' => null,
+            'start_date' => now()->toDateString(),
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors('department_id');
+});
+
+test('restricted actor cannot move employee to null department', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine] = makeEmployeeVisibilityFixtures();
+    grantCompanyPermissions($user, $company, ['employees.update']);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->put(route('organization.employees.update', $marine), [
+            'name' => $marine->name,
+            'employee_no' => $marine->employee_no,
+            'department_id' => null,
+            'start_date' => $marine->start_date?->toDateString() ?? now()->toDateString(),
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors('department_id');
+});
+
 test('restricted actor cannot move employee to hidden department', function () {
     ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine] = makeEmployeeVisibilityFixtures();
     grantCompanyPermissions($user, $company, ['employees.update']);

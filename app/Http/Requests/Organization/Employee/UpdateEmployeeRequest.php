@@ -124,10 +124,6 @@ class UpdateEmployeeRequest extends FormRequest
     {
         $departmentId = $this->input('department_id');
 
-        if ($departmentId === null || $departmentId === '') {
-            return;
-        }
-
         $user = $this->user();
         if ($user === null) {
             return;
@@ -137,6 +133,12 @@ class UpdateEmployeeRequest extends FormRequest
         $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
 
         if ($allowedIds === null) {
+            return;
+        }
+
+        if ($departmentId === null || $departmentId === '') {
+            $validator->errors()->add('department_id', 'The selected department is not available.');
+
             return;
         }
 

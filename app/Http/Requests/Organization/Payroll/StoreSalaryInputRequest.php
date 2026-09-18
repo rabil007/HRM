@@ -58,7 +58,7 @@ class StoreSalaryInputRequest extends FormRequest
         $employee = Employee::query()->findOrFail((int) $this->validated('employee_id'));
 
         abort_unless(
-            EmployeeVisibilityScope::canAccess($this->user(), $employee, $companyId, allowSelf: true),
+            EmployeeVisibilityScope::canAccess($this->user(), $employee, $companyId),
             404,
         );
 

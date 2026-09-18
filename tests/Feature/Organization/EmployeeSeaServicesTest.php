@@ -1050,3 +1050,81 @@ test('users without permission cannot bulk delete sea service records', function
 
     expect(EmployeeSeaService::query()->whereKey($record->id)->exists())->toBeTrue();
 });
+
+test('hidden employee sea service mutations return not found', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'sea_services.create',
+        'sea_services.update',
+        'sea_services.delete',
+        'sea_services.import',
+    ]);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $vesselType = VesselType::query()->create(['name' => 'Hidden Scope Type', 'is_active' => true]);
+    $rank = Rank::query()->create(['name' => 'Hidden Scope Rank', 'is_active' => true]);
+    $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Hidden Scope Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $seaService = EmployeeSeaService::factory()->forEmployee($office)->create([
+        'company_id' => $company->id,
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'sort_order' => 0,
+    ]);
+
+    $payload = [
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-02-01',
+    ];
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.sea-services.store', $office), $payload)
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->put(route('organization.employees.sea-services.update', [$office, $seaService]), $payload)
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->delete(route('organization.employees.sea-services.destroy', [$office, $seaService]))
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->delete(route('organization.employees.sea-services.bulk-destroy', $office), [
+            'sea_service_ids' => [$seaService->id],
+        ])
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.sea-services.reorder', $office), [
+            'order' => [$seaService->id],
+        ])
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->get(route('organization.employees.sea-services.import.template', $office))
+        ->assertNotFound();
+
+    $file = UploadedFile::fake()->create('sea-services.xlsx', 10, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.sea-services.import.preview', $office), ['file' => $file])
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.sea-services.import', $office), ['file' => $file])
+        ->assertNotFound();
+
+    expect(EmployeeSeaService::query()->whereKey($seaService->id)->exists())->toBeTrue();
+});

@@ -232,7 +232,7 @@ class PayslipController extends Controller
                 ->where('company_id', $companyId)
                 ->findOrFail((int) $validated['period_id']);
 
-            $queued = $generatePayrollPayslips->regenerateForPeriod($period);
+            $queued = $generatePayrollPayslips->regenerateForPeriod($period, $request->user());
 
             if ($queued === 0) {
                 return back()->with('error', 'No payroll records found to regenerate.');

@@ -15,12 +15,13 @@ class TrainingAccess
         int $companyId,
         int $status = 403,
         ?User $user = null,
+        bool $allowSelf = false,
     ): void {
         abort_unless((int) $employee->company_id === $companyId, $status);
 
         $currentUser = $user ?? auth()->user();
         if ($currentUser instanceof User) {
-            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, $allowSelf), 404);
         }
     }
 
@@ -30,6 +31,7 @@ class TrainingAccess
         int $companyId,
         int $status = 403,
         ?User $user = null,
+        bool $allowSelf = false,
     ): void {
         abort_unless(
             (int) $training->employee_id === (int) $employee->id
@@ -39,7 +41,7 @@ class TrainingAccess
 
         $currentUser = $user ?? auth()->user();
         if ($currentUser instanceof User) {
-            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, $allowSelf), 404);
         }
     }
 
@@ -48,6 +50,7 @@ class TrainingAccess
         int $companyId,
         int $status = 403,
         ?User $user = null,
+        bool $allowSelf = false,
     ): void {
         abort_unless((int) $training->company_id === $companyId, $status);
 
@@ -58,7 +61,7 @@ class TrainingAccess
                 : Employee::query()->where('company_id', $companyId)->find($training->employee_id);
 
             if ($employee !== null) {
-                abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+                abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, $allowSelf), 404);
             }
         }
     }

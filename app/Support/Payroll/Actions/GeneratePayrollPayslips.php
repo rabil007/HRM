@@ -7,7 +7,9 @@ use App\Jobs\GeneratePayrollPayslipsJob;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Models\User;
 use App\Support\Media\CompanyLogoDataUri;
+use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\SalaryInputResource;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -36,15 +38,18 @@ final class GeneratePayrollPayslips
         }
     }
 
-    public function regenerateForPeriod(PayrollPeriod $period): int
+    public function regenerateForPeriod(PayrollPeriod $period, ?User $user = null): int
     {
         $companyId = (int) $period->company_id;
         $periodId = (int) $period->id;
 
-        $records = PayrollRecord::query()
+        $recordsQuery = PayrollRecord::query()
             ->where('company_id', $companyId)
-            ->where('period_id', $periodId)
-            ->get(['id', 'payslip_path']);
+            ->where('period_id', $periodId);
+
+        $recordsQuery = PayrollRecordAccess::apply($recordsQuery, $user, $companyId);
+
+        $records = $recordsQuery->get(['id', 'payslip_path']);
 
         if ($records->isEmpty()) {
             return 0;
@@ -56,10 +61,23 @@ final class GeneratePayrollPayslips
             }
         }
 
-        PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $periodId)
-            ->update(['payslip_path' => null]);
+        $authorizedRecordIds = $records->pluck('id')->map(fn ($id): int => (int) $id)->all();
+
+        if ($authorizedRecordIds !== []) {
+            PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $periodId)
+                ->whereIn('id', $authorizedRecordIds)
+                ->update(['payslip_path' => null]);
+        }
+
+        if ($user !== null) {
+            foreach (array_chunk($authorizedRecordIds, self::RECORDS_PER_JOB) as $chunk) {
+                GeneratePayrollPayslipsJob::dispatch($companyId, $periodId, $chunk);
+            }
+
+            return $records->count();
+        }
 
         $this->dispatchForPeriod($period->fresh() ?? $period);
 

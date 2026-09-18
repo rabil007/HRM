@@ -20,7 +20,7 @@ final class ResolveAnnouncementAudience
      */
     public function handle(int $companyId, array $audiences, ?User $publisher = null): Collection
     {
-        $this->assertAudiencesBelongToCompany($companyId, $audiences);
+        $this->assertAudiencesBelongToCompany($companyId, $audiences, $publisher);
 
         $audiences = $this->normalizeAudiences($companyId, $audiences, $publisher);
 
@@ -73,7 +73,7 @@ final class ResolveAnnouncementAudience
     /**
      * @param  list<array{type: string, id?: int|null}>  $audiences
      */
-    public function assertAudiencesBelongToCompany(int $companyId, array $audiences): void
+    public function assertAudiencesBelongToCompany(int $companyId, array $audiences, ?User $publisher = null): void
     {
         foreach ($audiences as $audience) {
             $type = AnnouncementAudienceType::tryFrom((string) ($audience['type'] ?? ''));
@@ -95,6 +95,25 @@ final class ResolveAnnouncementAudience
                 ]);
             }
 
+            if ($type === AnnouncementAudienceType::Employee) {
+                $employee = Employee::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey($id)
+                    ->active()
+                    ->first();
+
+                if (
+                    $employee === null
+                    || ($publisher !== null && ! EmployeeVisibilityScope::canAccess($publisher, $employee, $companyId))
+                ) {
+                    throw ValidationException::withMessages([
+                        'audiences' => 'One or more audience selections are invalid for this company.',
+                    ]);
+                }
+
+                continue;
+            }
+
             $exists = match ($type) {
                 AnnouncementAudienceType::Department => Department::query()
                     ->where('company_id', $companyId)
@@ -107,11 +126,6 @@ final class ResolveAnnouncementAudience
                 AnnouncementAudienceType::Position => Position::query()
                     ->where('company_id', $companyId)
                     ->whereKey($id)
-                    ->exists(),
-                AnnouncementAudienceType::Employee => Employee::query()
-                    ->where('company_id', $companyId)
-                    ->whereKey($id)
-                    ->active()
                     ->exists(),
                 default => false,
             };
@@ -167,6 +181,20 @@ final class ResolveAnnouncementAudience
         }
 
         return $audiences;
+    }
+
+    /**
+     * @param  list<array{type: string, id?: int|null}>  $audiences
+     * @return list<int>
+     */
+    public function authorizedEmployeeIds(int $companyId, array $audiences, User $publisher): array
+    {
+        return $this->handle($companyId, $audiences, $publisher)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
     }
 
     /**

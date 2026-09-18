@@ -12,16 +12,44 @@ use Illuminate\Database\Eloquent\Builder;
 final class EmployeeVisibilityScope
 {
     /**
-     * @var array<string, list<int>|null>
-     */
-    private static array $resolvedAllowedDepartmentIds = [];
-
-    /**
-     * Clear memoized department IDs (useful for tests and user mutations).
+     * @deprecated No-op. Access decisions no longer use cross-request memoization.
      */
     public static function clearCache(): void
     {
-        self::$resolvedAllowedDepartmentIds = [];
+        // Intentionally empty — retained for backward compatibility with existing callers.
+    }
+
+    /**
+     * Whether the user has unrestricted employee access in the company (all departments).
+     */
+    public static function hasUnrestrictedAccess(?User $user, int $companyId): bool
+    {
+        return self::allowedDepartmentIds($user, $companyId) === null;
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return list<int>
+     */
+    public static function filterAuthorizedEmployeeIds(?User $user, int $companyId, array $employeeIds): array
+    {
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        if ($user === null || $companyId <= 0) {
+            return [];
+        }
+
+        return self::apply(
+            Employee::query()->whereIn('employees.id', $employeeIds),
+            $user,
+            $companyId,
+        )
+            ->pluck('employees.id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
     }
 
     /**
@@ -132,11 +160,6 @@ final class EmployeeVisibilityScope
             return null;
         }
 
-        $cacheKey = $user->getKey().':'.$companyId;
-        if (array_key_exists($cacheKey, self::$resolvedAllowedDepartmentIds)) {
-            return self::$resolvedAllowedDepartmentIds[$cacheKey];
-        }
-
         $roles = Role::query()
             ->where('spatie_roles.company_id', $companyId)
             ->join('spatie_model_has_roles', 'spatie_model_has_roles.role_id', '=', 'spatie_roles.id')
@@ -148,17 +171,17 @@ final class EmployeeVisibilityScope
             ->get();
 
         if ($roles->isEmpty()) {
-            return self::$resolvedAllowedDepartmentIds[$cacheKey] = [];
+            return [];
         }
 
         // Owner role is protected and always all
         if ($roles->contains(fn (Role $r) => $r->name === 'Owner')) {
-            return self::$resolvedAllowedDepartmentIds[$cacheKey] = null;
+            return null;
         }
 
         // If any role has SCOPE_ALL, user has unrestricted employee access
         if ($roles->contains(fn (Role $r) => $r->employee_visibility_scope === Role::SCOPE_ALL)) {
-            return self::$resolvedAllowedDepartmentIds[$cacheKey] = null;
+            return null;
         }
 
         // Gather configured department IDs from roles with SCOPE_SELECTED_DEPARTMENTS
@@ -177,12 +200,10 @@ final class EmployeeVisibilityScope
         $configuredDepartmentIds = array_values(array_unique($configuredDepartmentIds));
 
         if ($configuredDepartmentIds === []) {
-            return self::$resolvedAllowedDepartmentIds[$cacheKey] = [];
+            return [];
         }
 
-        $expanded = self::expandDepartmentsWithDescendants($companyId, $configuredDepartmentIds);
-
-        return self::$resolvedAllowedDepartmentIds[$cacheKey] = $expanded;
+        return self::expandDepartmentsWithDescendants($companyId, $configuredDepartmentIds);
     }
 
     /**

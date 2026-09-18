@@ -13,6 +13,8 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\AssertCrewPayrollCalculationFreshness;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\BuildDailyCrewPayrollAllocationPlan;
@@ -45,7 +47,7 @@ final class GenerateCrewPayroll
         private readonly AssertCrewPayrollCalculationFreshness $calculationFreshness,
     ) {}
 
-    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
+    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], ?User $user = null): GeneratePayrollResult
     {
         abort_unless($period->isCrew(), 404);
 
@@ -55,10 +57,19 @@ final class GenerateCrewPayroll
             ]);
         }
 
+        $companyId = (int) $period->company_id;
         $excludedEmployeeIds = array_values(array_unique(array_map(
             intval(...),
             array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
         )));
+
+        if ($user !== null) {
+            $excludedEmployeeIds = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                $user,
+                $companyId,
+                $excludedEmployeeIds,
+            );
+        }
 
         $generatedCount = 0;
         $skippedEmployees = [];
@@ -72,6 +83,7 @@ final class GenerateCrewPayroll
             $period,
             $excludedEmployeeIds,
             $workingDaysInPeriod,
+            $user,
             &$generatedCount,
             &$skippedEmployees,
             &$errors,
@@ -97,6 +109,7 @@ final class GenerateCrewPayroll
                 $lockedPeriod,
                 (int) $lockedPeriod->company_id,
                 $excludedEmployeeIds,
+                $user,
             );
             $previewArray = $preview->toArray();
 

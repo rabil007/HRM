@@ -19,14 +19,18 @@ final class ActiveCompanyEmployeeRule
                 ->where('status', 'active')
                 ->whereNull('deleted_at');
 
-            if ($user !== null) {
-                $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+            if ($user === null) {
+                $query->whereRaw('1 = 0');
 
-                if ($allowedIds === []) {
-                    $query->whereRaw('1 = 0');
-                } elseif ($allowedIds !== null) {
-                    $query->whereIn('department_id', $allowedIds);
-                }
+                return;
+            }
+
+            $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+            if ($allowedIds === []) {
+                $query->whereRaw('1 = 0');
+            } elseif ($allowedIds !== null) {
+                $query->whereIn('department_id', $allowedIds);
             }
         });
     }

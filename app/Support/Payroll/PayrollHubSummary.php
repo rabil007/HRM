@@ -5,6 +5,8 @@ namespace App\Support\Payroll;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -23,7 +25,8 @@ final class PayrollHubSummary
         int $companyId,
         ?string $dateFrom = null,
         ?string $dateTo = null,
-        array $months = []
+        array $months = [],
+        ?User $user = null,
     ): array {
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
@@ -52,7 +55,13 @@ final class PayrollHubSummary
 
         $periods = $query->get();
 
-        $crewEmployeeCount = PayrollEmployeeQuery::activeCount($companyId, PayrollCategory::Crew);
+        $crewEmployeeQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($crewEmployeeQuery, $user, $companyId);
+        }
+
+        $crewEmployeeCount = $crewEmployeeQuery->count();
 
         $incompleteCrewRuns = $periods
             ->filter(fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew)

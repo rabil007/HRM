@@ -22,6 +22,7 @@ use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
+use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -108,7 +109,7 @@ class PayrollController extends Controller
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage($request);
-        $employeeCountsByCategory = $this->employeeCountsByCategory($companyId);
+        $employeeCountsByCategory = $this->employeeCountsByCategory($companyId, $request->user());
         $search = trim((string) $request->query('search', ''));
         $category = trim((string) $request->query('category', ''));
         $status = trim((string) $request->query('status', ''));
@@ -227,7 +228,7 @@ class PayrollController extends Controller
                 'months' => $months,
                 'all' => $showAll ? '1' : '',
             ],
-            'summary' => PayrollHubSummary::forCompany($companyId, $dateFrom, $dateTo, $months),
+            'summary' => PayrollHubSummary::forCompany($companyId, $dateFrom, $dateTo, $months, $request->user()),
             'payroll_categories' => $this->payrollCategoryOptions(),
             'payroll_period_statuses' => $this->payrollPeriodStatusOptions(),
             'permissions' => [
@@ -824,7 +825,7 @@ class PayrollController extends Controller
             403,
         );
 
-        $result = $exporter->export($companyId, $payrollPeriod);
+        $result = $exporter->export($companyId, $payrollPeriod, request()->user());
 
         return response()
             ->download($result['path'], $result['filename'])
@@ -876,7 +877,7 @@ class PayrollController extends Controller
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
         try {
-            $result = $orchestrator->preview($companyId, $payrollPeriod, $request->file('file'));
+            $result = $orchestrator->preview($companyId, $payrollPeriod, $request->file('file'), $request->user());
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages([
                 'file' => $exception->getMessage(),
@@ -895,7 +896,13 @@ class PayrollController extends Controller
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
         try {
-            $result = $orchestrator->execute($companyId, $payrollPeriod, $request->file('file'), $request->user()?->id);
+            $result = $orchestrator->execute(
+                $companyId,
+                $payrollPeriod,
+                $request->file('file'),
+                $request->user()?->id,
+                $request->user(),
+            );
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages([
                 'file' => $exception->getMessage(),
@@ -926,11 +933,13 @@ class PayrollController extends Controller
             ? $generateCrewPayroll->handle(
                 $payrollPeriod,
                 $request->input('excluded_employee_ids', []),
+                $request->user(),
             )
             : $generateOfficePayroll->handle(
                 $payrollPeriod,
                 $request->input('excluded_employee_ids', []),
                 $request->input('employee_dates', []),
+                $request->user(),
             );
 
         $message = $result->generatedCount > 0
@@ -974,7 +983,7 @@ class PayrollController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
-        PayrollRecordAccess::assertRecord($request->user(), $payrollRecord, $companyId, allowSelf: true);
+        PayrollRecordAccess::assertRecord($request->user(), $payrollRecord, $companyId);
 
         $deletePayrollRecord->handle($payrollPeriod, $payrollRecord);
 
@@ -990,6 +999,7 @@ class PayrollController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        $this->assertUnrestrictedEmployeeScope($request, $companyId);
 
         $clearTimesheets = $request->boolean('clear_timesheets');
         $revertPayrollPeriodToDraft->handle($payrollPeriod, $clearTimesheets);
@@ -1012,6 +1022,7 @@ class PayrollController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        $this->assertUnrestrictedEmployeeScope($request, $companyId);
 
         $revertPayrollPeriodToApproved->handle($payrollPeriod);
 
@@ -1027,6 +1038,7 @@ class PayrollController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        $this->assertUnrestrictedEmployeeScope($request, $companyId);
 
         $revertPayrollPeriodToProcessing->handle($payrollPeriod);
 
@@ -1045,6 +1057,7 @@ class PayrollController extends Controller
 
         $user = $request->user();
         abort_unless($user !== null, 403);
+        $this->assertUnrestrictedEmployeeScope($request, $companyId);
 
         $approvePayrollPeriod->handle($payrollPeriod, $user);
 
@@ -1060,6 +1073,7 @@ class PayrollController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        $this->assertUnrestrictedEmployeeScope($request, $companyId);
 
         $proofFiles = $request->file('payment_proofs');
         if (! is_array($proofFiles) && $request->hasFile('payment_proof')) {
@@ -1103,6 +1117,7 @@ class PayrollController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        $this->assertUnrestrictedEmployeeScope($request, $companyId);
 
         $cancelPayrollPeriod->handle($payrollPeriod);
 
@@ -1114,13 +1129,44 @@ class PayrollController extends Controller
     /**
      * @return array{crew: int, office: int, daily_crew: int}
      */
-    private function employeeCountsByCategory(int $companyId): array
+    private function employeeCountsByCategory(int $companyId, ?User $user = null): array
     {
+        $crewQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+        $officeQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($crewQuery, $user, $companyId);
+            EmployeeVisibilityScope::apply($officeQuery, $user, $companyId);
+        }
+
+        $dailyCrewQuery = Employee::query()
+            ->where('employees.company_id', $companyId)
+            ->where('employees.status', 'active')
+            ->whereHas('currentContract', function ($contractQuery): void {
+                $contractQuery->where('payroll_category', PayrollCategory::Crew);
+                ContractSalaryStructureFilter::apply(
+                    $contractQuery,
+                    ContractSalaryStructureFilter::DAILY,
+                );
+            });
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($dailyCrewQuery, $user, $companyId);
+        }
+
         return [
-            PayrollCategory::Crew->value => PayrollEmployeeQuery::activeCount($companyId, PayrollCategory::Crew),
-            PayrollCategory::Office->value => PayrollEmployeeQuery::activeCount($companyId, PayrollCategory::Office),
-            'daily_crew' => PayrollEmployeeQuery::activeDailyCrewCount($companyId),
+            PayrollCategory::Crew->value => $crewQuery->count(),
+            PayrollCategory::Office->value => $officeQuery->count(),
+            'daily_crew' => $dailyCrewQuery->count(),
         ];
+    }
+
+    private function assertUnrestrictedEmployeeScope(Request $request, int $companyId): void
+    {
+        abort_unless(
+            EmployeeVisibilityScope::hasUnrestrictedAccess($request->user(), $companyId),
+            403,
+        );
     }
 
     /**

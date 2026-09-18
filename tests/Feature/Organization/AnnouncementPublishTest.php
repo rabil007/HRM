@@ -391,3 +391,52 @@ test('inbox feed only includes announcements for the linked user', function () {
         ->assertJsonPath('unread_count', 1)
         ->assertJsonPath('items.0.title', 'Bell item');
 });
+
+test('scheduled announcement publish does not expand after role broadens', function () {
+    Queue::fake();
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'announcements.view',
+        'announcements.create',
+        'announcements.publish',
+    ]);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.announcements.store'), [
+            'title' => 'Scheduled Marine',
+            'body_html' => '<p>Hello</p>',
+            'category' => 'general',
+            'priority' => 'normal',
+            'channels' => ['in_app'],
+            'audiences' => [['type' => 'all_employees', 'id' => null]],
+            'publish_mode' => 'schedule',
+            'scheduled_at' => now()->addHour()->toIso8601String(),
+        ])
+        ->assertRedirect();
+
+    $announcement = Announcement::query()->where('company_id', $company->id)->latest('id')->first();
+
+    $announcement?->update(['scheduled_at' => now()->subMinute()]);
+
+    expect($announcement)->not->toBeNull()
+        ->and($announcement->authorized_employee_ids)->toBe([$marine->id]);
+
+    $role = $user->roles()->where('spatie_roles.company_id', $company->id)->first();
+    $role->update(['employee_visibility_scope' => \App\Models\Role::SCOPE_ALL]);
+    $role->employeeVisibilityDepartments()->detach();
+
+    $this->artisan('announcements:publish-scheduled')->assertSuccessful();
+
+    expect(AnnouncementRecipient::query()
+        ->where('announcement_id', $announcement->id)
+        ->pluck('employee_id')
+        ->all())->toBe([$marine->id])
+        ->and(AnnouncementRecipient::query()
+            ->where('announcement_id', $announcement->id)
+            ->where('employee_id', $office->id)
+            ->exists())->toBeFalse();
+});

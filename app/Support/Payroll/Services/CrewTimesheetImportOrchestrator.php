@@ -12,7 +12,9 @@ use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInputType;
+use App\Models\User;
 use App\Support\Attendance\CalculateLeaveRequestDays;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use App\Support\Payroll\Actions\SyncEmployeeSalaryInputsFromImport;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
@@ -43,7 +45,7 @@ final class CrewTimesheetImportOrchestrator
      *     summary: array{total: int, valid: int, invalid: int, warnings: int}
      * }
      */
-    public function preview(int $companyId, PayrollPeriod $period, UploadedFile $file): array
+    public function preview(int $companyId, PayrollPeriod $period, UploadedFile $file, ?User $user = null): array
     {
         $this->assertImportablePeriod($period);
 
@@ -53,6 +55,7 @@ final class CrewTimesheetImportOrchestrator
             $period,
             $parsed['rows'],
             $parsed['managed_salary_input_type_ids'],
+            $user,
         );
 
         return [
@@ -78,6 +81,7 @@ final class CrewTimesheetImportOrchestrator
         PayrollPeriod $period,
         UploadedFile $file,
         ?int $importedByUserId = null,
+        ?User $user = null,
     ): array {
         $this->assertImportablePeriod($period);
 
@@ -87,6 +91,7 @@ final class CrewTimesheetImportOrchestrator
             $period,
             $parsed['rows'],
             $parsed['managed_salary_input_type_ids'],
+            $user,
         );
 
         if ($evaluation['summary']['valid'] === 0) {
@@ -132,7 +137,7 @@ final class CrewTimesheetImportOrchestrator
                     ->where('employee_id', $employee->id)
                     ->where('payroll_category', PayrollCategory::Crew)
                     ->exists()) {
-                    $this->recalculateCrewPayroll->handle($period, $employee->id);
+                    $this->recalculateCrewPayroll->handle($period, $employee->id, $user);
                 }
 
                 $imported++;
@@ -168,7 +173,7 @@ final class CrewTimesheetImportOrchestrator
                 ->where('employee_id', $employee->id)
                 ->where('payroll_category', PayrollCategory::Crew)
                 ->exists()) {
-                $this->recalculateCrewPayroll->handle($period, $employee->id);
+                $this->recalculateCrewPayroll->handle($period, $employee->id, $user);
             }
 
             $imported += count($employeeRows);
@@ -289,8 +294,9 @@ final class CrewTimesheetImportOrchestrator
         PayrollPeriod $period,
         array $parsedRows,
         array $managedTypeIds,
+        ?User $user = null,
     ): array {
-        $employeesByNo = $this->loadEmployeesByNumber($companyId);
+        $employeesByNo = $this->loadEmployeesByNumber($companyId, $user);
         $contractsByEmployeeId = $this->resolveContract->resolveMany(
             $period,
             $employeesByNo->map(fn (Employee $employee): int => (int) $employee->id)->values()->all(),
@@ -717,11 +723,17 @@ final class CrewTimesheetImportOrchestrator
     /**
      * @return Collection<string, Employee>
      */
-    private function loadEmployeesByNumber(int $companyId): Collection
+    private function loadEmployeesByNumber(int $companyId, ?User $user = null): Collection
     {
-        return Employee::query()
+        $query = Employee::query()
             ->where('company_id', $companyId)
-            ->active()
+            ->active();
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($query, $user, $companyId);
+        }
+
+        return $query
             ->with(['currentContract'])
             ->get()
             ->filter(fn (Employee $employee) => filled($employee->employee_no))

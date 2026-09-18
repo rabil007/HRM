@@ -20,7 +20,7 @@ class EmployeeTrainingsBrowseController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404);
+        TrainingAccess::assertEmployeeInCompany($employee, $companyId, 404, allowSelf: true);
 
         $employee->load('employeeProfileTemplate:id,name,configuration_json');
 
