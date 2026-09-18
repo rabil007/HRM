@@ -16,6 +16,9 @@ final class LeaveReportPresenter
     {
         $employee = $leaveRequest->employee;
         $companyId = (int) $leaveRequest->company_id;
+        $canViewEmployee = $employee !== null
+            && ($user?->can('employees.view') ?? false)
+            && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
 
         return [
             'id' => $leaveRequest->id,
@@ -23,13 +26,11 @@ final class LeaveReportPresenter
                 'id' => $employee?->id,
                 'employee_no' => $employee?->employee_no,
                 'name' => $employee?->name,
-                'can_view' => $employee !== null
-                    && ($user?->can('employees.view') ?? false)
-                    && EmployeeVisibilityScope::canAccess($user, $employee, $companyId),
+                'image' => $canViewEmployee ? $employee?->image : null,
+                'can_view' => $canViewEmployee,
             ],
             'department' => self::option($employee?->department),
-            'branch' => self::option($employee?->branch),
-            'leave_type' => self::option($leaveRequest->leaveType),
+            'leave_type' => self::leaveTypeOption($leaveRequest->leaveType),
             'start_date' => $leaveRequest->start_date?->toDateString(),
             'end_date' => $leaveRequest->end_date?->toDateString(),
             'total_days' => $leaveRequest->total_days !== null ? (float) $leaveRequest->total_days : null,
@@ -62,6 +63,23 @@ final class LeaveReportPresenter
         }
 
         return ['id' => (int) $model->id, 'name' => (string) $model->name];
+    }
+
+    /**
+     * @return array{id: int, name: string, code: string, color: string|null}|null
+     */
+    private static function leaveTypeOption(?object $model): ?array
+    {
+        if ($model === null) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $model->id,
+            'name' => (string) $model->name,
+            'code' => (string) ($model->code ?? ''),
+            'color' => $model->color !== null ? (string) $model->color : null,
+        ];
     }
 
     private static function datetime(?CarbonInterface $value, string $timezone): ?string

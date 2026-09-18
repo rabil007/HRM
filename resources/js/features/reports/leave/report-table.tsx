@@ -1,11 +1,12 @@
-import { Link } from '@inertiajs/react';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import {
     DataTableHead,
     OrganizationDataTable,
     dataTableBodyRowClass,
     dataTableCellClass,
+    dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { Badge } from '@/components/ui/badge';
 import {
     TableBody,
     TableCell,
@@ -13,12 +14,13 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { LeaveRequestStatusBadge } from '@/features/attendance/leave-requests/components/leave-request-status-badge';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { show as showEmployee } from '@/routes/organization/employees';
 import type { LeaveReportFilters, LeaveReportRow } from './types';
 
-const COLUMN_COUNT = 12;
+const COLUMN_COUNT = 10;
 
 function SortHead({
     column,
@@ -65,19 +67,77 @@ function SortHead({
     );
 }
 
+const FALLBACK_LEAVE_COLOR = '#94a3b8';
+
+function LeaveTypeCell({ row }: { row: LeaveReportRow }) {
+    if (!row.leave_type) {
+        return <>—</>;
+    }
+
+    const color = row.leave_type.color ?? FALLBACK_LEAVE_COLOR;
+
+    return (
+        <div className="flex items-center gap-2">
+            <span
+                className="inline-block size-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                style={{ backgroundColor: color }}
+            />
+            <Badge
+                variant="outline"
+                className="max-w-[12rem] truncate text-[10px] font-bold tracking-wider uppercase"
+                style={{
+                    borderColor: `${color}40`,
+                    backgroundColor: `${color}15`,
+                    color,
+                }}
+            >
+                {row.leave_type.code || row.leave_type.name}
+            </Badge>
+            <span className="truncate font-medium">{row.leave_type.name}</span>
+        </div>
+    );
+}
+
 function EmployeeCell({ row }: { row: LeaveReportRow }) {
+    const name = row.employee.name ?? '—';
+    const employeeNo = row.employee.employee_no;
+
+    const profileContent = (
+        <>
+            <EmployeeAvatar
+                name={name}
+                image={row.employee.can_view ? row.employee.image : null}
+                size="sm"
+                className="shrink-0"
+            />
+            <div className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-foreground group-hover:text-primary">
+                    {name}
+                </span>
+                {employeeNo ? (
+                    <span className="block truncate font-mono text-[11px] text-muted-foreground/75">
+                        {employeeNo}
+                    </span>
+                ) : null}
+            </div>
+        </>
+    );
+
     if (row.employee.can_view && row.employee.id) {
         return (
-            <Link
-                href={showEmployee.url(row.employee.id)}
-                className="font-medium text-primary hover:underline"
+            <EmployeeProfileLink
+                employeeId={row.employee.id}
+                className="group flex min-w-0 items-center gap-3 no-underline hover:no-underline"
+                aria-label={`View profile for ${name}`}
             >
-                {row.employee.name}
-            </Link>
+                {profileContent}
+            </EmployeeProfileLink>
         );
     }
 
-    return <span>{row.employee.name ?? '—'}</span>;
+    return (
+        <div className="flex min-w-0 items-center gap-3">{profileContent}</div>
+    );
 }
 
 export function LeaveReportTable({
@@ -97,23 +157,12 @@ export function LeaveReportTable({
                 <TableRow>
                     <SortHead
                         column="employee_name"
-                        label="Employee No"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="employee_name"
-                        label="Employee Name"
+                        label="Employee"
                         filters={filters}
                         onSort={onSort}
                     />
                     <SortHead
                         label="Department"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        label="Branch"
                         filters={filters}
                         onSort={onSort}
                     />
@@ -172,20 +221,20 @@ export function LeaveReportTable({
                         key={row.id}
                         className={dataTableBodyRowClass(false)}
                     >
-                        <TableCell className={dataTableCellClass()}>
-                            {row.employee.employee_no ?? '—'}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
+                        <TableCell
+                            className={cn(
+                                dataTableCellClass(),
+                                dataTableCellPrimaryClass(),
+                                'min-w-[220px]',
+                            )}
+                        >
                             <EmployeeCell row={row} />
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
                             {row.department?.name ?? '—'}
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
-                            {row.branch?.name ?? '—'}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {row.leave_type?.name ?? '—'}
+                            <LeaveTypeCell row={row} />
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
                             {formatDisplayDate(row.start_date)}

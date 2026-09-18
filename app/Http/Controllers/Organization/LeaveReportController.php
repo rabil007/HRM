@@ -4,14 +4,15 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\LeaveReportExport;
 use App\Http\Controllers\Controller;
-use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Reports\LeaveReportDepartmentTree;
 use App\Support\Reports\LeaveReportFilters;
 use App\Support\Reports\LeaveReportPagePermissions;
 use App\Support\Reports\LeaveReportPresenter;
@@ -51,19 +52,23 @@ class LeaveReportController extends Controller
                     ->where('company_id', $companyId)
                     ->where('status', 'active')
                     ->orderBy('name')
-                    ->get(['id', 'name'])
-                    ->map(fn ($type) => ['id' => (int) $type->id, 'name' => (string) $type->name])
+                    ->get(['id', 'name', 'code', 'color'])
+                    ->map(fn ($type) => [
+                        'id' => (int) $type->id,
+                        'name' => (string) $type->name,
+                        'code' => (string) $type->code,
+                        'color' => $type->color,
+                    ])
                     ->values()
                     ->all(),
                 'departments' => $this->visibleDepartmentOptions($user, $companyId),
-                'branches' => Branch::query()
-                    ->where('company_id', $companyId)
-                    ->orderBy('name')
-                    ->get(['id', 'name'])
-                    ->map(fn ($branch) => ['id' => (int) $branch->id, 'name' => (string) $branch->name])
-                    ->values()
-                    ->all(),
             ],
+            'department_tree' => LeaveReportDepartmentTree::for(
+                $companyId,
+                new EmployeeDirectoryFilters(departmentId: $filters->departmentId),
+                $user,
+            ),
+            'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'can' => LeaveReportPagePermissions::for($user),
         ]);
     }

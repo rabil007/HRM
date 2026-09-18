@@ -1,7 +1,6 @@
 <?php
 
 use App\Exports\LeaveReportExport;
-use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -18,8 +17,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  *     user: User,
  *     company: Company,
  *     employee: Employee,
- *     leaveType: LeaveType,
- *     branch: Branch
+ *     leaveType: LeaveType
  * }
  */
 function authorizeLeaveReport(): array
@@ -63,18 +61,10 @@ function authorizeLeaveReport(): array
         'employees.view',
     ]);
 
-    $branch = Branch::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Main Branch',
-        'code' => 'MAIN',
-        'status' => 'active',
-    ]);
-
     $employee = Employee::factory()->forCompany($company)->create([
         'status' => 'active',
         'name' => 'Report Employee',
         'employee_no' => 'LR-001',
-        'branch_id' => $branch->id,
     ]);
 
     $leaveType = LeaveType::factory()->for($company)->create([
@@ -82,7 +72,7 @@ function authorizeLeaveReport(): array
         'status' => 'active',
     ]);
 
-    return compact('user', 'company', 'employee', 'leaveType', 'branch');
+    return compact('user', 'company', 'employee', 'leaveType');
 }
 
 test('leave report requires authentication and view permission', function () {
@@ -178,21 +168,13 @@ test('leave period overlap includes cross-month leave and excludes non-overlappi
             ->where('summary.total', 1));
 });
 
-test('leave report filters by search status employee leave type department branch and decision dates', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType, 'branch' => $branch] = authorizeLeaveReport();
-
-    $otherBranch = Branch::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Satellite',
-        'code' => 'SAT',
-        'status' => 'active',
-    ]);
+test('leave report filters by search status employee leave type department and decision dates', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
 
     $otherEmployee = Employee::factory()->forCompany($company)->create([
         'status' => 'active',
         'name' => 'Other Person',
         'employee_no' => 'LR-002',
-        'branch_id' => $otherBranch->id,
     ]);
 
     $otherType = LeaveType::factory()->for($company)->create([
@@ -230,7 +212,6 @@ test('leave report filters by search status employee leave type department branc
             'leave_type_id' => $leaveType->id,
             'status' => 'pending',
             'department_id' => $employee->department_id,
-            'branch_id' => $branch->id,
             'submitted_from' => '2026-07-01',
             'submitted_to' => '2026-07-31',
         ]))
@@ -332,7 +313,6 @@ test('foreign company filter ids cannot expose leave requests', function () {
             'employee_id' => $foreignEmployee->id,
             'leave_type_id' => $foreignType->id,
             'department_id' => $foreignEmployee->department_id,
-            'branch_id' => $foreignEmployee->branch_id,
         ]))
         ->assertInertia(fn (Assert $page) => $page
             ->has('leave_requests', 0)

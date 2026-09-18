@@ -1,4 +1,5 @@
 import type { LeaveRequestStatus } from '@/features/attendance/leave-requests/types';
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export type ReportOption = {
@@ -8,6 +9,11 @@ export type ReportOption = {
 
 export type EmployeeOption = ReportOption & {
     employee_no: string | null;
+};
+
+export type LeaveTypeOption = ReportOption & {
+    code: string;
+    color: string | null;
 };
 
 export type SelectOption = {
@@ -21,11 +27,11 @@ export type LeaveReportRow = {
         id: number | null;
         employee_no: string | null;
         name: string | null;
+        image: string | null;
         can_view: boolean;
     };
     department: ReportOption | null;
-    branch: ReportOption | null;
-    leave_type: ReportOption | null;
+    leave_type: LeaveTypeOption | null;
     start_date: string | null;
     end_date: string | null;
     total_days: number | null;
@@ -44,7 +50,6 @@ export type LeaveReportFilters = {
     leave_type_id: string;
     status: string;
     department_id: string;
-    branch_id: string;
     submitted_from: string;
     submitted_to: string;
     decided_from: string;
@@ -67,10 +72,11 @@ export type LeaveReportProps = {
     filter_options: {
         statuses: SelectOption[];
         employees: EmployeeOption[];
-        leave_types: ReportOption[];
+        leave_types: LeaveTypeOption[];
         departments: ReportOption[];
-        branches: ReportOption[];
     };
+    department_tree: DepartmentTreeNode[];
+    department_tree_selected_id: number | null;
     can: {
         export: boolean;
         view_employee: boolean;

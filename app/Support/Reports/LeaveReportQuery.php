@@ -94,10 +94,9 @@ final class LeaveReportQuery
 
         if ($withRelations) {
             $query->with([
-                'employee:id,company_id,employee_no,name,department_id,branch_id',
+                'employee:id,company_id,employee_no,name,department_id,image',
                 'employee.department:id,name',
-                'employee.branch:id,name',
-                'leaveType:id,name',
+                'leaveType:id,name,code,color',
                 'approver:id,name',
             ]);
         }
@@ -116,10 +115,6 @@ final class LeaveReportQuery
             ->when($this->filters->departmentId !== '', fn (Builder $inner) => $inner->whereHas(
                 'employee',
                 fn (Builder $employee) => $employee->where('department_id', $this->filters->departmentId),
-            ))
-            ->when($this->filters->branchId !== '', fn (Builder $inner) => $inner->whereHas(
-                'employee',
-                fn (Builder $employee) => $employee->where('branch_id', $this->filters->branchId),
             ))
             ->when($this->filters->submittedFrom !== '', fn (Builder $inner) => $inner->whereDate('leave_requests.created_at', '>=', $this->filters->submittedFrom))
             ->when($this->filters->submittedTo !== '', fn (Builder $inner) => $inner->whereDate('leave_requests.created_at', '<=', $this->filters->submittedTo))

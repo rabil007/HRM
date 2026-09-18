@@ -9,7 +9,7 @@ Leave Report is a read-only HR reporting view for company leave request history.
 
 Each row represents one `LeaveRequest` in the active company. Soft-deleted or administratively deleted requests are excluded from the normal report query.
 
-Department and branch values come from the employee's **current** organizational assignment. They are not snapshotted at the time the leave was taken.
+Department values come from the employee's **current** organizational assignment. They are not snapshotted at the time the leave was taken.
 
 ## Permissions
 
@@ -32,7 +32,6 @@ The report query, summary cards, filter employee/department options, and export 
 | Leave type | Exact leave type |
 | Status | `pending`, `approved`, `rejected`, `cancelled` |
 | Department | Employee's current department |
-| Branch | Employee's current branch |
 | Submitted | `created_at` date range |
 | Decided | `decided_at` date range |
 

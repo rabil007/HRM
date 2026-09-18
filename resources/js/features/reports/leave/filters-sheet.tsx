@@ -162,28 +162,10 @@ export function LeaveReportFiltersSheet({
                                 : employee.name
                         }
                     />
-                    <SelectFilter
-                        label="Department"
-                        value={draft.department_id}
-                        options={options.departments}
-                        onChange={(value) => set('department_id', value)}
-                    />
-                    <SelectFilter
-                        label="Branch"
-                        value={draft.branch_id}
-                        options={options.branches}
-                        onChange={(value) => set('branch_id', value)}
-                    />
                 </section>
 
                 <section className="space-y-4">
                     <h3 className="text-sm font-semibold">Leave details</h3>
-                    <SelectFilter
-                        label="Leave type"
-                        value={draft.leave_type_id}
-                        options={options.leave_types}
-                        onChange={(value) => set('leave_type_id', value)}
-                    />
                     <SelectFilter
                         label="Status"
                         value={draft.status}
