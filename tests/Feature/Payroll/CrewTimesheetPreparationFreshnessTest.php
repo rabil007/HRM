@@ -1486,6 +1486,179 @@ test('apply rejects empty approved preparation after no-contract employee starts
     })->toThrow(ValidationException::class);
 });
 
+test('apply rejects mixed-company approved preparation after active non-crew employee starts first crew assignment', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    $employeeB = Employee::factory()
+        ->forCompany($fixtures['company'])
+        ->create([
+            'rank_id' => $fixtures['rank']->id,
+            'status' => 'active',
+        ]);
+    EmployeeContract::query()->where('employee_id', $employeeB->id)->delete();
+    CrewAssignment::query()->where('employee_id', $employeeB->id)->delete();
+
+    grantApplyPermissions($fixtures['user'], $fixtures['company']);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+
+    $vessel = makeCrewMovementVessel('Mixed Company Vessel', $fixtures['company']);
+    $service = app(CrewMovementService::class);
+
+    $assignment = $service->createDraft($fixtures['company']->id, $employeeB->id, [
+        'vessel_id' => $vessel->id,
+        'rank_id' => $fixtures['rank']->id,
+    ], $fixtures['user']->id);
+
+    $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-09-10 08:00:00',
+    ], $fixtures['user']->id);
+
+    $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-09-10 09:00:00',
+    ], $fixtures['user']->id);
+
+    expect(function () use ($fixtures, $preparation) {
+        app(ApplyCrewTimesheetPreparation::class)->handle(
+            $fixtures['period'],
+            $preparation->fresh(),
+            $fixtures['user'],
+            (int) $fixtures['company']->id,
+        );
+    })->toThrow(ValidationException::class);
+});
+
+test('apply rejects mixed-company approved preparation after active non-crew employee receives first daily crew contract', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    $employeeB = Employee::factory()
+        ->forCompany($fixtures['company'])
+        ->create([
+            'rank_id' => $fixtures['rank']->id,
+            'status' => 'active',
+        ]);
+    EmployeeContract::query()->where('employee_id', $employeeB->id)->delete();
+    CrewAssignment::query()->where('employee_id', $employeeB->id)->delete();
+
+    grantApplyPermissions($fixtures['user'], $fixtures['company']);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+
+    app(UpsertEmployeeContract::class)->handle($fixtures['company']->id, $employeeB, [
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => ContractSalaryStructure::Daily,
+        'status' => 'active',
+        'start_date' => '2026-09-01',
+        'end_date' => null,
+        'basic_salary' => 100,
+        'site_allowance' => 30,
+        'supplementary_allowance' => 20,
+    ], createdBy: $fixtures['user']->id);
+
+    expect(function () use ($fixtures, $preparation) {
+        app(ApplyCrewTimesheetPreparation::class)->handle(
+            $fixtures['period'],
+            $preparation->fresh(),
+            $fixtures['user'],
+            (int) $fixtures['company']->id,
+        );
+    })->toThrow(ValidationException::class);
+});
+
+test('apply remains fresh for inactive employee when historical source is unchanged', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $fixtures['period']->update([
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'payment_date' => '2026-09-30',
+    ]);
+
+    grantApplyPermissions($fixtures['user'], $fixtures['company']);
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+
+    $fixtures['employee']->update(['status' => 'inactive']);
+
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+
+    expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Applied);
+});
+
 test('apply rejects empty approved preparation after new daily crew contract is created', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
 

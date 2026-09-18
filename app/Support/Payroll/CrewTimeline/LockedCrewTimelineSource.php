@@ -16,11 +16,13 @@ final class LockedCrewTimelineSource
     /**
      * @param  Collection<int, CrewAssignmentPhase>  $phases
      * @param  Collection<int, EmployeeContract|null>  $contractsByEmployeeId
+     * @param  list<int>  $contractFingerprintEmployeeIds
      * @param  Collection<int, CrewMovementCorrection>  $pendingCorrections
      */
     public function __construct(
         public readonly Collection $phases,
         public readonly Collection $contractsByEmployeeId,
+        public readonly array $contractFingerprintEmployeeIds,
         public readonly Collection $pendingCorrections,
     ) {}
 }

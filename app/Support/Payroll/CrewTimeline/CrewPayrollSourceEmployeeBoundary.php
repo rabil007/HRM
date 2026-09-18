@@ -9,12 +9,14 @@ use App\Models\CrewTimesheetPreparationLine;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
-use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 
 /**
- * Stable active-employee population serialized during Apply before
- * period-relevant crew source is discovered under locks.
+ * Stable Employee parent locks for final Crew Timesheet Apply.
+ *
+ * Lock boundary is intentionally broader than the source hash: every active
+ * company employee can start new Crew source, while existing preparation
+ * source employees remain protected even when inactive.
  */
 final class CrewPayrollSourceEmployeeBoundary
 {
@@ -23,9 +25,12 @@ final class CrewPayrollSourceEmployeeBoundary
     ) {}
 
     /**
+     * Employees already represented by current preparation or historical Crew
+     * source, regardless of current employee status.
+     *
      * @return list<int>
      */
-    public function stableEmployeeIds(
+    public function existingSourceEmployeeIds(
         int $companyId,
         PayrollPeriod $period,
         CrewTimesheetPreparation $preparation,
@@ -38,11 +43,6 @@ final class CrewPayrollSourceEmployeeBoundary
             ->filter(fn (int $employeeId): bool => $employeeId > 0);
 
         $fromContracts = $this->resolveContract->crewEmployeeIdsResolvableForPeriod($period);
-
-        $fromCurrentCrewPayroll = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
-            ->pluck('employees.id')
-            ->map(intval(...))
-            ->filter(fn (int $employeeId): bool => $employeeId > 0);
 
         $fromAssignmentHistory = CrewAssignment::query()
             ->where('company_id', $companyId)
@@ -59,9 +59,8 @@ final class CrewPayrollSourceEmployeeBoundary
             ->map(intval(...))
             ->filter(fn (int $employeeId): bool => $employeeId > 0);
 
-        $merged = collect($fromLines->all())
+        return collect($fromLines->all())
             ->merge($fromContracts)
-            ->merge($fromCurrentCrewPayroll->all())
             ->merge($fromAssignmentHistory->all())
             ->merge($fromHistoricalCrewContracts->all())
             ->unique()
@@ -69,37 +68,41 @@ final class CrewPayrollSourceEmployeeBoundary
             ->sort()
             ->values()
             ->all();
-
-        if ($merged === []) {
-            return Employee::query()
-                ->where('company_id', $companyId)
-                ->where('status', 'active')
-                ->orderBy('id')
-                ->pluck('id')
-                ->map(intval(...))
-                ->all();
-        }
-
-        return $this->activeEmployeeIds($companyId, $merged);
     }
 
     /**
-     * @param  list<int>  $employeeIds
+     * Active employees who can create brand-new Crew source during Apply.
+     *
      * @return list<int>
      */
-    private function activeEmployeeIds(int $companyId, array $employeeIds): array
+    public function potentialNewSourceEmployeeIds(int $companyId): array
     {
-        if ($employeeIds === []) {
-            return [];
-        }
-
         return Employee::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
-            ->whereIn('id', $employeeIds)
             ->orderBy('id')
             ->pluck('id')
             ->map(intval(...))
+            ->all();
+    }
+
+    /**
+     * Deterministic Employee FOR UPDATE population for final Apply.
+     *
+     * @return list<int>
+     */
+    public function stableEmployeeIds(
+        int $companyId,
+        PayrollPeriod $period,
+        CrewTimesheetPreparation $preparation,
+    ): array {
+        return collect([
+            ...$this->existingSourceEmployeeIds($companyId, $period, $preparation),
+            ...$this->potentialNewSourceEmployeeIds($companyId),
+        ])
+            ->unique()
+            ->sort()
+            ->values()
             ->all();
     }
 }

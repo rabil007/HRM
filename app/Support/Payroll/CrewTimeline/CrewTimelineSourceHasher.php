@@ -53,14 +53,12 @@ final class CrewTimelineSourceHasher
         LockedCrewTimelineSource $source,
         ?CarbonInterface $effectiveCutoffDate = null,
     ): string {
-        $contractEmployeeIds = $this->contractEmployeeIdsForHash($period, $source->phases);
-
         return $this->buildHash(
             $period,
             $cutoffDate,
             $source->phases,
             $effectiveCutoffDate,
-            $this->contractFingerprintsFromResolved($contractEmployeeIds, $source->contractsByEmployeeId),
+            $this->contractFingerprintsFromResolved($source->contractFingerprintEmployeeIds, $source->contractsByEmployeeId),
             $this->pendingCorrectionFingerprintsFromCollection($source->pendingCorrections),
         );
     }

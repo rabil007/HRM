@@ -4,6 +4,7 @@ namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
@@ -133,6 +134,42 @@ final class ResolveCrewContractForPayrollPeriod
             ->filter(fn (?EmployeeContract $contract): bool => $contract !== null)
             ->keys()
             ->map(intval(...))
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Employee IDs whose resolvable crew contract should appear in a source hash,
+     * derived from locked issue phases and a locked crew contract collection.
+     *
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @param  list<int>  $boundaryEmployeeIds
+     * @param  Collection<int, EmployeeContract>  $lockedContracts
+     * @return list<int>
+     */
+    public function contractFingerprintEmployeeIdsFromLockedSource(
+        PayrollPeriod $period,
+        Collection $phases,
+        array $boundaryEmployeeIds,
+        Collection $lockedContracts,
+    ): array {
+        $fromPhases = $phases
+            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->assignment?->employee_id)
+            ->filter(fn (int $employeeId): bool => $employeeId > 0);
+
+        if ($boundaryEmployeeIds === []) {
+            return $fromPhases->unique()->sort()->values()->all();
+        }
+
+        $fromResolvable = $this->resolveManyFromCollection($period, $boundaryEmployeeIds, $lockedContracts)
+            ->filter(fn (?EmployeeContract $contract): bool => $contract !== null)
+            ->keys()
+            ->map(intval(...));
+
+        return collect($fromPhases->all())
+            ->merge($fromResolvable->all())
+            ->unique()
             ->sort()
             ->values()
             ->all();

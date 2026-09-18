@@ -42,6 +42,7 @@ final class CrewTimelineSourceLocker
             return new LockedCrewTimelineSource(
                 phases: collect(),
                 contractsByEmployeeId: collect(),
+                contractFingerprintEmployeeIds: [],
                 pendingCorrections: collect(),
             );
         }
@@ -92,9 +93,17 @@ final class CrewTimelineSourceLocker
             $lockedContracts,
         );
 
+        $contractFingerprintEmployeeIds = $this->resolveContract->contractFingerprintEmployeeIdsFromLockedSource(
+            $period,
+            $phases,
+            $employeeIds,
+            $lockedContracts,
+        );
+
         return new LockedCrewTimelineSource(
             phases: $phases,
             contractsByEmployeeId: $contractsByEmployeeId,
+            contractFingerprintEmployeeIds: $contractFingerprintEmployeeIds,
             pendingCorrections: $pendingCorrections,
         );
     }
