@@ -17,7 +17,8 @@ use Carbon\CarbonInterface;
 /**
  * Locks crew movement source rows participating in timeline freshness before
  * a final Apply freshness assertion. Lock order matches Crew Movement:
- * employees, assignments, phases, pending corrections, then crew contracts.
+ * Employee → Crew Assignment → period-relevant source phases → pending
+ * corrections on those phases → crew contracts.
  */
 final class CrewTimelineSourceLocker
 {
@@ -53,37 +54,30 @@ final class CrewTimelineSourceLocker
             ->lockForUpdate()
             ->get();
 
-        $assignmentIds = CrewAssignment::query()
+        CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('employee_id', $employeeIds)
             ->orderBy('id')
             ->lockForUpdate()
-            ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
+            ->get();
+
+        $phases = $this->phaseQuery->issuePhasesForUpdate($period, $effectiveEnd);
+
+        $sourcePhaseIds = $phases
+            ->map(fn (CrewAssignmentPhase $phase): int => (int) $phase->id)
+            ->filter(fn (int $phaseId): bool => $phaseId > 0)
+            ->values()
             ->all();
 
-        $pendingCorrections = collect();
-
-        if ($assignmentIds !== []) {
-            $phaseIds = CrewAssignmentPhase::query()
+        $pendingCorrections = $sourcePhaseIds === []
+            ? collect()
+            : CrewMovementCorrection::query()
                 ->where('company_id', $companyId)
-                ->whereIn('crew_assignment_id', $assignmentIds)
+                ->pending()
+                ->whereIn('crew_assignment_phase_id', $sourcePhaseIds)
                 ->orderBy('id')
                 ->lockForUpdate()
-                ->pluck('id')
-                ->map(fn ($id): int => (int) $id)
-                ->all();
-
-            if ($phaseIds !== []) {
-                $pendingCorrections = CrewMovementCorrection::query()
-                    ->where('company_id', $companyId)
-                    ->pending()
-                    ->whereIn('crew_assignment_phase_id', $phaseIds)
-                    ->orderBy('id')
-                    ->lockForUpdate()
-                    ->get(['id', 'crew_assignment_phase_id', 'status', 'updated_at']);
-            }
-        }
+                ->get(['id', 'crew_assignment_phase_id', 'status', 'updated_at']);
 
         $lockedContracts = EmployeeContract::query()
             ->where('company_id', $companyId)
@@ -93,7 +87,6 @@ final class CrewTimelineSourceLocker
             ->lockForUpdate()
             ->get();
 
-        $phases = $this->phaseQuery->issuePhasesForUpdate($period, $effectiveEnd);
         $contractsByEmployeeId = $this->resolveContract->resolveManyFromCollection(
             $period,
             $employeeIds,
@@ -127,7 +120,7 @@ final class CrewTimelineSourceLocker
             ->map(fn ($id): int => (int) $id)
             ->filter(fn (int $employeeId): bool => $employeeId > 0);
 
-        $fromContracts = $this->resolveContract->crewEmployeeIdsOverlappingPeriod($period);
+        $fromContracts = $this->resolveContract->crewEmployeeIdsResolvableForPeriod($period);
 
         return collect($fromPhases->all())
             ->merge($fromLines->all())

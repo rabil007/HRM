@@ -200,7 +200,7 @@ final class CrewMovementService
         ?int $actorId = null,
     ): CrewAssignment {
         return DB::transaction(function () use ($companyId, $assignmentId, $action, $payload, $actorId): CrewAssignment {
-            $assignment = $this->reloadLocked($companyId, $assignmentId);
+            $assignment = $this->lockAssignmentForMovement($companyId, $assignmentId);
             $this->invariants->assertValid($assignment);
 
             $result = match ($action) {
@@ -747,7 +747,6 @@ final class CrewMovementService
         $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::OnVessel);
         $this->assertPhaseStatus($current, CrewPhaseStatus::Active);
 
-        $this->lockEmployee($assignment->company_id, $assignment->employee_id);
         $this->lockAssignmentPhases($assignment);
         $this->assertNoActiveAssignment($assignment->company_id, $assignment->employee_id, $assignment->id);
 
@@ -875,7 +874,6 @@ final class CrewMovementService
             );
         }
 
-        $this->lockEmployee($assignment->company_id, $assignment->employee_id);
         $this->lockAssignmentPhases($assignment);
         $this->assertNoActiveAssignment($assignment->company_id, $assignment->employee_id, $assignment->id);
 
@@ -1388,6 +1386,25 @@ final class CrewMovementService
         }
 
         return $startedAt;
+    }
+
+    private function lockAssignmentForMovement(int $companyId, int $assignmentId): CrewAssignment
+    {
+        $identity = CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereKey($assignmentId)
+            ->first();
+
+        if ($identity === null) {
+            throw CrewMovementException::make(
+                'Crew assignment not found for this company.',
+                'assignment_not_found',
+            );
+        }
+
+        $this->lockEmployee($companyId, (int) $identity->employee_id);
+
+        return $this->reloadLocked($companyId, $assignmentId);
     }
 
     private function lockEmployee(int $companyId, int $employeeId): Employee

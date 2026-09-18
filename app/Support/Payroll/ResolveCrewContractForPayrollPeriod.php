@@ -102,8 +102,44 @@ final class ResolveCrewContractForPayrollPeriod
     }
 
     /**
-     * Employee IDs with crew contracts that could participate in payroll for the
-     * period. Used to establish Apply lock boundaries when no issue phases exist.
+     * Employee IDs whose crew contract would resolve for the payroll period using
+     * the same overlap and legacy fallback rules as {@see resolveMany()}. Used to
+     * establish Apply lock boundaries when no issue phases exist yet.
+     *
+     * @return list<int>
+     */
+    public function crewEmployeeIdsResolvableForPeriod(PayrollPeriod $period): array
+    {
+        $companyId = (int) $period->company_id;
+
+        /** @var Collection<int, EmployeeContract> $contracts */
+        $contracts = EmployeeContract::query()
+            ->where('company_id', $companyId)
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->get();
+
+        $employeeIds = $contracts
+            ->pluck('employee_id')
+            ->map(intval(...))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        return $this->resolveManyFromCollection($period, $employeeIds, $contracts)
+            ->filter(fn (?EmployeeContract $contract): bool => $contract !== null)
+            ->keys()
+            ->map(intval(...))
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Employee IDs with crew contracts overlapping the payroll period.
      *
      * @return list<int>
      */

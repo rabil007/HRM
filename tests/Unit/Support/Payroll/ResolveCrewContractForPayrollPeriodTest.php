@@ -104,3 +104,20 @@ test('resolver reports ambiguous overlapping crew contracts', function () {
 
     expect(app(ResolveCrewContractForPayrollPeriod::class)->hasAmbiguousOverlap($employee, $period))->toBeTrue();
 });
+
+test('resolvable employee boundary includes legacy fallback crew contract without period overlap', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    hardeningContract($employee, [
+        'start_date' => '2025-01-01',
+        'end_date' => '2025-12-31',
+    ]);
+
+    $period = hardeningPeriod($company, '2026-09-01', '2026-09-30');
+    $resolver = app(ResolveCrewContractForPayrollPeriod::class);
+
+    expect($resolver->resolve($employee, $period))->not->toBeNull()
+        ->and($resolver->crewEmployeeIdsOverlappingPeriod($period))->not->toContain((int) $employee->id)
+        ->and($resolver->crewEmployeeIdsResolvableForPeriod($period))->toContain((int) $employee->id);
+});
