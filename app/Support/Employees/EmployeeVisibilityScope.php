@@ -132,7 +132,7 @@ final class EmployeeVisibilityScope
             return $employee;
         }
 
-        $fresh = Employee::query()
+        $fresh = Employee::withTrashed()
             ->whereKey($employee->id)
             ->where('company_id', $companyId)
             ->first(array_merge(['id'], $required));

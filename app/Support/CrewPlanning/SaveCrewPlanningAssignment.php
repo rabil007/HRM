@@ -51,53 +51,95 @@ final class SaveCrewPlanningAssignment
         array $attributes,
         ?User $actor = null,
     ): CrewPlanningAssignment {
-        return DB::transaction(function () use ($assignment, $companyId, $attributes, $actor): CrewPlanningAssignment {
-            $relievesId = array_key_exists('relieves_crew_assignment_id', $attributes)
-                ? $attributes['relieves_crew_assignment_id']
-                : CrewPlanningAssignment::query()->whereKey($assignment->id)->value('relieves_crew_assignment_id');
+        $maxAttempts = 3;
 
-            if ($relievesId !== null && $relievesId !== '') {
-                CrewAssignment::query()
-                    ->where('company_id', $companyId)
-                    ->whereKey((int) $relievesId)
-                    ->lockForUpdate()
-                    ->first();
-            }
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return DB::transaction(function () use ($assignment, $companyId, $attributes, $actor): CrewPlanningAssignment {
+                    $hasIncomingRelief = array_key_exists('relieves_crew_assignment_id', $attributes);
+                    $incomingRelievesId = $hasIncomingRelief && $attributes['relieves_crew_assignment_id'] !== null && $attributes['relieves_crew_assignment_id'] !== ''
+                        ? (int) $attributes['relieves_crew_assignment_id']
+                        : null;
 
-            $locked = CrewPlanningAssignment::query()
-                ->where('company_id', $companyId)
-                ->whereKey($assignment->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+                    $preReadRelievesId = CrewPlanningAssignment::query()
+                        ->whereKey($assignment->id)
+                        ->value('relieves_crew_assignment_id');
+                    $preReadRelievesId = $preReadRelievesId !== null && $preReadRelievesId !== ''
+                        ? (int) $preReadRelievesId
+                        : null;
 
-            if ($locked->crew_assignment_id !== null) {
+                    $idsToLock = array_values(array_filter(array_unique([
+                        $preReadRelievesId,
+                        $incomingRelievesId,
+                    ])));
+                    sort($idsToLock);
+
+                    foreach ($idsToLock as $assignmentId) {
+                        CrewAssignment::query()
+                            ->where('company_id', $companyId)
+                            ->whereKey($assignmentId)
+                            ->lockForUpdate()
+                            ->first();
+                    }
+
+                    $locked = CrewPlanningAssignment::query()
+                        ->where('company_id', $companyId)
+                        ->whereKey($assignment->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    $lockedRelievesId = $locked->relieves_crew_assignment_id !== null && $locked->relieves_crew_assignment_id !== ''
+                        ? (int) $locked->relieves_crew_assignment_id
+                        : null;
+
+                    if ($lockedRelievesId !== $preReadRelievesId) {
+                        throw new PlanningConcurrencyConflictException('The planning assignment was modified concurrently.');
+                    }
+
+                    if ($locked->crew_assignment_id !== null) {
+                        throw ValidationException::withMessages([
+                            'error' => 'This planning bar is controlled by Crew Assignments. Update the linked crew assignment instead.',
+                        ]);
+                    }
+
+                    $merged = [
+                        'relieves_crew_assignment_id' => array_key_exists('relieves_crew_assignment_id', $attributes)
+                            ? $attributes['relieves_crew_assignment_id']
+                            : $locked->relieves_crew_assignment_id,
+                        'vessel_id' => array_key_exists('vessel_id', $attributes)
+                            ? $attributes['vessel_id']
+                            : $locked->vessel_id,
+                        'rank_id' => array_key_exists('rank_id', $attributes)
+                            ? $attributes['rank_id']
+                            : $locked->rank_id,
+                        'employee_id' => array_key_exists('employee_id', $attributes)
+                            ? $attributes['employee_id']
+                            : $locked->employee_id,
+                    ];
+
+                    $this->assertEmployeeIsActive($companyId, $merged, $actor);
+                    $this->assertReliefConstraints($companyId, $merged, (int) $locked->id, $actor);
+
+                    $locked->update($attributes);
+
+                    return $locked->fresh() ?? $locked;
+                });
+            } catch (PlanningConcurrencyConflictException $exception) {
+                if ($attempt < $maxAttempts) {
+                    usleep(10000);
+
+                    continue;
+                }
+
                 throw ValidationException::withMessages([
-                    'error' => 'This planning bar is controlled by Crew Assignments. Update the linked crew assignment instead.',
+                    'error' => 'The planning assignment was modified concurrently. Please refresh and try again.',
                 ]);
             }
+        }
 
-            $merged = [
-                'relieves_crew_assignment_id' => array_key_exists('relieves_crew_assignment_id', $attributes)
-                    ? $attributes['relieves_crew_assignment_id']
-                    : $locked->relieves_crew_assignment_id,
-                'vessel_id' => array_key_exists('vessel_id', $attributes)
-                    ? $attributes['vessel_id']
-                    : $locked->vessel_id,
-                'rank_id' => array_key_exists('rank_id', $attributes)
-                    ? $attributes['rank_id']
-                    : $locked->rank_id,
-                'employee_id' => array_key_exists('employee_id', $attributes)
-                    ? $attributes['employee_id']
-                    : $locked->employee_id,
-            ];
-
-            $this->assertEmployeeIsActive($companyId, $merged, $actor);
-            $this->assertReliefConstraints($companyId, $merged, (int) $locked->id, $actor);
-
-            $locked->update($attributes);
-
-            return $locked->fresh() ?? $locked;
-        });
+        throw ValidationException::withMessages([
+            'error' => 'The planning assignment was modified concurrently. Please refresh and try again.',
+        ]);
     }
 
     /**

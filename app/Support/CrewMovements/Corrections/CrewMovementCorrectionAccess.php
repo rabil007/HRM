@@ -2,7 +2,9 @@
 
 namespace App\Support\CrewMovements\Corrections;
 
+use App\Models\CrewAssignment;
 use App\Models\CrewMovementCorrection;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -16,12 +18,26 @@ final class CrewMovementCorrectionAccess
         }
 
         if ($user !== null) {
-            $correction->loadMissing('assignment.employee');
-            $employee = $correction->assignment?->employee;
-            if ($employee !== null) {
-                if (! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
-                    throw new HttpException(404);
-                }
+            $assignment = CrewAssignment::withTrashed()
+                ->whereKey($correction->crew_assignment_id)
+                ->where('company_id', $companyId)
+                ->first();
+
+            if ($assignment === null) {
+                throw new HttpException(404);
+            }
+
+            $employee = Employee::withTrashed()
+                ->whereKey($assignment->employee_id)
+                ->where('company_id', $companyId)
+                ->first();
+
+            if ($employee === null) {
+                throw new HttpException(404);
+            }
+
+            if (! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
+                throw new HttpException(404);
             }
         }
     }

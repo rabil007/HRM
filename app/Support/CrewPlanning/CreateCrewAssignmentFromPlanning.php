@@ -17,81 +17,111 @@ final class CreateCrewAssignmentFromPlanning
 
     public function handle(CrewPlanningAssignment $planning, ?int $actorId = null): CrewAssignment
     {
-        return DB::transaction(function () use ($planning, $actorId): CrewAssignment {
-            $linkedAssignmentId = CrewPlanningAssignment::query()
-                ->whereKey($planning->id)
-                ->value('crew_assignment_id');
+        $maxAttempts = 3;
 
-            if ($linkedAssignmentId !== null) {
-                CrewAssignment::query()
-                    ->whereKey($linkedAssignmentId)
-                    ->lockForUpdate()
-                    ->first();
-            }
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return DB::transaction(function () use ($planning, $actorId): CrewAssignment {
+                    $linkedAssignmentId = CrewPlanningAssignment::query()
+                        ->whereKey($planning->id)
+                        ->value('crew_assignment_id');
 
-            $planning = CrewPlanningAssignment::query()
-                ->whereKey($planning->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+                    $preReadAssignmentId = $linkedAssignmentId !== null ? (int) $linkedAssignmentId : null;
 
-            if ($planning->crew_assignment_id !== null) {
-                $existing = CrewAssignment::query()
-                    ->where('company_id', $planning->company_id)
-                    ->whereKey($planning->crew_assignment_id)
-                    ->first();
+                    if ($preReadAssignmentId !== null) {
+                        CrewAssignment::query()
+                            ->whereKey($preReadAssignmentId)
+                            ->lockForUpdate()
+                            ->first();
+                    }
 
-                if ($existing !== null) {
-                    $this->planningSync->sync($existing);
+                    $lockedPlanning = CrewPlanningAssignment::query()
+                        ->whereKey($planning->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
 
-                    return $existing->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $existing;
+                    $lockedAssignmentId = $lockedPlanning->crew_assignment_id !== null ? (int) $lockedPlanning->crew_assignment_id : null;
+
+                    if ($lockedAssignmentId !== $preReadAssignmentId) {
+                        throw CrewMovementException::make(
+                            'Planning assignment linkage changed concurrently. Please retry.',
+                            'planning_concurrency_conflict',
+                        );
+                    }
+
+                    if ($lockedPlanning->crew_assignment_id !== null) {
+                        $existing = CrewAssignment::query()
+                            ->where('company_id', $lockedPlanning->company_id)
+                            ->whereKey($lockedPlanning->crew_assignment_id)
+                            ->first();
+
+                        if ($existing !== null) {
+                            $this->planningSync->sync($existing);
+
+                            return $existing->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $existing;
+                        }
+                    }
+
+                    if ($lockedPlanning->employee_id === null) {
+                        throw CrewMovementException::make(
+                            'Planning assignment has no employee.',
+                            'planning_missing_employee',
+                        );
+                    }
+
+                    if ($lockedPlanning->vessel_id === null || $lockedPlanning->rank_id === null) {
+                        throw CrewMovementException::make(
+                            'Planning assignment requires vessel and rank.',
+                            'planning_missing_masters',
+                        );
+                    }
+
+                    if ($lockedPlanning->planned_join_date === null) {
+                        throw CrewMovementException::make(
+                            'Planning assignment requires a planned join date.',
+                            'planning_missing_join_date',
+                        );
+                    }
+
+                    $assignment = $this->movements->createDraft(
+                        (int) $lockedPlanning->company_id,
+                        (int) $lockedPlanning->employee_id,
+                        [
+                            'rank_id' => $lockedPlanning->rank_id,
+                            'vessel_id' => $lockedPlanning->vessel_id,
+                            'planned_join_at' => $lockedPlanning->planned_join_date->toDateString().' 00:00:00',
+                            'planned_signoff_at' => $lockedPlanning->planned_leave_date !== null
+                                ? $lockedPlanning->planned_leave_date->toDateString().' 00:00:00'
+                                : null,
+                            'source' => 'crew_planning',
+                            'remarks' => $lockedPlanning->notes,
+                        ],
+                        $actorId,
+                    );
+
+                    $lockedPlanning->update([
+                        'crew_assignment_id' => $assignment->id,
+                    ]);
+
+                    // Preserve relieves_crew_assignment_id — conversion reuses the same Planning row.
+                    $this->planningSync->sync($assignment->fresh(['phases', 'employee', 'company']) ?? $assignment);
+
+                    return $assignment->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $assignment;
+                });
+            } catch (CrewMovementException $exception) {
+                if ($exception->errorCode === 'planning_concurrency_conflict' && $attempt < $maxAttempts) {
+                    usleep(10000);
+
+                    continue;
                 }
+
+                throw $exception;
             }
+        }
 
-            if ($planning->employee_id === null) {
-                throw CrewMovementException::make(
-                    'Planning assignment has no employee.',
-                    'planning_missing_employee',
-                );
-            }
-
-            if ($planning->vessel_id === null || $planning->rank_id === null) {
-                throw CrewMovementException::make(
-                    'Planning assignment requires vessel and rank.',
-                    'planning_missing_masters',
-                );
-            }
-
-            if ($planning->planned_join_date === null) {
-                throw CrewMovementException::make(
-                    'Planning assignment requires a planned join date.',
-                    'planning_missing_join_date',
-                );
-            }
-
-            $assignment = $this->movements->createDraft(
-                (int) $planning->company_id,
-                (int) $planning->employee_id,
-                [
-                    'rank_id' => $planning->rank_id,
-                    'vessel_id' => $planning->vessel_id,
-                    'planned_join_at' => $planning->planned_join_date->toDateString().' 00:00:00',
-                    'planned_signoff_at' => $planning->planned_leave_date !== null
-                        ? $planning->planned_leave_date->toDateString().' 00:00:00'
-                        : null,
-                    'source' => 'crew_planning',
-                    'remarks' => $planning->notes,
-                ],
-                $actorId,
-            );
-
-            $planning->update([
-                'crew_assignment_id' => $assignment->id,
-            ]);
-
-            // Preserve relieves_crew_assignment_id — conversion reuses the same Planning row.
-            $this->planningSync->sync($assignment->fresh(['phases', 'employee', 'company']) ?? $assignment);
-
-            return $assignment->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $assignment;
-        });
+        throw CrewMovementException::make(
+            'Planning assignment linkage changed concurrently. Please retry.',
+            'planning_concurrency_conflict',
+        );
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Support\CrewMovements;
 
 use App\Models\CrewAssignment;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 
@@ -28,8 +29,15 @@ class CrewAssignmentAccess
             return null;
         }
 
-        if ($user !== null && $assignment->employee !== null) {
-            if (! EmployeeVisibilityScope::canAccess($user, $assignment->employee, $companyId)) {
+        if ($user !== null) {
+            $employee = $assignment->relationLoaded('employee') && $assignment->employee !== null
+                ? $assignment->employee
+                : Employee::withTrashed()
+                    ->whereKey($assignment->employee_id)
+                    ->where('company_id', $companyId)
+                    ->first();
+
+            if ($employee === null || ! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
                 return null;
             }
         }
@@ -39,13 +47,21 @@ class CrewAssignmentAccess
 
     public static function assertInCompany(CrewAssignment $assignment, int $companyId, ?User $user = null): void
     {
-        abort_unless($assignment->company_id === $companyId, 404);
+        abort_unless((int) $assignment->company_id === $companyId, 404);
 
         if ($user !== null) {
-            $assignment->loadMissing('employee');
-            if ($assignment->employee !== null) {
-                abort_unless(EmployeeVisibilityScope::canAccess($user, $assignment->employee, $companyId), 404);
+            $employee = $assignment->relationLoaded('employee') && $assignment->employee !== null
+                ? $assignment->employee
+                : Employee::withTrashed()
+                    ->whereKey($assignment->employee_id)
+                    ->where('company_id', $companyId)
+                    ->first();
+
+            if ($employee === null) {
+                abort(404);
             }
+
+            abort_unless(EmployeeVisibilityScope::canAccess($user, $employee, $companyId), 404);
         }
     }
 }
