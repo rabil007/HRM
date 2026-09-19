@@ -438,13 +438,13 @@ final class ApplicationPermissionDefinitions
             70 => [
                 'name' => 'crew_operations.corrections.approve',
                 'label' => 'Approve Crew Movement Corrections',
-                'description' => 'Allows the user to approve or reject crew movement correction requests assigned to them.',
+                'description' => 'Allows the user to review, approve, or reject pending crew movement correction requests for the active company.',
                 'group' => 'Crew Operations',
             ],
             71 => [
                 'name' => 'crew_operations.corrections.override',
                 'label' => 'Override Crew Movement Corrections',
-                'description' => 'Allows the user to override correction workflow restrictions for high-trust administrative correction actions.',
+                'description' => 'Allows a high-trust user to apply a validated crew movement correction immediately without waiting for a separate approver. Normal correction integrity rules still apply.',
                 'group' => 'Crew Operations',
             ],
             72 => [

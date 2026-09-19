@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exceptions\CrewMovementException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\OverrideCrewMovementCorrectionRequest;
 use App\Http\Requests\Organization\StoreCrewMovementCorrectionRequest;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -12,6 +13,7 @@ use App\Support\CrewMovements\Corrections\CrewMovementCorrectionAccess;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionIndexQuery;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPagePermissions;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
+use App\Support\CrewMovements\Corrections\OverrideCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\Pagination\ResolvesPerPage;
@@ -26,6 +28,7 @@ class CrewMovementCorrectionController extends Controller
 
     public function __construct(
         private readonly RequestCrewMovementCorrection $requestCorrection,
+        private readonly OverrideCrewMovementCorrection $overrideCorrection,
         private readonly CrewMovementCorrectionPresenter $presenter,
     ) {}
 
@@ -57,7 +60,7 @@ class CrewMovementCorrectionController extends Controller
     public function show(Request $request, CrewMovementCorrection $correction): Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId);
+        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId, $request->user());
 
         $correction->load([
             'company:id,timezone',
@@ -81,7 +84,7 @@ class CrewMovementCorrectionController extends Controller
         CrewAssignment $assignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         $phase = CrewAssignmentPhase::query()
             ->whereKey((int) $request->validated('crew_assignment_phase_id'))
@@ -103,8 +106,49 @@ class CrewMovementCorrectionController extends Controller
             ]);
         }
 
+        $canViewCorrections = $request->user()?->can('crew_operations.corrections.view') ?? false;
+
+        if ($canViewCorrections) {
+            return redirect()
+                ->route('organization.crew-movement-corrections.show', $correction)
+                ->with('success', 'Correction request submitted.');
+        }
+
         return redirect()
-            ->route('organization.crew-movement-corrections.show', $correction)
+            ->route('organization.crew-assignments.show', $assignment)
             ->with('success', 'Correction request submitted.');
+    }
+
+    public function override(
+        OverrideCrewMovementCorrectionRequest $request,
+        CrewAssignment $assignment,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
+
+        $phase = CrewAssignmentPhase::query()
+            ->whereKey((int) $request->validated('crew_assignment_phase_id'))
+            ->where('crew_assignment_id', $assignment->id)
+            ->where('company_id', $companyId)
+            ->firstOrFail();
+
+        try {
+            $this->overrideCorrection->handle(
+                $assignment,
+                $phase,
+                $request->user(),
+                $companyId,
+                $request->validated('proposed_values'),
+                (string) $request->validated('reason'),
+            );
+        } catch (CrewMovementException $exception) {
+            return back()->withErrors([
+                'correction' => $exception->getMessage(),
+            ]);
+        }
+
+        return redirect()
+            ->route('organization.crew-assignments.show', $assignment)
+            ->with('success', 'Movement correction applied successfully.');
     }
 }

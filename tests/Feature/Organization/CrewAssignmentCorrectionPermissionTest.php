@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
@@ -294,4 +295,153 @@ test('tenant isolation prevents accessing assignment and corrections across comp
         ->withSession(['current_company_id' => $companyA->id])
         ->get(route('organization.crew-assignments.show', $assignmentB))
         ->assertNotFound();
+});
+
+test('viewer with corrections.override only receives request context with pending flag, hiding approved history and sensitive notes', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $requester = User::factory()->create();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.override',
+    ]);
+
+    $vessel = makeCrewMovementVessel('Perm Vessel Override', $company);
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'assignment_no' => 'CA-OVR-ONLY-01',
+        'status' => 'active',
+        'started_at' => now(),
+    ]);
+
+    $phase1 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'company_id' => $company->id,
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'status' => CrewPhaseStatus::Completed,
+        'sequence' => 1,
+        'actual_start_at' => now()->subDays(5),
+        'actual_end_at' => now()->subDays(4),
+    ]);
+
+    $phase2 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'company_id' => $company->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'status' => CrewPhaseStatus::Active,
+        'sequence' => 2,
+        'actual_start_at' => now()->subDays(4),
+    ]);
+
+    $assignment->update(['current_phase_id' => $phase2->id]);
+
+    CrewMovementCorrection::factory()
+        ->forAssignment($assignment, $phase1)
+        ->approved()
+        ->create([
+            'company_id' => $company->id,
+            'reason' => 'Secret override approved travel correction',
+            'requested_by' => $requester->id,
+        ]);
+
+    CrewMovementCorrection::factory()
+        ->forAssignment($assignment, $phase2)
+        ->pending()
+        ->create([
+            'company_id' => $company->id,
+            'original_values' => ['actual_start_at' => ['value' => '2026-06-07T11:17:00Z', 'display' => '2026-06-07 11:17']],
+            'proposed_values' => ['actual_start_at' => ['value' => '2026-06-21T11:17:00Z', 'display' => '2026-06-21 11:17']],
+            'reason' => 'Secret confidential pending note for override test',
+            'decision_notes' => 'Confidential decision notes for override test',
+            'requested_by' => $requester->id,
+        ]);
+
+    $response = $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.crew-assignments.show', $assignment))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/crew/show')
+            ->where('can.view_corrections', false)
+            ->where('can.request_correction', false)
+            ->where('can.override_corrections', true)
+            ->where('corrections', null)
+            ->where('assignment.phase_timeline.0.has_pending_correction', false)
+            ->where('assignment.phase_timeline.0.has_approved_correction', false)
+            ->where('assignment.phase_timeline.1.has_pending_correction', true)
+            ->where('assignment.phase_timeline.1.has_approved_correction', false)
+            ->has('correction_request_context.correctable_phases', 2)
+            ->where('correction_request_context.correctable_phases.0.id', $phase1->id)
+            ->where('correction_request_context.correctable_phases.0.has_pending_correction', false)
+            ->where('correction_request_context.correctable_phases.1.id', $phase2->id)
+            ->where('correction_request_context.correctable_phases.1.has_pending_correction', true)
+        );
+
+    $content = $response->getContent();
+    expect($content)->not->toContain('Secret confidential pending note for override test')
+        ->and($content)->not->toContain('Confidential decision notes for override test')
+        ->and($content)->not->toContain('Secret override approved travel correction');
+});
+
+test('requester without corrections.view sees own_pending_correction_id and cancelling redirects to assignment show', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.request',
+    ]);
+
+    $vessel = makeCrewMovementVessel('Perm Vessel Cancel', $company);
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'assignment_no' => 'CA-CANCEL-01',
+        'status' => 'active',
+        'started_at' => now(),
+    ]);
+
+    $phase = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'company_id' => $company->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'status' => CrewPhaseStatus::Active,
+        'sequence' => 1,
+        'actual_start_at' => now()->subDays(4),
+    ]);
+
+    $assignment->update(['current_phase_id' => $phase->id]);
+
+    $pendingCorrection = CrewMovementCorrection::factory()
+        ->forAssignment($assignment, $phase)
+        ->pending()
+        ->create([
+            'company_id' => $company->id,
+            'reason' => 'My request to cancel',
+            'requested_by' => $user->id,
+        ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.crew-assignments.show', $assignment))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/crew/show')
+            ->where('assignment.phase_timeline.0.id', $phase->id)
+            ->where('assignment.phase_timeline.0.has_pending_correction', true)
+            ->where('assignment.phase_timeline.0.own_pending_correction_id', $pendingCorrection->id)
+            ->where('assignment.phase_timeline.0.can_cancel_pending', true)
+        );
+
+    // Now cancel the pending correction
+    $cancelResponse = $this->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.crew-movement-corrections.cancel', $pendingCorrection), [
+            'decision_notes' => 'Cancelling my mistake',
+        ]);
+
+    $cancelResponse->assertRedirect(route('organization.crew-assignments.show', $assignment));
+    $cancelResponse->assertSessionHas('success', 'Correction cancelled.');
+
+    expect($pendingCorrection->fresh()->status->value)->toBe(CrewMovementCorrectionStatus::Cancelled->value);
 });

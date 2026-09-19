@@ -2,14 +2,45 @@
 
 Approved corrections are the only path that changes recorded movement fields after the fact. Pending, rejected, and cancelled requests never mutate official `CrewAssignment` / `CrewAssignmentPhase` data.
 
-## Flow
+## Flows
+
+The system provides two authoritative correction paths:
 
 ```text
-Request correction
-    → pending review
-    → approve (atomic apply + planning sync + sea-service sync)
-    or reject / cancel (no official data change)
+NORMAL FLOW
+
+Crew Operator
+    ↓
+Request Correction
+    ↓
+Pending
+    ↓
+Authorized Manager
+    ↓
+Approve / Reject
+    ↓
+Official movement data changes
 ```
+
+and:
+
+```text
+PRIVILEGED FLOW
+
+User with crew_operations.corrections.override + privileged.2fa
+    ↓
+Correct Movement
+    ↓
+Select phase + corrected values
+    ↓
+Reason + impact preview
+    ↓
+Apply Correction Immediately
+    ↓
+Official movement data changes
+```
+
+Both flows execute the exact same underlying validation engine (`ValidateCrewMovementCorrection`) and mutation pipeline (`ApplyCrewMovementCorrectionPipeline`). The privileged flow records a real `CrewMovementCorrection` record directly in `approved` status (`requested_by = actor`, `decided_by = actor`, `requested_at = now`, `decided_at = now`) and snapshots `applied_values` atomically.
 
 ## What can be corrected
 
@@ -20,10 +51,13 @@ Request correction
 | Training | also `details.provider`, `details.course`, `details.course_id` |
 | On Vessel (P4) | also assignment `vessel_id`, `rank_id`, `client_id` |
 
-Derived updates on approve:
+Derived updates on approve / override:
 
 - Completed P6 end → assignment `closed_at`
 - Completed Training provider / completion date / course_id → linked `EmployeeTraining` `institute_center`, `issue_date`, `course_id`
+- P4 `actual_start_at` or `rank_id` change → if `planned_signoff_source === tour_of_duty`, recalculates `planned_signoff_at` and P4 `planned_end_at` based on the rank's Tour of Duty rule. When the source is `manual_override` or `existing_plan`, the planned dates remain preserved.
+- Linked `CrewPlanningAssignment` synchronized with updated rank, vessel, dates, and status.
+- Completed P4 changes → linked `EmployeeSeaService` synchronized.
 
 Correcting P1 Travel In updates that phase `actual_start_at` only. It does **not** rewrite `CrewAssignment.started_at`. Assignment `started_at` / `closed_at` describe the assignment lifecycle and are not Crew payroll inputs.
 
@@ -32,13 +66,18 @@ Modern assignments do not create new P1/P3 phases, so the correction picker natu
 ## Hard rules
 
 - Originals are always read from the database at request time
-- One pending correction per phase
+- One pending correction per phase (a direct override is also blocked if an unresolved pending correction exists on that phase)
 - No nulling existing values; no topology changes (`phase_code`, `status`, `sequence`, `current_phase_id`, `employee_id`)
 - Active phases stay open-ended (cannot add `actual_end_at` via correction)
 - Neighbor-phase boundary checks and company-timezone parsing
+- **Accommodation chronology integrity**: Resulting timestamps are validated against hotel stays:
+  - Pre-join hotel stays must check in on or after arrival and check out on or before P4 join.
+  - Post-signoff hotel stays must check in on or after disembarkation and check out on or before return home boundary.
+- **Tour of Duty rank consistency**: If P4 `rank_id` is corrected and planned signoff source is `tour_of_duty`, the new rank must have a valid tour rule; otherwise the correction is rejected.
 - Active On Vessel conflicts are surfaced in the Crew Operations UI and guided toward Vessel Transfer. Corrections do not add a separate hard block for overlapping P4 intervals; existing timeline, company, and invariant checks still apply. Exact timestamp handoffs remain valid.
-- Self-approval denied unless `crew_operations.corrections.override`
-- Operational phase status is never flipped to `corrected` for badges — badges come from correction relations
+- Self-approval in the normal flow is denied unless the actor holds `crew_operations.corrections.override`.
+- Privileged direct override requires active 2FA verification (`privileged.2fa` route middleware + domain policy assertion).
+- Operational phase status is never flipped to `corrected` for badges — badges come from correction relations.
 - **Course correction consistency**: If a Training phase is linked to an `EmployeeTraining` record, free-text `details.course` cannot be modified without `details.course_id`. Structured `details.course_id` must reference an active, valid Course, snapshots the title to `details.course`, and atomically updates `EmployeeTraining.course_id`.
 
 ## Permissions
@@ -50,18 +89,20 @@ Modern assignments do not create new P1/P3 phases, so the correction picker natu
 | `crew_operations.corrections.approve` | roles with `crew_operations.assignments.update` |
 | `crew_operations.corrections.override` | roles with `roles.update` (Owner/admin) |
 
-## Approval lock order
+## Canonical lock order
 
 1. Assignment
-2. Correction
+2. Correction (if approving an existing pending request)
 3. Target phase
 4. Linked planning assignment (when present)
 5. Linked sea service rows (when present)
 6. Linked employee training row (when present for completed Training phase)
 
-Then: stale-original conflict check → validate → apply → invariants → planning sync → sea-service sync (completed P4 only; reject if unsyncable) → training sync (completed P2B only) → mark approved.
+All workflows touching both Crew Assignment and Crew Planning (`StartCrewAssignmentFromPlanning`, `CreateCrewAssignmentFromPlanning`, `SaveCrewPlanningAssignment`, `SyncPlanningAssignmentFromCrewAssignment`, `ApproveCrewMovementCorrection`, and `OverrideCrewMovementCorrection`) strictly adhere to this canonical order (`Assignment` 🔒 → `Planning` 🔒) to eliminate deadlock risk.
 
-Notification failures after commit are reported and never roll back approval.
+Then: stale-original conflict check → validate → apply → tour recalculation → invariants → planning sync → sea-service sync (completed P4 only; reject if unsyncable) → training sync (completed P2B only) → mark approved / create approved override record.
+
+Notification failures after commit are reported and never roll back approval. Direct overrides do not dispatch self-decision notifications.
 
 ## Impact on crew payroll timesheet freshness
 
@@ -125,6 +166,6 @@ Correction dialogs and impact previews strictly follow the Phase 3 Company Timez
 
 - No `EmployeeDeployment` restoration
 - No vessel transfer / redeployment via corrections
-- No immediate apply via `CrewMovementAction::CorrectMovement`
+- No direct editing of assignments without an authoritative correction record (`OverrideCrewMovementCorrection` creates a verified `approved` correction record directly)
 - Pending proposals never affect reports’ official dates
 - **Void Erroneous Assignment** is a separate privileged workflow (`crew_operations.assignments.void`), not a correction and not Cancel — see [crew-movement-phases.md](./crew-movement-phases.md). Void is conservatively blocked once accommodation history exists until a dedicated accommodation correction/reversal workflow is implemented.

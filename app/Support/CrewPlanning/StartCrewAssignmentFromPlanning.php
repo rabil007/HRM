@@ -32,6 +32,17 @@ final class StartCrewAssignmentFromPlanning
         $actorId = $actorUser?->id ?? (is_int($actor) ? $actor : null);
 
         return DB::transaction(function () use ($planning, $operatorChoices, $actorUser, $actorId): array {
+            $linkedAssignmentId = CrewPlanningAssignment::query()
+                ->whereKey($planning->id)
+                ->value('crew_assignment_id');
+
+            if ($linkedAssignmentId !== null) {
+                CrewAssignment::query()
+                    ->whereKey($linkedAssignmentId)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
             $planning = CrewPlanningAssignment::query()
                 ->whereKey($planning->id)
                 ->lockForUpdate()

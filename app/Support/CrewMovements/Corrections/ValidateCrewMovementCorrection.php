@@ -2,12 +2,16 @@
 
 namespace App\Support\CrewMovements\Corrections;
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewPlannedSignoffSource;
 use App\Exceptions\CrewMovementException;
 use App\Models\Client;
 use App\Models\Course;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
@@ -141,6 +145,8 @@ final class ValidateCrewMovementCorrection
 
         $this->assertTimeline($assignment, $phase, $normalized);
         $this->assertActualTimestampsNotFuture($assignment, $normalized);
+        $this->assertTourOfDutyRule($assignment, $phase, $normalized);
+        $this->assertAccommodationChronology($assignment, $phase, $normalized);
 
         return $normalized;
     }
@@ -401,6 +407,158 @@ final class ValidateCrewMovementCorrection
             return Carbon::parse($value, $timezone);
         } catch (\Throwable $e) {
             throw CrewMovementException::make('Invalid timestamp value.', 'invalid_timestamp', previous: $e);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalized
+     */
+    private function assertTourOfDutyRule(
+        CrewAssignment $assignment,
+        CrewAssignmentPhase $phase,
+        array $normalized,
+    ): void {
+        if ($phase->phase_code !== CrewPhaseCode::OnVessel || ! array_key_exists('rank_id', $normalized)) {
+            return;
+        }
+
+        if ($assignment->planned_signoff_source === CrewPlannedSignoffSource::TourOfDuty) {
+            $rank = Rank::query()->whereKey((int) $normalized['rank_id'])->first();
+
+            if ($rank === null || $rank->max_tour_of_duty_days === null || (int) $rank->max_tour_of_duty_days <= 0) {
+                throw CrewMovementException::make(
+                    'The selected rank does not have a tour of duty configured, but the assignment planned sign-off was derived from tour of duty.',
+                    'correction_rank_missing_tour_rule',
+                );
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalized
+     */
+    private function assertAccommodationChronology(
+        CrewAssignment $assignment,
+        CrewAssignmentPhase $phase,
+        array $normalized,
+    ): void {
+        if (! array_key_exists('actual_start_at', $normalized) && ! array_key_exists('actual_end_at', $normalized)) {
+            return;
+        }
+
+        $stays = CrewAccommodationStay::query()
+            ->where('crew_assignment_id', $assignment->id)
+            ->get();
+
+        if ($stays->isEmpty()) {
+            return;
+        }
+
+        $hotelStays = $stays->filter(fn (CrewAccommodationStay $s): bool => $s->accommodation_status === CrewAccommodationStatus::Hotel
+            || $s->accommodation_status?->value === 'hotel'
+            || (string) $s->accommodation_status === 'hotel');
+
+        if ($hotelStays->isEmpty()) {
+            return;
+        }
+
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $start = array_key_exists('actual_start_at', $normalized)
+            ? $normalized['actual_start_at']
+            : $phase->actual_start_at;
+        $end = array_key_exists('actual_end_at', $normalized)
+            ? $normalized['actual_end_at']
+            : $phase->actual_end_at;
+
+        foreach ($hotelStays as $stay) {
+            $stayTypeValue = $stay->stay_type instanceof CrewAccommodationStayType
+                ? $stay->stay_type->value
+                : (is_string($stay->stay_type) ? $stay->stay_type : null);
+
+            $isPreJoin = $stayTypeValue === CrewAccommodationStayType::PreJoin->value;
+            $isPostSignoff = $stayTypeValue === CrewAccommodationStayType::PostSignoff->value;
+
+            if ($isPreJoin) {
+                $isArrivalOrStandbyPhase = ($stay->started_from_phase_id !== null && (int) $stay->started_from_phase_id === (int) $phase->id)
+                    || ($stay->started_from_phase_id === null && in_array($phase->phase_code, [CrewPhaseCode::JoinStandby, CrewPhaseCode::PreMobilisation], true));
+
+                if ($isArrivalOrStandbyPhase && array_key_exists('actual_start_at', $normalized) && $start instanceof CarbonInterface && $stay->check_in_date !== null) {
+                    $checkInLocalDate = Carbon::parse($stay->check_in_date, $timezone)->startOfDay();
+                    $arrivalLocalDate = $start->copy()->timezone($timezone)->startOfDay();
+
+                    if ($checkInLocalDate->lt($arrivalLocalDate)) {
+                        throw CrewMovementException::make(
+                            'Hotel check-in cannot be before the actual arrival date.',
+                            'check_in_before_arrival',
+                        );
+                    }
+                }
+
+                if ($phase->phase_code === CrewPhaseCode::OnVessel && array_key_exists('actual_start_at', $normalized) && $start instanceof CarbonInterface && $stay->check_out_date !== null) {
+                    $checkOutLocalDate = Carbon::parse($stay->check_out_date, $timezone)->startOfDay();
+                    $joinLocalDate = $start->copy()->timezone($timezone)->startOfDay();
+
+                    if ($checkOutLocalDate->gt($joinLocalDate)) {
+                        throw CrewMovementException::make(
+                            'Hotel check-out cannot be after the actual vessel join date.',
+                            'check_out_after_join',
+                        );
+                    }
+                }
+            }
+
+            if ($isPostSignoff) {
+                if ($phase->phase_code === CrewPhaseCode::OnVessel && array_key_exists('actual_end_at', $normalized) && $end instanceof CarbonInterface && $stay->check_in_date !== null) {
+                    $checkInLocalDate = Carbon::parse($stay->check_in_date, $timezone)->startOfDay();
+                    $disembarkationLocalDate = $end->copy()->timezone($timezone)->startOfDay();
+
+                    if ($checkInLocalDate->lt($disembarkationLocalDate)) {
+                        throw CrewMovementException::make(
+                            'Hotel check-in cannot be before the actual disembarkation date.',
+                            'check_in_before_disembarkation',
+                        );
+                    }
+                }
+
+                $isPostSignoffStandbyPhase = ($stay->started_from_phase_id !== null && (int) $stay->started_from_phase_id === (int) $phase->id)
+                    || ($stay->started_from_phase_id === null && $phase->phase_code === CrewPhaseCode::DemobStandby);
+
+                if ($isPostSignoffStandbyPhase && array_key_exists('actual_start_at', $normalized) && $start instanceof CarbonInterface && $stay->check_in_date !== null) {
+                    $checkInLocalDate = Carbon::parse($stay->check_in_date, $timezone)->startOfDay();
+                    $disembarkationLocalDate = $start->copy()->timezone($timezone)->startOfDay();
+
+                    if ($checkInLocalDate->lt($disembarkationLocalDate)) {
+                        throw CrewMovementException::make(
+                            'Hotel check-in cannot be before the actual disembarkation date.',
+                            'check_in_before_disembarkation',
+                        );
+                    }
+                }
+
+                if ($phase->phase_code === CrewPhaseCode::DemobStandby && array_key_exists('actual_end_at', $normalized) && $end instanceof CarbonInterface && $stay->check_out_date !== null) {
+                    $checkOutLocalDate = Carbon::parse($stay->check_out_date, $timezone)->startOfDay();
+                    $returnHomeLocalDate = $end->copy()->timezone($timezone)->startOfDay();
+
+                    if ($checkOutLocalDate->gt($returnHomeLocalDate)) {
+                        throw CrewMovementException::make(
+                            'Hotel check-out cannot be after the actual return-home date.',
+                            'check_out_after_return_home',
+                        );
+                    }
+                }
+
+                if ($phase->phase_code === CrewPhaseCode::HomeRedeploy && array_key_exists('actual_start_at', $normalized) && $start instanceof CarbonInterface && $stay->check_out_date !== null) {
+                    $checkOutLocalDate = Carbon::parse($stay->check_out_date, $timezone)->startOfDay();
+                    $returnHomeLocalDate = $start->copy()->timezone($timezone)->startOfDay();
+
+                    if ($checkOutLocalDate->gt($returnHomeLocalDate)) {
+                        throw CrewMovementException::make(
+                            'Hotel check-out cannot be after the actual return-home date.',
+                            'check_out_after_return_home',
+                        );
+                    }
+                }
+            }
         }
     }
 }

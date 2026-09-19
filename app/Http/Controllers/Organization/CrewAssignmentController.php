@@ -272,6 +272,8 @@ class CrewAssignmentController extends Controller
 
         $canViewCorrections = $user?->can('crew_operations.corrections.view') ?? false;
         $canRequestCorrection = $user?->can('crew_operations.corrections.request') ?? false;
+        $canOverrideCorrections = $user?->can('crew_operations.corrections.override') ?? false;
+        $needsCorrectionActionContext = $canRequestCorrection || $canOverrideCorrections;
 
         $eagerLoads = [
             'company:id,timezone',
@@ -299,7 +301,7 @@ class CrewAssignmentController extends Controller
             $eagerLoads[] = 'corrections.decisionMaker:id,name';
             $eagerLoads[] = 'corrections.phase';
             $eagerLoads[] = 'corrections.company:id,timezone';
-        } elseif ($canRequestCorrection) {
+        } elseif ($needsCorrectionActionContext) {
             $eagerLoads[] = 'phases.pendingCorrections';
         }
 
@@ -312,7 +314,7 @@ class CrewAssignmentController extends Controller
             ? $correctionPresenter->assignmentSummary($assignment)
             : null;
 
-        $correctionRequestContext = $canRequestCorrection
+        $correctionRequestContext = $needsCorrectionActionContext
             ? $correctionPresenter->correctionRequestContext($assignment)
             : null;
 
@@ -338,9 +340,13 @@ class CrewAssignmentController extends Controller
         CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         if (! CrewAssignmentEditability::isEditable($assignment)) {
+            $actionMessage = $request->user()?->can('crew_operations.corrections.override')
+                ? 'This assignment can no longer be edited directly. Use Movement Actions or Correct Movement.'
+                : 'This assignment can no longer be edited directly. Use Movement Actions or Request Correction.';
+
             return redirect()
                 ->route('organization.crew-assignments.show', $assignment)
-                ->with('error', 'This assignment can no longer be edited directly. Use Movement Actions or Request Correction.');
+                ->with('error', $actionMessage);
         }
 
         $assignment->load([

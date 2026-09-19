@@ -18,6 +18,17 @@ final class CreateCrewAssignmentFromPlanning
     public function handle(CrewPlanningAssignment $planning, ?int $actorId = null): CrewAssignment
     {
         return DB::transaction(function () use ($planning, $actorId): CrewAssignment {
+            $linkedAssignmentId = CrewPlanningAssignment::query()
+                ->whereKey($planning->id)
+                ->value('crew_assignment_id');
+
+            if ($linkedAssignmentId !== null) {
+                CrewAssignment::query()
+                    ->whereKey($linkedAssignmentId)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
             $planning = CrewPlanningAssignment::query()
                 ->whereKey($planning->id)
                 ->lockForUpdate()

@@ -4,14 +4,25 @@ namespace App\Support\CrewMovements\Corrections;
 
 use App\Models\CrewMovementCorrection;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class CrewMovementCorrectionAccess
 {
-    public static function assertInCompany(CrewMovementCorrection $correction, int $companyId): void
+    public static function assertInCompany(CrewMovementCorrection $correction, int $companyId, ?User $user = null): void
     {
         if ((int) $correction->company_id !== $companyId) {
             throw new HttpException(404);
+        }
+
+        if ($user !== null) {
+            $correction->loadMissing('assignment.employee');
+            $employee = $correction->assignment?->employee;
+            if ($employee !== null) {
+                if (! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
+                    throw new HttpException(404);
+                }
+            }
         }
     }
 

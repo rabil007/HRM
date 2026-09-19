@@ -104,7 +104,7 @@ Canonical enforcement: `App\Support\Employees\EmployeeVisibilityScope` (`apply`,
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
 
-`crew_operations.assignments.void` (Void Erroneous Assignment) is high-trust only: auto-granted to roles that already hold `roles.update` (same convention as `corrections.override`). Permission alone is not sufficient — `CrewAssignmentVoidGuard` blocks voids that would affect protected payroll, sea service, or linked assignment chains.
+`crew_operations.assignments.void` (Void Erroneous Assignment) and `crew_operations.corrections.override` (Direct Movement Correction Override) are high-trust only: auto-granted to roles that already hold `roles.update` (Owner/admin). Override allows authorized operators to correct recorded phases immediately or self-approve normal correction requests; both capabilities require confirmed two-factor authentication (`privileged.2fa`). Permission alone is not sufficient — `CrewAssignmentVoidGuard` blocks voids that would affect protected payroll, sea service, or linked assignment chains, while `ValidateCrewMovementCorrection` enforces timeline, accommodation, and tour rules atomically.
 
 Re-seed after catalog changes: `php artisan db:seed --class=PermissionsSeeder`. The seeded `Owner` role receives the full catalog when `AdminSeeder` runs. The demo account `admin@example.com` is treated as unrestricted for every catalog permission even when no Spatie roles are assigned; tenant isolation, model policies, and privileged 2FA still apply.
 

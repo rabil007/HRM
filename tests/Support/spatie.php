@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
-function grantCompanyPermissions(User $user, Company $company, array $permissionNames): void
+function grantCompanyPermissions(User $user, Company $company, array $permissionNames, string $roleName = 'test-role'): void
 {
     DB::table('company_user')->updateOrInsert(
         ['company_id' => $company->id, 'user_id' => $user->id],
@@ -25,7 +25,7 @@ function grantCompanyPermissions(User $user, Company $company, array $permission
     $role = Role::query()->firstOrCreate(
         [
             'company_id' => $company->id,
-            'name' => 'test-role',
+            'name' => $roleName,
             'guard_name' => 'web',
         ],
         [
