@@ -6,6 +6,7 @@ use App\Enums\CrewMovementCorrectionStatus;
 use App\Models\Company;
 use App\Models\CrewMovementCorrection;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -75,6 +76,8 @@ final class CrewMovementCorrectionIndexQuery
     public function statusCounts(): array
     {
         $base = CrewMovementCorrection::query()->where('company_id', $this->companyId);
+        $base = EmployeeVisibilityScope::whereHas($base, $this->user, $this->companyId, 'assignment.employee');
+
         $counts = (clone $base)
             ->selectRaw('status, count(*) as aggregate')
             ->groupBy('status')
@@ -99,6 +102,8 @@ final class CrewMovementCorrectionIndexQuery
     {
         $base = CrewMovementCorrection::query()
             ->where('company_id', $this->companyId);
+        $base = EmployeeVisibilityScope::whereHas($base, $this->user, $this->companyId, 'assignment.employee');
+
         $pendingCounts = $this->age->pendingCounts(clone $base, $this->timezone);
 
         return [
@@ -114,7 +119,7 @@ final class CrewMovementCorrectionIndexQuery
      */
     private function baseQuery(): Builder
     {
-        return CrewMovementCorrection::query()
+        $query = CrewMovementCorrection::query()
             ->with([
                 'company:id,timezone',
                 'assignment.employee:id,company_id,employee_no,name',
@@ -124,5 +129,7 @@ final class CrewMovementCorrectionIndexQuery
                 'decisionMaker:id,name',
             ])
             ->where('company_id', $this->companyId);
+
+        return EmployeeVisibilityScope::whereHas($query, $this->user, $this->companyId, 'assignment.employee');
     }
 }

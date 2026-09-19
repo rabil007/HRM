@@ -52,6 +52,18 @@ final class SaveCrewPlanningAssignment
         ?User $actor = null,
     ): CrewPlanningAssignment {
         return DB::transaction(function () use ($assignment, $companyId, $attributes, $actor): CrewPlanningAssignment {
+            $relievesId = array_key_exists('relieves_crew_assignment_id', $attributes)
+                ? $attributes['relieves_crew_assignment_id']
+                : CrewPlanningAssignment::query()->whereKey($assignment->id)->value('relieves_crew_assignment_id');
+
+            if ($relievesId !== null && $relievesId !== '') {
+                CrewAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey((int) $relievesId)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
             $locked = CrewPlanningAssignment::query()
                 ->where('company_id', $companyId)
                 ->whereKey($assignment->id)

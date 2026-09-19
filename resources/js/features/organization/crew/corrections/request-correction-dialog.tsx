@@ -419,8 +419,8 @@ export function RequestCorrectionDialog({
                                 )}
                                 warning={
                                     mode === 'override'
-                                        ? 'This privileged override takes effect immediately, updating official assignment records and dependent timelines without manager approval.'
-                                        : 'This change may affect downstream operational history after approval.'
+                                        ? 'This privileged correction takes effect immediately and updates official movement records and dependent timelines without a separate approval step.'
+                                        : 'This correction will be submitted for review. Official movement data will not change until an authorized approver approves it.'
                                 }
                             />
                             <div className="space-y-2">
@@ -491,7 +491,7 @@ export function RequestCorrectionDialog({
                                 ) : null}
                                 {mode === 'override'
                                     ? 'Apply Correction Immediately'
-                                    : 'Confirm Correction'}
+                                    : 'Submit Correction Request'}
                             </Button>
                         ) : null}
                     </div>

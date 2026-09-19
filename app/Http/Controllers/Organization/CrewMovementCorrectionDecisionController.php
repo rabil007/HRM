@@ -29,7 +29,7 @@ class CrewMovementCorrectionDecisionController extends Controller
         CrewMovementCorrection $correction,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId);
+        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId, $request->user());
 
         try {
             $correction = $this->approveCorrection->handle(
@@ -60,7 +60,7 @@ class CrewMovementCorrectionDecisionController extends Controller
         CrewMovementCorrection $correction,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId);
+        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId, $request->user());
 
         try {
             $correction = $this->rejectCorrection->handle(
@@ -91,7 +91,7 @@ class CrewMovementCorrectionDecisionController extends Controller
         CrewMovementCorrection $correction,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId);
+        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId, $request->user());
 
         try {
             $correction = $this->cancelCorrection->handle(

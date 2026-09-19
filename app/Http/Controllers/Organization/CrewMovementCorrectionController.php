@@ -60,7 +60,7 @@ class CrewMovementCorrectionController extends Controller
     public function show(Request $request, CrewMovementCorrection $correction): Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId);
+        CrewMovementCorrectionAccess::assertInCompany($correction, $companyId, $request->user());
 
         $correction->load([
             'company:id,timezone',
@@ -84,7 +84,7 @@ class CrewMovementCorrectionController extends Controller
         CrewAssignment $assignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         $phase = CrewAssignmentPhase::query()
             ->whereKey((int) $request->validated('crew_assignment_phase_id'))
@@ -124,7 +124,7 @@ class CrewMovementCorrectionController extends Controller
         CrewAssignment $assignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
         $phase = CrewAssignmentPhase::query()
             ->whereKey((int) $request->validated('crew_assignment_phase_id'))
