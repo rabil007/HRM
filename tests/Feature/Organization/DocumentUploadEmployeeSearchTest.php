@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\DocumentType;
 use App\Models\Employee;
+use App\Models\EmployeeDocument;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -220,4 +222,170 @@ test('bulk document upload fails if employee belongs to another company', functi
             ],
         ],
     ])->assertForbidden();
+});
+
+test('restricted user cannot bulk upload document to employee outside visibility scope', function () {
+    Storage::fake('local');
+    Storage::fake('public');
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $docType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Contract Document'],
+        ['is_active' => true],
+    );
+
+    $file = UploadedFile::fake()->create('contract.pdf', 100, 'application/pdf');
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.documents.bulk-store', ['employee' => $office->id]), [
+            'documents' => [
+                [
+                    'document_type_id' => $docType->id,
+                    'title' => 'Office Contract',
+                    'file' => $file,
+                ],
+            ],
+        ])
+        ->assertNotFound();
+
+    expect(EmployeeDocument::query()->where('employee_id', $office->id)->count())->toBe(0);
+    expect(Storage::disk('local')->allFiles())->toBeEmpty();
+});
+
+test('restricted user cannot bulk upload to hidden employee even if linked to their user account', function () {
+    Storage::fake('local');
+    Storage::fake('public');
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    $office->update(['user_id' => $user->id]);
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $docType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Self Contract Document'],
+        ['is_active' => true],
+    );
+
+    $file = UploadedFile::fake()->create('self_contract.pdf', 100, 'application/pdf');
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.documents.bulk-store', ['employee' => $office->id]), [
+            'documents' => [
+                [
+                    'document_type_id' => $docType->id,
+                    'title' => 'Self Contract',
+                    'file' => $file,
+                ],
+            ],
+        ])
+        ->assertNotFound();
+
+    expect(EmployeeDocument::query()->where('employee_id', $office->id)->count())->toBe(0);
+    expect(Storage::disk('local')->allFiles())->toBeEmpty();
+});
+
+test('restricted user can upload document to employee within visibility scope', function () {
+    Storage::fake('local');
+    Storage::fake('public');
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $docType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Allowed Contract'],
+        ['is_active' => true],
+    );
+
+    $file = UploadedFile::fake()->create('marine_contract.pdf', 100, 'application/pdf');
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.documents.bulk-store', ['employee' => $marine->id]), [
+            'documents' => [
+                [
+                    'document_type_id' => $docType->id,
+                    'title' => 'Marine Contract',
+                    'file' => $file,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    expect(EmployeeDocument::query()->where('employee_id', $marine->id)->count())->toBe(1);
+    $document = EmployeeDocument::query()->where('employee_id', $marine->id)->first();
+    expect($document)->not->toBeNull();
+    Storage::disk('local')->assertExists($document->file_path);
+});
+
+test('restricted user cannot perform administrative document mutations on hidden employee', function () {
+    Storage::fake('local');
+    Storage::fake('public');
+
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.upload', 'documents.edit', 'documents.delete']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $docType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Admin Test Document'],
+        ['is_active' => true],
+    );
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $office->id,
+        'document_type_id' => $docType->id,
+        'type' => 'other',
+        'document_type' => (string) $docType->id,
+        'title' => 'Existing Office Doc',
+        'file_path' => 'employee-documents/test/office.pdf',
+        'status' => 'valid',
+    ]);
+
+    // store single
+    $file = UploadedFile::fake()->create('new.pdf', 50, 'application/pdf');
+    $this->actingAs($user)
+        ->post("/organization/employees/{$office->id}/documents", [
+            'document_type_id' => $docType->id,
+            'title' => 'New Single Doc',
+            'file' => $file,
+        ])
+        ->assertNotFound();
+
+    // update
+    $this->actingAs($user)
+        ->put("/organization/employees/{$office->id}/documents/{$document->id}", [
+            'document_type_id' => $docType->id,
+            'title' => 'Hacked Title',
+        ])
+        ->assertNotFound();
+
+    // replace
+    $replaceFile = UploadedFile::fake()->create('replace.pdf', 50, 'application/pdf');
+    $this->actingAs($user)
+        ->post("/organization/employees/{$office->id}/documents/{$document->id}/replace", [
+            'file' => $replaceFile,
+        ])
+        ->assertNotFound();
+
+    // destroy
+    $this->actingAs($user)
+        ->delete("/organization/employees/{$office->id}/documents/{$document->id}")
+        ->assertNotFound();
+
+    // versions
+    $this->actingAs($user)
+        ->getJson("/organization/employees/{$office->id}/documents/{$document->id}/versions")
+        ->assertNotFound();
+
+    // Verify document was not modified or deleted
+    expect($document->fresh())->not->toBeNull();
+    expect($document->fresh()->title)->toBe('Existing Office Doc');
 });

@@ -29,7 +29,7 @@ class EmployeeDocumentController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        DocumentAccess::assertEmployeeInCompany($employee, $companyId);
+        DocumentAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user(), allowSelf: false);
 
         $validated = $request->validated();
 
@@ -50,7 +50,7 @@ class EmployeeDocumentController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        DocumentAccess::assertEmployeeInCompany($employee, $companyId);
+        DocumentAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user(), allowSelf: false);
 
         $validated = $request->validated();
 
@@ -104,7 +104,7 @@ class EmployeeDocumentController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 403, $request->user(), allowSelf: false);
 
         $validated = $request->validated();
 
@@ -156,7 +156,7 @@ class EmployeeDocumentController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 403, $request->user(), allowSelf: false);
 
         $store->replace(
             $document,
@@ -178,7 +178,7 @@ class EmployeeDocumentController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 403, $request->user(), allowSelf: false);
 
         $deletion->delete($document);
 
@@ -189,7 +189,7 @@ class EmployeeDocumentController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 403, $request->user(), allowSelf: false);
 
         $document->load(['versions.replacer:id,name']);
 

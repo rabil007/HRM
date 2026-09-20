@@ -50,6 +50,7 @@ export function UploadEmployeeSelector({
 
     useEffect(() => {
         return () => {
+            requestIdRef.current += 1;
             clearPending();
         };
     }, [clearPending]);
@@ -77,9 +78,11 @@ export function UploadEmployeeSelector({
             setQuery(value);
             const trimmed = value.trim();
 
+            const nextRequestId = requestIdRef.current + 1;
+            requestIdRef.current = nextRequestId;
+            clearPending();
+
             if (trimmed.length === 0) {
-                requestIdRef.current += 1;
-                clearPending();
                 setResults([]);
                 setLoading(false);
                 setIsOpen(false);
@@ -90,12 +93,9 @@ export function UploadEmployeeSelector({
 
             setLoading(true);
             setIsOpen(true);
-            clearPending();
 
             debounceRef.current = setTimeout(() => {
                 debounceRef.current = null;
-                const requestId = requestIdRef.current + 1;
-                requestIdRef.current = requestId;
 
                 void http
                     .get(
@@ -104,7 +104,7 @@ export function UploadEmployeeSelector({
                         }),
                     )
                     .then((data) => {
-                        if (requestId !== requestIdRef.current) {
+                        if (nextRequestId !== requestIdRef.current) {
                             return;
                         }
 
@@ -115,7 +115,7 @@ export function UploadEmployeeSelector({
                         setActiveIndex(-1);
                     })
                     .catch(() => {
-                        if (requestId !== requestIdRef.current) {
+                        if (nextRequestId !== requestIdRef.current) {
                             return;
                         }
 
@@ -129,17 +129,23 @@ export function UploadEmployeeSelector({
     );
 
     const handleSelect = (employee: DocumentUploadEmployeeOption) => {
+        requestIdRef.current += 1;
+        clearPending();
         onSelect(employee);
         setQuery('');
         setResults([]);
+        setLoading(false);
         setIsOpen(false);
         setActiveIndex(-1);
     };
 
     const handleClear = () => {
+        requestIdRef.current += 1;
+        clearPending();
         onSelect(null);
         setQuery('');
         setResults([]);
+        setLoading(false);
         setIsOpen(false);
         setActiveIndex(-1);
         setTimeout(() => {

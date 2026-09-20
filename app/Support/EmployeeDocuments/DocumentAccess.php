@@ -15,12 +15,13 @@ class DocumentAccess
         int $companyId,
         int $status = 403,
         ?User $user = null,
+        bool $allowSelf = false,
     ): void {
         abort_unless((int) $employee->company_id === $companyId, $status);
 
         $currentUser = $user ?? auth()->user();
         if ($currentUser instanceof User) {
-            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: $allowSelf), 404);
         }
     }
 
@@ -30,6 +31,7 @@ class DocumentAccess
         int $companyId,
         int $status = 403,
         ?User $user = null,
+        bool $allowSelf = false,
     ): void {
         abort_unless(
             (int) $employee->company_id === $companyId && (int) $document->employee_id === (int) $employee->id,
@@ -38,7 +40,7 @@ class DocumentAccess
 
         $currentUser = $user ?? auth()->user();
         if ($currentUser instanceof User) {
-            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: $allowSelf), 404);
         }
     }
 
@@ -46,6 +48,7 @@ class DocumentAccess
         EmployeeDocument $document,
         int $companyId,
         ?User $user = null,
+        bool $allowSelf = false,
     ): void {
         abort_unless((int) $document->company_id === $companyId, 404);
 
@@ -56,7 +59,7 @@ class DocumentAccess
                 : Employee::query()->where('company_id', $companyId)->find($document->employee_id);
 
             if ($employee !== null) {
-                abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: true), 404);
+                abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: $allowSelf), 404);
             }
         }
     }
