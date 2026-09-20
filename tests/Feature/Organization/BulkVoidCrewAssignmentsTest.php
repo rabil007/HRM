@@ -10,6 +10,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
+use App\Models\EmployeeTrainingVersion;
 use App\Models\PayrollPeriod;
 use App\Models\Rank;
 use App\Models\User;
@@ -339,9 +340,21 @@ test('training cleanup handles optional deletion and removes certificates while 
 
     // Now test with delete_training: true on assignment 2
     $filePath2 = "employees/{$company->id}/training-certificates/cert2.pdf";
+    $versionFilePath2 = "employees/{$company->id}/training-certificates/cert2-v1.pdf";
     Storage::disk(EmployeePrivateFile::DISK)->put($filePath2, 'version 2 pdf content');
+    Storage::disk(EmployeePrivateFile::DISK)->put($versionFilePath2, 'version 1 pdf content');
     $otherTraining->update([
         'certificate_path' => $filePath2,
+        'current_version' => 2,
+    ]);
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $otherTraining->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $versionFilePath2,
+        'original_filename' => 'cert2-v1.pdf',
+        'mime_type' => 'application/pdf',
     ]);
 
     postBulkVoidViaHttp($user, [$assignment2->id], 'Void with training cleanup', deleteTraining: true)
@@ -353,8 +366,9 @@ test('training cleanup handles optional deletion and removes certificates while 
     // 20. Manual training untouched
     expect(EmployeeTraining::query()->whereKey($manualTraining->id)->exists())->toBeTrue();
 
-    // 23. Certificate file removed from storage
-    expect(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath2))->toBeFalse();
+    // 23. Certificate files removed from storage (both current and historical version)
+    expect(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath2))->toBeFalse()
+        ->and(Storage::disk(EmployeePrivateFile::DISK)->exists($versionFilePath2))->toBeFalse();
 });
 
 test('user without training.delete cannot request training cleanup', function () {
@@ -544,40 +558,49 @@ test('training certificate file is preserved if database transaction rolls back'
     $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
 
     $filePath = "employees/{$company->id}/training-certificates/rollback-test.pdf";
+    $versionFilePath = "employees/{$company->id}/training-certificates/rollback-test-v1.pdf";
     Storage::disk(EmployeePrivateFile::DISK)->put($filePath, 'precious certificate bytes');
+    Storage::disk(EmployeePrivateFile::DISK)->put($versionFilePath, 'historical version bytes');
 
     $training = EmployeeTraining::factory()->forEmployee($employee)->create([
         'source_crew_assignment_phase_id' => $assignment->currentPhase->id,
         'certificate_path' => $filePath,
-        'current_version' => 1,
+        'current_version' => 2,
     ]);
 
-    // Force an exception after training soft delete inside the transaction
-    CrewAssignment::deleting(function ($model) use ($assignment) {
-        if ($model->id === $assignment->id) {
-            throw new RuntimeException('Simulated failure during assignment void');
-        }
-    });
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $training->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $versionFilePath,
+        'original_filename' => 'rollback-test-v1.pdf',
+        'mime_type' => 'application/pdf',
+    ]);
 
     try {
-        app(BulkVoidCrewAssignments::class)->handle(
-            $company->id,
-            [$assignment->id],
-            $user,
-            'Rollback test',
-            deleteTraining: true,
-        );
+        DB::transaction(function () use ($company, $assignment, $user) {
+            app(BulkVoidCrewAssignments::class)->handle(
+                $company->id,
+                [$assignment->id],
+                $user,
+                'Rollback test',
+                deleteTraining: true,
+            );
+
+            throw new RuntimeException('Simulated outer transaction rollback');
+        });
     } catch (RuntimeException $e) {
-        expect($e->getMessage())->toBe('Simulated failure during assignment void');
-    } finally {
-        CrewAssignment::flushEventListeners();
+        expect($e->getMessage())->toBe('Simulated outer transaction rollback');
     }
 
-    // 1. Certificate file still exists on disk
-    expect(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath))->toBeTrue();
+    // 1. Certificate files (current and historical version) still exist on disk
+    expect(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath))->toBeTrue()
+        ->and(Storage::disk(EmployeePrivateFile::DISK)->exists($versionFilePath))->toBeTrue();
 
-    // 2. Training record remains active
-    expect(EmployeeTraining::query()->whereKey($training->id)->exists())->toBeTrue();
+    // 2. Training record and historical version remain active
+    expect(EmployeeTraining::query()->whereKey($training->id)->exists())->toBeTrue()
+        ->and(EmployeeTrainingVersion::query()->where('employee_training_id', $training->id)->exists())->toBeTrue();
 
     // 3. Assignment remains active
     expect(CrewAssignment::query()->whereKey($assignment->id)->exists())->toBeTrue();

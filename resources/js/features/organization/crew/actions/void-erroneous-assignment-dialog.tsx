@@ -73,8 +73,12 @@ export function VoidErroneousAssignmentDialog({
     });
 
     const [preview, setPreview] = useState<VoidImpactPreview | null>(null);
+    const [previewTargetKey, setPreviewTargetKey] = useState<string | null>(
+        null,
+    );
     const [loadingPreview, setLoadingPreview] = useState(false);
     const [previewError, setPreviewError] = useState<string | null>(null);
+    const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
     const form = useForm<{
         assignment_ids: number[];
@@ -93,6 +97,7 @@ export function VoidErroneousAssignmentDialog({
     useEffect(() => {
         if (!open || targets.length === 0) {
             setPreview(null);
+            setPreviewTargetKey(null);
             setPreviewError(null);
             setLoadingPreview(false);
 
@@ -103,6 +108,7 @@ export function VoidErroneousAssignmentDialog({
         setLoadingPreview(true);
         setPreviewError(null);
         setPreview(null);
+        setPreviewTargetKey(null);
 
         form.setData((prev) => ({
             ...prev,
@@ -116,11 +122,18 @@ export function VoidErroneousAssignmentDialog({
             .then((res) => {
                 if (!cancelled) {
                     setPreview(res);
+                    setPreviewTargetKey(targetIdsKey);
                 }
             })
             .catch(() => {
                 if (!cancelled) {
-                    setPreviewError('Unable to load impact preview.');
+                    setPreview(null);
+                    setPreviewTargetKey(null);
+                    setPreviewError(
+                        targets.length === 1
+                            ? 'Unable to load impact preview. The assignment cannot be deleted until the safety check succeeds.'
+                            : 'Unable to load impact preview. The assignments cannot be deleted until the safety check succeeds.',
+                    );
                 }
             })
             .finally(() => {
@@ -132,8 +145,9 @@ export function VoidErroneousAssignmentDialog({
         return () => {
             cancelled = true;
         };
+        // useHttp() and form return new objects each render; keep dependencies stable.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, targetIdsKey]);
+    }, [open, targetIdsKey, previewRefreshKey]);
 
     const isSingle = targets.length === 1;
     const singleTarget = targets[0] ?? null;
@@ -150,15 +164,21 @@ export function VoidErroneousAssignmentDialog({
     const isBlockedByMissingSeaServiceCleanup =
         hasSeaService && !form.data.delete_sea_service;
 
+    const hasValidPreview =
+        preview !== null &&
+        previewError === null &&
+        previewTargetKey === targetIdsKey;
+
     const isSubmitDisabled =
         form.processing ||
         loadingPreview ||
+        !hasValidPreview ||
         !form.data.void_reason.trim() ||
         hasProtectedBlockers ||
         isBlockedByMissingSeaServiceCleanup;
 
     const submit = (): void => {
-        if (isSubmitDisabled || targets.length === 0) {
+        if (isSubmitDisabled || !hasValidPreview || targets.length === 0) {
             return;
         }
 
@@ -197,7 +217,9 @@ export function VoidErroneousAssignmentDialog({
                     form.reset();
                     form.clearErrors();
                     setPreview(null);
+                    setPreviewTargetKey(null);
                     setPreviewError(null);
+                    setLoadingPreview(false);
                 }
 
                 onOpenChange(next);
@@ -264,8 +286,18 @@ export function VoidErroneousAssignmentDialog({
                 ) : null}
 
                 {previewError ? (
-                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                        {previewError}
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                        <span className="leading-relaxed">{previewError}</span>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPreviewRefreshKey((k) => k + 1)}
+                            disabled={loadingPreview}
+                            className="h-7 shrink-0 text-xs text-destructive hover:bg-destructive/10"
+                        >
+                            Retry safety check
+                        </Button>
                     </div>
                 ) : null}
 
