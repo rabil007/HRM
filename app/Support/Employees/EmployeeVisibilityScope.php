@@ -120,10 +120,6 @@ final class EmployeeVisibilityScope
             return false;
         }
 
-        if (self::hasUnrestrictedAccess($user, $companyId)) {
-            return true;
-        }
-
         $employee = Employee::withTrashed()
             ->whereKey($employeeId)
             ->where('company_id', $companyId)

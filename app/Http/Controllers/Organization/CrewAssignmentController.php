@@ -27,6 +27,7 @@ use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\CrewReliefVisibility;
 use App\Support\CrewMovements\CurrentCrewHomePresenter;
 use App\Support\CrewMovements\CurrentCrewHomeQuery;
 use App\Support\CrewMovements\CurrentCrewQuery;
@@ -98,9 +99,19 @@ class CrewAssignmentController extends Controller
             $pagination = $this->paginationMeta($homePaginator);
         } else {
             $paginator = CurrentCrewQuery::paginate($companyId, $filters, $view, $request->user());
-            $assignments = $paginator->through(
-                fn (CrewAssignment $assignment) => CrewAssignmentPresenter::listItem($assignment, $request->user()),
-            )->items();
+            $items = $paginator->items();
+            $authorizedReliefEmployeeIds = CrewReliefVisibility::authorizedReliefEmployeeIds(
+                $items,
+                $request->user(),
+                $companyId,
+            );
+            $assignments = collect($items)
+                ->map(fn (CrewAssignment $assignment): array => CrewAssignmentPresenter::listItem(
+                    $assignment,
+                    $request->user(),
+                    $authorizedReliefEmployeeIds,
+                ))
+                ->all();
             $homeCrew = [];
             $vessels = [];
             $pagination = $this->paginationMeta($paginator);

@@ -217,8 +217,10 @@ final class CrewOperationalAlertDigestPresenter
 
         if (is_numeric($assignmentId)) {
             $assignment = CrewAssignment::query()
+                ->where('company_id', (int) $alert->company_id)
+                ->whereKey((int) $assignmentId)
                 ->with(['employee:id,name,employee_no', 'vessel:id,name', 'rank:id,name'])
-                ->find((int) $assignmentId);
+                ->first();
 
             if ($assignment !== null) {
                 $employeeName = $assignment->employee?->name ?? 'Crew member';

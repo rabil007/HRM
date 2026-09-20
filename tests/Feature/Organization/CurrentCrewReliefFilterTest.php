@@ -90,6 +90,11 @@ it('matches current crew relief filters to daily dashboard risk and action signa
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-06 12:00:00', 'UTC'));
 
     $fixtures = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.overview.view',
+        'crew_operations.planning.view',
+    ]);
     $companyId = (int) $fixtures['company']->id;
 
     makeActiveOnVesselAssignment(

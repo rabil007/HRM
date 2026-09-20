@@ -57,11 +57,24 @@ final class CrewOperationsRecentActivityQuery
                         $q2->where('subject_type', CrewPlanningAssignment::class)
                             ->whereExists(function ($subQuery) use ($companyId, $allowedDepartmentIds) {
                                 $subQuery->selectRaw(1)
-                                    ->from('crew_planning_assignments')
-                                    ->join('employees', 'employees.id', '=', 'crew_planning_assignments.employee_id')
-                                    ->whereColumn('crew_planning_assignments.id', 'activity_log.subject_id')
-                                    ->where('employees.company_id', $companyId)
-                                    ->whereIn('employees.department_id', $allowedDepartmentIds);
+                                    ->from('crew_planning_assignments as cpa')
+                                    ->join('employees as planning_employees', 'planning_employees.id', '=', 'cpa.employee_id')
+                                    ->whereColumn('cpa.id', 'activity_log.subject_id')
+                                    ->where('cpa.company_id', $companyId)
+                                    ->where('planning_employees.company_id', $companyId)
+                                    ->whereIn('planning_employees.department_id', $allowedDepartmentIds)
+                                    ->where(function ($relieved) use ($companyId, $allowedDepartmentIds) {
+                                        $relieved->whereNull('cpa.relieves_crew_assignment_id')
+                                            ->orWhereExists(function ($relievedQuery) use ($companyId, $allowedDepartmentIds) {
+                                                $relievedQuery->selectRaw(1)
+                                                    ->from('crew_assignments as relieved_assignments')
+                                                    ->join('employees as relieved_employees', 'relieved_employees.id', '=', 'relieved_assignments.employee_id')
+                                                    ->whereColumn('relieved_assignments.id', 'cpa.relieves_crew_assignment_id')
+                                                    ->where('relieved_assignments.company_id', $companyId)
+                                                    ->where('relieved_employees.company_id', $companyId)
+                                                    ->whereIn('relieved_employees.department_id', $allowedDepartmentIds);
+                                            });
+                                    });
                             });
                     });
                 });
@@ -74,7 +87,7 @@ final class CrewOperationsRecentActivityQuery
             ->limit($limit)
             ->get();
 
-        return ActivityChangePresenter::presentLogs($logs, $companyId)
+        return ActivityChangePresenter::presentLogs($logs, $companyId, $user)
             ->map(function (Activity $log): array {
                 $row = ActivityChangePresenter::toRecentActivityArray($log);
                 $row['description'] = $log->description ?? '';

@@ -16,6 +16,10 @@ use Carbon\CarbonImmutable;
 
 it('uses cumulative within-N-day filters matching daily pulse sign-off counts', function () {
     $fixtures = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.overview.view',
+    ]);
     $companyId = (int) $fixtures['company']->id;
     $timezone = $fixtures['company']->timezone;
     $today = CarbonImmutable::now($timezone)->startOfDay();

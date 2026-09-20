@@ -19,7 +19,10 @@ class CrewAssignmentPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function listItem(CrewAssignment $assignment, ?User $user = null): array
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     */
+    public static function listItem(CrewAssignment $assignment, ?User $user = null, ?array $authorizedReliefEmployeeIds = null): array
     {
         $current = $assignment->currentPhase;
         $timezone = self::companyTimezone($assignment);
@@ -28,7 +31,7 @@ class CrewAssignmentPresenter
         $relief = $assignment->relief_readiness instanceof CrewReliefReadinessResult
             ? $assignment->relief_readiness
             : (new CrewReliefReadinessResolver)->forSourceAssignment($assignment, null, null, $timezone);
-        $relief = $relief->sanitizeForViewer($user, (int) $assignment->company_id);
+        $relief = $relief->sanitizeForViewer($user, (int) $assignment->company_id, $authorizedReliefEmployeeIds);
         $readiness = $assignment->mobilisation_readiness instanceof CrewMobilisationReadinessResult
             ? $assignment->mobilisation_readiness
             : (new CrewMobilisationReadinessResolver)->forAssignment($assignment, $user, includeHrefs: false);
@@ -97,7 +100,10 @@ class CrewAssignmentPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function detail(CrewAssignment $assignment, ?User $user = null): array
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     */
+    public static function detail(CrewAssignment $assignment, ?User $user = null, ?array $authorizedReliefEmployeeIds = null): array
     {
         $current = $assignment->currentPhase;
         $timezone = self::companyTimezone($assignment);
@@ -114,7 +120,7 @@ class CrewAssignmentPresenter
             null,
             $timezone,
         );
-        $relief = $relief->sanitizeForViewer($user, (int) $assignment->company_id);
+        $relief = $relief->sanitizeForViewer($user, (int) $assignment->company_id, $authorizedReliefEmployeeIds);
         $readiness = (new CrewMobilisationReadinessResolver)->forAssignment($assignment, $user);
         $availableActions = CrewMovementAvailableActions::for($assignment);
         $recommended = (new CrewAssignmentRecommendedActionResolver)->forAssignment(
@@ -415,7 +421,9 @@ class CrewAssignmentPresenter
             return null;
         }
 
-        if ($source->employee !== null && ! EmployeeVisibilityScope::canAccess($user, $source->employee, (int) $assignment->company_id)) {
+        if ($user !== null
+            && $source->employee !== null
+            && ! EmployeeVisibilityScope::canAccess($user, $source->employee, (int) $assignment->company_id)) {
             return null;
         }
 

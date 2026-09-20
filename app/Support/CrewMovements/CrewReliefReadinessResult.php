@@ -29,8 +29,18 @@ final class CrewReliefReadinessResult
         public readonly ?int $daysUntilSignoff = null,
     ) {}
 
-    public function sanitizeForViewer(?User $user, int $companyId): self
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     *                                                       null with null user = trusted internal context (no redaction);
+     *                                                       null with user = unrestricted viewer (no redaction);
+     *                                                       array = restricted viewer authorized relief employee IDs.
+     */
+    public function sanitizeForViewer(?User $user, int $companyId, ?array $authorizedReliefEmployeeIds = null): self
     {
+        if ($user === null && $authorizedReliefEmployeeIds === null) {
+            return $this;
+        }
+
         if ($this->reliefEmployee === null) {
             return $this;
         }
@@ -40,7 +50,17 @@ final class CrewReliefReadinessResult
             return $this;
         }
 
-        if (EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId)) {
+        if ($user !== null
+            && $authorizedReliefEmployeeIds === null
+            && EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $this;
+        }
+
+        $visible = $authorizedReliefEmployeeIds !== null
+            ? in_array($employeeId, $authorizedReliefEmployeeIds, true)
+            : ($user !== null && EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId));
+
+        if ($visible) {
             return $this;
         }
 

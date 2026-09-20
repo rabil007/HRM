@@ -107,6 +107,29 @@ test('scope all role grants unrestricted access', function () {
     expect(EmployeeVisibilityScope::canAccess($user, $office, $company->id))->toBeTrue();
 });
 
+test('unrestricted user cannot access employee from another company via canAccessId', function () {
+    ['user' => $user, 'company' => $company, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Visibility Co',
+        'slug' => 'other-visibility-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $foreignEmployee = Employee::factory()->create([
+        'company_id' => $otherCompany->id,
+        'status' => 'active',
+    ]);
+
+    expect(EmployeeVisibilityScope::canAccessId($user, (int) $foreignEmployee->id, (int) $company->id))->toBeFalse()
+        ->and(EmployeeVisibilityScope::canAccessId($user, (int) $office->id, (int) $company->id))->toBeTrue();
+});
+
 test('cross-company departments cannot affect scope', function () {
     ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
     $otherCompany = Company::query()->create([

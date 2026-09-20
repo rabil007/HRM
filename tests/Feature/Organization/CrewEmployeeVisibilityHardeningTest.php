@@ -9,13 +9,19 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
+use App\Support\Activity\ActivityChangePresenter;
+use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewOperations\CrewOperationsDashboardAnalytics;
+use App\Support\CrewOperations\CrewOperationsRecentActivityQuery;
 use App\Support\CrewOperations\ReconcileCrewOperationalAlerts;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
+use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * @return array{
@@ -370,6 +376,390 @@ test('restricted recipient does not receive hidden employee crew alert in feed o
     $url = app(ResolveCrewOperationalAlertUrl::class)->forUser($user, $alert);
 
     expect($url)->not->toBe(route('organization.crew-assignments.show', ['assignment' => $assignment->id]));
+
+    CarbonImmutable::setTestNow();
+});
+
+test('trusted internal presenter call preserves relief employee identity', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'company' => $company,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $source = makeActiveOnVesselAssignment($company, $marine, $rank, $vessel, [
+        'planned_signoff_at' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateTimeString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    $assignment = $source->fresh([
+        'employee',
+        'rank',
+        'vessel',
+        'client',
+        'currentPhase',
+        'company',
+        'phases',
+    ]);
+    CurrentCrewQuery::attachReliefReadiness(collect([$assignment]), (int) $company->id);
+
+    $payload = CrewAssignmentPresenter::listItem($assignment);
+
+    expect($payload['relief_employee']['name'])->toBe($office->name);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('restricted authenticated viewer gets hidden relief employee redacted in presenter', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'officeDept' => $officeDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $office->update(['department_id' => $officeDept->id, 'name' => 'Hidden Relief Person']);
+
+    $source = makeActiveOnVesselAssignment($company, $marine, $rank, $vessel, [
+        'planned_signoff_at' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateTimeString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $assignment = $source->fresh([
+        'employee',
+        'rank',
+        'vessel',
+        'client',
+        'currentPhase',
+        'company',
+        'phases',
+    ]);
+    CurrentCrewQuery::attachReliefReadiness(collect([$assignment]), (int) $company->id);
+
+    $payload = CrewAssignmentPresenter::listItem($assignment, $user);
+
+    expect($payload['relief_employee'])->toBeNull();
+
+    CarbonImmutable::setTestNow();
+});
+
+test('vessel view redacts hidden relief employee for restricted viewer', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'officeDept' => $officeDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $office->update(['department_id' => $officeDept->id, 'name' => 'Hidden Relief Person']);
+
+    $source = makeActiveOnVesselAssignment($company, $marine, $rank, $vessel, [
+        'planned_signoff_at' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateTimeString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.index', ['view' => 'vessel']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('vessels', 1)
+            ->where('vessels.0.crew.0.relief_employee', null));
+
+    CarbonImmutable::setTestNow();
+});
+
+test('current crew export redacts hidden relief employee for restricted viewer', function () {
+    Excel::fake();
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'officeDept' => $officeDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $office->update(['department_id' => $officeDept->id, 'name' => 'Hidden Relief Person']);
+
+    $source = makeActiveOnVesselAssignment($company, $marine, $rank, $vessel, [
+        'planned_signoff_at' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateTimeString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.onboard-vessels.export', ['format' => 'xlsx']))
+        ->assertOk();
+
+    Excel::assertDownloaded(
+        'current-crew-onboard-vessels-'.now()->toDateString().'.xlsx',
+        function ($export): bool {
+            $rows = $export->collection()->map(fn ($assignment) => $export->map($assignment))->all();
+
+            return collect($rows)->every(fn (array $row): bool => ! in_array('Hidden Relief Person', $row, true));
+        },
+    );
+
+    CarbonImmutable::setTestNow();
+});
+
+test('unrestricted authenticated viewer still receives relief employee in presenter', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $source = makeActiveOnVesselAssignment($company, $marine, $rank, $vessel, [
+        'planned_signoff_at' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateTimeString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    $assignment = $source->fresh([
+        'employee',
+        'rank',
+        'vessel',
+        'client',
+        'currentPhase',
+        'company',
+        'phases',
+    ]);
+    CurrentCrewQuery::attachReliefReadiness(collect([$assignment]), (int) $company->id);
+
+    $payload = CrewAssignmentPresenter::listItem($assignment, $user);
+
+    expect($payload['relief_employee']['name'])->toBe($office->name);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('planning recent activity hides rows when relieved employee is hidden', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'officeDept' => $officeDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['audit.view']);
+
+    $hiddenSource = makeActiveOnVesselAssignment($company, $office, $rank, $vessel, [
+        'planned_signoff_at' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateTimeString(),
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $marine->id,
+        'relieves_crew_assignment_id' => $hiddenSource->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    $planning->update(['notes' => 'Relief plan updated']);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $activity = CrewOperationsRecentActivityQuery::forCompany($user, (int) $company->id, 20);
+
+    expect($activity)->toBe([]);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('planning recent activity remains visible when both employees are visible', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['audit.view']);
+
+    $office->update(['department_id' => $marineDept->id]);
+
+    $source = makeActiveOnVesselAssignment($company, $office, $rank, $vessel, [
+        'planned_signoff_at' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateTimeString(),
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $marine->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    $planning->update(['notes' => 'Both visible relief plan']);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $activity = CrewOperationsRecentActivityQuery::forCompany($user, (int) $company->id, 20);
+
+    expect(collect($activity)->pluck('description'))->toContain('updated');
+
+    CarbonImmutable::setTestNow();
+});
+
+test('planning recent activity without relieved assignment depends only on planning employee visibility', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 08:00:00', 'Asia/Dubai'));
+
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['audit.view']);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateString(),
+        'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
+    ]);
+
+    $planning->update(['notes' => 'Standalone plan']);
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    expect(CrewOperationsRecentActivityQuery::forCompany($user, (int) $company->id, 20))->toBe([]);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('planning activity masks hidden relieves crew assignment id for restricted viewer', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $hiddenSource = makeActiveOnVesselAssignment($company, $office, $rank, $vessel);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $marine->id,
+        'relieves_crew_assignment_id' => $hiddenSource->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-12-01',
+    ]);
+
+    $log = Activity::query()
+        ->where('subject_type', CrewPlanningAssignment::class)
+        ->where('subject_id', $planning->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $presented = ActivityChangePresenter::presentLogs(collect([$log]), (int) $company->id, $user)
+        ->map(fn (Activity $activity): array => ActivityChangePresenter::toRecentActivityArray($activity))
+        ->first();
+
+    expect(data_get($presented, 'new_values.relieves_crew_assignment_id'))->toBeNull()
+        ->and(data_get($presented, 'new_values.relieves_crew_assignment_id'))->not->toBe($hiddenSource->id);
 
     CarbonImmutable::setTestNow();
 });

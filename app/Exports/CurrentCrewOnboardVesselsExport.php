@@ -3,7 +3,9 @@
 namespace App\Exports;
 
 use App\Models\CrewAssignment;
+use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
+use App\Support\CrewMovements\CrewReliefVisibility;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -12,10 +14,21 @@ use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 
 final class CurrentCrewOnboardVesselsExport implements FromCollection, WithHeadings, WithMapping, WithStrictNullComparison
 {
+    /** @var list<int>|null */
+    private readonly ?array $authorizedReliefEmployeeIds;
+
     /**
      * @param  Collection<int, CrewAssignment>  $assignments
      */
-    public function __construct(private readonly Collection $assignments) {}
+    public function __construct(
+        private readonly Collection $assignments,
+        private readonly ?User $user = null,
+        private readonly ?int $companyId = null,
+    ) {
+        $this->authorizedReliefEmployeeIds = $companyId !== null
+            ? CrewReliefVisibility::authorizedReliefEmployeeIds($assignments, $user, $companyId)
+            : null;
+    }
 
     public function collection(): Collection
     {
@@ -50,7 +63,11 @@ final class CurrentCrewOnboardVesselsExport implements FromCollection, WithHeadi
      */
     public function map($assignment): array
     {
-        $row = CrewAssignmentPresenter::listItem($assignment);
+        $row = CrewAssignmentPresenter::listItem(
+            $assignment,
+            $this->user,
+            $this->authorizedReliefEmployeeIds,
+        );
 
         return [
             $row['vessel']['name'] ?? null,

@@ -17,12 +17,16 @@ final class CrewReliefDeskPresenter
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     */
     public function row(
         CrewAssignment $source,
         CrewReliefReadinessResult $relief,
         ?CrewMobilisationReadinessResult $mobilisationReadiness,
         User $user,
         int $companyId,
+        ?array $authorizedReliefEmployeeIds = null,
     ): array {
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $tour = (new CrewTourProgress)->forAssignment($source, null, $timezone);
@@ -33,7 +37,13 @@ final class CrewReliefDeskPresenter
         $canCreatePlanning = $user->can('crew_operations.planning.create');
         $canViewEmployees = $user->can('employees.view');
         $canViewVessels = $user->can('crew_operations.vessels.view');
-        $reliefEmployee = $this->reliefEmployeePayload($relief, $canViewEmployees, $user, $companyId);
+        $reliefEmployee = $this->reliefEmployeePayload(
+            $relief,
+            $canViewEmployees,
+            $user,
+            $companyId,
+            $authorizedReliefEmployeeIds,
+        );
         $reliefEmployeeVisible = $relief->reliefEmployee === null || $reliefEmployee !== null;
         $action = $this->recommendedAction(
             $source,
@@ -209,17 +219,28 @@ final class CrewReliefDeskPresenter
     /**
      * @return array{id: int, name: string, employee_no: string|null, href: string|null}|null
      */
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     */
     private function reliefEmployeePayload(
         CrewReliefReadinessResult $relief,
         bool $canViewEmployees,
         User $user,
         int $companyId,
+        ?array $authorizedReliefEmployeeIds = null,
     ): ?array {
         if ($relief->reliefEmployee === null) {
             return null;
         }
 
-        if (! EmployeeVisibilityScope::canAccessId($user, (int) $relief->reliefEmployee['id'], $companyId)) {
+        $employeeId = (int) $relief->reliefEmployee['id'];
+
+        if ($authorizedReliefEmployeeIds !== null) {
+            if (! in_array($employeeId, $authorizedReliefEmployeeIds, true)) {
+                return null;
+            }
+        } elseif (! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)
+            && ! EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId)) {
             return null;
         }
 

@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\CrewPlannedSignoffSource;
+use App\Models\Company;
+use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use Illuminate\Support\Facades\DB;
 
@@ -43,8 +45,8 @@ function dropCrewAlertSentLedgerPersistTrigger(): void
 
 function enableCrewNotificationsForUser(int $companyId, int $userId, array $overrides = []): void
 {
-    $user = \App\Models\User::query()->findOrFail($userId);
-    $company = \App\Models\Company::query()->findOrFail($companyId);
+    $user = User::query()->findOrFail($userId);
+    $company = Company::query()->findOrFail($companyId);
 
     grantCompanyPermissions($user, $company, []);
 

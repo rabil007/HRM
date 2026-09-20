@@ -432,6 +432,55 @@ test('recipient without assignment permission sees privacy safe fallback generic
         ->and($digest['alerts_table'])->not->toContain('CA-SECRET');
 });
 
+test('digest does not resolve assignment details from another company context id', function () {
+    EmailTemplatesSeeder::seedCrewOperationalAlertDigestTemplate();
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+
+    grantCompanyPermissions($user, $fixtures['company'], ['crew_operations.assignments.view']);
+
+    $foreign = makeCrewAssignmentFixtures();
+    $foreignAssignment = makeActiveOnVesselAssignment(
+        $foreign['company'],
+        $foreign['employee'],
+        $foreign['rank'],
+        makeCrewMovementVessel('Foreign Alert Vessel', $foreign['company']),
+        ['planned_signoff_at' => '2026-08-01 00:00:00'],
+    );
+
+    $alert = CrewOperationalAlert::query()->create([
+        'company_id' => $companyId,
+        'type' => CrewOperationalAlertType::SignoffOverdue,
+        'severity' => CrewOperationalAlertSeverity::Critical,
+        'status' => CrewOperationalAlertStatus::Active,
+        'dedupe_key' => 'signoff_overdue:assignment:foreign',
+        'title' => 'Sign-off overdue',
+        'message' => 'Foreign assignment overdue',
+        'context' => [
+            'assignment_id' => $foreignAssignment->id,
+            'employee_id' => $foreign['employee']->id,
+        ],
+        'detected_at' => now(),
+        'last_detected_at' => now(),
+        'notification_version' => 1,
+    ]);
+
+    $delivery = CrewOperationalAlertEmailDelivery::query()->create([
+        'company_id' => $companyId,
+        'crew_operational_alert_id' => $alert->id,
+        'user_id' => $user->id,
+        'notification_version' => 1,
+        'status' => CrewOperationalAlertEmailDeliveryStatus::Queued,
+        'queued_at' => now(),
+    ]);
+
+    $digest = app(CrewOperationalAlertDigestPresenter::class)->forUser($user, $fixtures['company'], collect([$delivery]));
+
+    expect($digest['alerts_table'])->not->toContain((string) $foreign['employee']->name)
+        ->and($digest['alerts_table'])->not->toContain((string) $foreignAssignment->assignment_no);
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // EMAIL TEMPLATE SYSTEM & PREVIEW TESTS
 // ─────────────────────────────────────────────────────────────────────────────
