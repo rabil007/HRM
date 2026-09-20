@@ -32,8 +32,7 @@ final class CrewReliefReadinessResult
     /**
      * @param  list<int>|null  $authorizedReliefEmployeeIds
      *                                                       null with null user = trusted internal context (no redaction);
-     *                                                       null with user = unrestricted viewer (no redaction);
-     *                                                       array = restricted viewer authorized relief employee IDs.
+     *                                                       array = authenticated viewer authorized relief employee IDs.
      */
     public function sanitizeForViewer(?User $user, int $companyId, ?array $authorizedReliefEmployeeIds = null): self
     {
@@ -47,12 +46,6 @@ final class CrewReliefReadinessResult
 
         $employeeId = (int) ($this->reliefEmployee['id'] ?? 0);
         if ($employeeId <= 0) {
-            return $this;
-        }
-
-        if ($user !== null
-            && $authorizedReliefEmployeeIds === null
-            && EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
             return $this;
         }
 

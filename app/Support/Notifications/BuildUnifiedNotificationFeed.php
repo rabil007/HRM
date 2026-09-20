@@ -121,7 +121,7 @@ final class BuildUnifiedNotificationFeed
         return CrewOperationalAlertRecipient::query()
             ->where('company_id', $companyId)
             ->where('user_id', $user->id)
-            ->whereHas('alert')
+            ->whereHas('alert', fn ($query) => $query->where('company_id', $companyId))
             ->with(['alert'])
             ->latest('id')
             ->limit(20)
@@ -182,7 +182,9 @@ final class BuildUnifiedNotificationFeed
                 ->where('company_id', $companyId)
                 ->where('user_id', $user->id)
                 ->whereNull('read_at')
-                ->whereHas('alert', fn ($q) => $q->where('status', CrewOperationalAlertStatus::Active->value))
+                ->whereHas('alert', fn ($q) => $q
+                    ->where('company_id', $companyId)
+                    ->where('status', CrewOperationalAlertStatus::Active->value))
                 ->count();
         }
 
@@ -190,7 +192,9 @@ final class BuildUnifiedNotificationFeed
             ->where('company_id', $companyId)
             ->where('user_id', $user->id)
             ->whereNull('read_at')
-            ->whereHas('alert', fn ($q) => $q->where('status', CrewOperationalAlertStatus::Active->value))
+            ->whereHas('alert', fn ($q) => $q
+                ->where('company_id', $companyId)
+                ->where('status', CrewOperationalAlertStatus::Active->value))
             ->with('alert')
             ->get()
             ->filter(function (CrewOperationalAlertRecipient $recipient) use ($user, $companyId): bool {

@@ -239,8 +239,7 @@ final class CrewReliefDeskPresenter
             if (! in_array($employeeId, $authorizedReliefEmployeeIds, true)) {
                 return null;
             }
-        } elseif (! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)
-            && ! EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId)) {
+        } elseif (! EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId)) {
             return null;
         }
 

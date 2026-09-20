@@ -6,9 +6,11 @@ use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
 use App\Enums\CrewReliefStatus;
 use App\Models\CrewPlanningAssignment;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
+use App\Support\CrewMovements\CrewReliefVisibility;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
@@ -269,6 +271,174 @@ it('keeps Current Crew queries bounded for mixed relief states as row count grow
         ->and($large->total())->toBeGreaterThan($small->total())
         ->and($largeCount)->toBeLessThanOrEqual($smallCount + 12)
         ->and($largeCount - $smallCount)->toBeLessThan($large->total() - $small->total());
+});
+
+it('keeps relief visibility authorization bounded for unrestricted authenticated viewers', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+    $fixtures['user']->update(['current_company_id' => $companyId]);
+    grantCompanyPermissions($user, $fixtures['company'], ['crew_operations.assignments.view']);
+
+    $today = CarbonImmutable::now($fixtures['company']->timezone)->startOfDay();
+
+    $seedReliefBatch = function (int $batch) use ($fixtures, $today): void {
+        for ($i = 0; $i < 5; $i++) {
+            $index = ($batch * 5) + $i;
+            $source = makeActiveOnVesselAssignment(
+                $fixtures['company'],
+                Employee::factory()->forCompany($fixtures['company'])->create([
+                    'rank_id' => $fixtures['rank']->id,
+                    'status' => 'active',
+                ]),
+                $fixtures['rank'],
+                makeCrewMovementVessel("Auth Relief {$index}"),
+                ['planned_signoff_at' => $today->addDays(10 + $index)->toDateTimeString()],
+            );
+
+            CrewPlanningAssignment::query()->create([
+                'company_id' => $fixtures['company']->id,
+                'vessel_id' => $source->vessel_id,
+                'rank_id' => $source->rank_id,
+                'employee_id' => Employee::factory()->forCompany($fixtures['company'])->create([
+                    'rank_id' => $fixtures['rank']->id,
+                    'status' => 'active',
+                ])->id,
+                'relieves_crew_assignment_id' => $source->id,
+                'planned_join_date' => $today->addDays(10 + $index)->toDateString(),
+                'planned_leave_date' => $today->addDays(100 + $index)->toDateString(),
+            ]);
+        }
+    };
+
+    $seedReliefBatch(0);
+
+    $presentPage = function ($page) use ($user, $companyId): void {
+        $items = $page->items();
+        $authorized = CrewReliefVisibility::authorizedReliefEmployeeIds($items, $user, $companyId);
+        collect($items)->each(
+            fn ($assignment) => CrewAssignmentPresenter::listItem($assignment, $user, $authorized),
+        );
+    };
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $one = CurrentCrewQuery::paginate($companyId, ['per_page' => 100], user: $user);
+    $presentPage($one);
+    $oneCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    $seedReliefBatch(1);
+    $seedReliefBatch(2);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $many = CurrentCrewQuery::paginate($companyId, ['per_page' => 100], user: $user);
+    $presentPage($many);
+    $manyCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($one->total())->toBe(5)
+        ->and($many->total())->toBe(15)
+        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 8)
+        ->and($manyCount - $oneCount)->toBeLessThan($many->total() - $one->total());
+});
+
+it('keeps relief visibility authorization bounded for restricted authenticated viewers', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $companyId = (int) $fixtures['company']->id;
+    $user = $fixtures['user'];
+    $fixtures['user']->update(['current_company_id' => $companyId]);
+    grantCompanyPermissions($user, $fixtures['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.planning.view',
+    ]);
+
+    $marineDept = Department::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'name' => 'Marine Relief QC',
+        'code' => 'MRQC',
+        'status' => 'active',
+    ]);
+    $officeDept = Department::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'name' => 'Office Relief QC',
+        'code' => 'ORQC',
+        'status' => 'active',
+    ]);
+
+    restrictTestRoleEmployeeVisibility($user, $fixtures['company'], [$marineDept->id]);
+
+    $today = CarbonImmutable::now($fixtures['company']->timezone)->startOfDay();
+
+    $seedReliefBatch = function (int $batch) use ($fixtures, $today, $marineDept, $officeDept): void {
+        for ($i = 0; $i < 5; $i++) {
+            $index = ($batch * 5) + $i;
+            $visibleEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+                'rank_id' => $fixtures['rank']->id,
+                'department_id' => $marineDept->id,
+                'status' => 'active',
+            ]);
+            $hiddenReliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+                'rank_id' => $fixtures['rank']->id,
+                'department_id' => $officeDept->id,
+                'status' => 'active',
+                'name' => "Hidden Relief {$index}",
+            ]);
+
+            $source = makeActiveOnVesselAssignment(
+                $fixtures['company'],
+                $visibleEmployee,
+                $fixtures['rank'],
+                makeCrewMovementVessel("Restricted Relief {$index}"),
+                ['planned_signoff_at' => $today->addDays(10 + $index)->toDateTimeString()],
+            );
+
+            CrewPlanningAssignment::query()->create([
+                'company_id' => $fixtures['company']->id,
+                'vessel_id' => $source->vessel_id,
+                'rank_id' => $source->rank_id,
+                'employee_id' => $hiddenReliefEmployee->id,
+                'relieves_crew_assignment_id' => $source->id,
+                'planned_join_date' => $today->addDays(10 + $index)->toDateString(),
+                'planned_leave_date' => $today->addDays(100 + $index)->toDateString(),
+            ]);
+        }
+    };
+
+    $seedReliefBatch(0);
+
+    $presentPage = function ($page) use ($user, $companyId): void {
+        $items = $page->items();
+        $authorized = CrewReliefVisibility::authorizedReliefEmployeeIds($items, $user, $companyId);
+        $payloads = collect($items)->map(
+            fn ($assignment) => CrewAssignmentPresenter::listItem($assignment, $user, $authorized),
+        );
+
+        expect($payloads->every(fn (array $row): bool => $row['relief_employee'] === null))->toBeTrue();
+    };
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $one = CurrentCrewQuery::paginate($companyId, ['per_page' => 100], user: $user);
+    $presentPage($one);
+    $oneCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    $seedReliefBatch(1);
+    $seedReliefBatch(2);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $many = CurrentCrewQuery::paginate($companyId, ['per_page' => 100], user: $user);
+    $presentPage($many);
+    $manyCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($one->total())->toBe(5)
+        ->and($many->total())->toBe(15)
+        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 8)
+        ->and($manyCount - $oneCount)->toBeLessThan($many->total() - $one->total());
 });
 
 it('forPreloadedPlan with null does not query for a relief plan', function () {

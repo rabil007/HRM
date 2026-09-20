@@ -763,3 +763,189 @@ test('planning activity masks hidden relieves crew assignment id for restricted 
 
     CarbonImmutable::setTestNow();
 });
+
+test('planning activity hides historical hidden employee values for restricted viewer', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'officeDept' => $officeDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $office->update(['department_id' => $officeDept->id, 'name' => 'Hidden Office Historian']);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-12-01',
+    ]);
+
+    $planning->update(['employee_id' => $marine->id]);
+
+    $log = Activity::query()
+        ->where('subject_type', CrewPlanningAssignment::class)
+        ->where('subject_id', $planning->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->firstOrFail();
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $presented = ActivityChangePresenter::presentLogs(collect([$log]), (int) $company->id, $user)
+        ->map(fn (Activity $activity): array => ActivityChangePresenter::toRecentActivityArray($activity))
+        ->first();
+
+    expect(data_get($presented, 'old_values.employee_id'))->toBeNull()
+        ->and(data_get($presented, 'new_values.employee_id'))->toContain($marine->name)
+        ->and(data_get($presented, 'new_values.employee_id'))->not->toContain('Hidden Office Historian');
+});
+
+test('planning activity hides newly assigned hidden employee values for restricted viewer', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'officeDept' => $officeDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $office->update(['department_id' => $officeDept->id, 'name' => 'Hidden Office Assignee']);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $marine->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-12-01',
+    ]);
+
+    $planning->update(['employee_id' => $office->id]);
+
+    $log = Activity::query()
+        ->where('subject_type', CrewPlanningAssignment::class)
+        ->where('subject_id', $planning->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->firstOrFail();
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $presented = ActivityChangePresenter::presentLogs(collect([$log]), (int) $company->id, $user)
+        ->map(fn (Activity $activity): array => ActivityChangePresenter::toRecentActivityArray($activity))
+        ->first();
+
+    expect(data_get($presented, 'old_values.employee_id'))->toContain($marine->name)
+        ->and(data_get($presented, 'new_values.employee_id'))->toBeNull();
+});
+
+test('planning activity hides cross-company employee ids for restricted viewer', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'marineDept' => $marineDept,
+        'marineEmployee' => $marine,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $foreignCompany = Company::query()->create([
+        'name' => 'Foreign Activity Co',
+        'slug' => 'foreign-activity-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $foreignEmployee = Employee::factory()->create([
+        'company_id' => $foreignCompany->id,
+        'status' => 'active',
+        'name' => 'Foreign Activity Employee',
+        'employee_no' => 'FOR-001',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $marine->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-12-01',
+    ]);
+
+    activity()
+        ->performedOn($planning)
+        ->causedBy($user)
+        ->withProperties([
+            'employee_id' => $foreignEmployee->id,
+        ])
+        ->tap(fn ($activity) => $activity->company_id = $company->id)
+        ->log('Crew planning assignment updated');
+
+    $log = Activity::query()
+        ->where('subject_type', CrewPlanningAssignment::class)
+        ->where('subject_id', $planning->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $presented = ActivityChangePresenter::presentLogs(collect([$log]), (int) $company->id, $user)
+        ->map(fn (Activity $activity): array => ActivityChangePresenter::toRecentActivityArray($activity))
+        ->first();
+
+    expect(data_get($presented, 'new_values.employee_id'))->toBeNull()
+        ->and(data_get($presented, 'new_values.employee_id'))->not->toBe($foreignEmployee->id);
+});
+
+test('planning activity shows historical employee labels for unrestricted viewer', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'officeDept' => $officeDept,
+        'marineEmployee' => $marine,
+        'officeEmployee' => $office,
+        'rank' => $rank,
+        'vessel' => $vessel,
+    ] = makeCrewEmployeeVisibilityFixtures();
+
+    $office->update(['department_id' => $officeDept->id, 'name' => 'Historical Office Employee']);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $office->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-12-01',
+    ]);
+
+    $planning->update(['employee_id' => $marine->id]);
+
+    $log = Activity::query()
+        ->where('subject_type', CrewPlanningAssignment::class)
+        ->where('subject_id', $planning->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->firstOrFail();
+
+    $presented = ActivityChangePresenter::presentLogs(collect([$log]), (int) $company->id, $user)
+        ->map(fn (Activity $activity): array => ActivityChangePresenter::toRecentActivityArray($activity))
+        ->first();
+
+    expect(data_get($presented, 'old_values.employee_id'))->toContain('Historical Office Employee')
+        ->and(data_get($presented, 'new_values.employee_id'))->toContain($marine->name);
+});

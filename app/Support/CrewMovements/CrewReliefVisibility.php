@@ -13,15 +13,11 @@ final class CrewReliefVisibility
      * Resolve authorized relief employee IDs for a result set in one visibility query.
      *
      * @param  Collection<int, CrewAssignment>|list<CrewAssignment>  $assignments
-     * @return list<int>|null null = no redaction required (trusted or unrestricted viewer)
+     * @return list<int>|null null = trusted internal context (no authenticated viewer); array = authorized IDs
      */
     public static function authorizedReliefEmployeeIds(Collection|array $assignments, ?User $user, int $companyId): ?array
     {
         if ($user === null) {
-            return null;
-        }
-
-        if (EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
             return null;
         }
 
@@ -42,11 +38,7 @@ final class CrewReliefVisibility
             ->values()
             ->all();
 
-        if ($reliefEmployeeIds === []) {
-            return [];
-        }
-
-        return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $reliefEmployeeIds);
+        return self::authorizeReliefEmployeeIds($reliefEmployeeIds, $user, $companyId);
     }
 
     /**
@@ -56,10 +48,6 @@ final class CrewReliefVisibility
     public static function authorizedReliefEmployeeIdsFromResults(iterable $reliefs, ?User $user, int $companyId): ?array
     {
         if ($user === null) {
-            return null;
-        }
-
-        if (EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
             return null;
         }
 
@@ -77,12 +65,19 @@ final class CrewReliefVisibility
             }
         }
 
-        $ids = array_keys($reliefEmployeeIds);
+        return self::authorizeReliefEmployeeIds(array_keys($reliefEmployeeIds), $user, $companyId);
+    }
 
-        if ($ids === []) {
+    /**
+     * @param  list<int>  $reliefEmployeeIds
+     * @return list<int>
+     */
+    private static function authorizeReliefEmployeeIds(array $reliefEmployeeIds, User $user, int $companyId): array
+    {
+        if ($reliefEmployeeIds === []) {
             return [];
         }
 
-        return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $ids);
+        return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $reliefEmployeeIds);
     }
 }

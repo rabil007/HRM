@@ -22,7 +22,11 @@ class OpenCrewOperationalAlertNotificationController extends Controller
         abort_unless($user !== null && (int) $recipient->user_id === (int) $user->id, 404);
 
         $alert = $recipient->alert;
-        abort_unless($alert !== null, 404);
+        abort_unless(
+            $alert !== null
+            && (int) $alert->company_id === (int) $recipient->company_id,
+            404,
+        );
 
         $employeeId = $alert->context['employee_id'] ?? null;
         if ($employeeId !== null && is_numeric($employeeId)) {

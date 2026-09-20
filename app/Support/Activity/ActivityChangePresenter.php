@@ -29,6 +29,7 @@ use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Models\VisaType;
 use App\Support\CrewMovements\CrewAssignmentAccess;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -288,7 +289,7 @@ final class ActivityChangePresenter
         }
 
         if (! isset($lookup[$field][$id])) {
-            if ($viewer !== null && self::isAssignmentField($field)) {
+            if ($viewer !== null && (self::isAssignmentField($field) || self::isEmployeeField($field))) {
                 return null;
             }
 
@@ -307,6 +308,13 @@ final class ActivityChangePresenter
             'destination_assignment_id',
             'relieves_crew_assignment_id',
         ], true);
+    }
+
+    private static function isEmployeeField(string $field): bool
+    {
+        $definition = self::fieldDefinition($field);
+
+        return $definition !== null && $definition['model'] === Employee::class;
     }
 
     private static function normalizeId(mixed $value): ?int
@@ -552,12 +560,14 @@ final class ActivityChangePresenter
             $query->where('company_id', $companyId);
         }
 
-        if ($viewer !== null
-            && $modelClass === CrewAssignment::class
-            && $companyId !== null
-            && $field !== null
-            && self::isAssignmentField($field)) {
-            CrewAssignmentAccess::applyScope($query, $companyId, $viewer);
+        if ($viewer !== null && $companyId !== null) {
+            if ($modelClass === CrewAssignment::class
+                && $field !== null
+                && self::isAssignmentField($field)) {
+                CrewAssignmentAccess::applyScope($query, $companyId, $viewer);
+            } elseif ($modelClass === Employee::class) {
+                EmployeeVisibilityScope::apply($query, $viewer, $companyId);
+            }
         }
 
         if (in_array(SoftDeletes::class, class_uses_recursive($modelClass), true)) {
