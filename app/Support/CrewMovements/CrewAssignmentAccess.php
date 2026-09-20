@@ -6,9 +6,37 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use Illuminate\Database\Eloquent\Builder;
 
 class CrewAssignmentAccess
 {
+    /**
+     * Scope a CrewAssignment query to the given company and employee visibility for the user.
+     *
+     * @param  Builder<CrewAssignment>  $query
+     * @return Builder<CrewAssignment>
+     */
+    public static function applyScope(Builder $query, int $companyId, ?User $user = null): Builder
+    {
+        $query->where('crew_assignments.company_id', $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        }
+
+        return $query;
+    }
+
+    /**
+     * Scope a CrewAssignment query for company and employee visibility.
+     *
+     * @return Builder<CrewAssignment>
+     */
+    public static function queryForCompany(int $companyId, ?User $user = null): Builder
+    {
+        return self::applyScope(CrewAssignment::query(), $companyId, $user);
+    }
+
     public static function findForCompany(int $companyId, int $id, ?User $user = null): ?CrewAssignment
     {
         $assignment = CrewAssignment::query()

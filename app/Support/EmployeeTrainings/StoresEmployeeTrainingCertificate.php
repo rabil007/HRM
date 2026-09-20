@@ -111,24 +111,43 @@ class StoresEmployeeTrainingCertificate
         }
     }
 
-    public function deleteForTraining(EmployeeTraining $training): void
+    /**
+     * Resolve all certificate paths (current and previous versions) for a training record.
+     *
+     * @return list<string>
+     */
+    public function resolveCertificatePaths(EmployeeTraining $training): array
     {
-        $paths = $training->versions()
-            ->pluck('file_path')
-            ->filter(fn (?string $path): bool => $path !== null && $path !== '')
-            ->all();
+        $paths = $training->relationLoaded('versions')
+            ? $training->versions->pluck('file_path')->filter(fn (?string $path): bool => $path !== null && $path !== '')->all()
+            : $training->versions()
+                ->pluck('file_path')
+                ->filter(fn (?string $path): bool => $path !== null && $path !== '')
+                ->all();
 
         if ($training->certificate_path !== null && $training->certificate_path !== '') {
             $paths[] = $training->certificate_path;
         }
 
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * @param  list<string>  $paths
+     */
+    public function deletePaths(array $paths, int $companyId): void
+    {
         foreach (array_unique($paths) as $path) {
-            EmployeePrivateFile::deleteStored(
-                $path,
-                (int) $training->company_id,
-                EmployeePrivateFileKind::TrainingCertificate,
-            );
+            $this->deletePath($path, $companyId);
         }
+    }
+
+    public function deleteForTraining(EmployeeTraining $training): void
+    {
+        $this->deletePaths(
+            $this->resolveCertificatePaths($training),
+            (int) $training->company_id,
+        );
     }
 
     public function deletePath(?string $path, ?int $companyId = null): void

@@ -2,7 +2,6 @@
 
 namespace App\Support\CrewMovements;
 
-use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
@@ -58,12 +57,15 @@ final class VoidCrewAssignmentImpactResolver
             ];
         }
 
-        $assignments = CrewAssignment::query()
+        $assignments = CrewAssignmentAccess::queryForCompany($companyId, $actor)
             ->withTrashed()
-            ->where('company_id', $companyId)
-            ->whereIn('id', $uniqueIds)
+            ->whereIn('crew_assignments.id', $uniqueIds)
             ->with(['currentPhase', 'employee'])
             ->get();
+
+        if ($assignments->count() !== count($uniqueIds)) {
+            abort(404, 'One or more selected assignments could not be found in the active company.');
+        }
 
         $phases = CrewAssignmentPhase::query()
             ->where('company_id', $companyId)
@@ -111,6 +113,8 @@ final class VoidCrewAssignmentImpactResolver
         $canDeleteSeaService = $actor?->can('sea_services.delete') ?? false;
         $canDeleteTraining = $actor?->can('training.delete') ?? false;
 
+        $allBlockers = $this->guard->batchBlockers($assignments, $companyId);
+
         $items = [];
         $totalSeaService = 0;
         $totalTraining = 0;
@@ -123,7 +127,7 @@ final class VoidCrewAssignmentImpactResolver
             $totalSeaService += $seaCount;
             $totalTraining += $trainCount;
 
-            $blockers = $this->guard->blockers($assignment, $companyId);
+            $blockers = $allBlockers[(int) $assignment->id] ?? [];
             $protectedBlockers = array_values(array_filter(
                 $blockers,
                 fn (array $b): bool => $b['code'] !== 'sea_service_exists',

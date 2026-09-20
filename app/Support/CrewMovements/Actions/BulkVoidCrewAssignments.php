@@ -8,6 +8,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\User;
+use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
 use Illuminate\Database\Eloquent\Collection;
@@ -79,10 +80,10 @@ final class BulkVoidCrewAssignments
                 $deleteSeaService,
                 $deleteTraining
             ): Collection {
-                $assignments = CrewAssignment::query()
+                $assignments = CrewAssignmentAccess::queryForCompany($companyId, $actor)
                     ->withTrashed()
-                    ->where('company_id', $companyId)
-                    ->whereIn('id', $uniqueIds)
+                    ->whereIn('crew_assignments.id', $uniqueIds)
+                    ->orderBy('crew_assignments.id')
                     ->lockForUpdate()
                     ->with(['currentPhase'])
                     ->get();
@@ -91,10 +92,8 @@ final class BulkVoidCrewAssignments
                     abort(404, 'One or more selected assignments could not be found in the active company.');
                 }
 
-                // Preflight safety checks for all assignments before mutating any data
-                foreach ($assignments as $assignment) {
-                    $this->guard->assertCanVoid($assignment, $companyId, ignoreLinkedSeaService: $deleteSeaService);
-                }
+                // Preflight safety checks for all assignments in a single batched check
+                $this->guard->assertCanVoidMany($assignments, $companyId, ignoreLinkedSeaService: $deleteSeaService);
 
                 $phases = CrewAssignmentPhase::query()
                     ->where('company_id', $companyId)
@@ -112,6 +111,7 @@ final class BulkVoidCrewAssignments
                     $seaServices = EmployeeSeaService::query()
                         ->where('company_id', $companyId)
                         ->whereIn('crew_assignment_phase_id', $phaseIds)
+                        ->orderBy('id')
                         ->lockForUpdate()
                         ->get();
 
@@ -125,11 +125,13 @@ final class BulkVoidCrewAssignments
                 }
 
                 $trainingDeletedCounts = [];
+                $certificatePathsToDelete = [];
                 if ($deleteTraining && $phaseIds !== []) {
                     $trainings = EmployeeTraining::query()
                         ->where('company_id', $companyId)
                         ->whereIn('source_crew_assignment_phase_id', $phaseIds)
                         ->with('versions')
+                        ->orderBy('id')
                         ->lockForUpdate()
                         ->get();
 
@@ -138,9 +140,21 @@ final class BulkVoidCrewAssignments
                         if ($aId !== null) {
                             $trainingDeletedCounts[$aId] = ($trainingDeletedCounts[$aId] ?? 0) + 1;
                         }
-                        $this->certificateStore->deleteForTraining($training);
+
+                        $paths = $this->certificateStore->resolveCertificatePaths($training);
+                        if ($paths !== []) {
+                            $certificatePathsToDelete = array_merge($certificatePathsToDelete, $paths);
+                        }
+
                         $training->delete();
                     }
+                }
+
+                if ($certificatePathsToDelete !== []) {
+                    $pathsToClean = array_values(array_unique($certificatePathsToDelete));
+                    DB::afterCommit(function () use ($pathsToClean, $companyId): void {
+                        $this->certificateStore->deletePaths($pathsToClean, $companyId);
+                    });
                 }
 
                 $isBulk = $assignments->count() > 1;

@@ -6,14 +6,18 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\PayrollPeriod;
 use App\Models\Rank;
 use App\Models\User;
+use App\Support\CrewMovements\Actions\BulkVoidCrewAssignments;
+use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
@@ -435,4 +439,176 @@ test('tenancy and authorization are strictly enforced: cross-company or unauthor
         ->assertForbidden();
 
     expect(CrewAssignment::query()->whereKey($validAssignment->id)->exists())->toBeTrue();
+});
+
+test('employee visibility restricts void preview and hides non-permitted assignments safely', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeBulkVoidFixtures([
+        'sea_services.delete',
+        'training.delete',
+    ]);
+    $service = app(CrewMovementService::class);
+
+    $deptA = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Allowed Department A',
+        'code' => 'DEPTA',
+        'status' => 'active',
+    ]);
+    $deptB = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Hidden Department B',
+        'code' => 'DEPTB',
+        'status' => 'active',
+    ]);
+
+    $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'rank_id' => $rank->id]);
+    $empB = Employee::factory()->forCompany($company)->create(['department_id' => $deptB->id, 'rank_id' => $rank->id]);
+
+    restrictUserToDepartments($user, $company, [$deptA->id]);
+
+    $assignmentA = $service->createDraft($company->id, $empA->id, ['rank_id' => $rank->id], $user->id);
+    $assignmentB = $service->createDraft($company->id, $empB->id, ['rank_id' => $rank->id], $user->id);
+
+    EmployeeSeaService::factory()->forEmployee($empB)->create([
+        'crew_assignment_phase_id' => $assignmentB->currentPhase->id,
+    ]);
+    EmployeeTraining::factory()->forEmployee($empB)->create([
+        'source_crew_assignment_phase_id' => $assignmentB->currentPhase->id,
+    ]);
+
+    // 1. Department A assignment -> allowed
+    postVoidPreviewViaHttp($user, [$assignmentA->id])
+        ->assertOk()
+        ->assertJsonPath('total_assignments', 1)
+        ->assertJsonPath('assignments.0.id', $assignmentA->id);
+
+    // 2. Department B assignment ID forged -> 404 (does not disclose employee existence or impact data)
+    postVoidPreviewViaHttp($user, [$assignmentB->id])
+        ->assertNotFound();
+
+    // 3. Mixed allowed + hidden IDs -> fail safely (404, reveals nothing about batch)
+    postVoidPreviewViaHttp($user, [$assignmentA->id, $assignmentB->id])
+        ->assertNotFound();
+});
+
+test('employee visibility restricts bulk void mutation and enforces all-or-nothing on mixed batches', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeBulkVoidFixtures();
+    $service = app(CrewMovementService::class);
+
+    $deptA = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Dept A',
+        'code' => 'DEPTA2',
+        'status' => 'active',
+    ]);
+    $deptB = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Dept B',
+        'code' => 'DEPTB2',
+        'status' => 'active',
+    ]);
+
+    $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'rank_id' => $rank->id]);
+    $empB = Employee::factory()->forCompany($company)->create(['department_id' => $deptB->id, 'rank_id' => $rank->id]);
+
+    restrictUserToDepartments($user, $company, [$deptA->id]);
+
+    $assignmentA = $service->createDraft($company->id, $empA->id, ['rank_id' => $rank->id], $user->id);
+    $assignmentB = $service->createDraft($company->id, $empB->id, ['rank_id' => $rank->id], $user->id);
+
+    // 1. Department B forged mutation fails with 404
+    postBulkVoidViaHttp($user, [$assignmentB->id], 'Forged attempt')
+        ->assertNotFound();
+    expect(CrewAssignment::query()->whereKey($assignmentB->id)->exists())->toBeTrue();
+
+    // 2. Mixed batch fails safely with 404 and neither assignment is altered
+    postBulkVoidViaHttp($user, [$assignmentA->id, $assignmentB->id], 'Mixed batch')
+        ->assertNotFound();
+    expect(CrewAssignment::query()->whereKey($assignmentA->id)->exists())->toBeTrue()
+        ->and(CrewAssignment::query()->whereKey($assignmentB->id)->exists())->toBeTrue();
+
+    // 3. Department A assignment alone may void successfully
+    postBulkVoidViaHttp($user, [$assignmentA->id], 'Legitimate void')
+        ->assertRedirect(route('organization.crew-assignments.index'))
+        ->assertSessionHas('success');
+    expect(CrewAssignment::withTrashed()->find($assignmentA->id)->trashed())->toBeTrue();
+});
+
+test('training certificate file is preserved if database transaction rolls back', function () {
+    Storage::fake(EmployeePrivateFile::DISK);
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures([
+        'training.delete',
+    ]);
+    $service = app(CrewMovementService::class);
+    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+
+    $filePath = "employees/{$company->id}/training-certificates/rollback-test.pdf";
+    Storage::disk(EmployeePrivateFile::DISK)->put($filePath, 'precious certificate bytes');
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'source_crew_assignment_phase_id' => $assignment->currentPhase->id,
+        'certificate_path' => $filePath,
+        'current_version' => 1,
+    ]);
+
+    // Force an exception after training soft delete inside the transaction
+    CrewAssignment::deleting(function ($model) use ($assignment) {
+        if ($model->id === $assignment->id) {
+            throw new RuntimeException('Simulated failure during assignment void');
+        }
+    });
+
+    try {
+        app(BulkVoidCrewAssignments::class)->handle(
+            $company->id,
+            [$assignment->id],
+            $user,
+            'Rollback test',
+            deleteTraining: true,
+        );
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toBe('Simulated failure during assignment void');
+    } finally {
+        CrewAssignment::flushEventListeners();
+    }
+
+    // 1. Certificate file still exists on disk
+    expect(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath))->toBeTrue();
+
+    // 2. Training record remains active
+    expect(EmployeeTraining::query()->whereKey($training->id)->exists())->toBeTrue();
+
+    // 3. Assignment remains active
+    expect(CrewAssignment::query()->whereKey($assignment->id)->exists())->toBeTrue();
+});
+
+test('batch blocker resolution executes in constant queries and eliminates N+1 overhead', function () {
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = makeBulkVoidFixtures();
+    $service = app(CrewMovementService::class);
+
+    $assignments = [];
+    for ($i = 0; $i < 5; $i++) {
+        $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
+        $assignments[] = $service->createDraft($company->id, $emp->id, ['rank_id' => $rank->id], $user->id);
+    }
+
+    $guard = app(CrewAssignmentVoidGuard::class);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    $results = $guard->batchBlockers($assignments, $company->id);
+
+    $queries = DB::getQueryLog();
+    DB::disableQueryLog();
+
+    // An N+1 approach would execute ~7-8 queries per assignment (= 35-40 queries for 5 assignments).
+    // The batched implementation executes in a small constant number of queries (<= 10 queries).
+    expect(count($queries))->toBeLessThanOrEqual(10)
+        ->and(count($results))->toBe(5);
+
+    foreach ($assignments as $a) {
+        expect($results)->toHaveKey($a->id);
+    }
 });

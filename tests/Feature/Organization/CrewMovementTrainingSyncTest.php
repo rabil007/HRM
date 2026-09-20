@@ -365,6 +365,7 @@ test('repeated p2b phases in same assignment create distinct employee trainings'
 
 test('voiding assignment preserves employee training record', function () {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, ['crew_operations.assignments.void']);
     enableCrewTrainingSync($company->id);
 
     $course = makeActiveCourse('Survival Craft');

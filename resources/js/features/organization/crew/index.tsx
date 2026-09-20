@@ -167,12 +167,11 @@ export function CurrentCrewContent({
     );
     const selection = useRecordSelection(visibleAssignmentIds);
 
+    const { isSelected, clear: clearSelection } = selection;
+
     const selectedAssignments = useMemo(
-        () =>
-            assignments.filter((assignment) =>
-                selection.isSelected(assignment.id),
-            ),
-        [assignments, selection],
+        () => assignments.filter((assignment) => isSelected(assignment.id)),
+        [assignments, isSelected],
     );
 
     const quickDetailIndex = assignments.findIndex(
@@ -241,16 +240,18 @@ export function CurrentCrewContent({
         filters,
     });
 
+    const filterSignature = useMemo(() => JSON.stringify(filters), [filters]);
+
     useEffect(() => {
-        selection.clear();
+        clearSelection();
     }, [
-        selection,
+        clearSelection,
+        currentCompanyId,
         currentView,
         pagination.current_page,
         pagination.per_page,
         searchInput,
-        filters,
-        currentCompanyId,
+        filterSignature,
     ]);
 
     return (

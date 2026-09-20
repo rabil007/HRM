@@ -32,75 +32,242 @@ final class CrewAssignmentVoidGuard
      */
     public function blockers(CrewAssignment $assignment, int $companyId, bool $ignoreLinkedSeaService = false): array
     {
-        if ((int) $assignment->company_id !== $companyId) {
-            return [[
-                'code' => 'cross_company',
-                'message' => 'Assignment does not belong to the active company.',
-            ]];
-        }
-
-        $blockers = [];
-
-        if ($assignment->voided_at !== null || $assignment->trashed()) {
-            $blockers[] = [
-                'code' => 'already_voided',
-                'message' => 'This assignment has already been voided.',
-            ];
-        }
-
-        if ($this->hasLinkedChildAssignments($assignment, $companyId)) {
-            $blockers[] = [
-                'code' => 'linked_assignment_exists',
-                'message' => self::BLOCKED_MESSAGE,
-            ];
-        }
-
-        if (! $ignoreLinkedSeaService && $this->hasSeaService($assignment, $companyId)) {
-            $blockers[] = [
-                'code' => 'sea_service_exists',
-                'message' => self::SEA_SERVICE_BLOCKED_MESSAGE,
-            ];
-        }
-
-        if ($this->hasAppliedPayroll($assignment, $companyId)) {
-            $blockers[] = [
-                'code' => 'payroll_applied',
-                'message' => self::BLOCKED_MESSAGE,
-            ];
-        }
-
-        if ($this->hasProtectedPayroll($assignment, $companyId)) {
-            $blockers[] = [
-                'code' => 'payroll_protected',
-                'message' => self::BLOCKED_MESSAGE,
-            ];
-        }
-
-        if ($this->hasProtectedDependency($assignment, $companyId)) {
-            $blockers[] = [
-                'code' => 'protected_dependency_exists',
-                'message' => self::BLOCKED_MESSAGE,
-            ];
-        }
-
-        if ($this->hasAccommodationHistory($assignment, $companyId)) {
-            $blockers[] = [
-                'code' => 'accommodation_history_exists',
-                'message' => self::ACCOMMODATION_BLOCKED_MESSAGE,
-            ];
-        }
-
-        return $this->uniqueByCode($blockers);
+        return $this->batchBlockers([$assignment], $companyId, $ignoreLinkedSeaService)[(int) $assignment->id] ?? [];
     }
 
     public function assertCanVoid(CrewAssignment $assignment, int $companyId, bool $ignoreLinkedSeaService = false): void
     {
-        $blockers = $this->blockers($assignment, $companyId, $ignoreLinkedSeaService);
+        $this->assertCanVoidMany([$assignment], $companyId, $ignoreLinkedSeaService);
+    }
 
-        if ($blockers === []) {
-            return;
+    /**
+     * Compute blockers for multiple assignments using grouped batch queries to eliminate N+1 overhead.
+     *
+     * @param  iterable<CrewAssignment>  $assignments
+     * @return array<int, list<array{code: string, message: string}>>
+     */
+    public function batchBlockers(iterable $assignments, int $companyId, bool $ignoreLinkedSeaService = false): array
+    {
+        $assignmentList = is_array($assignments) ? $assignments : iterator_to_array($assignments);
+
+        if ($assignmentList === []) {
+            return [];
         }
 
+        $assignmentIds = [];
+        foreach ($assignmentList as $assignment) {
+            $assignmentIds[] = (int) $assignment->id;
+        }
+        $assignmentIds = array_values(array_unique($assignmentIds));
+
+        // 1. Linked child assignments
+        $linkedChildAssignmentIds = CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('previous_assignment_id', $assignmentIds)
+            ->pluck('previous_assignment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip()
+            ->all();
+
+        // 2. Phases & Sea Service
+        $phases = CrewAssignmentPhase::query()
+            ->where('company_id', $companyId)
+            ->whereIn('crew_assignment_id', $assignmentIds)
+            ->get(['id', 'crew_assignment_id']);
+
+        $phaseToAssignment = [];
+        $phaseIds = [];
+        foreach ($phases as $phase) {
+            $pId = (int) $phase->id;
+            $phaseIds[] = $pId;
+            $phaseToAssignment[$pId] = (int) $phase->crew_assignment_id;
+        }
+
+        $assignmentsWithSeaService = [];
+        if (! $ignoreLinkedSeaService && $phaseIds !== []) {
+            $seaServicePhases = EmployeeSeaService::query()
+                ->where('company_id', $companyId)
+                ->whereIn('crew_assignment_phase_id', $phaseIds)
+                ->pluck('crew_assignment_phase_id')
+                ->all();
+
+            foreach ($seaServicePhases as $phaseId) {
+                $aId = $phaseToAssignment[(int) $phaseId] ?? null;
+                if ($aId !== null) {
+                    $assignmentsWithSeaService[$aId] = true;
+                }
+            }
+        }
+
+        // 3. Applied payroll preparation lines
+        $assignmentsWithAppliedPayroll = CrewTimesheetPreparationLine::query()
+            ->where('crew_timesheet_preparation_lines.company_id', $companyId)
+            ->whereIn('crew_timesheet_preparation_lines.crew_assignment_id', $assignmentIds)
+            ->whereHas('preparation', function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId)
+                    ->where('status', CrewTimesheetPreparationStatus::Applied);
+            })
+            ->pluck('crew_assignment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip()
+            ->all();
+
+        // 4. Protected payroll: submitted/approved preparation lines
+        $assignmentsWithProtectedPrep = CrewTimesheetPreparationLine::query()
+            ->where('crew_timesheet_preparation_lines.company_id', $companyId)
+            ->whereIn('crew_timesheet_preparation_lines.crew_assignment_id', $assignmentIds)
+            ->whereHas('preparation', function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId)
+                    ->whereIn('status', [
+                        CrewTimesheetPreparationStatus::Submitted,
+                        CrewTimesheetPreparationStatus::Approved,
+                    ]);
+            })
+            ->pluck('crew_assignment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip()
+            ->all();
+
+        // 5. Protected payroll: timesheet segments on approved/paid/processing periods
+        $assignmentsWithProtectedPeriodSegments = CrewTimesheetSegment::query()
+            ->where('crew_timesheet_segments.company_id', $companyId)
+            ->whereIn('crew_timesheet_segments.crew_assignment_id', $assignmentIds)
+            ->whereHas('timesheet.period', function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId)
+                    ->whereIn('status', [
+                        PayrollPeriodStatus::Approved,
+                        PayrollPeriodStatus::Paid,
+                        PayrollPeriodStatus::Processing,
+                    ]);
+            })
+            ->pluck('crew_assignment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip()
+            ->all();
+
+        // 6. Protected payroll: work allocations
+        $assignmentsWithWorkAllocations = PayrollWorkAllocation::query()
+            ->where('company_id', $companyId)
+            ->whereIn('crew_assignment_id', $assignmentIds)
+            ->whereIn('status', [
+                PayrollWorkAllocationStatus::Approved,
+                PayrollWorkAllocationStatus::Paid,
+                PayrollWorkAllocationStatus::Reserved,
+            ])
+            ->pluck('crew_assignment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip()
+            ->all();
+
+        // 7. Protected timesheet dependency (any segment exists)
+        $assignmentsWithSegments = CrewTimesheetSegment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('crew_assignment_id', $assignmentIds)
+            ->pluck('crew_assignment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip()
+            ->all();
+
+        // 8. Accommodation history
+        $assignmentsWithAccommodation = CrewAccommodationStay::query()
+            ->where('company_id', $companyId)
+            ->whereIn('crew_assignment_id', $assignmentIds)
+            ->pluck('crew_assignment_id')
+            ->map(fn ($id): int => (int) $id)
+            ->flip()
+            ->all();
+
+        $result = [];
+        foreach ($assignmentList as $assignment) {
+            $id = (int) $assignment->id;
+            $blockers = [];
+
+            if ((int) $assignment->company_id !== $companyId) {
+                $blockers[] = [
+                    'code' => 'cross_company',
+                    'message' => 'Assignment does not belong to the active company.',
+                ];
+            }
+
+            if ($assignment->voided_at !== null || $assignment->trashed()) {
+                $blockers[] = [
+                    'code' => 'already_voided',
+                    'message' => 'This assignment has already been voided.',
+                ];
+            }
+
+            if (isset($linkedChildAssignmentIds[$id])) {
+                $blockers[] = [
+                    'code' => 'linked_assignment_exists',
+                    'message' => self::BLOCKED_MESSAGE,
+                ];
+            }
+
+            if (! $ignoreLinkedSeaService && isset($assignmentsWithSeaService[$id])) {
+                $blockers[] = [
+                    'code' => 'sea_service_exists',
+                    'message' => self::SEA_SERVICE_BLOCKED_MESSAGE,
+                ];
+            }
+
+            if (isset($assignmentsWithAppliedPayroll[$id])) {
+                $blockers[] = [
+                    'code' => 'payroll_applied',
+                    'message' => self::BLOCKED_MESSAGE,
+                ];
+            }
+
+            if (
+                isset($assignmentsWithProtectedPrep[$id])
+                || isset($assignmentsWithProtectedPeriodSegments[$id])
+                || isset($assignmentsWithWorkAllocations[$id])
+            ) {
+                $blockers[] = [
+                    'code' => 'payroll_protected',
+                    'message' => self::BLOCKED_MESSAGE,
+                ];
+            }
+
+            if (isset($assignmentsWithSegments[$id])) {
+                $blockers[] = [
+                    'code' => 'protected_dependency_exists',
+                    'message' => self::BLOCKED_MESSAGE,
+                ];
+            }
+
+            if (isset($assignmentsWithAccommodation[$id])) {
+                $blockers[] = [
+                    'code' => 'accommodation_history_exists',
+                    'message' => self::ACCOMMODATION_BLOCKED_MESSAGE,
+                ];
+            }
+
+            $result[$id] = $this->uniqueByCode($blockers);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  iterable<CrewAssignment>  $assignments
+     */
+    public function assertCanVoidMany(iterable $assignments, int $companyId, bool $ignoreLinkedSeaService = false): void
+    {
+        $batchBlockers = $this->batchBlockers($assignments, $companyId, $ignoreLinkedSeaService);
+
+        foreach ($assignments as $assignment) {
+            $blockers = $batchBlockers[(int) $assignment->id] ?? [];
+            if ($blockers !== []) {
+                $this->throwBlockerValidationException($blockers);
+            }
+        }
+    }
+
+    /**
+     * @param  list<array{code: string, message: string}>  $blockers
+     */
+    private function throwBlockerValidationException(array $blockers): never
+    {
         $alreadyVoided = collect($blockers)->contains(
             fn (array $blocker): bool => $blocker['code'] === 'already_voided',
         );
@@ -122,107 +289,6 @@ final class CrewAssignmentVoidGuard
                         ? self::SEA_SERVICE_BLOCKED_MESSAGE
                         : self::BLOCKED_MESSAGE)),
         ]);
-    }
-
-    private function hasLinkedChildAssignments(CrewAssignment $assignment, int $companyId): bool
-    {
-        return CrewAssignment::query()
-            ->where('company_id', $companyId)
-            ->where('previous_assignment_id', $assignment->id)
-            ->exists();
-    }
-
-    private function hasSeaService(CrewAssignment $assignment, int $companyId): bool
-    {
-        $phaseIds = CrewAssignmentPhase::query()
-            ->where('company_id', $companyId)
-            ->where('crew_assignment_id', $assignment->id)
-            ->pluck('id');
-
-        if ($phaseIds->isEmpty()) {
-            return false;
-        }
-
-        return EmployeeSeaService::query()
-            ->where('company_id', $companyId)
-            ->whereIn('crew_assignment_phase_id', $phaseIds)
-            ->exists();
-    }
-
-    private function hasAppliedPayroll(CrewAssignment $assignment, int $companyId): bool
-    {
-        return CrewTimesheetPreparationLine::query()
-            ->where('company_id', $companyId)
-            ->where('crew_assignment_id', $assignment->id)
-            ->whereHas('preparation', function ($query) use ($companyId): void {
-                $query->where('company_id', $companyId)
-                    ->where('status', CrewTimesheetPreparationStatus::Applied);
-            })
-            ->exists();
-    }
-
-    private function hasProtectedPayroll(CrewAssignment $assignment, int $companyId): bool
-    {
-        $protectedPreparation = CrewTimesheetPreparationLine::query()
-            ->where('company_id', $companyId)
-            ->where('crew_assignment_id', $assignment->id)
-            ->whereHas('preparation', function ($query) use ($companyId): void {
-                $query->where('company_id', $companyId)
-                    ->whereIn('status', [
-                        CrewTimesheetPreparationStatus::Submitted,
-                        CrewTimesheetPreparationStatus::Approved,
-                    ]);
-            })
-            ->exists();
-
-        if ($protectedPreparation) {
-            return true;
-        }
-
-        $hasSegmentOnProtectedPeriod = CrewTimesheetSegment::query()
-            ->where('company_id', $companyId)
-            ->where('crew_assignment_id', $assignment->id)
-            ->whereHas('timesheet.period', function ($query) use ($companyId): void {
-                $query->where('company_id', $companyId)
-                    ->whereIn('status', [
-                        PayrollPeriodStatus::Approved,
-                        PayrollPeriodStatus::Paid,
-                        PayrollPeriodStatus::Processing,
-                    ]);
-            })
-            ->exists();
-
-        if ($hasSegmentOnProtectedPeriod) {
-            return true;
-        }
-
-        return PayrollWorkAllocation::query()
-            ->where('company_id', $companyId)
-            ->where('crew_assignment_id', $assignment->id)
-            ->whereIn('status', [
-                PayrollWorkAllocationStatus::Approved,
-                PayrollWorkAllocationStatus::Paid,
-                PayrollWorkAllocationStatus::Reserved,
-            ])
-            ->exists();
-    }
-
-    private function hasProtectedDependency(CrewAssignment $assignment, int $companyId): bool
-    {
-        // Conservative: any Crew Operations timesheet segment for this assignment
-        // is treated as a protected payroll dependency (immutable ops history).
-        return CrewTimesheetSegment::query()
-            ->where('company_id', $companyId)
-            ->where('crew_assignment_id', $assignment->id)
-            ->exists();
-    }
-
-    private function hasAccommodationHistory(CrewAssignment $assignment, int $companyId): bool
-    {
-        return CrewAccommodationStay::query()
-            ->where('company_id', $companyId)
-            ->where('crew_assignment_id', $assignment->id)
-            ->exists();
     }
 
     /**

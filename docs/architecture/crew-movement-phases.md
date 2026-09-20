@@ -509,7 +509,7 @@ Opening the confirmation dialog triggers an impact preflight (`POST /organizatio
 2. **Generated Training Cleanup (`delete_training`)**:
    - A Training record is eligible for cleanup **only** when created via Crew Operations and linked via `employee_trainings.source_crew_assignment_phase_id` within the active `company_id`.
    - Cleanup is optional (unchecked by default). If left unchecked, the training records and certificate files remain intact.
-   - If the user selects "Delete generated Training" and possesses `training.delete`, the linked training records are soft-deleted and all certificate versions/files are cleaned up via `StoresEmployeeTrainingCertificate::deleteForTraining()`.
+   - If the user selects "Delete generated Training" and possesses `training.delete`, the linked training records are soft-deleted and all certificate versions/files are cleaned up after database transaction commit via `StoresEmployeeTrainingCertificate::deletePaths()`.
    - Manual or imported trainings are strictly preserved and never touched.
 
 ### Preserved Operational Blockers
@@ -524,12 +524,13 @@ Cleanup flags cannot bypass non-negotiable operational and accounting protection
 ### All-or-Nothing Transactional Execution
 
 Bulk voiding (`POST /organization/crew/bulk-void`) is strictly all-or-nothing:
-1. Resolves all selected IDs scoped to `current_company_id`.
-2. Acquires row locks (`lockForUpdate()`).
+1. Resolves all selected IDs scoped to `current_company_id` and employee visibility (`EmployeeVisibilityScope`).
+2. Acquires row locks (`lockForUpdate()`) in consistent ascending ID order.
 3. Runs preflight safety assertions and permission verification on every assignment.
 4. If any single assignment in the batch is blocked, cross-company, or unauthorized, the entire transaction rolls back and 0 assignments are modified.
-5. Soft-deletes derived planning bars, selected linked sea service, selected linked training & certificate files, and the assignments themselves.
-6. Records an independent `crew_assignment_voided` activity audit record per assignment.
+5. Soft-deletes derived planning bars, selected linked sea service, selected linked training, and the assignments themselves.
+6. Deletes certificate files via a `DB::afterCommit` hook only after the database transaction successfully commits.
+7. Records an independent `crew_assignment_voided` activity audit record per assignment.
 
 HTTP routes:
 - `POST /organization/crew/void-preview` (`organization.crew-assignments.void-preview`, middleware: `can:crew_operations.assignments.void`, `privileged.2fa`)
