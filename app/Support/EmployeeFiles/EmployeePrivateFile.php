@@ -4,7 +4,9 @@ namespace App\Support\EmployeeFiles;
 
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 final class EmployeePrivateFile
 {
@@ -51,18 +53,51 @@ final class EmployeePrivateFile
         ?string $relativePath,
         int $companyId,
         EmployeePrivateFileKind $kind,
-    ): void {
+    ): bool {
         $path = self::validatedRelativePath($relativePath, $companyId, $kind);
 
         if ($path === null) {
-            return;
+            if ($relativePath !== null && $relativePath !== '') {
+                Log::warning('Employee private file delete rejected: invalid or cross-tenant path.', [
+                    'company_id' => $companyId,
+                    'kind' => $kind->value,
+                    'path' => $relativePath,
+                ]);
+            }
+
+            return false;
         }
 
+        $allDeleted = true;
+
         foreach ([self::DISK, self::LEGACY_DISK] as $disk) {
-            if (Storage::disk($disk)->exists($path)) {
-                Storage::disk($disk)->delete($path);
+            try {
+                if (Storage::disk($disk)->exists($path)) {
+                    $deleted = Storage::disk($disk)->delete($path);
+                    if (! $deleted || Storage::disk($disk)->exists($path)) {
+                        $allDeleted = false;
+                        Log::warning('Employee private file deletion failed.', [
+                            'company_id' => $companyId,
+                            'kind' => $kind->value,
+                            'disk' => $disk,
+                            'path' => $path,
+                        ]);
+                    }
+                }
+            } catch (Throwable $exception) {
+                $allDeleted = false;
+                Log::warning('Employee private file deletion threw exception.', [
+                    'company_id' => $companyId,
+                    'kind' => $kind->value,
+                    'disk' => $disk,
+                    'path' => $path,
+                    'error' => $exception->getMessage(),
+                ]);
+                report($exception);
             }
         }
+
+        return $allDeleted;
     }
 
     public static function copyLegacyPublicToPrivate(

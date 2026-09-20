@@ -802,7 +802,7 @@ Crew Operations and HR maintain strict separation of owned fields on `EmployeeTr
 ### Idempotency & Invariants
 - `source_crew_assignment_phase_id` has a unique constraint on `employee_trainings`. Repeating completion or re-running sync updates the existing record's crew-owned fields rather than creating duplicates.
 - The sync executes inside the same database transaction as the movement action in `CrewMovementService::completeTraining()`.
-- Voiding an assignment preserves the employee's formal training history (`foreignId('source_crew_assignment_phase_id')->nullable()->nullOnDelete()`).
+- By default, voiding an assignment preserves synchronized Employee Training history (`foreignId('source_crew_assignment_phase_id')->nullable()->nullOnDelete()`). When an authorized operator explicitly selects "Delete generated Training" during an erroneous assignment void, only Training records linked through `source_crew_assignment_phase_id` to that assignment are removed according to the documented cleanup rules.
 - Approved movement corrections on a P2B phase atomically update the linked `EmployeeTraining` (`institute_center` from provider, `issue_date` in company timezone if `actual_end_at` is corrected, and `course_id` if `details.course_id` is corrected), while keeping HR-owned fields intact.
 - Turning the company toggle OFF never deletes, unlinks, or hides previously synchronized records. Turning it ON never backfills historical phases.
 

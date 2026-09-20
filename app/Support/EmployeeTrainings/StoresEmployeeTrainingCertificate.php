@@ -9,6 +9,8 @@ use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class StoresEmployeeTrainingCertificate
 {
@@ -156,7 +158,16 @@ class StoresEmployeeTrainingCertificate
             return;
         }
 
-        EmployeePrivateFile::deleteStored($path, $companyId, EmployeePrivateFileKind::TrainingCertificate);
+        try {
+            EmployeePrivateFile::deleteStored($path, $companyId, EmployeePrivateFileKind::TrainingCertificate);
+        } catch (Throwable $exception) {
+            Log::warning('Failed to delete employee training certificate file.', [
+                'company_id' => $companyId,
+                'path' => $path,
+                'error' => $exception->getMessage(),
+            ]);
+            report($exception);
+        }
     }
 
     private function storeFile(

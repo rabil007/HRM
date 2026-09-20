@@ -19,6 +19,7 @@ use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
@@ -634,4 +635,46 @@ test('batch blocker resolution executes in constant queries and eliminates N+1 o
     foreach ($assignments as $a) {
         expect($results)->toHaveKey($a->id);
     }
+});
+
+test('post-commit certificate deletion failure logs warning while preserving committed database state', function () {
+    Log::spy();
+    Storage::fake(EmployeePrivateFile::DISK);
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures([
+        'training.delete',
+    ]);
+    $service = app(CrewMovementService::class);
+    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+
+    $filePath = "employees/{$company->id}/training-certificates/fail-cleanup.pdf";
+    Storage::disk(EmployeePrivateFile::DISK)->put($filePath, 'precious certificate bytes');
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'source_crew_assignment_phase_id' => $assignment->currentPhase->id,
+        'certificate_path' => $filePath,
+        'current_version' => 1,
+    ]);
+
+    // Mock storage disk to fail on delete
+    $mockDisk = Mockery::mock(Storage::disk(EmployeePrivateFile::DISK))->makePartial();
+    $mockDisk->shouldReceive('delete')->with($filePath)->andReturn(false);
+    Storage::set(EmployeePrivateFile::DISK, $mockDisk);
+
+    postBulkVoidViaHttp($user, [$assignment->id], 'Void with training cleanup', deleteTraining: true)
+        ->assertRedirect(route('organization.crew-assignments.index'))
+        ->assertSessionHas('success');
+
+    // 1. Database state committed: Training and Assignment are soft-deleted
+    expect(EmployeeTraining::withTrashed()->find($training->id)->trashed())->toBeTrue()
+        ->and(CrewAssignment::withTrashed()->find($assignment->id)->trashed())->toBeTrue();
+
+    // 2. Failure was observed and logged server-side
+    Log::shouldHaveReceived('warning')->with(
+        'Employee private file deletion failed.',
+        Mockery::on(function (array $context) use ($company, $filePath): bool {
+            return ($context['company_id'] ?? null) === $company->id
+                && ($context['path'] ?? null) === $filePath;
+        })
+    );
 });

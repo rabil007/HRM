@@ -13,8 +13,10 @@ use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
+use Throwable;
 
 final class BulkVoidCrewAssignments
 {
@@ -153,7 +155,15 @@ final class BulkVoidCrewAssignments
                 if ($certificatePathsToDelete !== []) {
                     $pathsToClean = array_values(array_unique($certificatePathsToDelete));
                     DB::afterCommit(function () use ($pathsToClean, $companyId): void {
-                        $this->certificateStore->deletePaths($pathsToClean, $companyId);
+                        try {
+                            $this->certificateStore->deletePaths($pathsToClean, $companyId);
+                        } catch (Throwable $exception) {
+                            Log::warning('Bulk void post-commit certificate cleanup failed.', [
+                                'company_id' => $companyId,
+                                'error' => $exception->getMessage(),
+                            ]);
+                            report($exception);
+                        }
                     });
                 }
 
