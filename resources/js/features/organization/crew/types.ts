@@ -566,7 +566,38 @@ export interface CrewAssignmentPagePermissions {
     view_training: boolean;
     view_planning: boolean;
     view_employee: boolean;
+    delete_sea_service?: boolean;
+    delete_training?: boolean;
 }
+
+export type VoidAssignmentImpactItem = {
+    id: number;
+    assignment_no: string;
+    employee_name: string;
+    current_phase?: {
+        code: string;
+        label: string;
+        status?: string | null;
+    } | null;
+    sea_service_count: number;
+    training_count: number;
+    blockers: Array<{ code: string; message: string }>;
+    has_protected_blockers: boolean;
+    has_sea_service: boolean;
+};
+
+export type VoidImpactPreview = {
+    total_assignments: number;
+    total_sea_service_records: number;
+    total_training_records: number;
+    can_delete_sea_service: boolean;
+    can_delete_training: boolean;
+    has_sea_service: boolean;
+    has_training: boolean;
+    has_protected_blockers: boolean;
+    blocked_assignment_nos: string[];
+    assignments: VoidAssignmentImpactItem[];
+};
 
 export interface CorrectablePhase {
     id: number;

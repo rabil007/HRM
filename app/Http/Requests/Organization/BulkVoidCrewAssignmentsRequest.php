@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests\Organization;
 
-use App\Models\CrewAssignment;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class VoidCrewAssignmentRequest extends FormRequest
+class BulkVoidCrewAssignmentsRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,19 +15,7 @@ class VoidCrewAssignmentRequest extends FormRequest
             return false;
         }
 
-        $assignment = $this->route('assignment');
-
-        if (! $assignment instanceof CrewAssignment) {
-            return false;
-        }
-
-        $companyId = (int) $this->attributes->get('current_company_id');
-
-        if ((int) $assignment->company_id !== $companyId) {
-            abort(404);
-        }
-
-        if (! $user->can('void', $assignment)) {
+        if (! $user->can('crew_operations.assignments.void')) {
             return false;
         }
 
@@ -60,9 +47,11 @@ class VoidCrewAssignmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'void_reason' => ['required', 'string', 'max:2000'],
+            'assignment_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'assignment_ids.*' => ['integer', 'distinct'],
             'delete_sea_service' => ['sometimes', 'boolean'],
             'delete_training' => ['sometimes', 'boolean'],
+            'void_reason' => ['required', 'string', 'max:2000'],
         ];
     }
 
@@ -72,6 +61,8 @@ class VoidCrewAssignmentRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'assignment_ids.required' => 'At least one crew assignment must be selected.',
+            'assignment_ids.min' => 'At least one crew assignment must be selected.',
             'void_reason.required' => 'A void reason is required.',
         ];
     }

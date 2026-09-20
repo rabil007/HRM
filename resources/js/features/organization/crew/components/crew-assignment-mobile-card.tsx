@@ -1,5 +1,6 @@
 import { MobileRecordCard } from '@/components/mobile-record-list';
 import type { MobileRecordOverflowAction } from '@/components/mobile-record-list';
+import { Checkbox } from '@/components/ui/checkbox';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { crewAssignmentMobileCardModel } from '@/features/organization/crew/lib/crew-assignment-mobile-card';
@@ -17,8 +18,13 @@ export function CrewAssignmentMobileCard({
     canUpdate,
     canPerformMovement,
     canCancel,
+    canVoid = false,
     formOptions,
     onView,
+    selected = false,
+    onToggleSelect,
+    showSelect = false,
+    onDelete,
 }: {
     assignment: CrewAssignmentListItem;
     viewHref: string;
@@ -26,8 +32,13 @@ export function CrewAssignmentMobileCard({
     canUpdate: boolean;
     canPerformMovement: boolean;
     canCancel: boolean;
+    canVoid?: boolean;
     formOptions?: CrewAssignmentFormOptions;
     onView?: () => void;
+    selected?: boolean;
+    onToggleSelect?: () => void;
+    showSelect?: boolean;
+    onDelete?: () => void;
 }) {
     const model = crewAssignmentMobileCardModel(assignment, {
         update: canUpdate,
@@ -61,8 +72,26 @@ export function CrewAssignmentMobileCard({
         });
     }
 
+    if (canVoid && onDelete) {
+        overflowActions.push({
+            key: 'delete',
+            label: 'Delete Assignment',
+            destructive: true,
+            onSelect: onDelete,
+        });
+    }
+
     return (
         <MobileRecordCard
+            leading={
+                showSelect ? (
+                    <Checkbox
+                        checked={selected}
+                        onCheckedChange={onToggleSelect}
+                        aria-label={`Select ${model.title}`}
+                    />
+                ) : undefined
+            }
             title={model.title}
             subtitle={model.subtitle}
             meta={[

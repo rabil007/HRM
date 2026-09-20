@@ -22,6 +22,7 @@ import type {
     CrewAssignmentFormOptions,
     CrewAssignmentListItem,
 } from '@/features/organization/crew/types';
+import { RecordSelectionCell } from '@/features/organization/shared/record-selection-checkbox';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -32,8 +33,13 @@ export function CrewAssignmentsTableRow({
     canUpdate,
     canPerformMovement,
     canCancel,
+    canVoid,
     formOptions,
     onView,
+    selected,
+    onToggleSelect,
+    showSelect,
+    onDelete,
 }: {
     assignment: CrewAssignmentListItem;
     viewHref: string;
@@ -41,8 +47,13 @@ export function CrewAssignmentsTableRow({
     canUpdate: boolean;
     canPerformMovement: boolean;
     canCancel: boolean;
+    canVoid?: boolean;
     formOptions?: CrewAssignmentFormOptions;
     onView?: () => void;
+    selected?: boolean;
+    onToggleSelect?: () => void;
+    showSelect?: boolean;
+    onDelete?: () => void;
 }) {
     const warningCount = assignment.warnings.length;
     const showMovementActions =
@@ -60,9 +71,19 @@ export function CrewAssignmentsTableRow({
 
     return (
         <TableRow
-            className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
+            className={cn(
+                dataTableBodyRowClass(Boolean(selected)),
+                'cursor-pointer',
+            )}
             onClick={() => (onView ? onView() : router.visit(viewHref))}
         >
+            {showSelect ? (
+                <RecordSelectionCell
+                    checked={Boolean(selected)}
+                    onToggle={onToggleSelect ?? (() => {})}
+                    label={`Select ${assignment.assignment_no}`}
+                />
+            ) : null}
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[160px]')}
             >
@@ -239,7 +260,8 @@ export function CrewAssignmentsTableRow({
                                 : undefined
                         }
                         showEdit={canUpdate && Boolean(editHref)}
-                        showDelete={false}
+                        showDelete={canVoid && Boolean(onDelete)}
+                        onDelete={onDelete}
                     />
                 </div>
             </TableCell>

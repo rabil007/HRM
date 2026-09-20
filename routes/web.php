@@ -56,6 +56,7 @@ use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController
 use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\GenerateCustomDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\RedirectLegacyBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkVoidCrewAssignmentsController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanyDocumentBulkStoreController;
 use App\Http\Controllers\Organization\CompanyDocumentController;
@@ -173,6 +174,7 @@ use App\Http\Controllers\Organization\LeaveReportController;
 use App\Http\Controllers\Organization\OrganizationBulkRecordController;
 use App\Http\Controllers\Organization\PositionAttachmentController;
 use App\Http\Controllers\Organization\PositionController;
+use App\Http\Controllers\Organization\PreviewVoidCrewAssignmentsController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SeaServicesExportController;
 use App\Http\Controllers\Organization\SeaServiceShowController;
@@ -588,6 +590,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:crew_operations.assignments.view')
         ->name('organization.crew-assignments.onboard-vessels.export');
     Route::post('organization/crew', [CrewAssignmentController::class, 'store'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-assignments.store');
+    Route::post('organization/crew/void-preview', PreviewVoidCrewAssignmentsController::class)
+        ->middleware(['can:crew_operations.assignments.void', 'privileged.2fa'])
+        ->name('organization.crew-assignments.void-preview');
+    Route::post('organization/crew/bulk-void', BulkVoidCrewAssignmentsController::class)
+        ->middleware(['can:crew_operations.assignments.void', 'privileged.2fa'])
+        ->name('organization.crew-assignments.bulk-void');
     Route::get('organization/crew/{assignment}', [CrewAssignmentController::class, 'show'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.show');
     Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.edit');
     Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.update');

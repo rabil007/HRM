@@ -598,6 +598,7 @@ export default function CrewAssignmentShow({
                 open={isVoidDialogOpen}
                 onOpenChange={setIsVoidDialogOpen}
                 assignment={assignment}
+                can={can}
             />
 
             <ApplyTourOfDutyDialog

@@ -25,10 +25,12 @@ final class CrewAssignmentVoidGuard
 
     public const ACCOMMODATION_BLOCKED_MESSAGE = 'This assignment cannot be voided because accommodation history exists. Use the appropriate correction workflow instead.';
 
+    public const SEA_SERVICE_BLOCKED_MESSAGE = 'This assignment has generated Sea Service records. To delete this erroneous assignment, also select "Delete generated Sea Service", or use the appropriate correction/reversal workflow.';
+
     /**
      * @return list<array{code: string, message: string}>
      */
-    public function blockers(CrewAssignment $assignment, int $companyId): array
+    public function blockers(CrewAssignment $assignment, int $companyId, bool $ignoreLinkedSeaService = false): array
     {
         if ((int) $assignment->company_id !== $companyId) {
             return [[
@@ -53,10 +55,10 @@ final class CrewAssignmentVoidGuard
             ];
         }
 
-        if ($this->hasSeaService($assignment, $companyId)) {
+        if (! $ignoreLinkedSeaService && $this->hasSeaService($assignment, $companyId)) {
             $blockers[] = [
                 'code' => 'sea_service_exists',
-                'message' => self::BLOCKED_MESSAGE,
+                'message' => self::SEA_SERVICE_BLOCKED_MESSAGE,
             ];
         }
 
@@ -91,9 +93,9 @@ final class CrewAssignmentVoidGuard
         return $this->uniqueByCode($blockers);
     }
 
-    public function assertCanVoid(CrewAssignment $assignment, int $companyId): void
+    public function assertCanVoid(CrewAssignment $assignment, int $companyId, bool $ignoreLinkedSeaService = false): void
     {
-        $blockers = $this->blockers($assignment, $companyId);
+        $blockers = $this->blockers($assignment, $companyId, $ignoreLinkedSeaService);
 
         if ($blockers === []) {
             return;
@@ -107,12 +109,18 @@ final class CrewAssignmentVoidGuard
             fn (array $blocker): bool => $blocker['code'] === 'accommodation_history_exists',
         );
 
+        $seaServiceBlocked = collect($blockers)->contains(
+            fn (array $blocker): bool => $blocker['code'] === 'sea_service_exists',
+        );
+
         throw ValidationException::withMessages([
             'void' => $alreadyVoided
                 ? 'This assignment has already been voided.'
                 : ($accommodationBlocked
                     ? self::ACCOMMODATION_BLOCKED_MESSAGE
-                    : self::BLOCKED_MESSAGE),
+                    : ($seaServiceBlocked
+                        ? self::SEA_SERVICE_BLOCKED_MESSAGE
+                        : self::BLOCKED_MESSAGE)),
         ]);
     }
 

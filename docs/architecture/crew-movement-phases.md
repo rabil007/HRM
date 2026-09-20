@@ -479,23 +479,62 @@ Cancellation time must be on or after the current phase `actual_start_at` when t
 **Void** is not Cancel.
 
 | | Cancel Assignment | Void Erroneous Assignment |
-|--|-------------------|---------------------------|
+|---|---|---|
 | Meaning | Legitimate assignment stopped | Assignment / movement entered by mistake |
 | Typical use | Client cancelled; mobilisation abandoned | Wrong employee, duplicate, erroneous progression |
 | Permission | `crew_operations.assignments.cancel` | `crew_operations.assignments.void` |
 | Phases | Not from active P4 | May be attempted from any P0–P6 |
 | Result | Status `Cancelled` (record remains) | Soft-delete + void metadata; removed from active ops |
+| Single & Bulk | Single assignment show action | Single assignment or bulk selection from index |
 | Fake movements | Does not invent disembarkation | Does not invent disembarkation |
 
-Void requires the dedicated permission **and** passes `CrewAssignmentVoidGuard`. Downstream blockers include:
+Crew Assignments are always **voided / soft-deleted**, never hard-deleted. They retain `voided_at`, `voided_by`, and `void_reason` alongside immutable audit trails.
 
+### Index Row Selection & Bulk Actions
+
+Authorized users (`crew_operations.assignments.void`) can select one or multiple assignments directly from the Crew Operations index (`/organization/crew`). Selection supports individual checkboxes, select-all visible on the current page with indeterminate state, and mobile card selection. Selection resets safely whenever filters, search, view, page, or active company change.
+
+When at least one assignment is selected, a compact bulk-action toolbar displays the selected count and a destructive **Delete selected** action that opens the server-authoritative confirmation dialog.
+
+### Server-Authoritative Impact & Optional Cleanup
+
+Opening the confirmation dialog triggers an impact preflight (`POST /organization/crew/void-preview`) that calculates linked-record counts and validates blockers without N+1 queries.
+
+1. **Generated Sea Service Cleanup (`delete_sea_service`)**:
+   - A Sea Service record is eligible for cleanup **only** when explicitly linked to an assignment phase via `employee_sea_services.crew_assignment_phase_id` within the active `company_id`.
+   - By default, generated Sea Service acts as a void blocker (`sea_service_exists`).
+   - If the user explicitly selects "Delete generated Sea Service" (unchecked by default) and possesses `sea_services.delete`, the linked generated records are soft-deleted alongside the assignment voiding, removing the blocker.
+   - Manual, imported, or unrelated Sea Service for the employee is strictly preserved and never touched.
+
+2. **Generated Training Cleanup (`delete_training`)**:
+   - A Training record is eligible for cleanup **only** when created via Crew Operations and linked via `employee_trainings.source_crew_assignment_phase_id` within the active `company_id`.
+   - Cleanup is optional (unchecked by default). If left unchecked, the training records and certificate files remain intact.
+   - If the user selects "Delete generated Training" and possesses `training.delete`, the linked training records are soft-deleted and all certificate versions/files are cleaned up via `StoresEmployeeTrainingCertificate::deleteForTraining()`.
+   - Manual or imported trainings are strictly preserved and never touched.
+
+### Preserved Operational Blockers
+
+Cleanup flags cannot bypass non-negotiable operational and accounting protections enforced by `CrewAssignmentVoidGuard`:
 - `payroll_applied` / `payroll_protected` — Applied, Approved/Submitted Crew Timesheet prep, paid/approved work allocations, or timesheet segments
-- `sea_service_exists` — linked `EmployeeSeaService` (never cascade-deleted)
+- `sea_service_exists` — linked generated Sea Service when the user does not select Sea Service cleanup
 - `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`
-- `accommodation_history_exists` — any `CrewAccommodationStay` row for the assignment (conservative block until a dedicated accommodation correction/reversal workflow exists)
+- `accommodation_history_exists` — any `CrewAccommodationStay` row for the assignment
 - `already_voided` — already voided / soft-deleted
 
-HTTP: `POST /organization/crew/{assignment}/void` (`organization.crew-assignments.void`) via `VoidCrewAssignment` Support action (transaction + `lockForUpdate()`). Linked assignment-derived planning bars are soft-deleted; phase history is retained under the soft-deleted assignment.
+### All-or-Nothing Transactional Execution
+
+Bulk voiding (`POST /organization/crew/bulk-void`) is strictly all-or-nothing:
+1. Resolves all selected IDs scoped to `current_company_id`.
+2. Acquires row locks (`lockForUpdate()`).
+3. Runs preflight safety assertions and permission verification on every assignment.
+4. If any single assignment in the batch is blocked, cross-company, or unauthorized, the entire transaction rolls back and 0 assignments are modified.
+5. Soft-deletes derived planning bars, selected linked sea service, selected linked training & certificate files, and the assignments themselves.
+6. Records an independent `crew_assignment_voided` activity audit record per assignment.
+
+HTTP routes:
+- `POST /organization/crew/void-preview` (`organization.crew-assignments.void-preview`, middleware: `can:crew_operations.assignments.void`, `privileged.2fa`)
+- `POST /organization/crew/bulk-void` (`organization.crew-assignments.bulk-void`, middleware: `can:crew_operations.assignments.void`, `privileged.2fa`)
+- `POST /organization/crew/{assignment}/void` (`organization.crew-assignments.void`, middleware: `can:crew_operations.assignments.void`, `privileged.2fa`)
 
 See also [crew-movement-corrections.md](./crew-movement-corrections.md).
 

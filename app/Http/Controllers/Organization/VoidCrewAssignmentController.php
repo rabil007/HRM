@@ -27,6 +27,8 @@ class VoidCrewAssignmentController extends Controller
             (int) $assignment->id,
             $user,
             (string) $request->validated('void_reason'),
+            $request->boolean('delete_sea_service'),
+            $request->boolean('delete_training'),
         );
 
         return redirect()

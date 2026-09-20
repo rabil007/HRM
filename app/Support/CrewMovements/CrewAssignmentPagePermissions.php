@@ -37,7 +37,9 @@ class CrewAssignmentPagePermissions
      *     view_documents: bool,
      *     view_training: bool,
      *     view_planning: bool,
-     *     view_employee: bool
+     *     view_employee: bool,
+     *     delete_sea_service: bool,
+     *     delete_training: bool
      * }
      */
     public static function for(?User $user): array
@@ -62,6 +64,8 @@ class CrewAssignmentPagePermissions
             'view_training' => $user?->can('training.view') ?? false,
             'view_planning' => $user?->can('crew_operations.planning.view') ?? false,
             'view_employee' => $user?->can('employees.view') ?? false,
+            'delete_sea_service' => $user?->can('sea_services.delete') ?? false,
+            'delete_training' => $user?->can('training.delete') ?? false,
         ];
     }
 }

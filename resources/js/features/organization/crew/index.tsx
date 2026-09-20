@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
-import { Filter, Loader2, Plus, Ship } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Filter, Loader2, Plus, Ship, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -13,8 +13,11 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
+import { SelectionToolbar } from '@/components/selection/selection-toolbar';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
+import type { VoidableAssignment } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
 import { CrewAssignmentMobileCard } from '@/features/organization/crew/components/crew-assignment-mobile-card';
 import { CrewAssignmentQuickDetailSheet } from '@/features/organization/crew/components/crew-assignment-quick-detail-sheet';
 import { CrewAssignmentsTableRow } from '@/features/organization/crew/components/crew-assignments-table-row';
@@ -41,6 +44,8 @@ import type {
     CurrentCrewVesselRow,
 } from '@/features/organization/crew/types';
 import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
+import { RecordSelectionHead } from '@/features/organization/shared/record-selection-checkbox';
+import { useRecordSelection } from '@/hooks/use-record-selection';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
@@ -151,6 +156,25 @@ export function CurrentCrewContent({
     const [quickDetailAssignmentId, setQuickDetailAssignmentId] = useState<
         number | null
     >(null);
+    const [voidTarget, setVoidTarget] = useState<VoidableAssignment | null>(
+        null,
+    );
+    const [isBulkVoidOpen, setIsBulkVoidOpen] = useState(false);
+
+    const visibleAssignmentIds = useMemo(
+        () => assignments.map((assignment) => assignment.id),
+        [assignments],
+    );
+    const selection = useRecordSelection(visibleAssignmentIds);
+
+    const selectedAssignments = useMemo(
+        () =>
+            assignments.filter((assignment) =>
+                selection.isSelected(assignment.id),
+            ),
+        [assignments, selection],
+    );
+
     const quickDetailIndex = assignments.findIndex(
         (assignment) => assignment.id === quickDetailAssignmentId,
     );
@@ -216,6 +240,18 @@ export function CurrentCrewContent({
         search: searchInput,
         filters,
     });
+
+    useEffect(() => {
+        selection.clear();
+    }, [
+        selection,
+        currentView,
+        pagination.current_page,
+        pagination.per_page,
+        searchInput,
+        filters,
+        currentCompanyId,
+    ]);
 
     return (
         <Main>
@@ -315,6 +351,27 @@ export function CurrentCrewContent({
                     </div>
                 }
             />
+
+            {!isVesselView && !isOnHomeView && can.void && (
+                <SelectionToolbar
+                    count={selection.selectedCount}
+                    itemLabel="assignments"
+                    onClear={selection.clear}
+                    className="mt-4"
+                    actions={
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="h-8 gap-1.5"
+                            onClick={() => setIsBulkVoidOpen(true)}
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete selected
+                        </Button>
+                    }
+                />
+            )}
 
             {isVesselView ? (
                 <OnboardByVesselBoard
@@ -487,12 +544,21 @@ export function CurrentCrewContent({
                                     }
                                     canPerformMovement={can.perform_movement}
                                     canCancel={can.cancel}
+                                    canVoid={can.void}
                                     formOptions={formOptions}
                                     onView={() =>
                                         setQuickDetailAssignmentId(
                                             assignment.id,
                                         )
                                     }
+                                    selected={selection.isSelected(
+                                        assignment.id,
+                                    )}
+                                    onToggleSelect={() =>
+                                        selection.toggle(assignment.id)
+                                    }
+                                    showSelect={can.void}
+                                    onDelete={() => setVoidTarget(assignment)}
                                 />
                             ))}
                         </MobileRecordList>
@@ -505,6 +571,17 @@ export function CurrentCrewContent({
                         >
                             <TableHeader>
                                 <DataTableHeaderRow>
+                                    {can.void ? (
+                                        <RecordSelectionHead
+                                            checked={
+                                                selection.allVisibleSelected
+                                            }
+                                            indeterminate={
+                                                selection.isPartiallySelected
+                                            }
+                                            onToggle={selection.toggleAll}
+                                        />
+                                    ) : null}
                                     <DataTableHead className="w-[150px]">
                                         Assignment
                                     </DataTableHead>
@@ -553,11 +630,22 @@ export function CurrentCrewContent({
                                             can.perform_movement
                                         }
                                         canCancel={can.cancel}
+                                        canVoid={can.void}
                                         formOptions={formOptions}
                                         onView={() =>
                                             setQuickDetailAssignmentId(
                                                 assignment.id,
                                             )
+                                        }
+                                        selected={selection.isSelected(
+                                            assignment.id,
+                                        )}
+                                        onToggleSelect={() =>
+                                            selection.toggle(assignment.id)
+                                        }
+                                        showSelect={can.void}
+                                        onDelete={() =>
+                                            setVoidTarget(assignment)
                                         }
                                     />
                                 ))}
@@ -617,6 +705,24 @@ export function CurrentCrewContent({
                               )
                         : undefined
                 }
+            />
+
+            <VoidErroneousAssignmentDialog
+                open={voidTarget !== null || isBulkVoidOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setVoidTarget(null);
+                        setIsBulkVoidOpen(false);
+                    }
+                }}
+                assignment={voidTarget}
+                assignments={isBulkVoidOpen ? selectedAssignments : undefined}
+                can={can}
+                onSuccess={() => {
+                    selection.clear();
+                    setVoidTarget(null);
+                    setIsBulkVoidOpen(false);
+                }}
             />
         </Main>
     );
