@@ -32,6 +32,7 @@ use App\Support\CrewMovements\CurrentCrewHomeQuery;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
+use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -105,8 +106,8 @@ class CrewAssignmentController extends Controller
             $pagination = $this->paginationMeta($paginator);
         }
 
-        $summary = CrewMovementAttentionQuery::summaryCounts($companyId);
-        $filterOptions = CurrentCrewQuery::filterOptions($companyId);
+        $summary = CrewMovementAttentionQuery::summaryCounts($companyId, $request->user());
+        $filterOptions = CurrentCrewQuery::filterOptions($companyId, $request->user());
 
         return Inertia::render('organization/crew/index', [
             'view' => $view,
@@ -146,20 +147,28 @@ class CrewAssignmentController extends Controller
                 ->whereKey((int) $planningAssignmentId)
                 ->firstOrFail();
 
+            CrewPlanningAssignmentAccess::assertInCompany(
+                $planning,
+                $companyId,
+                $request->user(),
+            );
+
             $linked = $planningHandoff->linkedAssignment($planning);
 
             if ($linked !== null) {
-                $message = $planningHandoff->redirectMessageForLinked($linked);
+                $visibleLinked = CrewAssignmentAccess::findForCompany(
+                    $companyId,
+                    (int) $linked->id,
+                    $request->user(),
+                );
 
-                if (Gate::allows('view', $linked)) {
+                if ($visibleLinked !== null) {
                     return redirect()
-                        ->route('organization.crew-assignments.show', $linked)
-                        ->with('success', $message);
+                        ->route('organization.crew-assignments.show', $visibleLinked)
+                        ->with('success', $planningHandoff->redirectMessageForLinked($visibleLinked));
                 }
 
-                return redirect()
-                    ->route('organization.crew-planning.index')
-                    ->with('error', $message);
+                abort(404);
             }
 
             try {

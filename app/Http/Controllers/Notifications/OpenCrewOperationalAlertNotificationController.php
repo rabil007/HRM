@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CrewOperationalAlertRecipient;
 use App\Support\Companies\ActivateCompanySession;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -22,6 +23,11 @@ class OpenCrewOperationalAlertNotificationController extends Controller
 
         $alert = $recipient->alert;
         abort_unless($alert !== null, 404);
+
+        $employeeId = $alert->context['employee_id'] ?? null;
+        if ($employeeId !== null && is_numeric($employeeId)) {
+            abort_unless(EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, (int) $recipient->company_id), 404);
+        }
 
         $activateCompany->handle($user, (int) $recipient->company_id, $request);
 

@@ -11,6 +11,7 @@ use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
+use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use App\Support\CrewPlanning\CrewPlanningGanttQuery;
 use App\Support\CrewPlanning\CrewPlanningPagePermissions;
 use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
@@ -282,6 +283,12 @@ class CrewPlanningController extends Controller
             if ($plan === null) {
                 $planningAssignmentId = null;
             } else {
+                CrewPlanningAssignmentAccess::assertInCompany(
+                    $plan,
+                    $companyId,
+                    $request->user(),
+                );
+
                 $vesselId ??= $plan->vessel_id !== null ? (int) $plan->vessel_id : null;
                 $rankId ??= $plan->rank_id !== null ? (int) $plan->rank_id : null;
             }

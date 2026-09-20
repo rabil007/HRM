@@ -9,6 +9,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationalAlertEmailDelivery;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Collection;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -49,6 +50,13 @@ final class CrewOperationalAlertDigestPresenter
                 $alert = $delivery->alert;
                 if ($alert === null) {
                     continue;
+                }
+
+                $employeeId = $alert->context['employee_id'] ?? null;
+                if ($employeeId !== null && is_numeric($employeeId)) {
+                    if (! EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, (int) $company->id)) {
+                        continue;
+                    }
                 }
 
                 $severities[] = $alert->severity;

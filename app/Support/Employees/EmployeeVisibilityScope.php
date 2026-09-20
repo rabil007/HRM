@@ -112,6 +112,31 @@ final class EmployeeVisibilityScope
     }
 
     /**
+     * Determine whether a user may access an Employee by ID.
+     */
+    public static function canAccessId(?User $user, int $employeeId, int $companyId, bool $allowSelf = false): bool
+    {
+        if ($user === null || $companyId <= 0 || $employeeId <= 0) {
+            return false;
+        }
+
+        if (self::hasUnrestrictedAccess($user, $companyId)) {
+            return true;
+        }
+
+        $employee = Employee::withTrashed()
+            ->whereKey($employeeId)
+            ->where('company_id', $companyId)
+            ->first(['id', 'company_id', 'department_id', 'user_id']);
+
+        if ($employee === null) {
+            return false;
+        }
+
+        return self::canAccess($user, $employee, $companyId, $allowSelf);
+    }
+
+    /**
      * Ensure visibility checks use persisted employee scope columns even when
      * the model was eager-loaded with a partial column selection.
      */

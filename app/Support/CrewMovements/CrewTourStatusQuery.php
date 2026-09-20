@@ -7,7 +7,9 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTourStatus;
 use App\Models\CrewAssignment;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -93,7 +95,7 @@ final class CrewTourStatusQuery
      *     missing_signoff: int
      * }
      */
-    public function bucketCounts(int $companyId): array
+    public function bucketCounts(int $companyId, ?User $user = null): array
     {
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $today = CarbonImmutable::now($timezone)->startOfDay();
@@ -107,6 +109,10 @@ final class CrewTourStatusQuery
             });
 
         ActiveEmployeeConstraint::whereHas($assignments, $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($assignments, $user, $companyId, 'employee');
+        }
 
         $assignments = $assignments->get(['id', 'company_id', 'tour_of_duty_days', 'planned_signoff_at']);
 

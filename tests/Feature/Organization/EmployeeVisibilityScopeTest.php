@@ -149,12 +149,15 @@ test('partial role update does not reset selected scope to all', function () {
 
     $this->actingAs($user)
         ->put(route('organization.roles.update', $role), [
-            'name' => $role->name,
+            'name' => 'Renamed Role Only',
             'permissions' => $role->permissions->pluck('name')->all(),
         ])
-        ->assertRedirect();
+        ->assertRedirect(route('organization.roles'))
+        ->assertSessionHasNoErrors();
 
-    expect($role->fresh()->employee_visibility_scope)->toBe(Role::SCOPE_SELECTED_DEPARTMENTS);
+    expect($role->fresh()->name)->toBe('Renamed Role Only')
+        ->and($role->fresh()->employee_visibility_scope)->toBe(Role::SCOPE_SELECTED_DEPARTMENTS)
+        ->and($role->fresh()->employeeVisibilityDepartments->pluck('id')->all())->toBe([$marineDept->id]);
 });
 
 test('partial role update preserves department selections', function () {
@@ -166,12 +169,35 @@ test('partial role update preserves department selections', function () {
     $this->actingAs($user)
         ->put(route('organization.roles.update', $role), [
             'name' => 'Updated Role Name',
-            'employee_visibility_scope' => Role::SCOPE_SELECTED_DEPARTMENTS,
             'permissions' => $role->permissions->pluck('name')->all(),
         ])
-        ->assertRedirect();
+        ->assertRedirect(route('organization.roles'))
+        ->assertSessionHasNoErrors();
 
-    expect($role->fresh()->employeeVisibilityDepartments->pluck('id')->all())->toBe([$marineDept->id]);
+    expect($role->fresh()->name)->toBe('Updated Role Name')
+        ->and($role->fresh()->employee_visibility_scope)->toBe(Role::SCOPE_SELECTED_DEPARTMENTS)
+        ->and($role->fresh()->employeeVisibilityDepartments->pluck('id')->all())->toBe([$marineDept->id]);
+});
+
+test('full visibility update persists selected departments', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept] = makeEmployeeVisibilityFixtures();
+    grantCompanyPermissions($user, $company, ['roles.view', 'roles.update']);
+
+    $role = restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->put(route('organization.roles.update', $role), [
+            'name' => $role->name,
+            'employee_visibility_scope' => Role::SCOPE_SELECTED_DEPARTMENTS,
+            'department_ids' => [$marineDept->id, $officeDept->id],
+            'permissions' => $role->permissions->pluck('name')->all(),
+        ])
+        ->assertRedirect(route('organization.roles'))
+        ->assertSessionHasNoErrors();
+
+    expect($role->fresh()->employee_visibility_scope)->toBe(Role::SCOPE_SELECTED_DEPARTMENTS)
+        ->and($role->fresh()->employeeVisibilityDepartments->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$marineDept->id, $officeDept->id])->sort()->values()->all());
 });
 
 test('explicit change to all detaches selected departments', function () {
@@ -187,10 +213,36 @@ test('explicit change to all detaches selected departments', function () {
             'department_ids' => [],
             'permissions' => $role->permissions->pluck('name')->all(),
         ])
-        ->assertRedirect();
+        ->assertRedirect(route('organization.roles'))
+        ->assertSessionHasNoErrors();
 
     expect($role->fresh()->employee_visibility_scope)->toBe(Role::SCOPE_ALL)
         ->and($role->fresh()->employeeVisibilityDepartments)->toHaveCount(0);
+});
+
+test('owner role update rejects selected department visibility', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept] = makeEmployeeVisibilityFixtures();
+    grantCompanyPermissions($user, $company, ['roles.view', 'roles.update']);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $ownerRole = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Owner',
+        'guard_name' => 'web',
+        'employee_visibility_scope' => Role::SCOPE_ALL,
+    ]);
+    $ownerRole->syncPermissions(['roles.view', 'roles.update']);
+
+    $this->actingAs($user)
+        ->put(route('organization.roles.update', $ownerRole), [
+            'name' => 'Owner',
+            'employee_visibility_scope' => Role::SCOPE_SELECTED_DEPARTMENTS,
+            'department_ids' => [$marineDept->id],
+        ])
+        ->assertSessionHasErrors('employee_visibility_scope');
+
+    expect($ownerRole->fresh()->employee_visibility_scope)->toBe(Role::SCOPE_ALL)
+        ->and($ownerRole->fresh()->employeeVisibilityDepartments)->toHaveCount(0);
 });
 
 test('restricted actor cannot create employee in hidden department', function () {

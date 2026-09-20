@@ -43,6 +43,11 @@ function dropCrewAlertSentLedgerPersistTrigger(): void
 
 function enableCrewNotificationsForUser(int $companyId, int $userId, array $overrides = []): void
 {
+    $user = \App\Models\User::query()->findOrFail($userId);
+    $company = \App\Models\Company::query()->findOrFail($companyId);
+
+    grantCompanyPermissions($user, $company, []);
+
     CrewOperationsSettings::saveSettings(
         $companyId,
         [],

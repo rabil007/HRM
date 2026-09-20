@@ -10,6 +10,7 @@ use App\Models\AnnouncementRecipient;
 use App\Models\CrewOperationalAlertRecipient;
 use App\Models\User;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Collection;
 
 /**
@@ -125,7 +126,19 @@ final class BuildUnifiedNotificationFeed
             ->latest('id')
             ->limit(20)
             ->get()
-            ->filter(fn (CrewOperationalAlertRecipient $recipient): bool => $recipient->alert !== null)
+            ->filter(function (CrewOperationalAlertRecipient $recipient) use ($user, $companyId): bool {
+                $alert = $recipient->alert;
+                if ($alert === null) {
+                    return false;
+                }
+
+                $employeeId = $alert->context['employee_id'] ?? null;
+                if ($employeeId !== null && is_numeric($employeeId)) {
+                    return EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, $companyId);
+                }
+
+                return true;
+            })
             ->map(function (CrewOperationalAlertRecipient $recipient) use ($user): array {
                 $alert = $recipient->alert;
 
@@ -164,11 +177,35 @@ final class BuildUnifiedNotificationFeed
 
     private function unreadCrewCount(User $user, int $companyId): int
     {
+        if (EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return CrewOperationalAlertRecipient::query()
+                ->where('company_id', $companyId)
+                ->where('user_id', $user->id)
+                ->whereNull('read_at')
+                ->whereHas('alert', fn ($q) => $q->where('status', CrewOperationalAlertStatus::Active->value))
+                ->count();
+        }
+
         return CrewOperationalAlertRecipient::query()
             ->where('company_id', $companyId)
             ->where('user_id', $user->id)
             ->whereNull('read_at')
             ->whereHas('alert', fn ($q) => $q->where('status', CrewOperationalAlertStatus::Active->value))
+            ->with('alert')
+            ->get()
+            ->filter(function (CrewOperationalAlertRecipient $recipient) use ($user, $companyId): bool {
+                $alert = $recipient->alert;
+                if ($alert === null) {
+                    return false;
+                }
+
+                $employeeId = $alert->context['employee_id'] ?? null;
+                if ($employeeId !== null && is_numeric($employeeId)) {
+                    return EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, $companyId);
+                }
+
+                return true;
+            })
             ->count();
     }
 }

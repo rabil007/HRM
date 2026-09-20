@@ -6,7 +6,9 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -253,13 +255,17 @@ class CrewMovementAttentionQuery
      *     max_home_days: int
      * }
      */
-    public static function summaryCounts(int $companyId): array
+    public static function summaryCounts(int $companyId, ?User $user = null): array
     {
         $query = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active]);
 
         ActiveEmployeeConstraint::whereHas($query, $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        }
 
         $assignments = self::candidates($companyId, $query);
 
@@ -301,7 +307,7 @@ class CrewMovementAttentionQuery
             ),
         )->count();
 
-        $homeSummary = CurrentCrewHomeQuery::summaryCounts($companyId);
+        $homeSummary = CurrentCrewHomeQuery::summaryCounts($companyId, $user);
 
         return [
             'total' => $assignments->count(),
