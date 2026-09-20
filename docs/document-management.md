@@ -40,6 +40,26 @@ Opening a document from Library uses `from=library` so **Back to Library** resto
 
 Old filtered Overview bookmarks such as `/organization/documents?search=`, `?expiry=`, `?requirement_status=`, `?department_id=`, `?document_type_id=`, and `?page=` redirect to the equivalent Library URL with those supported keys preserved. Unknown parameters are not redirected and are not copied. Plain `/organization/documents` stays Overview.
 
+### Library Add Document Flow
+
+Authorized users with `documents.upload` permission see a primary **+ Add Document** action in Library next to Search and Saved Views.
+
+1. **Target Employee Selection**:
+   - The user opens `UploadDocumentDialog` in employee selection mode (`allowEmployeeSelection`).
+   - Active employees are searched via debounced endpoint `/organization/documents/employees/search?q={query}` (`DocumentUploadEmployeeSearchController`).
+   - Employee visibility strictly obeys tenant boundary (`current_company_id`) and `EmployeeVisibilityScope`. Inactive employees and employees outside the user's allowed departments are never returned.
+   - Client-provided `company_id` is prohibited and rejected with `422`.
+
+2. **File Processing & Persistence**:
+   - The flow reuses the existing employee document bulk upload engine (`UploadDocumentDialog` + `EmployeeDocumentController::bulkStore`).
+   - Browser compresses images; large PDFs trigger server-side optimization preflight.
+   - The user fills standard metadata (document type, title, issue/expiry dates, notes).
+   - Upload submits via `router.post` with partial reload keys (`['employees', 'searchDocuments', 'complianceDocuments', 'requirementDocuments', 'summary', 'requirement_summary']`), refreshing the active Library view without full page reload.
+
+3. **Parity & Isolation**:
+   - Fixed-employee document uploads on Employee Profile (`/organization/employees/{id}#documents`) and Library Missing Required rows (`uploadRequirement !== null`) remain unaffected.
+   - Any attempt to post files to an unpermitted or cross-company employee ID fails with `403` or `404` via `DocumentAccess::assertEmployeeInCompany`.
+
 Generate & Track and Activity are served by `BulkDocumentsController` (`/organization/documents/generate`, `/organization/documents/activity`). Legacy `/organization/documents/bulk` **redirects**: default → Generate & Track, `?view=history` → Activity, `?view=signatures` → My Tasks Signing when the user has current Requests access, otherwise Generate & Track. **My Tasks** is served by `DocumentRequestsIndexController` at `/organization/documents/requests` (defaulting to items assigned to the current user). Templates are company-owned PDF overlay templates with merge fields and Fabric.js visual placement. Salary Certificate remains a current built-in generation flow and still offers **Emailed / Not emailed** copy-email filtering plus **Email document copy**. Company Template Generate & Track does **not** show that copy-email status filter: generation does not send bulk document copies, and signing/review action emails are tracked on the process/Journey, not as emailed vs not emailed. Current signing is Company Template → `DocumentInstance` → `DocumentRecipientRequest` → `/document-action/*`.
 
 Current architecture:

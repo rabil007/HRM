@@ -1,10 +1,11 @@
 import { Head, router } from '@inertiajs/react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { SavedViewsControl } from '@/components/saved-views-control';
 import { SearchBar } from '@/components/search-bar';
+import { Button } from '@/components/ui/button';
 import { DocumentRequirementSummaryCards } from '@/features/organization/documents/document-requirement-summary-cards';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
@@ -129,6 +130,7 @@ export default function DocumentsIndex({
     const [folderShareModalOpen, setFolderShareModalOpen] = useState(false);
     const [uploadRequirement, setUploadRequirement] =
         useState<RequirementComplianceItem | null>(null);
+    const [addDocumentOpen, setAddDocumentOpen] = useState(false);
 
     const folderIds = useMemo(
         () => employees.map((employee) => employee.employee_id),
@@ -267,6 +269,15 @@ export default function DocumentsIndex({
         ? ['complianceDocuments']
         : ['searchDocuments', 'employees'];
 
+    const libraryUploadPartialReloadKeys = [
+        'employees',
+        'searchDocuments',
+        'complianceDocuments',
+        'requirementDocuments',
+        'summary',
+        'requirement_summary',
+    ];
+
     const bindManagementDoc = (doc: ComplianceDocumentItem) => {
         setManagementEmployeeId(doc.employee_id);
 
@@ -399,6 +410,16 @@ export default function DocumentsIndex({
                                     }
                                     formats={['xlsx', 'csv']}
                                 />
+                            ) : null}
+                            {can.upload ? (
+                                <Button
+                                    type="button"
+                                    onClick={() => setAddDocumentOpen(true)}
+                                    className="h-9 gap-1.5"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    <span>Add Document</span>
+                                </Button>
                             ) : null}
                         </div>
                     }
@@ -569,6 +590,17 @@ export default function DocumentsIndex({
                         'summary',
                         'employees',
                     ]}
+                />
+            ) : null}
+            {can.upload ? (
+                <UploadDocumentDialog
+                    open={addDocumentOpen}
+                    onOpenChange={setAddDocumentOpen}
+                    employeeId={null}
+                    employeeName=""
+                    allowEmployeeSelection
+                    documentTypes={document_types}
+                    partialReloadKeys={libraryUploadPartialReloadKeys}
                 />
             ) : null}
         </Main>

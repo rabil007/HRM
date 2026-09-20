@@ -140,6 +140,7 @@ use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\DocumentsOverviewController;
 use App\Http\Controllers\Organization\DocumentsTemplatesController;
+use App\Http\Controllers\Organization\DocumentUploadEmployeeSearchController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
 use App\Http\Controllers\Organization\EmployeeBankAccountsBrowseController;
 use App\Http\Controllers\Organization\EmployeeContractController;
@@ -761,6 +762,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->middleware('can:employees.update')->name('organization.employees.status');
     Route::put('organization/employees/{employee}/profile-template', [EmployeeController::class, 'assignProfileTemplate'])->middleware('can:employees.update')->name('organization.employees.profile-template.assign');
     Route::delete('organization/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('can:employees.delete')->name('organization.employees.destroy');
+    Route::get('organization/documents/employees/search', DocumentUploadEmployeeSearchController::class)->middleware('can:documents.upload')->name('organization.documents.employees.search');
     Route::middleware('can:documents.view')->group(function () {
         Route::get('organization/documents', DocumentsOverviewController::class)->name('organization.documents');
         Route::get('organization/documents/library', DocumentsFolderIndexController::class)->name('organization.documents.library');

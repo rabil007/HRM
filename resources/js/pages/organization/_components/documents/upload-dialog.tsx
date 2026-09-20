@@ -39,6 +39,8 @@ import type {
     UploadDraftFieldErrors,
     UploadDraftMetadata,
 } from '@/features/organization/documents/upload/upload-draft';
+import { UploadEmployeeSelector } from '@/features/organization/documents/upload/upload-employee-selector';
+import type { DocumentUploadEmployeeOption } from '@/features/organization/documents/upload/upload-employee-selector';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
@@ -76,6 +78,7 @@ export function UploadDocumentDialog({
     templateFields = null,
     initialDocumentTypeId = null,
     partialReloadKeys = ['documents'],
+    allowEmployeeSelection = false,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -86,6 +89,7 @@ export function UploadDocumentDialog({
     templateFields?: Record<string, TemplateFieldConfig> | null;
     initialDocumentTypeId?: number | null;
     partialReloadKeys?: string[];
+    allowEmployeeSelection?: boolean;
 }): ReactElement {
     const {
         showField,
@@ -133,6 +137,13 @@ export function UploadDocumentDialog({
         [requiredFields, showField],
     );
 
+    const [selectedEmployee, setSelectedEmployee] =
+        useState<DocumentUploadEmployeeOption | null>(null);
+
+    const effectiveEmployeeId = allowEmployeeSelection
+        ? (employeeId ?? selectedEmployee?.id ?? null)
+        : employeeId;
+
     const [drafts, setDrafts] = useState<UploadDraft[]>([]);
     const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
     const [fieldErrorsByIndex, setFieldErrorsByIndex] = useState<
@@ -178,7 +189,11 @@ export function UploadDocumentDialog({
         setIsUploading(false);
         setUploadProgress(null);
         clearMissingRequired();
-    }, [clearMissingRequired]);
+
+        if (allowEmployeeSelection) {
+            setSelectedEmployee(null);
+        }
+    }, [allowEmployeeSelection, clearMissingRequired]);
 
     const addUploadFiles = useCallback(
         async (files: File[]) => {
@@ -344,13 +359,22 @@ export function UploadDocumentDialog({
         return drafts.reduce((total, draft) => total + draft.file.size, 0);
     }, [drafts]);
 
+    const hasEmployee = effectiveEmployeeId !== null || !!ensureEmployee;
+
     const canUpload =
+        hasEmployee &&
         drafts.length > 0 &&
         !isUploading &&
         drafts.every((draft) => draftMeetsRequired(draft));
 
     const submitUpload = useCallback(async () => {
         if (drafts.length === 0 || isUploading) {
+            return;
+        }
+
+        if (allowEmployeeSelection && !effectiveEmployeeId) {
+            toast.error('Please select an employee before uploading.');
+
             return;
         }
 
@@ -366,7 +390,7 @@ export function UploadDocumentDialog({
 
         try {
             resolvedEmployeeId = await resolveEmployeeIdForSave(
-                employeeId,
+                effectiveEmployeeId,
                 ensureEmployee,
             );
         } catch {
@@ -431,8 +455,9 @@ export function UploadDocumentDialog({
             },
         );
     }, [
+        allowEmployeeSelection,
         drafts,
-        employeeId,
+        effectiveEmployeeId,
         ensureEmployee,
         isUploading,
         onOpenChange,
@@ -472,13 +497,29 @@ export function UploadDocumentDialog({
                         }
                     />
                     <DialogHeader>
-                        <DialogTitle>Upload Employee Documents</DialogTitle>
+                        <DialogTitle>
+                            {allowEmployeeSelection
+                                ? 'Add Document to Library'
+                                : 'Upload Employee Documents'}
+                        </DialogTitle>
                         <p className="text-sm text-muted-foreground">
-                            Add one or many files for {employeeName}. Select a
-                            file on the left, then enter its details on the
-                            right.
+                            {allowEmployeeSelection
+                                ? selectedEmployee
+                                    ? `Uploading documents for ${selectedEmployee.name}${selectedEmployee.employee_no ? ` (#${selectedEmployee.employee_no})` : ''}. Select a file on the left, then enter its details on the right.`
+                                    : 'Select an active employee, then add and configure files to upload to their document profile.'
+                                : `Add one or many files for ${employeeName}. Select a file on the left, then enter its details on the right.`}
                         </p>
                     </DialogHeader>
+
+                    {allowEmployeeSelection ? (
+                        <div className="pt-2">
+                            <UploadEmployeeSelector
+                                selectedEmployee={selectedEmployee}
+                                onSelect={setSelectedEmployee}
+                                disabled={isBusy}
+                            />
+                        </div>
+                    ) : null}
 
                     <EmployeeMissingRequiredFieldsAlert
                         missingFields={missingRequiredFieldsList}
@@ -651,11 +692,13 @@ export function UploadDocumentDialog({
 
                     <DialogFooter className="items-center border-t border-border/60 pt-4 sm:justify-between">
                         <div className="text-xs text-muted-foreground">
-                            {drafts.length === 0
-                                ? 'Select at least one file to upload.'
-                                : drafts.length > 1
-                                  ? 'Bulk upload will create one document record per file.'
-                                  : 'One document will be created.'}
+                            {!hasEmployee
+                                ? 'Select an employee to proceed with upload.'
+                                : drafts.length === 0
+                                  ? 'Select at least one file to upload.'
+                                  : drafts.length > 1
+                                    ? 'Bulk upload will create one document record per file.'
+                                    : 'One document will be created.'}
                         </div>
                         <div className="flex gap-2">
                             <Button
