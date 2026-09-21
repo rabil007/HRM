@@ -27,7 +27,7 @@ class HistoricalCrewImportExecutionService
 
     /**
      * Revalidate and import Ready + Warning rows. Blocked rows are recorded as skipped.
-     * Supports resume of stale interrupted batches under the same idempotency key + workbook hash.
+     * Supports resume of stale/failed batches under the same idempotency key + workbook hash.
      *
      * @return array{batch: HistoricalCrewImportBatch, result: array<string, mixed>}
      */
@@ -90,53 +90,90 @@ class HistoricalCrewImportExecutionService
         User $actor,
         string $workbookHash,
     ): array {
-        if (in_array($batch->status, [
-            HistoricalCrewImportBatchStatus::Completed,
-            HistoricalCrewImportBatchStatus::CompletedWithErrors,
-        ], true)) {
-            $batch->load(['rows', 'creator:id,name']);
+        $resolution = $this->resolveExistingBatchUnderLock((int) $batch->id, $companyId, $workbookHash);
+
+        if ($resolution['action'] === 'present') {
+            $resolution['batch']->load(['rows', 'creator:id,name']);
 
             return [
-                'batch' => $batch,
-                'result' => $this->presentBatch($batch),
+                'batch' => $resolution['batch'],
+                'result' => $this->presentBatch($resolution['batch']),
             ];
         }
 
-        if ($batch->status === HistoricalCrewImportBatchStatus::Failed) {
-            throw ValidationException::withMessages([
-                'idempotency_key' => 'This import previously failed. Start a new import confirmation to retry with a fresh key.',
-            ]);
-        }
+        $evaluation = $this->previewService->evaluateWorkbook($companyId, $file, $actor);
 
-        if ($batch->status === HistoricalCrewImportBatchStatus::Importing) {
-            $this->assertWorkbookMatches($batch, $workbookHash);
+        return $this->processBatch($resolution['batch'], $evaluation['evaluated'], $actor, resumed: true);
+    }
 
-            if (! $this->isStale($batch)) {
-                throw ValidationException::withMessages([
-                    'file' => 'This import is already in progress. Wait for it to finish, or retry after it becomes idle.',
-                ]);
+    /**
+     * Atomically re-read the batch and either return it or claim it for resume.
+     *
+     * @return array{action: 'present'|'resume', batch: HistoricalCrewImportBatch}
+     */
+    private function resolveExistingBatchUnderLock(int $batchId, int $companyId, string $workbookHash): array
+    {
+        return DB::transaction(function () use ($batchId, $companyId, $workbookHash): array {
+            $locked = HistoricalCrewImportBatch::query()
+                ->whereKey($batchId)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertWorkbookMatches($locked, $workbookHash);
+
+            if (in_array($locked->status, [
+                HistoricalCrewImportBatchStatus::Completed,
+                HistoricalCrewImportBatchStatus::CompletedWithErrors,
+            ], true)) {
+                return [
+                    'action' => 'present',
+                    'batch' => $locked,
+                ];
             }
 
-            $evaluation = $this->previewService->evaluateWorkbook($companyId, $file, $actor);
+            if ($locked->status === HistoricalCrewImportBatchStatus::Importing) {
+                if (! $this->isStale($locked)) {
+                    throw ValidationException::withMessages([
+                        'file' => 'This import is already in progress. Wait for it to finish, or retry after it becomes idle.',
+                    ]);
+                }
 
-            $batch->update([
-                'status' => HistoricalCrewImportBatchStatus::Importing,
-                'last_progress_at' => now(),
-                'summary' => array_merge($batch->summary ?? [], [
-                    'timezone' => CompanyTimezone::forCompanyId($companyId),
-                    'resumed' => true,
-                ]),
-            ]);
+                $this->claimBatchForResume($locked, $companyId);
 
-            return $this->processBatch($batch->fresh(), $evaluation['evaluated'], $actor, resumed: true);
-        }
+                return [
+                    'action' => 'resume',
+                    'batch' => $locked->fresh() ?? $locked,
+                ];
+            }
 
-        $batch->load(['rows', 'creator:id,name']);
+            if ($locked->status === HistoricalCrewImportBatchStatus::Failed) {
+                $this->claimBatchForResume($locked, $companyId);
 
-        return [
-            'batch' => $batch,
-            'result' => $this->presentBatch($batch),
-        ];
+                return [
+                    'action' => 'resume',
+                    'batch' => $locked->fresh() ?? $locked,
+                ];
+            }
+
+            return [
+                'action' => 'present',
+                'batch' => $locked,
+            ];
+        });
+    }
+
+    private function claimBatchForResume(HistoricalCrewImportBatch $batch, int $companyId): void
+    {
+        $batch->update([
+            'status' => HistoricalCrewImportBatchStatus::Importing,
+            'last_progress_at' => now(),
+            'completed_at' => null,
+            'summary' => array_merge($batch->summary ?? [], [
+                'timezone' => CompanyTimezone::forCompanyId($companyId),
+                'resumed' => true,
+            ]),
+        ]);
     }
 
     /**
@@ -197,7 +234,6 @@ class HistoricalCrewImportExecutionService
         User $actor,
         bool $resumed,
     ): array {
-        $companyId = (int) $batch->company_id;
         $existingRows = HistoricalCrewImportRow::query()
             ->where('historical_crew_import_batch_id', $batch->id)
             ->get()
@@ -212,7 +248,7 @@ class HistoricalCrewImportExecutionService
                     continue;
                 }
 
-                $this->processEvaluatedRow($batch, $row, $actor, $existing);
+                $this->processEvaluatedRow($batch, $row, $actor, $existing instanceof HistoricalCrewImportRow ? $existing : null);
                 $this->touchProgress($batch);
             }
 
@@ -223,7 +259,7 @@ class HistoricalCrewImportExecutionService
             $this->markBatchFailed($batch, $exception);
 
             throw ValidationException::withMessages([
-                'file' => 'Historical import was interrupted by a system error. Already imported rows were kept. Resume with the same confirmation key when ready.',
+                'file' => 'Historical import was interrupted. Already imported rows were preserved. Retry with the same workbook to continue the remaining rows.',
             ]);
         }
 
@@ -375,6 +411,25 @@ class HistoricalCrewImportExecutionService
         ?string $assignmentNo,
         ?HistoricalCrewImportRow $existing,
     ): void {
+        $current = $existing instanceof HistoricalCrewImportRow
+            ? ($existing->fresh() ?? $existing)
+            : HistoricalCrewImportRow::query()
+                ->where('historical_crew_import_batch_id', $batch->id)
+                ->where('row_number', (int) $row['row_number'])
+                ->first();
+
+        // Never overwrite a successfully imported row with a non-success result.
+        if (
+            $current instanceof HistoricalCrewImportRow
+            && $this->isSuccessfullyImportedRow($current)
+            && ! in_array($status, [
+                HistoricalCrewImportRowStatus::Imported,
+                HistoricalCrewImportRowStatus::ImportedWithWarnings,
+            ], true)
+        ) {
+            return;
+        }
+
         $attributes = [
             'employee_no' => $row['employee_no'] ?? null,
             'employee_name' => $row['employee_name'] ?? null,
@@ -387,8 +442,8 @@ class HistoricalCrewImportExecutionService
             'errors' => array_values($errors),
         ];
 
-        if ($existing instanceof HistoricalCrewImportRow) {
-            $existing->update($attributes);
+        if ($current instanceof HistoricalCrewImportRow) {
+            $current->update($attributes);
 
             return;
         }
@@ -498,25 +553,38 @@ class HistoricalCrewImportExecutionService
         ];
     }
 
+    /**
+     * Successfully imported rows with a live assignment are terminal.
+     * Domain-blocked Skipped rows stay terminal for the same workbook.
+     * Failed rows are retryable on resume.
+     * Imported markers without a live assignment are re-evaluated.
+     */
     private function isTerminalRow(HistoricalCrewImportRow $row): bool
     {
         if (in_array($row->status, [
             HistoricalCrewImportRowStatus::Imported,
             HistoricalCrewImportRowStatus::ImportedWithWarnings,
-            HistoricalCrewImportRowStatus::Skipped,
-            HistoricalCrewImportRowStatus::Failed,
         ], true)) {
-            if (in_array($row->status, [
-                HistoricalCrewImportRowStatus::Imported,
-                HistoricalCrewImportRowStatus::ImportedWithWarnings,
-            ], true) && $row->crew_assignment_id !== null) {
-                return CrewAssignment::query()->whereKey($row->crew_assignment_id)->exists();
-            }
-
-            return true;
+            return $this->isSuccessfullyImportedRow($row);
         }
 
-        return false;
+        return $row->status === HistoricalCrewImportRowStatus::Skipped;
+    }
+
+    private function isSuccessfullyImportedRow(HistoricalCrewImportRow $row): bool
+    {
+        if (! in_array($row->status, [
+            HistoricalCrewImportRowStatus::Imported,
+            HistoricalCrewImportRowStatus::ImportedWithWarnings,
+        ], true)) {
+            return false;
+        }
+
+        if ($row->crew_assignment_id === null) {
+            return false;
+        }
+
+        return CrewAssignment::query()->whereKey($row->crew_assignment_id)->exists();
     }
 
     private function isStale(HistoricalCrewImportBatch $batch): bool

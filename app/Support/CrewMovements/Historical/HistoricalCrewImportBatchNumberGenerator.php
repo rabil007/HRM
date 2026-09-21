@@ -27,12 +27,43 @@ final class HistoricalCrewImportBatchNumberGenerator
                     }
 
                     return sprintf('HI-%06d', $next);
-                } catch (QueryException) {
-                    // Concurrent lock contention — retry.
+                } catch (QueryException $exception) {
+                    if (! $this->isTransientLockException($exception)) {
+                        throw $exception;
+                    }
                 }
             }
 
             throw new RuntimeException('Unable to allocate a historical import batch number.');
         });
+    }
+
+    /**
+     * Retry only known transient lock contention; rethrow everything else.
+     */
+    public function isTransientLockException(QueryException $exception): bool
+    {
+        $driverCode = (string) ($exception->errorInfo[1] ?? '');
+        $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+        $message = strtolower($exception->getMessage());
+
+        // MySQL / MariaDB: deadlock / lock wait timeout
+        if (in_array($driverCode, ['1213', '1205'], true)) {
+            return true;
+        }
+
+        if (in_array($sqlState, ['40001', 'HY000'], true)
+            && (str_contains($message, 'deadlock') || str_contains($message, 'lock wait timeout'))) {
+            return true;
+        }
+
+        // SQLite busy / locked (test database)
+        if (str_contains($message, 'database is locked')
+            || str_contains($message, 'database table is locked')
+            || str_contains($message, 'database schema is locked')) {
+            return true;
+        }
+
+        return false;
     }
 }

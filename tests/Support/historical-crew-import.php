@@ -92,3 +92,17 @@ function makeHistoricalCrewImportFile(array $rows, ?string $sheetName = null): U
         true,
     );
 }
+
+/**
+ * Re-wrap the same on-disk workbook so resume/idempotent retries share the SHA-256 hash.
+ */
+function reuseHistoricalCrewImportFile(UploadedFile $file): UploadedFile
+{
+    return new UploadedFile(
+        $file->getRealPath(),
+        $file->getClientOriginalName() ?: 'historical-crew-import.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true,
+    );
+}

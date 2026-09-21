@@ -1487,7 +1487,7 @@ Blocked rows are recorded as skipped. Warnings remain visible on imported rows. 
 
 Statuses: `importing`, `completed`, `completed_with_errors`, `failed`. No blanket rollback button — use existing assignment correction/void workflows.
 
-Interrupted imports (`status = importing` with no progress for 15 minutes) are **resumable** under the same company-scoped `idempotency_key` and matching workbook SHA-256 hash. Terminal row results are skipped on resume; assignment creation and row-result persistence run in one per-row database transaction.
+Interrupted imports (`status = importing` with no progress for 15 minutes) and **Failed** batches are **resumable** under the same company-scoped `idempotency_key` and matching workbook SHA-256 hash. A single request atomically claims the batch (`SELECT … FOR UPDATE` + refresh `last_progress_at`) before processing. Successfully imported rows (with a live `crew_assignment_id`) and domain-blocked Skipped rows are not rewritten; Failed rows are retried. Assignment creation and row-result persistence run in one per-row database transaction. Completed / completed_with_errors retries also verify workbook hash before returning the existing result.
 
 #### Schema naming & repair
 

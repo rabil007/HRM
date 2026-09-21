@@ -12,9 +12,10 @@ use App\Support\CrewMovements\Historical\HistoricalCrewImportBatchNumberGenerato
 use App\Support\CrewMovements\Historical\HistoricalCrewImportExecutionService;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportPreviewService;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportResultExporter;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\Models\Activity;
 
 test('historical import schema has intended foreign keys and unique indexes', function () {
     expect(Schema::hasTable('historical_crew_import_batches'))->toBeTrue()
@@ -150,17 +151,9 @@ test('interrupted importing batch resumes without duplicating assignments', func
         'errors' => [],
     ]);
 
-    $resumeFile = new UploadedFile(
-        $file->getRealPath(),
-        'historical-crew-import.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        null,
-        true,
-    );
-
     $response = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
-            'file' => $resumeFile,
+            'file' => reuseHistoricalCrewImportFile($file),
             'idempotency_key' => $key,
             'confirmed' => '1',
         ]);
@@ -214,13 +207,7 @@ test('active importing batch rejects concurrent retry until stale', function () 
         'summary' => [],
     ]);
 
-    $retryFile = new UploadedFile(
-        $file->getRealPath(),
-        'historical-crew-import.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        null,
-        true,
-    );
+    $retryFile = reuseHistoricalCrewImportFile($file);
 
     $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
@@ -370,10 +357,11 @@ test('concurrent idempotency collision reloads existing batch instead of raw sql
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-03-01',
     ];
+    $file = makeHistoricalCrewImportFile([$row]);
 
     $first = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
-            'file' => makeHistoricalCrewImportFile([$row]),
+            'file' => $file,
             'idempotency_key' => $key,
             'confirmed' => '1',
         ])
@@ -381,7 +369,7 @@ test('concurrent idempotency collision reloads existing batch instead of raw sql
 
     $second = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
-            'file' => makeHistoricalCrewImportFile([$row]),
+            'file' => reuseHistoricalCrewImportFile($file),
             'idempotency_key' => $key,
             'confirmed' => '1',
         ])
@@ -417,4 +405,356 @@ test('batch number generator retries without clock fallback', function () {
     $next = app(HistoricalCrewImportBatchNumberGenerator::class)->next((int) $company->id);
 
     expect($next)->toBe('HI-000008');
+});
+
+test('completed batch same workbook returns existing result without reimport', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Completed Hash Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $row = [
+        'employee_no' => '3119',
+        'vessel' => $vessel->name,
+        'rank' => $rank->name,
+        'vessel_join_date' => '2024-01-01',
+        'disembark_date' => '2024-03-01',
+    ];
+    $key = historicalImportIdempotencyKey('completed-same');
+    $file = makeHistoricalCrewImportFile([$row]);
+
+    $first = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => $file,
+            'idempotency_key' => $key,
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $completionCount = Activity::query()
+        ->where('event', 'historical_crew_import_completed')
+        ->where('subject_id', $first->json('id'))
+        ->count();
+
+    $second = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => reuseHistoricalCrewImportFile($file),
+            'idempotency_key' => $key,
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    expect($second->json('id'))->toBe($first->json('id'))
+        ->and(CrewAssignment::query()->where('source', HistoricalCrewAssignmentData::SOURCE_IMPORT)->count())->toBe(1)
+        ->and(Activity::query()
+            ->where('event', 'historical_crew_import_completed')
+            ->where('subject_id', $first->json('id'))
+            ->count())->toBe($completionCount);
+});
+
+test('completed batch different workbook is rejected', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Completed Diff Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $row = [
+        'employee_no' => '3119',
+        'vessel' => $vessel->name,
+        'rank' => $rank->name,
+        'vessel_join_date' => '2024-01-01',
+        'disembark_date' => '2024-03-01',
+    ];
+    $key = historicalImportIdempotencyKey('completed-diff');
+    $file = makeHistoricalCrewImportFile([$row]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => $file,
+            'idempotency_key' => $key,
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    ...$row,
+                    'remarks' => 'different-workbook-content',
+                ],
+            ]),
+            'idempotency_key' => $key,
+            'confirmed' => '1',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file']);
+});
+
+test('failed batch resumes remaining rows without duplicating imported assignments', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    Employee::factory()->forCompany($company)->create(['employee_no' => '3220', 'status' => 'active']);
+    $vessel = makeCrewMovementVessel('Failed Resume Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $rows = [
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-01',
+            'disembark_date' => '2024-03-01',
+        ],
+        [
+            'employee_no' => '3220',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-04-01',
+            'disembark_date' => '2024-06-01',
+        ],
+    ];
+
+    $key = historicalImportIdempotencyKey('failed-resume');
+    $file = makeHistoricalCrewImportFile($rows);
+    $hash = hash_file('sha256', $file->getRealPath());
+
+    $batch = HistoricalCrewImportBatch::query()->create([
+        'company_id' => $company->id,
+        'batch_no' => 'HI-000201',
+        'created_by' => $user->id,
+        'original_filename' => 'historical-crew-import.xlsx',
+        'status' => HistoricalCrewImportBatchStatus::Failed,
+        'total_rows' => 2,
+        'ready_rows' => 2,
+        'warning_rows' => 0,
+        'blocked_rows' => 0,
+        'imported_rows' => 1,
+        'failed_rows' => 0,
+        'skipped_rows' => 0,
+        'idempotency_key' => $key,
+        'workbook_hash' => $hash,
+        'started_at' => now()->subHour(),
+        'last_progress_at' => now()->subMinutes(5),
+        'summary' => ['system_error' => 'RuntimeException'],
+    ]);
+
+    $firstAssignment = app(HistoricalCrewAssignmentService::class)->create(
+        data: HistoricalCrewAssignmentData::fromArray(
+            data: [
+                'employee_id' => $employee->id,
+                'vessel_id' => $vessel->id,
+                'rank_id' => $rank->id,
+                'joined_vessel_at' => '2024-01-01',
+                'disembarked_at' => '2024-03-01',
+            ],
+            companyId: $company->id,
+            timezone: 'Asia/Dubai',
+            source: HistoricalCrewAssignmentData::SOURCE_IMPORT,
+        ),
+        actorId: $user->id,
+        importBatchId: (int) $batch->id,
+    );
+
+    HistoricalCrewImportRow::query()->create([
+        'historical_crew_import_batch_id' => $batch->id,
+        'row_number' => 2,
+        'employee_no' => '3119',
+        'status' => HistoricalCrewImportRowStatus::Imported,
+        'crew_assignment_id' => $firstAssignment->id,
+        'assignment_no' => $firstAssignment->assignment_no,
+        'warnings' => [],
+        'errors' => [],
+    ]);
+
+    $createdActivitiesBefore = Activity::query()
+        ->where('event', 'historical_crew_assignment_created')
+        ->count();
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => reuseHistoricalCrewImportFile($file),
+            'idempotency_key' => $key,
+            'confirmed' => '1',
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('imported_rows', 2)
+        ->assertJsonPath('resumed', true)
+        ->assertJsonPath('status', HistoricalCrewImportBatchStatus::Completed->value);
+
+    $importedRow = HistoricalCrewImportRow::query()
+        ->where('historical_crew_import_batch_id', $batch->id)
+        ->where('row_number', 2)
+        ->first();
+
+    expect(CrewAssignment::query()->where('source', HistoricalCrewAssignmentData::SOURCE_IMPORT)->count())->toBe(2)
+        ->and($importedRow?->crew_assignment_id)->toBe($firstAssignment->id)
+        ->and($importedRow?->status)->toBe(HistoricalCrewImportRowStatus::Imported)
+        ->and(Activity::query()
+            ->where('event', 'historical_crew_assignment_created')
+            ->count())->toBe($createdActivitiesBefore + 1);
+});
+
+test('failed row without assignment is retried on resume', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Failed Row Retry Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $row = [
+        'employee_no' => '3119',
+        'vessel' => $vessel->name,
+        'rank' => $rank->name,
+        'vessel_join_date' => '2024-01-01',
+        'disembark_date' => '2024-03-01',
+    ];
+    $key = historicalImportIdempotencyKey('failed-row');
+    $file = makeHistoricalCrewImportFile([$row]);
+
+    $batch = HistoricalCrewImportBatch::query()->create([
+        'company_id' => $company->id,
+        'batch_no' => 'HI-000202',
+        'created_by' => $user->id,
+        'original_filename' => 'historical-crew-import.xlsx',
+        'status' => HistoricalCrewImportBatchStatus::Failed,
+        'total_rows' => 1,
+        'ready_rows' => 1,
+        'warning_rows' => 0,
+        'blocked_rows' => 0,
+        'imported_rows' => 0,
+        'failed_rows' => 1,
+        'skipped_rows' => 0,
+        'idempotency_key' => $key,
+        'workbook_hash' => hash_file('sha256', $file->getRealPath()),
+        'started_at' => now()->subHour(),
+        'last_progress_at' => now()->subMinutes(5),
+        'summary' => [],
+    ]);
+
+    HistoricalCrewImportRow::query()->create([
+        'historical_crew_import_batch_id' => $batch->id,
+        'row_number' => 2,
+        'employee_no' => '3119',
+        'status' => HistoricalCrewImportRowStatus::Failed,
+        'crew_assignment_id' => null,
+        'assignment_no' => null,
+        'warnings' => [],
+        'errors' => ['Import failed during final write.'],
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => reuseHistoricalCrewImportFile($file),
+            'idempotency_key' => $key,
+            'confirmed' => '1',
+        ])
+        ->assertOk()
+        ->assertJsonPath('imported_rows', 1)
+        ->assertJsonPath('failed_rows', 0)
+        ->assertJsonPath('status', HistoricalCrewImportBatchStatus::Completed->value);
+
+    $rowResult = HistoricalCrewImportRow::query()
+        ->where('historical_crew_import_batch_id', $batch->id)
+        ->where('row_number', 2)
+        ->first();
+
+    expect($rowResult?->status)->toBe(HistoricalCrewImportRowStatus::Imported)
+        ->and($rowResult?->crew_assignment_id)->not->toBeNull()
+        ->and(CrewAssignment::query()->where('source', HistoricalCrewAssignmentData::SOURCE_IMPORT)->count())->toBe(1);
+});
+
+test('stale claim refreshes progress so a second request is treated as active', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Claim Race Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $row = [
+        'employee_no' => '3119',
+        'vessel' => $vessel->name,
+        'rank' => $rank->name,
+        'vessel_join_date' => '2024-01-01',
+        'disembark_date' => '2024-03-01',
+    ];
+    $key = historicalImportIdempotencyKey('claim');
+    $file = makeHistoricalCrewImportFile([$row]);
+
+    $batch = HistoricalCrewImportBatch::query()->create([
+        'company_id' => $company->id,
+        'batch_no' => 'HI-000203',
+        'created_by' => $user->id,
+        'original_filename' => 'historical-crew-import.xlsx',
+        'status' => HistoricalCrewImportBatchStatus::Importing,
+        'total_rows' => 1,
+        'ready_rows' => 1,
+        'warning_rows' => 0,
+        'blocked_rows' => 0,
+        'imported_rows' => 0,
+        'failed_rows' => 0,
+        'skipped_rows' => 0,
+        'idempotency_key' => $key,
+        'workbook_hash' => hash_file('sha256', $file->getRealPath()),
+        'started_at' => now()->subHour(),
+        'last_progress_at' => now()->subMinutes(20),
+        'summary' => [],
+    ]);
+
+    // Simulate another request having already claimed the stale batch.
+    $batch->update([
+        'last_progress_at' => now(),
+        'summary' => array_merge($batch->summary ?? [], ['resumed' => true]),
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => reuseHistoricalCrewImportFile($file),
+            'idempotency_key' => $key,
+            'confirmed' => '1',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file']);
+});
+
+test('batch number generator rethrows non-lock query exceptions', function () {
+    $generator = app(HistoricalCrewImportBatchNumberGenerator::class);
+
+    $exception = new QueryException(
+        'sqlite',
+        'select 1',
+        [],
+        new Exception('no such table: historical_crew_import_batches'),
+    );
+
+    expect($generator->isTransientLockException($exception))->toBeFalse();
+
+    $deadlock = new QueryException(
+        'mysql',
+        'select 1',
+        [],
+        new Exception('Deadlock found when trying to get lock'),
+    );
+    $deadlock->errorInfo = ['40001', 1213, 'Deadlock found when trying to get lock'];
+
+    expect($generator->isTransientLockException($deadlock))->toBeTrue();
 });
