@@ -77,6 +77,8 @@ class RoleController extends Controller
             ->map(intval(...))
             ->all();
 
+        $registryPermissionNames = ApplicationPermissionRegistry::names();
+
         return Inertia::render('organization/role', [
             'role' => [
                 'id' => $role->id,
@@ -85,7 +87,11 @@ class RoleController extends Controller
                     ? Role::SCOPE_ALL
                     : ($role->employee_visibility_scope ?? Role::SCOPE_ALL),
                 'department_ids' => $role->name === 'Owner' ? [] : $departmentIds,
-                'permissions' => $role->permissions()->pluck('name')->all(),
+                'permissions' => $role->permissions()
+                    ->pluck('name')
+                    ->filter(fn (string $name) => in_array($name, $registryPermissionNames, true))
+                    ->values()
+                    ->all(),
                 'created_at' => $role->created_at,
                 'updated_at' => $role->updated_at,
             ],

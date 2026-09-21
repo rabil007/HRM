@@ -312,7 +312,9 @@ export default function RoleDetails({
     const submit = (): void => {
         form.transform(() => ({
             name: form.data.name,
-            permissions: selectedPermissions,
+            permissions: selectedPermissions.filter((permission) =>
+                availablePermissionNames.includes(permission),
+            ),
             employee_visibility_scope: isOwner ? 'all' : visibilityScope,
             department_ids:
                 isOwner || visibilityScope === 'all'
