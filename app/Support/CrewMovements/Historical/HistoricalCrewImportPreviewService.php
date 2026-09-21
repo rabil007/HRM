@@ -3,15 +3,17 @@
 namespace App\Support\CrewMovements\Historical;
 
 use App\Models\Client;
+use App\Models\CrewAssignment;
 use App\Models\Employee;
+use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
+use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 
 final class HistoricalCrewImportPreviewService
@@ -19,6 +21,7 @@ final class HistoricalCrewImportPreviewService
     public function __construct(
         private readonly HistoricalCrewImportParser $parser,
         private readonly HistoricalCrewAssignmentValidator $validator,
+        private readonly SeaServiceSyncService $seaServiceSync,
     ) {}
 
     /**
@@ -32,14 +35,41 @@ final class HistoricalCrewImportPreviewService
      */
     public function preview(int $companyId, UploadedFile $file, User $actor): array
     {
+        $result = $this->evaluateWorkbook($companyId, $file, $actor);
+
+        return [
+            'summary' => [
+                'total' => $result['summary']['total'],
+                'ready' => $result['summary']['ready'],
+                'warning' => $result['summary']['warning'],
+                'blocked' => $result['summary']['blocked'],
+                'importable' => $result['summary']['importable'],
+            ],
+            'rows' => $result['rows'],
+            'phase_note' => 'Ready and Warning rows can be imported after confirmation. Blocked rows will not be imported. Final import revalidates every row before writing.',
+        ];
+    }
+
+    /**
+     * Shared evaluation used by preview and final import.
+     *
+     * @return array{
+     *     summary: array{total: int, ready: int, warning: int, blocked: int, importable: int},
+     *     evaluated: list<array<string, mixed>>,
+     *     rows: list<array<string, mixed>>
+     * }
+     */
+    public function evaluateWorkbook(int $companyId, UploadedFile $file, User $actor): array
+    {
         $parsedRows = $this->parser->parse($file);
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $lookups = $this->buildLookups($companyId, $actor);
+        $bulk = $this->buildBulkValidationContext($companyId, $lookups);
 
         $evaluated = [];
 
         foreach ($parsedRows as $parsedRow) {
-            $evaluated[] = $this->evaluateRow($parsedRow, $companyId, $timezone, $actor, $lookups);
+            $evaluated[] = $this->evaluateRow($parsedRow, $companyId, $timezone, $actor, $lookups, $bulk);
         }
 
         $this->applyWorkbookConflicts($evaluated);
@@ -69,9 +99,10 @@ final class HistoricalCrewImportPreviewService
                 'ready' => $ready,
                 'warning' => $warning,
                 'blocked' => $blocked,
+                'importable' => $ready + $warning,
             ],
+            'evaluated' => $evaluated,
             'rows' => $rows,
-            'phase_note' => 'Final bulk import will be enabled in Phase 3. Validation does not write any records.',
         ];
     }
 
@@ -142,6 +173,92 @@ final class HistoricalCrewImportPreviewService
      *     ranksByName: array<string, list<Rank>>,
      *     clientsByName: array<string, list<Client>>
      * }  $lookups
+     */
+    private function buildBulkValidationContext(int $companyId, array $lookups): HistoricalCrewBulkValidationContext
+    {
+        $employeesById = [];
+        foreach ($lookups['employeesByNo'] as $employee) {
+            $employeesById[(int) $employee->id] = $employee;
+        }
+
+        $vesselsById = [];
+        foreach ($lookups['vesselsByName'] as $matches) {
+            foreach ($matches as $vessel) {
+                $vesselsById[(int) $vessel->id] = $vessel;
+            }
+        }
+
+        $ranksById = [];
+        foreach ($lookups['ranksByName'] as $matches) {
+            foreach ($matches as $rank) {
+                $ranksById[(int) $rank->id] = $rank;
+            }
+        }
+
+        $clientsById = [];
+        foreach ($lookups['clientsByName'] as $matches) {
+            foreach ($matches as $client) {
+                $clientsById[(int) $client->id] = $client;
+            }
+        }
+
+        foreach ($vesselsById as $vessel) {
+            if ($vessel->client_id !== null && ! isset($clientsById[(int) $vessel->client_id])) {
+                $client = Client::query()->find((int) $vessel->client_id);
+                if ($client !== null) {
+                    $clientsById[(int) $client->id] = $client;
+                }
+            }
+        }
+
+        $employeeIds = array_keys($employeesById);
+
+        $assignmentsByEmployeeId = [];
+        $seaServicesByEmployeeId = [];
+
+        if ($employeeIds !== []) {
+            $assignments = CrewAssignment::query()
+                ->where('company_id', $companyId)
+                ->whereIn('employee_id', $employeeIds)
+                ->whereNull('voided_at')
+                ->with(['phases'])
+                ->get();
+
+            foreach ($assignments as $assignment) {
+                $assignmentsByEmployeeId[(int) $assignment->employee_id] ??= collect();
+                $assignmentsByEmployeeId[(int) $assignment->employee_id]->push($assignment);
+            }
+
+            $seaServices = EmployeeSeaService::query()
+                ->where('company_id', $companyId)
+                ->whereIn('employee_id', $employeeIds)
+                ->with(['vessel'])
+                ->get();
+
+            foreach ($seaServices as $seaService) {
+                $seaServicesByEmployeeId[(int) $seaService->employee_id] ??= collect();
+                $seaServicesByEmployeeId[(int) $seaService->employee_id]->push($seaService);
+            }
+        }
+
+        return new HistoricalCrewBulkValidationContext(
+            employeesById: $employeesById,
+            vesselsById: $vesselsById,
+            ranksById: $ranksById,
+            clientsById: $clientsById,
+            assignmentsByEmployeeId: $assignmentsByEmployeeId,
+            seaServicesByEmployeeId: $seaServicesByEmployeeId,
+            seaServiceSyncEnabled: $this->seaServiceSync->isEnabled($companyId),
+        );
+    }
+
+    /**
+     * @param  array{
+     *     employeesByNo: array<string, Employee>,
+     *     vesselsByName: array<string, list<Vessel>>,
+     *     ranksByName: array<string, list<Rank>>,
+     *     clientsByName: array<string, list<Client>>
+     * }  $lookups
      * @return array<string, mixed>
      */
     private function evaluateRow(
@@ -150,6 +267,7 @@ final class HistoricalCrewImportPreviewService
         string $timezone,
         User $actor,
         array $lookups,
+        HistoricalCrewBulkValidationContext $bulk,
     ): array {
         $errors = $parsedRow->fieldErrors;
         $warnings = [];
@@ -181,16 +299,8 @@ final class HistoricalCrewImportPreviewService
             $employee = $lookups['employeesByNo'][mb_strtolower($employeeNo)] ?? null;
 
             if ($employee === null) {
-                // Distinguish hidden vs missing: if an employee exists in company but is not in visibility-scoped map.
-                $existsHidden = Employee::query()
-                    ->where('company_id', $companyId)
-                    ->whereNull('deleted_at')
-                    ->whereRaw('LOWER(employee_no) = ?', [mb_strtolower($employeeNo)])
-                    ->exists();
-
-                $resolveErrors[HistoricalCrewImportColumns::EMPLOYEE_NO] = $existsHidden
-                    ? 'Employee is not visible to your role (hidden department / visibility restriction).'
-                    : "Employee number \"{$employeeNo}\" was not found in the active company.";
+                $resolveErrors[HistoricalCrewImportColumns::EMPLOYEE_NO] =
+                    "Employee number \"{$employeeNo}\" was not found or is unavailable.";
             }
         }
 
@@ -238,7 +348,7 @@ final class HistoricalCrewImportPreviewService
                 $client = $matches[0];
             }
         } elseif ($vessel !== null && $vessel->client_id !== null) {
-            $client = Client::query()->find((int) $vessel->client_id);
+            $client = $bulk->client((int) $vessel->client_id);
         }
 
         $errors = array_merge($errors, $resolveErrors);
@@ -250,7 +360,9 @@ final class HistoricalCrewImportPreviewService
             $clientId = $client?->id;
 
             if ($clientId === null) {
-                $clientId = ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vessel->id);
+                $clientId = $vessel->client_id !== null
+                    ? (int) $vessel->client_id
+                    : ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vessel->id);
             }
 
             try {
@@ -279,7 +391,7 @@ final class HistoricalCrewImportPreviewService
                     source: HistoricalCrewAssignmentData::SOURCE_IMPORT,
                 );
 
-                $domainResult = $this->validator->validate($data, $actor);
+                $domainResult = $this->validator->validate($data, $actor, $bulk);
                 $errors = array_merge($errors, $domainResult->errors);
                 $warnings = array_merge($warnings, $domainResult->warnings);
             } catch (\InvalidArgumentException $exception) {
@@ -321,6 +433,7 @@ final class HistoricalCrewImportPreviewService
             'interval_start' => $intervalStart,
             'interval_end' => $intervalEnd,
             'domain' => $domainResult,
+            'data' => $data,
             'workbook_messages' => [],
         ];
     }
@@ -370,14 +483,24 @@ final class HistoricalCrewImportPreviewService
         }
 
         foreach ($byEmployee as $indexes) {
+            usort($indexes, function (int $a, int $b) use ($evaluated): int {
+                return strcmp((string) $evaluated[$a]['interval_start'], (string) $evaluated[$b]['interval_start']);
+            });
+
             $count = count($indexes);
 
             for ($i = 0; $i < $count; $i++) {
+                $left = $evaluated[$indexes[$i]];
+
                 for ($j = $i + 1; $j < $count; $j++) {
-                    $left = $evaluated[$indexes[$i]];
                     $right = $evaluated[$indexes[$j]];
 
-                    if ($this->intervalsOverlap(
+                    // Sorted by start: once right starts at/after left end, later rows cannot overlap left.
+                    if (! ((string) $right['interval_start'] < (string) $left['interval_end'])) {
+                        break;
+                    }
+
+                    if (HistoricalAssignmentIntervalOverlap::completedDateStringsOverlap(
                         (string) $left['interval_start'],
                         (string) $left['interval_end'],
                         (string) $right['interval_start'],
@@ -397,16 +520,6 @@ final class HistoricalCrewImportPreviewService
                 }
             }
         }
-    }
-
-    private function intervalsOverlap(string $startA, string $endA, string $startB, string $endB): bool
-    {
-        $aStart = CarbonImmutable::parse($startA)->startOfDay();
-        $aEnd = CarbonImmutable::parse($endA)->startOfDay();
-        $bStart = CarbonImmutable::parse($startB)->startOfDay();
-        $bEnd = CarbonImmutable::parse($endB)->startOfDay();
-
-        return $aStart->lte($bEnd) && $bStart->lte($aEnd);
     }
 
     /**

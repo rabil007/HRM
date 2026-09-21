@@ -47,6 +47,7 @@ class CrewAssignment extends Model
         'closed_at',
         'previous_assignment_id',
         'source',
+        'historical_import_batch_id',
         'remarks',
         'created_by',
         'updated_by',
@@ -154,6 +155,11 @@ class CrewAssignment extends Model
     public function previousAssignment(): BelongsTo
     {
         return $this->belongsTo(self::class, 'previous_assignment_id');
+    }
+
+    public function historicalImportBatch(): BelongsTo
+    {
+        return $this->belongsTo(HistoricalCrewImportBatch::class, 'historical_import_batch_id');
     }
 
     /**

@@ -1273,7 +1273,7 @@ On `/organization/crew`, users with the authoritative permission `crew_operation
 
 The action opens a large centered modal containing:
 - **Manual Entry** (fully functional)
-- **Import Excel** (Phase 2: template download + upload + validation preview; confirmed bulk persistence is Phase 3)
+- **Import Excel** (Phase 2–3: template download, validation preview, confirmed bulk import, batch history)
 
 #### Historical master-data selection
 
@@ -1402,7 +1402,7 @@ Workbook duplicate / cross-row overlap detection
 Validation Preview (Ready / Warning / Blocked)
 ```
 
-**No** `CrewAssignment`, `CrewAssignmentPhase`, `EmployeeSeaService`, planning, hotel, payroll, or timesheet records are created during Validate File. Phase 3 must re-run validation under locks before calling `HistoricalCrewAssignmentService::create()`.
+**No** `CrewAssignment`, `CrewAssignmentPhase`, `EmployeeSeaService`, planning, hotel, payroll, or timesheet records are created during Validate File. Confirmed bulk import (below) re-runs validation under locks before calling `HistoricalCrewAssignmentService::create()`.
 
 #### Template workbook
 
@@ -1416,15 +1416,18 @@ Validation Preview (Ready / Warning / Blocked)
 
 Assignment columns: `employee_no *`, `vessel *`, `rank *`, `client`, optional phase dates (`mobilisation_date` … `assignment_close_date`), `vessel_join_date *`, `disembark_date *`, `remarks`.
 
+Database-controlled strings in the template (and result exports) are written as explicit text; values beginning with `=`, `+`, `-`, or `@` are prefixed so Excel does not treat them as formulas.
+
 #### Identifier matching
 
 - Employee: authoritative `employee_no` (case-insensitive), never name
 - Vessel / Rank / Client: exact name match (names are unique in schema); ambiguous matches are blocked — never guess
 - Reference Data includes IDs for operator disambiguation
+- Visibility-restricted users receive a neutral unavailable message for both hidden and nonexistent employees (no existence leak)
 
 #### Date normalization
 
-Excel serials, `YYYY-MM-DD`, and common regional strings are normalized to company calendar dates via the same day-grain semantics as Manual Entry (no UAE midnight → previous UTC day drift).
+Excel serials, `YYYY-MM-DD`, and common regional strings are normalized to company calendar dates via the same day-grain semantics as Manual Entry (no UAE midnight → previous UTC day drift). Formula cells (`=...`) are rejected; the parser never calls `getCalculatedValue()`.
 
 #### Ready / Warning / Blocked
 
@@ -1432,14 +1435,74 @@ Excel serials, `YYYY-MM-DD`, and common regional strings are normalized to compa
 | --- | --- |
 | Ready | Fully valid, no warnings |
 | Warning | Inactive vessel/rank/client, terminated employee, Sea Service sync disabled — allowed by historical rules |
-| Blocked | Missing/unknown/hidden employee, unknown/ambiguous master data, future dates, chronology errors, assignment overlap, Sea Service conflict, workbook duplicate / overlapping rows |
+| Blocked | Missing/unknown/unavailable employee, unknown/ambiguous master data, future dates, chronology errors, assignment overlap, Sea Service conflict, workbook duplicate / overlapping rows, formula cells |
 
-#### Endpoints
+Workbook limits: maximum **5,000** non-empty historical assignment rows per upload. Larger workbooks are rejected with an explicit count (never silently truncated). Untouched template sample rows (`EXAMPLE001`) are ignored. Empty workbooks are rejected.
+
+#### Endpoints (validation)
 
 - `GET /organization/crew/historical/import/template`
-- `POST /organization/crew/historical/import/validate` (JSON preview only)
+- `POST /organization/crew/historical/import/validate` (JSON preview only; also returns recent import summaries)
 
-### Phase 2 Architecture Alignment
+### Phase 3 — Final Historical Bulk Import
+
+Phase 3 completes the Excel path with authoritative revalidation, partial import, batch history, and result export.
+
+```text
+Upload workbook again on confirm (Option A)
+       ↓
+Reparse + normalize + resolve identities
+       ↓
+Workbook duplicate / overlap (canonical half-open intervals)
+       ↓
+HistoricalCrewAssignmentValidator
+       ↓
+Create HistoricalCrewImportBatch (idempotency_key)
+       ↓
+Per-row: HistoricalCrewAssignmentService::create (source = historical_import)
+       ↓
+Persist HistoricalCrewImportRow results + audit
+       ↓
+Optional result workbook download
+```
+
+#### Confirmation flow
+
+1. Operator reviews Ready / Warning / Blocked counts and row table.
+2. Checks **I reviewed the validation results**.
+3. Clicks **Import N Valid Rows** (Ready + Warning only).
+4. Browser re-uploads the same workbook with a client-generated `idempotency_key` (does not trust preview JSON, row IDs, or `company_id`).
+5. Server re-evaluates authoritatively, then imports importable rows one-by-one (per-row transactions via the shared service).
+
+Blocked rows are recorded as skipped. Warnings remain visible on imported rows. One failed write does not roll back unrelated successful rows.
+
+#### Persistence
+
+| Concept | Detail |
+| --- | --- |
+| `historical_crew_import_batches` | Company-scoped batch with counts, status, filename, actor, idempotency key |
+| `historical_crew_import_rows` | Per Excel row result (status, warnings/errors, assignment link) |
+| `crew_assignments.historical_import_batch_id` | Traceability to the batch |
+| `source` | `historical_import` (manual remains `historical_manual`) |
+
+Statuses: `importing`, `completed`, `completed_with_errors`, `failed`. No blanket rollback button — use existing assignment correction/void workflows.
+
+#### Isolation & Sea Service
+
+Same rules as Manual Entry: no mutation of active assignments, planning, hotel stays, operational alerts, payroll, or timesheets. Sea Service create/link/conflict still goes through `SeaServiceSyncService` under employee locks.
+
+#### Endpoints (import)
+
+- `POST /organization/crew/historical/import/execute`
+- `GET /organization/crew/historical/import/batches`
+- `GET /organization/crew/historical/import/batches/{batch}`
+- `GET /organization/crew/historical/import/batches/{batch}/result` → `Historical_Import_{batch_no}_Result.xlsx`
+
+#### Hostinger / shared-hosting strategy
+
+Bounded synchronous import: max 5,000 rows, per-row transactions (not one giant transaction), preview master-data loaded in bulk to avoid N+1, workbook overlap sorted per employee. No Redis/daemon worker requirement for this feature.
+
+### Phase 2–3 Architecture Alignment
 
 The backend service layer is completely isolated from HTTP/form concerns:
 ```text
@@ -1451,9 +1514,10 @@ Excel Importer    ──┘           │
                                 │
               ┌─────────────────┴─────────────────┐
               ▼                                   ▼
-   Preview only (Phase 2)          HistoricalCrewAssignmentService (Phase 1 manual / Phase 3 bulk)
+   Preview only (validate)          HistoricalCrewAssignmentService
+                                    (manual + bulk import create)
 ```
-Phase 3 will revalidate the same normalized rows under authoritative locks, then call `HistoricalCrewAssignmentService::create()` — not a separate import persistence engine.
+Bulk import always revalidates under locks, then calls `HistoricalCrewAssignmentService::create()` — not a separate import persistence engine.
 
 ## Master data
 

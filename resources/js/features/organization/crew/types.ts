@@ -867,13 +867,53 @@ export interface HistoricalImportPreviewRow {
     } | null;
 }
 
+export interface HistoricalImportBatchSummary {
+    id: number;
+    batch_no: string;
+    original_filename: string;
+    status: string;
+    status_label: string;
+    total_rows: number;
+    ready_rows: number;
+    warning_rows: number;
+    blocked_rows: number;
+    imported_rows: number;
+    failed_rows: number;
+    skipped_rows: number;
+    imported_with_warnings: number;
+    created_by: string | null;
+    started_at: string | null;
+    completed_at: string | null;
+    created_at: string | null;
+}
+
+export interface HistoricalImportBatchRow {
+    row: number;
+    employee_no: string | null;
+    employee_name: string | null;
+    vessel: string | null;
+    rank: string | null;
+    status: string;
+    status_label: string;
+    assignment_no: string | null;
+    crew_assignment_id: number | null;
+    warnings: string[];
+    errors: string[];
+}
+
+export interface HistoricalImportBatchDetail extends HistoricalImportBatchSummary {
+    rows: HistoricalImportBatchRow[];
+}
+
 export interface HistoricalImportPreviewResponse {
     summary: {
         total: number;
         ready: number;
         warning: number;
         blocked: number;
+        importable?: number;
     };
     rows: HistoricalImportPreviewRow[];
     phase_note: string;
+    recent_imports?: HistoricalImportBatchSummary[];
 }

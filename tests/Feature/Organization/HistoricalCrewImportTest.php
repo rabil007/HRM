@@ -1,100 +1,20 @@
 <?php
 
 use App\Models\Client;
-use App\Models\Company;
-use App\Models\Country;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
-use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
-use App\Support\CrewMovements\Historical\HistoricalCrewImportColumns;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportParser;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportTemplate;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-
-function makeHistoricalImportOtherCompany(): Company
-{
-    $country = Country::first() ?? Country::query()->create(['code' => 'OC', 'name' => 'Other Land', 'dial_code' => '+002', 'is_active' => true]);
-    $currency = Currency::first() ?? Currency::query()->create(['code' => 'OC', 'name' => 'Other Cur', 'symbol' => '$', 'is_active' => true]);
-
-    return Company::query()->create([
-        'name' => 'Other Company',
-        'slug' => 'other-company-'.Str::lower(Str::random(6)),
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-}
-
-/**
- * @param  list<array<string, mixed>>  $rows
- */
-function makeHistoricalCrewImportFile(array $rows, ?string $sheetName = null): UploadedFile
-{
-    $spreadsheet = new Spreadsheet;
-    $sheet = $spreadsheet->getActiveSheet();
-    $sheet->setTitle($sheetName ?? HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET);
-
-    foreach (HistoricalCrewImportColumns::displayHeaders() as $columnIndex => $header) {
-        $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
-    }
-
-    $headerIndex = collect(HistoricalCrewImportColumns::headers())
-        ->mapWithKeys(fn (string $header, int $index) => [$header => $index + 1])
-        ->all();
-
-    $rowNumber = HistoricalCrewImportParser::DATA_START_ROW;
-
-    foreach ($rows as $row) {
-        foreach ($row as $header => $value) {
-            if (! isset($headerIndex[$header])) {
-                continue;
-            }
-
-            $column = $headerIndex[$header];
-
-            if ($header === HistoricalCrewImportColumns::EMPLOYEE_NO) {
-                $sheet->setCellValueExplicitByColumnAndRow(
-                    $column,
-                    $rowNumber,
-                    (string) $value,
-                    DataType::TYPE_STRING,
-                );
-            } elseif (is_float($value) || is_int($value)) {
-                $sheet->setCellValueByColumnAndRow($column, $rowNumber, $value);
-            } else {
-                $sheet->setCellValueByColumnAndRow($column, $rowNumber, $value ?? '');
-            }
-        }
-
-        $rowNumber++;
-    }
-
-    $path = tempnam(sys_get_temp_dir(), 'historical-crew-import-').'.xlsx';
-    (new Xlsx($spreadsheet))->save($path);
-
-    return new UploadedFile(
-        $path,
-        'historical-crew-import.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        null,
-        true,
-    );
-}
 
 test('authorized user can download historical import template with required sheets', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
@@ -474,8 +394,78 @@ test('cross company vessel and hidden employee are blocked', function () {
         ->assertJsonPath('summary.blocked', 2);
 
     $messages = collect($response->json('rows'))->pluck('errors')->flatten()->implode(' ');
-    expect($messages)->toContain('not visible')
-        ->and($messages)->toContain('not found');
+    expect($messages)->toContain('not found or is unavailable')
+        ->and($messages)->toContain('not found')
+        ->and($messages)->not->toContain('hidden department')
+        ->and($messages)->not->toContain('not visible');
+});
+
+test('hidden and nonexistent employee numbers receive indistinguishable validation messages', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $visibleDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Visible Office',
+        'code' => 'VX'.Str::upper(Str::random(3)),
+        'status' => 'active',
+    ]);
+    $hiddenDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Hidden Marine',
+        'code' => 'HX'.Str::upper(Str::random(3)),
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'HID-77',
+        'department_id' => $hiddenDept->id,
+        'status' => 'active',
+    ]);
+
+    $vessel = makeCrewMovementVessel('Privacy Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    restrictUserToDepartments($user, $company, [$visibleDept->id]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => 'HID-77',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+        ],
+        [
+            'employee_no' => 'MISSING-88',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ]);
+
+    $response->assertOk();
+    $messages = collect($response->json('rows'))
+        ->sortBy('row')
+        ->pluck('errors')
+        ->map(fn ($errs) => $errs[0] ?? '')
+        ->values()
+        ->all();
+
+    $normalize = fn (string $message): string => (string) preg_replace('/"[^"]+"/', '""', $message);
+
+    expect($normalize($messages[0]))->toBe($normalize($messages[1]))
+        ->and($messages[0])->toContain('was not found or is unavailable')
+        ->and($messages[1])->toContain('was not found or is unavailable')
+        ->and($messages[0])->not->toContain('hidden')
+        ->and($messages[1])->not->toContain('hidden');
 });
 
 test('future date chronology and existing assignment overlap are blocked', function () {
@@ -593,6 +583,182 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
         ->and($statuses[4])->toBe('blocked')
         ->and($statuses[5])->toBe('ready')
         ->and($statuses[6])->toBe('ready');
+});
+
+test('empty workbook and untouched sample row are rejected', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([]),
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file']);
+
+    $sampleOnly = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => HistoricalCrewImportParser::SAMPLE_EMPLOYEE_NO,
+            'vessel' => 'Sample Vessel',
+            'rank' => 'Sample Rank',
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+            'remarks' => 'SAMPLE — REPLACE with real historical data',
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $sampleOnly,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file']);
+});
+
+test('formula cells are rejected and blank trailing rows do not count toward the limit', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Formula Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $withFormula = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+            'remarks' => '=HYPERLINK("http://evil.test")',
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $withFormula,
+        ])
+        ->assertOk()
+        ->assertJsonPath('rows.0.status', 'blocked');
+
+    $messages = collect($this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $withFormula,
+        ])
+        ->json('rows.0.errors'))->implode(' ');
+
+    expect($messages)->toContain('Formula values are not allowed');
+
+    $rows = [
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+        ],
+    ];
+
+    // Append many completely blank conceptual rows by writing only headers + one data row;
+    // parser must report total 1 (blank trailing Excel rows are ignored).
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile($rows),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.total', 1);
+});
+
+test('parser accepts exactly MAX_ROWS and rejects MAX_ROWS plus one', function () {
+    $base = [
+        'employee_no' => 'E1',
+        'vessel' => 'Vessel',
+        'rank' => 'Rank',
+        'vessel_join_date' => '2024-01-01',
+        'disembark_date' => '2024-06-01',
+    ];
+
+    $exact = [];
+    for ($i = 0; $i < HistoricalCrewImportParser::MAX_ROWS; $i++) {
+        $exact[] = [
+            ...$base,
+            'employee_no' => 'E'.$i,
+        ];
+    }
+
+    $parsedExact = app(HistoricalCrewImportParser::class)->parse(makeHistoricalCrewImportFile($exact));
+    expect($parsedExact)->toHaveCount(HistoricalCrewImportParser::MAX_ROWS);
+
+    $tooMany = $exact;
+    $tooMany[] = [
+        ...$base,
+        'employee_no' => 'E-OVERFLOW',
+    ];
+
+    expect(fn () => app(HistoricalCrewImportParser::class)->parse(makeHistoricalCrewImportFile($tooMany)))
+        ->toThrow(InvalidArgumentException::class, 'maximum supported per upload');
+})->group('slow');
+
+test('generated template writes formula-like database names as plain text', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    $employee->update([
+        'employee_no' => '3119',
+        'name' => '=HYPERLINK("http://evil.test","Click")',
+    ]);
+    Rank::query()->create([
+        'name' => '=CMD|calc',
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.crew-assignments.historical.import.template'));
+
+    $response->assertOk();
+    $tempPath = tempnam(sys_get_temp_dir(), 'hist-tpl-safe-').'.xlsx';
+    file_put_contents($tempPath, $response->streamedContent());
+
+    $spreadsheet = IOFactory::load($tempPath);
+    $reference = $spreadsheet->getSheetByName(HistoricalCrewImportTemplate::REFERENCE_SHEET);
+
+    $foundSafeEmployee = false;
+    $foundSafeRank = false;
+
+    foreach ($reference->getRowIterator() as $row) {
+        foreach ($row->getCellIterator() as $cell) {
+            $raw = $cell->getValue();
+            if (! is_string($raw)) {
+                continue;
+            }
+
+            if (str_contains($raw, 'HYPERLINK')) {
+                $foundSafeEmployee = true;
+                expect($cell->getDataType())->toBe(DataType::TYPE_STRING)
+                    ->and($raw)->toStartWith("'=");
+            }
+
+            if (str_contains($raw, 'CMD|calc')) {
+                $foundSafeRank = true;
+                expect($cell->getDataType())->toBe(DataType::TYPE_STRING)
+                    ->and($raw)->toStartWith("'=");
+            }
+        }
+    }
+
+    expect($foundSafeEmployee)->toBeTrue()
+        ->and($foundSafeRank)->toBeTrue();
+
+    @unlink($tempPath);
 });
 
 test('missing employee_no vessel join and disembark are blocked', function () {

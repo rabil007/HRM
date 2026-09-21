@@ -2,17 +2,26 @@ import {
     AlertTriangle,
     CheckCircle2,
     Download,
+    Eye,
     FileSpreadsheet,
     Loader2,
     Upload,
     XCircle,
 } from 'lucide-react';
 import type { DragEvent, ReactElement } from 'react';
-import { Fragment, useMemo, useRef, useState } from 'react';
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import HistoricalCrewAssignmentController from '@/actions/App/Http/Controllers/Organization/HistoricalCrewAssignmentController';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Table,
     TableBody,
@@ -21,15 +30,23 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { formatDisplayDate } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type {
+    HistoricalImportBatchDetail,
+    HistoricalImportBatchRow,
+    HistoricalImportBatchSummary,
     HistoricalImportPreviewResponse,
     HistoricalImportPreviewRow,
     HistoricalImportRowStatus,
 } from '../types';
 
 type RowFilter = 'all' | HistoricalImportRowStatus;
+
+function getCsrfToken(): string | undefined {
+    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+        ?.content;
+}
 
 function isSpreadsheetLike(file: File): boolean {
     const name = file.name.toLowerCase();
@@ -60,6 +77,58 @@ function statusBadge(status: HistoricalImportRowStatus): ReactElement {
     }
 
     return <Badge variant="destructive">Blocked</Badge>;
+}
+
+function batchStatusBadge(status: string, label: string): ReactElement {
+    if (status === 'completed') {
+        return (
+            <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                {label}
+            </Badge>
+        );
+    }
+
+    if (status === 'completed_with_errors') {
+        return (
+            <Badge className="bg-amber-500 text-white hover:bg-amber-500">
+                {label}
+            </Badge>
+        );
+    }
+
+    if (status === 'importing') {
+        return <Badge variant="secondary">{label}</Badge>;
+    }
+
+    return <Badge variant="destructive">{label}</Badge>;
+}
+
+function batchRowStatusBadge(status: string, label: string): ReactElement {
+    if (status === 'imported') {
+        return (
+            <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                {label}
+            </Badge>
+        );
+    }
+
+    if (status === 'imported_with_warnings') {
+        return (
+            <Badge className="bg-amber-500 text-white hover:bg-amber-500">
+                {label}
+            </Badge>
+        );
+    }
+
+    if (status === 'skipped') {
+        return <Badge variant="secondary">{label}</Badge>;
+    }
+
+    if (status === 'failed') {
+        return <Badge variant="destructive">{label}</Badge>;
+    }
+
+    return <Badge variant="outline">{label}</Badge>;
 }
 
 function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
@@ -172,16 +241,215 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
     );
 }
 
+function BatchRowDetail({
+    row,
+}: {
+    row: HistoricalImportBatchRow;
+}): ReactElement {
+    return (
+        <div className="space-y-3 border-t border-border/60 bg-muted/20 p-4 text-sm">
+            <div className="flex items-center justify-between gap-2">
+                <h4 className="font-semibold text-foreground">
+                    Row {row.row} — {row.status_label}
+                </h4>
+                {batchRowStatusBadge(row.status, row.status_label)}
+            </div>
+
+            {row.assignment_no ? (
+                <p className="text-xs text-muted-foreground">
+                    Assignment:{' '}
+                    <span className="font-medium text-foreground">
+                        {row.assignment_no}
+                    </span>
+                </p>
+            ) : null}
+
+            {row.warnings.length > 0 && (
+                <ul className="list-inside list-disc space-y-0.5 text-xs text-amber-700 dark:text-amber-400">
+                    {row.warnings.map((warning, idx) => (
+                        <li key={idx}>{warning}</li>
+                    ))}
+                </ul>
+            )}
+
+            {row.errors.length > 0 && (
+                <ul className="list-inside list-disc space-y-0.5 text-xs text-destructive">
+                    {row.errors.map((error, idx) => (
+                        <li key={idx}>{error}</li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+function RecentImportsSection({
+    batches,
+    isLoading,
+    onView,
+    viewingBatchId,
+}: {
+    batches: HistoricalImportBatchSummary[];
+    isLoading: boolean;
+    onView: (batchId: number) => void;
+    viewingBatchId: number | null;
+}): ReactElement | null {
+    if (!isLoading && batches.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-2">
+            <h4 className="text-sm font-medium text-foreground">
+                Recent Imports
+            </h4>
+
+            {isLoading ? (
+                <p className="text-xs text-muted-foreground">
+                    Loading recent imports…
+                </p>
+            ) : (
+                <div className="overflow-hidden rounded-xl border border-border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Batch</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>File</TableHead>
+                                <TableHead>Imported / Blocked</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="w-20" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {batches.map((batch) => (
+                                <TableRow key={batch.id}>
+                                    <TableCell className="font-medium">
+                                        {batch.batch_no}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">
+                                        {formatDisplayDateTime(
+                                            batch.completed_at ??
+                                                batch.created_at,
+                                        )}
+                                    </TableCell>
+                                    <TableCell
+                                        className="max-w-[140px] truncate text-xs"
+                                        title={batch.original_filename}
+                                    >
+                                        {batch.original_filename}
+                                    </TableCell>
+                                    <TableCell className="text-xs">
+                                        {batch.imported_rows} /{' '}
+                                        {batch.blocked_rows}
+                                    </TableCell>
+                                    <TableCell>
+                                        {batchStatusBadge(
+                                            batch.status,
+                                            batch.status_label,
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 gap-1 px-2"
+                                            disabled={
+                                                viewingBatchId === batch.id
+                                            }
+                                            onClick={() => onView(batch.id)}
+                                        >
+                                            {viewingBatchId === batch.id ? (
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                                <Eye className="h-3.5 w-3.5" />
+                                            )}
+                                            View
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function HistoricalImportExcelPanel(): ReactElement {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [file, setFile] = useState<File | null>(null);
     const [dragActive, setDragActive] = useState(false);
     const [isValidating, setIsValidating] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [preview, setPreview] =
         useState<HistoricalImportPreviewResponse | null>(null);
+    const [importResult, setImportResult] =
+        useState<HistoricalImportBatchDetail | null>(null);
+    const [recentImports, setRecentImports] = useState<
+        HistoricalImportBatchSummary[]
+    >([]);
+    const [isLoadingRecentImports, setIsLoadingRecentImports] = useState(true);
+    const [viewingBatchId, setViewingBatchId] = useState<number | null>(null);
+    const [reviewConfirmed, setReviewConfirmed] = useState(false);
+    const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
     const [rowFilter, setRowFilter] = useState<RowFilter>('all');
     const [expandedRow, setExpandedRow] = useState<number | null>(null);
+    const [expandedBatchRow, setExpandedBatchRow] = useState<number | null>(
+        null,
+    );
+
+    const loadRecentImports = useCallback(async () => {
+        setIsLoadingRecentImports(true);
+
+        try {
+            const csrf = getCsrfToken();
+            const response = await fetch(
+                HistoricalCrewAssignmentController.importBatches.url(),
+                {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                    },
+                    credentials: 'same-origin',
+                },
+            );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const payload = (await response.json()) as {
+                batches?: HistoricalImportBatchSummary[];
+            };
+
+            setRecentImports(payload.batches ?? []);
+        } catch {
+            // Non-blocking: recent imports are supplementary context.
+        } finally {
+            setIsLoadingRecentImports(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadRecentImports();
+    }, [loadRecentImports]);
+
+    const importableCount = useMemo(() => {
+        if (!preview) {
+            return 0;
+        }
+
+        return (
+            preview.summary.importable ??
+            preview.summary.ready + preview.summary.warning
+        );
+    }, [preview]);
 
     const filteredRows = useMemo(() => {
         if (!preview) {
@@ -198,8 +466,12 @@ export function HistoricalImportExcelPanel(): ReactElement {
     const acceptFile = (next: File | null) => {
         setMessage(null);
         setPreview(null);
+        setImportResult(null);
         setExpandedRow(null);
+        setExpandedBatchRow(null);
         setRowFilter('all');
+        setReviewConfirmed(false);
+        setIdempotencyKey(null);
 
         if (!next) {
             setFile(null);
@@ -233,14 +505,13 @@ export function HistoricalImportExcelPanel(): ReactElement {
 
         setIsValidating(true);
         setMessage(null);
+        setImportResult(null);
 
         const formData = new FormData();
         formData.append('file', file);
 
         try {
-            const csrf = document.querySelector<HTMLMetaElement>(
-                'meta[name="csrf-token"]',
-            )?.content;
+            const csrf = getCsrfToken();
             const response = await fetch(
                 HistoricalCrewAssignmentController.importValidate.url(),
                 {
@@ -275,17 +546,132 @@ export function HistoricalImportExcelPanel(): ReactElement {
                         'Validation failed. Please check the uploaded file.',
                 );
                 setPreview(null);
+                setIdempotencyKey(null);
 
                 return;
             }
 
-            setPreview(payload as HistoricalImportPreviewResponse);
+            const nextPreview = payload as HistoricalImportPreviewResponse;
+            setPreview(nextPreview);
+            setIdempotencyKey(crypto.randomUUID());
+            setReviewConfirmed(false);
             setExpandedRow(null);
+
+            if (nextPreview.recent_imports) {
+                setRecentImports(nextPreview.recent_imports);
+            }
         } catch {
             setMessage('Unable to validate the workbook. Please try again.');
             setPreview(null);
+            setIdempotencyKey(null);
         } finally {
             setIsValidating(false);
+        }
+    };
+
+    const handleImport = async () => {
+        if (!file || !preview || !idempotencyKey || !reviewConfirmed) {
+            return;
+        }
+
+        setIsImporting(true);
+        setMessage(null);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('confirmed', '1');
+        formData.append('idempotency_key', idempotencyKey);
+
+        try {
+            const csrf = getCsrfToken();
+            const response = await fetch(
+                HistoricalCrewAssignmentController.importExecute.url(),
+                {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                    },
+                    credentials: 'same-origin',
+                },
+            );
+
+            const payload = (await response.json().catch(() => null)) as
+                | HistoricalImportBatchDetail
+                | {
+                      message?: string;
+                      errors?: Record<string, string[]>;
+                  }
+                | null;
+
+            if (!response.ok) {
+                const errors =
+                    payload && 'errors' in payload ? payload.errors : undefined;
+                const fileError = errors?.file?.[0];
+                const keyError = errors?.idempotency_key?.[0];
+                setMessage(
+                    fileError ??
+                        keyError ??
+                        (payload && 'message' in payload
+                            ? payload.message
+                            : null) ??
+                        'Import failed. Please try again.',
+                );
+
+                return;
+            }
+
+            const result = payload as HistoricalImportBatchDetail;
+            setImportResult(result);
+            setPreview(null);
+            setReviewConfirmed(false);
+            setIdempotencyKey(null);
+            void loadRecentImports();
+        } catch {
+            setMessage('Unable to import the workbook. Please try again.');
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    const handleViewBatch = async (batchId: number) => {
+        setViewingBatchId(batchId);
+        setMessage(null);
+
+        try {
+            const csrf = getCsrfToken();
+            const response = await fetch(
+                HistoricalCrewAssignmentController.importBatchShow.url({
+                    batch: batchId,
+                }),
+                {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                    },
+                    credentials: 'same-origin',
+                },
+            );
+
+            if (!response.ok) {
+                setMessage('Unable to load import batch details.');
+
+                return;
+            }
+
+            const detail =
+                (await response.json()) as HistoricalImportBatchDetail;
+            setImportResult(detail);
+            setPreview(null);
+            setExpandedBatchRow(null);
+        } catch {
+            setMessage('Unable to load import batch details.');
+        } finally {
+            setViewingBatchId(null);
         }
     };
 
@@ -296,6 +682,162 @@ export function HistoricalImportExcelPanel(): ReactElement {
             fileInputRef.current.value = '';
         }
     };
+
+    const resetToUpload = () => {
+        resetFile();
+        setImportResult(null);
+        setExpandedBatchRow(null);
+    };
+
+    if (importResult) {
+        return (
+            <div className="space-y-4 pt-2">
+                <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-foreground">
+                        Import Result — {importResult.batch_no}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {importResult.original_filename}
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                    <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3">
+                        <div className="text-lg font-semibold text-emerald-600">
+                            {importResult.imported_rows}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                            Imported
+                        </div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3">
+                        <div className="text-lg font-semibold text-muted-foreground">
+                            {importResult.skipped_rows}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                            Blocked / Skipped
+                        </div>
+                    </div>
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                        <div className="text-lg font-semibold text-destructive">
+                            {importResult.failed_rows}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                            Failed
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    {batchStatusBadge(
+                        importResult.status,
+                        importResult.status_label,
+                    )}
+                    {importResult.imported_with_warnings > 0 ? (
+                        <span className="text-xs text-amber-700 dark:text-amber-400">
+                            {importResult.imported_with_warnings} imported with
+                            warnings
+                        </span>
+                    ) : null}
+                </div>
+
+                <Button variant="outline" size="sm" className="gap-2" asChild>
+                    <a
+                        href={HistoricalCrewAssignmentController.importBatchResultDownload.url(
+                            { batch: importResult.id },
+                        )}
+                    >
+                        <Download className="h-4 w-4" />
+                        Download Result Workbook
+                    </a>
+                </Button>
+
+                <div className="overflow-hidden rounded-xl border border-border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-14">Row</TableHead>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Vessel</TableHead>
+                                <TableHead>Rank</TableHead>
+                                <TableHead>Assignment</TableHead>
+                                <TableHead className="w-36">Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {importResult.rows.map((row) => (
+                                <Fragment key={row.row}>
+                                    <TableRow
+                                        className="cursor-pointer"
+                                        onClick={() =>
+                                            setExpandedBatchRow((current) =>
+                                                current === row.row
+                                                    ? null
+                                                    : row.row,
+                                            )
+                                        }
+                                    >
+                                        <TableCell className="font-medium">
+                                            {row.row}
+                                        </TableCell>
+                                        <TableCell>
+                                            {row.employee_name ??
+                                                row.employee_no ??
+                                                '—'}
+                                        </TableCell>
+                                        <TableCell>
+                                            {row.vessel ?? '—'}
+                                        </TableCell>
+                                        <TableCell>{row.rank ?? '—'}</TableCell>
+                                        <TableCell>
+                                            {row.assignment_no ?? '—'}
+                                        </TableCell>
+                                        <TableCell>
+                                            {batchRowStatusBadge(
+                                                row.status,
+                                                row.status_label,
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                    {expandedBatchRow === row.row ? (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={6}
+                                                className="p-0"
+                                            >
+                                                <BatchRowDetail row={row} />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : null}
+                                </Fragment>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+
+                <div className="flex justify-between gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={resetToUpload}
+                    >
+                        Back / New Import
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    if (isImporting) {
+        return (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium text-foreground">
+                    Importing historical assignments…
+                </p>
+            </div>
+        );
+    }
 
     if (preview) {
         return (
@@ -377,9 +919,21 @@ export function HistoricalImportExcelPanel(): ReactElement {
 
                 <Alert>
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Phase 2 preview only</AlertTitle>
+                    <AlertTitle>Before you import</AlertTitle>
                     <AlertDescription>{preview.phase_note}</AlertDescription>
                 </Alert>
+
+                <p className="text-sm text-muted-foreground">
+                    Ready + Warning rows can be imported. Blocked rows will not
+                    be imported.
+                </p>
+
+                {preview.summary.blocked > 0 ? (
+                    <p className="text-sm text-destructive">
+                        {preview.summary.blocked} blocked rows will not be
+                        imported.
+                    </p>
+                ) : null}
 
                 <div className="overflow-hidden rounded-xl border border-border">
                     <Table>
@@ -460,11 +1014,54 @@ export function HistoricalImportExcelPanel(): ReactElement {
                     </Table>
                 </div>
 
+                <div className="flex items-center gap-3">
+                    <Checkbox
+                        id="historical-import-review-confirmed"
+                        checked={reviewConfirmed}
+                        onCheckedChange={(checked) =>
+                            setReviewConfirmed(checked === true)
+                        }
+                    />
+                    <label
+                        htmlFor="historical-import-review-confirmed"
+                        className="text-sm text-muted-foreground"
+                    >
+                        I reviewed the validation results
+                    </label>
+                </div>
+
+                {message ? (
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Import failed</AlertTitle>
+                        <AlertDescription>{message}</AlertDescription>
+                    </Alert>
+                ) : null}
+
                 <div className="flex justify-between gap-2">
                     <Button type="button" variant="outline" onClick={resetFile}>
                         Back / Replace File
                     </Button>
+                    <Button
+                        type="button"
+                        onClick={handleImport}
+                        disabled={
+                            importableCount === 0 ||
+                            !reviewConfirmed ||
+                            isImporting
+                        }
+                        className="gap-2"
+                    >
+                        Import {importableCount} Valid Rows
+                    </Button>
                 </div>
+
+                <RecentImportsSection
+                    batches={recentImports}
+                    isLoading={isLoadingRecentImports}
+                    onView={handleViewBatch}
+                    viewingBatchId={viewingBatchId}
+                />
             </div>
         );
     }
@@ -504,7 +1101,8 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">Step 3</p>
                 <p className="text-sm text-muted-foreground">
-                    Upload and validate. No records are written yet.
+                    Upload and validate your workbook. After review, import
+                    Ready and Warning rows.
                 </p>
 
                 <div
@@ -583,9 +1181,12 @@ export function HistoricalImportExcelPanel(): ReactElement {
                 </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-                Final bulk import will be enabled in Phase 3.
-            </p>
+            <RecentImportsSection
+                batches={recentImports}
+                isLoading={isLoadingRecentImports}
+                onView={handleViewBatch}
+                viewingBatchId={viewingBatchId}
+            />
         </div>
     );
 }

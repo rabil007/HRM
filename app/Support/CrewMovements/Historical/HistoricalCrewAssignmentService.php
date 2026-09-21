@@ -32,9 +32,12 @@ final class HistoricalCrewAssignmentService
         return $result->toPreview();
     }
 
-    public function create(HistoricalCrewAssignmentData $data, ?int $actorId = null): CrewAssignment
-    {
-        return DB::transaction(function () use ($data, $actorId): CrewAssignment {
+    public function create(
+        HistoricalCrewAssignmentData $data,
+        ?int $actorId = null,
+        ?int $importBatchId = null,
+    ): CrewAssignment {
+        return DB::transaction(function () use ($data, $actorId, $importBatchId): CrewAssignment {
             // 1. Lock the employee row to serialize concurrent writes for this employee
             Employee::query()
                 ->where('company_id', $data->companyId)
@@ -57,6 +60,8 @@ final class HistoricalCrewAssignmentService
             // 4. Generate assignment number with locking
             $assignmentNo = $this->numberGenerator->next($data->companyId);
 
+            $chronologicalPreviousId = $this->resolveChronologicalPreviousId($data);
+
             $assignment = CrewAssignment::query()->create([
                 'company_id' => $data->companyId,
                 'assignment_no' => $assignmentNo,
@@ -67,11 +72,15 @@ final class HistoricalCrewAssignmentService
                 'status' => CrewAssignmentStatus::Completed,
                 'started_at' => $data->earliestActualStart(),
                 'closed_at' => $data->assignmentClosedAt ?? $data->latestActualEnd(),
+                'previous_assignment_id' => $chronologicalPreviousId,
                 'source' => $data->source,
+                'historical_import_batch_id' => $importBatchId,
                 'remarks' => $data->remarks,
                 'created_by' => $actorId,
                 'updated_by' => $actorId,
             ]);
+
+            $this->relinkChronologicalSuccessor($assignment, $chronologicalPreviousId);
 
             $phases = $data->phasesToCreate();
             /** @var list<CrewAssignmentPhase> $createdPhases */
@@ -160,5 +169,40 @@ final class HistoricalCrewAssignmentService
 
             return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'rank', 'client']);
         });
+    }
+
+    private function resolveChronologicalPreviousId(HistoricalCrewAssignmentData $data): ?int
+    {
+        $previous = CrewAssignment::query()
+            ->where('company_id', $data->companyId)
+            ->where('employee_id', $data->employeeId)
+            ->whereNull('voided_at')
+            ->where('started_at', '<', $data->earliestActualStart())
+            ->orderByDesc('started_at')
+            ->orderByDesc('id')
+            ->first(['id']);
+
+        return $previous?->id;
+    }
+
+    private function relinkChronologicalSuccessor(CrewAssignment $assignment, ?int $previousId): void
+    {
+        $next = CrewAssignment::query()
+            ->where('company_id', $assignment->company_id)
+            ->where('employee_id', $assignment->employee_id)
+            ->whereNull('voided_at')
+            ->whereKeyNot($assignment->id)
+            ->where('started_at', '>', $assignment->started_at)
+            ->orderBy('started_at')
+            ->orderBy('id')
+            ->first();
+
+        if ($next === null) {
+            return;
+        }
+
+        if ($next->previous_assignment_id === $previousId) {
+            $next->update(['previous_assignment_id' => $assignment->id]);
+        }
     }
 }

@@ -22,18 +22,22 @@ final class HistoricalCrewAssignmentValidator
         private readonly SeaServiceSyncService $seaServiceSync,
     ) {}
 
-    public function validate(HistoricalCrewAssignmentData $data, ?User $actor = null): HistoricalCrewAssignmentValidationResult
-    {
+    public function validate(
+        HistoricalCrewAssignmentData $data,
+        ?User $actor = null,
+        ?HistoricalCrewBulkValidationContext $bulk = null,
+    ): HistoricalCrewAssignmentValidationResult {
         $timezone = $data->timezone;
         $errors = [];
         $warnings = [];
         $checks = [];
 
         // 1. Employee Check: must belong to company, not soft-deleted, and visible to actor
-        $employee = Employee::query()
-            ->where('company_id', $data->companyId)
-            ->whereNull('deleted_at')
-            ->find($data->employeeId);
+        $employee = $bulk?->employee($data->employeeId)
+            ?? Employee::query()
+                ->where('company_id', $data->companyId)
+                ->whereNull('deleted_at')
+                ->find($data->employeeId);
 
         $employeeValid = true;
         $employeeMessage = null;
@@ -42,7 +46,8 @@ final class HistoricalCrewAssignmentValidator
             $employeeValid = false;
             $employeeMessage = 'Employee not found in the active company.';
             $errors['employee_id'] = $employeeMessage;
-        } elseif ($actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $data->companyId)) {
+        } elseif ($bulk === null && $actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $data->companyId)) {
+            // Bulk context already applied EmployeeVisibilityScope when resolving identities.
             $employeeValid = false;
             $employeeMessage = 'You do not have permission to view or manage this employee.';
             $errors['employee_id'] = $employeeMessage;
@@ -62,7 +67,8 @@ final class HistoricalCrewAssignmentValidator
         ];
 
         // 2. Vessel Check: must belong to company via ClientAssignmentRules
-        $vessel = ClientAssignmentRules::findCompanyVessel($data->companyId, $data->vesselId);
+        $vessel = $bulk?->vessel($data->vesselId)
+            ?? ClientAssignmentRules::findCompanyVessel($data->companyId, $data->vesselId);
 
         $vesselValid = true;
         $vesselMessage = null;
@@ -85,7 +91,7 @@ final class HistoricalCrewAssignmentValidator
         ];
 
         // 3. Rank Check
-        $rank = Rank::query()->find($data->rankId);
+        $rank = $bulk?->rank($data->rankId) ?? Rank::query()->find($data->rankId);
         $rankValid = true;
         $rankMessage = null;
 
@@ -109,14 +115,15 @@ final class HistoricalCrewAssignmentValidator
         // Client validation: auto-resolve or validate compatibility
         $client = null;
         if ($data->clientId !== null) {
-            $client = Client::query()->find($data->clientId);
+            $client = $bulk?->client($data->clientId) ?? Client::query()->find($data->clientId);
             if ($client === null) {
                 $errors['client_id'] = 'The selected client is invalid.';
             } elseif ($vessel !== null && $vessel->client_id !== null && (int) $vessel->client_id !== $data->clientId) {
                 $errors['client_id'] = 'The selected client does not match the vessel’s assigned client.';
             }
         } elseif ($vessel !== null && $vessel->client_id !== null) {
-            $client = Client::query()->find((int) $vessel->client_id);
+            $client = $bulk?->client((int) $vessel->client_id)
+                ?? Client::query()->find((int) $vessel->client_id);
         }
 
         if ($client !== null && ! $client->is_active) {
@@ -231,12 +238,13 @@ final class HistoricalCrewAssignmentValidator
         $conflictingAssignment = null;
 
         if ($employee !== null) {
-            $existingAssignments = CrewAssignment::query()
-                ->where('company_id', $data->companyId)
-                ->where('employee_id', $data->employeeId)
-                ->whereNull('voided_at')
-                ->with(['phases'])
-                ->get();
+            $existingAssignments = $bulk?->assignmentsForEmployee($data->employeeId)
+                ?? CrewAssignment::query()
+                    ->where('company_id', $data->companyId)
+                    ->where('employee_id', $data->employeeId)
+                    ->whereNull('voided_at')
+                    ->with(['phases'])
+                    ->get();
 
             foreach ($existingAssignments as $existing) {
                 $existingStart = $existing->started_at ?? $existing->phases->whereNotNull('actual_start_at')->min('actual_start_at');
@@ -246,7 +254,7 @@ final class HistoricalCrewAssignmentValidator
                 }
 
                 if ($existing->status === CrewAssignmentStatus::Active) {
-                    if ($newEnd->gt($existingStart)) {
+                    if (HistoricalAssignmentIntervalOverlap::overlapsActiveAssignment($newEnd, $existingStart)) {
                         $noConflict = false;
                         $conflictingAssignment = $existing;
                         $overlapStart = $newStart->gt($existingStart) ? $newStart : $existingStart;
@@ -263,7 +271,7 @@ final class HistoricalCrewAssignmentValidator
                 } else {
                     $existingEnd = $existing->closed_at ?? $existing->phases->whereNotNull('actual_end_at')->max('actual_end_at') ?? $existingStart;
 
-                    if ($newStart->lt($existingEnd) && $existingStart->lt($newEnd)) {
+                    if (HistoricalAssignmentIntervalOverlap::completedIntervalsOverlap($newStart, $newEnd, $existingStart, $existingEnd)) {
                         $noConflict = false;
                         $conflictingAssignment = $existing;
                         $overlapStart = $newStart->gt($existingStart) ? $newStart : $existingStart;
@@ -288,14 +296,22 @@ final class HistoricalCrewAssignmentValidator
         ];
 
         // 6. Current Operational State Isolation Check
-        $activeAssignment = $employee !== null
-            ? CrewAssignment::query()
-                ->where('company_id', $data->companyId)
-                ->where('employee_id', $data->employeeId)
-                ->where('status', CrewAssignmentStatus::Active)
-                ->whereNull('voided_at')
-                ->first()
-            : null;
+        $activeAssignment = null;
+
+        if ($employee !== null) {
+            if ($bulk !== null) {
+                $activeAssignment = $bulk->assignmentsForEmployee($data->employeeId)
+                    ->first(fn (CrewAssignment $assignment): bool => $assignment->status === CrewAssignmentStatus::Active
+                        && $assignment->voided_at === null);
+            } else {
+                $activeAssignment = CrewAssignment::query()
+                    ->where('company_id', $data->companyId)
+                    ->where('employee_id', $data->employeeId)
+                    ->where('status', CrewAssignmentStatus::Active)
+                    ->whereNull('voided_at')
+                    ->first();
+            }
+        }
 
         $currentIsolatedMessage = $activeAssignment !== null
             ? "Current active assignment {$activeAssignment->assignment_no} will remain untouched."
@@ -312,7 +328,7 @@ final class HistoricalCrewAssignmentValidator
         $seaStartDate = $data->joinedVesselAt->toDateString();
         $seaEndDate = $data->disembarkedAt->toDateString();
         $vesselName = $vessel?->name ?? 'Unknown Vessel';
-        $syncEnabled = $this->seaServiceSync->isEnabled($data->companyId);
+        $syncEnabled = $bulk?->seaServiceSyncEnabled ?? $this->seaServiceSync->isEnabled($data->companyId);
 
         $seaServiceImpact = [
             'status' => 'will_create',
@@ -330,11 +346,12 @@ final class HistoricalCrewAssignmentValidator
             $seaServiceImpact['status'] = 'disabled';
             $seaServiceImpact['message'] = 'Sea Service synchronization is disabled in company settings. No sea service record will be created.';
         } elseif ($employee !== null) {
-            $existingSeaServices = EmployeeSeaService::query()
-                ->where('company_id', $data->companyId)
-                ->where('employee_id', $data->employeeId)
-                ->with(['vessel'])
-                ->get();
+            $existingSeaServices = $bulk?->seaServicesForEmployee($data->employeeId)
+                ?? EmployeeSeaService::query()
+                    ->where('company_id', $data->companyId)
+                    ->where('employee_id', $data->employeeId)
+                    ->with(['vessel'])
+                    ->get();
 
             foreach ($existingSeaServices as $record) {
                 $recordStart = $record->start_date?->toDateString();
@@ -359,7 +376,9 @@ final class HistoricalCrewAssignmentValidator
 
                     // Check for conflicting HR history: Rank conflict
                     if ($record->rank_id !== null && (int) $record->rank_id !== $data->rankId) {
-                        $existingRankName = Rank::query()->find($record->rank_id)?->name ?? '#'.$record->rank_id;
+                        $existingRankName = $bulk?->rank((int) $record->rank_id)?->name
+                            ?? Rank::query()->find($record->rank_id)?->name
+                            ?? '#'.$record->rank_id;
                         $proposedRankName = $rank?->name ?? '#'.$data->rankId;
                         $errMsg = "Matches existing Sea Service record #{$record->id} with conflicting rank ({$existingRankName} vs {$proposedRankName}). Cannot automatically overwrite HR history.";
                         $errors['sea_service'] = $errMsg;

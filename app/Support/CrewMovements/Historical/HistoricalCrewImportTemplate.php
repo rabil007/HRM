@@ -49,11 +49,7 @@ final class HistoricalCrewImportTemplate
 
         $spreadsheet->setActiveSheetIndex(1);
 
-        $path = storage_path('app/temp/'.uniqid('historical-crew-import-template-', true).'.xlsx');
-
-        if (! is_dir(dirname($path))) {
-            mkdir(dirname($path), 0755, true);
-        }
+        $path = sys_get_temp_dir().'/'.uniqid('historical-crew-import-template-', true).'.xlsx';
 
         (new Xlsx($spreadsheet))->save($path);
 
@@ -76,7 +72,7 @@ final class HistoricalCrewImportTemplate
             ['2. Upload the completed workbook in Add Past Data → Import Excel.'],
             ['3. Validate File runs authoritative historical rules (no records are written yet).'],
             ['4. Review Ready / Warning / Blocked rows.'],
-            ['5. Phase 3 will allow confirmed bulk import after re-validation.'],
+            ['5. Confirm import to revalidate and persist Ready + Warning rows (Blocked rows are skipped).'],
             [''],
             ['Important'],
             ['- Do not enter future dates.'],
@@ -84,6 +80,8 @@ final class HistoricalCrewImportTemplate
             ['- Joined Vessel (vessel_join_date) and Disembarked (disembark_date) are required.'],
             ['- Optional phase dates should be entered only when known.'],
             ['- Employee is identified by employee_no (not by name).'],
+            ['- Formula cells (=...) are not allowed — use plain values only.'],
+            ['- Maximum 5,000 historical assignment rows per workbook.'],
             ['- Historical rows do not change current Crew status.'],
             ['- Historical data does not change Crew Planning.'],
             ['- Historical data does not alter finalized payroll.'],
@@ -237,15 +235,10 @@ final class HistoricalCrewImportTemplate
         $row = $headerRow + 1;
 
         foreach ($query->get(['id', 'employee_no', 'name', 'status', 'department_id']) as $employee) {
-            $sheet->setCellValueExplicitByColumnAndRow(
-                1,
-                $row,
-                (string) ($employee->employee_no ?? ''),
-                DataType::TYPE_STRING,
-            );
-            $sheet->setCellValueByColumnAndRow(2, $row, (string) $employee->name);
-            $sheet->setCellValueByColumnAndRow(3, $row, $this->statusLabel((string) $employee->status));
-            $sheet->setCellValueByColumnAndRow(4, $row, $employee->department?->name ?? '');
+            $this->writeSafeString($sheet, 1, $row, (string) ($employee->employee_no ?? ''));
+            $this->writeSafeString($sheet, 2, $row, (string) $employee->name);
+            $this->writeSafeString($sheet, 3, $row, $this->statusLabel((string) $employee->status));
+            $this->writeSafeString($sheet, 4, $row, $employee->department?->name ?? '');
             $row++;
         }
 
@@ -274,9 +267,9 @@ final class HistoricalCrewImportTemplate
         foreach ($vessels as $vessel) {
             /** @var Vessel $vessel */
             $sheet->setCellValueByColumnAndRow(1, $row, (int) $vessel->id);
-            $sheet->setCellValueByColumnAndRow(2, $row, (string) $vessel->name);
-            $sheet->setCellValueByColumnAndRow(3, $row, $vessel->is_active ? 'Active' : 'Inactive');
-            $sheet->setCellValueByColumnAndRow(4, $row, $vessel->client?->name ?? '');
+            $this->writeSafeString($sheet, 2, $row, (string) $vessel->name);
+            $this->writeSafeString($sheet, 3, $row, $vessel->is_active ? 'Active' : 'Inactive');
+            $this->writeSafeString($sheet, 4, $row, $vessel->client?->name ?? '');
             $row++;
         }
 
@@ -298,8 +291,8 @@ final class HistoricalCrewImportTemplate
 
         foreach (Rank::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $rank) {
             $sheet->setCellValueByColumnAndRow(1, $row, (int) $rank->id);
-            $sheet->setCellValueByColumnAndRow(2, $row, (string) $rank->name);
-            $sheet->setCellValueByColumnAndRow(3, $row, $rank->is_active ? 'Active' : 'Inactive');
+            $this->writeSafeString($sheet, 2, $row, (string) $rank->name);
+            $this->writeSafeString($sheet, 3, $row, $rank->is_active ? 'Active' : 'Inactive');
             $row++;
         }
 
@@ -321,12 +314,22 @@ final class HistoricalCrewImportTemplate
 
         foreach (Client::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $client) {
             $sheet->setCellValueByColumnAndRow(1, $row, (int) $client->id);
-            $sheet->setCellValueByColumnAndRow(2, $row, (string) $client->name);
-            $sheet->setCellValueByColumnAndRow(3, $row, $client->is_active ? 'Active' : 'Inactive');
+            $this->writeSafeString($sheet, 2, $row, (string) $client->name);
+            $this->writeSafeString($sheet, 3, $row, $client->is_active ? 'Active' : 'Inactive');
             $row++;
         }
 
         return $row - 1;
+    }
+
+    private function writeSafeString(Worksheet $sheet, int $column, int $row, string $value): void
+    {
+        $sheet->setCellValueExplicitByColumnAndRow(
+            $column,
+            $row,
+            HistoricalSpreadsheetSafeString::forExport($value),
+            DataType::TYPE_STRING,
+        );
     }
 
     private function statusLabel(string $status): string
