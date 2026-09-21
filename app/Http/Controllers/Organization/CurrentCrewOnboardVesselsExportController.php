@@ -53,7 +53,7 @@ class CurrentCrewOnboardVesselsExportController extends Controller
             $assignments = CurrentCrewVesselQuery::exportAssignments($companyId, $filters, user: $request->user());
         }
 
-        $export = new CurrentCrewOnboardVesselsExport($assignments);
+        $export = new CurrentCrewOnboardVesselsExport($assignments, $request->user(), $companyId);
         $filename = 'current-crew-onboard-vessels-'.now()->toDateString();
         $format = strtolower((string) $request->query('format', 'xlsx'));
 

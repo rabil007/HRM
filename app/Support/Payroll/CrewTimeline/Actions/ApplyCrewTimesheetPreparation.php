@@ -16,6 +16,7 @@ use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Payroll\CrewTimeline\ApplyCrewTimesheetPreparationResult;
 use App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationEmployeeAccess;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSkipResolver;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationWorkflowGuard;
 use App\Support\Payroll\CrewTimeline\PayableCrewPreparationLines;
@@ -34,6 +35,7 @@ final class ApplyCrewTimesheetPreparation
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly SyncCrewTimesheetParentFromSegments $syncParentFromSegments,
         private readonly CrewTimesheetPreparationSkipResolver $skipResolver,
+        private readonly CrewTimesheetPreparationEmployeeAccess $employeeAccess,
     ) {}
 
     public function handle(
@@ -62,6 +64,7 @@ final class ApplyCrewTimesheetPreparation
                 ->firstOrFail();
 
             $this->guard->assertTenantOwnership($period, $preparation, $companyId);
+            $this->employeeAccess->assertActorCanAccessAllPreparationEmployees($preparation, $actor, $companyId);
             $this->guard->assertCrewDraftPeriod($period);
 
             if ($preparation->status === CrewTimesheetPreparationStatus::Applied) {

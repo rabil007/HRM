@@ -21,11 +21,12 @@ final class ActivityLogQuery
      *     summary: array{total: int, users: int, important: int, critical: int}
      * }
      */
-    public function for(Request $request, int $companyId, int $perPage): array
+    public function for(Request $request, int $companyId, int $perPage, ?User $user = null): array
     {
+        $user ??= $request->user();
         $filters = $this->filters($request);
-        $allSubjectTypes = $this->subjectTypes($companyId);
-        $query = $this->baseQuery($companyId)
+        $allSubjectTypes = $this->subjectTypes($companyId, $user);
+        $query = $this->baseQuery($companyId, $user)
             ->whereDate('created_at', '>=', $filters['date_from'])
             ->whereDate('created_at', '<=', $filters['date_to']);
 
@@ -87,7 +88,7 @@ final class ActivityLogQuery
             ->paginate($perPage)
             ->withQueryString();
 
-        $userIds = $this->baseQuery($companyId)
+        $userIds = $this->baseQuery($companyId, $user)
             ->distinct()
             ->pluck('causer_id')
             ->filter(fn (mixed $id): bool => is_numeric($id) && (int) $id > 0)
@@ -138,20 +139,22 @@ final class ActivityLogQuery
     /**
      * @return Builder<Activity>
      */
-    private function baseQuery(int $companyId): Builder
+    private function baseQuery(int $companyId, ?User $user = null): Builder
     {
-        return Activity::query()
+        $query = Activity::query()
             ->where('company_id', $companyId)
             ->where('causer_type', User::class)
             ->whereNotNull('causer_id');
+
+        return ActivityLogVisibilityScope::apply($query, $user, $companyId);
     }
 
     /**
      * @return Collection<int, string>
      */
-    private function subjectTypes(int $companyId): Collection
+    private function subjectTypes(int $companyId, ?User $user = null): Collection
     {
-        return $this->baseQuery($companyId)
+        return $this->baseQuery($companyId, $user)
             ->whereNotNull('subject_type')
             ->where('subject_type', '!=', '')
             ->distinct()

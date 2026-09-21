@@ -5,7 +5,6 @@ namespace App\Support\CrewPlanning;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
 use App\Models\CrewAssignment;
-use App\Models\Employee;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMobilisationReadinessResult;
 use App\Support\CrewMovements\CrewReliefReadinessResult;
@@ -18,12 +17,16 @@ final class CrewReliefDeskPresenter
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     */
     public function row(
         CrewAssignment $source,
         CrewReliefReadinessResult $relief,
         ?CrewMobilisationReadinessResult $mobilisationReadiness,
         User $user,
         int $companyId,
+        ?array $authorizedReliefEmployeeIds = null,
     ): array {
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $tour = (new CrewTourProgress)->forAssignment($source, null, $timezone);
@@ -34,11 +37,20 @@ final class CrewReliefDeskPresenter
         $canCreatePlanning = $user->can('crew_operations.planning.create');
         $canViewEmployees = $user->can('employees.view');
         $canViewVessels = $user->can('crew_operations.vessels.view');
+        $reliefEmployee = $this->reliefEmployeePayload(
+            $relief,
+            $canViewEmployees,
+            $user,
+            $companyId,
+            $authorizedReliefEmployeeIds,
+        );
+        $reliefEmployeeVisible = $relief->reliefEmployee === null || $reliefEmployee !== null;
         $action = $this->recommendedAction(
             $source,
             $relief,
             $canViewAssignments,
             $canCreatePlanning,
+            $reliefEmployeeVisible,
         );
 
         $readinessApplies = $mobilisationReadiness !== null && $mobilisationReadiness->applies;
@@ -82,14 +94,14 @@ final class CrewReliefDeskPresenter
             'relief_status_label' => $relief->status->label(),
             'relief_risk' => $relief->risk->value,
             'relief_risk_label' => $this->deskRiskLabel($relief->risk),
-            'relief_employee' => $this->reliefEmployeePayload($relief, $canViewEmployees, $user, $companyId),
-            'relief_planning_assignment_id' => $relief->reliefPlanningAssignmentId,
-            'relief_crew_assignment_id' => $canViewAssignments
+            'relief_employee' => $reliefEmployee,
+            'relief_planning_assignment_id' => $reliefEmployeeVisible ? $relief->reliefPlanningAssignmentId : null,
+            'relief_crew_assignment_id' => $reliefEmployeeVisible && $canViewAssignments
                 ? $relief->reliefCrewAssignmentId
                 : null,
-            'relief_phase_code' => $relief->reliefPhase['code'] ?? null,
-            'relief_phase_label' => $relief->reliefPhase['label'] ?? null,
-            'relief_planned_join_date' => $relief->reliefPlannedJoinDate,
+            'relief_phase_code' => $reliefEmployeeVisible ? ($relief->reliefPhase['code'] ?? null) : null,
+            'relief_phase_label' => $reliefEmployeeVisible ? ($relief->reliefPhase['label'] ?? null) : null,
+            'relief_planned_join_date' => $reliefEmployeeVisible ? $relief->reliefPlannedJoinDate : null,
             'mobilisation_readiness' => $readinessPayload,
             'recommended_action' => $action,
         ];
@@ -103,7 +115,41 @@ final class CrewReliefDeskPresenter
         CrewReliefReadinessResult $relief,
         bool $canViewAssignments,
         bool $canCreatePlanning,
+        bool $reliefEmployeeVisible = true,
     ): array {
+        if (! $reliefEmployeeVisible) {
+            return match ($relief->status) {
+                CrewReliefStatus::NoRelief => [
+                    'key' => 'plan_relief',
+                    'label' => 'Plan Relief',
+                    'href' => $canCreatePlanning ? $this->planReliefHref($source) : null,
+                ],
+                CrewReliefStatus::ReliefPlanned => [
+                    'key' => 'open_relief_plan',
+                    'label' => 'Open Relief Plan',
+                    'href' => null,
+                ],
+                CrewReliefStatus::AssignmentCreated,
+                CrewReliefStatus::Mobilising => [
+                    'key' => 'open_relief_assignment',
+                    'label' => 'Open Relief Assignment',
+                    'href' => null,
+                ],
+                CrewReliefStatus::ReadyToJoin => [
+                    'key' => 'open_assignment',
+                    'label' => 'Open Assignment',
+                    'href' => null,
+                ],
+                CrewReliefStatus::ReliefOnboard => [
+                    'key' => 'review_source',
+                    'label' => 'Review Source Assignment',
+                    'href' => $canViewAssignments
+                        ? route('organization.crew-assignments.show', $source)
+                        : null,
+                ],
+            };
+        }
+
         return match ($relief->status) {
             CrewReliefStatus::NoRelief => [
                 'key' => 'plan_relief',
@@ -173,22 +219,27 @@ final class CrewReliefDeskPresenter
     /**
      * @return array{id: int, name: string, employee_no: string|null, href: string|null}|null
      */
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     */
     private function reliefEmployeePayload(
         CrewReliefReadinessResult $relief,
         bool $canViewEmployees,
         User $user,
         int $companyId,
+        ?array $authorizedReliefEmployeeIds = null,
     ): ?array {
         if ($relief->reliefEmployee === null) {
             return null;
         }
 
-        $employee = Employee::query()
-            ->where('company_id', $companyId)
-            ->whereKey((int) $relief->reliefEmployee['id'])
-            ->first(['id', 'company_id', 'department_id', 'user_id']);
+        $employeeId = (int) $relief->reliefEmployee['id'];
 
-        if ($employee === null || ! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
+        if ($authorizedReliefEmployeeIds !== null) {
+            if (! in_array($employeeId, $authorizedReliefEmployeeIds, true)) {
+                return null;
+            }
+        } elseif (! EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId)) {
             return null;
         }
 

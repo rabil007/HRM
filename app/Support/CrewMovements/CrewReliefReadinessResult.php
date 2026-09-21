@@ -4,6 +4,8 @@ namespace App\Support\CrewMovements;
 
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 /**
  * @phpstan-type ReliefEmployeeArray array{id: int, name: string, employee_no: string|null}|null
@@ -26,6 +28,47 @@ final class CrewReliefReadinessResult
         public readonly ?string $sourcePlannedSignoffDate = null,
         public readonly ?int $daysUntilSignoff = null,
     ) {}
+
+    /**
+     * @param  list<int>|null  $authorizedReliefEmployeeIds
+     *                                                       null with null user = trusted internal context (no redaction);
+     *                                                       array = authenticated viewer authorized relief employee IDs.
+     */
+    public function sanitizeForViewer(?User $user, int $companyId, ?array $authorizedReliefEmployeeIds = null): self
+    {
+        if ($user === null && $authorizedReliefEmployeeIds === null) {
+            return $this;
+        }
+
+        if ($this->reliefEmployee === null) {
+            return $this;
+        }
+
+        $employeeId = (int) ($this->reliefEmployee['id'] ?? 0);
+        if ($employeeId <= 0) {
+            return $this;
+        }
+
+        $visible = $authorizedReliefEmployeeIds !== null
+            ? in_array($employeeId, $authorizedReliefEmployeeIds, true)
+            : ($user !== null && EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId));
+
+        if ($visible) {
+            return $this;
+        }
+
+        return new self(
+            status: $this->status,
+            risk: $this->risk,
+            reliefEmployee: null,
+            reliefPlanningAssignmentId: null,
+            reliefCrewAssignmentId: null,
+            reliefPlannedJoinDate: null,
+            reliefPhase: null,
+            sourcePlannedSignoffDate: $this->sourcePlannedSignoffDate,
+            daysUntilSignoff: $this->daysUntilSignoff,
+        );
+    }
 
     /**
      * @return array{

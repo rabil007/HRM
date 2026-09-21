@@ -14,6 +14,7 @@ use App\Support\CrewMovements\CrewMobilisationReadinessResult;
 use App\Support\CrewMovements\CrewReliefPlanningLoader;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\CrewMovements\CrewReliefReadinessResult;
+use App\Support\CrewMovements\CrewReliefVisibility;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentOnboardCrewQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -67,8 +68,13 @@ final class CrewReliefDeskQuery
         $slice = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
         (new EloquentCollection($slice->pluck('assignment')->all()))->loadMissing(['phases']);
         $readinessByLinkedId = $this->readinessForPage($slice, $companyId, $user);
+        $authorizedReliefEmployeeIds = CrewReliefVisibility::authorizedReliefEmployeeIdsFromResults(
+            $slice->map(fn (array $item): CrewReliefReadinessResult => $item['relief']),
+            $user,
+            $companyId,
+        );
 
-        $rows = $slice->map(function (array $item) use ($user, $companyId, $readinessByLinkedId): array {
+        $rows = $slice->map(function (array $item) use ($user, $companyId, $readinessByLinkedId, $authorizedReliefEmployeeIds): array {
             $linkedId = $item['relief']->reliefCrewAssignmentId;
 
             return $this->presenter->row(
@@ -77,6 +83,7 @@ final class CrewReliefDeskQuery
                 $linkedId !== null ? $readinessByLinkedId->get($linkedId) : null,
                 $user,
                 $companyId,
+                $authorizedReliefEmployeeIds,
             );
         })->all();
 

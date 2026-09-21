@@ -19,6 +19,7 @@ use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewReliefStatusQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -71,14 +72,14 @@ final class CrewOperationsDashboardAnalytics
             ? $this->projectedManningSummary($companyId)
             : null;
 
-        $tourBuckets = $this->tourStatusQuery->bucketCounts($companyId);
-        $reliefResolved = $this->reliefStatusQuery->resolveActiveOnVessel($companyId);
-        $onboardNow = $this->onboardNowCount($companyId);
-        $joinsNext7 = $this->joinsInWindow($companyId, $today, $horizonEnd);
+        $tourBuckets = $this->tourStatusQuery->bucketCounts($companyId, $user);
+        $reliefResolved = $this->reliefStatusQuery->resolveActiveOnVessel($companyId, $user);
+        $onboardNow = $this->onboardNowCount($companyId, $user);
+        $joinsNext7 = $this->joinsInWindow($companyId, $today, $horizonEnd, $user);
         $signoffsNext7 = (int) $tourBuckets['due_today'] + (int) $tourBuckets['due_within_7_days'];
         $signoffsOverdue = (int) $tourBuckets['overdue'];
 
-        $nextSevenDays = $this->nextSevenDays($companyId, $today, $horizonEnd, $permissions['planning']);
+        $nextSevenDays = $this->nextSevenDays($companyId, $today, $horizonEnd, $permissions['planning'], $user);
         $actionRequired = $this->actionRequired(
             companyId: $companyId,
             today: $today,
@@ -92,6 +93,7 @@ final class CrewOperationsDashboardAnalytics
             canViewEmployees: $user?->can('employees.view') ?? false,
             canViewPlanning: $permissions['planning'],
             canViewVesselManning: $permissions['vessel_manning'],
+            user: $user,
         );
         $manningReliefRisks = $this->manningReliefRisks(
             manningGapItems: $manningGaps['items'],
@@ -123,13 +125,13 @@ final class CrewOperationsDashboardAnalytics
             'manning_relief_risks' => $manningReliefRisks,
             'projected_manning' => $projectedManning,
             'max_home_days' => $maxHomeDays,
-            'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId),
+            'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId, $user),
             'recent_activity' => CrewOperationsRecentActivityQuery::forCompany($user, $companyId, 8),
             'can' => $permissions,
         ];
     }
 
-    private function onboardNowCount(int $companyId): int
+    private function onboardNowCount(int $companyId, ?User $user = null): int
     {
         $query = CrewAssignment::query()
             ->where('company_id', $companyId)
@@ -139,6 +141,8 @@ final class CrewOperationsDashboardAnalytics
                     ->where('status', CrewPhaseStatus::Active->value);
             });
 
+        $query = EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+
         return ActiveEmployeeConstraint::whereHas($query, $companyId)->count();
     }
 
@@ -146,12 +150,14 @@ final class CrewOperationsDashboardAnalytics
         int $companyId,
         CarbonImmutable $from,
         CarbonImmutable $to,
+        ?User $user = null,
     ): int {
         $planningJoins = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()]);
 
         ActiveEmployeeConstraint::whereHas($planningJoins, $companyId);
+        EmployeeVisibilityScope::whereHas($planningJoins, $user, $companyId, 'employee');
 
         $planningJoins = $planningJoins->get(['id', 'crew_assignment_id', 'planned_join_date', 'employee_id']);
 
@@ -174,6 +180,7 @@ final class CrewOperationsDashboardAnalytics
             ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds));
 
         ActiveEmployeeConstraint::whereHas($assignmentJoins, $companyId);
+        EmployeeVisibilityScope::whereHas($assignmentJoins, $user, $companyId, 'employee');
 
         return $planningJoins->count() + $assignmentJoins->count();
     }
@@ -186,6 +193,7 @@ final class CrewOperationsDashboardAnalytics
         CarbonImmutable $from,
         CarbonImmutable $to,
         bool $canViewPlanning,
+        ?User $user = null,
     ): array {
         $days = [];
 
@@ -205,6 +213,7 @@ final class CrewOperationsDashboardAnalytics
                 ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()]);
 
             ActiveEmployeeConstraint::whereHas($planningJoins, $companyId);
+            EmployeeVisibilityScope::whereHas($planningJoins, $user, $companyId, 'employee');
 
             $planningJoins = $planningJoins->get(['planned_join_date', 'crew_assignment_id']);
 
@@ -238,6 +247,7 @@ final class CrewOperationsDashboardAnalytics
             ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds));
 
         ActiveEmployeeConstraint::whereHas($assignmentJoins, $companyId);
+        EmployeeVisibilityScope::whereHas($assignmentJoins, $user, $companyId, 'employee');
 
         $assignmentJoins = $assignmentJoins->get(['planned_join_at']);
 
@@ -261,6 +271,7 @@ final class CrewOperationsDashboardAnalytics
             });
 
         ActiveEmployeeConstraint::whereHas($signoffs, $companyId);
+        EmployeeVisibilityScope::whereHas($signoffs, $user, $companyId, 'employee');
 
         $signoffs = $signoffs->get(['planned_signoff_at']);
 
@@ -308,6 +319,7 @@ final class CrewOperationsDashboardAnalytics
         bool $canViewEmployees,
         bool $canViewPlanning,
         bool $canViewVesselManning,
+        ?User $user = null,
     ): array {
         $items = [];
 
@@ -452,7 +464,7 @@ final class CrewOperationsDashboardAnalytics
         }
 
         if ($canViewCorrections && count($items) < self::ACTION_LIMIT) {
-            $corrections = $this->movementCorrectionSummary($companyId);
+            $corrections = $this->movementCorrectionSummary($companyId, $user);
 
             if ($corrections['overdue'] > 0) {
                 $items[] = [
@@ -467,7 +479,7 @@ final class CrewOperationsDashboardAnalytics
             }
         }
 
-        $this->appendEmployeeActions($items, $companyId, $maxHomeDays, $canViewEmployees);
+        $this->appendEmployeeActions($items, $companyId, $maxHomeDays, $canViewEmployees, $user);
 
         return array_slice($items, 0, self::ACTION_LIMIT);
     }
@@ -480,16 +492,20 @@ final class CrewOperationsDashboardAnalytics
         int $companyId,
         int $maxHomeDays,
         bool $canViewEmployees,
+        ?User $user = null,
     ): void {
         if (count($items) >= self::ACTION_LIMIT) {
             return;
         }
 
-        $employees = Employee::query()
+        $employeesQuery = Employee::query()
             ->where('company_id', $companyId)
             ->active()
-            ->with(['company', 'rank'])
-            ->get();
+            ->with(['company', 'rank']);
+
+        EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+
+        $employees = $employeesQuery->get();
 
         $resolver = new CrewAssignmentStatusResolver;
         $seen = [];
@@ -822,13 +838,15 @@ final class CrewOperationsDashboardAnalytics
     /**
      * @return array{pending: int, overdue: int, url: string}
      */
-    private function movementCorrectionSummary(int $companyId): array
+    private function movementCorrectionSummary(int $companyId, ?User $user = null): array
     {
         $timezone = (string) (Company::query()
             ->whereKey($companyId)
             ->value('timezone') ?? config('app.timezone', 'UTC'));
+        $query = CrewMovementCorrection::query()->where('company_id', $companyId);
+        $query = EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'assignment.employee');
         $counts = $this->correctionAge->pendingCounts(
-            CrewMovementCorrection::query()->where('company_id', $companyId),
+            $query,
             $timezone,
         );
 

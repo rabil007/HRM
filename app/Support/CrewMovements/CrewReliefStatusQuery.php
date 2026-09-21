@@ -8,7 +8,9 @@ use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
 use App\Models\CrewAssignment;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,7 +34,7 @@ final class CrewReliefStatusQuery
      * @param  Builder<CrewAssignment>  $query
      * @return Builder<CrewAssignment>
      */
-    public function applyStatusFilter(Builder $query, string $reliefStatus, int $companyId): Builder
+    public function applyStatusFilter(Builder $query, string $reliefStatus, int $companyId, ?User $user = null): Builder
     {
         $status = CrewReliefStatus::tryFrom($reliefStatus);
 
@@ -40,14 +42,14 @@ final class CrewReliefStatusQuery
             return $query;
         }
 
-        return $query->whereIn('id', $this->matchingIds($companyId, status: $status));
+        return $query->whereIn('id', $this->matchingIds($companyId, status: $status, user: $user));
     }
 
     /**
      * @param  Builder<CrewAssignment>  $query
      * @return Builder<CrewAssignment>
      */
-    public function applyRiskFilter(Builder $query, string $reliefRisk, int $companyId): Builder
+    public function applyRiskFilter(Builder $query, string $reliefRisk, int $companyId, ?User $user = null): Builder
     {
         $risk = CrewReliefRisk::tryFrom($reliefRisk);
 
@@ -55,16 +57,16 @@ final class CrewReliefStatusQuery
             return $query;
         }
 
-        return $query->whereIn('id', $this->matchingIds($companyId, risk: $risk));
+        return $query->whereIn('id', $this->matchingIds($companyId, risk: $risk, user: $user));
     }
 
     /**
      * @param  Builder<CrewAssignment>  $query
      * @return Builder<CrewAssignment>
      */
-    public function applyNotReadyFilter(Builder $query, int $companyId): Builder
+    public function applyNotReadyFilter(Builder $query, int $companyId, ?User $user = null): Builder
     {
-        return $query->whereIn('id', $this->matchingIds($companyId, notReady: true));
+        return $query->whereIn('id', $this->matchingIds($companyId, notReady: true, user: $user));
     }
 
     /**
@@ -75,9 +77,9 @@ final class CrewReliefStatusQuery
      *     critical_relief_risk: int
      * }
      */
-    public function dashboardCounts(int $companyId): array
+    public function dashboardCounts(int $companyId, ?User $user = null): array
     {
-        $resolved = $this->resolveActiveOnVessel($companyId);
+        $resolved = $this->resolveActiveOnVessel($companyId, $user);
 
         $counts = [
             'signoff_within_14_days_no_relief' => 0,
@@ -119,10 +121,11 @@ final class CrewReliefStatusQuery
         ?CrewReliefRisk $risk = null,
         bool $notReady = false,
         bool $within14NoRelief = false,
+        ?User $user = null,
     ): array {
         $ids = [];
 
-        foreach ($this->resolveActiveOnVessel($companyId) as $assignmentId => $result) {
+        foreach ($this->resolveActiveOnVessel($companyId, $user) as $assignmentId => $result) {
             if ($status !== null && $result->status !== $status) {
                 continue;
             }
@@ -153,7 +156,7 @@ final class CrewReliefStatusQuery
     /**
      * @return Collection<int, CrewReliefReadinessResult> keyed by source assignment id
      */
-    public function resolveActiveOnVessel(int $companyId): Collection
+    public function resolveActiveOnVessel(int $companyId, ?User $user = null): Collection
     {
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $today = CarbonImmutable::now($timezone)->startOfDay();
@@ -167,6 +170,10 @@ final class CrewReliefStatusQuery
             });
 
         ActiveEmployeeConstraint::whereHas($assignments, $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($assignments, $user, $companyId, 'employee');
+        }
 
         $assignments = $assignments->get(['id', 'company_id', 'planned_signoff_at']);
 

@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import {
     Search,
     Shield,
@@ -309,6 +309,24 @@ export default function RoleDetails({
         setSelectedPermissions((prev) => prev.filter((p) => p !== permission));
     };
 
+    const submit = (): void => {
+        form.transform(() => ({
+            name: form.data.name,
+            permissions: selectedPermissions.filter((permission) =>
+                availablePermissionNames.includes(permission),
+            ),
+            employee_visibility_scope: isOwner ? 'all' : visibilityScope,
+            department_ids:
+                isOwner || visibilityScope === 'all'
+                    ? []
+                    : selectedDepartmentIds,
+        }));
+
+        form.put(`/organization/roles/${role.id}`, {
+            preserveScroll: true,
+        });
+    };
+
     return (
         <>
             <Head title={`Role • ${role.name}`} />
@@ -335,26 +353,7 @@ export default function RoleDetails({
                             </Button>
                             <Button
                                 className="h-11 rounded-xl px-5"
-                                onClick={() => {
-                                    router.put(
-                                        `/organization/roles/${role.id}`,
-                                        {
-                                            name: form.data.name,
-                                            permissions: selectedPermissions,
-                                            employee_visibility_scope: isOwner
-                                                ? 'all'
-                                                : visibilityScope,
-                                            department_ids:
-                                                isOwner ||
-                                                visibilityScope === 'all'
-                                                    ? []
-                                                    : selectedDepartmentIds,
-                                        },
-                                        {
-                                            preserveScroll: true,
-                                        },
-                                    );
-                                }}
+                                onClick={submit}
                                 disabled={form.processing}
                             >
                                 Save
@@ -549,6 +548,18 @@ export default function RoleDetails({
                                     </div>
                                 </label>
                             </div>
+
+                            {form.errors.employee_visibility_scope ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.employee_visibility_scope}
+                                </div>
+                            ) : null}
+
+                            {form.errors.department_ids ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.department_ids}
+                                </div>
+                            ) : null}
 
                             {visibilityScope === 'selected_departments' &&
                             !isOwner ? (

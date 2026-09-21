@@ -7,6 +7,7 @@ use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationEmployeeAccess;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationWorkflowGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +17,7 @@ final class ApproveCrewTimesheetPreparation
     public function __construct(
         private readonly CrewTimesheetPreparationWorkflowGuard $guard,
         private readonly CrewTimelineFreshnessChecker $freshnessChecker,
+        private readonly CrewTimesheetPreparationEmployeeAccess $employeeAccess,
     ) {}
 
     public function handle(
@@ -45,6 +47,7 @@ final class ApproveCrewTimesheetPreparation
                 ->firstOrFail();
 
             $this->guard->assertTenantOwnership($period, $preparation, $companyId);
+            $this->employeeAccess->assertActorCanAccessAllPreparationEmployees($preparation, $actor, $companyId);
             $this->guard->assertCrewDraftPeriod($period);
             $this->guard->assertStatus(
                 $preparation,

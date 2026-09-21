@@ -39,7 +39,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             return false;
         }
 
-        CrewAssignmentAccess::assertInCompany($assignment, $companyId);
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $this->user());
 
         $action = CrewMovementAction::tryFrom((string) $this->input('action'));
 

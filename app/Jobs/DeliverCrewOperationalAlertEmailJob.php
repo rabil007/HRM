@@ -16,6 +16,7 @@ use App\Support\CrewOperations\CrewOperationalAlertDigestPresenter;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\QueueCrewOperationalAlertEmails;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -215,6 +216,15 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
                 continue;
             }
 
+            $employeeId = $alert->context['employee_id'] ?? null;
+            if ($employeeId !== null && is_numeric($employeeId)) {
+                if (! EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, $companyId)) {
+                    $this->markFailed($delivery, 'hidden_by_employee_visibility');
+
+                    continue;
+                }
+            }
+
             $validDeliveries->push($delivery);
         }
 
@@ -242,6 +252,12 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
             $company,
             $validDeliveries,
         );
+
+        if ($digest['alert_count'] === 0) {
+            $this->markDeliveriesFailed($validDeliveries, 'hidden_by_employee_visibility');
+
+            return;
+        }
 
         $timezone = CompanyTimezone::forCompany($company);
         $generatedAt = now($timezone)->format('d M Y H:i');

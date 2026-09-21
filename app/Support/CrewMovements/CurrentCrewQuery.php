@@ -274,8 +274,17 @@ class CurrentCrewQuery
      *     relief_risks: list<array{value: string, label: string}>
      * }
      */
-    public static function filterOptions(int $companyId): array
+    public static function filterOptions(int $companyId, ?User $user = null): array
     {
+        $employeeQuery = Employee::query()
+            ->where('company_id', $companyId)
+            ->active()
+            ->orderBy('name');
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
+        }
+
         return [
             'vessels' => CrewAssignmentSnapshotFilterOptions::vessels($companyId),
             'ranks' => Rank::query()
@@ -292,10 +301,7 @@ class CurrentCrewQuery
                 ->map(fn (Client $c) => ['id' => $c->id, 'name' => $c->name])
                 ->values()
                 ->all(),
-            'employees' => Employee::query()
-                ->where('company_id', $companyId)
-                ->active()
-                ->orderBy('name')
+            'employees' => $employeeQuery
                 ->get(['id', 'name', 'employee_no'])
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,

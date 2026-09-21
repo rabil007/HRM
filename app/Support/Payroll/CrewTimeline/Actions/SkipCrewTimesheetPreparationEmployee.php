@@ -8,6 +8,7 @@ use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSkipResolver;
 use Illuminate\Support\Facades\DB;
 
@@ -43,6 +44,8 @@ final class SkipCrewTimesheetPreparationEmployee
                 ->where('company_id', $companyId)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            abort_unless(EmployeeVisibilityScope::canAccess($actor, $employee, $companyId), 404);
 
             $this->skipResolver->assertEmployeeCanBeSkipped($period, $preparation, $employee, $companyId);
 

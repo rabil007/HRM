@@ -47,6 +47,55 @@ test('selected recipient receives crew feed item and non-selected does not', fun
     CarbonImmutable::setTestNow();
 });
 
+test('mismatched alert recipient company is excluded from feed and cannot be opened', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
+
+    $companyA = makeCrewAssignmentFixtures();
+    $companyB = makeCrewAssignmentFixtures();
+
+    enableCrewNotificationsForUser((int) $companyA['company']->id, (int) $companyA['user']->id);
+
+    $alert = CrewOperationalAlert::query()->create([
+        'company_id' => (int) $companyB['company']->id,
+        'type' => CrewOperationalAlertType::SignoffOverdue,
+        'severity' => CrewOperationalAlertSeverity::Critical,
+        'status' => CrewOperationalAlertStatus::Active,
+        'dedupe_key' => 'mismatched-recipient:'.uniqid(),
+        'title' => 'Foreign company alert',
+        'message' => 'Should never appear in Company A feed',
+        'context' => [
+            'employee_id' => $companyB['employee']->id,
+        ],
+        'detected_at' => now(),
+        'last_detected_at' => now(),
+        'notification_version' => 1,
+    ]);
+
+    $recipient = CrewOperationalAlertRecipient::query()->create([
+        'company_id' => (int) $companyA['company']->id,
+        'crew_operational_alert_id' => $alert->id,
+        'user_id' => (int) $companyA['user']->id,
+        'read_at' => null,
+    ]);
+
+    $this->actingAs($companyA['user'])
+        ->withSession(['current_company_id' => (int) $companyA['company']->id])
+        ->getJson(route('notifications.feed'))
+        ->assertOk()
+        ->assertJsonPath('unread_count', 0)
+        ->assertJsonCount(0, 'items');
+
+    $this->actingAs($companyA['user'])
+        ->withSession(['current_company_id' => (int) $companyA['company']->id])
+        ->get(route('notifications.crew-operational-alerts.open', $recipient))
+        ->assertNotFound()
+        ->assertSessionHas('current_company_id', (int) $companyA['company']->id);
+
+    expect($recipient->fresh()->read_at)->toBeNull();
+
+    CarbonImmutable::setTestNow();
+});
+
 test('cross-company user cannot see or mark another company crew alert', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-07 12:00:00', 'Asia/Dubai'));
     $companyA = makeCrewAssignmentFixtures();

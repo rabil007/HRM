@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization;
 
 use App\Models\CrewAssignment;
+use App\Support\CrewMovements\CrewAssignmentAccess;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -24,9 +25,7 @@ class VoidCrewAssignmentRequest extends FormRequest
 
         $companyId = (int) $this->attributes->get('current_company_id');
 
-        if ((int) $assignment->company_id !== $companyId) {
-            abort(404);
-        }
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $user);
 
         if (! $user->can('void', $assignment)) {
             return false;

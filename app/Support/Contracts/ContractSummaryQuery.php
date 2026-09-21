@@ -4,6 +4,7 @@ namespace App\Support\Contracts;
 
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 final class ContractSummaryQuery
@@ -19,7 +20,7 @@ final class ContractSummaryQuery
      *     no_contract_employees: int
      * }
      */
-    public function forCompany(int $companyId, ContractDirectoryFilters $filters): array
+    public function forCompany(int $companyId, ContractDirectoryFilters $filters, ?User $user = null): array
     {
         $today = now()->toDateString();
         $in30 = now()->addDays(30)->toDateString();
@@ -36,7 +37,7 @@ final class ContractSummaryQuery
             ->whereIn('id', $latestContractIds)
             ->where('company_id', $companyId);
 
-        $this->applyWorkforceFilters($query, $companyId, $filters);
+        $this->applyWorkforceFilters($query, $companyId, $filters, $user);
 
         $row = $query
             ->selectRaw('COUNT(*) as total_contracts')
@@ -60,7 +61,7 @@ final class ContractSummaryQuery
             ->where('company_id', $companyId)
             ->whereDoesntHave('contracts');
 
-        ContractDirectoryEmployeeScope::apply($noContractQuery, $companyId, $filters);
+        ContractDirectoryEmployeeScope::apply($noContractQuery, $companyId, $filters, $user);
 
         return [
             'total_contracts' => (int) ($row->total_contracts ?? 0),
@@ -80,6 +81,7 @@ final class ContractSummaryQuery
         Builder $query,
         int $companyId,
         ContractDirectoryFilters $filters,
+        ?User $user = null,
     ): void {
         if ($filters->payrollCategory !== '') {
             $query->where('payroll_category', $filters->payrollCategory);
@@ -89,8 +91,8 @@ final class ContractSummaryQuery
             ContractSalaryStructureFilter::apply($query, $filters->salaryStructure);
         }
 
-        $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters): void {
-            ContractDirectoryEmployeeScope::apply($employeeQuery, $companyId, $filters);
+        $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $user): void {
+            ContractDirectoryEmployeeScope::apply($employeeQuery, $companyId, $filters, $user);
         });
     }
 }

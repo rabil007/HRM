@@ -5,6 +5,7 @@ namespace App\Support\CrewOperations;
 use App\Enums\CrewOperationalAlertType;
 use App\Models\CrewOperationalAlert;
 use App\Models\User;
+use App\Support\CrewMovements\CrewAssignmentAccess;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -76,7 +77,10 @@ final class ResolveCrewOperationalAlertUrl
         $assignmentId = $alert->context['assignment_id'] ?? null;
 
         if (is_numeric($assignmentId) && $user->can('crew_operations.assignments.view')) {
-            return route('organization.crew-assignments.show', ['assignment' => (int) $assignmentId]);
+            $assignment = CrewAssignmentAccess::findForCompany((int) $alert->company_id, (int) $assignmentId, $user);
+            if ($assignment !== null) {
+                return route('organization.crew-assignments.show', ['assignment' => (int) $assignmentId]);
+            }
         }
 
         if ($user->can('crew_operations.assignments.view')) {

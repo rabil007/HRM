@@ -9,6 +9,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationalAlertEmailDelivery;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Collection;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -49,6 +50,13 @@ final class CrewOperationalAlertDigestPresenter
                 $alert = $delivery->alert;
                 if ($alert === null) {
                     continue;
+                }
+
+                $employeeId = $alert->context['employee_id'] ?? null;
+                if ($employeeId !== null && is_numeric($employeeId)) {
+                    if (! EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, (int) $company->id)) {
+                        continue;
+                    }
                 }
 
                 $severities[] = $alert->severity;
@@ -209,8 +217,10 @@ final class CrewOperationalAlertDigestPresenter
 
         if (is_numeric($assignmentId)) {
             $assignment = CrewAssignment::query()
+                ->where('company_id', (int) $alert->company_id)
+                ->whereKey((int) $assignmentId)
                 ->with(['employee:id,name,employee_no', 'vessel:id,name', 'rank:id,name'])
-                ->find((int) $assignmentId);
+                ->first();
 
             if ($assignment !== null) {
                 $employeeName = $assignment->employee?->name ?? 'Crew member';

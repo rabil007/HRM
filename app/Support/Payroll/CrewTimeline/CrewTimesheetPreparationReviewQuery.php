@@ -4,6 +4,8 @@ namespace App\Support\Payroll\CrewTimeline;
 
 use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 final class CrewTimesheetPreparationReviewQuery
@@ -12,6 +14,7 @@ final class CrewTimesheetPreparationReviewQuery
         PayrollPeriod $period,
         int $preparationId,
         int $companyId,
+        ?User $user = null,
     ): CrewTimesheetPreparation {
         if ((int) $period->company_id !== $companyId) {
             throw (new ModelNotFoundException)->setModel(PayrollPeriod::class, [$period->id]);
@@ -27,7 +30,7 @@ final class CrewTimesheetPreparationReviewQuery
                 'approvedBy:id,name',
                 'returnedBy:id,name',
                 'appliedBy:id,name',
-                'lines' => function ($query) use ($companyId): void {
+                'lines' => function ($query) use ($companyId, $user): void {
                     $query->where('company_id', $companyId)
                         ->with([
                             'employee:id,employee_no,name,image,position_id,department_id',
@@ -39,15 +42,24 @@ final class CrewTimesheetPreparationReviewQuery
                             'assignment.previousAssignment:id,assignment_no,vessel_id',
                             'assignment.previousAssignment.vessel:id,name',
                             'phase:id,crew_assignment_id,phase_code,sequence,status,actual_start_at,actual_end_at,remarks',
-                        ])
-                        ->orderBy('employee_id')
+                        ]);
+
+                    if ($user !== null) {
+                        EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+                    }
+
+                    $query->orderBy('employee_id')
                         ->orderBy('crew_assignment_id')
                         ->orderBy('from_date')
                         ->orderBy('id');
                 },
-                'skips' => function ($query) use ($companyId): void {
+                'skips' => function ($query) use ($companyId, $user): void {
                     $query->where('company_id', $companyId)
                         ->with(['skippedBy:id,name', 'restoredBy:id,name']);
+
+                    if ($user !== null) {
+                        EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+                    }
                 },
             ])
             ->withCount([

@@ -389,7 +389,7 @@ test('new preparation cannot be created after applied version exists', function 
 });
 
 test('apply permission denial and cross company returns 404', function () {
-    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures = makeDailyCrewTimelineFixtures(withWorkflowPermissions: false);
     ['preparation' => $preparation] = prepareApprovedTimeline($fixtures);
 
     $this->actingAs($fixtures['user'])

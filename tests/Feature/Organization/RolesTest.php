@@ -512,6 +512,57 @@ test('updating a role with an empty permissions array clears assigned permission
         ->and($role->permissions)->toHaveCount(0);
 });
 
+test('role show page omits permissions that are no longer in the application registry', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+    $orphaned = Permission::findOrCreate('legacy.stale.permission', 'web');
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Crewing',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view', $orphaned->name]);
+
+    grantCompanyPermissions($user, $company, ['roles.view']);
+
+    $this->get("/organization/roles/{$role->id}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/role')
+            ->where('role.permissions', ['employees.view'])
+        );
+});
+
+test('updating a role succeeds when only registry permissions are submitted', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+    $orphaned = Permission::findOrCreate('legacy.stale.permission', 'web');
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Crewing',
+        'guard_name' => 'web',
+    ]);
+    $role->syncPermissions(['employees.view', 'employees.update', $orphaned->name]);
+
+    grantCompanyPermissions($user, $company, ['roles.update', 'roles.view']);
+
+    $this->put("/organization/roles/{$role->id}", [
+        'name' => 'Crewing',
+        'permissions' => ['employees.view'],
+    ])->assertRedirect('/organization/roles');
+
+    $role->refresh();
+
+    expect($role->permissions->pluck('name')->all())->toBe(['employees.view']);
+});
+
 test('authenticated users can delete a role', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

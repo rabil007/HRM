@@ -3,11 +3,13 @@
 namespace App\Http\Requests\Organization;
 
 use App\Models\CrewAssignment;
+use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -15,7 +17,22 @@ class UpdateCrewAssignmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        if ($this->user() === null) {
+            return false;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $assignment = $this->route('assignment');
+
+        if (! $assignment instanceof CrewAssignment) {
+            return false;
+        }
+
+        CrewAssignmentAccess::assertInCompany($assignment, $companyId, $this->user());
+
+        Gate::authorize('update', $assignment);
+
+        return true;
     }
 
     protected function prepareForValidation(): void

@@ -173,15 +173,20 @@ final class LeaveRequestVisibility
             return $linkedEmployeeId;
         }
 
-        if ($requestedEmployeeId === '') {
+        if ($requestedEmployeeId === '' || ! ctype_digit($requestedEmployeeId)) {
             return $linkedEmployeeId;
         }
 
-        $employeeId = Employee::query()
-            ->where('company_id', $companyId)
-            ->whereKey((int) $requestedEmployeeId)
-            ->value('id');
+        $employeeId = (int) $requestedEmployeeId;
+        if (! EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId)) {
+            return $linkedEmployeeId;
+        }
 
-        return $employeeId !== null ? (int) $employeeId : $linkedEmployeeId;
+        $exists = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->exists();
+
+        return $exists ? $employeeId : $linkedEmployeeId;
     }
 }

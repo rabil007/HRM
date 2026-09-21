@@ -94,6 +94,7 @@ class DocumentBrowseQuery
         int $companyId,
         ?int $employeeId = null,
         string $departmentId = '',
+        ?User $user = null,
     ): array {
         $today = now()->toDateString();
         $in7 = now()->addDays(7)->toDateString();
@@ -105,7 +106,7 @@ class DocumentBrowseQuery
             ->when($employeeId !== null, fn ($q) => $q->where('employee_id', $employeeId));
 
         if ($employeeId === null) {
-            $this->applyOperationalEmployeeFilter($query, $companyId, $departmentId);
+            $this->applyOperationalEmployeeFilter($query, $companyId, $departmentId, $user);
         }
 
         $row = $query

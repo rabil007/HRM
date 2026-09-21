@@ -28,6 +28,8 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Models\VisaType;
+use App\Support\CrewMovements\CrewAssignmentAccess;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -51,7 +53,7 @@ final class ActivityChangePresenter
      * @param  Collection<int, Activity>|iterable<int, Activity>  $logs
      * @return Collection<int, Activity>
      */
-    public static function presentLogs(iterable $logs, int $companyId): Collection
+    public static function presentLogs(iterable $logs, int $companyId, ?User $viewer = null): Collection
     {
         $collection = $logs instanceof Collection ? $logs : collect($logs);
 
@@ -59,9 +61,9 @@ final class ActivityChangePresenter
             return $collection;
         }
 
-        $lookup = self::buildLookup($collection, $companyId);
+        $lookup = self::buildLookup($collection, $companyId, $viewer);
 
-        return $collection->map(function (Activity $log) use ($lookup, $companyId): Activity {
+        return $collection->map(function (Activity $log) use ($lookup, $companyId, $viewer): Activity {
             // Correction events store context in properties rather than attribute_changes.
             // Delegate to the dedicated presenter so the card shows human-readable text.
             $event = $log->properties->get('event');
@@ -80,11 +82,11 @@ final class ActivityChangePresenter
             $old = is_array($changes?->get('old')) ? $changes->get('old') : null;
             $attributes = is_array($changes?->get('attributes')) ? $changes->get('attributes') : null;
 
-            $log->setAttribute('presented_old_values', self::presentMap($old, $lookup));
+            $log->setAttribute('presented_old_values', self::presentMap($old, $lookup, $viewer));
             $log->setAttribute(
                 'presented_new_values',
-                self::presentMap($attributes, $lookup)
-                    ?? self::presentMap(self::customPropertyMap($log), $lookup),
+                self::presentMap($attributes, $lookup, $viewer)
+                    ?? self::presentMap(self::customPropertyMap($log), $lookup, $viewer),
             );
 
             return $log;
@@ -148,7 +150,7 @@ final class ActivityChangePresenter
      * @param  Collection<int, Activity>  $logs
      * @return array<string, array<int, string>>
      */
-    private static function buildLookup(Collection $logs, int $companyId): array
+    private static function buildLookup(Collection $logs, int $companyId, ?User $viewer = null): array
     {
         /** @var array<string, array<int, true>> $idsByField */
         $idsByField = [];
@@ -190,6 +192,8 @@ final class ActivityChangePresenter
                 $ids,
                 $definition['companyScoped'] ? $companyId : null,
                 $definition['formatter'] ?? null,
+                $viewer,
+                $field,
             );
         }
 
@@ -253,7 +257,7 @@ final class ActivityChangePresenter
      * @param  array<string, array<int, string>>  $lookup
      * @return array<string, mixed>|null
      */
-    private static function presentMap(?array $values, array $lookup): ?array
+    private static function presentMap(?array $values, array $lookup, ?User $viewer = null): ?array
     {
         if ($values === null) {
             return null;
@@ -266,6 +270,7 @@ final class ActivityChangePresenter
                 is_string($field) ? $field : (string) $field,
                 $value,
                 $lookup,
+                $viewer,
             );
         }
 
@@ -275,15 +280,41 @@ final class ActivityChangePresenter
     /**
      * @param  array<string, array<int, string>>  $lookup
      */
-    private static function presentValue(string $field, mixed $value, array $lookup): mixed
+    private static function presentValue(string $field, mixed $value, array $lookup, ?User $viewer = null): mixed
     {
         $id = self::normalizeId($value);
 
-        if ($id === null || ! isset($lookup[$field][$id])) {
+        if ($id === null) {
+            return $value;
+        }
+
+        if (! isset($lookup[$field][$id])) {
+            if ($viewer !== null && (self::isAssignmentField($field) || self::isEmployeeField($field))) {
+                return null;
+            }
+
             return $value;
         }
 
         return $lookup[$field][$id];
+    }
+
+    private static function isAssignmentField(string $field): bool
+    {
+        return in_array($field, [
+            'crew_assignment_id',
+            'previous_assignment_id',
+            'source_assignment_id',
+            'destination_assignment_id',
+            'relieves_crew_assignment_id',
+        ], true);
+    }
+
+    private static function isEmployeeField(string $field): bool
+    {
+        $definition = self::fieldDefinition($field);
+
+        return $definition !== null && $definition['model'] === Employee::class;
     }
 
     private static function normalizeId(mixed $value): ?int
@@ -500,6 +531,7 @@ final class ActivityChangePresenter
                 'previous_assignment_id' => $assignment,
                 'source_assignment_id' => $assignment,
                 'destination_assignment_id' => $assignment,
+                'relieves_crew_assignment_id' => $assignment,
             ];
         }
 
@@ -518,12 +550,24 @@ final class ActivityChangePresenter
         array $ids,
         ?int $companyId,
         ?callable $formatter,
+        ?User $viewer = null,
+        ?string $field = null,
     ): array {
         /** @var Builder<Model> $query */
         $query = $modelClass::query()->whereIn('id', $ids);
 
         if ($companyId !== null) {
             $query->where('company_id', $companyId);
+        }
+
+        if ($viewer !== null && $companyId !== null) {
+            if ($modelClass === CrewAssignment::class
+                && $field !== null
+                && self::isAssignmentField($field)) {
+                CrewAssignmentAccess::applyScope($query, $companyId, $viewer);
+            } elseif ($modelClass === Employee::class) {
+                EmployeeVisibilityScope::apply($query, $viewer, $companyId);
+            }
         }
 
         if (in_array(SoftDeletes::class, class_uses_recursive($modelClass), true)) {

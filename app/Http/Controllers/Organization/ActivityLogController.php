@@ -26,6 +26,7 @@ class ActivityLogController extends Controller
         ActivityChangePresenter::presentLogs(
             collect($paginator->items()),
             $companyId,
+            $request->user(),
         );
 
         $logs = $paginator->through(

@@ -22,6 +22,7 @@ final class CrewTimelineDepartmentTree
         int $companyId,
         CrewTimesheetPreparation $preparation,
         EmployeeDirectoryFilters $directoryFilters,
+        ?array $allowedDepartmentIds = null,
     ): array {
         $employeeIds = $preparation->lines
             ->pluck('employee_id')
@@ -37,6 +38,7 @@ final class CrewTimelineDepartmentTree
                 $query->where('company_id', $companyId)
                     ->whereIn('id', $employeeIds === [] ? [0] : $employeeIds);
             },
+            allowedDepartmentIds: $allowedDepartmentIds,
         );
     }
 }

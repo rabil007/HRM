@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\CrewOperationalAlertWebPushNotification;
 use App\Support\CrewOperations\CrewOperationalAlertDeliveryHandoff;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -136,6 +137,15 @@ class DeliverCrewOperationalAlertWebPushJob implements ShouldBeUnique, ShouldQue
             $this->markFailed($delivery, 'alert_unavailable');
 
             return;
+        }
+
+        $employeeId = $alert->context['employee_id'] ?? null;
+        if ($employeeId !== null && is_numeric($employeeId)) {
+            if (! EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, (int) $company->id)) {
+                $this->markFailed($delivery, 'hidden_by_employee_visibility');
+
+                return;
+            }
         }
 
         if ($user->pushSubscriptions()->doesntExist()) {

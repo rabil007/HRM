@@ -44,9 +44,14 @@ final class CurrentCrewVesselQuery
         $pageVesselIds = $vessels->getCollection()->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $crewByVessel = self::matchingCrewByVessel($companyId, $filters, $pageVesselIds, $user);
         $requiredByVessel = self::requiredCountsByVessel($companyId, $pageVesselIds, $filters);
+        $authorizedReliefEmployeeIds = CrewReliefVisibility::authorizedReliefEmployeeIds(
+            $crewByVessel->flatten(1),
+            $user,
+            $companyId,
+        );
 
         $vessels->setCollection(
-            $vessels->getCollection()->map(function (Vessel $vessel) use ($crewByVessel, $requiredByVessel): array {
+            $vessels->getCollection()->map(function (Vessel $vessel) use ($crewByVessel, $requiredByVessel, $user, $authorizedReliefEmployeeIds): array {
                 $crew = $crewByVessel->get((int) $vessel->id, collect());
                 $onboard = $crew->count();
                 $required = $requiredByVessel[(int) $vessel->id] ?? 0;
@@ -61,7 +66,11 @@ final class CurrentCrewVesselQuery
                     'gap' => $gap,
                     'coverage_label' => self::coverageLabel($gap),
                     'crew' => $crew
-                        ->map(fn (CrewAssignment $assignment): array => CrewAssignmentPresenter::listItem($assignment))
+                        ->map(fn (CrewAssignment $assignment): array => CrewAssignmentPresenter::listItem(
+                            $assignment,
+                            $user,
+                            $authorizedReliefEmployeeIds,
+                        ))
                         ->values()
                         ->all(),
                 ];
