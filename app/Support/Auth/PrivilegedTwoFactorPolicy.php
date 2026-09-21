@@ -35,6 +35,7 @@ final class PrivilegedTwoFactorPolicy
         'crew_operations.assignments.void',
         'crew_operations.corrections.override',
         'attendance.leave-requests.delete_any',
+        'attendance.leave-requests.reassign_approval',
     ];
 
     /**

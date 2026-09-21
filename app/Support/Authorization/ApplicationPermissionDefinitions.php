@@ -118,1770 +118,1776 @@ final class ApplicationPermissionDefinitions
                 'group' => 'Attendance',
             ],
             17 => [
+                'name' => 'attendance.leave-requests.reassign_approval',
+                'label' => 'Reassign Leave Approvals',
+                'description' => 'Allows the user to reassign the current pending leave approval step to another eligible approver.',
+                'group' => 'Attendance',
+            ],
+            18 => [
                 'name' => 'attendance.leave-requests.update',
                 'label' => 'Update Leave Requests',
                 'description' => 'Allows the user to update leave requests within permitted workflow states in the active company.',
                 'group' => 'Attendance',
             ],
-            18 => [
+            19 => [
                 'name' => 'attendance.leave-requests.view',
                 'label' => 'View Leave Requests',
                 'description' => 'Allows the user to view leave requests they are authorized to access in the active company.',
                 'group' => 'Attendance',
             ],
-            19 => [
+            20 => [
                 'name' => 'attendance.leave-requests.view_all',
                 'label' => 'View All Leave Requests',
                 'description' => 'Allows the user to view leave requests for all employees in the active company, not only their own linked employee.',
                 'group' => 'Attendance',
             ],
-            20 => [
+            21 => [
                 'name' => 'attendance.overview.view',
                 'label' => 'View Attendance Overview',
                 'description' => 'Allows the user to view the attendance overview dashboard for the active company.',
                 'group' => 'Attendance',
             ],
-            21 => [
+            22 => [
                 'name' => 'attendance.records.create',
                 'label' => 'Create Attendance Records',
                 'description' => 'Allows the user to add manual attendance entries for employees in the active company.',
                 'group' => 'Attendance',
             ],
-            22 => [
+            23 => [
                 'name' => 'attendance.records.delete',
                 'label' => 'Delete Attendance Records',
                 'description' => 'Allows the user to delete attendance entries according to existing attendance rules.',
                 'group' => 'Attendance',
             ],
-            23 => [
+            24 => [
                 'name' => 'attendance.records.manage',
                 'label' => 'Manage Attendance Records',
                 'description' => 'Allows the user to view, create, update, and export attendance records for employees in the active company.',
                 'group' => 'Attendance',
             ],
-            24 => [
+            25 => [
                 'name' => 'attendance.records.update',
                 'label' => 'Update Attendance Records',
                 'description' => 'Allows the user to correct or update employee attendance entries in the active company.',
                 'group' => 'Attendance',
             ],
-            25 => [
+            26 => [
                 'name' => 'attendance.records.view',
                 'label' => 'View Attendance Records',
                 'description' => 'Allows the user to view employee attendance records they are authorized to access.',
                 'group' => 'Attendance',
             ],
-            26 => [
+            27 => [
                 'name' => 'attendance.types.create',
                 'label' => 'Create Leave Types',
                 'description' => 'Allows the user to define leave types used in attendance and leave workflows for the active company.',
                 'group' => 'Attendance',
             ],
-            27 => [
+            28 => [
                 'name' => 'attendance.types.delete',
                 'label' => 'Delete Leave Types',
                 'description' => 'Allows the user to delete leave types according to existing usage-protection rules.',
                 'group' => 'Attendance',
             ],
-            28 => [
+            29 => [
                 'name' => 'attendance.types.update',
                 'label' => 'Update Leave Types',
                 'description' => 'Allows the user to update leave type definitions for the active company.',
                 'group' => 'Attendance',
             ],
-            29 => [
+            30 => [
                 'name' => 'attendance.types.view',
                 'label' => 'View Leave Types',
                 'description' => 'Allows the user to view leave type definitions available to the active company.',
                 'group' => 'Attendance',
             ],
-            30 => [
+            31 => [
                 'name' => 'audit.view',
                 'label' => 'View Activity Log',
                 'description' => 'Allows the user to view application activity and audit history for records they are otherwise authorized to access.',
                 'group' => 'Audit',
             ],
-            31 => [
+            32 => [
                 'name' => 'bank_accounts.create',
                 'label' => 'Create Bank Accounts',
                 'description' => 'Allows the user to create new Bank Accounts records for the active company.',
                 'group' => 'Bank Accounts',
             ],
-            32 => [
+            33 => [
                 'name' => 'bank_accounts.delete',
                 'label' => 'Delete Bank Accounts',
                 'description' => 'Allows the user to delete Bank Accounts records according to the application\'s existing deletion rules.',
                 'group' => 'Bank Accounts',
             ],
-            33 => [
+            34 => [
                 'name' => 'bank_accounts.import',
                 'label' => 'Import Bank Accounts',
                 'description' => 'Allows the user to import Bank Accounts data into the active company using existing import workflows.',
                 'group' => 'Bank Accounts',
             ],
-            34 => [
+            35 => [
                 'name' => 'bank_accounts.update',
                 'label' => 'Update Bank Accounts',
                 'description' => 'Allows the user to update existing Bank Accounts records within the active company.',
                 'group' => 'Bank Accounts',
             ],
-            35 => [
+            36 => [
                 'name' => 'bank_accounts.view',
                 'label' => 'View Bank Accounts',
                 'description' => 'Allows the user to view Bank Accounts records available within the active company.',
                 'group' => 'Bank Accounts',
             ],
-            36 => [
+            37 => [
                 'name' => 'branches.create',
                 'label' => 'Create Branches',
                 'description' => 'Allows the user to create new Branches records for the active company.',
                 'group' => 'Branches',
             ],
-            37 => [
+            38 => [
                 'name' => 'branches.delete',
                 'label' => 'Delete Branches',
                 'description' => 'Allows the user to delete Branches records according to the application\'s existing deletion rules.',
                 'group' => 'Branches',
             ],
-            38 => [
+            39 => [
                 'name' => 'branches.export',
                 'label' => 'Export Branches',
                 'description' => 'Allows the user to export Branches data for the active company according to existing export rules.',
                 'group' => 'Branches',
             ],
-            39 => [
+            40 => [
                 'name' => 'branches.update',
                 'label' => 'Update Branches',
                 'description' => 'Allows the user to update existing Branches records within the active company.',
                 'group' => 'Branches',
             ],
-            40 => [
+            41 => [
                 'name' => 'branches.view',
                 'label' => 'View Branches',
                 'description' => 'Allows the user to view Branches records available within the active company.',
                 'group' => 'Branches',
             ],
-            41 => [
+            42 => [
                 'name' => 'bulk_documents.delete',
                 'label' => 'Delete Bulk Documents',
                 'description' => 'Allows the user to delete bulk document generation runs according to existing bulk document deletion rules.',
                 'group' => 'Documents',
             ],
-            42 => [
+            43 => [
                 'name' => 'bulk_documents.email',
                 'label' => 'Email Bulk Documents',
                 'description' => 'Allows the user to email generated bulk documents to recipients according to existing delivery rules.',
                 'group' => 'Documents',
             ],
-            43 => [
+            44 => [
                 'name' => 'bulk_documents.generate',
                 'label' => 'Generate Bulk Documents',
                 'description' => 'Allows the user to start bulk document generation jobs for eligible employees in the active company.',
                 'group' => 'Documents',
             ],
-            44 => [
+            45 => [
                 'name' => 'bulk_documents.view',
                 'label' => 'View Bulk Documents',
                 'description' => 'Allows the user to view bulk document generation runs and tracked outputs for the active company.',
                 'group' => 'Documents',
             ],
-            45 => [
+            46 => [
                 'name' => 'companies.create',
                 'label' => 'Create Companies',
                 'description' => 'Allows the user to create new Companies records for the active company.',
                 'group' => 'Companies',
             ],
-            46 => [
+            47 => [
                 'name' => 'companies.delete',
                 'label' => 'Delete Companies',
                 'description' => 'Allows the user to delete Companies records according to the application\'s existing deletion rules.',
                 'group' => 'Companies',
             ],
-            47 => [
+            48 => [
                 'name' => 'companies.export',
                 'label' => 'Export Companies',
                 'description' => 'Allows the user to export Companies data for the active company according to existing export rules.',
                 'group' => 'Companies',
             ],
-            48 => [
+            49 => [
                 'name' => 'companies.update',
                 'label' => 'Update Companies',
                 'description' => 'Allows the user to update existing Companies records within the active company.',
                 'group' => 'Companies',
             ],
-            49 => [
+            50 => [
                 'name' => 'companies.view',
                 'label' => 'View Companies',
                 'description' => 'Allows the user to view Companies records available within the active company.',
                 'group' => 'Companies',
             ],
-            50 => [
+            51 => [
                 'name' => 'company_documents.delete',
                 'label' => 'Delete Company Documents',
                 'description' => 'Allows the user to delete company or branch documents according to existing deletion rules.',
                 'group' => 'Companies',
             ],
-            51 => [
+            52 => [
                 'name' => 'company_documents.download',
                 'label' => 'Download Company Documents',
                 'description' => 'Allows the user to download company or branch documents they are authorized to access.',
                 'group' => 'Companies',
             ],
-            52 => [
+            53 => [
                 'name' => 'company_documents.manage_notifications',
                 'label' => 'Manage Company Document Expiry Notifications',
                 'description' => 'Allows the user to configure per-company document expiry alert recipients for company and branch documents.',
                 'group' => 'Companies',
             ],
-            53 => [
+            54 => [
                 'name' => 'company_documents.update',
                 'label' => 'Update Company Documents',
                 'description' => 'Allows the user to update company or branch document metadata and files according to existing rules.',
                 'group' => 'Companies',
             ],
-            54 => [
+            55 => [
                 'name' => 'company_documents.upload',
                 'label' => 'Upload Company Documents',
                 'description' => 'Allows the user to upload documents to the company or branch document library.',
                 'group' => 'Companies',
             ],
-            55 => [
+            56 => [
                 'name' => 'company_documents.view',
                 'label' => 'View Company Documents',
                 'description' => 'Allows the user to view the company and branch document library for the active company.',
                 'group' => 'Companies',
             ],
-            56 => [
+            57 => [
                 'name' => 'contracts.create',
                 'label' => 'Create Contracts',
                 'description' => 'Allows the user to create new Contracts records for the active company.',
                 'group' => 'Contracts',
             ],
-            57 => [
+            58 => [
                 'name' => 'contracts.delete',
                 'label' => 'Delete Contracts',
                 'description' => 'Allows the user to delete Contracts records according to the application\'s existing deletion rules.',
                 'group' => 'Contracts',
             ],
-            58 => [
+            59 => [
                 'name' => 'contracts.import',
                 'label' => 'Import Contracts',
                 'description' => 'Allows the user to import Contracts data into the active company using existing import workflows.',
                 'group' => 'Contracts',
             ],
-            59 => [
+            60 => [
                 'name' => 'contracts.salary_revisions.create',
                 'label' => 'Create Salary Revisions',
                 'description' => 'Allows the user to record new salary revisions on employee contracts in the active company.',
                 'group' => 'Contracts',
             ],
-            60 => [
+            61 => [
                 'name' => 'contracts.salary_revisions.delete',
                 'label' => 'Delete Salary Revisions',
                 'description' => 'Allows the user to delete salary revision records according to existing contract rules.',
                 'group' => 'Contracts',
             ],
-            61 => [
+            62 => [
                 'name' => 'contracts.salary_revisions.update',
                 'label' => 'Update Salary Revisions',
                 'description' => 'Allows the user to update salary revision records according to existing contract rules.',
                 'group' => 'Contracts',
             ],
-            62 => [
+            63 => [
                 'name' => 'contracts.salary_revisions.view',
                 'label' => 'View Salary Revisions',
                 'description' => 'Allows the user to view contract salary revision history for employees in the active company.',
                 'group' => 'Contracts',
             ],
-            63 => [
+            64 => [
                 'name' => 'contracts.update',
                 'label' => 'Update Contracts',
                 'description' => 'Allows the user to update existing Contracts records within the active company.',
                 'group' => 'Contracts',
             ],
-            64 => [
+            65 => [
                 'name' => 'contracts.view',
                 'label' => 'View Contracts',
                 'description' => 'Allows the user to view Contracts records available within the active company.',
                 'group' => 'Contracts',
             ],
-            65 => [
+            66 => [
                 'name' => 'crew_operations.assignments.cancel',
                 'label' => 'Cancel Crew Assignments',
                 'description' => 'Allows the user to cancel crew assignments according to existing crew assignment cancellation rules.',
                 'group' => 'Crew Operations',
             ],
-            66 => [
+            67 => [
                 'name' => 'crew_operations.assignments.create',
                 'label' => 'Create Crew Assignments',
                 'description' => 'Allows the user to create a new crew assignment and begin a crew mobilisation cycle.',
                 'group' => 'Crew Operations',
             ],
-            67 => [
+            68 => [
                 'name' => 'crew_operations.assignments.update',
                 'label' => 'Update Crew Assignments',
                 'description' => 'Allows the user to update permitted crew assignment details without bypassing movement workflow rules.',
                 'group' => 'Crew Operations',
             ],
-            68 => [
+            69 => [
                 'name' => 'crew_operations.assignments.view',
                 'label' => 'View Crew Assignments',
                 'description' => 'Allows the user to view crew assignments and mobilisation records for the active company.',
                 'group' => 'Crew Operations',
             ],
-            69 => [
+            70 => [
                 'name' => 'crew_operations.assignments.void',
                 'label' => 'Void Erroneous Crew Assignments',
                 'description' => 'Allows trusted users to void an assignment created in error when all additional void safeguards are satisfied.',
                 'group' => 'Crew Operations',
             ],
-            70 => [
+            71 => [
                 'name' => 'crew_operations.corrections.approve',
                 'label' => 'Approve Crew Movement Corrections',
                 'description' => 'Allows the user to review, approve, or reject pending crew movement correction requests for the active company.',
                 'group' => 'Crew Operations',
             ],
-            71 => [
+            72 => [
                 'name' => 'crew_operations.corrections.override',
                 'label' => 'Override Crew Movement Corrections',
                 'description' => 'Allows a high-trust user to apply a validated crew movement correction immediately without waiting for a separate approver. Normal correction integrity rules still apply.',
                 'group' => 'Crew Operations',
             ],
-            72 => [
+            73 => [
                 'name' => 'crew_operations.corrections.request',
                 'label' => 'Request Crew Movement Corrections',
                 'description' => 'Allows the user to submit crew movement correction requests according to the existing correction workflow.',
                 'group' => 'Crew Operations',
             ],
-            73 => [
+            74 => [
                 'name' => 'crew_operations.corrections.view',
                 'label' => 'View Crew Movement Corrections',
                 'description' => 'Allows the user to view crew movement correction requests and history for the active company.',
                 'group' => 'Crew Operations',
             ],
-            74 => [
+            75 => [
                 'name' => 'crew_operations.movements.perform',
                 'label' => 'Perform Crew Movements',
                 'description' => 'Allows the user to execute crew movement steps in the active assignment workflow.',
                 'group' => 'Crew Operations',
             ],
-            75 => [
+            76 => [
                 'name' => 'crew_operations.overview.view',
                 'label' => 'View Crew Operations Overview',
                 'description' => 'Allows the user to view the crew operations dashboard for the active company.',
                 'group' => 'Crew Operations',
             ],
-            76 => [
+            77 => [
                 'name' => 'crew_operations.planning.create',
                 'label' => 'Create Crew Planning Entries',
                 'description' => 'Allows the user to create crew planning entries for the active company.',
                 'group' => 'Crew Operations',
             ],
-            77 => [
+            78 => [
                 'name' => 'crew_operations.planning.delete',
                 'label' => 'Delete Crew Planning Entries',
                 'description' => 'Allows the user to delete crew planning entries according to existing rules.',
                 'group' => 'Crew Operations',
             ],
-            78 => [
+            79 => [
                 'name' => 'crew_operations.planning.update',
                 'label' => 'Update Crew Planning Entries',
                 'description' => 'Allows the user to update crew planning entries without bypassing movement workflow rules.',
                 'group' => 'Crew Operations',
             ],
-            79 => [
+            80 => [
                 'name' => 'crew_operations.planning.view',
                 'label' => 'View Crew Planning',
                 'description' => 'Allows the user to view crew planning boards and schedules for the active company.',
                 'group' => 'Crew Operations',
             ],
-            80 => [
+            81 => [
                 'name' => 'crew_operations.settings.update',
                 'label' => 'Update Crew Operations Settings',
                 'description' => 'Allows the user to change crew operations configuration for the active company.',
                 'group' => 'Crew Operations',
             ],
-            81 => [
+            82 => [
                 'name' => 'crew_operations.settings.view',
                 'label' => 'View Crew Operations Settings',
                 'description' => 'Allows the user to view crew operations configuration for the active company.',
                 'group' => 'Crew Operations',
             ],
-            82 => [
+            83 => [
                 'name' => 'crew_operations.vessel_manning.create',
                 'label' => 'Create Vessel Manning',
                 'description' => 'Allows the user to create vessel manning records for the active company.',
                 'group' => 'Crew Operations',
             ],
-            83 => [
+            84 => [
                 'name' => 'crew_operations.vessel_manning.delete',
                 'label' => 'Delete Vessel Manning',
                 'description' => 'Allows the user to delete vessel manning records according to existing rules.',
                 'group' => 'Crew Operations',
             ],
-            84 => [
+            85 => [
                 'name' => 'crew_operations.vessel_manning.update',
                 'label' => 'Update Vessel Manning',
                 'description' => 'Allows the user to update vessel manning records for the active company.',
                 'group' => 'Crew Operations',
             ],
-            85 => [
+            86 => [
                 'name' => 'crew_operations.vessel_manning.view',
                 'label' => 'View Vessel Manning',
                 'description' => 'Allows the user to view vessel manning requirements and assignments for the active company.',
                 'group' => 'Crew Operations',
             ],
-            86 => [
+            87 => [
                 'name' => 'crew_operations.vessels.create',
                 'label' => 'Create Vessels',
                 'description' => 'Allows the user to create new Vessels records for the active company.',
                 'group' => 'Crew Operations',
             ],
-            87 => [
+            88 => [
                 'name' => 'crew_operations.vessels.delete',
                 'label' => 'Delete Vessels',
                 'description' => 'Allows the user to delete Vessels records according to the application\'s existing deletion rules.',
                 'group' => 'Crew Operations',
             ],
-            88 => [
+            89 => [
                 'name' => 'crew_operations.vessels.update',
                 'label' => 'Update Vessels',
                 'description' => 'Allows the user to update existing Vessels records within the active company.',
                 'group' => 'Crew Operations',
             ],
-            89 => [
+            90 => [
                 'name' => 'crew_operations.vessels.view',
                 'label' => 'View Vessels',
                 'description' => 'Allows the user to view Vessels records available within the active company.',
                 'group' => 'Crew Operations',
             ],
-            90 => [
+            91 => [
                 'name' => 'departments.create',
                 'label' => 'Create Departments',
                 'description' => 'Allows the user to create new Departments records for the active company.',
                 'group' => 'Departments',
             ],
-            91 => [
+            92 => [
                 'name' => 'departments.delete',
                 'label' => 'Delete Departments',
                 'description' => 'Allows the user to delete Departments records according to the application\'s existing deletion rules.',
                 'group' => 'Departments',
             ],
-            92 => [
+            93 => [
                 'name' => 'departments.export',
                 'label' => 'Export Departments',
                 'description' => 'Allows the user to export Departments data for the active company according to existing export rules.',
                 'group' => 'Departments',
             ],
-            93 => [
+            94 => [
                 'name' => 'departments.update',
                 'label' => 'Update Departments',
                 'description' => 'Allows the user to update existing Departments records within the active company.',
                 'group' => 'Departments',
             ],
-            94 => [
+            95 => [
                 'name' => 'departments.view',
                 'label' => 'View Departments',
                 'description' => 'Allows the user to view Departments records available within the active company.',
                 'group' => 'Departments',
             ],
-            95 => [
+            96 => [
                 'name' => 'documents.delete',
                 'label' => 'Delete Employee Documents',
                 'description' => 'Allows the user to delete employee documents according to the application\'s existing document deletion rules.',
                 'group' => 'Employee Documents',
             ],
-            96 => [
+            97 => [
                 'name' => 'documents.download',
                 'label' => 'Download Employee Documents',
                 'description' => 'Allows the user to download employee documents they are otherwise authorized to access in the active company.',
                 'group' => 'Employee Documents',
             ],
-            97 => [
+            98 => [
                 'name' => 'documents.recipient-automation.update',
                 'label' => 'Update Document Recipient Automation',
                 'description' => 'Allows the user to change company reminder automation settings for document recipient requests.',
                 'group' => 'Employee Documents',
             ],
-            98 => [
+            99 => [
                 'name' => 'documents.recipient-automation.view',
                 'label' => 'View Document Recipient Automation',
                 'description' => 'Allows the user to view company reminder automation settings for document recipient requests.',
                 'group' => 'Employee Documents',
             ],
-            99 => [
+            100 => [
                 'name' => 'documents.recipient-requests.cancel',
                 'label' => 'Cancel Document Recipient Requests',
                 'description' => 'Allows the user to cancel open document recipient signing or acknowledgement requests.',
                 'group' => 'Employee Documents',
             ],
-            100 => [
+            101 => [
                 'name' => 'documents.recipient-requests.create',
                 'label' => 'Create Document Recipient Requests',
                 'description' => 'Allows the user to start signing flows, resend recipient email, and regenerate public tokens for eligible requests.',
                 'group' => 'Employee Documents',
             ],
-            101 => [
+            102 => [
                 'name' => 'documents.recipient-requests.respond',
                 'label' => 'Respond to Document Recipient Requests',
                 'description' => 'Allows the user to complete assigned manager or company signatory steps on specific recipient requests.',
                 'group' => 'Employee Documents',
             ],
-            102 => [
+            103 => [
                 'name' => 'documents.recipient-requests.view',
                 'label' => 'View Document Recipient Requests',
                 'description' => 'Allows the user to browse unified document signing and acknowledgement requests in the active company.',
                 'group' => 'Employee Documents',
             ],
-            103 => [
+            104 => [
                 'name' => 'documents.requests.approve',
                 'label' => 'Approve Document Approval Requests',
                 'description' => 'Allows the user to approve document approval tasks assigned to them at approval stages.',
                 'group' => 'Employee Documents',
             ],
-            104 => [
+            105 => [
                 'name' => 'documents.requests.cancel',
                 'label' => 'Cancel Document Approval Requests',
                 'description' => 'Allows the user to cancel open document approval requests according to existing workflow rules.',
                 'group' => 'Employee Documents',
             ],
-            105 => [
+            106 => [
                 'name' => 'documents.requests.create',
                 'label' => 'Create Document Approval Requests',
                 'description' => 'Allows the user to submit document records for multi-stage approval workflows.',
                 'group' => 'Employee Documents',
             ],
-            106 => [
+            107 => [
                 'name' => 'documents.requests.review',
                 'label' => 'Review Document Approval Requests',
                 'description' => 'Allows the user to act on document approval tasks assigned to them at review stages.',
                 'group' => 'Employee Documents',
             ],
-            107 => [
+            108 => [
                 'name' => 'documents.requests.view',
                 'label' => 'View Document Approval Requests',
                 'description' => 'Allows the user to view document approval requests within the active company.',
                 'group' => 'Employee Documents',
             ],
-            108 => [
+            109 => [
                 'name' => 'documents.share',
                 'label' => 'Share Employee Documents',
                 'description' => 'Allows the user to create or manage share links for employee documents according to existing sharing rules.',
                 'group' => 'Employee Documents',
             ],
-            109 => [
+            110 => [
                 'name' => 'documents.signing-presets.create',
                 'label' => 'Create Document Signing Presets',
                 'description' => 'Allows the user to create document signing presets for the active company.',
                 'group' => 'Employee Documents',
             ],
-            110 => [
+            111 => [
                 'name' => 'documents.signing-presets.delete',
                 'label' => 'Delete Document Signing Presets',
                 'description' => 'Allows the user to delete document signing presets according to existing rules.',
                 'group' => 'Employee Documents',
             ],
-            111 => [
+            112 => [
                 'name' => 'documents.signing-presets.update',
                 'label' => 'Update Document Signing Presets',
                 'description' => 'Allows the user to update document signing presets for the active company.',
                 'group' => 'Employee Documents',
             ],
-            112 => [
+            113 => [
                 'name' => 'documents.signing-presets.view',
                 'label' => 'View Document Signing Presets',
                 'description' => 'Allows the user to view reusable document signing presets for the active company.',
                 'group' => 'Employee Documents',
             ],
-            113 => [
+            114 => [
                 'name' => 'documents.templates.create',
                 'label' => 'Create Document Templates',
                 'description' => 'Allows the user to create document generation templates for the active company.',
                 'group' => 'Employee Documents',
             ],
-            114 => [
+            115 => [
                 'name' => 'documents.templates.delete',
                 'label' => 'Delete Document Templates',
                 'description' => 'Allows the user to delete document generation templates according to existing template deletion rules.',
                 'group' => 'Employee Documents',
             ],
-            115 => [
+            116 => [
                 'name' => 'documents.templates.update',
                 'label' => 'Update Document Templates',
                 'description' => 'Allows the user to update document generation templates for the active company.',
                 'group' => 'Employee Documents',
             ],
-            116 => [
+            117 => [
                 'name' => 'documents.templates.view',
                 'label' => 'View Document Templates',
                 'description' => 'Allows the user to view document generation templates available to the active company.',
                 'group' => 'Employee Documents',
             ],
-            117 => [
+            118 => [
                 'name' => 'documents.upload',
                 'label' => 'Upload Employee Documents',
                 'description' => 'Allows the user to upload employee documents for employees they are authorized to manage in the active company.',
                 'group' => 'Employee Documents',
             ],
-            118 => [
+            119 => [
                 'name' => 'documents.view',
                 'label' => 'View Employee Documents',
                 'description' => 'Allows the user to browse employee documents they are authorized to access in the active company.',
                 'group' => 'Employee Documents',
             ],
-            119 => [
+            120 => [
                 'name' => 'documents.workflow-presets.create',
                 'label' => 'Create Document Workflow Presets',
                 'description' => 'Allows the user to create document approval workflow presets for the active company.',
                 'group' => 'Employee Documents',
             ],
-            120 => [
+            121 => [
                 'name' => 'documents.workflow-presets.delete',
                 'label' => 'Delete Document Workflow Presets',
                 'description' => 'Allows the user to delete document approval workflow presets according to existing rules.',
                 'group' => 'Employee Documents',
             ],
-            121 => [
+            122 => [
                 'name' => 'documents.workflow-presets.update',
                 'label' => 'Update Document Workflow Presets',
                 'description' => 'Allows the user to update document approval workflow presets for the active company.',
                 'group' => 'Employee Documents',
             ],
-            122 => [
+            123 => [
                 'name' => 'documents.workflow-presets.view',
                 'label' => 'View Document Workflow Presets',
                 'description' => 'Allows the user to view reusable document approval workflow presets for the active company.',
                 'group' => 'Employee Documents',
             ],
-            123 => [
+            124 => [
                 'name' => 'education.create',
                 'label' => 'Create Education Records',
                 'description' => 'Allows the user to add education history to employee profiles in the active company.',
                 'group' => 'Education Records',
             ],
-            124 => [
+            125 => [
                 'name' => 'education.delete',
                 'label' => 'Delete Education Records',
                 'description' => 'Allows the user to remove employee education records according to existing deletion rules.',
                 'group' => 'Education Records',
             ],
-            125 => [
+            126 => [
                 'name' => 'education.update',
                 'label' => 'Update Education Records',
                 'description' => 'Allows the user to update employee education history within the active company.',
                 'group' => 'Education Records',
             ],
-            126 => [
+            127 => [
                 'name' => 'education.view',
                 'label' => 'View Education Records',
                 'description' => 'Allows the user to view employee education history they are authorized to access.',
                 'group' => 'Education Records',
             ],
-            127 => [
+            128 => [
                 'name' => 'employee_profile_templates.create',
                 'label' => 'Create Employee Profile Templates',
                 'description' => 'Allows the user to create new Employee Profile Templates records for the active company.',
                 'group' => 'Employee Profile Templates',
             ],
-            128 => [
+            129 => [
                 'name' => 'employee_profile_templates.delete',
                 'label' => 'Delete Employee Profile Templates',
                 'description' => 'Allows the user to delete Employee Profile Templates records according to the application\'s existing deletion rules.',
                 'group' => 'Employee Profile Templates',
             ],
-            129 => [
+            130 => [
                 'name' => 'employee_profile_templates.update',
                 'label' => 'Update Employee Profile Templates',
                 'description' => 'Allows the user to update existing Employee Profile Templates records within the active company.',
                 'group' => 'Employee Profile Templates',
             ],
-            130 => [
+            131 => [
                 'name' => 'employee_profile_templates.view',
                 'label' => 'View Employee Profile Templates',
                 'description' => 'Allows the user to view Employee Profile Templates records available within the active company.',
                 'group' => 'Employee Profile Templates',
             ],
-            131 => [
+            132 => [
                 'name' => 'employees.create',
                 'label' => 'Create Employees',
                 'description' => 'Allows the user to create new Employees records for the active company.',
                 'group' => 'Employees',
             ],
-            132 => [
+            133 => [
                 'name' => 'employees.delete',
                 'label' => 'Delete Employees',
                 'description' => 'Allows the user to delete Employees records according to the application\'s existing deletion rules.',
                 'group' => 'Employees',
             ],
-            133 => [
+            134 => [
                 'name' => 'employees.export',
                 'label' => 'Export Employees',
                 'description' => 'Allows the user to export Employees data for the active company according to existing export rules.',
                 'group' => 'Employees',
             ],
-            134 => [
+            135 => [
                 'name' => 'employees.import',
                 'label' => 'Import Employees',
                 'description' => 'Allows the user to import Employees data into the active company using existing import workflows.',
                 'group' => 'Employees',
             ],
-            135 => [
+            136 => [
                 'name' => 'employees.salary_certificate.print',
                 'label' => 'Print Salary Certificates',
                 'description' => 'Allows the user to print employee salary certificates for records they are authorized to access.',
                 'group' => 'Employees',
             ],
-            136 => [
+            137 => [
                 'name' => 'employees.salary_declaration.print',
                 'label' => 'Print Salary Declarations',
                 'description' => 'Allows the user to print employee salary declarations for records they are authorized to access.',
                 'group' => 'Employees',
             ],
-            137 => [
+            138 => [
                 'name' => 'employees.update',
                 'label' => 'Update Employees',
                 'description' => 'Allows the user to update existing Employees records within the active company.',
                 'group' => 'Employees',
             ],
-            138 => [
+            139 => [
                 'name' => 'employees.view',
                 'label' => 'View Employees',
                 'description' => 'Allows the user to view Employees records available within the active company.',
                 'group' => 'Employees',
             ],
-            139 => [
+            140 => [
                 'name' => 'hikvision.devices.sync',
                 'label' => 'Sync Hikvision Devices',
                 'description' => 'Allows the user to synchronize Hikvision device information from connected endpoints.',
                 'group' => 'Hikvision',
             ],
-            140 => [
+            141 => [
                 'name' => 'hikvision.devices.view',
                 'label' => 'View Hikvision Devices',
                 'description' => 'Allows the user to view Hikvision access-control devices registered for the active company.',
                 'group' => 'Hikvision',
             ],
-            141 => [
+            142 => [
                 'name' => 'hikvision.events.fetch',
                 'label' => 'Fetch Hikvision Events',
                 'description' => 'Allows the user to trigger retrieval of Hikvision access events from connected devices.',
                 'group' => 'Hikvision',
             ],
-            142 => [
+            143 => [
                 'name' => 'hikvision.events.view',
                 'label' => 'View Hikvision Events',
                 'description' => 'Allows the user to view Hikvision access events recorded for the active company.',
                 'group' => 'Hikvision',
             ],
-            143 => [
+            144 => [
                 'name' => 'hikvision.persons.create',
                 'label' => 'Create Hikvision Persons',
                 'description' => 'Allows the user to create Hikvision person records for the active company.',
                 'group' => 'Hikvision',
             ],
-            144 => [
+            145 => [
                 'name' => 'hikvision.persons.delete',
                 'label' => 'Delete Hikvision Persons',
                 'description' => 'Allows the user to delete Hikvision person records according to existing integration rules.',
                 'group' => 'Hikvision',
             ],
-            145 => [
+            146 => [
                 'name' => 'hikvision.persons.link',
                 'label' => 'Link Hikvision Persons',
                 'description' => 'Allows the user to link Hikvision persons to employees in the active company.',
                 'group' => 'Hikvision',
             ],
-            146 => [
+            147 => [
                 'name' => 'hikvision.persons.sync',
                 'label' => 'Sync Hikvision Persons',
                 'description' => 'Allows the user to synchronize Hikvision person records from connected devices.',
                 'group' => 'Hikvision',
             ],
-            147 => [
+            148 => [
                 'name' => 'hikvision.persons.update',
                 'label' => 'Update Hikvision Persons',
                 'description' => 'Allows the user to update Hikvision person records for the active company.',
                 'group' => 'Hikvision',
             ],
-            148 => [
+            149 => [
                 'name' => 'hikvision.persons.view',
                 'label' => 'View Hikvision Persons',
                 'description' => 'Allows the user to view Hikvision person records linked to the active company.',
                 'group' => 'Hikvision',
             ],
-            149 => [
+            150 => [
                 'name' => 'hikvision.webhook.manage',
                 'label' => 'Manage Hikvision Webhooks',
                 'description' => 'Allows the user to configure Hikvision webhook endpoints and related integration settings for the active company.',
                 'group' => 'Hikvision',
             ],
-            150 => [
+            151 => [
                 'name' => 'languages.create',
                 'label' => 'Create Language Records',
                 'description' => 'Allows the user to add language proficiency records to employee profiles in the active company.',
                 'group' => 'Language Records',
             ],
-            151 => [
+            152 => [
                 'name' => 'languages.delete',
                 'label' => 'Delete Language Records',
                 'description' => 'Allows the user to remove employee language records according to existing deletion rules.',
                 'group' => 'Language Records',
             ],
-            152 => [
+            153 => [
                 'name' => 'languages.update',
                 'label' => 'Update Language Records',
                 'description' => 'Allows the user to update employee language proficiency records within the active company.',
                 'group' => 'Language Records',
             ],
-            153 => [
+            154 => [
                 'name' => 'languages.view',
                 'label' => 'View Language Records',
                 'description' => 'Allows the user to view employee language records they are authorized to access.',
                 'group' => 'Language Records',
             ],
-            154 => [
+            155 => [
                 'name' => 'payroll.crew_timesheets.apply_approved',
                 'label' => 'Apply Approved Crew Timesheets',
                 'description' => 'Allows the user to apply an approved crew timesheet preparation to crew timesheets.',
                 'group' => 'Payroll',
             ],
-            155 => [
+            156 => [
                 'name' => 'payroll.crew_timesheets.approve',
                 'label' => 'Approve Crew Timesheets',
                 'description' => 'Allows the user to approve submitted crew timesheet preparations or individual timesheets.',
                 'group' => 'Payroll',
             ],
-            156 => [
+            157 => [
                 'name' => 'payroll.crew_timesheets.clear',
                 'label' => 'Clear Crew Timesheets',
                 'description' => 'Allows the user to clear all manual or imported timesheets on a draft crew payroll period.',
                 'group' => 'Payroll',
             ],
-            157 => [
+            158 => [
                 'name' => 'payroll.crew_timesheets.create',
                 'label' => 'Create Crew Timesheets',
                 'description' => 'Allows the user to create manual or import crew timesheet records for draft payroll periods.',
                 'group' => 'Payroll',
             ],
-            158 => [
+            159 => [
                 'name' => 'payroll.crew_timesheets.import',
                 'label' => 'Import Crew Timesheets',
                 'description' => 'Allows the user to import crew timesheet data into draft payroll periods.',
                 'group' => 'Payroll',
             ],
-            159 => [
+            160 => [
                 'name' => 'payroll.crew_timesheets.prepare',
                 'label' => 'Prepare Crew Timesheets',
                 'description' => 'Allows the user to create a new draft crew timesheet preparation version.',
                 'group' => 'Payroll',
             ],
-            160 => [
+            161 => [
                 'name' => 'payroll.crew_timesheets.return',
                 'label' => 'Return Crew Timesheets',
                 'description' => 'Allows the user to return submitted crew timesheet preparations or individual timesheets with notes.',
                 'group' => 'Payroll',
             ],
-            161 => [
+            162 => [
                 'name' => 'payroll.crew_timesheets.skip_timeline',
                 'label' => 'Skip Crew Timesheet Timeline Entries',
                 'description' => 'Allows the user to skip or restore an employee\'s crew timesheet data for a draft preparation version.',
                 'group' => 'Payroll',
             ],
-            162 => [
+            163 => [
                 'name' => 'payroll.crew_timesheets.submit',
                 'label' => 'Submit Crew Timesheets',
                 'description' => 'Allows the user to submit draft crew timesheet preparations or individual timesheets for approval.',
                 'group' => 'Payroll',
             ],
-            163 => [
+            164 => [
                 'name' => 'payroll.crew_timesheets.update',
                 'label' => 'Update Crew Timesheets',
                 'description' => 'Allows the user to update crew timesheet records within permitted draft workflow states.',
                 'group' => 'Payroll',
             ],
-            164 => [
+            165 => [
                 'name' => 'payroll.crew_timesheets.view',
                 'label' => 'View Crew Timesheets',
                 'description' => 'Allows the user to view crew timesheet preparation and related payroll timesheet data for the active company.',
                 'group' => 'Payroll',
             ],
-            165 => [
+            166 => [
                 'name' => 'payroll.overview.view',
                 'label' => 'View Payroll Overview',
                 'description' => 'Allows the user to view the payroll overview dashboard for the active company.',
                 'group' => 'Payroll',
             ],
-            166 => [
+            167 => [
                 'name' => 'payroll.payslips.email',
                 'label' => 'Email Payslips',
                 'description' => 'Allows the user to email generated payslips to employees according to existing delivery rules.',
                 'group' => 'Payroll',
             ],
-            167 => [
+            168 => [
                 'name' => 'payroll.payslips.generate',
                 'label' => 'Generate Payslips',
                 'description' => 'Allows the user to generate employee payslips for payroll periods they are authorized to access.',
                 'group' => 'Payroll',
             ],
-            168 => [
+            169 => [
                 'name' => 'payroll.periods.approve',
                 'label' => 'Approve Payroll Period',
                 'description' => 'Allows the user to approve a payroll period at the workflow stage controlled by this permission.',
                 'group' => 'Payroll',
             ],
-            169 => [
+            170 => [
                 'name' => 'payroll.periods.cancel',
                 'label' => 'Cancel Payroll Period',
                 'description' => 'Allows the user to cancel a payroll period according to existing payroll workflow rules.',
                 'group' => 'Payroll',
             ],
-            170 => [
+            171 => [
                 'name' => 'payroll.periods.create',
                 'label' => 'Create Payroll Periods',
                 'description' => 'Allows the user to open new payroll periods for the active company.',
                 'group' => 'Payroll',
             ],
-            171 => [
+            172 => [
                 'name' => 'payroll.periods.delete',
                 'label' => 'Delete Payroll Periods',
                 'description' => 'Allows the user to delete payroll periods according to existing payroll workflow rules.',
                 'group' => 'Payroll',
             ],
-            172 => [
+            173 => [
                 'name' => 'payroll.periods.mark_paid',
                 'label' => 'Mark Payroll Period Paid',
                 'description' => 'Allows the user to mark a payroll period as paid according to existing payroll workflow rules.',
                 'group' => 'Payroll',
             ],
-            173 => [
+            174 => [
                 'name' => 'payroll.periods.recalculate',
                 'label' => 'Recalculate Payroll Period',
                 'description' => 'Allows the user to recalculate payroll figures for a period according to existing payroll rules.',
                 'group' => 'Payroll',
             ],
-            174 => [
+            175 => [
                 'name' => 'payroll.periods.revert_to_approved',
                 'label' => 'Revert Payroll Period to Approved',
                 'description' => 'Allows the user to revert a payroll period to approved status according to existing payroll workflow rules.',
                 'group' => 'Payroll',
             ],
-            175 => [
+            176 => [
                 'name' => 'payroll.periods.revert_to_draft',
                 'label' => 'Revert Payroll Period to Draft',
                 'description' => 'Allows the user to revert a payroll period to draft status according to existing payroll workflow rules.',
                 'group' => 'Payroll',
             ],
-            176 => [
+            177 => [
                 'name' => 'payroll.periods.revert_to_processing',
                 'label' => 'Revert Payroll Period to Processing',
                 'description' => 'Allows the user to revert a payroll period to processing status according to existing payroll workflow rules.',
                 'group' => 'Payroll',
             ],
-            177 => [
+            178 => [
                 'name' => 'payroll.periods.update',
                 'label' => 'Update Payroll Periods',
                 'description' => 'Allows the user to update payroll period details within permitted workflow states.',
                 'group' => 'Payroll',
             ],
-            178 => [
+            179 => [
                 'name' => 'payroll.periods.view',
                 'label' => 'View Payroll Periods',
                 'description' => 'Allows the user to view payroll periods and related processing status for the active company.',
                 'group' => 'Payroll',
             ],
-            179 => [
+            180 => [
                 'name' => 'payroll.records.view',
                 'label' => 'View Payroll Records',
                 'description' => 'Allows the user to view payroll periods, employee payroll records, calculations, and related payroll information.',
                 'group' => 'Payroll',
             ],
-            180 => [
+            181 => [
                 'name' => 'payroll.salary_inputs.create',
                 'label' => 'Create Payroll Salary Inputs',
                 'description' => 'Allows the user to create supplemental salary inputs for payroll calculations in the active company.',
                 'group' => 'Payroll',
             ],
-            181 => [
+            182 => [
                 'name' => 'payroll.salary_inputs.delete',
                 'label' => 'Delete Payroll Salary Inputs',
                 'description' => 'Allows the user to delete supplemental salary inputs according to existing payroll rules.',
                 'group' => 'Payroll',
             ],
-            182 => [
+            183 => [
                 'name' => 'payroll.salary_inputs.update',
                 'label' => 'Update Payroll Salary Inputs',
                 'description' => 'Allows the user to update supplemental salary inputs according to existing payroll rules.',
                 'group' => 'Payroll',
             ],
-            183 => [
+            184 => [
                 'name' => 'payroll.salary_inputs.view',
                 'label' => 'View Payroll Salary Inputs',
                 'description' => 'Allows the user to view supplemental salary inputs used in payroll calculations for the active company.',
                 'group' => 'Payroll',
             ],
-            184 => [
+            185 => [
                 'name' => 'payroll.wps.export',
                 'label' => 'Export WPS Files',
                 'description' => 'Allows the user to export WPS payroll files for authorized payroll periods in the active company.',
                 'group' => 'Payroll',
             ],
-            185 => [
+            186 => [
                 'name' => 'positions.create',
                 'label' => 'Create Positions',
                 'description' => 'Allows the user to create new Positions records for the active company.',
                 'group' => 'Positions',
             ],
-            186 => [
+            187 => [
                 'name' => 'positions.delete',
                 'label' => 'Delete Positions',
                 'description' => 'Allows the user to delete Positions records according to the application\'s existing deletion rules.',
                 'group' => 'Positions',
             ],
-            187 => [
+            188 => [
                 'name' => 'positions.export',
                 'label' => 'Export Positions',
                 'description' => 'Allows the user to export Positions data for the active company according to existing export rules.',
                 'group' => 'Positions',
             ],
-            188 => [
+            189 => [
                 'name' => 'positions.update',
                 'label' => 'Update Positions',
                 'description' => 'Allows the user to update existing Positions records within the active company.',
                 'group' => 'Positions',
             ],
-            189 => [
+            190 => [
                 'name' => 'positions.view',
                 'label' => 'View Positions',
                 'description' => 'Allows the user to view Positions records available within the active company.',
                 'group' => 'Positions',
             ],
-            190 => [
+            191 => [
                 'name' => 'reports.crew_movement_history.export',
                 'label' => 'Export Crew Movement History Report',
                 'description' => 'Allows the user to export crew movement history data for the active company.',
                 'group' => 'Reports',
             ],
-            191 => [
+            192 => [
                 'name' => 'reports.crew_movement_history.view',
                 'label' => 'View Crew Movement History Report',
                 'description' => 'Allows the user to view the crew movement history report for the active company.',
                 'group' => 'Reports',
             ],
-            192 => [
+            193 => [
                 'name' => 'roles.create',
                 'label' => 'Create Roles',
                 'description' => 'Allows the user to create new Roles records for the active company.',
                 'group' => 'Roles',
             ],
-            193 => [
+            194 => [
                 'name' => 'roles.delete',
                 'label' => 'Delete Roles',
                 'description' => 'Allows the user to delete Roles records according to the application\'s existing deletion rules.',
                 'group' => 'Roles',
             ],
-            194 => [
+            195 => [
                 'name' => 'roles.export',
                 'label' => 'Export Roles',
                 'description' => 'Allows the user to export Roles data for the active company according to existing export rules.',
                 'group' => 'Roles',
             ],
-            195 => [
+            196 => [
                 'name' => 'roles.update',
                 'label' => 'Update Roles',
                 'description' => 'Allows the user to update existing Roles records within the active company.',
                 'group' => 'Roles',
             ],
-            196 => [
+            197 => [
                 'name' => 'roles.view',
                 'label' => 'View Roles',
                 'description' => 'Allows the user to view Roles records available within the active company.',
                 'group' => 'Roles',
             ],
-            197 => [
+            198 => [
                 'name' => 'sea_services.create',
                 'label' => 'Create Sea Service Records',
                 'description' => 'Allows the user to add sea service history to employee profiles in the active company.',
                 'group' => 'Sea Service Records',
             ],
-            198 => [
+            199 => [
                 'name' => 'sea_services.delete',
                 'label' => 'Delete Sea Service Records',
                 'description' => 'Allows the user to remove employee sea service records according to existing deletion rules.',
                 'group' => 'Sea Service Records',
             ],
-            199 => [
+            200 => [
                 'name' => 'sea_services.import',
                 'label' => 'Import Sea Service Records',
                 'description' => 'Allows the user to import Sea Service Records data into the active company using existing import workflows.',
                 'group' => 'Sea Service Records',
             ],
-            200 => [
+            201 => [
                 'name' => 'sea_services.update',
                 'label' => 'Update Sea Service Records',
                 'description' => 'Allows the user to update employee sea service history within the active company.',
                 'group' => 'Sea Service Records',
             ],
-            201 => [
+            202 => [
                 'name' => 'sea_services.view',
                 'label' => 'View Sea Service Records',
                 'description' => 'Allows the user to view employee sea service history they are authorized to access.',
                 'group' => 'Sea Service Records',
             ],
-            202 => [
+            203 => [
                 'name' => 'settings.appearance.view',
                 'label' => 'View Appearance Settings',
                 'description' => 'Allows the user to view company appearance and theme settings for the active company.',
                 'group' => 'Settings',
             ],
-            203 => [
+            204 => [
                 'name' => 'settings.application.update',
                 'label' => 'Update Application Settings (Legacy)',
                 'description' => 'Retained for compatibility. Does not authorize changes to platform-wide application settings, which require platform access instead.',
                 'group' => 'Settings',
             ],
-            204 => [
+            205 => [
                 'name' => 'settings.application.view',
                 'label' => 'View Application Settings (Legacy)',
                 'description' => 'Retained for compatibility. Does not authorize platform-wide application settings, which require platform access instead.',
                 'group' => 'Settings',
             ],
-            205 => [
+            206 => [
                 'name' => 'settings.integrations.email-templates.create',
                 'label' => 'Create Email Templates (Legacy)',
                 'description' => 'Retained for compatibility. Creating global email templates requires platform access.',
                 'group' => 'Settings',
             ],
-            206 => [
+            207 => [
                 'name' => 'settings.integrations.email-templates.delete',
                 'label' => 'Delete Email Templates (Legacy)',
                 'description' => 'Retained for compatibility. Deleting global email templates requires platform access.',
                 'group' => 'Settings',
             ],
-            207 => [
+            208 => [
                 'name' => 'settings.integrations.email-templates.update',
                 'label' => 'Update Email Templates (Legacy)',
                 'description' => 'Retained for compatibility. Updating global email templates requires platform access.',
                 'group' => 'Settings',
             ],
-            208 => [
+            209 => [
                 'name' => 'settings.integrations.email-templates.view',
                 'label' => 'View Email Templates (Legacy)',
                 'description' => 'Retained for compatibility. The global email template library is governed by platform access.',
                 'group' => 'Settings',
             ],
-            209 => [
+            210 => [
                 'name' => 'settings.integrations.hikvision.update',
                 'label' => 'Update Hikvision Integration',
                 'description' => 'Allows the user to configure Hikvision device endpoints, credentials, and sync settings for the active company.',
                 'group' => 'Settings',
             ],
-            210 => [
+            211 => [
                 'name' => 'settings.integrations.hikvision.view',
                 'label' => 'View Hikvision Integration',
                 'description' => 'Allows the user to view Hikvision access-control integration settings for the active company.',
                 'group' => 'Settings',
             ],
-            211 => [
+            212 => [
                 'name' => 'settings.integrations.whatsapp-templates.create',
                 'label' => 'Create WhatsApp Templates (Legacy)',
                 'description' => 'Retained for compatibility. Creating global WhatsApp templates requires platform access.',
                 'group' => 'Settings',
             ],
-            212 => [
+            213 => [
                 'name' => 'settings.integrations.whatsapp-templates.delete',
                 'label' => 'Delete WhatsApp Templates (Legacy)',
                 'description' => 'Retained for compatibility. Deleting global WhatsApp templates requires platform access.',
                 'group' => 'Settings',
             ],
-            213 => [
+            214 => [
                 'name' => 'settings.integrations.whatsapp-templates.update',
                 'label' => 'Update WhatsApp Templates (Legacy)',
                 'description' => 'Retained for compatibility. Updating global WhatsApp templates requires platform access.',
                 'group' => 'Settings',
             ],
-            214 => [
+            215 => [
                 'name' => 'settings.integrations.whatsapp-templates.view',
                 'label' => 'View WhatsApp Templates (Legacy)',
                 'description' => 'Retained for compatibility. The global WhatsApp template library is governed by platform access.',
                 'group' => 'Settings',
             ],
-            215 => [
+            216 => [
                 'name' => 'settings.integrations.whatsapp.update',
                 'label' => 'Update WhatsApp Integration (Legacy)',
                 'description' => 'Retained for compatibility. Global WhatsApp credential changes require platform access and privileged two-factor when enforced.',
                 'group' => 'Settings',
             ],
-            216 => [
+            217 => [
                 'name' => 'settings.integrations.whatsapp.view',
                 'label' => 'View WhatsApp Integration (Legacy)',
                 'description' => 'Retained for compatibility. Global WhatsApp integration is governed by platform access, not this tenant permission.',
                 'group' => 'Settings',
             ],
-            217 => [
+            218 => [
                 'name' => 'settings.master-data.approval-locations.create',
                 'label' => 'Create Approval locations',
                 'description' => 'Allows the user to create new approval locations master data records for the active company.',
                 'group' => 'Settings',
             ],
-            218 => [
+            219 => [
                 'name' => 'settings.master-data.approval-locations.delete',
                 'label' => 'Delete Approval locations',
                 'description' => 'Allows the user to delete approval locations master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            219 => [
+            220 => [
                 'name' => 'settings.master-data.approval-locations.update',
                 'label' => 'Update Approval locations',
                 'description' => 'Allows the user to update existing approval locations master data records within the active company.',
                 'group' => 'Settings',
             ],
-            220 => [
+            221 => [
                 'name' => 'settings.master-data.approval-locations.view',
                 'label' => 'View Approval locations',
                 'description' => 'Allows the user to view approval locations master data available to the active company.',
                 'group' => 'Settings',
             ],
-            221 => [
+            222 => [
                 'name' => 'settings.master-data.banks.create',
                 'label' => 'Create Banks',
                 'description' => 'Allows the user to create new banks master data records for the active company.',
                 'group' => 'Settings',
             ],
-            222 => [
+            223 => [
                 'name' => 'settings.master-data.banks.delete',
                 'label' => 'Delete Banks',
                 'description' => 'Allows the user to delete banks master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            223 => [
+            224 => [
                 'name' => 'settings.master-data.banks.update',
                 'label' => 'Update Banks',
                 'description' => 'Allows the user to update existing banks master data records within the active company.',
                 'group' => 'Settings',
             ],
-            224 => [
+            225 => [
                 'name' => 'settings.master-data.banks.view',
                 'label' => 'View Banks',
                 'description' => 'Allows the user to view banks master data available to the active company.',
                 'group' => 'Settings',
             ],
-            225 => [
+            226 => [
                 'name' => 'settings.master-data.clients.create',
                 'label' => 'Create Clients',
                 'description' => 'Allows the user to create new clients master data records for the active company.',
                 'group' => 'Settings',
             ],
-            226 => [
+            227 => [
                 'name' => 'settings.master-data.clients.delete',
                 'label' => 'Delete Clients',
                 'description' => 'Allows the user to delete clients master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            227 => [
+            228 => [
                 'name' => 'settings.master-data.clients.update',
                 'label' => 'Update Clients',
                 'description' => 'Allows the user to update existing clients master data records within the active company.',
                 'group' => 'Settings',
             ],
-            228 => [
+            229 => [
                 'name' => 'settings.master-data.clients.view',
                 'label' => 'View Clients',
                 'description' => 'Allows the user to view clients master data available to the active company.',
                 'group' => 'Settings',
             ],
-            229 => [
+            230 => [
                 'name' => 'settings.master-data.company-visa-types.create',
                 'label' => 'Create Company visa types',
                 'description' => 'Allows the user to create new company visa types master data records for the active company.',
                 'group' => 'Settings',
             ],
-            230 => [
+            231 => [
                 'name' => 'settings.master-data.company-visa-types.delete',
                 'label' => 'Delete Company visa types',
                 'description' => 'Allows the user to delete company visa types master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            231 => [
+            232 => [
                 'name' => 'settings.master-data.company-visa-types.update',
                 'label' => 'Update Company visa types',
                 'description' => 'Allows the user to update existing company visa types master data records within the active company.',
                 'group' => 'Settings',
             ],
-            232 => [
+            233 => [
                 'name' => 'settings.master-data.company-visa-types.view',
                 'label' => 'View Company visa types',
                 'description' => 'Allows the user to view company visa types master data available to the active company.',
                 'group' => 'Settings',
             ],
-            233 => [
+            234 => [
                 'name' => 'settings.master-data.countries.create',
                 'label' => 'Create Countries',
                 'description' => 'Allows the user to create new countries master data records for the active company.',
                 'group' => 'Settings',
             ],
-            234 => [
+            235 => [
                 'name' => 'settings.master-data.countries.delete',
                 'label' => 'Delete Countries',
                 'description' => 'Allows the user to delete countries master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            235 => [
+            236 => [
                 'name' => 'settings.master-data.countries.update',
                 'label' => 'Update Countries',
                 'description' => 'Allows the user to update existing countries master data records within the active company.',
                 'group' => 'Settings',
             ],
-            236 => [
+            237 => [
                 'name' => 'settings.master-data.countries.view',
                 'label' => 'View Countries',
                 'description' => 'Allows the user to view countries master data available to the active company.',
                 'group' => 'Settings',
             ],
-            237 => [
+            238 => [
                 'name' => 'settings.master-data.courses.create',
                 'label' => 'Create Courses',
                 'description' => 'Allows the user to create new courses master data records for the active company.',
                 'group' => 'Settings',
             ],
-            238 => [
+            239 => [
                 'name' => 'settings.master-data.courses.delete',
                 'label' => 'Delete Courses',
                 'description' => 'Allows the user to delete courses master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            239 => [
+            240 => [
                 'name' => 'settings.master-data.courses.update',
                 'label' => 'Update Courses',
                 'description' => 'Allows the user to update existing courses master data records within the active company.',
                 'group' => 'Settings',
             ],
-            240 => [
+            241 => [
                 'name' => 'settings.master-data.courses.view',
                 'label' => 'View Courses',
                 'description' => 'Allows the user to view courses master data available to the active company.',
                 'group' => 'Settings',
             ],
-            241 => [
+            242 => [
                 'name' => 'settings.master-data.currencies.create',
                 'label' => 'Create Currencies',
                 'description' => 'Allows the user to create new currencies master data records for the active company.',
                 'group' => 'Settings',
             ],
-            242 => [
+            243 => [
                 'name' => 'settings.master-data.currencies.delete',
                 'label' => 'Delete Currencies',
                 'description' => 'Allows the user to delete currencies master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            243 => [
+            244 => [
                 'name' => 'settings.master-data.currencies.update',
                 'label' => 'Update Currencies',
                 'description' => 'Allows the user to update existing currencies master data records within the active company.',
                 'group' => 'Settings',
             ],
-            244 => [
+            245 => [
                 'name' => 'settings.master-data.currencies.view',
                 'label' => 'View Currencies',
                 'description' => 'Allows the user to view currencies master data available to the active company.',
                 'group' => 'Settings',
             ],
-            245 => [
+            246 => [
                 'name' => 'settings.master-data.document-types.create',
                 'label' => 'Create Document types',
                 'description' => 'Allows the user to create new document types master data records for the active company.',
                 'group' => 'Settings',
             ],
-            246 => [
+            247 => [
                 'name' => 'settings.master-data.document-types.delete',
                 'label' => 'Delete Document types',
                 'description' => 'Allows the user to delete document types master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            247 => [
+            248 => [
                 'name' => 'settings.master-data.document-types.update',
                 'label' => 'Update Document types',
                 'description' => 'Allows the user to update existing document types master data records within the active company.',
                 'group' => 'Settings',
             ],
-            248 => [
+            249 => [
                 'name' => 'settings.master-data.document-types.view',
                 'label' => 'View Document types',
                 'description' => 'Allows the user to view document types master data available to the active company.',
                 'group' => 'Settings',
             ],
-            249 => [
+            250 => [
                 'name' => 'settings.master-data.genders.create',
                 'label' => 'Create Genders',
                 'description' => 'Allows the user to create new genders master data records for the active company.',
                 'group' => 'Settings',
             ],
-            250 => [
+            251 => [
                 'name' => 'settings.master-data.genders.delete',
                 'label' => 'Delete Genders',
                 'description' => 'Allows the user to delete genders master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            251 => [
+            252 => [
                 'name' => 'settings.master-data.genders.update',
                 'label' => 'Update Genders',
                 'description' => 'Allows the user to update existing genders master data records within the active company.',
                 'group' => 'Settings',
             ],
-            252 => [
+            253 => [
                 'name' => 'settings.master-data.genders.view',
                 'label' => 'View Genders',
                 'description' => 'Allows the user to view genders master data available to the active company.',
                 'group' => 'Settings',
             ],
-            253 => [
+            254 => [
                 'name' => 'settings.master-data.hotels.create',
                 'label' => 'Create Hotels',
                 'description' => 'Allows the user to create new hotels master data records for the active company.',
                 'group' => 'Settings',
             ],
-            254 => [
+            255 => [
                 'name' => 'settings.master-data.hotels.delete',
                 'label' => 'Delete Hotels',
                 'description' => 'Allows the user to delete hotels master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            255 => [
+            256 => [
                 'name' => 'settings.master-data.hotels.update',
                 'label' => 'Update Hotels',
                 'description' => 'Allows the user to update existing hotels master data records within the active company.',
                 'group' => 'Settings',
             ],
-            256 => [
+            257 => [
                 'name' => 'settings.master-data.hotels.view',
                 'label' => 'View Hotels',
                 'description' => 'Allows the user to view hotels master data available to the active company.',
                 'group' => 'Settings',
             ],
-            257 => [
+            258 => [
                 'name' => 'settings.master-data.projects.create',
                 'label' => 'Create Projects',
                 'description' => 'Allows the user to create new projects master data records for the active company.',
                 'group' => 'Settings',
             ],
-            258 => [
+            259 => [
                 'name' => 'settings.master-data.projects.delete',
                 'label' => 'Delete Projects',
                 'description' => 'Allows the user to delete projects master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            259 => [
+            260 => [
                 'name' => 'settings.master-data.projects.update',
                 'label' => 'Update Projects',
                 'description' => 'Allows the user to update existing projects master data records within the active company.',
                 'group' => 'Settings',
             ],
-            260 => [
+            261 => [
                 'name' => 'settings.master-data.projects.view',
                 'label' => 'View Projects',
                 'description' => 'Allows the user to view projects master data available to the active company.',
                 'group' => 'Settings',
             ],
-            261 => [
+            262 => [
                 'name' => 'settings.master-data.ranks.create',
                 'label' => 'Create Ranks',
                 'description' => 'Allows the user to create new ranks master data records for the active company.',
                 'group' => 'Settings',
             ],
-            262 => [
+            263 => [
                 'name' => 'settings.master-data.ranks.delete',
                 'label' => 'Delete Ranks',
                 'description' => 'Allows the user to delete ranks master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            263 => [
+            264 => [
                 'name' => 'settings.master-data.ranks.update',
                 'label' => 'Update Ranks',
                 'description' => 'Allows the user to update existing ranks master data records within the active company.',
                 'group' => 'Settings',
             ],
-            264 => [
+            265 => [
                 'name' => 'settings.master-data.ranks.view',
                 'label' => 'View Ranks',
                 'description' => 'Allows the user to view ranks master data available to the active company.',
                 'group' => 'Settings',
             ],
-            265 => [
+            266 => [
                 'name' => 'settings.master-data.religions.create',
                 'label' => 'Create Religions',
                 'description' => 'Allows the user to create new religions master data records for the active company.',
                 'group' => 'Settings',
             ],
-            266 => [
+            267 => [
                 'name' => 'settings.master-data.religions.delete',
                 'label' => 'Delete Religions',
                 'description' => 'Allows the user to delete religions master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            267 => [
+            268 => [
                 'name' => 'settings.master-data.religions.update',
                 'label' => 'Update Religions',
                 'description' => 'Allows the user to update existing religions master data records within the active company.',
                 'group' => 'Settings',
             ],
-            268 => [
+            269 => [
                 'name' => 'settings.master-data.religions.view',
                 'label' => 'View Religions',
                 'description' => 'Allows the user to view religions master data available to the active company.',
                 'group' => 'Settings',
             ],
-            269 => [
+            270 => [
                 'name' => 'settings.master-data.sssa-options.create',
                 'label' => 'Create SSSA options',
                 'description' => 'Allows the user to create new SSSA options master data records for the active company.',
                 'group' => 'Settings',
             ],
-            270 => [
+            271 => [
                 'name' => 'settings.master-data.sssa-options.delete',
                 'label' => 'Delete SSSA options',
                 'description' => 'Allows the user to delete SSSA options master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            271 => [
+            272 => [
                 'name' => 'settings.master-data.sssa-options.update',
                 'label' => 'Update SSSA options',
                 'description' => 'Allows the user to update existing SSSA options master data records within the active company.',
                 'group' => 'Settings',
             ],
-            272 => [
+            273 => [
                 'name' => 'settings.master-data.sssa-options.view',
                 'label' => 'View SSSA options',
                 'description' => 'Allows the user to view SSSA options master data available to the active company.',
                 'group' => 'Settings',
             ],
-            273 => [
+            274 => [
                 'name' => 'settings.master-data.vessel-types.create',
                 'label' => 'Create Vessel types',
                 'description' => 'Allows the user to create new vessel types master data records for the active company.',
                 'group' => 'Settings',
             ],
-            274 => [
+            275 => [
                 'name' => 'settings.master-data.vessel-types.delete',
                 'label' => 'Delete Vessel types',
                 'description' => 'Allows the user to delete vessel types master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            275 => [
+            276 => [
                 'name' => 'settings.master-data.vessel-types.update',
                 'label' => 'Update Vessel types',
                 'description' => 'Allows the user to update existing vessel types master data records within the active company.',
                 'group' => 'Settings',
             ],
-            276 => [
+            277 => [
                 'name' => 'settings.master-data.vessel-types.view',
                 'label' => 'View Vessel types',
                 'description' => 'Allows the user to view vessel types master data available to the active company.',
                 'group' => 'Settings',
             ],
-            277 => [
+            278 => [
                 'name' => 'settings.master-data.vessels.create',
                 'label' => 'Create Vessels',
                 'description' => 'Allows the user to create new vessels master data records for the active company.',
                 'group' => 'Settings',
             ],
-            278 => [
+            279 => [
                 'name' => 'settings.master-data.vessels.delete',
                 'label' => 'Delete Vessels',
                 'description' => 'Allows the user to delete vessels master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            279 => [
+            280 => [
                 'name' => 'settings.master-data.vessels.update',
                 'label' => 'Update Vessels',
                 'description' => 'Allows the user to update existing vessels master data records within the active company.',
                 'group' => 'Settings',
             ],
-            280 => [
+            281 => [
                 'name' => 'settings.master-data.vessels.view',
                 'label' => 'View Vessels',
                 'description' => 'Allows the user to view vessels master data available to the active company.',
                 'group' => 'Settings',
             ],
-            281 => [
+            282 => [
                 'name' => 'settings.master-data.visa-types.create',
                 'label' => 'Create Visa types',
                 'description' => 'Allows the user to create new visa types master data records for the active company.',
                 'group' => 'Settings',
             ],
-            282 => [
+            283 => [
                 'name' => 'settings.master-data.visa-types.delete',
                 'label' => 'Delete Visa types',
                 'description' => 'Allows the user to delete visa types master data records according to existing usage-protection rules.',
                 'group' => 'Settings',
             ],
-            283 => [
+            284 => [
                 'name' => 'settings.master-data.visa-types.update',
                 'label' => 'Update Visa types',
                 'description' => 'Allows the user to update existing visa types master data records within the active company.',
                 'group' => 'Settings',
             ],
-            284 => [
+            285 => [
                 'name' => 'settings.master-data.visa-types.view',
                 'label' => 'View Visa types',
                 'description' => 'Allows the user to view visa types master data available to the active company.',
                 'group' => 'Settings',
             ],
-            285 => [
+            286 => [
                 'name' => 'settings.security.update',
                 'label' => 'Update Security Settings',
                 'description' => 'Allows the user to change company security settings for the active company.',
                 'group' => 'Settings',
             ],
-            286 => [
+            287 => [
                 'name' => 'settings.security.view',
                 'label' => 'View Security Settings',
                 'description' => 'Allows the user to view company security settings for the active company.',
                 'group' => 'Settings',
             ],
-            287 => [
+            288 => [
                 'name' => 'training.create',
                 'label' => 'Create Training Records',
                 'description' => 'Allows the user to add training history to employee profiles in the active company.',
                 'group' => 'Training Records',
             ],
-            288 => [
+            289 => [
                 'name' => 'training.delete',
                 'label' => 'Delete Training Records',
                 'description' => 'Allows the user to remove employee training records according to existing deletion rules.',
                 'group' => 'Training Records',
             ],
-            289 => [
+            290 => [
                 'name' => 'training.import',
                 'label' => 'Import Training Records',
                 'description' => 'Allows the user to import Training Records data into the active company using existing import workflows.',
                 'group' => 'Training Records',
             ],
-            290 => [
+            291 => [
                 'name' => 'training.update',
                 'label' => 'Update Training Records',
                 'description' => 'Allows the user to update employee training history within the active company.',
                 'group' => 'Training Records',
             ],
-            291 => [
+            292 => [
                 'name' => 'training.view',
                 'label' => 'View Training Records',
                 'description' => 'Allows the user to view employee training history they are authorized to access.',
                 'group' => 'Training Records',
             ],
-            292 => [
+            293 => [
                 'name' => 'users.create',
                 'label' => 'Create Users',
                 'description' => 'Allows the user to create new Users records for the active company.',
                 'group' => 'Users',
             ],
-            293 => [
+            294 => [
                 'name' => 'users.delete',
                 'label' => 'Delete Users',
                 'description' => 'Allows the user to delete Users records according to the application\'s existing deletion rules.',
                 'group' => 'Users',
             ],
-            294 => [
+            295 => [
                 'name' => 'users.export',
                 'label' => 'Export Users',
                 'description' => 'Allows the user to export Users data for the active company according to existing export rules.',
                 'group' => 'Users',
             ],
-            295 => [
+            296 => [
                 'name' => 'users.password_reset',
                 'label' => 'Send User Password Reset',
                 'description' => 'Allows the user to send a Fortify password reset link to a home-company user identity.',
                 'group' => 'Users',
             ],
-            296 => [
+            297 => [
                 'name' => 'users.sessions.revoke',
                 'label' => 'Revoke User Sessions',
                 'description' => 'Allows the user to invalidate active sessions and remember tokens for a home-company user identity.',
                 'group' => 'Users',
             ],
-            297 => [
+            298 => [
                 'name' => 'users.update',
                 'label' => 'Update Users',
                 'description' => 'Allows the user to update existing Users records within the active company.',
                 'group' => 'Users',
             ],
-            298 => [
+            299 => [
                 'name' => 'users.view',
                 'label' => 'View Users',
                 'description' => 'Allows the user to view Users records available within the active company.',
                 'group' => 'Users',
             ],
-            299 => [
+            300 => [
                 'name' => 'vaccination.create',
                 'label' => 'Create Vaccination Records',
                 'description' => 'Allows the user to add vaccination information to employee profiles in the active company.',
                 'group' => 'Vaccination Records',
             ],
-            300 => [
+            301 => [
                 'name' => 'vaccination.delete',
                 'label' => 'Delete Vaccination Records',
                 'description' => 'Allows the user to remove employee vaccination records according to existing deletion rules.',
                 'group' => 'Vaccination Records',
             ],
-            301 => [
+            302 => [
                 'name' => 'vaccination.import',
                 'label' => 'Import Vaccination Records',
                 'description' => 'Allows the user to import Vaccination Records data into the active company using existing import workflows.',
                 'group' => 'Vaccination Records',
             ],
-            302 => [
+            303 => [
                 'name' => 'vaccination.update',
                 'label' => 'Update Vaccination Records',
                 'description' => 'Allows the user to update employee vaccination records within the active company.',
                 'group' => 'Vaccination Records',
             ],
-            303 => [
+            304 => [
                 'name' => 'vaccination.view',
                 'label' => 'View Vaccination Records',
                 'description' => 'Allows the user to view employee vaccination records they are authorized to access.',
                 'group' => 'Vaccination Records',
             ],
-            304 => [
+            305 => [
                 'name' => 'work_experience.create',
                 'label' => 'Create Work Experience Records',
                 'description' => 'Allows the user to add work experience history to employee profiles in the active company.',
                 'group' => 'Work Experience Records',
             ],
-            305 => [
+            306 => [
                 'name' => 'work_experience.delete',
                 'label' => 'Delete Work Experience Records',
                 'description' => 'Allows the user to remove employee work experience records according to existing deletion rules.',
                 'group' => 'Work Experience Records',
             ],
-            306 => [
+            307 => [
                 'name' => 'work_experience.import',
                 'label' => 'Import Work Experience Records',
                 'description' => 'Allows the user to import Work Experience Records data into the active company using existing import workflows.',
                 'group' => 'Work Experience Records',
             ],
-            307 => [
+            308 => [
                 'name' => 'work_experience.update',
                 'label' => 'Update Work Experience Records',
                 'description' => 'Allows the user to update employee work experience history within the active company.',
                 'group' => 'Work Experience Records',
             ],
-            308 => [
+            309 => [
                 'name' => 'work_experience.view',
                 'label' => 'View Work Experience Records',
                 'description' => 'Allows the user to view employee work experience history they are authorized to access.',
                 'group' => 'Work Experience Records',
             ],
-            309 => [
+            310 => [
                 'name' => 'reports.leave.export',
                 'label' => 'Export Leave Report',
                 'description' => 'Allows the user to export leave reporting data available to them within the active company.',
                 'group' => 'Reports',
             ],
-            310 => [
+            311 => [
                 'name' => 'reports.leave.view',
                 'label' => 'View Leave Report',
                 'description' => 'Allows the user to view leave reporting data available to them within the active company.',
                 'group' => 'Reports',
             ],
-            311 => [
+            312 => [
                 'name' => 'crew_operations.assignments.create_historical',
                 'label' => 'Create Historical Crew Assignments',
                 'description' => 'Allows the user to record completed past crew movements without affecting current operations.',

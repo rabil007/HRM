@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\AdministrativelyDeleteLeaveRequestRequest;
 use App\Http\Requests\Attendance\ApproveLeaveRequestRequest;
 use App\Http\Requests\Attendance\CancelLeaveRequestRequest;
+use App\Http\Requests\Attendance\ReassignLeaveRequestApprovalRequest;
 use App\Http\Requests\Attendance\RejectLeaveRequestRequest;
 use App\Http\Requests\Attendance\StoreLeaveRequestRequest;
 use App\Http\Requests\Attendance\UpdateLeaveRequestRequest;
@@ -21,6 +22,7 @@ use App\Support\Attendance\Actions\AdministrativelyDeleteLeaveRequest;
 use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\CancelLeaveRequestWorkflow;
 use App\Support\Attendance\Actions\DeleteLeaveRequest;
+use App\Support\Attendance\Actions\ReassignLeaveRequestApproval;
 use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
@@ -28,6 +30,7 @@ use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
+use App\Support\Attendance\PresentLeaveApproverOption;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\SavedViews\ApplyDefaultSavedView;
@@ -49,6 +52,7 @@ class LeaveRequestController extends Controller
         private LeaveRequestAttachments $attachments,
         private LeaveRequestVisibility $visibility,
         private LeaveRequestAuthorization $authorization,
+        private PresentLeaveApproverOption $presentApproverOption,
     ) {}
 
     public function index(): RedirectResponse
@@ -267,6 +271,9 @@ class LeaveRequestController extends Controller
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'name', 'code', 'color']),
+            'reassignment_approver_candidates' => $this->authorization->canReassignCurrentApproval($leaveRequest, $user, $companyId)
+                ? $this->reassignmentApproverCandidates($leaveRequest, $companyId)
+                : [],
             'linked_employee_id' => $linkedEmployeeId,
             'recent_activity' => RecentActivityQuery::for(
                 $user,
@@ -282,6 +289,7 @@ class LeaveRequestController extends Controller
                 'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
                 'approve_current_step' => $this->authorization->canApproveCurrentStep($leaveRequest, $user, $companyId),
                 'view_all' => $canViewAll,
+                'reassign_approval' => $user?->can('attendance.leave-requests.reassign_approval') ?? false,
             ],
         ]);
     }
@@ -420,6 +428,40 @@ class LeaveRequestController extends Controller
             ->with('success', 'Leave request voided, balance restored and record removed successfully.');
     }
 
+    public function reassignApproval(
+        ReassignLeaveRequestApprovalRequest $request,
+        LeaveRequest $leaveRequest,
+        ReassignLeaveRequestApproval $reassignApproval,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $data = $request->validated();
+
+        try {
+            $reassignApproval->handle(
+                leaveRequest: $leaveRequest,
+                companyId: $companyId,
+                actor: $request->user(),
+                newApproverEmployeeId: (int) $data['new_approver_employee_id'],
+                reason: (string) $data['reassignment_reason'],
+                expectedApproverEmployeeId: (int) $data['expected_approver_employee_id'],
+            );
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (RuntimeException $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'leave_request' => $exception->getMessage(),
+            ]);
+        }
+
+        return redirect()
+            ->route('attendance.leave-requests.show', $leaveRequest)
+            ->with('success', 'Current leave approval reassigned successfully.');
+    }
+
     public function approve(
         ApproveLeaveRequestRequest $request,
         LeaveRequest $leaveRequest,
@@ -527,6 +569,7 @@ class LeaveRequestController extends Controller
                 'can_cancel' => false,
                 'can_delete' => false,
                 'can_administratively_delete' => false,
+                'can_reassign_current_approval' => false,
                 'can_approve_current_step' => false,
             ];
 
@@ -562,6 +605,7 @@ class LeaveRequestController extends Controller
             'can_cancel' => $capabilities['can_cancel'],
             'can_delete' => $capabilities['can_delete'],
             'can_administratively_delete' => $capabilities['can_administratively_delete'],
+            'can_reassign_current_approval' => $capabilities['can_reassign_current_approval'],
         ];
 
         if ($includeApprovals || $leaveRequest->relationLoaded('approvals')) {
@@ -613,6 +657,54 @@ class LeaveRequestController extends Controller
             'policy_name' => $approval->policy_name,
             'policy_step_label' => $approval->policy_step_label,
         ];
+    }
+
+    /**
+     * Eligible approvers for privileged current-step reassignment.
+     * Uses LeaveApproverEligibility; does not broaden employee directory visibility.
+     *
+     * @return list<array{
+     *     id: int,
+     *     employee_no: string|null,
+     *     name: string|null,
+     *     actionable: bool,
+     * }>
+     */
+    private function reassignmentApproverCandidates(LeaveRequest $leaveRequest, int $companyId): array
+    {
+        $excludedEmployeeIds = collect([(int) $leaveRequest->employee_id]);
+
+        foreach ($leaveRequest->approvals as $approval) {
+            if (! $approval->is_required || $approval->approver_employee_id === null) {
+                continue;
+            }
+
+            $status = $approval->status instanceof LeaveRequestApprovalStatus
+                ? $approval->status
+                : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
+
+            if ($status === LeaveRequestApprovalStatus::Pending) {
+                $excludedEmployeeIds->push((int) $approval->approver_employee_id);
+
+                continue;
+            }
+
+            $excludedEmployeeIds->push((int) $approval->approver_employee_id);
+        }
+
+        $excluded = $excludedEmployeeIds->unique()->all();
+
+        return collect($this->presentApproverOption->forCompany($companyId, activeOnly: true))
+            ->filter(fn (array $option): bool => $option['actionable'] === true)
+            ->reject(fn (array $option): bool => in_array((int) $option['id'], $excluded, true))
+            ->map(fn (array $option): array => [
+                'id' => (int) $option['id'],
+                'employee_no' => $option['employee_no'],
+                'name' => $option['name'],
+                'actionable' => true,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

@@ -1331,6 +1331,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['can:attendance.leave-requests.delete_any', 'privileged.2fa'])
         ->name('attendance.leave-requests.administrative-destroy');
 
+    Route::put('attendance/leave-requests/{leave_request}/reassign-approval', [LeaveRequestController::class, 'reassignApproval'])
+        ->middleware(['can:attendance.leave-requests.reassign_approval', 'privileged.2fa'])
+        ->name('attendance.leave-requests.reassign-approval');
+
     Route::put('attendance/leave-requests/{leave_request}/approve', [LeaveRequestController::class, 'approve'])
         ->middleware('can:attendance.leave-requests.approve')
         ->name('attendance.leave-requests.approve');

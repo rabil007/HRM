@@ -9,6 +9,7 @@ use Database\Factories\LeaveRequestApprovalFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\Support\LogOptions;
 
 class LeaveRequestApproval extends Model
@@ -113,5 +114,10 @@ class LeaveRequestApproval extends Model
     public function policy(): BelongsTo
     {
         return $this->belongsTo(LeaveApprovalPolicy::class, 'policy_id');
+    }
+
+    public function reassignments(): HasMany
+    {
+        return $this->hasMany(LeaveRequestApprovalReassignment::class)->orderBy('id');
     }
 }

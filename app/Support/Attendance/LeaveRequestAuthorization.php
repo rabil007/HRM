@@ -172,11 +172,63 @@ final class LeaveRequestAuthorization
     }
 
     /**
+     * Privileged recovery: reassign only the current required Pending approval step.
+     * Requires view + view_all + reassign_approval; never granted by approve alone.
+     */
+    public function canReassignCurrentApproval(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
+    {
+        if ($user === null || (int) $leaveRequest->company_id !== $companyId) {
+            return false;
+        }
+
+        if ($leaveRequest->trashed()) {
+            return false;
+        }
+
+        if ($leaveRequest->status !== 'pending') {
+            return false;
+        }
+
+        if (
+            ! $user->can('attendance.leave-requests.view')
+            || ! $user->can('attendance.leave-requests.view_all')
+            || ! $user->can('attendance.leave-requests.reassign_approval')
+        ) {
+            return false;
+        }
+
+        $approvals = $this->approvalsFor($leaveRequest, $companyId);
+        $pendingRequired = $approvals->first(function (LeaveRequestApproval $approval): bool {
+            if (! (bool) $approval->is_required) {
+                return false;
+            }
+
+            $status = $approval->status instanceof LeaveRequestApprovalStatus
+                ? $approval->status
+                : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
+
+            return $status === LeaveRequestApprovalStatus::Pending;
+        });
+
+        return $pendingRequired !== null;
+    }
+
+    public function assertCanReassignCurrentApproval(LeaveRequest $leaveRequest, ?User $user, int $companyId): void
+    {
+        if ($user === null || (int) $leaveRequest->company_id !== $companyId) {
+            abort(404);
+        }
+
+        abort_unless($this->canReassignCurrentApproval($leaveRequest, $user, $companyId), 403);
+    }
+
+    /**
      * @return array{
      *     can_edit: bool,
      *     can_cancel: bool,
      *     can_delete: bool,
      *     can_administratively_delete: bool,
+     *     can_reassign_current_approval: bool,
      *     can_approve_current_step: bool,
      * }
      */
@@ -187,6 +239,7 @@ final class LeaveRequestAuthorization
             'can_cancel' => $this->canCancel($leaveRequest, $user, $companyId, $linkedEmployeeId),
             'can_delete' => $this->canDelete($leaveRequest, $user, $companyId, $linkedEmployeeId),
             'can_administratively_delete' => $this->canAdministrativelyDelete($leaveRequest, $user, $companyId),
+            'can_reassign_current_approval' => $this->canReassignCurrentApproval($leaveRequest, $user, $companyId),
             'can_approve_current_step' => $this->canApproveCurrentStep($leaveRequest, $user, $companyId),
         ];
     }

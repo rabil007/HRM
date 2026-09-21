@@ -131,6 +131,7 @@ $special = [
     'attendance.records.manage' => ['Manage Attendance Records', 'Allows the user to view, create, update, and export attendance records for employees in the active company.'],
     'attendance.leave-requests.view_all' => ['View All Leave Requests', 'Allows the user to view leave requests for all employees in the active company, not only their own linked employee.'],
     'attendance.leave-requests.delete_any' => ['Administratively Delete Leave Requests', 'Allows the user to void and remove leave requests in any workflow status, including reversing balances and preserving audit history.'],
+    'attendance.leave-requests.reassign_approval' => ['Reassign Leave Approvals', 'Allows the user to reassign the current pending leave approval step to another eligible approver.'],
     'attendance.leave-requests.approve' => ['Approve Leave Requests', 'Allows the user to approve or reject leave requests at workflow steps assigned to them.'],
     'attendance.leave-approval-policies.view' => ['View Leave Approval Policies', 'Allows the user to view leave approval policy definitions for the active company.'],
     'attendance.leave-approval-policies.create' => ['Create Leave Approval Policies', 'Allows the user to create leave approval policies for the active company.'],
