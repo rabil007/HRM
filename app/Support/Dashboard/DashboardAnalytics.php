@@ -342,7 +342,7 @@ final class DashboardAnalytics
      */
     public function leaveSummary(int $companyId, User $user): array
     {
-        return $this->rememberUser($companyId, $user->id, 'leave', function () use ($companyId, $user): array {
+        return $this->rememberVisibilityAware($companyId, $user, 'leave', function () use ($companyId, $user): array {
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $today = now($timezone)->toDateString();
             $in7Days = now($timezone)->addDays(7)->toDateString();
@@ -350,17 +350,19 @@ final class DashboardAnalytics
             $onLeaveTodayQuery = LeaveRequest::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'approved')
-                ->where('start_date', '<=', $today)
-                ->where('end_date', '>=', $today);
+                ->whereDate('start_date', '<=', $today)
+                ->whereDate('end_date', '>=', $today);
             ActiveEmployeeConstraint::whereHas($onLeaveTodayQuery, $companyId);
+            EmployeeVisibilityScope::whereHas($onLeaveTodayQuery, $user, $companyId, 'employee');
             $onLeaveToday = (int) $onLeaveTodayQuery->count();
 
             $upcomingQuery = LeaveRequest::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'approved')
-                ->where('start_date', '>', $today)
-                ->where('start_date', '<=', $in7Days);
+                ->whereDate('start_date', '>', $today)
+                ->whereDate('start_date', '<=', $in7Days);
             ActiveEmployeeConstraint::whereHas($upcomingQuery, $companyId);
+            EmployeeVisibilityScope::whereHas($upcomingQuery, $user, $companyId, 'employee');
             $upcomingThisWeek = (int) $upcomingQuery->count();
 
             $pendingQuery = LeaveRequest::query()->where('company_id', $companyId)->where('status', 'pending');
@@ -451,10 +453,11 @@ final class DashboardAnalytics
 
             $lastPaidTotal = null;
             if ($lastPaid !== null && $user->can('payroll.overview.view')) {
-                $lastPaidTotal = (float) PayrollRecord::query()
+                $recordsQuery = PayrollRecord::query()
                     ->where('company_id', $companyId)
-                    ->where('period_id', $lastPaid->id)
-                    ->sum('net_salary');
+                    ->where('period_id', $lastPaid->id);
+                EmployeeVisibilityScope::whereHas($recordsQuery, $user, $companyId, 'employee');
+                $lastPaidTotal = (float) $recordsQuery->sum('net_salary');
             }
 
             return [
@@ -639,7 +642,7 @@ final class DashboardAnalytics
      */
     public function attentionCentre(int $companyId, User $user): array
     {
-        return $this->rememberUser($companyId, $user->id, 'attention', function () use ($companyId, $user): array {
+        return $this->rememberVisibilityAware($companyId, $user, 'attention', function () use ($companyId, $user): array {
             $items = [];
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $today = now($timezone)->toDateString();
@@ -1380,8 +1383,27 @@ final class DashboardAnalytics
      */
     private function rememberScoped(int $companyId, ?User $user, string $part, callable $callback): mixed
     {
-        if ($user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+        if ($user !== null && ! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $callback();
+        }
+
+        if ($user === null) {
             return $this->rememberCompany($companyId, $part, $callback);
+        }
+
+        return $this->rememberCompany($companyId, $part, $callback);
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    private function rememberVisibilityAware(int $companyId, User $user, string $part, callable $callback): mixed
+    {
+        if (! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $callback();
         }
 
         return $this->rememberUser($companyId, (int) $user->id, $part, $callback);

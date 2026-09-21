@@ -6,6 +6,7 @@ use App\Enums\CrewTimesheetPreparationStatus;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
 use App\Models\User;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationEmployeeAccess;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationWorkflowGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,6 +15,7 @@ final class ReturnCrewTimesheetPreparation
 {
     public function __construct(
         private readonly CrewTimesheetPreparationWorkflowGuard $guard,
+        private readonly CrewTimesheetPreparationEmployeeAccess $employeeAccess,
     ) {}
 
     public function handle(
@@ -51,6 +53,7 @@ final class ReturnCrewTimesheetPreparation
                 ->firstOrFail();
 
             $this->guard->assertTenantOwnership($period, $preparation, $companyId);
+            $this->employeeAccess->assertActorCanAccessAllPreparationEmployees($preparation, $actor, $companyId);
             $this->guard->assertCrewDraftPeriod($period);
             $this->guard->assertStatus(
                 $preparation,

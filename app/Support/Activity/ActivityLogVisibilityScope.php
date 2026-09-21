@@ -33,7 +33,9 @@ use App\Models\SalaryInput;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 
 final class ActivityLogVisibilityScope
 {
@@ -115,16 +117,29 @@ final class ActivityLogVisibilityScope
         );
 
         return $query->where(function (Builder $builder) use ($companyId, $allowedDepartmentIds, $employeeRelatedClasses): void {
-            // Non-employee subject logs are visible
-            $builder->where(function (Builder $nonEmployee) use ($employeeRelatedClasses): void {
-                $nonEmployee->whereNull('subject_type')
-                    ->orWhereNotIn('subject_type', $employeeRelatedClasses);
+            // Company-level logs: non-employee subject without employee metadata in properties
+            $builder->where(function (Builder $companyLevel) use ($employeeRelatedClasses): void {
+                $companyLevel->where(function (Builder $nonEmployee) use ($employeeRelatedClasses): void {
+                    $nonEmployee->whereNull('subject_type')
+                        ->orWhereNotIn('subject_type', $employeeRelatedClasses);
+                })->where(function (Builder $withoutEmployeeMetadata): void {
+                    self::applyWithoutPropertiesEmployeeId($withoutEmployeeMetadata);
+                });
             });
 
             // If user has no allowed departments, they cannot see any employee-owned logs
             if ($allowedDepartmentIds === []) {
                 return;
             }
+
+            // Employee-specific metadata on non-employee subjects (e.g. crew timeline skip on preparation)
+            $builder->orWhere(function (Builder $metadataOwned) use ($companyId, $allowedDepartmentIds, $employeeRelatedClasses): void {
+                $metadataOwned->where(function (Builder $nonEmployee) use ($employeeRelatedClasses): void {
+                    $nonEmployee->whereNull('subject_type')
+                        ->orWhereNotIn('subject_type', $employeeRelatedClasses);
+                });
+                self::applyPropertiesEmployeeIdVisible($metadataOwned, $companyId, $allowedDepartmentIds);
+            });
 
             // Direct Employee logs
             $builder->orWhere(function (Builder $empQuery) use ($companyId, $allowedDepartmentIds): void {
@@ -185,5 +200,50 @@ final class ActivityLogVisibilityScope
                 });
             }
         });
+    }
+
+    /**
+     * @param  Builder<Model>  $query
+     */
+    private static function applyWithoutPropertiesEmployeeId(Builder $query): void
+    {
+        $expression = self::propertiesEmployeeIdExpression();
+
+        $query->where(function (Builder $builder) use ($expression): void {
+            $builder->whereNull('properties')
+                ->orWhereRaw("{$expression} IS NULL")
+                ->orWhereRaw("{$expression} <= 0");
+        });
+    }
+
+    /**
+     * @param  Builder<Model>  $query
+     * @param  list<int>  $allowedDepartmentIds
+     */
+    private static function applyPropertiesEmployeeIdVisible(
+        Builder $query,
+        int $companyId,
+        array $allowedDepartmentIds,
+    ): void {
+        $expression = self::propertiesEmployeeIdExpression();
+
+        $query->whereNotNull('properties')
+            ->whereRaw("{$expression} > 0")
+            ->whereExists(function (QueryBuilder $sub) use ($companyId, $allowedDepartmentIds, $expression): void {
+                $sub->selectRaw('1')
+                    ->from('employees')
+                    ->whereRaw("employees.id = {$expression}")
+                    ->where('employees.company_id', $companyId)
+                    ->whereIn('employees.department_id', $allowedDepartmentIds);
+            });
+    }
+
+    private static function propertiesEmployeeIdExpression(): string
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return "CAST(json_extract(activity_log.properties, '$.employee_id') AS INTEGER)";
+        }
+
+        return 'CAST(JSON_UNQUOTE(JSON_EXTRACT(activity_log.properties, \'$.employee_id\')) AS UNSIGNED)';
     }
 }

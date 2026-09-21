@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Branch;
+use App\Models\CrewTimesheetPreparation;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
@@ -159,6 +160,82 @@ test('restricted role cannot find hidden department employee logs by search', fu
             ->has('logs', 0)
             ->where('summary.total', 0);
     });
+});
+
+test('restricted role cannot see crew timeline skip activity for hidden employee on preparation subject', function () {
+    $f = setupCrewTimelineHardeningFixtures();
+
+    $actor = User::factory()->create();
+
+    $hiddenSkipActivity = Activity::query()->create([
+        'company_id' => $f['company']->id,
+        'log_name' => 'default',
+        'description' => "Skipped timeline data for employee {$f['office']->name} in preparation v{$f['preparation']->version}",
+        'subject_type' => CrewTimesheetPreparation::class,
+        'subject_id' => $f['preparation']->id,
+        'causer_type' => User::class,
+        'causer_id' => $actor->id,
+        'properties' => [
+            'event' => 'crew_timeline_employee_skipped',
+            'company_id' => $f['company']->id,
+            'employee_id' => $f['office']->id,
+        ],
+    ]);
+
+    $visibleSkipActivity = Activity::query()->create([
+        'company_id' => $f['company']->id,
+        'log_name' => 'default',
+        'description' => "Skipped timeline data for employee {$f['marine']->name} in preparation v{$f['preparation']->version}",
+        'subject_type' => CrewTimesheetPreparation::class,
+        'subject_id' => $f['preparation']->id,
+        'causer_type' => User::class,
+        'causer_id' => $actor->id,
+        'properties' => [
+            'event' => 'crew_timeline_employee_skipped',
+            'company_id' => $f['company']->id,
+            'employee_id' => $f['marine']->id,
+        ],
+    ]);
+
+    $companySubmitActivity = Activity::query()->create([
+        'company_id' => $f['company']->id,
+        'log_name' => 'default',
+        'description' => 'Crew timesheet preparation submitted',
+        'subject_type' => CrewTimesheetPreparation::class,
+        'subject_id' => $f['preparation']->id,
+        'causer_type' => User::class,
+        'causer_id' => $actor->id,
+        'properties' => [
+            'event' => 'crew_timeline_submitted',
+            'company_id' => $f['company']->id,
+            'preparation_id' => $f['preparation']->id,
+        ],
+    ]);
+
+    grantCompanyPermissions($f['user'], $f['company'], ['audit.view']);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->get('/organization/activity-logs')
+        ->assertOk()
+        ->assertInertia(function (Assert $page) use ($visibleSkipActivity, $companySubmitActivity, $hiddenSkipActivity) {
+            $page->component('organization/activity-logs')
+                ->has('logs', 2)
+                ->where('summary.total', 2);
+
+            $logIds = collect($page->toArray()['props']['logs'])->pluck('id')->all();
+            expect($logIds)->toContain($visibleSkipActivity->id)
+                ->toContain($companySubmitActivity->id)
+                ->not->toContain($hiddenSkipActivity->id);
+        });
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->get('/organization/activity-logs?q=Office')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('logs', 0)
+            ->where('summary.total', 0));
 });
 
 test('unrestricted role sees all activity logs', function () {

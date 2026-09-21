@@ -3,17 +3,26 @@
 use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\CrewAssignment;
+use App\Models\CrewTimesheet;
+use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\Rank;
+use App\Models\User;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
+use App\Support\Payroll\CrewTimeline\Actions\ApproveCrewTimesheetPreparation;
+use App\Support\Payroll\CrewTimeline\Actions\ReturnCrewTimesheetPreparation;
+use App\Support\Payroll\CrewTimeline\Actions\SubmitCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function setupCrewTimelineHardeningFixtures(): array
@@ -168,4 +177,177 @@ test('restricted user cannot restore hidden employee in preparation', function (
         ->withSession(['current_company_id' => $f['company']->id])
         ->delete(route('payroll.crew-timeline.employee-skip.restore', [$f['period'], $f['preparation'], $f['office']]))
         ->assertNotFound();
+});
+
+function setupMarineOnlyCrewTimelineFixtures(): array
+{
+    $f = setupCrewTimelineHardeningFixtures();
+
+    CrewTimesheetPreparationLine::query()
+        ->where('company_id', $f['company']->id)
+        ->where('crew_timesheet_preparation_id', $f['preparation']->id)
+        ->where('employee_id', $f['office']->id)
+        ->delete();
+
+    return $f;
+}
+
+test('restricted user can submit approve return and apply marine-only preparation', function () {
+    $f = setupMarineOnlyCrewTimelineFixtures();
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation'],
+        $f['user'],
+        (int) $f['company']->id,
+    );
+
+    expect($f['preparation']->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Submitted);
+
+    app(ReturnCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $f['user'],
+        (int) $f['company']->id,
+        'Needs revision',
+    );
+
+    expect($f['preparation']->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Returned);
+
+    $f['preparation']->refresh()->update(['status' => CrewTimesheetPreparationStatus::Submitted]);
+
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $f['user'],
+        (int) $f['company']->id,
+    );
+
+    expect($f['preparation']->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Approved);
+
+    grantApplyPermissions($f['user'], $f['company']);
+
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $f['user'],
+        (int) $f['company']->id,
+    );
+
+    expect($f['preparation']->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Applied);
+});
+
+test('restricted user cannot submit approve return or apply mixed-scope preparation', function () {
+    $f = setupCrewTimelineHardeningFixtures();
+
+    $unrestrictedActor = User::factory()->create();
+    grantCompanyPermissions($unrestrictedActor, $f['company'], [
+        'payroll.crew_timesheets.view',
+        'payroll.crew_timesheets.prepare',
+        'payroll.crew_timesheets.submit',
+        'payroll.crew_timesheets.approve',
+        'payroll.crew_timesheets.return',
+        'payroll.crew_timesheets.skip_timeline',
+    ], 'unrestricted-role');
+
+    expect(fn () => app(SubmitCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation'],
+        $f['user'],
+        (int) $f['company']->id,
+    ))->toThrow(ValidationException::class, 'authorized employee scope');
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation'],
+        $unrestrictedActor,
+        (int) $f['company']->id,
+    );
+
+    expect(fn () => app(ApproveCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $f['user'],
+        (int) $f['company']->id,
+    ))->toThrow(ValidationException::class, 'authorized employee scope');
+
+    expect(fn () => app(ReturnCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $f['user'],
+        (int) $f['company']->id,
+        'Needs revision',
+    ))->toThrow(ValidationException::class, 'authorized employee scope');
+
+    $f['preparation']->refresh()->update(['status' => CrewTimesheetPreparationStatus::Approved]);
+    grantApplyPermissions($f['user'], $f['company']);
+
+    expect(fn () => app(ApplyCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $f['user'],
+        (int) $f['company']->id,
+    ))->toThrow(ValidationException::class, 'authorized employee scope');
+});
+
+test('unrestricted user can apply mixed-scope preparation', function () {
+    $f = setupCrewTimelineHardeningFixtures();
+
+    $unrestrictedActor = User::factory()->create();
+    grantCompanyPermissions($unrestrictedActor, $f['company'], [
+        'payroll.crew_timesheets.view',
+        'payroll.crew_timesheets.prepare',
+        'payroll.crew_timesheets.submit',
+        'payroll.crew_timesheets.approve',
+        'payroll.crew_timesheets.return',
+        'payroll.crew_timesheets.skip_timeline',
+        'payroll.crew_timesheets.apply_approved',
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+    ], 'unrestricted-role');
+
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation'],
+        $unrestrictedActor,
+        (int) $f['company']->id,
+    );
+
+    app(ApproveCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $unrestrictedActor,
+        (int) $f['company']->id,
+    );
+
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $unrestrictedActor,
+        (int) $f['company']->id,
+    );
+
+    expect($f['preparation']->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Applied)
+        ->and(CrewTimesheet::query()->where('period_id', $f['period']->id)->where('employee_id', $f['marine']->id)->exists())->toBeTrue()
+        ->and(CrewTimesheet::query()->where('period_id', $f['period']->id)->where('employee_id', $f['office']->id)->exists())->toBeTrue();
+});
+
+test('denied apply does not mutate hidden or visible employee timesheets', function () {
+    $f = setupCrewTimelineHardeningFixtures();
+    $f['preparation']->refresh()->update(['status' => CrewTimesheetPreparationStatus::Approved]);
+    grantApplyPermissions($f['user'], $f['company']);
+
+    $visibleTimesheetCount = CrewTimesheet::query()->count();
+    $officeTimesheetCount = CrewTimesheet::query()->where('employee_id', $f['office']->id)->count();
+
+    expect(fn () => app(ApplyCrewTimesheetPreparation::class)->handle(
+        $f['period'],
+        $f['preparation']->fresh(),
+        $f['user'],
+        (int) $f['company']->id,
+    ))->toThrow(ValidationException::class);
+
+    expect($f['preparation']->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Approved)
+        ->and(CrewTimesheet::query()->count())->toBe($visibleTimesheetCount)
+        ->and(CrewTimesheet::query()->where('employee_id', $f['office']->id)->count())->toBe($officeTimesheetCount);
 });

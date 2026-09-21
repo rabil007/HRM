@@ -133,11 +133,9 @@ final class BuildUnifiedNotificationFeed
 
         $visibleRecipients = collect();
         $batchSize = 50;
-        $maxScan = 500;
-        $scanned = 0;
         $lastId = null;
 
-        while ($visibleRecipients->count() < $limit && $scanned < $maxScan) {
+        while ($visibleRecipients->count() < $limit) {
             $query = CrewOperationalAlertRecipient::query()
                 ->where('company_id', $companyId)
                 ->where('user_id', $user->id)
@@ -156,7 +154,6 @@ final class BuildUnifiedNotificationFeed
             }
 
             $lastId = $chunk->last()->id;
-            $scanned += $chunk->count();
 
             $employeeIds = [];
             foreach ($chunk as $recipient) {
@@ -292,46 +289,64 @@ final class BuildUnifiedNotificationFeed
                 ->count();
         }
 
-        $recipients = CrewOperationalAlertRecipient::query()
-            ->where('company_id', $companyId)
-            ->where('user_id', $user->id)
-            ->whereNull('read_at')
-            ->whereHas('alert', fn ($q) => $q
+        $unreadCount = 0;
+        $batchSize = 50;
+        $lastId = null;
+
+        while (true) {
+            $query = CrewOperationalAlertRecipient::query()
                 ->where('company_id', $companyId)
-                ->where('status', CrewOperationalAlertStatus::Active->value))
-            ->with('alert')
-            ->get();
+                ->where('user_id', $user->id)
+                ->whereNull('read_at')
+                ->whereHas('alert', fn ($q) => $q
+                    ->where('company_id', $companyId)
+                    ->where('status', CrewOperationalAlertStatus::Active->value))
+                ->with('alert')
+                ->orderByDesc('id')
+                ->limit($batchSize);
 
-        if ($recipients->isEmpty()) {
-            return 0;
-        }
+            if ($lastId !== null) {
+                $query->where('id', '<', $lastId);
+            }
 
-        $employeeIds = [];
-        foreach ($recipients as $recipient) {
-            $context = $recipient->alert?->context;
-            if (is_array($context) && array_key_exists('employee_id', $context)) {
-                $rawId = $context['employee_id'];
-                if (is_int($rawId) || (is_string($rawId) && ctype_digit($rawId))) {
-                    $id = (int) $rawId;
-                    if ($id > 0) {
-                        $employeeIds[] = $id;
+            $chunk = $query->get();
+            if ($chunk->isEmpty()) {
+                break;
+            }
+
+            $lastId = $chunk->last()->id;
+
+            $employeeIds = [];
+            foreach ($chunk as $recipient) {
+                $context = $recipient->alert?->context;
+                if (is_array($context) && array_key_exists('employee_id', $context)) {
+                    $rawId = $context['employee_id'];
+                    if (is_int($rawId) || (is_string($rawId) && ctype_digit($rawId))) {
+                        $id = (int) $rawId;
+                        if ($id > 0) {
+                            $employeeIds[] = $id;
+                        }
                     }
+                }
+            }
+
+            $authorizedIds = $employeeIds !== []
+                ? EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, array_values(array_unique($employeeIds)))
+                : [];
+            $authorizedLookup = array_flip($authorizedIds);
+
+            foreach ($chunk as $recipient) {
+                $alert = $recipient->alert;
+                if ($alert === null) {
+                    continue;
+                }
+
+                if ($this->isAlertVisible($alert, $user, $companyId, $authorizedLookup)) {
+                    $unreadCount++;
                 }
             }
         }
 
-        $authorizedIds = ! empty($employeeIds)
-            ? EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, array_values(array_unique($employeeIds)))
-            : [];
-        $authorizedLookup = array_flip($authorizedIds);
-
-        return $recipients->filter(function (CrewOperationalAlertRecipient $recipient) use ($user, $companyId, $authorizedLookup): bool {
-            $alert = $recipient->alert;
-            if ($alert === null) {
-                return false;
-            }
-
-            return $this->isAlertVisible($alert, $user, $companyId, $authorizedLookup);
-        })->count();
+        return $unreadCount;
     }
 }

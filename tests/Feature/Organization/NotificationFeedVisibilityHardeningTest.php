@@ -143,3 +143,106 @@ test('visible crew alerts are not crowded out by preceding hidden alerts', funct
     expect($items)->toHaveCount(2)
         ->and($response->json('unread_count'))->toBe(2);
 });
+
+test('visible crew alert beyond five hundred newer hidden alerts is still returned', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    for ($i = 1; $i <= 501; $i++) {
+        $alert = CrewOperationalAlert::query()->create([
+            'company_id' => $company->id,
+            'type' => CrewOperationalAlertType::SignoffOverdue,
+            'severity' => CrewOperationalAlertSeverity::Warning,
+            'status' => CrewOperationalAlertStatus::Active,
+            'dedupe_key' => "hidden-office-{$i}",
+            'title' => "Hidden Office Alert {$i}",
+            'message' => "Hidden {$i}",
+            'fingerprint' => "hidden-office-{$i}",
+            'context' => ['employee_id' => $office->id],
+            'detected_at' => now()->subMinutes(600 - $i),
+            'first_detected_at' => now()->subMinutes(600 - $i),
+            'last_detected_at' => now()->subMinutes(600 - $i),
+        ]);
+
+        CrewOperationalAlertRecipient::query()->create([
+            'company_id' => $company->id,
+            'crew_operational_alert_id' => $alert->id,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    $visibleAlert = CrewOperationalAlert::query()->create([
+        'company_id' => $company->id,
+        'type' => CrewOperationalAlertType::SignoffOverdue,
+        'severity' => CrewOperationalAlertSeverity::Info,
+        'status' => CrewOperationalAlertStatus::Active,
+        'dedupe_key' => 'visible-marine-older',
+        'title' => 'Visible Marine Alert',
+        'message' => 'Older visible alert',
+        'fingerprint' => 'visible-marine-older',
+        'context' => ['employee_id' => $marine->id],
+        'detected_at' => now()->subDays(2),
+        'first_detected_at' => now()->subDays(2),
+        'last_detected_at' => now()->subDays(2),
+    ]);
+
+    CrewOperationalAlertRecipient::query()->create([
+        'company_id' => $company->id,
+        'crew_operational_alert_id' => $visibleAlert->id,
+        'user_id' => $user->id,
+    ]);
+
+    $response = $this->actingAs($user)->getJson(route('notifications.feed'));
+
+    $response->assertOk();
+
+    $items = collect($response->json('items'))->where('source', 'crew_operational_alert');
+    expect($items)->toHaveCount(1)
+        ->and($items->first()['title'])->toBe('Visible Marine Alert')
+        ->and($response->json('unread_count'))->toBe(1);
+});
+
+test('restricted unread count stays exact across chunked visible hidden and malformed alerts', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $createRecipient = function (array $context, string $dedupe) use ($user, $company): void {
+        $now = now();
+        $alert = CrewOperationalAlert::query()->create([
+            'company_id' => $company->id,
+            'type' => CrewOperationalAlertType::SignoffOverdue,
+            'severity' => CrewOperationalAlertSeverity::Warning,
+            'status' => CrewOperationalAlertStatus::Active,
+            'dedupe_key' => $dedupe,
+            'title' => $dedupe,
+            'message' => $dedupe,
+            'fingerprint' => $dedupe,
+            'context' => $context,
+            'detected_at' => $now,
+            'first_detected_at' => $now,
+            'last_detected_at' => $now,
+        ]);
+
+        CrewOperationalAlertRecipient::query()->create([
+            'company_id' => $company->id,
+            'crew_operational_alert_id' => $alert->id,
+            'user_id' => $user->id,
+        ]);
+    };
+
+    for ($i = 1; $i <= 60; $i++) {
+        $createRecipient(['employee_id' => $office->id], "hidden-{$i}");
+    }
+
+    for ($i = 1; $i <= 3; $i++) {
+        $createRecipient(['employee_id' => $marine->id], "visible-{$i}");
+    }
+
+    $createRecipient([], 'company-level');
+    $createRecipient(['employee_id' => 'bad'], 'malformed');
+
+    $response = $this->actingAs($user)->getJson(route('notifications.feed'));
+
+    $response->assertOk();
+    expect($response->json('unread_count'))->toBe(4);
+});
