@@ -270,6 +270,57 @@ final class LeaveBalanceManager
     }
 
     /**
+     * Read-only pending ledger integrity check for administrative recovery actions.
+     * Never creates LeaveBalance rows and never mutates entitled/carried/used/pending.
+     *
+     * For each affected employee + leave_type + year key, stored pending_days must
+     * equal the aggregate pending allocation from real pending LeaveRequests.
+     *
+     * @return list<array{
+     *     year: int,
+     *     days: float,
+     *     pending_days: float,
+     *     used_days: float,
+     *     remaining_days: float
+     * }>
+     *
+     * @throws RuntimeException
+     */
+    public function assertPendingAllocationIntegrity(LeaveRequest $leaveRequest, bool $lock = true): array
+    {
+        $snapshots = $this->inspectExistingAllocationBalances($leaveRequest, lock: $lock);
+        $companyId = (int) $leaveRequest->company_id;
+        $employeeId = (int) $leaveRequest->employee_id;
+        $leaveTypeId = (int) $leaveRequest->leave_type_id;
+
+        foreach ($snapshots as $snapshot) {
+            $year = (int) $snapshot['year'];
+            $storedPending = (float) $snapshot['pending_days'];
+            $expectedPending = $this->sumRequestDaysForYear(
+                $companyId,
+                $employeeId,
+                $leaveTypeId,
+                $year,
+                'pending',
+            );
+
+            if (abs($storedPending - $expectedPending) > 0.0001) {
+                throw new RuntimeException(sprintf(
+                    'Leave balance pending ledger integrity check failed: company %d employee %d leave type %d year %d stored pending_days=%.4f expected=%.4f.',
+                    $companyId,
+                    $employeeId,
+                    $leaveTypeId,
+                    $year,
+                    $storedPending,
+                    $expectedPending,
+                ));
+            }
+        }
+
+        return $snapshots;
+    }
+
+    /**
      * @param  array{
      *     employee_id: int,
      *     leave_type_id: int,
@@ -734,7 +785,16 @@ final class LeaveBalanceManager
         return $applied;
     }
 
-    public function syncCompany(int $companyId, ?int $year = null): int
+    /**
+     * @param  (callable(array{
+     *     company_id: int,
+     *     employee_id: int,
+     *     leave_type_id: int,
+     *     year: int,
+     *     message: string
+     * }): void)|null  $onAnomaly
+     */
+    public function syncCompany(int $companyId, ?int $year = null, ?callable $onAnomaly = null): int
     {
         $businessYear = $this->businessYearForCompany($companyId);
         $years = $year !== null
@@ -773,6 +833,7 @@ final class LeaveBalanceManager
                 leaveTypeId: $key['leave_type_id'],
                 year: $key['year'],
                 businessYear: $businessYear,
+                onAnomaly: $onAnomaly,
             );
 
             if ($result === 'synced') {
@@ -783,7 +844,16 @@ final class LeaveBalanceManager
         return $synced;
     }
 
-    public function syncEmployeeYear(int $companyId, int $employeeId, int $year): int
+    /**
+     * @param  (callable(array{
+     *     company_id: int,
+     *     employee_id: int,
+     *     leave_type_id: int,
+     *     year: int,
+     *     message: string
+     * }): void)|null  $onAnomaly
+     */
+    public function syncEmployeeYear(int $companyId, int $employeeId, int $year, ?callable $onAnomaly = null): int
     {
         $businessYear = $this->businessYearForCompany($companyId);
         $employee = Employee::query()
@@ -805,6 +875,7 @@ final class LeaveBalanceManager
                 leaveTypeId: $leaveTypeId,
                 year: $year,
                 businessYear: $businessYear,
+                onAnomaly: $onAnomaly,
             );
 
             if ($result === 'synced') {
@@ -910,6 +981,13 @@ final class LeaveBalanceManager
     }
 
     /**
+     * @param  (callable(array{
+     *     company_id: int,
+     *     employee_id: int,
+     *     leave_type_id: int,
+     *     year: int,
+     *     message: string
+     * }): void)|null  $onAnomaly
      * @return 'synced'|'skipped'|'anomaly'
      */
     private function repairBalanceKey(
@@ -918,6 +996,7 @@ final class LeaveBalanceManager
         int $leaveTypeId,
         int $year,
         int $businessYear,
+        ?callable $onAnomaly = null,
     ): string {
         $existing = $this->existingBalance($companyId, $employeeId, $leaveTypeId, $year, lock: false);
 
@@ -950,13 +1029,25 @@ final class LeaveBalanceManager
         }
 
         // Missing historical (or inactive) balance: do not invent entitlement from today's policy.
-        report(new RuntimeException(sprintf(
+        $message = sprintf(
             'Leave balance repair anomaly: missing company %d employee %d leave type %d year %d balance; entitlement was not invented.',
             $companyId,
             $employeeId,
             $leaveTypeId,
             $year,
-        )));
+        );
+
+        report(new RuntimeException($message));
+
+        if ($onAnomaly !== null) {
+            $onAnomaly([
+                'company_id' => $companyId,
+                'employee_id' => $employeeId,
+                'leave_type_id' => $leaveTypeId,
+                'year' => $year,
+                'message' => $message,
+            ]);
+        }
 
         return 'anomaly';
     }

@@ -695,3 +695,104 @@ test('sync repairs inactive employee historical balances without inventing missi
     expect(LeaveBalance::query()->where('company_id', $company->id)->count())
         ->toBeGreaterThanOrEqual($beforeCount);
 });
+
+test('leave-balances sync command reports historical anomalies and still succeeds', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Sync Co',
+        'slug' => 'other-sync-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $active = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $inactive = Employee::factory()->forCompany($company)->create(['status' => 'inactive']);
+    $otherEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'inactive']);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    $otherType = LeaveType::factory()->for($otherCompany)->create([
+        'days_per_year' => 20,
+        'status' => 'active',
+    ]);
+
+    LeaveBalance::factory()->forEmployee($inactive)->forLeaveType($leaveType)->create([
+        'year' => 2023,
+        'entitled_days' => 25,
+        'carried_days' => 1,
+        'used_days' => 0,
+        'pending_days' => 0,
+        'rollover_applied_at' => now(),
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $inactive->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2023-05-01',
+        'end_date' => '2023-05-02',
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    // Missing historical balance for another year — must be reported, not invented.
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $inactive->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2024-06-01',
+        'end_date' => '2024-06-02',
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $otherCompany->id,
+        'employee_id' => $otherEmployee->id,
+        'leave_type_id' => $otherType->id,
+        'start_date' => '2024-07-01',
+        'end_date' => '2024-07-02',
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    $this->artisan('leave-balances:sync')
+        ->expectsOutputToContain('Synced')
+        ->expectsOutputToContain('WARNING:')
+        ->expectsOutputToContain("Company {$company->id} / Employee {$inactive->id} / Leave Type {$leaveType->id} / 2024")
+        ->assertSuccessful();
+
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $inactive->id)
+            ->where('year', 2024)
+            ->exists()
+    )->toBeFalse()
+        ->and((float) LeaveBalance::query()
+            ->where('employee_id', $inactive->id)
+            ->where('year', 2023)
+            ->value('used_days'))->toBe(2.0)
+        ->and(
+            LeaveBalance::query()
+                ->where('employee_id', $otherEmployee->id)
+                ->where('year', 2024)
+                ->exists()
+        )->toBeFalse();
+
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $active->id, 2026);
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $active->id)
+            ->where('year', 2026)
+            ->exists()
+    )->toBeTrue();
+
+    Carbon\Carbon::setTestNow();
+});

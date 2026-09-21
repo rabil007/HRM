@@ -120,7 +120,7 @@ final class ReassignLeaveRequestApproval
                 ]);
             }
 
-            $balancesBefore = $this->leaveBalances->inspectExistingAllocationBalances($locked, lock: true);
+            $balancesBefore = $this->inspectPendingBalancesOrFail($locked);
             $balanceCountBefore = $this->countCompanyLeaveBalances($companyId);
 
             $newApprover = $this->resolveEligibleReplacement(
@@ -156,7 +156,7 @@ final class ReassignLeaveRequestApproval
                 'reassigned_by_name' => $actorName,
             ]);
 
-            $balancesAfter = $this->leaveBalances->inspectExistingAllocationBalances($locked, lock: true);
+            $balancesAfter = $this->inspectPendingBalancesOrFail($locked);
             $balanceCountAfter = $this->countCompanyLeaveBalances($companyId);
 
             if ($balancesBefore !== $balancesAfter || $balanceCountBefore !== $balanceCountAfter) {
@@ -307,6 +307,22 @@ final class ReassignLeaveRequestApproval
         }
 
         return $newApprover;
+    }
+
+    /**
+     * @return list<array{year: int, days: float, pending_days: float, used_days: float, remaining_days: float}>
+     */
+    private function inspectPendingBalancesOrFail(LeaveRequest $leaveRequest): array
+    {
+        try {
+            return $this->leaveBalances->assertPendingAllocationIntegrity($leaveRequest, lock: true);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            throw ValidationException::withMessages([
+                'leave_request' => 'The leave balance reservation is inconsistent. Repair the leave balance before reassigning this approval.',
+            ]);
+        }
     }
 
     private function countCompanyLeaveBalances(int $companyId): int

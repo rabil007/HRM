@@ -300,3 +300,46 @@ test('leave type payroll treatment survives code and name renames', function () 
         ->and($leaveType->name)->toBe('Personal Unpaid Leave')
         ->and($leaveType->payroll_treatment->value)->toBe('unpaid');
 });
+
+test('corrective migration backfills soft-deleted legacy unpaid leave types only', function () {
+    ['company' => $company] = makeAttendanceTypesFixtures();
+
+    $softDeletedUl = LeaveType::factory()->for($company)->create([
+        'name' => 'Legacy Unpaid',
+        'code' => 'ul',
+        'payroll_treatment' => 'paid',
+        'status' => 'inactive',
+    ]);
+    $softDeletedUl->delete();
+
+    $softDeletedLop = LeaveType::factory()->for($company)->create([
+        'name' => 'Legacy LOP',
+        'code' => 'LOP',
+        'payroll_treatment' => 'paid',
+        'status' => 'inactive',
+    ]);
+    $softDeletedLop->delete();
+
+    $unrelatedSoftDeleted = LeaveType::factory()->for($company)->create([
+        'name' => 'Old Annual',
+        'code' => 'AL-OLD',
+        'payroll_treatment' => 'paid',
+        'status' => 'inactive',
+    ]);
+    $unrelatedSoftDeleted->delete();
+
+    $activeUl = LeaveType::factory()->for($company)->create([
+        'name' => 'Active Unpaid',
+        'code' => 'UL-ACTIVE',
+        'payroll_treatment' => 'paid',
+        'status' => 'active',
+    ]);
+
+    $migration = require base_path('database/migrations/2026_09_21_171639_correct_soft_deleted_legacy_unpaid_leave_types_payroll_treatment.php');
+    $migration->up();
+
+    expect(LeaveType::withTrashed()->findOrFail($softDeletedUl->id)->payroll_treatment->value)->toBe('unpaid')
+        ->and(LeaveType::withTrashed()->findOrFail($softDeletedLop->id)->payroll_treatment->value)->toBe('unpaid')
+        ->and(LeaveType::withTrashed()->findOrFail($unrelatedSoftDeleted->id)->payroll_treatment->value)->toBe('paid')
+        ->and($activeUl->fresh()->payroll_treatment->value)->toBe('paid');
+});

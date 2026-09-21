@@ -539,11 +539,22 @@ test('detail page candidates http put balances history rebuild soft-delete and f
         ->where('year', 2026)
         ->forceDelete();
     expect(fn () => reassignCurrentPending($context, $missingBalanceRequest, (int) $context['replacement']['employee']->id, 'Missing balance'))
-        ->toThrow(RuntimeException::class);
+        ->toThrow(ValidationException::class);
+    expect(LeaveRequestApprovalReassignment::query()->where('leave_request_id', $missingBalanceRequest->id)->count())->toBe(0);
     app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $context['company']->id, (int) $context['employee']->id, 2026);
+    app(LeaveBalanceManager::class)->syncEmployeeYear((int) $context['company']->id, (int) $context['employee']->id, 2026);
 
     $editable = submitMultiStepLeaveForReassignment($context, '2026-09-01', '2026-09-02');
     reassignCurrentPending($context, $editable, (int) $context['replacement']['employee']->id, 'First-step reassignment before edit');
+    $historyBeforeRebuild = LeaveRequestApprovalReassignment::query()
+        ->where('leave_request_id', $editable->id)
+        ->firstOrFail();
+    $priorApprovalId = (int) $historyBeforeRebuild->leave_request_approval_id;
+    expect($priorApprovalId)->toBeGreaterThan(0)
+        ->and($historyBeforeRebuild->sequence)->toBe(1)
+        ->and($historyBeforeRebuild->reason)->toBe('First-step reassignment before edit')
+        ->and($historyBeforeRebuild->to_approver_name)->toBe('Sara');
+
     $updated = app(UpdateLeaveRequestWithApprovals::class)->handle(
         leaveRequest: $editable->fresh(),
         companyId: (int) $context['company']->id,
@@ -556,7 +567,16 @@ test('detail page candidates http put balances history rebuild soft-delete and f
         ],
         actor: $context['admin'],
     );
-    expect(LeaveRequestApprovalReassignment::query()->where('leave_request_id', $updated->id)->count())->toBe(1)
+    $historyAfterRebuild = LeaveRequestApprovalReassignment::query()
+        ->where('leave_request_id', $updated->id)
+        ->firstOrFail();
+    expect(LeaveRequestApproval::query()->whereKey($priorApprovalId)->exists())->toBeFalse()
+        ->and($historyAfterRebuild->leave_request_approval_id)->toBeNull()
+        ->and((int) $historyAfterRebuild->sequence)->toBe(1)
+        ->and($historyAfterRebuild->reason)->toBe('First-step reassignment before edit')
+        ->and($historyAfterRebuild->from_approver_name)->toBe('Mohamed')
+        ->and($historyAfterRebuild->to_approver_name)->toBe('Sara')
+        ->and(LeaveRequestApprovalReassignment::query()->where('leave_request_id', $updated->id)->count())->toBe(1)
         ->and((int) currentRequiredPendingApproval($updated)->approver_employee_id)->toBe((int) $context['step1']['employee']->id);
 
     $deletable = submitMultiStepLeaveForReassignment($context, '2026-09-14', '2026-09-15');
@@ -584,4 +604,108 @@ test('detail page candidates http put balances history rebuild soft-delete and f
             ->where('reassignment_approver_candidates', fn ($candidates) => collect($candidates)
                 ->doesntContain(fn ($c) => (int) $c['id'] === (int) $context['replacement']['employee']->id)
                 && collect($candidates)->contains(fn ($c) => (int) $c['id'] === (int) $context['step1']['employee']->id)));
+});
+
+test('reassignment rejects corrupted pending ledger without mutating approver history or balances', function () {
+    $context = makeLeaveReassignmentContext();
+    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $context['company']->id, (int) $context['employee']->id, 2027);
+
+    $healthy = submitMultiStepLeaveForReassignment($context, '2026-11-02', '2026-11-03');
+    $healthyPending = currentRequiredPendingApproval($healthy);
+    reassignCurrentPending($context, $healthy, (int) $context['replacement']['employee']->id, 'Healthy pending ledger');
+    expect((int) $healthyPending->fresh()->approver_employee_id)->toBe((int) $context['replacement']['employee']->id);
+
+    $zeroCorrupt = submitMultiStepLeaveForReassignment($context, '2026-11-09', '2026-11-10');
+    $zeroPending = currentRequiredPendingApproval($zeroCorrupt);
+    $zeroBalance = LeaveBalance::query()
+        ->where('company_id', $context['company']->id)
+        ->where('employee_id', $context['employee']->id)
+        ->where('leave_type_id', $context['leaveType']->id)
+        ->where('year', 2026)
+        ->firstOrFail();
+    $zeroBefore = [
+        'pending_days' => (string) $zeroBalance->pending_days,
+        'used_days' => (string) $zeroBalance->used_days,
+        'entitled_days' => (string) $zeroBalance->entitled_days,
+        'carried_days' => (string) $zeroBalance->carried_days,
+    ];
+    $historyBefore = LeaveRequestApprovalReassignment::query()->where('company_id', $context['company']->id)->count();
+    $zeroBalance->forceFill(['pending_days' => 0])->save();
+
+    expectReassignmentFails($context, $zeroCorrupt, (int) $context['replacement']['employee']->id, 'Zero pending corruption');
+    expect((int) $zeroPending->fresh()->approver_employee_id)->toBe((int) $context['step1']['employee']->id)
+        ->and(LeaveRequestApprovalReassignment::query()->where('company_id', $context['company']->id)->count())->toBe($historyBefore)
+        ->and((string) $zeroBalance->fresh()->pending_days)->toBe('0.00')
+        ->and((string) $zeroBalance->fresh()->used_days)->toBe($zeroBefore['used_days'])
+        ->and((string) $zeroBalance->fresh()->entitled_days)->toBe($zeroBefore['entitled_days'])
+        ->and((string) $zeroBalance->fresh()->carried_days)->toBe($zeroBefore['carried_days']);
+
+    $zeroBalance->forceFill(['pending_days' => $zeroBefore['pending_days']])->save();
+
+    $highCorrupt = submitMultiStepLeaveForReassignment($context, '2026-11-16', '2026-11-17');
+    $highBalance = LeaveBalance::query()
+        ->where('company_id', $context['company']->id)
+        ->where('employee_id', $context['employee']->id)
+        ->where('leave_type_id', $context['leaveType']->id)
+        ->where('year', 2026)
+        ->firstOrFail();
+    $expectedPending = (float) $highBalance->pending_days;
+    $highBalance->forceFill(['pending_days' => $expectedPending + 5])->save();
+    expectReassignmentFails($context, $highCorrupt, (int) $context['replacement']['employee']->id, 'High pending corruption');
+    $highBalance->forceFill(['pending_days' => $expectedPending])->save();
+
+    $lowCorrupt = submitMultiStepLeaveForReassignment($context, '2026-11-23', '2026-11-24');
+    $lowBalance = LeaveBalance::query()
+        ->where('company_id', $context['company']->id)
+        ->where('employee_id', $context['employee']->id)
+        ->where('leave_type_id', $context['leaveType']->id)
+        ->where('year', 2026)
+        ->firstOrFail();
+    $lowExpected = (float) $lowBalance->pending_days;
+    $lowBalance->forceFill(['pending_days' => max(0, $lowExpected - 1)])->save();
+    expectReassignmentFails($context, $lowCorrupt, (int) $context['replacement']['employee']->id, 'Low pending corruption');
+    $lowBalance->forceFill(['pending_days' => $lowExpected])->save();
+
+    $sharedA = submitMultiStepLeaveForReassignment($context, '2026-12-01', '2026-12-02');
+    $sharedB = submitMultiStepLeaveForReassignment($context, '2026-12-07', '2026-12-08');
+    $sharedBalance = LeaveBalance::query()
+        ->where('company_id', $context['company']->id)
+        ->where('employee_id', $context['employee']->id)
+        ->where('leave_type_id', $context['leaveType']->id)
+        ->where('year', 2026)
+        ->firstOrFail();
+    $sharedExpected = (float) $sharedBalance->pending_days;
+    reassignCurrentPending($context, $sharedA, (int) $context['replacement']['employee']->id, 'Shared aggregate healthy');
+    $sharedBalance->forceFill(['pending_days' => $sharedExpected - 2])->save();
+    expectReassignmentFails($context, $sharedB, (int) $context['replacement']['employee']->id, 'Shared aggregate mismatch');
+    $sharedBalance->forceFill(['pending_days' => $sharedExpected])->save();
+
+    $crossYear = submitMultiStepLeaveForReassignment($context, '2026-12-30', '2027-01-02');
+    $balance2026 = LeaveBalance::query()
+        ->where('company_id', $context['company']->id)
+        ->where('employee_id', $context['employee']->id)
+        ->where('leave_type_id', $context['leaveType']->id)
+        ->where('year', 2026)
+        ->firstOrFail();
+    $balance2027 = LeaveBalance::query()
+        ->where('company_id', $context['company']->id)
+        ->where('employee_id', $context['employee']->id)
+        ->where('leave_type_id', $context['leaveType']->id)
+        ->where('year', 2027)
+        ->firstOrFail();
+    $crossPending2026 = (float) $balance2026->pending_days;
+    $crossPending2027 = (float) $balance2027->pending_days;
+    expect($crossPending2026)->toBeGreaterThan(0.0)
+        ->and($crossPending2027)->toBeGreaterThan(0.0);
+
+    $balance2027->forceFill(['pending_days' => 0])->save();
+    expectReassignmentFails($context, $crossYear, (int) $context['replacement']['employee']->id, 'Cross-year pending corruption');
+    expect((int) currentRequiredPendingApproval($crossYear)->approver_employee_id)->toBe((int) $context['step1']['employee']->id)
+        ->and((float) $balance2026->fresh()->pending_days)->toBe($crossPending2026)
+        ->and((float) $balance2027->fresh()->pending_days)->toBe(0.0);
+
+    $balance2027->forceFill(['pending_days' => $crossPending2027])->save();
+    $crossYear = reassignCurrentPending($context, $crossYear->fresh(['approvals']) ?? $crossYear, (int) $context['replacement']['employee']->id, 'Cross-year healthy');
+    expect((int) currentRequiredPendingApproval($crossYear)->approver_employee_id)->toBe((int) $context['replacement']['employee']->id);
 });

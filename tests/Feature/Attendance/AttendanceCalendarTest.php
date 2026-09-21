@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
+use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
@@ -794,6 +795,120 @@ test('attendance calendar default year and today use company timezone', function
         ->assertInertia(fn (Assert $page) => $page
             ->where('year', 2025)
             ->where('today', '2026-12-31'));
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('historical calendar year never provisions leave balances from current entitlement', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $leaveType->forceFill(['days_per_year' => 30])->save();
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    $before = LeaveBalance::query()->where('company_id', $company->id)->where('year', 2023)->count();
+
+    $this->get(route('attendance.calendar.index', ['year' => 2023]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('year', 2023)
+            ->has('leave_types', 0));
+
+    expect(LeaveBalance::query()->where('company_id', $company->id)->where('year', 2023)->count())->toBe($before);
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('historical calendar year returns stored leave balances unchanged', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $leaveType->forceFill(['days_per_year' => 30, 'status' => 'inactive'])->save();
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
+        'year' => 2023,
+        'entitled_days' => 25,
+        'carried_days' => 2,
+        'used_days' => 4,
+        'pending_days' => 1,
+        'rollover_applied_at' => now(),
+    ]);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2023]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('year', 2023)
+            ->has('leave_types', 1)
+            ->where('leave_types.0.id', $leaveType->id)
+            ->where('leave_types.0.base_entitlement_days', 25)
+            ->where('leave_types.0.carried_days', 2)
+            ->where('leave_types.0.entitled_days', 27)
+            ->where('leave_types.0.used_days', 4)
+            ->where('leave_types.0.pending_days', 1));
+
+    expect(LeaveBalance::query()->where('employee_id', $employee->id)->where('year', 2023)->count())->toBe(1)
+        ->and((float) LeaveBalance::query()->where('employee_id', $employee->id)->where('year', 2023)->value('entitled_days'))->toBe(25.0);
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('current company business year still lazily provisions leave balances on calendar', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $leaveType->forceFill(['days_per_year' => 30])->save();
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    expect(LeaveBalance::query()->where('employee_id', $employee->id)->where('year', 2026)->exists())->toBeFalse();
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('year', 2026)
+            ->has('leave_types', 1)
+            ->where('leave_types.0.entitled_days', 30));
+
+    expect(LeaveBalance::query()->where('employee_id', $employee->id)->where('year', 2026)->exists())->toBeTrue();
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('calendar historical versus current year uses company local year not utc', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2027-01-01 00:30:00', 'UTC'));
+
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    $company->forceFill(['timezone' => 'America/New_York'])->save();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $leaveType->forceFill(['days_per_year' => 30])->save();
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    // Company local year is still 2026; UTC 2026 must not invent entitlement when opened as historical.
+    $this->get(route('attendance.calendar.index', ['year' => 2025]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('year', 2025)
+            ->has('leave_types', 0));
+    expect(LeaveBalance::query()->where('employee_id', $employee->id)->where('year', 2025)->exists())->toBeFalse();
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('year', 2026)
+            ->has('leave_types', 1)
+            ->where('leave_types.0.entitled_days', 30));
+    expect(LeaveBalance::query()->where('employee_id', $employee->id)->where('year', 2026)->exists())->toBeTrue();
 
     Carbon\Carbon::setTestNow();
 });
