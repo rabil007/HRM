@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('crew_assignments', 'historical_import_batch_id')) {
+            return;
+        }
+
         Schema::table('crew_assignments', function (Blueprint $table) {
             $table->foreignId('historical_import_batch_id')
                 ->nullable()
@@ -21,6 +25,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('crew_assignments', 'historical_import_batch_id')) {
+            return;
+        }
+
         Schema::table('crew_assignments', function (Blueprint $table) {
             $table->dropIndex('idx_crew_assignments_company_hist_batch');
             $table->dropConstrainedForeignId('historical_import_batch_id');

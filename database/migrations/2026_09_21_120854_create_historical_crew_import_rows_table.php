@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('historical_crew_import_rows')) {
+            return;
+        }
+
         Schema::create('historical_crew_import_rows', function (Blueprint $table) {
             $table->id();
             $table->foreignId('historical_crew_import_batch_id')
