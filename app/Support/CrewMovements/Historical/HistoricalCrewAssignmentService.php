@@ -14,6 +14,7 @@ use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class HistoricalCrewAssignmentService
 {
@@ -22,6 +23,7 @@ final class HistoricalCrewAssignmentService
         private readonly CrewAssignmentNumberGenerator $numberGenerator,
         private readonly CrewAssignmentInvariantGuard $guard,
         private readonly SeaServiceSyncService $seaServiceSync,
+        private readonly HistoricalSeaServiceMatchResolver $seaServiceMatchResolver,
     ) {}
 
     public function preview(HistoricalCrewAssignmentData $data, ?User $actor = null): HistoricalCrewAssignmentPreview
@@ -117,19 +119,30 @@ final class HistoricalCrewAssignmentService
             );
 
             if ($p4Phase !== null && $this->seaServiceSync->isEnabled($data->companyId)) {
+                $seaDuration = $data->seaServiceDuration();
                 $startDate = $data->joinedVesselAt->toDateString();
                 $endDate = $data->disembarkedAt->toDateString();
 
-                $matchingUnlinked = EmployeeSeaService::query()
-                    ->where('company_id', $data->companyId)
-                    ->where('employee_id', $data->employeeId)
-                    ->where('vessel_id', $data->vesselId)
-                    ->whereDate('start_date', $startDate)
-                    ->whereDate('end_date', $endDate)
-                    ->whereNull('crew_assignment_phase_id')
-                    ->first();
+                $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
+                    data: $data,
+                    seaStartDate: $startDate,
+                    seaEndDate: $endDate,
+                    seaDays: $seaDuration['days'],
+                    lockForUpdate: true,
+                );
 
-                if ($matchingUnlinked !== null) {
+                if ($exactMatch['status'] === 'conflict') {
+                    throw ValidationException::withMessages([
+                        'sea_service' => [$exactMatch['error'] ?? $exactMatch['message']],
+                    ]);
+                }
+
+                if ($exactMatch['status'] === 'will_link' && $exactMatch['existing_id'] !== null) {
+                    $matchingUnlinked = EmployeeSeaService::query()
+                        ->whereKey($exactMatch['existing_id'])
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
                     // Safe linking: do not silently rewrite existing HR history (days, rank, client)
                     $matchingUnlinked->crew_assignment_phase_id = $p4Phase->id;
                     if ($matchingUnlinked->rank_id === null) {

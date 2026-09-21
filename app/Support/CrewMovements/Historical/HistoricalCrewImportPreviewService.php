@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\UploadedFile;
@@ -347,8 +346,6 @@ final class HistoricalCrewImportPreviewService
             } else {
                 $client = $matches[0];
             }
-        } elseif ($vessel !== null && $vessel->client_id !== null) {
-            $client = $bulk->client((int) $vessel->client_id);
         }
 
         $errors = array_merge($errors, $resolveErrors);
@@ -357,21 +354,13 @@ final class HistoricalCrewImportPreviewService
         $data = null;
 
         if ($errors === [] && $employee !== null && $vessel !== null && $rank !== null) {
-            $clientId = $client?->id;
-
-            if ($clientId === null) {
-                $clientId = $vessel->client_id !== null
-                    ? (int) $vessel->client_id
-                    : ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vessel->id);
-            }
-
             try {
                 $data = HistoricalCrewAssignmentData::fromArray(
                     data: [
                         'employee_id' => (int) $employee->id,
                         'vessel_id' => (int) $vessel->id,
                         'rank_id' => (int) $rank->id,
-                        'client_id' => $clientId,
+                        'client_id' => $client?->id,
                         'joined_vessel_at' => $parsedRow->vesselJoinDate(),
                         'disembarked_at' => $parsedRow->disembarkDate(),
                         'mobilisation_start_at' => $parsedRow->raw[HistoricalCrewImportColumns::MOBILISATION_DATE] ?? null,

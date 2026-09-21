@@ -247,7 +247,7 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
 
         $headerRow = $startRow + 1;
-        foreach (['Vessel', 'Status', 'Client'] as $index => $header) {
+        foreach (['Vessel', 'Status', 'Current Client'] as $index => $header) {
             $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
             $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
         }

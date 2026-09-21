@@ -108,7 +108,8 @@ test('authorized user can download historical import template with required shee
         ->and($referenceValues)->toContain($inactiveVessel->name)
         ->and($referenceValues)->toContain($inactiveRank->name)
         ->and($referenceValues)->toContain($inactiveClient->name)
-        ->and($referenceValues)->toContain('Inactive');
+        ->and($referenceValues)->toContain('Inactive')
+        ->and($referenceValues)->toContain('Current Client');
 
     @unlink($tempPath);
 });
@@ -937,4 +938,168 @@ test('friendly excel headers map to modern phases without P1 or P3', function ()
         ->and($phaseCodes)->toContain('p6')
         ->and($phaseCodes)->not->toContain('p1')
         ->and($phaseCodes)->not->toContain('p3');
+});
+
+test('excel blank client stays null and does not use vessel current client', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $currentClient = Client::factory()->create(['name' => 'Vessel Current Client '.uniqid(), 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Excel Blank Client Vessel', $company, $currentClient);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+
+    expect($row['status'])->toBe('ready')
+        ->and($row['client'])->toBeNull();
+});
+
+test('excel historical client snapshot differs from vessel current client with warning', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $historicalClient = Client::factory()->create(['name' => 'OLD EXCEL MARINE '.uniqid(), 'is_active' => true]);
+    $currentClient = Client::factory()->create(['name' => 'NEW EXCEL MARINE '.uniqid(), 'is_active' => true]);
+    $vessel = makeCrewMovementVessel('Excel Snapshot Vessel', $company, $currentClient);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'client' => $historicalClient->name,
+            'vessel_join_date' => '2022-01-15',
+            'disembark_date' => '2022-07-20',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $warnings = implode(' ', $row['warnings'] ?? []);
+
+    expect($row['status'])->toBe('warning')
+        ->and($row['client']['id'])->toBe($historicalClient->id)
+        ->and($warnings)->toContain('OLD EXCEL MARINE')
+        ->and($warnings)->toContain('NEW EXCEL MARINE')
+        ->and($warnings)->toContain('historical Client snapshot will be preserved');
+});
+
+test('excel demobilisation standby without end boundary is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel P5 Incomplete Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+            'demob_standby_date' => '2024-07-20',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $errors = implode(' ', $row['errors'] ?? []);
+
+    expect($row['status'])->toBe('blocked')
+        ->and($errors)->toContain('Home / Redeployment or Assignment Closed is required');
+});
+
+test('excel multiple exact sea service matches are blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Ambiguous Sea Vessel', $company);
+
+    $first = EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-06-30',
+        'total_days' => 182,
+        'total_months' => 5,
+        'crew_assignment_phase_id' => null,
+    ]);
+    $second = EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-06-30',
+        'total_days' => 182,
+        'total_months' => 5,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-01',
+            'disembark_date' => '2024-06-30',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $errors = implode(' ', $row['errors'] ?? []);
+
+    expect($row['status'])->toBe('blocked')
+        ->and($errors)->toContain('#'.$first->id)
+        ->and($errors)->toContain('#'.$second->id)
+        ->and($errors)->toContain('Multiple Sea Service records match');
 });

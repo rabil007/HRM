@@ -20,6 +20,7 @@ final class HistoricalCrewAssignmentValidator
 {
     public function __construct(
         private readonly SeaServiceSyncService $seaServiceSync,
+        private readonly HistoricalSeaServiceMatchResolver $seaServiceMatchResolver,
     ) {}
 
     public function validate(
@@ -112,18 +113,18 @@ final class HistoricalCrewAssignmentValidator
             'message' => $rankMessage,
         ];
 
-        // Client validation: auto-resolve or validate compatibility
+        // Client is a historical snapshot — never force today's Vessel.client_id.
         $client = null;
         if ($data->clientId !== null) {
             $client = $bulk?->client($data->clientId) ?? Client::query()->find($data->clientId);
             if ($client === null) {
                 $errors['client_id'] = 'The selected client is invalid.';
             } elseif ($vessel !== null && $vessel->client_id !== null && (int) $vessel->client_id !== $data->clientId) {
-                $errors['client_id'] = 'The selected client does not match the vessel’s assigned client.';
+                $currentClient = $bulk?->client((int) $vessel->client_id)
+                    ?? Client::query()->find((int) $vessel->client_id);
+                $currentName = $currentClient?->name ?? '#'.$vessel->client_id;
+                $warnings[] = "Historical Client \"{$client->name}\" differs from the Vessel's current Client \"{$currentName}\". The historical Client snapshot will be preserved.";
             }
-        } elseif ($vessel !== null && $vessel->client_id !== null) {
-            $client = $bulk?->client((int) $vessel->client_id)
-                ?? Client::query()->find((int) $vessel->client_id);
         }
 
         if ($client !== null && ! $client->is_active) {
@@ -165,6 +166,17 @@ final class HistoricalCrewAssignmentValidator
         if ($data->trainingEndAt !== null && $data->trainingStartAt === null) {
             $datesValid = false;
             $errors['training_start_at'] = 'Training Start is required when Training End is provided.';
+        }
+
+        // Demobilisation Standby needs an explicit end boundary (Home or Assignment Closed).
+        if ($data->demobStandbyAt !== null
+            && $data->travelHomeAt === null
+            && $data->assignmentClosedAt === null) {
+            $datesValid = false;
+            $errors['demob_standby_at'] = 'Home / Redeployment or Assignment Closed is required when Demobilisation Standby is provided, so the end of the standby period is known.';
+            $errors['travel_home_at'] = 'Home / Redeployment or Assignment Closed is required when Demobilisation Standby is provided.';
+            $errors['assignment_closed_at'] = 'Home / Redeployment or Assignment Closed is required when Demobilisation Standby is provided.';
+            $errors['post_signoff_standby_at'] = $errors['demob_standby_at'];
         }
 
         // Chronological chain comparison (modern product flow only)
@@ -349,73 +361,54 @@ final class HistoricalCrewAssignmentValidator
                     ->with(['vessel'])
                     ->get();
 
-            foreach ($existingSeaServices as $record) {
-                $recordStart = $record->start_date?->toDateString();
-                $recordEnd = $record->end_date?->toDateString();
+            $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
+                data: $data,
+                seaStartDate: $seaStartDate,
+                seaEndDate: $seaEndDate,
+                seaDays: $seaDuration['days'],
+                proposedRankName: $rank?->name,
+                existingForEmployee: $existingSeaServices,
+            );
 
-                if ($recordStart === null || $recordEnd === null) {
-                    continue;
-                }
+            $seaServiceImpact['status'] = $exactMatch['status'];
+            $seaServiceImpact['existing_id'] = $exactMatch['existing_id'];
+            $seaServiceImpact['message'] = $exactMatch['message'];
 
-                // Check Exact Match: same vessel and exact same calendar dates
-                if ((int) $record->vessel_id === $data->vesselId
-                    && $recordStart === $seaStartDate
-                    && $recordEnd === $seaEndDate) {
+            if ($exactMatch['error'] !== null) {
+                $errors['sea_service'] = $exactMatch['error'];
+            } else {
+                foreach ($existingSeaServices as $record) {
+                    $recordStart = $record->start_date?->toDateString();
+                    $recordEnd = $record->end_date?->toDateString();
 
-                    if ($record->crew_assignment_phase_id !== null) {
-                        $errMsg = "Matches existing Sea Service record #{$record->id} which is already linked to another assignment phase.";
+                    if ($recordStart === null || $recordEnd === null) {
+                        continue;
+                    }
+
+                    // Exact matches already handled by HistoricalSeaServiceMatchResolver.
+                    if ((int) $record->vessel_id === $data->vesselId
+                        && $recordStart === $seaStartDate
+                        && $recordEnd === $seaEndDate) {
+                        continue;
+                    }
+
+                    // Inclusive calendar date overlap: touching boundary counts as overlap.
+                    if ($recordStart <= $seaEndDate && $seaStartDate <= $recordEnd) {
+                        $conflictVesselName = $record->vessel?->name ?? 'another vessel';
+                        $recStartFormatted = Carbon::parse($recordStart)->format('d M Y');
+                        $recEndFormatted = Carbon::parse($recordEnd)->format('d M Y');
+                        $errMsg = sprintf(
+                            'Overlaps existing Sea Service record #%d (%s, %s -> %s).',
+                            $record->id,
+                            $conflictVesselName,
+                            $recStartFormatted,
+                            $recEndFormatted,
+                        );
                         $errors['sea_service'] = $errMsg;
                         $seaServiceImpact['status'] = 'conflict';
                         $seaServiceImpact['message'] = $errMsg;
                         break;
                     }
-
-                    // Check for conflicting HR history: Rank conflict
-                    if ($record->rank_id !== null && (int) $record->rank_id !== $data->rankId) {
-                        $existingRankName = $bulk?->rank((int) $record->rank_id)?->name
-                            ?? Rank::query()->find($record->rank_id)?->name
-                            ?? '#'.$record->rank_id;
-                        $proposedRankName = $rank?->name ?? '#'.$data->rankId;
-                        $errMsg = "Matches existing Sea Service record #{$record->id} with conflicting rank ({$existingRankName} vs {$proposedRankName}). Cannot automatically overwrite HR history.";
-                        $errors['sea_service'] = $errMsg;
-                        $seaServiceImpact['status'] = 'conflict';
-                        $seaServiceImpact['message'] = $errMsg;
-                        break;
-                    }
-
-                    // Check for conflicting client
-                    if ($record->client_id !== null && $data->clientId !== null && (int) $record->client_id !== $data->clientId) {
-                        $errMsg = "Matches existing Sea Service record #{$record->id} with conflicting client.";
-                        $errors['sea_service'] = $errMsg;
-                        $seaServiceImpact['status'] = 'conflict';
-                        $seaServiceImpact['message'] = $errMsg;
-                        break;
-                    }
-
-                    // Compatible exact unlinked match: safe to link
-                    $seaServiceImpact['status'] = 'will_link';
-                    $seaServiceImpact['existing_id'] = (int) $record->id;
-                    $seaServiceImpact['message'] = "Matches existing unlinked Sea Service record #{$record->id} ({$seaDuration['days']} days) and will link safely without duplicating.";
-                    break;
-                }
-
-                // Non-exact match: Check inclusive calendar date overlap: [start1, end1] and [start2, end2]
-                // Touching boundary (same day) is an overlap on inclusive calendar days!
-                if ($recordStart <= $seaEndDate && $seaStartDate <= $recordEnd) {
-                    $conflictVesselName = $record->vessel?->name ?? 'another vessel';
-                    $recStartFormatted = Carbon::parse($recordStart)->format('d M Y');
-                    $recEndFormatted = Carbon::parse($recordEnd)->format('d M Y');
-                    $errMsg = sprintf(
-                        'Overlaps existing Sea Service record #%d (%s, %s -> %s).',
-                        $record->id,
-                        $conflictVesselName,
-                        $recStartFormatted,
-                        $recEndFormatted,
-                    );
-                    $errors['sea_service'] = $errMsg;
-                    $seaServiceImpact['status'] = 'conflict';
-                    $seaServiceImpact['message'] = $errMsg;
-                    break;
                 }
             }
         }

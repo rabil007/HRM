@@ -119,14 +119,9 @@ export function AddPastDataDialog({
 
     const handleVesselChange = (vesselIdStr: string) => {
         const vId = vesselIdStr ? Number(vesselIdStr) : '';
-        const vessel = formOptions.vessels.find((v) => v.id === vId);
         form.setData((prev) => ({
             ...prev,
             vessel_id: vId,
-            client_id:
-                vessel?.client_id != null
-                    ? String(vessel.client_id)
-                    : prev.client_id,
         }));
     };
 
@@ -460,11 +455,11 @@ export function AddPastDataDialog({
                                                         val ? Number(val) : '',
                                                     )
                                                 }
-                                                placeholder="Auto-resolved or select..."
+                                                placeholder="Select historical client..."
                                                 searchPlaceholder="Search client..."
                                             >
                                                 <AppSelectItem value="">
-                                                    None / Auto-resolve
+                                                    None
                                                 </AppSelectItem>
                                                 {formOptions.clients.map(
                                                     (c) => (
@@ -477,6 +472,12 @@ export function AddPastDataDialog({
                                                     ),
                                                 )}
                                             </AppSelect>
+                                            <p className="text-xs text-muted-foreground">
+                                                Select the Client for this
+                                                historical service. It may
+                                                differ from the Vessel&apos;s
+                                                current Client.
+                                            </p>
                                             <InputError
                                                 message={form.errors.client_id}
                                             />

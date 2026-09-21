@@ -210,18 +210,18 @@ final class HistoricalCrewAssignmentData
             'remarks' => $this->remarks,
         ];
 
-        // P5 Demobilisation Standby
+        // P5 Demobilisation Standby — never invent an end from the start alone.
         if ($this->demobStandbyAt !== null) {
-            $nextStart = $this->travelHomeAt
-                ?? $this->assignmentClosedAt
-                ?? $this->demobStandbyAt;
+            $p5End = $this->travelHomeAt ?? $this->assignmentClosedAt;
 
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::DemobStandby,
-                'actual_start_at' => $this->demobStandbyAt,
-                'actual_end_at' => $nextStart,
-                'remarks' => null,
-            ];
+            if ($p5End !== null) {
+                $phases[] = [
+                    'phase_code' => CrewPhaseCode::DemobStandby,
+                    'actual_start_at' => $this->demobStandbyAt,
+                    'actual_end_at' => $p5End,
+                    'remarks' => null,
+                ];
+            }
         }
 
         // P6 Home / Redeployment

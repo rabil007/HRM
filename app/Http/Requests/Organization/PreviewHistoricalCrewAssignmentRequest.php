@@ -5,7 +5,6 @@ namespace App\Http\Requests\Organization;
 use App\Models\CrewAssignment;
 use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
 use App\Support\Employees\HistoricalCompanyEmployeeRule;
-use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -22,29 +21,6 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
         }
 
         return $user->can('createHistorical', CrewAssignment::class);
-    }
-
-    protected function prepareForValidation(): void
-    {
-        $companyId = (int) $this->attributes->get('current_company_id');
-        $vesselId = $this->input('vessel_id');
-        $clientId = $this->input('client_id');
-        $merge = [];
-
-        if (($clientId === null || $clientId === '')
-            && $vesselId !== null
-            && $vesselId !== ''
-            && $companyId > 0) {
-            $resolved = ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vesselId);
-
-            if ($resolved !== null) {
-                $merge['client_id'] = $resolved;
-            }
-        }
-
-        if ($merge !== []) {
-            $this->merge($merge);
-        }
     }
 
     /**

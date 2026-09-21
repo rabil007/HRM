@@ -1298,7 +1298,7 @@ Domain validator keys such as `training_start_at`, `training_end_at`, `demob_sta
    - Employee (`*`, tenant- and visibility-scoped, displays status tag e.g. `Terminated`)
    - Vessel (`*`, company-scoped via `ClientAssignmentRules`)
    - Rank (`*`)
-   - Client (auto-resolved from vessel or selectable via `ClientAssignmentRules`)
+   - Client (optional historical snapshot; may differ from the Vessel’s current Client — mismatch is a warning, not a block; blank stays `null` and is never auto-filled from `Vessel.client_id`)
    - On Vessel (`joined_vessel_at`, `*`)
    - Disembarked (`disembarked_at`, `*`)
    - Remarks (optional)
@@ -1307,7 +1307,7 @@ Domain validator keys such as `training_start_at`, `training_end_at`, `demob_sta
      - Join Standby
      - Training Start & Training End
      - Post-Training Join Standby
-     - Demobilisation Standby
+     - Demobilisation Standby (requires Home / Redeployment or Assignment Closed so P5 has a known end)
      - Home / Redeployment
      - Assignment Closed
    - **Travel In (P1)** and **Ready to Join (P3)** are not available for new Manual or Excel historical entry. Existing DB records with those phases remain readable for compatibility.
@@ -1366,9 +1366,11 @@ Persisting historical data leaves the operational state completely untouched:
 ### Sea Service Synchronization & Deduplication
 
 - A completed historical P4 period represents genuine vessel service and creates or synchronizes an `EmployeeSeaService` record.
-- **Exact Match Deduplication**: If an unlinked `EmployeeSeaService` record already exists for the same employee, vessel, and identical start/end dates:
-  - If compatible (same rank, compatible client), the existing record is linked to the new historical phase without rewriting historic HR fields.
-  - If conflicting (different rank or conflicting client), validation blocks with an explicit conflict error rather than silently overwriting historical HR records.
+- **Exact Match Resolution** (`HistoricalSeaServiceMatchResolver`): resolve all exact employee/vessel/start/end matches — never pick `.first()` when multiple exist.
+  - **0** exact matches → create/sync via `SeaServiceSyncService` as usual.
+  - **1** compatible unlinked match → safe to link (revalidated under `lockForUpdate()` during persist).
+  - **1** already-linked match, or rank/client conflict → block.
+  - **>1** exact matches → ambiguity conflict listing matching record IDs; operator must resolve duplicates first.
 - **Inclusive Calendar Overlap Protection**: Because Sea Service records represent inclusive calendar dates, overlap checks enforce `$start1 <= $end2 && $start2 <= $end1`. Touching boundaries (where one service ends on day X and another starts on day X) are flagged as overlapping because day X cannot belong to two vessel services simultaneously. Adjacent dates (e.g. ending on 10-Jan and starting on 11-Jan) are fully allowed.
 
 ### Phase 2 — Historical Excel Template + Upload + Validation Preview
@@ -1405,9 +1407,11 @@ Validation Preview (Ready / Warning / Blocked)
 | --- | --- |
 | Instructions | Purpose, workflow, date format (`YYYY-MM-DD`), modern movement sequence, isolation notes |
 | Historical Assignments | Friendly product column headers with required markers, frozen header, sample row |
-| Reference Data | Company-scoped Employees (visibility-filtered), Vessels (incl. inactive), Ranks (incl. inactive), Clients (incl. inactive), with friendly headings and status labels |
+| Reference Data | Company-scoped Employees (visibility-filtered), Vessels (incl. inactive; **Current Client** column for today’s vessel mapping), Ranks (incl. inactive), Clients (incl. inactive), with friendly headings and status labels |
 
 Assignment columns (product labels): `Employee No *`, `Employee`, `Vessel *`, `Rank *`, `Client`, `Pre-Mobilisation`, `Join Standby`, `Training Start`, `Training End`, `Post-Training Join Standby`, `On Vessel *`, `Disembarked *`, `Demobilisation Standby`, `Home / Redeployment`, `Assignment Closed`, `Remarks`. Legacy `Travel In` / `Ready to Join` columns are rejected as an outdated template.
+
+The Assignments sheet **Client** column is the historical Client snapshot. Blank Client stays `null` (never filled from the Vessel’s current Client). A Client that differs from `Vessel.client_id` today is allowed with a warning.
 
 Database-controlled strings in the template (and result exports) are written as explicit text; values beginning with `=`, `+`, `-`, or `@` are prefixed so Excel does not treat them as formulas.
 
@@ -1415,8 +1419,9 @@ Database-controlled strings in the template (and result exports) are written as 
 
 - Employee: authoritative `employee_no` (case-insensitive), never name
 - Vessel / Rank / Client: exact name match (names are unique in schema); ambiguous matches are blocked — never guess
-- Reference Data uses friendly headings (Employee No, Vessel, Rank, Client) without internal IDs
+- Reference Data uses friendly headings (Employee No, Vessel, Current Client, Rank, Client) without internal IDs
 - Visibility-restricted users receive a neutral unavailable message for both hidden and nonexistent employees (no existence leak)
+- Blank historical Client is never auto-resolved from the Vessel’s current Client
 
 #### Date normalization
 
@@ -1427,8 +1432,8 @@ Excel serials, `YYYY-MM-DD`, and common regional strings are normalized to compa
 | Status | Examples |
 | --- | --- |
 | Ready | Fully valid, no warnings |
-| Warning | Inactive vessel/rank/client, terminated employee, Sea Service sync disabled — allowed by historical rules |
-| Blocked | Missing/unknown/unavailable employee, unknown/ambiguous master data, future dates, chronology errors, assignment overlap, Sea Service conflict, workbook duplicate / overlapping rows, formula cells |
+| Warning | Inactive vessel/rank/client, terminated employee, Sea Service sync disabled, historical Client differs from Vessel’s current Client — allowed by historical rules |
+| Blocked | Missing/unknown/unavailable employee, unknown/ambiguous master data, future dates, chronology errors, Demobilisation Standby without Home/Assignment Closed end, assignment overlap, Sea Service conflict or ambiguous exact matches, workbook duplicate / overlapping rows, formula cells |
 
 Workbook limits: maximum **5,000** non-empty historical assignment rows per upload. Larger workbooks are rejected with an explicit count (never silently truncated). Untouched template sample rows (`EXAMPLE001`) are ignored. Empty workbooks are rejected.
 
