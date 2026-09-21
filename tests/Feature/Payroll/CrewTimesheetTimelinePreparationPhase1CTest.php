@@ -89,7 +89,7 @@ test('preparation review falls back to employee position title for rank', functi
 });
 
 test('unauthorized user cannot view preparation', function () {
-    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures = makeDailyCrewTimelineFixtures(withWorkflowPermissions: false);
     $preparation = prepareFreshTimeline($fixtures);
 
     $this->actingAs($fixtures['user'])

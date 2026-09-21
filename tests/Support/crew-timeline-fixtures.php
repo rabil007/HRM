@@ -61,7 +61,7 @@ function payableLinesCovering(int $preparationId, string $date)
         ->get();
 }
 
-function makeDailyCrewTimelineFixtures(): array
+function makeDailyCrewTimelineFixtures(bool $withWorkflowPermissions = true): array
 {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
@@ -106,7 +106,9 @@ function makeDailyCrewTimelineFixtures(): array
         'source' => 'manual',
     ]);
 
-    grantCrewTimelineWorkflowPermissions($user, $company);
+    if ($withWorkflowPermissions) {
+        grantCrewTimelineWorkflowPermissions($user, $company);
+    }
 
     return compact('user', 'company', 'employee', 'rank', 'period', 'assignment', 'vessel');
 }
