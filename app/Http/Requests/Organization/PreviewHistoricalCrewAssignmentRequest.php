@@ -9,6 +9,7 @@ use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class PreviewHistoricalCrewAssignmentRequest extends FormRequest
 {
@@ -43,8 +44,8 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             ],
             'rank_id' => ['required', 'integer', Rule::exists('ranks', 'id')],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
-            'joined_vessel_at' => ['required', 'date'],
-            'disembarked_at' => ['required', 'date'],
+            'joined_vessel_at' => ['nullable', 'date'],
+            'disembarked_at' => ['nullable', 'date'],
             'mobilisation_at' => ['nullable', 'date'],
             'mobilisation_start_at' => ['nullable', 'date'],
             'join_standby_at' => ['nullable', 'date'],
@@ -52,16 +53,52 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             'training_started_at' => ['nullable', 'date'],
             'training_end_at' => ['nullable', 'date'],
             'training_ended_at' => ['nullable', 'date'],
-            'post_training_join_standby_at' => ['nullable', 'date'],
-            'demob_standby_at' => ['nullable', 'date'],
-            'post_signoff_standby_at' => ['nullable', 'date'],
             'travel_home_at' => ['nullable', 'date'],
-            'assignment_closed_at' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
-            // Legacy P1/P3 inputs are no longer accepted for new historical entry.
+            // Legacy / removed historical inputs are no longer accepted.
             'arrival_at' => ['prohibited'],
             'ready_to_join_at' => ['prohibited'],
+            'post_training_join_standby_at' => ['prohibited'],
+            'demob_standby_at' => ['prohibited'],
+            'post_signoff_standby_at' => ['prohibited'],
+            'assignment_closed_at' => ['prohibited'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $movementFields = [
+                'mobilisation_at',
+                'mobilisation_start_at',
+                'join_standby_at',
+                'training_start_at',
+                'training_started_at',
+                'training_end_at',
+                'training_ended_at',
+                'joined_vessel_at',
+                'disembarked_at',
+                'travel_home_at',
+            ];
+
+            $hasMovement = false;
+
+            foreach ($movementFields as $field) {
+                $value = $this->input($field);
+
+                if (is_string($value) && trim($value) !== '') {
+                    $hasMovement = true;
+                    break;
+                }
+            }
+
+            if (! $hasMovement) {
+                $validator->errors()->add(
+                    'dates',
+                    'At least one meaningful movement date must be supplied.',
+                );
+            }
+        });
     }
 
     public function toData(): HistoricalCrewAssignmentData

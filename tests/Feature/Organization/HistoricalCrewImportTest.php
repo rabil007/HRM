@@ -69,16 +69,16 @@ test('authorized user can download historical import template with required shee
         'Join Standby',
         'Training Start',
         'Training End',
-        'Post-Training Join Standby',
-        'On Vessel *',
-        'Disembarked *',
-        'Demobilisation Standby',
+        'On Vessel',
+        'Disembarked',
         'Home / Redeployment',
-        'Assignment Closed',
         'Remarks',
     ])
         ->and($headerRow)->not->toContain('Travel In')
         ->and($headerRow)->not->toContain('Ready to Join')
+        ->and($headerRow)->not->toContain('Post-Training Join Standby')
+        ->and($headerRow)->not->toContain('Demobilisation Standby')
+        ->and($headerRow)->not->toContain('Assignment Closed')
         ->and($headerRow)->not->toContain('travel_in_date')
         ->and($headerRow)->not->toContain('ready_to_join_date');
 
@@ -88,7 +88,8 @@ test('authorized user can download historical import template with required shee
         ->filter(fn ($cell) => is_string($cell))
         ->implode("\n");
 
-    expect($instructionText)->toContain('On Vessel and Disembarked are required.')
+    expect($instructionText)->toContain('At least one movement date is required.')
+        ->and($instructionText)->toContain('On Vessel and Disembarked are optional')
         ->and($instructionText)->not->toContain('Travel In')
         ->and($instructionText)->not->toContain('Ready to Join')
         ->and($instructionText)->not->toContain('P1')
@@ -590,6 +591,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
         'rank' => $rank->name,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-06-30',
+        'travel_home_date' => '2024-06-30',
     ];
 
     $file = makeHistoricalCrewImportFile([
@@ -601,6 +603,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
             'rank' => $rank->name,
             'vessel_join_date' => '2024-05-15',
             'disembark_date' => '2024-07-10',
+            'travel_home_date' => '2024-07-10',
         ],
         [
             'employee_no' => '3119',
@@ -608,6 +611,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
             'rank' => $rank->name,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2023-06-30',
+            'travel_home_date' => '2023-06-30',
         ],
         [
             'employee_no' => '3220',
@@ -615,6 +619,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
             'rank' => $rank->name,
             'vessel_join_date' => '2024-01-01',
             'disembark_date' => '2024-06-30',
+            'travel_home_date' => '2024-06-30',
         ],
     ]);
 
@@ -809,8 +814,9 @@ test('generated template writes formula-like database names as plain text', func
     @unlink($tempPath);
 });
 
-test('missing employee_no vessel join and disembark are blocked', function () {
-    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+test('missing employee_no and missing all movement dates are blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'X1']);
     $vessel = makeCrewMovementVessel('Required Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
@@ -831,26 +837,29 @@ test('missing employee_no vessel join and disembark are blocked', function () {
             'employee_no' => 'X1',
             'vessel' => $vessel->name,
             'rank' => $rank->name,
-            'vessel_join_date' => '',
-            'disembark_date' => '2024-07-20',
-            'remarks' => 'missing join',
+            'remarks' => 'missing all movement dates',
         ],
         [
-            'employee_no' => 'X2',
+            'employee_no' => 'X1',
             'vessel' => $vessel->name,
             'rank' => $rank->name,
             'vessel_join_date' => '2024-01-15',
-            'disembark_date' => '',
-            'remarks' => 'missing disembark',
+            'remarks' => 'on vessel only is allowed',
         ],
     ]);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.validate'), [
             'file' => $file,
         ])
-        ->assertOk()
-        ->assertJsonPath('summary.blocked', 3);
+        ->assertOk();
+
+    $statuses = collect($response->json('rows'))->pluck('status')->all();
+
+    expect($statuses)->toContain('blocked')
+        ->and($statuses)->toContain('ready')
+        ->and($response->json('summary.blocked'))->toBeGreaterThanOrEqual(2)
+        ->and($response->json('summary.ready'))->toBe(1);
 });
 
 test('outdated template with travel_in_date is rejected', function () {
@@ -916,7 +925,6 @@ test('friendly excel headers map to modern phases without P1 or P3', function ()
             'join_standby_date' => '2024-01-05',
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
-            'demob_standby_date' => '2024-07-21',
             'travel_home_date' => '2024-07-22',
         ],
     ]);
@@ -1012,10 +1020,10 @@ test('excel historical client snapshot differs from vessel current client with w
         ->and($warnings)->toContain('historical Client snapshot will be preserved');
 });
 
-test('excel demobilisation standby without end boundary is blocked', function () {
+test('excel on vessel plus disembarked without home is ready as open P5', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $vessel = makeCrewMovementVessel('Excel P5 Incomplete Vessel', $company);
+    $vessel = makeCrewMovementVessel('Excel P5 Open Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -1029,7 +1037,6 @@ test('excel demobilisation standby without end boundary is blocked', function ()
             'rank' => $rank->name,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
-            'demob_standby_date' => '2024-07-20',
         ],
     ]);
 
@@ -1040,10 +1047,123 @@ test('excel demobilisation standby without end boundary is blocked', function ()
         ->assertOk();
 
     $row = collect($response->json('rows'))->first();
-    $errors = implode(' ', $row['errors'] ?? []);
+    $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
 
-    expect($row['status'])->toBe('blocked')
-        ->and($errors)->toContain('Home / Redeployment or Assignment Closed is required');
+    expect($row['status'])->toBe('ready')
+        ->and($row['is_open'] ?? false)->toBeTrue()
+        ->and($phaseCodes)->toContain('p4')
+        ->and($phaseCodes)->toContain('p5')
+        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p5');
+});
+
+test('excel two open rows for same employee are blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Two Open Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'join_standby_date' => '2023-01-01',
+        ],
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $rows = collect($response->json('rows'));
+    expect($rows->every(fn ($row) => $row['status'] === 'blocked'))->toBeTrue();
+
+    $messages = $rows->flatMap(fn ($row) => array_merge($row['errors'] ?? [], $row['workbook_messages'] ?? []))->implode(' ');
+    expect($messages)->toMatch('/Multiple open assignments|Overlaps workbook row/');
+});
+
+test('excel open row followed by later assignment is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Open Then Later Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'join_standby_date' => '2023-01-01',
+        ],
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+            'travel_home_date' => '2024-07-20',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $openRow = collect($response->json('rows'))->firstWhere('row', 2);
+    expect($openRow['status'])->toBe('blocked');
+
+    $messages = implode(' ', array_merge($openRow['errors'] ?? [], $openRow['workbook_messages'] ?? []));
+    expect($messages)->toMatch('/remains open|Overlaps workbook row/');
+});
+
+test('excel active oms assignment blocks another open import row', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Active Block Vessel', $company);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    expect($row['status'])->toBe('blocked');
+    expect(implode(' ', $row['errors'] ?? []))->toContain('already has an active Crew Assignment');
 });
 
 test('excel multiple exact sea service matches are blocked', function () {

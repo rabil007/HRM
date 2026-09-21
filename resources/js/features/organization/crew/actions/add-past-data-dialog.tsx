@@ -3,8 +3,6 @@ import {
     AlertTriangle,
     ArrowLeft,
     CheckCircle2,
-    ChevronDown,
-    ChevronUp,
     Clock,
     FileSpreadsheet,
     History,
@@ -43,6 +41,7 @@ import type {
     HistoricalCrewAssignmentFormData,
     HistoricalCrewAssignmentPreviewData,
     HistoricalFormOptions,
+    HistoricalPreviewTimelineItem,
 } from '../types';
 import { HistoricalImportExcelPanel } from './historical-import-excel-panel';
 
@@ -50,6 +49,48 @@ interface AddPastDataDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     formOptions: HistoricalFormOptions;
+}
+
+const MOVEMENT_DATE_KEYS = [
+    'mobilisation_at',
+    'join_standby_at',
+    'training_started_at',
+    'training_ended_at',
+    'joined_vessel_at',
+    'disembarked_at',
+    'travel_home_at',
+] as const;
+
+function timelineEndLabel(item: HistoricalPreviewTimelineItem): string | null {
+    if (item.end_display) {
+        return item.end_display;
+    }
+
+    if (item.is_open) {
+        return 'Current';
+    }
+
+    if (item.end) {
+        return formatDisplayDate(item.end);
+    }
+
+    return null;
+}
+
+function seaServiceStatusLabel(status: string): string {
+    if (status === 'will_link') {
+        return 'Will Link Existing';
+    }
+
+    if (status === 'will_create') {
+        return 'Will Create Record';
+    }
+
+    if (status === 'not_applicable') {
+        return 'Not Applicable';
+    }
+
+    return status;
 }
 
 export function AddPastDataDialog({
@@ -62,7 +103,6 @@ export function AddPastDataDialog({
 
     const [activeTab, setActiveTab] = useState<'manual' | 'excel'>('manual');
     const [step, setStep] = useState<'form' | 'preview'>('form');
-    const [showMoreDetails, setShowMoreDetails] = useState(false);
     const [previewData, setPreviewData] =
         useState<HistoricalCrewAssignmentPreviewData | null>(null);
     const [isValidating, setIsValidating] = useState(false);
@@ -73,20 +113,27 @@ export function AddPastDataDialog({
         vessel_id: '',
         rank_id: '',
         client_id: '',
-        joined_vessel_at: '',
-        disembarked_at: '',
         mobilisation_at: '',
         join_standby_at: '',
         training_started_at: '',
         training_ended_at: '',
-        post_training_join_standby_at: '',
-        post_signoff_standby_at: '',
+        joined_vessel_at: '',
+        disembarked_at: '',
         travel_home_at: '',
-        assignment_closed_at: '',
         remarks: '',
     });
 
     const http = useHttp();
+
+    const selectedEmployee = formOptions.employees.find(
+        (employee) => employee.id === Number(form.data.employee_id),
+    );
+    const employeeCurrentRankName =
+        selectedEmployee?.rank_id != null
+            ? (formOptions.ranks.find(
+                  (rank) => rank.id === selectedEmployee.rank_id,
+              )?.name ?? null)
+            : null;
 
     const handleClose = (nextOpen: boolean) => {
         if (!nextOpen) {
@@ -95,7 +142,6 @@ export function AddPastDataDialog({
             setStep('form');
             setPreviewData(null);
             setValidationError(null);
-            setShowMoreDetails(false);
         }
 
         onOpenChange(nextOpen);
@@ -103,18 +149,10 @@ export function AddPastDataDialog({
 
     const handleEmployeeChange = (employeeIdStr: string) => {
         const empId = employeeIdStr ? Number(employeeIdStr) : '';
-        form.setData((prev) => {
-            const emp = formOptions.employees.find((e) => e.id === empId);
-
-            return {
-                ...prev,
-                employee_id: empId,
-                rank_id:
-                    emp?.rank_id && !prev.rank_id
-                        ? String(emp.rank_id)
-                        : prev.rank_id,
-            };
-        });
+        form.setData((prev) => ({
+            ...prev,
+            employee_id: empId,
+        }));
     };
 
     const handleVesselChange = (vesselIdStr: string) => {
@@ -129,7 +167,6 @@ export function AddPastDataDialog({
         form.clearErrors();
         setValidationError(null);
 
-        // Quick client-side precheck
         const localErrors: Record<string, string> = {};
 
         if (!form.data.employee_id) {
@@ -144,16 +181,22 @@ export function AddPastDataDialog({
             localErrors.rank_id = 'Please select a rank.';
         }
 
-        if (!form.data.joined_vessel_at) {
-            localErrors.joined_vessel_at = 'On Vessel date is required.';
+        const hasMovementDate = MOVEMENT_DATE_KEYS.some((key) => {
+            const value = form.data[key];
+
+            return typeof value === 'string' && value.trim() !== '';
+        });
+
+        if (!hasMovementDate) {
+            setValidationError(
+                'Enter at least one movement date to reconstruct history.',
+            );
         }
 
-        if (!form.data.disembarked_at) {
-            localErrors.disembarked_at = 'Disembarked date is required.';
-        }
-
-        if (Object.keys(localErrors).length > 0) {
-            form.setError(localErrors);
+        if (Object.keys(localErrors).length > 0 || !hasMovementDate) {
+            if (Object.keys(localErrors).length > 0) {
+                form.setError(localErrors);
+            }
 
             return;
         }
@@ -165,17 +208,13 @@ export function AddPastDataDialog({
             vessel_id: Number(form.data.vessel_id),
             rank_id: Number(form.data.rank_id),
             client_id: form.data.client_id ? Number(form.data.client_id) : null,
-            joined_vessel_at: form.data.joined_vessel_at,
-            disembarked_at: form.data.disembarked_at,
             mobilisation_at: form.data.mobilisation_at || null,
             join_standby_at: form.data.join_standby_at || null,
             training_started_at: form.data.training_started_at || null,
             training_ended_at: form.data.training_ended_at || null,
-            post_training_join_standby_at:
-                form.data.post_training_join_standby_at || null,
-            post_signoff_standby_at: form.data.post_signoff_standby_at || null,
+            joined_vessel_at: form.data.joined_vessel_at || null,
+            disembarked_at: form.data.disembarked_at || null,
             travel_home_at: form.data.travel_home_at || null,
-            assignment_closed_at: form.data.assignment_closed_at || null,
             remarks: form.data.remarks || null,
         };
 
@@ -257,8 +296,9 @@ export function AddPastDataDialog({
                                 Add Past Crew Data
                             </DialogTitle>
                             <DialogDescription className="text-sm text-muted-foreground">
-                                Record completed past crew movements without
-                                affecting current operations.
+                                Reconstruct crew movement history and bootstrap
+                                the employee&apos;s inferred current state from
+                                known dates.
                             </DialogDescription>
                         </div>
                     </div>
@@ -306,204 +346,358 @@ export function AddPastDataDialog({
                                 )}
 
                                 <div className="space-y-4">
-                                    {/* Primary Details */}
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="historical-employee">
-                                                Employee{' '}
-                                                <span className="text-destructive">
-                                                    *
-                                                </span>
-                                            </Label>
-                                            <AppSelect
-                                                value={String(
-                                                    form.data.employee_id || '',
-                                                )}
-                                                onValueChange={
-                                                    handleEmployeeChange
-                                                }
-                                                placeholder="Select employee..."
-                                                searchPlaceholder="Search employee by name or number..."
-                                            >
-                                                <AppSelectItem value="">
-                                                    Select employee...
-                                                </AppSelectItem>
-                                                {formOptions.employees.map(
-                                                    (emp) => {
-                                                        const isNonActive =
-                                                            emp.status &&
-                                                            emp.status !==
-                                                                'active';
-                                                        const statusLabel =
-                                                            isNonActive
-                                                                ? ` — ${emp.status
-                                                                      .replace(
-                                                                          /_/g,
-                                                                          ' ',
-                                                                      )
-                                                                      .toUpperCase()}`
-                                                                : '';
+                                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
+                                        <div className="text-sm font-semibold text-foreground">
+                                            Crew / Assignment Details
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-employee">
+                                                    Employee{' '}
+                                                    <span className="text-destructive">
+                                                        *
+                                                    </span>
+                                                </Label>
+                                                <AppSelect
+                                                    value={String(
+                                                        form.data.employee_id ||
+                                                            '',
+                                                    )}
+                                                    onValueChange={
+                                                        handleEmployeeChange
+                                                    }
+                                                    placeholder="Select employee..."
+                                                    searchPlaceholder="Search employee by name or number..."
+                                                >
+                                                    <AppSelectItem value="">
+                                                        Select employee...
+                                                    </AppSelectItem>
+                                                    {formOptions.employees.map(
+                                                        (emp) => {
+                                                            const isNonActive =
+                                                                emp.status &&
+                                                                emp.status !==
+                                                                    'active';
+                                                            const statusLabel =
+                                                                isNonActive
+                                                                    ? ` — ${emp.status
+                                                                          .replace(
+                                                                              /_/g,
+                                                                              ' ',
+                                                                          )
+                                                                          .toUpperCase()}`
+                                                                    : '';
 
-                                                        return (
+                                                            return (
+                                                                <AppSelectItem
+                                                                    key={emp.id}
+                                                                    value={String(
+                                                                        emp.id,
+                                                                    )}
+                                                                >
+                                                                    {emp.name}{' '}
+                                                                    {emp.employee_no
+                                                                        ? `(${emp.employee_no})`
+                                                                        : ''}
+                                                                    {
+                                                                        statusLabel
+                                                                    }
+                                                                </AppSelectItem>
+                                                            );
+                                                        },
+                                                    )}
+                                                </AppSelect>
+                                                <InputError
+                                                    message={
+                                                        form.errors.employee_id
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-vessel">
+                                                    Vessel{' '}
+                                                    <span className="text-destructive">
+                                                        *
+                                                    </span>
+                                                </Label>
+                                                <AppSelect
+                                                    value={String(
+                                                        form.data.vessel_id ||
+                                                            '',
+                                                    )}
+                                                    onValueChange={
+                                                        handleVesselChange
+                                                    }
+                                                    placeholder="Select vessel..."
+                                                    searchPlaceholder="Search vessel..."
+                                                >
+                                                    <AppSelectItem value="">
+                                                        Select vessel...
+                                                    </AppSelectItem>
+                                                    {formOptions.vessels.map(
+                                                        (v) => (
                                                             <AppSelectItem
-                                                                key={emp.id}
+                                                                key={v.id}
                                                                 value={String(
-                                                                    emp.id,
+                                                                    v.id,
                                                                 )}
                                                             >
-                                                                {emp.name}{' '}
-                                                                {emp.employee_no
-                                                                    ? `(${emp.employee_no})`
-                                                                    : ''}
-                                                                {statusLabel}
+                                                                {v.name}
                                                             </AppSelectItem>
-                                                        );
-                                                    },
-                                                )}
-                                            </AppSelect>
-                                            <InputError
-                                                message={
-                                                    form.errors.employee_id
-                                                }
-                                            />
-                                        </div>
+                                                        ),
+                                                    )}
+                                                </AppSelect>
+                                                <InputError
+                                                    message={
+                                                        form.errors.vessel_id
+                                                    }
+                                                />
+                                            </div>
 
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="historical-vessel">
-                                                Vessel{' '}
-                                                <span className="text-destructive">
-                                                    *
-                                                </span>
-                                            </Label>
-                                            <AppSelect
-                                                value={String(
-                                                    form.data.vessel_id || '',
-                                                )}
-                                                onValueChange={
-                                                    handleVesselChange
-                                                }
-                                                placeholder="Select vessel..."
-                                                searchPlaceholder="Search vessel..."
-                                            >
-                                                <AppSelectItem value="">
-                                                    Select vessel...
-                                                </AppSelectItem>
-                                                {formOptions.vessels.map(
-                                                    (v) => (
-                                                        <AppSelectItem
-                                                            key={v.id}
-                                                            value={String(v.id)}
-                                                        >
-                                                            {v.name}
-                                                        </AppSelectItem>
-                                                    ),
-                                                )}
-                                            </AppSelect>
-                                            <InputError
-                                                message={form.errors.vessel_id}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="historical-rank">
-                                                Rank{' '}
-                                                <span className="text-destructive">
-                                                    *
-                                                </span>
-                                            </Label>
-                                            <AppSelect
-                                                value={String(
-                                                    form.data.rank_id || '',
-                                                )}
-                                                onValueChange={(val) =>
-                                                    form.setData(
-                                                        'rank_id',
-                                                        val ? Number(val) : '',
-                                                    )
-                                                }
-                                                placeholder="Select rank..."
-                                                searchPlaceholder="Search rank..."
-                                            >
-                                                <AppSelectItem value="">
-                                                    Select rank...
-                                                </AppSelectItem>
-                                                {formOptions.ranks.map((r) => (
-                                                    <AppSelectItem
-                                                        key={r.id}
-                                                        value={String(r.id)}
-                                                    >
-                                                        {r.name}
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-rank">
+                                                    Rank{' '}
+                                                    <span className="text-destructive">
+                                                        *
+                                                    </span>
+                                                </Label>
+                                                <AppSelect
+                                                    value={String(
+                                                        form.data.rank_id || '',
+                                                    )}
+                                                    onValueChange={(val) =>
+                                                        form.setData(
+                                                            'rank_id',
+                                                            val
+                                                                ? Number(val)
+                                                                : '',
+                                                        )
+                                                    }
+                                                    placeholder="Select rank..."
+                                                    searchPlaceholder="Search rank..."
+                                                >
+                                                    <AppSelectItem value="">
+                                                        Select rank...
                                                     </AppSelectItem>
-                                                ))}
-                                            </AppSelect>
-                                            <InputError
-                                                message={form.errors.rank_id}
-                                            />
-                                        </div>
+                                                    {formOptions.ranks.map(
+                                                        (r) => (
+                                                            <AppSelectItem
+                                                                key={r.id}
+                                                                value={String(
+                                                                    r.id,
+                                                                )}
+                                                            >
+                                                                {r.name}
+                                                            </AppSelectItem>
+                                                        ),
+                                                    )}
+                                                </AppSelect>
+                                                {employeeCurrentRankName ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Employee&apos;s current
+                                                        rank:{' '}
+                                                        {
+                                                            employeeCurrentRankName
+                                                        }{' '}
+                                                        (select explicitly for
+                                                        this historical record)
+                                                    </p>
+                                                ) : null}
+                                                <InputError
+                                                    message={
+                                                        form.errors.rank_id
+                                                    }
+                                                />
+                                            </div>
 
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="historical-client">
-                                                Client (Optional)
-                                            </Label>
-                                            <AppSelect
-                                                value={String(
-                                                    form.data.client_id || '',
-                                                )}
-                                                onValueChange={(val) =>
-                                                    form.setData(
-                                                        'client_id',
-                                                        val ? Number(val) : '',
-                                                    )
-                                                }
-                                                placeholder="Select historical client..."
-                                                searchPlaceholder="Search client..."
-                                            >
-                                                <AppSelectItem value="">
-                                                    None
-                                                </AppSelectItem>
-                                                {formOptions.clients.map(
-                                                    (c) => (
-                                                        <AppSelectItem
-                                                            key={c.id}
-                                                            value={String(c.id)}
-                                                        >
-                                                            {c.name}
-                                                        </AppSelectItem>
-                                                    ),
-                                                )}
-                                            </AppSelect>
-                                            <p className="text-xs text-muted-foreground">
-                                                Select the Client for this
-                                                historical service. It may
-                                                differ from the Vessel&apos;s
-                                                current Client.
-                                            </p>
-                                            <InputError
-                                                message={form.errors.client_id}
-                                            />
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-client">
+                                                    Client (Optional)
+                                                </Label>
+                                                <AppSelect
+                                                    value={String(
+                                                        form.data.client_id ||
+                                                            '',
+                                                    )}
+                                                    onValueChange={(val) =>
+                                                        form.setData(
+                                                            'client_id',
+                                                            val
+                                                                ? Number(val)
+                                                                : '',
+                                                        )
+                                                    }
+                                                    placeholder="Select historical client..."
+                                                    searchPlaceholder="Search client..."
+                                                >
+                                                    <AppSelectItem value="">
+                                                        None
+                                                    </AppSelectItem>
+                                                    {formOptions.clients.map(
+                                                        (c) => (
+                                                            <AppSelectItem
+                                                                key={c.id}
+                                                                value={String(
+                                                                    c.id,
+                                                                )}
+                                                            >
+                                                                {c.name}
+                                                            </AppSelectItem>
+                                                        ),
+                                                    )}
+                                                </AppSelect>
+                                                <p className="text-xs text-muted-foreground">
+                                                    May differ from the
+                                                    vessel&apos;s current
+                                                    client.
+                                                </p>
+                                                <InputError
+                                                    message={
+                                                        form.errors.client_id
+                                                    }
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Main Vessel Service */}
+                                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
+                                        <div className="text-sm font-semibold text-foreground">
+                                            Before Vessel
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Optional movement dates are recorded
+                                            only when known. Missing dates are
+                                            never guessed.
+                                        </p>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-mobilisation">
+                                                    Pre-Mobilisation
+                                                </Label>
+                                                <Input
+                                                    id="historical-mobilisation"
+                                                    type="date"
+                                                    value={
+                                                        form.data
+                                                            .mobilisation_at ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'mobilisation_at',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .mobilisation_at
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-join-standby">
+                                                    Join Standby
+                                                </Label>
+                                                <Input
+                                                    id="historical-join-standby"
+                                                    type="date"
+                                                    value={
+                                                        form.data
+                                                            .join_standby_at ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'join_standby_at',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .join_standby_at
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-training-start">
+                                                    Training Start
+                                                </Label>
+                                                <Input
+                                                    id="historical-training-start"
+                                                    type="date"
+                                                    value={
+                                                        form.data
+                                                            .training_started_at ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'training_started_at',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .training_started_at
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-training-end">
+                                                    Training End
+                                                </Label>
+                                                <Input
+                                                    id="historical-training-end"
+                                                    type="date"
+                                                    value={
+                                                        form.data
+                                                            .training_ended_at ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'training_ended_at',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .training_ended_at
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
                                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                                             <Ship className="h-4 w-4 text-primary" />
-                                            <span>Main Vessel Service</span>
+                                            <span>Vessel</span>
                                         </div>
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-joined-vessel">
-                                                    On Vessel{' '}
-                                                    <span className="text-destructive">
-                                                        *
-                                                    </span>
+                                                    On Vessel
                                                 </Label>
                                                 <Input
                                                     id="historical-joined-vessel"
                                                     type="date"
                                                     value={
                                                         form.data
-                                                            .joined_vessel_at
+                                                            .joined_vessel_at ??
+                                                        ''
                                                     }
                                                     onChange={(e) =>
                                                         form.setData(
@@ -511,7 +705,6 @@ export function AddPastDataDialog({
                                                             e.target.value,
                                                         )
                                                     }
-                                                    required
                                                 />
                                                 <InputError
                                                     message={
@@ -523,16 +716,15 @@ export function AddPastDataDialog({
 
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-disembarked">
-                                                    Disembarked{' '}
-                                                    <span className="text-destructive">
-                                                        *
-                                                    </span>
+                                                    Disembarked
                                                 </Label>
                                                 <Input
                                                     id="historical-disembarked"
                                                     type="date"
                                                     value={
-                                                        form.data.disembarked_at
+                                                        form.data
+                                                            .disembarked_at ??
+                                                        ''
                                                     }
                                                     onChange={(e) =>
                                                         form.setData(
@@ -540,7 +732,6 @@ export function AddPastDataDialog({
                                                             e.target.value,
                                                         )
                                                     }
-                                                    required
                                                 />
                                                 <InputError
                                                     message={
@@ -558,277 +749,43 @@ export function AddPastDataDialog({
                                         </p>
                                     </div>
 
-                                    {/* Collapsible More Movement Details */}
-                                    <div className="overflow-hidden rounded-xl border border-border/60">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setShowMoreDetails(
-                                                    (prev) => !prev,
-                                                )
-                                            }
-                                            className="flex w-full items-center justify-between bg-muted/40 p-3 text-left text-sm font-medium transition-colors hover:bg-muted/60"
-                                        >
-                                            <span className="flex items-center gap-2">
-                                                <span>
-                                                    More Movement Details
-                                                </span>
-                                                <span className="text-xs font-normal text-muted-foreground">
-                                                    (Pre-Mobilisation, Standby,
-                                                    Training, Demob, Home)
-                                                </span>
-                                            </span>
-                                            {showMoreDetails ? (
-                                                <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                                            ) : (
-                                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                            )}
-                                        </button>
-
-                                        {showMoreDetails && (
-                                            <div className="space-y-4 border-t border-border/60 bg-card p-4 text-sm">
-                                                <p className="text-xs text-muted-foreground">
-                                                    Optional movement dates are
-                                                    recorded only when known.
-                                                    Missing dates are never
-                                                    guessed.
-                                                </p>
-
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-mobilisation">
-                                                            Pre-Mobilisation
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-mobilisation"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .mobilisation_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'mobilisation_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .mobilisation_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-join-standby">
-                                                            Join Standby
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-join-standby"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .join_standby_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'join_standby_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .join_standby_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-training-start">
-                                                            Training Start
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-training-start"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .training_started_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'training_started_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .training_started_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-training-end">
-                                                            Training End
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-training-end"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .training_ended_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'training_ended_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .training_ended_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-post-training-standby">
-                                                            Post-Training Join
-                                                            Standby
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-post-training-standby"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .post_training_join_standby_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'post_training_join_standby_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .post_training_join_standby_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-post-signoff">
-                                                            Demobilisation
-                                                            Standby
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-post-signoff"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .post_signoff_standby_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'post_signoff_standby_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .post_signoff_standby_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-travel-home">
-                                                            Home / Redeployment
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-travel-home"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .travel_home_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'travel_home_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .travel_home_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-closed-at">
-                                                            Assignment Closed
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-closed-at"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .assignment_closed_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'assignment_closed_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .assignment_closed_at
-                                                            }
-                                                        />
-                                                    </div>
-                                                </div>
+                                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
+                                        <div className="text-sm font-semibold text-foreground">
+                                            After Vessel
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="historical-travel-home">
+                                                    Home / Redeployment
+                                                </Label>
+                                                <Input
+                                                    id="historical-travel-home"
+                                                    type="date"
+                                                    value={
+                                                        form.data
+                                                            .travel_home_at ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'travel_home_at',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .travel_home_at
+                                                    }
+                                                />
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
 
-                                    {/* Remarks */}
                                     <div className="space-y-1.5">
                                         <Label htmlFor="historical-remarks">
-                                            Remarks / Historical Notes
+                                            Remarks
                                         </Label>
                                         <Textarea
                                             id="historical-remarks"
@@ -870,7 +827,6 @@ export function AddPastDataDialog({
                                 </DialogFooter>
                             </>
                         ) : previewData ? (
-                            /* Preview Step */
                             <div className="space-y-5">
                                 <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
                                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -882,13 +838,49 @@ export function AddPastDataDialog({
                                             The proposed historical record has
                                             been verified against chronological,
                                             tenancy, and overlap rules. Review
-                                            the summary and timeline below
-                                            before persisting.
+                                            the inferred state and timeline
+                                            below before persisting.
                                         </p>
                                     </div>
                                 </div>
 
-                                {/* Summary Box */}
+                                {previewData.inferred_state ? (
+                                    <div className="space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
+                                        <p className="text-xs font-semibold tracking-wider text-sky-700 uppercase dark:text-sky-300">
+                                            Inferred Current State /{' '}
+                                            {previewData.inferred_state.label}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                            <Badge
+                                                variant="secondary"
+                                                className="text-[10px]"
+                                            >
+                                                {previewData.inferred_state
+                                                    .is_open
+                                                    ? 'Open'
+                                                    : 'Closed'}
+                                            </Badge>
+                                            <span>
+                                                {
+                                                    previewData.inferred_state
+                                                        .assignment_status
+                                                }
+                                            </span>
+                                            {previewData.last_movement
+                                                ?.display ? (
+                                                <span>
+                                                    · Last movement:{' '}
+                                                    {
+                                                        previewData
+                                                            .last_movement
+                                                            .display
+                                                    }
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                ) : null}
+
                                 <div className="space-y-3 rounded-xl border border-border bg-card p-4">
                                     <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                                         <div>
@@ -936,78 +928,112 @@ export function AddPastDataDialog({
                                         </div>
                                     </div>
                                     <div className="border-t border-border/50 pt-2 text-xs text-muted-foreground">
-                                        <span>
-                                            Sea Service Duration:{' '}
-                                            <strong className="text-foreground">
-                                                {
-                                                    previewData.summary
-                                                        .sea_service_days
-                                                }{' '}
-                                                days
-                                            </strong>{' '}
-                                            (
-                                            {
+                                        {previewData.summary.sea_service_days !=
+                                        null ? (
+                                            <span>
+                                                Sea Service Duration:{' '}
+                                                <strong className="text-foreground">
+                                                    {
+                                                        previewData.summary
+                                                            .sea_service_days
+                                                    }{' '}
+                                                    days
+                                                </strong>
+                                                {previewData.summary
+                                                    .joined_vessel_at ||
                                                 previewData.summary
-                                                    .joined_vessel_at
-                                            }{' '}
-                                            →{' '}
-                                            {previewData.summary.disembarked_at}
-                                            )
-                                        </span>
+                                                    .disembarked_at ? (
+                                                    <>
+                                                        {' '}
+                                                        (
+                                                        {previewData.summary
+                                                            .joined_vessel_at ??
+                                                            '—'}{' '}
+                                                        →{' '}
+                                                        {previewData.summary
+                                                            .disembarked_at ??
+                                                            '—'}
+                                                        )
+                                                    </>
+                                                ) : null}
+                                            </span>
+                                        ) : (
+                                            <span>
+                                                Sea service period not completed
+                                                from the provided dates.
+                                            </span>
+                                        )}
                                         {previewData.summary.remarks && (
                                             <p className="mt-1 italic">
-                                                "{previewData.summary.remarks}"
+                                                &quot;
+                                                {previewData.summary.remarks}
+                                                &quot;
                                             </p>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* Timeline Visual */}
                                 <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
                                     <h5 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                         Historical Movement Timeline
                                     </h5>
                                     <div className="relative space-y-4 pl-6 before:absolute before:top-2 before:bottom-2 before:left-2.5 before:w-0.5 before:bg-border">
                                         {previewData.timeline.map(
-                                            (item, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="relative flex items-start justify-between gap-4"
-                                                >
-                                                    <div className="absolute top-1 -left-6 h-3 w-3 rounded-full border-2 border-background bg-primary" />
-                                                    <div>
-                                                        <span className="block text-xs font-semibold text-foreground">
-                                                            {item.phase_label}
-                                                        </span>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {formatDisplayDate(
-                                                                item.start,
-                                                            )}
-                                                            {item.end
-                                                                ? ` → ${formatDisplayDate(item.end)}`
-                                                                : ''}
-                                                        </span>
+                                            (item, idx) => {
+                                                const endLabel =
+                                                    timelineEndLabel(item);
+
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className="relative flex items-start justify-between gap-4"
+                                                    >
+                                                        <div className="absolute top-1 -left-6 h-3 w-3 rounded-full border-2 border-background bg-primary" />
+                                                        <div>
+                                                            <span className="block text-xs font-semibold text-foreground">
+                                                                {
+                                                                    item.phase_label
+                                                                }
+                                                                {item.is_open ? (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="ml-2 text-[10px]"
+                                                                    >
+                                                                        Current
+                                                                    </Badge>
+                                                                ) : null}
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {formatDisplayDate(
+                                                                    item.start,
+                                                                )}
+                                                                {endLabel
+                                                                    ? ` → ${endLabel}`
+                                                                    : ''}
+                                                            </span>
+                                                        </div>
+                                                        {item.duration_days !=
+                                                            null && (
+                                                            <Badge
+                                                                variant="secondary"
+                                                                className="text-xs"
+                                                            >
+                                                                {
+                                                                    item.duration_days
+                                                                }{' '}
+                                                                {item.duration_days ===
+                                                                1
+                                                                    ? 'day'
+                                                                    : 'days'}
+                                                            </Badge>
+                                                        )}
                                                     </div>
-                                                    {item.duration_days !=
-                                                        null && (
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className="text-xs"
-                                                        >
-                                                            {item.duration_days}{' '}
-                                                            {item.duration_days ===
-                                                            1
-                                                                ? 'day'
-                                                                : 'days'}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            ),
+                                                );
+                                            },
                                         )}
                                     </div>
                                 </div>
 
-                                {/* Checks Checklist */}
                                 <div className="space-y-2.5 rounded-xl border border-border/60 bg-card p-4">
                                     <h5 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                         Authoritative Verification Checks
@@ -1029,7 +1055,6 @@ export function AddPastDataDialog({
                                     </div>
                                 </div>
 
-                                {/* Sea Service Impact */}
                                 <div
                                     className={`flex items-start gap-3 rounded-xl border p-4 ${
                                         previewData.sea_service.status ===
@@ -1038,7 +1063,11 @@ export function AddPastDataDialog({
                                             : previewData.sea_service.status ===
                                                 'will_create'
                                               ? 'border-emerald-500/20 bg-emerald-500/5'
-                                              : 'border-amber-500/20 bg-amber-500/5'
+                                              : previewData.sea_service
+                                                      .status ===
+                                                  'not_applicable'
+                                                ? 'border-border/60 bg-muted/20'
+                                                : 'border-amber-500/20 bg-amber-500/5'
                                     }`}
                                 >
                                     {previewData.sea_service.status ===
@@ -1057,19 +1086,19 @@ export function AddPastDataDialog({
                                                     previewData.sea_service
                                                         .status === 'will_link'
                                                         ? 'secondary'
-                                                        : 'default'
+                                                        : previewData
+                                                                .sea_service
+                                                                .status ===
+                                                            'not_applicable'
+                                                          ? 'outline'
+                                                          : 'default'
                                                 }
                                                 className="text-[10px]"
                                             >
-                                                {previewData.sea_service
-                                                    .status === 'will_link'
-                                                    ? 'Will Link Existing'
-                                                    : previewData.sea_service
-                                                            .status ===
-                                                        'will_create'
-                                                      ? 'Will Create Record'
-                                                      : previewData.sea_service
-                                                            .status}
+                                                {seaServiceStatusLabel(
+                                                    previewData.sea_service
+                                                        .status,
+                                                )}
                                             </Badge>
                                         </div>
                                         <p className="text-xs text-muted-foreground">

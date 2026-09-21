@@ -280,11 +280,22 @@ final class HistoricalCrewImportPreviewService
                     HistoricalCrewImportColumns::EMPLOYEE_NO => 'employee_no is required.',
                     HistoricalCrewImportColumns::VESSEL => 'vessel is required.',
                     HistoricalCrewImportColumns::RANK => 'rank is required.',
-                    HistoricalCrewImportColumns::VESSEL_JOIN_DATE => 'vessel_join_date is required.',
-                    HistoricalCrewImportColumns::DISEMBARK_DATE => 'disembark_date is required.',
                     default => "{$required} is required.",
                 };
             }
+        }
+
+        $hasMovementDate = false;
+        foreach (HistoricalCrewImportColumns::dateHeaders() as $dateHeader) {
+            $value = $parsedRow->raw[$dateHeader] ?? null;
+            if ($value !== null && $value !== '') {
+                $hasMovementDate = true;
+                break;
+            }
+        }
+
+        if (! $hasMovementDate) {
+            $resolveErrors['dates'] = 'At least one meaningful movement date must be supplied.';
         }
 
         $employee = null;
@@ -367,10 +378,7 @@ final class HistoricalCrewImportPreviewService
                         'join_standby_at' => $parsedRow->raw[HistoricalCrewImportColumns::JOIN_STANDBY_DATE] ?? null,
                         'training_start_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAINING_START_DATE] ?? null,
                         'training_end_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAINING_END_DATE] ?? null,
-                        'post_training_join_standby_at' => $parsedRow->raw[HistoricalCrewImportColumns::POST_TRAINING_JOIN_STANDBY_DATE] ?? null,
-                        'demob_standby_at' => $parsedRow->raw[HistoricalCrewImportColumns::DEMOB_STANDBY_DATE] ?? null,
                         'travel_home_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAVEL_HOME_DATE] ?? null,
-                        'assignment_closed_at' => $parsedRow->raw[HistoricalCrewImportColumns::ASSIGNMENT_CLOSE_DATE] ?? null,
                         'remarks' => $parsedRow->remarks(),
                     ],
                     companyId: $companyId,
@@ -390,13 +398,25 @@ final class HistoricalCrewImportPreviewService
 
         $intervalStart = null;
         $intervalEnd = null;
+        $isOpen = false;
+        $inferredState = null;
+        $lastMovement = null;
 
-        if ($data !== null) {
+        if ($data !== null && $domainResult?->valid) {
             $intervalStart = $data->earliestActualStart()->toDateString();
-            $intervalEnd = $data->latestActualEnd()->toDateString();
-        } elseif ($parsedRow->vesselJoinDate() !== null && $parsedRow->disembarkDate() !== null) {
-            $intervalStart = $parsedRow->vesselJoinDate();
-            $intervalEnd = $parsedRow->disembarkDate();
+            $intervalEnd = $data->intervalEnd()?->toDateString();
+            $isOpen = $domainResult->inferredState['is_open'] ?? false;
+            $inferredState = $domainResult->inferredState;
+            $lastMovement = $domainResult->lastMovement;
+        } elseif ($data !== null) {
+            try {
+                $intervalStart = $data->earliestActualStart()->toDateString();
+                $intervalEnd = $data->intervalEnd()?->toDateString();
+                $reconstruction = $data->reconstruction();
+                $isOpen = $reconstruction['is_open'];
+            } catch (\InvalidArgumentException) {
+                // Keep interval null when reconstruction is impossible.
+            }
         }
 
         return [
@@ -419,6 +439,9 @@ final class HistoricalCrewImportPreviewService
             'disembarked_at' => $parsedRow->disembarkDate(),
             'interval_start' => $intervalStart,
             'interval_end' => $intervalEnd,
+            'is_open' => $isOpen,
+            'inferred_state' => $inferredState,
+            'last_movement' => $lastMovement,
             'domain' => $domainResult,
             'data' => $data,
             'workbook_messages' => [],
@@ -461,7 +484,7 @@ final class HistoricalCrewImportPreviewService
         foreach ($evaluated as $index => $row) {
             $employeeId = $row['employee_id'] ?? null;
 
-            if ($employeeId === null || $row['interval_start'] === null || $row['interval_end'] === null) {
+            if ($employeeId === null || $row['interval_start'] === null) {
                 continue;
             }
 
@@ -471,10 +494,66 @@ final class HistoricalCrewImportPreviewService
 
         foreach ($byEmployee as $indexes) {
             usort($indexes, function (int $a, int $b) use ($evaluated): int {
-                return strcmp((string) $evaluated[$a]['interval_start'], (string) $evaluated[$b]['interval_start']);
+                $startCmp = strcmp((string) $evaluated[$a]['interval_start'], (string) $evaluated[$b]['interval_start']);
+
+                if ($startCmp !== 0) {
+                    return $startCmp;
+                }
+
+                return $evaluated[$a]['row_number'] <=> $evaluated[$b]['row_number'];
             });
 
             $count = count($indexes);
+            $openIndexes = [];
+
+            for ($i = 0; $i < $count; $i++) {
+                if ($evaluated[$indexes[$i]]['is_open'] ?? false) {
+                    $openIndexes[] = $indexes[$i];
+                }
+            }
+
+            if (count($openIndexes) > 1) {
+                foreach ($openIndexes as $openIndex) {
+                    $others = array_map(
+                        fn (int $idx): string => (string) $evaluated[$idx]['row_number'],
+                        array_values(array_filter($openIndexes, fn (int $idx): bool => $idx !== $openIndex)),
+                    );
+                    $message = 'Multiple open assignments for the same employee in this workbook (rows '
+                        .implode(', ', $others)
+                        .'). At most one open/current assignment is allowed per employee.';
+                    $evaluated[$openIndex]['workbook_messages'][] = $message;
+                    $evaluated[$openIndex]['errors']['workbook'] = $message;
+                    $evaluated[$openIndex]['status'] = 'blocked';
+                }
+            }
+
+            foreach ($indexes as $position => $index) {
+                if (! ($evaluated[$index]['is_open'] ?? false)) {
+                    continue;
+                }
+
+                $laterIndexes = array_slice($indexes, $position + 1);
+
+                if ($laterIndexes === []) {
+                    continue;
+                }
+
+                $laterRows = array_map(
+                    fn (int $idx): string => (string) $evaluated[$idx]['row_number'],
+                    $laterIndexes,
+                );
+                $message = sprintf(
+                    'Row %d remains open at %s, but Row %s contains a later assignment for the same employee. Complete Row %d\'s later movements before importing Row %s.',
+                    $evaluated[$index]['row_number'],
+                    $evaluated[$index]['inferred_state']['label'] ?? 'an open phase',
+                    $laterRows[0],
+                    $evaluated[$index]['row_number'],
+                    $laterRows[0],
+                );
+                $evaluated[$index]['workbook_messages'][] = $message;
+                $evaluated[$index]['errors']['workbook'] = $message;
+                $evaluated[$index]['status'] = 'blocked';
+            }
 
             for ($i = 0; $i < $count; $i++) {
                 $left = $evaluated[$indexes[$i]];
@@ -482,19 +561,23 @@ final class HistoricalCrewImportPreviewService
                 for ($j = $i + 1; $j < $count; $j++) {
                     $right = $evaluated[$indexes[$j]];
 
-                    // Sorted by start: once right starts at/after left end, later rows cannot overlap left.
-                    if (! ((string) $right['interval_start'] < (string) $left['interval_end'])) {
+                    $leftEnd = $left['interval_end'];
+                    $rightEnd = $right['interval_end'];
+
+                    if ($leftEnd !== null && (string) $right['interval_start'] >= (string) $leftEnd) {
                         break;
                     }
 
-                    if (HistoricalAssignmentIntervalOverlap::completedDateStringsOverlap(
+                    if (HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
                         (string) $left['interval_start'],
-                        (string) $left['interval_end'],
+                        $leftEnd !== null ? (string) $leftEnd : null,
                         (string) $right['interval_start'],
-                        (string) $right['interval_end'],
+                        $rightEnd !== null ? (string) $rightEnd : null,
                     )) {
-                        $leftMsg = "Overlaps workbook row {$right['row_number']} ({$right['interval_start']} → {$right['interval_end']}).";
-                        $rightMsg = "Overlaps workbook row {$left['row_number']} ({$left['interval_start']} → {$left['interval_end']}).";
+                        $leftEndLabel = $leftEnd ?? 'Current';
+                        $rightEndLabel = $rightEnd ?? 'Current';
+                        $leftMsg = "Overlaps workbook row {$right['row_number']} ({$right['interval_start']} → {$rightEndLabel}).";
+                        $rightMsg = "Overlaps workbook row {$left['row_number']} ({$left['interval_start']} → {$leftEndLabel}).";
 
                         $evaluated[$indexes[$i]]['workbook_messages'][] = $leftMsg;
                         $evaluated[$indexes[$i]]['errors']['workbook'] = $leftMsg;
@@ -563,6 +646,9 @@ final class HistoricalCrewImportPreviewService
                 : null,
             'joined_vessel_at' => $row['joined_vessel_at'],
             'disembarked_at' => $row['disembarked_at'],
+            'last_movement' => $row['last_movement'],
+            'inferred_state' => $row['inferred_state'] ?? $domain?->inferredState,
+            'is_open' => $row['is_open'],
             'errors' => $errorMessages,
             'error_fields' => $row['errors'],
             'warnings' => $row['warnings'],

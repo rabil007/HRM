@@ -2,7 +2,6 @@
 
 namespace App\Support\CrewMovements\Historical;
 
-use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
@@ -40,28 +39,24 @@ final class HistoricalCrewAssignmentService
         ?int $importBatchId = null,
     ): CrewAssignment {
         return DB::transaction(function () use ($data, $actorId, $importBatchId): CrewAssignment {
-            // 1. Lock the employee row to serialize concurrent writes for this employee
             Employee::query()
                 ->where('company_id', $data->companyId)
                 ->whereKey($data->employeeId)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // 2. Lock existing assignment rows for this employee
             CrewAssignment::query()
                 ->where('company_id', $data->companyId)
                 ->where('employee_id', $data->employeeId)
                 ->lockForUpdate()
                 ->get(['id']);
 
-            // 3. Re-run authoritative validation under the lock
             $actor = $actorId !== null && $actorId > 0 ? User::query()->find($actorId) : null;
             $validationResult = $this->validator->validate($data, $actor);
             $validationResult->assertValid();
 
-            // 4. Generate assignment number with locking
+            $reconstruction = $data->reconstruction();
             $assignmentNo = $this->numberGenerator->next($data->companyId);
-
             $chronologicalPreviousId = $this->resolveChronologicalPreviousId($data);
 
             $assignment = CrewAssignment::query()->create([
@@ -71,9 +66,9 @@ final class HistoricalCrewAssignmentService
                 'rank_id' => $data->rankId,
                 'client_id' => $data->clientId,
                 'vessel_id' => $data->vesselId,
-                'status' => CrewAssignmentStatus::Completed,
+                'status' => $reconstruction['assignment_status'],
                 'started_at' => $data->earliestActualStart(),
-                'closed_at' => $data->assignmentClosedAt ?? $data->latestActualEnd(),
+                'closed_at' => $reconstruction['closed_at'],
                 'previous_assignment_id' => $chronologicalPreviousId,
                 'source' => $data->source,
                 'historical_import_batch_id' => $importBatchId,
@@ -84,80 +79,91 @@ final class HistoricalCrewAssignmentService
 
             $this->relinkChronologicalSuccessor($assignment, $chronologicalPreviousId);
 
-            $phases = $data->phasesToCreate();
             /** @var list<CrewAssignmentPhase> $createdPhases */
             $createdPhases = [];
             $seq = 1;
+            $currentPhaseId = null;
 
-            foreach ($phases as $phaseData) {
+            foreach ($reconstruction['phases'] as $phaseData) {
+                $isCompleted = $phaseData['status'] === CrewPhaseStatus::Completed;
+
                 $phase = CrewAssignmentPhase::query()->create([
                     'company_id' => $data->companyId,
                     'crew_assignment_id' => $assignment->id,
                     'phase_code' => $phaseData['phase_code'],
                     'sequence' => $seq++,
-                    'status' => CrewPhaseStatus::Completed,
+                    'status' => $phaseData['status'],
                     'actual_start_at' => $phaseData['actual_start_at'],
                     'actual_end_at' => $phaseData['actual_end_at'],
                     'remarks' => $phaseData['remarks'],
                     'started_by' => $actorId,
-                    'completed_by' => $actorId,
+                    'completed_by' => $isCompleted ? $actorId : null,
                 ]);
 
                 $createdPhases[] = $phase;
+
+                if ($phaseData['status'] === CrewPhaseStatus::Active
+                    || $phaseData['phase_code'] === CrewPhaseCode::HomeRedeploy) {
+                    $currentPhaseId = $phase->id;
+                }
             }
 
-            $lastPhase = end($createdPhases);
-            if ($lastPhase !== false) {
-                $assignment->update(['current_phase_id' => $lastPhase->id]);
+            if ($currentPhaseId === null && $createdPhases !== []) {
+                $currentPhaseId = $createdPhases[array_key_last($createdPhases)]->id;
             }
 
-            $this->guard->assertValid($assignment);
+            if ($currentPhaseId !== null) {
+                $assignment->update(['current_phase_id' => $currentPhaseId]);
+            }
 
-            // 5. Sea service sync or safe deduplication
-            $p4Phase = collect($createdPhases)->first(
-                fn (CrewAssignmentPhase $p): bool => $p->phase_code === CrewPhaseCode::OnVessel
-            );
+            $this->guard->assertValid($assignment->fresh(['phases', 'currentPhase']));
 
-            if ($p4Phase !== null && $this->seaServiceSync->isEnabled($data->companyId)) {
-                $seaDuration = $data->seaServiceDuration();
-                $startDate = $data->joinedVesselAt->toDateString();
-                $endDate = $data->disembarkedAt->toDateString();
-
-                $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
-                    data: $data,
-                    seaStartDate: $startDate,
-                    seaEndDate: $endDate,
-                    seaDays: $seaDuration['days'],
-                    lockForUpdate: true,
+            if ($data->hasCompletedSeaServicePeriod() && $this->seaServiceSync->isEnabled($data->companyId)) {
+                $p4Phase = collect($createdPhases)->first(
+                    fn (CrewAssignmentPhase $p): bool => $p->phase_code === CrewPhaseCode::OnVessel
+                        && $p->status === CrewPhaseStatus::Completed
+                        && $p->actual_end_at !== null
                 );
 
-                if ($exactMatch['status'] === 'conflict') {
-                    throw ValidationException::withMessages([
-                        'sea_service' => [$exactMatch['error'] ?? $exactMatch['message']],
-                    ]);
-                }
+                if ($p4Phase !== null) {
+                    $seaDuration = $data->seaServiceDuration();
+                    $startDate = $data->joinedVesselAt->toDateString();
+                    $endDate = $data->disembarkedAt->toDateString();
 
-                if ($exactMatch['status'] === 'will_link' && $exactMatch['existing_id'] !== null) {
-                    $matchingUnlinked = EmployeeSeaService::query()
-                        ->whereKey($exactMatch['existing_id'])
-                        ->lockForUpdate()
-                        ->firstOrFail();
+                    $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
+                        data: $data,
+                        seaStartDate: $startDate,
+                        seaEndDate: $endDate,
+                        seaDays: $seaDuration['days'],
+                        lockForUpdate: true,
+                    );
 
-                    // Safe linking: do not silently rewrite existing HR history (days, rank, client)
-                    $matchingUnlinked->crew_assignment_phase_id = $p4Phase->id;
-                    if ($matchingUnlinked->rank_id === null) {
-                        $matchingUnlinked->rank_id = $data->rankId;
+                    if ($exactMatch['status'] === 'conflict') {
+                        throw ValidationException::withMessages([
+                            'sea_service' => [$exactMatch['error'] ?? $exactMatch['message']],
+                        ]);
                     }
-                    if ($matchingUnlinked->client_id === null && $data->clientId !== null) {
-                        $matchingUnlinked->client_id = $data->clientId;
+
+                    if ($exactMatch['status'] === 'will_link' && $exactMatch['existing_id'] !== null) {
+                        $matchingUnlinked = EmployeeSeaService::query()
+                            ->whereKey($exactMatch['existing_id'])
+                            ->lockForUpdate()
+                            ->firstOrFail();
+
+                        $matchingUnlinked->crew_assignment_phase_id = $p4Phase->id;
+                        if ($matchingUnlinked->rank_id === null) {
+                            $matchingUnlinked->rank_id = $data->rankId;
+                        }
+                        if ($matchingUnlinked->client_id === null && $data->clientId !== null) {
+                            $matchingUnlinked->client_id = $data->clientId;
+                        }
+                        $matchingUnlinked->save();
+                    } else {
+                        $this->seaServiceSync->syncFromPhase($p4Phase);
                     }
-                    $matchingUnlinked->save();
-                } else {
-                    $this->seaServiceSync->syncFromPhase($p4Phase);
                 }
             }
 
-            // 6. Activity audit logging with company_id on activity row
             activity()
                 ->performedOn($assignment)
                 ->causedBy($actorId)
@@ -171,8 +177,10 @@ final class HistoricalCrewAssignmentService
                     'rank_id' => $data->rankId,
                     'historical_start' => $assignment->started_at?->toIso8601String(),
                     'historical_end' => $assignment->closed_at?->toIso8601String(),
-                    'historical_joined_vessel_at' => $data->joinedVesselAt->toDateString(),
-                    'historical_disembarked_at' => $data->disembarkedAt->toDateString(),
+                    'historical_joined_vessel_at' => $data->joinedVesselAt?->toDateString(),
+                    'historical_disembarked_at' => $data->disembarkedAt?->toDateString(),
+                    'inferred_phase' => $reconstruction['inferred_state']['phase_code']->value,
+                    'assignment_status' => $reconstruction['assignment_status']->value,
                     'source' => $data->source,
                 ])
                 ->tap(function ($activity) use ($assignment): void {

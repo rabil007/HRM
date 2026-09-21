@@ -15,9 +15,11 @@ final class HistoricalCrewAssignmentValidationResult
      * @param  array{id: int, name: string}  $vessel
      * @param  array{id: int, name: string}  $rank
      * @param  array{id: int, name: string}|null  $client
-     * @param  array{joined_vessel_at: string, disembarked_at: string, sea_service_days: int, remarks: ?string}  $summary
-     * @param  list<array{phase_code: string, phase_label: string, start: string, end: ?string, duration_days: ?int}>  $timeline
-     * @param  array{status: string, days: int, months: int, start_date: string, end_date: string, vessel_id: int, vessel_name: string, existing_id: ?int, message: string}  $seaService
+     * @param  array<string, mixed>  $summary
+     * @param  list<array<string, mixed>>  $timeline
+     * @param  array<string, mixed>  $seaService
+     * @param  array<string, mixed>|null  $inferredState
+     * @param  array<string, mixed>|null  $lastMovement
      */
     public function __construct(
         public readonly bool $valid,
@@ -32,6 +34,8 @@ final class HistoricalCrewAssignmentValidationResult
         public readonly array $timeline,
         public readonly array $seaService,
         public readonly ?CrewAssignment $conflictingAssignment = null,
+        public readonly ?array $inferredState = null,
+        public readonly ?array $lastMovement = null,
     ) {}
 
     public function assertValid(): void
@@ -55,6 +59,8 @@ final class HistoricalCrewAssignmentValidationResult
             checks: $this->checks,
             warnings: $this->warnings,
             errors: array_values($this->errors),
+            inferredState: $this->inferredState,
+            lastMovement: $this->lastMovement,
         );
     }
 }

@@ -1,7 +1,6 @@
 const FORM_ALIASES: Record<string, string> = {
     training_start_at: 'training_started_at',
     training_end_at: 'training_ended_at',
-    demob_standby_at: 'post_signoff_standby_at',
     mobilisation_start_at: 'mobilisation_at',
 };
 

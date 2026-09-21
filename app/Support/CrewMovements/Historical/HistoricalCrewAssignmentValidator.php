@@ -18,6 +18,8 @@ use Carbon\CarbonInterface;
 
 final class HistoricalCrewAssignmentValidator
 {
+    public const ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE = 'This employee already has an active Crew Assignment in OMS-HRM. Historical records before the active assignment may still be imported, but this row cannot become another current assignment.';
+
     public function __construct(
         private readonly SeaServiceSyncService $seaServiceSync,
         private readonly HistoricalSeaServiceMatchResolver $seaServiceMatchResolver,
@@ -33,7 +35,7 @@ final class HistoricalCrewAssignmentValidator
         $warnings = [];
         $checks = [];
 
-        // 1. Employee Check: must belong to company, not soft-deleted, and visible to actor
+        // 1. Employee Check
         $employee = $bulk?->employee($data->employeeId)
             ?? Employee::query()
                 ->where('company_id', $data->companyId)
@@ -48,7 +50,6 @@ final class HistoricalCrewAssignmentValidator
             $employeeMessage = 'Employee not found in the active company.';
             $errors['employee_id'] = $employeeMessage;
         } elseif ($bulk === null && $actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $data->companyId)) {
-            // Bulk context already applied EmployeeVisibilityScope when resolving identities.
             $employeeValid = false;
             $employeeMessage = 'You do not have permission to view or manage this employee.';
             $errors['employee_id'] = $employeeMessage;
@@ -67,7 +68,7 @@ final class HistoricalCrewAssignmentValidator
             'message' => $employeeMessage,
         ];
 
-        // 2. Vessel Check: must belong to company via ClientAssignmentRules
+        // 2. Vessel Check
         $vessel = $bulk?->vessel($data->vesselId)
             ?? ClientAssignmentRules::findCompanyVessel($data->companyId, $data->vesselId);
 
@@ -131,22 +132,25 @@ final class HistoricalCrewAssignmentValidator
             $warnings[] = "Client '{$client->name}' is currently inactive in master data.";
         }
 
-        // 4. Chronological & Future Dates Check
+        // 4. Chronological & dependency validation
         $datesValid = true;
         $datesMessage = null;
         $now = Carbon::now($timezone);
+        $reconstruction = null;
+
+        if (! $data->hasAnyMovementDate()) {
+            $datesValid = false;
+            $errors['dates'] = 'At least one meaningful movement date must be supplied.';
+        }
 
         $allSuppliedTimestamps = [
             'mobilisation_start_at' => $data->mobilisationStartAt,
             'join_standby_at' => $data->joinStandbyAt,
             'training_start_at' => $data->trainingStartAt,
             'training_end_at' => $data->trainingEndAt,
-            'post_training_join_standby_at' => $data->postTrainingJoinStandbyAt,
             'joined_vessel_at' => $data->joinedVesselAt,
             'disembarked_at' => $data->disembarkedAt,
-            'demob_standby_at' => $data->demobStandbyAt,
             'travel_home_at' => $data->travelHomeAt,
-            'assignment_closed_at' => $data->assignmentClosedAt,
         ];
 
         foreach ($allSuppliedTimestamps as $field => $ts) {
@@ -156,41 +160,35 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
-        // Mandatory On Vessel check: joined_vessel_at < disembarked_at
-        if (! $data->joinedVesselAt->lt($data->disembarkedAt)) {
-            $datesValid = false;
-            $errors['disembarked_at'] = 'Disembarked must be after On Vessel.';
-        }
-
-        // Training start & end consistency
         if ($data->trainingEndAt !== null && $data->trainingStartAt === null) {
             $datesValid = false;
             $errors['training_start_at'] = 'Training Start is required when Training End is provided.';
         }
 
-        // Demobilisation Standby needs an explicit end boundary (Home or Assignment Closed).
-        if ($data->demobStandbyAt !== null
-            && $data->travelHomeAt === null
-            && $data->assignmentClosedAt === null) {
+        if ($data->disembarkedAt !== null && $data->joinedVesselAt === null) {
             $datesValid = false;
-            $errors['demob_standby_at'] = 'Home / Redeployment or Assignment Closed is required when Demobilisation Standby is provided, so the end of the standby period is known.';
-            $errors['travel_home_at'] = 'Home / Redeployment or Assignment Closed is required when Demobilisation Standby is provided.';
-            $errors['assignment_closed_at'] = 'Home / Redeployment or Assignment Closed is required when Demobilisation Standby is provided.';
-            $errors['post_signoff_standby_at'] = $errors['demob_standby_at'];
+            $errors['joined_vessel_at'] = 'On Vessel is required when Disembarked is provided.';
         }
 
-        // Chronological chain comparison (modern product flow only)
+        if ($data->travelHomeAt !== null && $data->disembarkedAt === null) {
+            $datesValid = false;
+            $errors['disembarked_at'] = 'Disembarked is required when Home / Redeployment is provided.';
+        }
+
+        if ($data->joinedVesselAt !== null && $data->disembarkedAt !== null
+            && ! $data->joinedVesselAt->lt($data->disembarkedAt)) {
+            $datesValid = false;
+            $errors['disembarked_at'] = 'Disembarked must be after On Vessel.';
+        }
+
         $chainDefinitions = [
             ['field' => 'mobilisation_start_at', 'label' => 'Pre-Mobilisation', 'ts' => $data->mobilisationStartAt],
             ['field' => 'join_standby_at', 'label' => 'Join Standby', 'ts' => $data->joinStandbyAt],
             ['field' => 'training_start_at', 'label' => 'Training Start', 'ts' => $data->trainingStartAt],
             ['field' => 'training_end_at', 'label' => 'Training End', 'ts' => $data->trainingEndAt],
-            ['field' => 'post_training_join_standby_at', 'label' => 'Post-Training Join Standby', 'ts' => $data->postTrainingJoinStandbyAt],
             ['field' => 'joined_vessel_at', 'label' => 'On Vessel', 'ts' => $data->joinedVesselAt],
             ['field' => 'disembarked_at', 'label' => 'Disembarked', 'ts' => $data->disembarkedAt],
-            ['field' => 'demob_standby_at', 'label' => 'Demobilisation Standby', 'ts' => $data->demobStandbyAt],
             ['field' => 'travel_home_at', 'label' => 'Home / Redeployment', 'ts' => $data->travelHomeAt],
-            ['field' => 'assignment_closed_at', 'label' => 'Assignment Closed', 'ts' => $data->assignmentClosedAt],
         ];
 
         /** @var list<array{field: string, label: string, ts: CarbonInterface}> $suppliedChain */
@@ -210,6 +208,13 @@ final class HistoricalCrewAssignmentValidator
                     $datesValid = false;
                     $errors[$right['field']] = "{$right['label']} must be after {$left['label']}.";
                 }
+            } elseif ($left['field'] === 'disembarked_at' && $right['field'] === 'travel_home_at') {
+                // Same timestamp is valid (direct P4 → P6).
+                if ($left['ts']->gt($right['ts'])) {
+                    $datesValid = false;
+                    $errors[$right['field']] = "{$right['label']} cannot be before {$left['label']}.";
+                    $errors[$left['field']] = "{$left['label']} cannot be after {$right['label']}.";
+                }
             } else {
                 if ($left['ts']->gt($right['ts'])) {
                     $datesValid = false;
@@ -227,6 +232,15 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
+        if ($datesValid && $data->hasAnyMovementDate()) {
+            try {
+                $reconstruction = $data->reconstruction();
+            } catch (\InvalidArgumentException $exception) {
+                $datesValid = false;
+                $errors['dates'] = $exception->getMessage();
+            }
+        }
+
         if (! $datesValid && $datesMessage === null) {
             $datesMessage = 'One or more timestamps are chronologically invalid or in the future.';
         }
@@ -237,73 +251,16 @@ final class HistoricalCrewAssignmentValidator
             'message' => $datesMessage ?? 'Dates and chronological sequence are valid.',
         ];
 
-        // 5. Overlap Check with Existing Assignment History
-        $newStart = $data->earliestActualStart();
-        $newEnd = $data->latestActualEnd();
+        $isOpenBootstrap = $reconstruction['is_open'] ?? false;
+        $newStart = null;
+        $newEnd = null;
 
-        $noConflict = true;
-        $conflictMessage = null;
-        $conflictingAssignment = null;
-
-        if ($employee !== null) {
-            $existingAssignments = $bulk?->assignmentsForEmployee($data->employeeId)
-                ?? CrewAssignment::query()
-                    ->where('company_id', $data->companyId)
-                    ->where('employee_id', $data->employeeId)
-                    ->whereNull('voided_at')
-                    ->with(['phases'])
-                    ->get();
-
-            foreach ($existingAssignments as $existing) {
-                $existingStart = $existing->started_at ?? $existing->phases->whereNotNull('actual_start_at')->min('actual_start_at');
-
-                if ($existingStart === null) {
-                    continue;
-                }
-
-                if ($existing->status === CrewAssignmentStatus::Active) {
-                    if (HistoricalAssignmentIntervalOverlap::overlapsActiveAssignment($newEnd, $existingStart)) {
-                        $noConflict = false;
-                        $conflictingAssignment = $existing;
-                        $overlapStart = $newStart->gt($existingStart) ? $newStart : $existingStart;
-                        $overlapEnd = $newEnd;
-                        $conflictMessage = sprintf(
-                            'Overlaps %s (%s -> %s)',
-                            $existing->assignment_no,
-                            $overlapStart->copy()->timezone($timezone)->format('d M Y'),
-                            $overlapEnd->copy()->timezone($timezone)->format('d M Y'),
-                        );
-                        $errors['overlap'] = $conflictMessage;
-                        break;
-                    }
-                } else {
-                    $existingEnd = $existing->closed_at ?? $existing->phases->whereNotNull('actual_end_at')->max('actual_end_at') ?? $existingStart;
-
-                    if (HistoricalAssignmentIntervalOverlap::completedIntervalsOverlap($newStart, $newEnd, $existingStart, $existingEnd)) {
-                        $noConflict = false;
-                        $conflictingAssignment = $existing;
-                        $overlapStart = $newStart->gt($existingStart) ? $newStart : $existingStart;
-                        $overlapEnd = $newEnd->lt($existingEnd) ? $newEnd : $existingEnd;
-                        $conflictMessage = sprintf(
-                            'Overlaps %s (%s -> %s)',
-                            $existing->assignment_no,
-                            $overlapStart->copy()->timezone($timezone)->format('d M Y'),
-                            $overlapEnd->copy()->timezone($timezone)->format('d M Y'),
-                        );
-                        $errors['overlap'] = $conflictMessage;
-                        break;
-                    }
-                }
-            }
+        if ($reconstruction !== null) {
+            $newStart = $data->earliestActualStart();
+            $newEnd = $data->intervalEnd();
         }
 
-        $checks[] = [
-            'code' => 'no_conflict',
-            'passed' => $noConflict,
-            'message' => $conflictMessage ?? 'No conflicting assignment found.',
-        ];
-
-        // 6. Current Operational State Isolation Check
+        // 5. Existing Active OMS assignment protection for open bootstrap rows
         $activeAssignment = null;
 
         if ($employee !== null) {
@@ -321,125 +278,226 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
-        $currentIsolatedMessage = $activeAssignment !== null
-            ? "Current active assignment {$activeAssignment->assignment_no} will remain untouched."
-            : 'No active operational assignment exists; operations will remain untouched.';
+        if ($isOpenBootstrap && $activeAssignment !== null) {
+            $errors['assignment'] = self::ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE;
+        }
+
+        // 6. Overlap Check with Existing Assignment History
+        $noConflict = true;
+        $conflictMessage = null;
+        $conflictingAssignment = null;
+
+        if ($employee !== null && $newStart !== null && ! isset($errors['assignment'])) {
+            $existingAssignments = $bulk?->assignmentsForEmployee($data->employeeId)
+                ?? CrewAssignment::query()
+                    ->where('company_id', $data->companyId)
+                    ->where('employee_id', $data->employeeId)
+                    ->whereNull('voided_at')
+                    ->with(['phases'])
+                    ->get();
+
+            foreach ($existingAssignments as $existing) {
+                $existingStart = $existing->started_at ?? $existing->phases->whereNotNull('actual_start_at')->min('actual_start_at');
+
+                if ($existingStart === null) {
+                    continue;
+                }
+
+                $existingEnd = $existing->status === CrewAssignmentStatus::Active
+                    ? null
+                    : ($existing->closed_at ?? $existing->phases->whereNotNull('actual_end_at')->max('actual_end_at') ?? $existingStart);
+
+                if (HistoricalAssignmentIntervalOverlap::intervalsOverlap($newStart, $newEnd, $existingStart, $existingEnd)) {
+                    $noConflict = false;
+                    $conflictingAssignment = $existing;
+                    $overlapStart = $newStart->gt($existingStart) ? $newStart : $existingStart;
+                    $overlapEndLabel = $newEnd !== null && $existingEnd !== null
+                        ? ($newEnd->lt($existingEnd) ? $newEnd : $existingEnd)->copy()->timezone($timezone)->format('d M Y')
+                        : 'Current';
+                    $conflictMessage = sprintf(
+                        'Overlaps %s (%s -> %s)',
+                        $existing->assignment_no,
+                        $overlapStart->copy()->timezone($timezone)->format('d M Y'),
+                        $overlapEndLabel,
+                    );
+                    $errors['overlap'] = $conflictMessage;
+                    break;
+                }
+            }
+        }
+
+        $checks[] = [
+            'code' => 'no_conflict',
+            'passed' => $noConflict && ! isset($errors['assignment']),
+            'message' => $errors['assignment'] ?? $conflictMessage ?? 'No conflicting assignment found.',
+        ];
+
+        // 7. Current operational isolation messaging
+        if ($isOpenBootstrap && $activeAssignment === null) {
+            $currentIsolatedMessage = 'No conflicting active OMS assignment exists; this row may bootstrap the current operational state.';
+        } elseif ($activeAssignment !== null && ! $isOpenBootstrap) {
+            $currentIsolatedMessage = "Current active assignment {$activeAssignment->assignment_no} will remain untouched.";
+        } elseif ($activeAssignment !== null) {
+            $currentIsolatedMessage = self::ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE;
+        } else {
+            $currentIsolatedMessage = 'No active operational assignment exists.';
+        }
 
         $checks[] = [
             'code' => 'current_isolated',
-            'passed' => true,
+            'passed' => ! isset($errors['assignment']),
             'message' => $currentIsolatedMessage,
         ];
 
-        // 7. Sea Service Impact & Inclusive Overlap Check
+        // 8. Sea Service Impact (only for completed P4)
         $seaDuration = $data->seaServiceDuration();
-        $seaStartDate = $data->joinedVesselAt->toDateString();
-        $seaEndDate = $data->disembarkedAt->toDateString();
+        $seaStartDate = $data->joinedVesselAt?->toDateString();
+        $seaEndDate = $data->disembarkedAt?->toDateString();
         $vesselName = $vessel?->name ?? 'Unknown Vessel';
         $syncEnabled = $bulk?->seaServiceSyncEnabled ?? $this->seaServiceSync->isEnabled($data->companyId);
 
         $seaServiceImpact = [
-            'status' => 'will_create',
-            'days' => $seaDuration['days'],
-            'months' => $seaDuration['months'],
+            'status' => 'not_applicable',
+            'days' => 0,
+            'months' => 0,
             'start_date' => $seaStartDate,
             'end_date' => $seaEndDate,
             'vessel_id' => $data->vesselId,
             'vessel_name' => $vesselName,
             'existing_id' => null,
-            'message' => "{$seaDuration['days']} days will be recorded/synchronized to Sea Service.",
+            'message' => 'Sea Service is created only for a completed On Vessel → Disembarked period.',
         ];
 
-        if (! $syncEnabled) {
-            $seaServiceImpact['status'] = 'disabled';
-            $seaServiceImpact['message'] = 'Sea Service synchronization is disabled in company settings. No sea service record will be created.';
-        } elseif ($employee !== null) {
-            $existingSeaServices = $bulk?->seaServicesForEmployee($data->employeeId)
-                ?? EmployeeSeaService::query()
-                    ->where('company_id', $data->companyId)
-                    ->where('employee_id', $data->employeeId)
-                    ->with(['vessel'])
-                    ->get();
+        if ($data->hasCompletedSeaServicePeriod() && $seaStartDate !== null && $seaEndDate !== null) {
+            $seaServiceImpact = [
+                'status' => 'will_create',
+                'days' => $seaDuration['days'],
+                'months' => $seaDuration['months'],
+                'start_date' => $seaStartDate,
+                'end_date' => $seaEndDate,
+                'vessel_id' => $data->vesselId,
+                'vessel_name' => $vesselName,
+                'existing_id' => null,
+                'message' => "{$seaDuration['days']} days will be recorded/synchronized to Sea Service.",
+            ];
 
-            $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
-                data: $data,
-                seaStartDate: $seaStartDate,
-                seaEndDate: $seaEndDate,
-                seaDays: $seaDuration['days'],
-                proposedRankName: $rank?->name,
-                existingForEmployee: $existingSeaServices,
-            );
+            if (! $syncEnabled) {
+                $seaServiceImpact['status'] = 'disabled';
+                $seaServiceImpact['message'] = 'Sea Service synchronization is disabled in company settings. No sea service record will be created.';
+            } elseif ($employee !== null) {
+                $existingSeaServices = $bulk?->seaServicesForEmployee($data->employeeId)
+                    ?? EmployeeSeaService::query()
+                        ->where('company_id', $data->companyId)
+                        ->where('employee_id', $data->employeeId)
+                        ->with(['vessel'])
+                        ->get();
 
-            $seaServiceImpact['status'] = $exactMatch['status'];
-            $seaServiceImpact['existing_id'] = $exactMatch['existing_id'];
-            $seaServiceImpact['message'] = $exactMatch['message'];
+                $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
+                    data: $data,
+                    seaStartDate: $seaStartDate,
+                    seaEndDate: $seaEndDate,
+                    seaDays: $seaDuration['days'],
+                    proposedRankName: $rank?->name,
+                    existingForEmployee: $existingSeaServices,
+                );
 
-            if ($exactMatch['error'] !== null) {
-                $errors['sea_service'] = $exactMatch['error'];
-            } else {
-                foreach ($existingSeaServices as $record) {
-                    $recordStart = $record->start_date?->toDateString();
-                    $recordEnd = $record->end_date?->toDateString();
+                $seaServiceImpact['status'] = $exactMatch['status'];
+                $seaServiceImpact['existing_id'] = $exactMatch['existing_id'];
+                $seaServiceImpact['message'] = $exactMatch['message'];
 
-                    if ($recordStart === null || $recordEnd === null) {
-                        continue;
-                    }
+                if ($exactMatch['error'] !== null) {
+                    $errors['sea_service'] = $exactMatch['error'];
+                } else {
+                    foreach ($existingSeaServices as $record) {
+                        $recordStart = $record->start_date?->toDateString();
+                        $recordEnd = $record->end_date?->toDateString();
 
-                    // Exact matches already handled by HistoricalSeaServiceMatchResolver.
-                    if ((int) $record->vessel_id === $data->vesselId
-                        && $recordStart === $seaStartDate
-                        && $recordEnd === $seaEndDate) {
-                        continue;
-                    }
+                        if ($recordStart === null || $recordEnd === null) {
+                            continue;
+                        }
 
-                    // Inclusive calendar date overlap: touching boundary counts as overlap.
-                    if ($recordStart <= $seaEndDate && $seaStartDate <= $recordEnd) {
-                        $conflictVesselName = $record->vessel?->name ?? 'another vessel';
-                        $recStartFormatted = Carbon::parse($recordStart)->format('d M Y');
-                        $recEndFormatted = Carbon::parse($recordEnd)->format('d M Y');
-                        $errMsg = sprintf(
-                            'Overlaps existing Sea Service record #%d (%s, %s -> %s).',
-                            $record->id,
-                            $conflictVesselName,
-                            $recStartFormatted,
-                            $recEndFormatted,
-                        );
-                        $errors['sea_service'] = $errMsg;
-                        $seaServiceImpact['status'] = 'conflict';
-                        $seaServiceImpact['message'] = $errMsg;
-                        break;
+                        if ((int) $record->vessel_id === $data->vesselId
+                            && $recordStart === $seaStartDate
+                            && $recordEnd === $seaEndDate) {
+                            continue;
+                        }
+
+                        if ($recordStart <= $seaEndDate && $seaStartDate <= $recordEnd) {
+                            $conflictVesselName = $record->vessel?->name ?? 'another vessel';
+                            $recStartFormatted = Carbon::parse($recordStart)->format('d M Y');
+                            $recEndFormatted = Carbon::parse($recordEnd)->format('d M Y');
+                            $errMsg = sprintf(
+                                'Overlaps existing Sea Service record #%d (%s, %s -> %s).',
+                                $record->id,
+                                $conflictVesselName,
+                                $recStartFormatted,
+                                $recEndFormatted,
+                            );
+                            $errors['sea_service'] = $errMsg;
+                            $seaServiceImpact['status'] = 'conflict';
+                            $seaServiceImpact['message'] = $errMsg;
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        // Summary for preview
+        $inferredState = null;
+        $lastMovement = null;
+
+        if ($reconstruction !== null) {
+            $inferred = $reconstruction['inferred_state'];
+            $last = $reconstruction['last_movement'];
+            $inferredState = [
+                'phase_code' => $inferred['phase_code']->value,
+                'label' => $inferred['label'],
+                'event_key' => $inferred['event_key'],
+                'event_label' => $inferred['event_label'],
+                'event_at' => $inferred['event_at']->copy()->timezone($timezone)->format('d M Y'),
+                'assignment_status' => $reconstruction['assignment_status']->value,
+                'is_open' => $reconstruction['is_open'],
+            ];
+            $lastMovement = [
+                'event_key' => $last['event_key'],
+                'event_label' => $last['event_label'],
+                'event_at' => $last['event_at']->copy()->timezone($timezone)->format('d M Y'),
+                'display' => $last['event_label'].' — '.$last['event_at']->copy()->timezone($timezone)->format('d M Y'),
+            ];
+        }
+
         $summary = [
-            'joined_vessel_at' => $data->joinedVesselAt->copy()->timezone($timezone)->format('d M Y'),
-            'disembarked_at' => $data->disembarkedAt->copy()->timezone($timezone)->format('d M Y'),
-            'sea_service_days' => $seaDuration['days'],
+            'joined_vessel_at' => $data->joinedVesselAt?->copy()->timezone($timezone)->format('d M Y'),
+            'disembarked_at' => $data->disembarkedAt?->copy()->timezone($timezone)->format('d M Y'),
+            'sea_service_days' => $data->hasCompletedSeaServicePeriod() ? $seaDuration['days'] : null,
             'remarks' => $data->remarks,
+            'assignment_status' => $reconstruction['assignment_status']->value ?? null,
+            'is_open' => $reconstruction['is_open'] ?? null,
         ];
 
-        // Build Timeline for preview
         $timeline = [];
-        foreach ($data->phasesToCreate() as $phase) {
-            $phaseStart = $phase['actual_start_at']->copy()->timezone($timezone);
-            $phaseEnd = $phase['actual_end_at']->copy()->timezone($timezone);
-            $duration = null;
-            if ($phase['phase_code'] === CrewPhaseCode::OnVessel) {
-                $duration = $seaDuration['days'];
-            } elseif ($phaseStart->toDateString() !== $phaseEnd->toDateString()) {
-                $duration = (int) $phaseStart->diffInDays($phaseEnd) + 1;
-            }
+        if ($reconstruction !== null) {
+            foreach ($reconstruction['phases'] as $phase) {
+                $phaseStart = $phase['actual_start_at']->copy()->timezone($timezone);
+                $phaseEnd = $phase['actual_end_at']?->copy()->timezone($timezone);
+                $duration = null;
 
-            $timeline[] = [
-                'phase_code' => $phase['phase_code']->value,
-                'phase_label' => $phase['phase_code']->label(),
-                'start' => $phaseStart->format('d M Y H:i'),
-                'end' => $phaseEnd->format('d M Y H:i'),
-                'duration_days' => $duration,
-            ];
+                if ($phase['phase_code'] === CrewPhaseCode::OnVessel && $phaseEnd !== null) {
+                    $duration = $seaDuration['days'];
+                } elseif ($phaseEnd !== null && $phaseStart->toDateString() !== $phaseEnd->toDateString()) {
+                    $duration = (int) $phaseStart->diffInDays($phaseEnd) + 1;
+                }
+
+                $timeline[] = [
+                    'phase_code' => $phase['phase_code']->value,
+                    'phase_label' => $phase['phase_code']->label(),
+                    'start' => $phaseStart->format('d M Y'),
+                    'end' => $phaseEnd?->format('d M Y'),
+                    'end_display' => $phaseEnd !== null ? $phaseEnd->format('d M Y') : 'Current',
+                    'is_open' => $phase['actual_end_at'] === null,
+                    'duration_days' => $duration,
+                ];
+            }
         }
 
         $isValid = empty($errors);
@@ -471,6 +529,8 @@ final class HistoricalCrewAssignmentValidator
             timeline: $timeline,
             seaService: $seaServiceImpact,
             conflictingAssignment: $conflictingAssignment,
+            inferredState: $inferredState,
+            lastMovement: $lastMovement,
         );
     }
 }

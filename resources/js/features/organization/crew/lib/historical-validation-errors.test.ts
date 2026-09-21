@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { mapHistoricalValidationErrors } from './historical-validation-errors.ts';
 
 describe('mapHistoricalValidationErrors', () => {
-    it('aliases training and demob keys onto form fields', () => {
+    it('aliases training and mobilisation keys onto form fields', () => {
         const result = mapHistoricalValidationErrors({
             training_start_at: ['Training start invalid'],
             training_end_at: ['Training end invalid'],
@@ -19,10 +19,8 @@ describe('mapHistoricalValidationErrors', () => {
             result.fieldErrors.training_ended_at,
             'Training end invalid',
         );
-        assert.equal(
-            result.fieldErrors.post_signoff_standby_at,
-            'Demob invalid',
-        );
+        assert.equal(result.fieldErrors.demob_standby_at, 'Demob invalid');
+        assert.equal(result.fieldErrors.post_signoff_standby_at, undefined);
         assert.equal(
             result.fieldErrors.mobilisation_at,
             'Mobilisation invalid',

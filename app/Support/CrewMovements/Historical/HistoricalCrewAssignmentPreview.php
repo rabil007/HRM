@@ -9,12 +9,14 @@ final class HistoricalCrewAssignmentPreview
      * @param  array{id: int, name: string}  $vessel
      * @param  array{id: int, name: string}  $rank
      * @param  array{id: int, name: string}|null  $client
-     * @param  array{joined_vessel_at: string, disembarked_at: string, sea_service_days: int, remarks: ?string}  $summary
-     * @param  list<array{phase_code: string, phase_label: string, start: string, end: ?string, duration_days: ?int}>  $timeline
-     * @param  array{status: string, days: int, months: int, start_date: string, end_date: string, vessel_id: int, vessel_name: string, existing_id: ?int, message: string}  $seaService
+     * @param  array<string, mixed>  $summary
+     * @param  list<array<string, mixed>>  $timeline
+     * @param  array<string, mixed>  $seaService
      * @param  list<array{code: string, passed: bool, message: string}>  $checks
      * @param  list<string>  $warnings
      * @param  list<string>  $errors
+     * @param  array<string, mixed>|null  $inferredState
+     * @param  array<string, mixed>|null  $lastMovement
      */
     public function __construct(
         public readonly bool $valid,
@@ -28,6 +30,8 @@ final class HistoricalCrewAssignmentPreview
         public readonly array $checks,
         public readonly array $warnings = [],
         public readonly array $errors = [],
+        public readonly ?array $inferredState = null,
+        public readonly ?array $lastMovement = null,
     ) {}
 
     /**
@@ -47,6 +51,8 @@ final class HistoricalCrewAssignmentPreview
             'checks' => $this->checks,
             'warnings' => $this->warnings,
             'errors' => $this->errors,
+            'inferred_state' => $this->inferredState,
+            'last_movement' => $this->lastMovement,
         ];
     }
 }

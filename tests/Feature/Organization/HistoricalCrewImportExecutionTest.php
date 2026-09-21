@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Spatie\Activitylog\Models\Activity;
 
-test('ready rows import as completed historical_import with batch linkage and sea service', function () {
+test('ready rows import as active historical_import with batch linkage and sea service when ending at P5', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119', 'name' => 'Ranjan Rai']);
     $vessel = makeCrewMovementVessel('OMS Import Vessel', $company);
@@ -62,10 +62,14 @@ test('ready rows import as completed historical_import with batch linkage and se
         ->first();
 
     expect($assignment)->not->toBeNull()
-        ->and($assignment->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->closed_at)->toBeNull()
         ->and($assignment->historical_import_batch_id)->toBe($response->json('id'))
-        ->and($assignment->phases)->toHaveCount(1)
-        ->and($assignment->phases->first()->phase_code)->toBe(CrewPhaseCode::OnVessel);
+        ->and($assignment->phases)->toHaveCount(2)
+        ->and($assignment->phases->sortBy('sequence')->values()->pluck('phase_code')->all())->toBe([
+            CrewPhaseCode::OnVessel,
+            CrewPhaseCode::DemobStandby,
+        ]);
 
     $batch = HistoricalCrewImportBatch::query()->findOrFail($response->json('id'));
     expect($batch->company_id)->toBe($company->id)
@@ -89,6 +93,43 @@ test('ready rows import as completed historical_import with batch linkage and se
 
     expect($activity)->not->toBeNull()
         ->and((int) $activity->company_id)->toBe($company->id);
+});
+
+test('ready rows with home import as completed historical assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('OMS Completed Import Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => '3119',
+                    'vessel' => $vessel->name,
+                    'rank' => $rank->name,
+                    'vessel_join_date' => '2024-01-15',
+                    'disembark_date' => '2024-07-20',
+                    'travel_home_date' => '2024-07-22',
+                ],
+            ]),
+            'idempotency_key' => historicalImportIdempotencyKey('home'),
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $assignment = CrewAssignment::query()
+        ->where('employee_id', $employee->id)
+        ->where('source', HistoricalCrewAssignmentData::SOURCE_IMPORT)
+        ->firstOrFail();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($assignment->phases->pluck('phase_code')->all())->toContain(CrewPhaseCode::HomeRedeploy)
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
 
 test('partial import skips blocked rows and imports ready plus warning rows', function () {
@@ -347,6 +388,7 @@ test('historical import does not mutate active assignment planning stays alerts 
                     'rank' => $rank->name,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
+                    'travel_home_date' => '2024-07-20',
                 ],
             ]),
             'idempotency_key' => historicalImportIdempotencyKey('iso'),
@@ -388,6 +430,7 @@ test('importing older history before an active assignment updates previous linka
                     'rank' => $rank->name,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
+                    'travel_home_date' => '2024-07-20',
                 ],
             ]),
             'idempotency_key' => historicalImportIdempotencyKey('chrono'),
@@ -600,7 +643,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    // Assignment half-open: 01–10 and 10–20 do not overlap.
+    // Assignment half-open: 01–10 and 10–20 do not overlap when both are completed.
     $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.validate'), [
             'file' => makeHistoricalCrewImportFile([
@@ -610,6 +653,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                     'rank' => $rank->name,
                     'vessel_join_date' => '2024-01-01',
                     'disembark_date' => '2024-01-10',
+                    'travel_home_date' => '2024-01-10',
                 ],
                 [
                     'employee_no' => '3119',
@@ -617,6 +661,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                     'rank' => $rank->name,
                     'vessel_join_date' => '2024-01-10',
                     'disembark_date' => '2024-01-20',
+                    'travel_home_date' => '2024-01-20',
                 ],
             ]),
         ])
@@ -634,6 +679,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                     'rank' => $rank->name,
                     'vessel_join_date' => '2024-01-01',
                     'disembark_date' => '2024-01-10',
+                    'travel_home_date' => '2024-01-10',
                 ],
                 [
                     'employee_no' => '3119',
@@ -641,6 +687,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                     'rank' => $rank->name,
                     'vessel_join_date' => '2024-01-11',
                     'disembark_date' => '2024-01-20',
+                    'travel_home_date' => '2024-01-20',
                 ],
             ]),
             'idempotency_key' => historicalImportIdempotencyKey('adj'),
@@ -677,6 +724,7 @@ test('hundreds of rows validate without exploding query count', function () {
                 'rank' => $rank->name,
                 'vessel_join_date' => "{$year}-01-01",
                 'disembark_date' => "{$year}-06-01",
+                'travel_home_date' => "{$year}-06-01",
             ];
         }
     }

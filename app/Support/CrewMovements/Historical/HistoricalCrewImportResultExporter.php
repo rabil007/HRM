@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewMovements\Historical;
 
+use App\Enums\CrewPhaseStatus;
 use App\Models\HistoricalCrewImportBatch;
 use App\Models\HistoricalCrewImportRow;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -25,10 +26,12 @@ final class HistoricalCrewImportResultExporter
             'Employee',
             'Vessel',
             'Rank',
-            'Status',
+            'Last Movement',
+            'Inferred State',
+            'Import Status',
             'Warnings',
             'Errors',
-            'Assignment',
+            'Assignment No',
         ];
 
         foreach ($headers as $index => $header) {
@@ -36,16 +39,22 @@ final class HistoricalCrewImportResultExporter
             $sheet->getStyleByColumnAndRow($index + 1, 1)->getFont()->setBold(true);
         }
 
+        $batch->loadMissing(['rows.assignment.currentPhase', 'rows.assignment.phases']);
+
         $rowNumber = 2;
 
         foreach ($batch->rows->sortBy('row_number') as $row) {
             /** @var HistoricalCrewImportRow $row */
+            [$lastMovement, $inferredState] = $this->movementLabels($row);
+
             $values = [
                 (string) $row->row_number,
                 (string) ($row->employee_no ?? ''),
                 (string) ($row->employee_name ?? ''),
                 (string) ($row->vessel_name ?? ''),
                 (string) ($row->rank_name ?? ''),
+                $lastMovement,
+                $inferredState,
                 $row->status->label(),
                 implode('; ', $row->warnings ?? []),
                 implode('; ', $row->errors ?? []),
@@ -78,5 +87,47 @@ final class HistoricalCrewImportResultExporter
             'path' => $path,
             'filename' => "Historical_Import_{$batch->batch_no}_Result.xlsx",
         ];
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function movementLabels(HistoricalCrewImportRow $row): array
+    {
+        $assignment = $row->assignment;
+
+        if ($assignment === null) {
+            return ['', ''];
+        }
+
+        $current = $assignment->currentPhase;
+        $inferred = $current?->phase_code?->label() ?? '';
+
+        $lastPhase = $assignment->phases
+            ->sortByDesc('sequence')
+            ->first();
+
+        $lastMovement = '';
+
+        if ($lastPhase?->phase_code !== null && $lastPhase->actual_start_at !== null) {
+            $eventLabel = $lastPhase->phase_code->label();
+
+            if ($lastPhase->phase_code->value === 'p5') {
+                $eventLabel = 'Disembarked';
+            } elseif ($lastPhase->phase_code->value === 'p6') {
+                $eventLabel = 'Home / Redeployment';
+            } elseif ($lastPhase->phase_code->value === 'p2a'
+                && $assignment->phases->contains(
+                    fn ($phase): bool => $phase->phase_code?->value === 'p2b'
+                        && $phase->status === CrewPhaseStatus::Completed
+                )) {
+                // Post-training Join Standby is still shown as Join Standby / Training End context.
+                $eventLabel = 'Join Standby';
+            }
+
+            $lastMovement = $eventLabel.' — '.$lastPhase->actual_start_at->format('d M Y');
+        }
+
+        return [$lastMovement, $inferred];
     }
 }

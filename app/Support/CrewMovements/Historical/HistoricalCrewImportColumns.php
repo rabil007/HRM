@@ -28,17 +28,11 @@ final class HistoricalCrewImportColumns
 
     public const TRAINING_END_DATE = 'training_end_date';
 
-    public const POST_TRAINING_JOIN_STANDBY_DATE = 'post_training_join_standby_date';
-
     public const VESSEL_JOIN_DATE = 'vessel_join_date';
 
     public const DISEMBARK_DATE = 'disembark_date';
 
-    public const DEMOB_STANDBY_DATE = 'demob_standby_date';
-
     public const TRAVEL_HOME_DATE = 'travel_home_date';
-
-    public const ASSIGNMENT_CLOSE_DATE = 'assignment_close_date';
 
     public const REMARKS = 'remarks';
 
@@ -57,12 +51,9 @@ final class HistoricalCrewImportColumns
             self::JOIN_STANDBY_DATE,
             self::TRAINING_START_DATE,
             self::TRAINING_END_DATE,
-            self::POST_TRAINING_JOIN_STANDBY_DATE,
             self::VESSEL_JOIN_DATE,
             self::DISEMBARK_DATE,
-            self::DEMOB_STANDBY_DATE,
             self::TRAVEL_HOME_DATE,
-            self::ASSIGNMENT_CLOSE_DATE,
             self::REMARKS,
         ];
     }
@@ -84,17 +75,17 @@ final class HistoricalCrewImportColumns
             self::JOIN_STANDBY_DATE => 'Join Standby',
             self::TRAINING_START_DATE => 'Training Start',
             self::TRAINING_END_DATE => 'Training End',
-            self::POST_TRAINING_JOIN_STANDBY_DATE => 'Post-Training Join Standby',
             self::VESSEL_JOIN_DATE => 'On Vessel',
             self::DISEMBARK_DATE => 'Disembarked',
-            self::DEMOB_STANDBY_DATE => 'Demobilisation Standby',
             self::TRAVEL_HOME_DATE => 'Home / Redeployment',
-            self::ASSIGNMENT_CLOSE_DATE => 'Assignment Closed',
             self::REMARKS => 'Remarks',
         ];
     }
 
     /**
+     * Identity columns required on every row. Movement dates are validated separately
+     * (at least one meaningful movement date).
+     *
      * @return list<string>
      */
     public static function requiredHeaders(): array
@@ -103,8 +94,6 @@ final class HistoricalCrewImportColumns
             self::EMPLOYEE_NO,
             self::VESSEL,
             self::RANK,
-            self::VESSEL_JOIN_DATE,
-            self::DISEMBARK_DATE,
         ];
     }
 
@@ -118,12 +107,9 @@ final class HistoricalCrewImportColumns
             self::JOIN_STANDBY_DATE,
             self::TRAINING_START_DATE,
             self::TRAINING_END_DATE,
-            self::POST_TRAINING_JOIN_STANDBY_DATE,
             self::VESSEL_JOIN_DATE,
             self::DISEMBARK_DATE,
-            self::DEMOB_STANDBY_DATE,
             self::TRAVEL_HOME_DATE,
-            self::ASSIGNMENT_CLOSE_DATE,
         ];
     }
 
@@ -162,7 +148,7 @@ final class HistoricalCrewImportColumns
 
         if (self::isRejectedLegacyHeader($normalized)) {
             throw new \InvalidArgumentException(
-                'This workbook uses an outdated Historical Crew template (Travel In / Ready to Join columns are no longer supported). Download a fresh template and try again.',
+                'This workbook uses an outdated Historical Crew template. Columns such as Travel In, Ready to Join, Post-Training Join Standby, Demobilisation Standby, and Assignment Closed are no longer supported. Download a fresh template and try again.',
             );
         }
 
@@ -184,6 +170,21 @@ final class HistoricalCrewImportColumns
             'ready_to_join',
             'ready_to_join_date',
             'ready_to_join_at',
+            'post-training join standby',
+            'post training join standby',
+            'post_training_join_standby',
+            'post_training_join_standby_date',
+            'post_training_join_standby_at',
+            'demobilisation standby',
+            'demobilization standby',
+            'demob standby',
+            'demob_standby',
+            'demob_standby_date',
+            'demob_standby_at',
+            'assignment closed',
+            'assignment_closed',
+            'assignment_close_date',
+            'assignment_closed_at',
         ], true);
     }
 
@@ -201,18 +202,14 @@ final class HistoricalCrewImportColumns
             $aliases[$key] = $key;
         }
 
-        // Extra friendly / transitional aliases (not legacy P1/P3).
         $aliases['employee number'] = self::EMPLOYEE_NO;
         $aliases['employee name'] = self::EMPLOYEE;
         $aliases['pre mobilisation'] = self::MOBILISATION_DATE;
         $aliases['pre-mobilisation'] = self::MOBILISATION_DATE;
         $aliases['mobilisation'] = self::MOBILISATION_DATE;
         $aliases['mobilisation_date'] = self::MOBILISATION_DATE;
-        $aliases['post training join standby'] = self::POST_TRAINING_JOIN_STANDBY_DATE;
         $aliases['home / redeployment'] = self::TRAVEL_HOME_DATE;
         $aliases['home/redeployment'] = self::TRAVEL_HOME_DATE;
-        $aliases['demobilisation standby'] = self::DEMOB_STANDBY_DATE;
-        $aliases['assignment closed'] = self::ASSIGNMENT_CLOSE_DATE;
         $aliases['on vessel'] = self::VESSEL_JOIN_DATE;
         $aliases['disembarked'] = self::DISEMBARK_DATE;
 

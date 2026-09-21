@@ -151,21 +151,50 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                 <p className="font-medium">{row.employee.label}</p>
             </div>
 
+            {row.inferred_state ? (
+                <div>
+                    <span className="text-xs text-muted-foreground">
+                        Inferred State
+                    </span>
+                    <p className="font-medium">
+                        {row.inferred_state.label}
+                        {row.is_open ? ' (open)' : ''}
+                    </p>
+                </div>
+            ) : null}
+
+            {row.last_movement ? (
+                <div>
+                    <span className="text-xs text-muted-foreground">
+                        Last Movement
+                    </span>
+                    <p className="font-medium">{row.last_movement.display}</p>
+                </div>
+            ) : null}
+
             {row.timeline.length > 0 && (
                 <div className="space-y-1">
                     <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                         Timeline
                     </span>
                     <ul className="space-y-1 text-xs text-muted-foreground">
-                        {row.timeline.map((item, idx) => (
-                            <li key={idx}>
-                                {item.phase_label}:{' '}
-                                {formatDisplayDate(item.start)}
-                                {item.end
-                                    ? ` → ${formatDisplayDate(item.end)}`
-                                    : ''}
-                            </li>
-                        ))}
+                        {row.timeline.map((item, idx) => {
+                            const endLabel =
+                                item.end_display ??
+                                (item.is_open
+                                    ? 'Current'
+                                    : item.end
+                                      ? formatDisplayDate(item.end)
+                                      : null);
+
+                            return (
+                                <li key={idx}>
+                                    {item.phase_label}:{' '}
+                                    {formatDisplayDate(item.start)}
+                                    {endLabel ? ` → ${endLabel}` : ''}
+                                </li>
+                            );
+                        })}
                     </ul>
                 </div>
             )}
@@ -952,8 +981,9 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                 <TableHead className="w-14">Row</TableHead>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Vessel</TableHead>
-                                <TableHead>On Vessel</TableHead>
-                                <TableHead>Disembarked</TableHead>
+                                <TableHead>Rank</TableHead>
+                                <TableHead>Last Movement</TableHead>
+                                <TableHead>Inferred State</TableHead>
                                 <TableHead className="w-24">Status</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -961,7 +991,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
                             {filteredRows.length === 0 ? (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={6}
+                                        colSpan={7}
                                         className="py-8 text-center text-sm text-muted-foreground"
                                     >
                                         No rows match this filter.
@@ -990,18 +1020,15 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                                 {row.vessel.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
-                                                {row.joined_vessel_at
-                                                    ? formatDisplayDate(
-                                                          row.joined_vessel_at,
-                                                      )
-                                                    : '—'}
+                                                {row.rank.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
-                                                {row.disembarked_at
-                                                    ? formatDisplayDate(
-                                                          row.disembarked_at,
-                                                      )
-                                                    : '—'}
+                                                {row.last_movement?.display ??
+                                                    '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.inferred_state?.label ??
+                                                    '—'}
                                             </TableCell>
                                             <TableCell>
                                                 {statusBadge(row.status)}
@@ -1010,7 +1037,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                         {expandedRow === row.row ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={6}
+                                                    colSpan={7}
                                                     className="p-0"
                                                 >
                                                     <RowDetail row={row} />

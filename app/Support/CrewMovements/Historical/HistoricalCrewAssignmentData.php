@@ -2,7 +2,9 @@
 
 namespace App\Support\CrewMovements\Historical;
 
+use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Support\Employees\SeaServiceDuration;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -19,18 +21,15 @@ final class HistoricalCrewAssignmentData
         public readonly int $vesselId,
         public readonly int $rankId,
         public readonly ?int $clientId,
-        public readonly CarbonInterface $joinedVesselAt,
-        public readonly CarbonInterface $disembarkedAt,
         public readonly string $timezone,
+        public readonly ?CarbonInterface $joinedVesselAt = null,
+        public readonly ?CarbonInterface $disembarkedAt = null,
         public readonly ?string $remarks = null,
         public readonly ?CarbonInterface $mobilisationStartAt = null,
         public readonly ?CarbonInterface $joinStandbyAt = null,
         public readonly ?CarbonInterface $trainingStartAt = null,
         public readonly ?CarbonInterface $trainingEndAt = null,
-        public readonly ?CarbonInterface $postTrainingJoinStandbyAt = null,
-        public readonly ?CarbonInterface $demobStandbyAt = null,
         public readonly ?CarbonInterface $travelHomeAt = null,
-        public readonly ?CarbonInterface $assignmentClosedAt = null,
         public readonly string $source = self::SOURCE_MANUAL,
     ) {}
 
@@ -40,41 +39,41 @@ final class HistoricalCrewAssignmentData
         string $timezone,
         string $source = self::SOURCE_MANUAL,
     ): self {
-        $joinedVesselAt = self::parseTimestamp((string) ($data['joined_vessel_at'] ?? ''), $timezone)
-            ?? throw new \InvalidArgumentException('joined_vessel_at is required.');
-
-        $disembarkedAt = self::parseTimestamp((string) ($data['disembarked_at'] ?? ''), $timezone)
-            ?? throw new \InvalidArgumentException('disembarked_at is required.');
-
         return new self(
             companyId: $companyId,
             employeeId: (int) ($data['employee_id'] ?? 0),
             vesselId: (int) ($data['vessel_id'] ?? 0),
             rankId: (int) ($data['rank_id'] ?? 0),
             clientId: isset($data['client_id']) && $data['client_id'] !== '' && $data['client_id'] !== null ? (int) $data['client_id'] : null,
-            joinedVesselAt: $joinedVesselAt,
-            disembarkedAt: $disembarkedAt,
             timezone: $timezone,
+            joinedVesselAt: self::parseTimestamp($data['joined_vessel_at'] ?? null, $timezone),
+            disembarkedAt: self::parseTimestamp($data['disembarked_at'] ?? null, $timezone),
             remarks: isset($data['remarks']) && is_string($data['remarks']) && trim($data['remarks']) !== '' ? trim($data['remarks']) : null,
             mobilisationStartAt: self::parseTimestamp($data['mobilisation_start_at'] ?? $data['mobilisation_at'] ?? null, $timezone),
             joinStandbyAt: self::parseTimestamp($data['join_standby_at'] ?? null, $timezone),
             trainingStartAt: self::parseTimestamp($data['training_start_at'] ?? $data['training_started_at'] ?? null, $timezone),
             trainingEndAt: self::parseTimestamp($data['training_end_at'] ?? $data['training_ended_at'] ?? null, $timezone),
-            postTrainingJoinStandbyAt: self::parseTimestamp($data['post_training_join_standby_at'] ?? null, $timezone),
-            demobStandbyAt: self::parseTimestamp($data['demob_standby_at'] ?? $data['post_signoff_standby_at'] ?? null, $timezone),
             travelHomeAt: self::parseTimestamp($data['travel_home_at'] ?? null, $timezone),
-            assignmentClosedAt: self::parseTimestamp($data['assignment_closed_at'] ?? null, $timezone),
             source: $source,
         );
     }
 
-    public static function parseTimestamp(?string $value, string $timezone): ?CarbonInterface
+    public static function parseTimestamp(mixed $value, string $timezone): ?CarbonInterface
     {
-        if ($value === null || trim($value) === '') {
+        if ($value === null) {
             return null;
         }
 
-        $trimmed = trim($value);
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
         $hasExplicitTimezone = preg_match('/(Z|[+-]\d{2}(?::?\d{2})?)$/i', $trimmed) === 1;
 
         if ($hasExplicitTimezone) {
@@ -84,17 +83,66 @@ final class HistoricalCrewAssignmentData
         return CarbonImmutable::parse($trimmed, $timezone);
     }
 
+    public function hasAnyMovementDate(): bool
+    {
+        return $this->mobilisationStartAt !== null
+            || $this->joinStandbyAt !== null
+            || $this->trainingStartAt !== null
+            || $this->trainingEndAt !== null
+            || $this->joinedVesselAt !== null
+            || $this->disembarkedAt !== null
+            || $this->travelHomeAt !== null;
+    }
+
+    /**
+     * @return array{
+     *     phases: list<array{
+     *         phase_code: CrewPhaseCode,
+     *         actual_start_at: CarbonInterface,
+     *         actual_end_at: ?CarbonInterface,
+     *         status: CrewPhaseStatus,
+     *         remarks: ?string
+     *     }>,
+     *     assignment_status: CrewAssignmentStatus,
+     *     closed_at: ?CarbonInterface,
+     *     is_open: bool,
+     *     inferred_state: array{
+     *         phase_code: CrewPhaseCode,
+     *         label: string,
+     *         event_key: string,
+     *         event_label: string,
+     *         event_at: CarbonInterface
+     *     },
+     *     last_movement: array{
+     *         event_key: string,
+     *         event_label: string,
+     *         event_at: CarbonInterface
+     *     }
+     * }
+     */
+    public function reconstruction(): array
+    {
+        return HistoricalPhaseBuilder::build($this);
+    }
+
     public function earliestActualStart(): CarbonInterface
     {
-        $candidates = array_filter([
+        $candidates = array_values(array_filter([
             $this->mobilisationStartAt,
             $this->joinStandbyAt,
             $this->trainingStartAt,
-            $this->postTrainingJoinStandbyAt,
+            $this->trainingEndAt,
             $this->joinedVesselAt,
-        ]);
+            $this->disembarkedAt,
+            $this->travelHomeAt,
+        ]));
 
-        $earliest = $this->joinedVesselAt;
+        if ($candidates === []) {
+            throw new \InvalidArgumentException('At least one meaningful movement date must be supplied.');
+        }
+
+        $earliest = $candidates[0];
+
         foreach ($candidates as $candidate) {
             if ($candidate->lt($earliest)) {
                 $earliest = $candidate;
@@ -104,28 +152,39 @@ final class HistoricalCrewAssignmentData
         return $earliest;
     }
 
-    public function latestActualEnd(): CarbonInterface
+    /**
+     * Inclusive end of the reconstructed assignment interval.
+     * Null means the assignment remains open (current operational bootstrap).
+     */
+    public function intervalEnd(): ?CarbonInterface
     {
-        $candidates = array_filter([
-            $this->disembarkedAt,
-            $this->demobStandbyAt,
-            $this->travelHomeAt,
-            $this->assignmentClosedAt,
-        ]);
+        $reconstruction = $this->reconstruction();
 
-        $latest = $this->disembarkedAt;
-        foreach ($candidates as $candidate) {
-            if ($candidate->gt($latest)) {
-                $latest = $candidate;
-            }
+        if ($reconstruction['is_open']) {
+            return null;
         }
 
-        return $latest;
+        return $reconstruction['closed_at'] ?? $this->travelHomeAt ?? $this->disembarkedAt;
+    }
+
+    /**
+     * @deprecated Use intervalEnd(); retained for callers that still expect a closed end.
+     */
+    public function latestActualEnd(): CarbonInterface
+    {
+        return $this->intervalEnd() ?? $this->earliestActualStart();
+    }
+
+    public function hasCompletedSeaServicePeriod(): bool
+    {
+        return $this->joinedVesselAt !== null
+            && $this->disembarkedAt !== null
+            && $this->joinedVesselAt->lt($this->disembarkedAt);
     }
 
     public function seaServiceDuration(): array
     {
-        if ($this->joinedVesselAt->gte($this->disembarkedAt)) {
+        if (! $this->hasCompletedSeaServicePeriod()) {
             return ['days' => 0, 'months' => 0];
         }
 
@@ -136,106 +195,16 @@ final class HistoricalCrewAssignmentData
     }
 
     /**
-     * Constructs the exact ordered phases to persist without inventing any history.
-     *
      * @return list<array{
      *     phase_code: CrewPhaseCode,
      *     actual_start_at: CarbonInterface,
-     *     actual_end_at: CarbonInterface,
+     *     actual_end_at: ?CarbonInterface,
+     *     status: CrewPhaseStatus,
      *     remarks: ?string
      * }>
      */
     public function phasesToCreate(): array
     {
-        $phases = [];
-
-        // P0 Pre-Mobilisation
-        if ($this->mobilisationStartAt !== null) {
-            $nextStart = $this->joinStandbyAt
-                ?? $this->trainingStartAt
-                ?? $this->postTrainingJoinStandbyAt
-                ?? $this->joinedVesselAt;
-
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::PreMobilisation,
-                'actual_start_at' => $this->mobilisationStartAt,
-                'actual_end_at' => $nextStart,
-                'remarks' => null,
-            ];
-        }
-
-        // P2A Join Standby (first standby)
-        if ($this->joinStandbyAt !== null) {
-            $nextStart = $this->trainingStartAt
-                ?? $this->postTrainingJoinStandbyAt
-                ?? $this->joinedVesselAt;
-
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::JoinStandby,
-                'actual_start_at' => $this->joinStandbyAt,
-                'actual_end_at' => $nextStart,
-                'remarks' => null,
-            ];
-        }
-
-        // P2B Training
-        if ($this->trainingStartAt !== null) {
-            $trainingEnd = $this->trainingEndAt
-                ?? $this->postTrainingJoinStandbyAt
-                ?? $this->joinedVesselAt;
-
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::Training,
-                'actual_start_at' => $this->trainingStartAt,
-                'actual_end_at' => $trainingEnd,
-                'remarks' => null,
-            ];
-        }
-
-        // P2A Join Standby (post-training) — only when supplied
-        if ($this->postTrainingJoinStandbyAt !== null) {
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::JoinStandby,
-                'actual_start_at' => $this->postTrainingJoinStandbyAt,
-                'actual_end_at' => $this->joinedVesselAt,
-                'remarks' => null,
-            ];
-        }
-
-        // P4 On Vessel (mandatory)
-        $phases[] = [
-            'phase_code' => CrewPhaseCode::OnVessel,
-            'actual_start_at' => $this->joinedVesselAt,
-            'actual_end_at' => $this->disembarkedAt,
-            'remarks' => $this->remarks,
-        ];
-
-        // P5 Demobilisation Standby — never invent an end from the start alone.
-        if ($this->demobStandbyAt !== null) {
-            $p5End = $this->travelHomeAt ?? $this->assignmentClosedAt;
-
-            if ($p5End !== null) {
-                $phases[] = [
-                    'phase_code' => CrewPhaseCode::DemobStandby,
-                    'actual_start_at' => $this->demobStandbyAt,
-                    'actual_end_at' => $p5End,
-                    'remarks' => null,
-                ];
-            }
-        }
-
-        // P6 Home / Redeployment
-        if ($this->travelHomeAt !== null) {
-            $homeEnd = $this->assignmentClosedAt ?? $this->travelHomeAt;
-
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::HomeRedeploy,
-                'actual_start_at' => $this->travelHomeAt,
-                'actual_end_at' => $homeEnd,
-                'remarks' => null,
-            ];
-        }
-
-        return $phases;
+        return $this->reconstruction()['phases'];
     }
 }

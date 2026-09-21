@@ -722,15 +722,40 @@ export interface HistoricalPreviewTimelineItem {
     phase_label: string;
     start: string;
     end: string | null;
+    end_display?: string | null;
+    is_open?: boolean;
     duration_days: number | null;
 }
 
+export interface HistoricalInferredState {
+    phase_code: string;
+    label: string;
+    event_key: string;
+    event_label: string;
+    event_at: string;
+    assignment_status: string;
+    is_open: boolean;
+}
+
+export interface HistoricalLastMovement {
+    event_key: string;
+    event_label: string;
+    event_at: string;
+    display: string;
+}
+
 export interface HistoricalSeaServiceImpact {
-    status: 'will_create' | 'will_link' | 'warning' | 'conflict' | 'disabled';
+    status:
+        | 'will_create'
+        | 'will_link'
+        | 'warning'
+        | 'conflict'
+        | 'disabled'
+        | 'not_applicable';
     days: number;
     months: number;
-    start_date: string;
-    end_date: string;
+    start_date: string | null;
+    end_date: string | null;
     vessel_id: number;
     vessel_name: string;
     existing_id?: number | null;
@@ -757,15 +782,19 @@ export interface HistoricalCrewAssignmentPreviewData {
         name: string;
     } | null;
     summary: {
-        joined_vessel_at: string;
-        disembarked_at: string;
-        sea_service_days: number;
+        joined_vessel_at: string | null;
+        disembarked_at: string | null;
+        sea_service_days: number | null;
         remarks: string | null;
+        assignment_status?: string | null;
+        is_open?: boolean | null;
     };
     timeline: HistoricalPreviewTimelineItem[];
     checks: HistoricalPreviewCheck[];
     warnings: string[];
     sea_service: HistoricalSeaServiceImpact;
+    inferred_state?: HistoricalInferredState | null;
+    last_movement?: HistoricalLastMovement | null;
     errors?: string[];
 }
 
@@ -774,16 +803,13 @@ export interface HistoricalCrewAssignmentFormData {
     vessel_id: string | number;
     rank_id: string | number;
     client_id: string | number;
-    joined_vessel_at: string;
-    disembarked_at: string;
     mobilisation_at?: string;
     join_standby_at?: string;
     training_started_at?: string;
     training_ended_at?: string;
-    post_training_join_standby_at?: string;
-    post_signoff_standby_at?: string;
+    joined_vessel_at?: string;
+    disembarked_at?: string;
     travel_home_at?: string;
-    assignment_closed_at?: string;
     remarks?: string;
 }
 
@@ -844,6 +870,9 @@ export interface HistoricalImportPreviewRow {
     } | null;
     joined_vessel_at: string | null;
     disembarked_at: string | null;
+    last_movement: HistoricalLastMovement | null;
+    inferred_state: HistoricalInferredState | null;
+    is_open: boolean;
     errors: string[];
     error_fields: Record<string, string>;
     warnings: string[];
@@ -856,6 +885,8 @@ export interface HistoricalImportPreviewRow {
         disembarked_at: string | null;
         sea_service_days: number | null;
         remarks: string | null;
+        assignment_status?: string | null;
+        is_open?: boolean | null;
     };
     conflicting_assignment: {
         id: number;

@@ -65,41 +65,45 @@ final class HistoricalCrewImportTemplate
             ['Historical Crew Import — Instructions'],
             [''],
             ['Purpose'],
-            ['Import completed historical crew assignments using the same movement flow as Crew Operations.'],
+            ['Reconstruct historical crew movements and, when safe, bootstrap where the employee currently is in OMS-HRM.'],
+            ['Sea Service is a downstream result of a completed On Vessel → Disembarked period — not the main reason for this import.'],
             [''],
             ['Workflow'],
             ['1. Fill the Historical Assignments sheet using values from Reference Data.'],
             ['2. Upload the completed workbook in Add Past Data → Import Excel.'],
             ['3. Validate File runs authoritative historical rules (no records are written yet).'],
-            ['4. Review Ready / Warning / Blocked rows.'],
+            ['4. Review Ready / Warning / Blocked rows, including Inferred State.'],
             ['5. Confirm import to revalidate and persist Ready + Warning rows (Blocked rows are skipped).'],
+            [''],
+            ['How movement dates work'],
+            ['Enter the employee\'s known movement dates in sequence.'],
+            ['OMS-HRM reconstructs the movement timeline automatically.'],
+            ['The last valid movement determines the employee\'s current operational state when no newer active OMS assignment exists.'],
+            ['Do not guess unknown historical dates.'],
             [''],
             ['Important'],
             ['- Do not enter future dates.'],
-            ['- On Vessel and Disembarked are required.'],
-            ['- Other movement dates are optional. Only enter a date when the historical information is known.'],
-            ['- Do not guess missing movement dates.'],
+            ['- Employee, Vessel, and Rank are required. At least one movement date is required.'],
+            ['- On Vessel and Disembarked are optional — a row may end at Pre-Mobilisation, Join Standby, Training, On Vessel, Demobilisation Standby, or Home.'],
+            ['- Training End automatically returns the employee to Join Standby.'],
+            ['- Disembarked automatically moves the employee to Demobilisation Standby until Home / Redeployment is recorded.'],
+            ['- Sea Service is created only for a completed On Vessel → Disembarked period.'],
+            ['- An employee may have at most one open/current assignment in the workbook, and it must be the chronologically latest row.'],
+            ['- If the employee already has an active Crew Assignment in OMS-HRM, this import will not create another current assignment.'],
             ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
             ['- Maximum 5,000 historical assignment rows per workbook.'],
-            ['- Historical rows do not change current Crew status, Crew Planning, or finalized payroll.'],
             ['- Vessel / Rank / Client must match Reference Data exactly (names are unique).'],
             ['- Inactive Vessel / Rank / Client values are allowed for historical backfill (shown as warnings).'],
+            ['- Historical Client may differ from the Vessel\'s Current Client in Reference Data.'],
             [''],
             ['Accepted date format'],
             ['Prefer YYYY-MM-DD (example: 2024-01-15).'],
             ['Excel date cells are also accepted and normalized to company calendar dates.'],
             [''],
-            ['Optional movement history'],
-            ['Pre-Mobilisation'],
-            ['→ Join Standby'],
-            ['→ Training'],
-            ['→ Join Standby (post-training, only when known)'],
-            ['→ On Vessel'],
-            ['→ Demobilisation Standby'],
-            ['→ Home / Redeployment'],
-            [''],
-            ['Only create a second Join Standby date when the crew member returned to standby after training.'],
+            ['Movement sequence'],
+            ['Pre-Mobilisation → Join Standby → Training Start → Training End → On Vessel → Disembarked → Home / Redeployment'],
+            ['Only enter dates you know. OMS derives phases from those events.'],
         ];
 
         foreach ($lines as $index => $line) {
@@ -108,10 +112,11 @@ final class HistoricalCrewImportTemplate
 
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A3')->getFont()->setBold(true);
-        $sheet->getStyle('A6')->getFont()->setBold(true);
-        $sheet->getStyle('A13')->getFont()->setBold(true);
-        $sheet->getStyle('A26')->getFont()->setBold(true);
-        $sheet->getStyle('A30')->getFont()->setBold(true);
+        $sheet->getStyle('A7')->getFont()->setBold(true);
+        $sheet->getStyle('A14')->getFont()->setBold(true);
+        $sheet->getStyle('A20')->getFont()->setBold(true);
+        $sheet->getStyle('A39')->getFont()->setBold(true);
+        $sheet->getStyle('A43')->getFont()->setBold(true);
         $sheet->getColumnDimension('A')->setWidth(110);
     }
 
@@ -145,16 +150,13 @@ final class HistoricalCrewImportTemplate
             HistoricalCrewImportColumns::VESSEL => 'Example Vessel',
             HistoricalCrewImportColumns::RANK => 'Example Rank',
             HistoricalCrewImportColumns::CLIENT => '',
-            HistoricalCrewImportColumns::MOBILISATION_DATE => '',
-            HistoricalCrewImportColumns::JOIN_STANDBY_DATE => '',
+            HistoricalCrewImportColumns::MOBILISATION_DATE => '2024-01-01',
+            HistoricalCrewImportColumns::JOIN_STANDBY_DATE => '2024-01-05',
             HistoricalCrewImportColumns::TRAINING_START_DATE => '',
             HistoricalCrewImportColumns::TRAINING_END_DATE => '',
-            HistoricalCrewImportColumns::POST_TRAINING_JOIN_STANDBY_DATE => '',
             HistoricalCrewImportColumns::VESSEL_JOIN_DATE => '2024-01-15',
-            HistoricalCrewImportColumns::DISEMBARK_DATE => '2024-07-20',
-            HistoricalCrewImportColumns::DEMOB_STANDBY_DATE => '',
+            HistoricalCrewImportColumns::DISEMBARK_DATE => '',
             HistoricalCrewImportColumns::TRAVEL_HOME_DATE => '',
-            HistoricalCrewImportColumns::ASSIGNMENT_CLOSE_DATE => '',
             HistoricalCrewImportColumns::REMARKS => 'SAMPLE — replace with real historical rows before upload',
         ];
 
