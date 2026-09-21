@@ -75,11 +75,16 @@ final class CrewOperationsDashboardAnalytics
         $tourBuckets = $this->tourStatusQuery->bucketCounts($companyId, $user);
         $reliefResolved = $this->reliefStatusQuery->resolveActiveOnVessel($companyId, $user);
         $onboardNow = $this->onboardNowCount($companyId, $user);
-        $joinsNext7 = $this->joinsInWindow($companyId, $today, $horizonEnd, $user);
+        $movementWindow = $this->movementWindow(
+            $companyId,
+            $today,
+            $horizonEnd,
+            $permissions['planning'],
+            $user,
+        );
         $signoffsNext7 = (int) $tourBuckets['due_today'] + (int) $tourBuckets['due_within_7_days'];
         $signoffsOverdue = (int) $tourBuckets['overdue'];
 
-        $nextSevenDays = $this->nextSevenDays($companyId, $today, $horizonEnd, $permissions['planning'], $user);
         $actionRequired = $this->actionRequired(
             companyId: $companyId,
             today: $today,
@@ -110,7 +115,7 @@ final class CrewOperationsDashboardAnalytics
             'company_timezone' => $timezone,
             'daily_pulse' => [
                 'onboard_now' => $onboardNow,
-                'joins_next_7_days' => $joinsNext7,
+                'joins_next_7_days' => $movementWindow['joins_total'],
                 'signoffs_next_7_days' => $signoffsNext7,
                 'signoffs_overdue' => $signoffsOverdue,
                 'coverage_risks' => [
@@ -121,12 +126,13 @@ final class CrewOperationsDashboardAnalytics
                 ],
             ],
             'action_required' => $actionRequired,
-            'next_seven_days' => $nextSevenDays,
+            'next_seven_days' => $movementWindow['days'],
             'manning_relief_risks' => $manningReliefRisks,
             'projected_manning' => $projectedManning,
             'max_home_days' => $maxHomeDays,
-            'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId, $user),
-            'recent_activity' => CrewOperationsRecentActivityQuery::forCompany($user, $companyId, 8),
+            // Charts removed from the daily cockpit UI — keep empty keys for payload stability.
+            'deployment_trends' => [],
+            'recent_activity' => [],
             'can' => $permissions,
         ];
     }
@@ -146,49 +152,18 @@ final class CrewOperationsDashboardAnalytics
         return ActiveEmployeeConstraint::whereHas($query, $companyId)->count();
     }
 
-    private function joinsInWindow(
-        int $companyId,
-        CarbonImmutable $from,
-        CarbonImmutable $to,
-        ?User $user = null,
-    ): int {
-        $planningJoins = CrewPlanningAssignment::query()
-            ->where('company_id', $companyId)
-            ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()]);
-
-        ActiveEmployeeConstraint::whereHas($planningJoins, $companyId);
-        EmployeeVisibilityScope::whereHas($planningJoins, $user, $companyId, 'employee');
-
-        $planningJoins = $planningJoins->get(['id', 'crew_assignment_id', 'planned_join_date', 'employee_id']);
-
-        $linkedAssignmentIds = $planningJoins
-            ->pluck('crew_assignment_id')
-            ->filter()
-            ->map(fn ($id): int => (int) $id)
-            ->all();
-
-        $assignmentJoins = CrewAssignment::query()
-            ->where('company_id', $companyId)
-            ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active])
-            ->whereNotNull('planned_join_at')
-            ->whereDate('planned_join_at', '>=', $from->toDateString())
-            ->whereDate('planned_join_at', '<=', $to->toDateString())
-            ->whereDoesntHave('currentPhase', function ($phase): void {
-                $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
-                    ->whereNotNull('actual_start_at');
-            })
-            ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds));
-
-        ActiveEmployeeConstraint::whereHas($assignmentJoins, $companyId);
-        EmployeeVisibilityScope::whereHas($assignmentJoins, $user, $companyId, 'employee');
-
-        return $planningJoins->count() + $assignmentJoins->count();
-    }
-
     /**
-     * @return list<array{date: string, label: string, joins: int, signoffs: int}>
+     * Shared next-7-day join/sign-off window used by pulse + calendar.
+     *
+     * Pulse join totals always include planning joins. Calendar day joins only
+     * include planning when the viewer can open Crew Planning.
+     *
+     * @return array{
+     *     joins_total: int,
+     *     days: list<array{date: string, label: string, joins: int, signoffs: int}>
+     * }
      */
-    private function nextSevenDays(
+    private function movementWindow(
         int $companyId,
         CarbonImmutable $from,
         CarbonImmutable $to,
@@ -207,16 +182,17 @@ final class CrewOperationsDashboardAnalytics
             ];
         }
 
+        $planningJoins = CrewPlanningAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()]);
+
+        ActiveEmployeeConstraint::whereHas($planningJoins, $companyId);
+        EmployeeVisibilityScope::whereHas($planningJoins, $user, $companyId, 'employee');
+
+        $planningJoins = $planningJoins->get(['planned_join_date', 'crew_assignment_id']);
+        $joinsTotal = $planningJoins->count();
+
         if ($canViewPlanning) {
-            $planningJoins = CrewPlanningAssignment::query()
-                ->where('company_id', $companyId)
-                ->whereBetween('planned_join_date', [$from->toDateString(), $to->toDateString()]);
-
-            ActiveEmployeeConstraint::whereHas($planningJoins, $companyId);
-            EmployeeVisibilityScope::whereHas($planningJoins, $user, $companyId, 'employee');
-
-            $planningJoins = $planningJoins->get(['planned_join_date', 'crew_assignment_id']);
-
             foreach ($planningJoins as $row) {
                 $date = $row->planned_join_date?->toDateString();
 
@@ -224,17 +200,15 @@ final class CrewOperationsDashboardAnalytics
                     $days[$date]['joins']++;
                 }
             }
-
-            $linkedAssignmentIds = $planningJoins
-                ->pluck('crew_assignment_id')
-                ->filter()
-                ->map(fn ($id): int => (int) $id)
-                ->all();
-        } else {
-            $linkedAssignmentIds = [];
         }
 
-        $assignmentJoins = CrewAssignment::query()
+        $linkedAssignmentIds = $planningJoins
+            ->pluck('crew_assignment_id')
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $assignmentJoinsQuery = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active])
             ->whereNotNull('planned_join_at')
@@ -243,15 +217,26 @@ final class CrewOperationsDashboardAnalytics
             ->whereDoesntHave('currentPhase', function ($phase): void {
                 $phase->where('phase_code', CrewPhaseCode::OnVessel->value)
                     ->whereNotNull('actual_start_at');
-            })
-            ->when($linkedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $linkedAssignmentIds));
+            });
 
-        ActiveEmployeeConstraint::whereHas($assignmentJoins, $companyId);
-        EmployeeVisibilityScope::whereHas($assignmentJoins, $user, $companyId, 'employee');
+        ActiveEmployeeConstraint::whereHas($assignmentJoinsQuery, $companyId);
+        EmployeeVisibilityScope::whereHas($assignmentJoinsQuery, $user, $companyId, 'employee');
 
-        $assignmentJoins = $assignmentJoins->get(['planned_join_at']);
+        $assignmentJoins = $assignmentJoinsQuery->get(['id', 'planned_join_at']);
 
-        foreach ($assignmentJoins as $assignment) {
+        $pulseAssignmentJoins = $linkedAssignmentIds === []
+            ? $assignmentJoins
+            : $assignmentJoins->reject(
+                fn (CrewAssignment $assignment): bool => in_array((int) $assignment->id, $linkedAssignmentIds, true),
+            );
+
+        $joinsTotal += $pulseAssignmentJoins->count();
+
+        // Overview-only users cannot see planning rows on the calendar, so keep linked
+        // assignment joins visible there. Planning viewers already counted those via planning.
+        $calendarAssignmentJoins = $canViewPlanning ? $pulseAssignmentJoins : $assignmentJoins;
+
+        foreach ($calendarAssignmentJoins as $assignment) {
             $date = $assignment->planned_join_at?->toDateString();
 
             if ($date !== null && isset($days[$date])) {
@@ -273,9 +258,7 @@ final class CrewOperationsDashboardAnalytics
         ActiveEmployeeConstraint::whereHas($signoffs, $companyId);
         EmployeeVisibilityScope::whereHas($signoffs, $user, $companyId, 'employee');
 
-        $signoffs = $signoffs->get(['planned_signoff_at']);
-
-        foreach ($signoffs as $assignment) {
+        foreach ($signoffs->get(['planned_signoff_at']) as $assignment) {
             $date = $assignment->planned_signoff_at?->toDateString();
 
             if ($date !== null && isset($days[$date])) {
@@ -283,7 +266,10 @@ final class CrewOperationsDashboardAnalytics
             }
         }
 
-        return array_values($days);
+        return [
+            'joins_total' => $joinsTotal,
+            'days' => array_values($days),
+        ];
     }
 
     private function dayLabel(CarbonImmutable $date, CarbonImmutable $today): string
@@ -501,23 +487,32 @@ final class CrewOperationsDashboardAnalytics
         $employeesQuery = Employee::query()
             ->where('company_id', $companyId)
             ->active()
-            ->with(['company', 'rank']);
+            ->with(['rank:id,name'])
+            ->orderBy('id');
 
         EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
 
-        $employees = $employeesQuery->get();
+        $employees = $employeesQuery->get(['id', 'company_id', 'name', 'rank_id']);
 
-        $resolver = new CrewAssignmentStatusResolver;
-        $seen = [];
+        if ($employees->isEmpty()) {
+            return;
+        }
+
+        $resolvedByEmployeeId = (new CrewAssignmentStatusResolver)->forEmployees(
+            $employees,
+            $companyId,
+        );
+
+        $needsUpdateEmployeeIds = [];
 
         foreach ($employees as $employee) {
             if (count($items) >= self::ACTION_LIMIT) {
                 return;
             }
 
-            $resolved = $resolver->forEmployee($employee);
+            $resolved = $resolvedByEmployeeId[(int) $employee->id] ?? null;
 
-            if ($resolved['status'] !== 'movement_update_required') {
+            if ($resolved === null || $resolved['status'] !== 'movement_update_required') {
                 continue;
             }
 
@@ -532,7 +527,7 @@ final class CrewOperationsDashboardAnalytics
                     ? route('organization.employees.show', ['employee' => $employee->id])
                     : null,
             ];
-            $seen[$employee->id] = true;
+            $needsUpdateEmployeeIds[(int) $employee->id] = true;
         }
 
         foreach ($employees as $employee) {
@@ -540,13 +535,15 @@ final class CrewOperationsDashboardAnalytics
                 return;
             }
 
-            if (isset($seen[$employee->id])) {
+            $employeeId = (int) $employee->id;
+
+            if (isset($needsUpdateEmployeeIds[$employeeId])) {
                 continue;
             }
 
-            $resolved = $resolver->forEmployee($employee);
+            $resolved = $resolvedByEmployeeId[$employeeId] ?? null;
 
-            if ($resolved['status'] !== 'in_home' || $resolved['in_home_days'] === null) {
+            if ($resolved === null || $resolved['status'] !== 'in_home' || $resolved['in_home_days'] === null) {
                 continue;
             }
 

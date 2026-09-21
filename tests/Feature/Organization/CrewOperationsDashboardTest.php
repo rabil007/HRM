@@ -44,8 +44,8 @@ test('authorized users can view daily operations dashboard essentials', function
             ->has('next_seven_days', 7)
             ->has('manning_relief_risks')
             ->where('projected_manning', null)
-            ->has('deployment_trends')
-            ->has('recent_activity')
+            ->where('deployment_trends', [])
+            ->where('recent_activity', [])
             ->where('can.overview', true)
         );
 });
