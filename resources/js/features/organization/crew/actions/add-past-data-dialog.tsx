@@ -8,6 +8,7 @@ import {
     Clock,
     FileSpreadsheet,
     History,
+    Link as LinkIcon,
     Loader2,
     Ship,
     User,
@@ -38,15 +39,15 @@ import {
 } from '@/lib/company-timezone';
 import { formatDisplayDate } from '@/lib/format-date';
 import type {
-    CrewAssignmentFormOptions,
     HistoricalCrewAssignmentFormData,
     HistoricalCrewAssignmentPreviewData,
+    HistoricalFormOptions,
 } from '../types';
 
 interface AddPastDataDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    formOptions: CrewAssignmentFormOptions;
+    formOptions: HistoricalFormOptions;
 }
 
 export function AddPastDataDialog({
@@ -74,8 +75,10 @@ export function AddPastDataDialog({
         disembarked_at: '',
         mobilisation_at: '',
         arrival_at: '',
+        join_standby_at: '',
         training_started_at: '',
         training_ended_at: '',
+        post_training_join_standby_at: '',
         ready_to_join_at: '',
         post_signoff_standby_at: '',
         travel_home_at: '',
@@ -171,8 +174,11 @@ export function AddPastDataDialog({
             disembarked_at: form.data.disembarked_at,
             mobilisation_at: form.data.mobilisation_at || null,
             arrival_at: form.data.arrival_at || null,
+            join_standby_at: form.data.join_standby_at || null,
             training_started_at: form.data.training_started_at || null,
             training_ended_at: form.data.training_ended_at || null,
+            post_training_join_standby_at:
+                form.data.post_training_join_standby_at || null,
             ready_to_join_at: form.data.ready_to_join_at || null,
             post_signoff_standby_at: form.data.post_signoff_standby_at || null,
             travel_home_at: form.data.travel_home_at || null,
@@ -355,25 +361,42 @@ export function AddPastDataDialog({
                                                     handleEmployeeChange
                                                 }
                                                 placeholder="Select employee..."
-                                                searchPlaceholder="Search employee by name..."
+                                                searchPlaceholder="Search employee by name or number..."
                                             >
                                                 <AppSelectItem value="">
                                                     Select employee...
                                                 </AppSelectItem>
                                                 {formOptions.employees.map(
-                                                    (emp) => (
-                                                        <AppSelectItem
-                                                            key={emp.id}
-                                                            value={String(
-                                                                emp.id,
-                                                            )}
-                                                        >
-                                                            {emp.name}{' '}
-                                                            {emp.employee_no
-                                                                ? `(${emp.employee_no})`
-                                                                : ''}
-                                                        </AppSelectItem>
-                                                    ),
+                                                    (emp) => {
+                                                        const isNonActive =
+                                                            emp.status &&
+                                                            emp.status !==
+                                                                'active';
+                                                        const statusLabel =
+                                                            isNonActive
+                                                                ? ` — ${emp.status
+                                                                      .replace(
+                                                                          /_/g,
+                                                                          ' ',
+                                                                      )
+                                                                      .toUpperCase()}`
+                                                                : '';
+
+                                                        return (
+                                                            <AppSelectItem
+                                                                key={emp.id}
+                                                                value={String(
+                                                                    emp.id,
+                                                                )}
+                                                            >
+                                                                {emp.name}{' '}
+                                                                {emp.employee_no
+                                                                    ? `(${emp.employee_no})`
+                                                                    : ''}
+                                                                {statusLabel}
+                                                            </AppSelectItem>
+                                                        );
+                                                    },
                                                 )}
                                             </AppSelect>
                                             <InputError
@@ -458,7 +481,7 @@ export function AddPastDataDialog({
 
                                         <div className="space-y-1.5">
                                             <Label htmlFor="historical-client">
-                                                Client
+                                                Client (Optional)
                                             </Label>
                                             <AppSelect
                                                 value={String(
@@ -470,11 +493,11 @@ export function AddPastDataDialog({
                                                         val ? Number(val) : '',
                                                     )
                                                 }
-                                                placeholder="Select client (optional)..."
+                                                placeholder="Auto-resolved or select..."
                                                 searchPlaceholder="Search client..."
                                             >
                                                 <AppSelectItem value="">
-                                                    Select client...
+                                                    None / Auto-resolve
                                                 </AppSelectItem>
                                                 {formOptions.clients.map(
                                                     (c) => (
@@ -493,9 +516,9 @@ export function AddPastDataDialog({
                                         </div>
                                     </div>
 
-                                    {/* Sea Service Dates */}
-                                    <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
-                                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                    {/* Primary Onboard Period (P4) */}
+                                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
+                                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                                             <Ship className="h-4 w-4 text-primary" />
                                             <span>
                                                 Onboard Period (P4 Sea Service)
@@ -504,7 +527,7 @@ export function AddPastDataDialog({
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-joined-vessel">
-                                                    Joined Vessel{' '}
+                                                    Joined Vessel (P4 Start){' '}
                                                     <span className="text-destructive">
                                                         *
                                                     </span>
@@ -534,7 +557,7 @@ export function AddPastDataDialog({
 
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-disembarked">
-                                                    Disembarked{' '}
+                                                    Disembarked (P4 End){' '}
                                                     <span className="text-destructive">
                                                         *
                                                     </span>
@@ -585,8 +608,8 @@ export function AddPastDataDialog({
                                                     Add More Movement Details
                                                 </span>
                                                 <span className="text-xs font-normal text-muted-foreground">
-                                                    (Mobilisation, Standby,
-                                                    Training, Travel)
+                                                    (Pre-Mobilisation, Standby,
+                                                    Training, Travel, Demob)
                                                 </span>
                                             </span>
                                             {showMoreDetails ? (
@@ -606,6 +629,7 @@ export function AddPastDataDialog({
                                                 </p>
 
                                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                    {/* P0 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-mobilisation">
                                                             Mobilisation Start
@@ -635,10 +659,11 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
+                                                    {/* P1 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-arrival">
-                                                            Arrival / Join
-                                                            Standby (P1)
+                                                            Travel In / Arrival
+                                                            (P1 legacy)
                                                         </Label>
                                                         <Input
                                                             id="historical-arrival"
@@ -664,10 +689,40 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
+                                                    {/* P2A Join Standby Start */}
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="historical-join-standby">
+                                                            Join Standby Start
+                                                            (P2A)
+                                                        </Label>
+                                                        <Input
+                                                            id="historical-join-standby"
+                                                            type="date"
+                                                            value={
+                                                                form.data
+                                                                    .join_standby_at ??
+                                                                ''
+                                                            }
+                                                            onChange={(e) =>
+                                                                form.setData(
+                                                                    'join_standby_at',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        />
+                                                        <InputError
+                                                            message={
+                                                                form.errors
+                                                                    .join_standby_at
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    {/* P2B Training Start */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-training-start">
-                                                            Training Start (P2A
-                                                            Start)
+                                                            Training Start (P2B)
                                                         </Label>
                                                         <Input
                                                             id="historical-training-start"
@@ -693,10 +748,10 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
+                                                    {/* P2B Training End */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-training-end">
-                                                            Training End (P2A
-                                                            End)
+                                                            Training End (P2B)
                                                         </Label>
                                                         <Input
                                                             id="historical-training-end"
@@ -722,9 +777,41 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
+                                                    {/* P2A Post-Training Standby */}
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="historical-post-training-standby">
+                                                            Post-Training
+                                                            Standby (P2A Return)
+                                                        </Label>
+                                                        <Input
+                                                            id="historical-post-training-standby"
+                                                            type="date"
+                                                            value={
+                                                                form.data
+                                                                    .post_training_join_standby_at ??
+                                                                ''
+                                                            }
+                                                            onChange={(e) =>
+                                                                form.setData(
+                                                                    'post_training_join_standby_at',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        />
+                                                        <InputError
+                                                            message={
+                                                                form.errors
+                                                                    .post_training_join_standby_at
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    {/* P3 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-ready-to-join">
-                                                            Ready to Join (P3)
+                                                            Ready to Join (P3
+                                                            legacy)
                                                         </Label>
                                                         <Input
                                                             id="historical-ready-to-join"
@@ -750,9 +837,10 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
+                                                    {/* P5 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-post-signoff">
-                                                            Post Sign-Off
+                                                            Post Sign-Off Demob
                                                             Standby (P5)
                                                         </Label>
                                                         <Input
@@ -779,9 +867,11 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
+                                                    {/* P6 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-travel-home">
-                                                            Travel Home (P6)
+                                                            Travel Home / Home
+                                                            Redeploy (P6)
                                                         </Label>
                                                         <Input
                                                             id="historical-travel-home"
@@ -807,6 +897,7 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
+                                                    {/* Closed At */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-closed-at">
                                                             Assignment Closed
@@ -895,10 +986,10 @@ export function AddPastDataDialog({
                                         </h4>
                                         <p className="text-xs text-muted-foreground">
                                             The proposed historical record has
-                                            been authoritatively verified
-                                            against chronological, tenancy, and
-                                            overlap rules. Review the summary
-                                            below before persisting.
+                                            been verified against chronological,
+                                            tenancy, and overlap rules. Review
+                                            the summary and timeline below
+                                            before persisting.
                                         </p>
                                     </div>
                                 </div>
@@ -950,6 +1041,31 @@ export function AddPastDataDialog({
                                             </span>
                                         </div>
                                     </div>
+                                    <div className="border-t border-border/50 pt-2 text-xs text-muted-foreground">
+                                        <span>
+                                            Sea Service Duration:{' '}
+                                            <strong className="text-foreground">
+                                                {
+                                                    previewData.summary
+                                                        .sea_service_days
+                                                }{' '}
+                                                days
+                                            </strong>{' '}
+                                            (
+                                            {
+                                                previewData.summary
+                                                    .joined_vessel_at
+                                            }{' '}
+                                            →{' '}
+                                            {previewData.summary.disembarked_at}
+                                            )
+                                        </span>
+                                        {previewData.summary.remarks && (
+                                            <p className="mt-1 italic">
+                                                "{previewData.summary.remarks}"
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Timeline Visual */}
@@ -967,8 +1083,9 @@ export function AddPastDataDialog({
                                                     <div className="absolute top-1 -left-6 h-3 w-3 rounded-full border-2 border-background bg-primary" />
                                                     <div>
                                                         <span className="block text-xs font-semibold text-foreground">
-                                                            [{item.phase_code}]{' '}
-                                                            {item.phase_label}
+                                                            [
+                                                            {item.phase_code.toUpperCase()}
+                                                            ] {item.phase_label}
                                                         </span>
                                                         <span className="text-xs text-muted-foreground">
                                                             {formatDisplayDate(
@@ -1021,12 +1138,48 @@ export function AddPastDataDialog({
                                 </div>
 
                                 {/* Sea Service Impact */}
-                                <div className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                                    <Ship className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <div
+                                    className={`flex items-start gap-3 rounded-xl border p-4 ${
+                                        previewData.sea_service.status ===
+                                        'will_link'
+                                            ? 'border-sky-500/20 bg-sky-500/5'
+                                            : previewData.sea_service.status ===
+                                                'will_create'
+                                              ? 'border-emerald-500/20 bg-emerald-500/5'
+                                              : 'border-amber-500/20 bg-amber-500/5'
+                                    }`}
+                                >
+                                    {previewData.sea_service.status ===
+                                    'will_link' ? (
+                                        <LinkIcon className="mt-0.5 h-5 w-5 shrink-0 text-sky-600 dark:text-sky-400" />
+                                    ) : (
+                                        <Ship className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                    )}
                                     <div className="space-y-1 text-sm">
-                                        <h5 className="font-semibold text-foreground">
-                                            Sea Service Impact
-                                        </h5>
+                                        <div className="flex items-center gap-2">
+                                            <h5 className="font-semibold text-foreground">
+                                                Sea Service Impact
+                                            </h5>
+                                            <Badge
+                                                variant={
+                                                    previewData.sea_service
+                                                        .status === 'will_link'
+                                                        ? 'secondary'
+                                                        : 'default'
+                                                }
+                                                className="text-[10px]"
+                                            >
+                                                {previewData.sea_service
+                                                    .status === 'will_link'
+                                                    ? 'Will Link Existing'
+                                                    : previewData.sea_service
+                                                            .status ===
+                                                        'will_create'
+                                                      ? 'Will Create Record'
+                                                      : previewData.sea_service
+                                                            .status}
+                                            </Badge>
+                                        </div>
                                         <p className="text-xs text-muted-foreground">
                                             {previewData.sea_service.message}
                                         </p>

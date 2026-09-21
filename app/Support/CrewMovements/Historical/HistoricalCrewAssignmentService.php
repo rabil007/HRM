@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
@@ -34,17 +35,26 @@ final class HistoricalCrewAssignmentService
     public function create(HistoricalCrewAssignmentData $data, ?int $actorId = null): CrewAssignment
     {
         return DB::transaction(function () use ($data, $actorId): CrewAssignment {
-            // Lock employee assignments to prevent concurrency race conditions & double submits
+            // 1. Lock the employee row to serialize concurrent writes for this employee
+            Employee::query()
+                ->where('company_id', $data->companyId)
+                ->whereKey($data->employeeId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // 2. Lock existing assignment rows for this employee
             CrewAssignment::query()
                 ->where('company_id', $data->companyId)
                 ->where('employee_id', $data->employeeId)
                 ->lockForUpdate()
                 ->get(['id']);
 
+            // 3. Re-run authoritative validation under the lock
             $actor = $actorId !== null && $actorId > 0 ? User::query()->find($actorId) : null;
             $validationResult = $this->validator->validate($data, $actor);
             $validationResult->assertValid();
 
+            // 4. Generate assignment number with locking
             $assignmentNo = $this->numberGenerator->next($data->companyId);
 
             $assignment = CrewAssignment::query()->create([
@@ -92,7 +102,7 @@ final class HistoricalCrewAssignmentService
 
             $this->guard->assertValid($assignment);
 
-            // Sea service sync or deduplication
+            // 5. Sea service sync or safe deduplication
             $p4Phase = collect($createdPhases)->first(
                 fn (CrewAssignmentPhase $p): bool => $p->phase_code === CrewPhaseCode::OnVessel
             );
@@ -111,19 +121,21 @@ final class HistoricalCrewAssignmentService
                     ->first();
 
                 if ($matchingUnlinked !== null) {
-                    $duration = $data->seaServiceDuration();
-                    $matchingUnlinked->update([
-                        'crew_assignment_phase_id' => $p4Phase->id,
-                        'rank_id' => $data->rankId,
-                        'client_id' => $data->clientId,
-                        'total_months' => $duration['months'],
-                        'total_days' => $duration['days'],
-                    ]);
+                    // Safe linking: do not silently rewrite existing HR history (days, rank, client)
+                    $matchingUnlinked->crew_assignment_phase_id = $p4Phase->id;
+                    if ($matchingUnlinked->rank_id === null) {
+                        $matchingUnlinked->rank_id = $data->rankId;
+                    }
+                    if ($matchingUnlinked->client_id === null && $data->clientId !== null) {
+                        $matchingUnlinked->client_id = $data->clientId;
+                    }
+                    $matchingUnlinked->save();
                 } else {
                     $this->seaServiceSync->syncFromPhase($p4Phase);
                 }
             }
 
+            // 6. Activity audit logging with company_id on activity row
             activity()
                 ->performedOn($assignment)
                 ->causedBy($actorId)
@@ -137,9 +149,14 @@ final class HistoricalCrewAssignmentService
                     'rank_id' => $data->rankId,
                     'historical_start' => $assignment->started_at?->toIso8601String(),
                     'historical_end' => $assignment->closed_at?->toIso8601String(),
+                    'historical_joined_vessel_at' => $data->joinedVesselAt->toDateString(),
+                    'historical_disembarked_at' => $data->disembarkedAt->toDateString(),
                     'source' => $data->source,
                 ])
-                ->log('created historical crew assignment');
+                ->tap(function ($activity) use ($assignment): void {
+                    $activity->company_id = $assignment->company_id;
+                })
+                ->log('Historical crew assignment created');
 
             return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'rank', 'client']);
         });

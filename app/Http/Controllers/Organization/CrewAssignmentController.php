@@ -120,6 +120,7 @@ class CrewAssignmentController extends Controller
 
         $summary = CrewMovementAttentionQuery::summaryCounts($companyId, $request->user());
         $filterOptions = CurrentCrewQuery::filterOptions($companyId, $request->user());
+        $can = CrewAssignmentPagePermissions::for($request->user());
 
         return Inertia::render('organization/crew/index', [
             'view' => $view,
@@ -131,8 +132,11 @@ class CrewAssignmentController extends Controller
             'filters' => CurrentCrewRequestFilters::inertiaFilters($filters, $view),
             'summary' => $summary,
             'filter_options' => $filterOptions,
-            'form_options' => $this->movementFormOptions($companyId, $request->user()),
-            'can' => CrewAssignmentPagePermissions::for($request->user()),
+            'form_options' => $this->movementFormOptions($companyId),
+            'historical_form_options' => ($can['create_historical'] ?? false) && $request->user() !== null
+                ? $this->historicalFormOptions($companyId, $request->user())
+                : null,
+            'can' => $can,
             'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Crew),
         ]);
     }
@@ -348,7 +352,7 @@ class CrewAssignmentController extends Controller
             'corrections' => $corrections,
             'correction_request_context' => $correctionRequestContext,
             'recent_activity' => $recentActivity,
-            'form_options' => $this->movementFormOptions($companyId, $request->user()),
+            'form_options' => $this->movementFormOptions($companyId),
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }
@@ -627,7 +631,7 @@ class CrewAssignmentController extends Controller
 
     /**
      * @return array{
-     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null}>,
+     *     employees: list<array<string, mixed>>,
      *     ranks: list<array<string, mixed>>,
      *     vessels: list<array<string, mixed>>,
      *     clients: list<array<string, mixed>>,
@@ -637,24 +641,46 @@ class CrewAssignmentController extends Controller
      *     company_timezone: string
      * }
      */
-    private function movementFormOptions(int $companyId, ?User $user = null): array
+    private function movementFormOptions(int $companyId): array
+    {
+        return [
+            'employees' => [],
+            'ranks' => $this->activeRanksWithTour($companyId),
+            'vessels' => $this->activeVessels($companyId),
+            'clients' => $this->activeClients(),
+            'courses' => $this->activeCourses(),
+            'hotels' => $this->activeHotels($companyId),
+            'room_types' => $this->activeRoomTypes($companyId),
+            'company_timezone' => CompanyTimezone::forCompanyId($companyId),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null, status: string}>,
+     *     ranks: list<array<string, mixed>>,
+     *     vessels: list<array<string, mixed>>,
+     *     clients: list<array<string, mixed>>,
+     *     company_timezone: string
+     * }
+     */
+    private function historicalFormOptions(int $companyId, User $user): array
     {
         $employeeQuery = Employee::query()
             ->where('company_id', $companyId)
-            ->active();
+            ->whereNull('deleted_at');
 
-        if ($user !== null) {
-            $employeeQuery = EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
-        }
+        $employeeQuery = EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
 
         $employees = $employeeQuery
             ->orderBy('name')
-            ->get(['id', 'name', 'employee_no', 'rank_id'])
+            ->get(['id', 'name', 'employee_no', 'rank_id', 'status'])
             ->map(fn (Employee $employee) => [
                 'id' => $employee->id,
                 'name' => $employee->name,
                 'employee_no' => $employee->employee_no,
                 'rank_id' => $employee->rank_id,
+                'status' => $employee->status,
             ])
             ->values()
             ->all();
@@ -664,9 +690,6 @@ class CrewAssignmentController extends Controller
             'ranks' => $this->activeRanksWithTour($companyId),
             'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
-            'courses' => $this->activeCourses(),
-            'hotels' => $this->activeHotels($companyId),
-            'room_types' => $this->activeRoomTypes($companyId),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
     }

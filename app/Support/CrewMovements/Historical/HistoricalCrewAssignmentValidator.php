@@ -3,16 +3,16 @@
 namespace App\Support\CrewMovements\Historical;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewPhaseCode;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
-use App\Models\Vessel;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Settings\CompanyTimezone;
+use App\Support\MasterData\ClientAssignmentRules;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -24,14 +24,15 @@ final class HistoricalCrewAssignmentValidator
 
     public function validate(HistoricalCrewAssignmentData $data, ?User $actor = null): HistoricalCrewAssignmentValidationResult
     {
-        $timezone = CompanyTimezone::forCompanyId($data->companyId);
+        $timezone = $data->timezone;
         $errors = [];
         $warnings = [];
         $checks = [];
 
-        // 1. Employee Check
+        // 1. Employee Check: must belong to company, not soft-deleted, and visible to actor
         $employee = Employee::query()
             ->where('company_id', $data->companyId)
+            ->whereNull('deleted_at')
             ->find($data->employeeId);
 
         $employeeValid = true;
@@ -45,19 +46,18 @@ final class HistoricalCrewAssignmentValidator
             $employeeValid = false;
             $employeeMessage = 'You do not have permission to view or manage this employee.';
             $errors['employee_id'] = $employeeMessage;
+        } else {
+            $employeeMessage = 'Employee belongs to active company and is visible to your role.';
         }
 
         $checks[] = [
-            'key' => 'employee',
-            'label' => 'Employee valid',
+            'code' => 'employee',
             'passed' => $employeeValid,
             'message' => $employeeMessage,
         ];
 
-        // 2. Vessel Check
-        $vessel = Vessel::query()
-            ->where('company_id', $data->companyId)
-            ->find($data->vesselId);
+        // 2. Vessel Check: must belong to company via ClientAssignmentRules
+        $vessel = ClientAssignmentRules::findCompanyVessel($data->companyId, $data->vesselId);
 
         $vesselValid = true;
         $vesselMessage = null;
@@ -66,15 +66,15 @@ final class HistoricalCrewAssignmentValidator
             $vesselValid = false;
             $vesselMessage = 'Vessel not found in the active company.';
             $errors['vessel_id'] = $vesselMessage;
-        } elseif (! $vessel->is_active) {
-            $vesselValid = false;
-            $vesselMessage = 'The selected vessel is inactive.';
-            $errors['vessel_id'] = $vesselMessage;
+        } else {
+            $vesselMessage = 'Vessel belongs to active company.';
+            if (! $vessel->is_active) {
+                $warnings[] = "Vessel '{$vessel->name}' is currently inactive in master data, but recorded for historical service.";
+            }
         }
 
         $checks[] = [
-            'key' => 'vessel',
-            'label' => 'Vessel valid',
+            'code' => 'vessel',
             'passed' => $vesselValid,
             'message' => $vesselMessage,
         ];
@@ -88,25 +88,25 @@ final class HistoricalCrewAssignmentValidator
             $rankValid = false;
             $rankMessage = 'The selected rank is invalid.';
             $errors['rank_id'] = $rankMessage;
-        } elseif (! $rank->is_active) {
-            $rankValid = false;
-            $rankMessage = 'The selected rank is inactive.';
-            $errors['rank_id'] = $rankMessage;
+        } else {
+            $rankMessage = 'Rank is valid.';
+            if (! $rank->is_active) {
+                $warnings[] = "Rank '{$rank->name}' is currently inactive in master data.";
+            }
         }
 
         $checks[] = [
-            'key' => 'rank',
-            'label' => 'Rank valid',
+            'code' => 'rank',
             'passed' => $rankValid,
             'message' => $rankMessage,
         ];
 
-        // Client validation (if vessel or client supplied)
+        // Client validation: auto-resolve or validate compatibility
         $client = null;
         if ($data->clientId !== null) {
             $client = Client::query()->find($data->clientId);
-            if ($client === null || ! $client->is_active) {
-                $errors['client_id'] = 'The selected client is invalid or inactive.';
+            if ($client === null) {
+                $errors['client_id'] = 'The selected client is invalid.';
             } elseif ($vessel !== null && $vessel->client_id !== null && (int) $vessel->client_id !== $data->clientId) {
                 $errors['client_id'] = 'The selected client does not match the vessel’s assigned client.';
             }
@@ -119,13 +119,13 @@ final class HistoricalCrewAssignmentValidator
         $datesMessage = null;
         $now = Carbon::now($timezone);
 
-        // Future timestamp checks
         $allSuppliedTimestamps = [
             'mobilisation_start_at' => $data->mobilisationStartAt,
             'arrival_at' => $data->arrivalAt,
             'join_standby_at' => $data->joinStandbyAt,
             'training_start_at' => $data->trainingStartAt,
             'training_end_at' => $data->trainingEndAt,
+            'post_training_join_standby_at' => $data->postTrainingJoinStandbyAt,
             'ready_to_join_at' => $data->readyToJoinAt,
             'joined_vessel_at' => $data->joinedVesselAt,
             'disembarked_at' => $data->disembarkedAt,
@@ -157,9 +157,10 @@ final class HistoricalCrewAssignmentValidator
         $chainDefinitions = [
             ['field' => 'mobilisation_start_at', 'label' => 'Mobilisation Start', 'ts' => $data->mobilisationStartAt],
             ['field' => 'arrival_at', 'label' => 'Arrival / Travel In', 'ts' => $data->arrivalAt],
-            ['field' => 'join_standby_at', 'label' => 'Join Standby', 'ts' => $data->joinStandbyAt],
+            ['field' => 'join_standby_at', 'label' => 'Join Standby Start', 'ts' => $data->joinStandbyAt],
             ['field' => 'training_start_at', 'label' => 'Training Start', 'ts' => $data->trainingStartAt],
             ['field' => 'training_end_at', 'label' => 'Training End', 'ts' => $data->trainingEndAt],
+            ['field' => 'post_training_join_standby_at', 'label' => 'Post-Training Standby', 'ts' => $data->postTrainingJoinStandbyAt],
             ['field' => 'ready_to_join_at', 'label' => 'Ready to Join', 'ts' => $data->readyToJoinAt],
             ['field' => 'joined_vessel_at', 'label' => 'Joined Vessel', 'ts' => $data->joinedVesselAt],
             ['field' => 'disembarked_at', 'label' => 'Disembarked', 'ts' => $data->disembarkedAt],
@@ -207,10 +208,9 @@ final class HistoricalCrewAssignmentValidator
         }
 
         $checks[] = [
-            'key' => 'dates',
-            'label' => 'Dates valid',
+            'code' => 'dates',
             'passed' => $datesValid,
-            'message' => $datesMessage,
+            'message' => $datesMessage ?? 'Dates and chronological sequence are valid.',
         ];
 
         // 5. Overlap Check with Existing Assignment History
@@ -237,8 +237,6 @@ final class HistoricalCrewAssignmentValidator
                 }
 
                 if ($existing->status === CrewAssignmentStatus::Active) {
-                    // Active assignment is open-ended from existingStart to infinity.
-                    // Overlap if newEnd > existingStart.
                     if ($newEnd->gt($existingStart)) {
                         $noConflict = false;
                         $conflictingAssignment = $existing;
@@ -254,10 +252,8 @@ final class HistoricalCrewAssignmentValidator
                         break;
                     }
                 } else {
-                    // Completed or Cancelled assignment has an actual closed/end timestamp.
                     $existingEnd = $existing->closed_at ?? $existing->phases->whereNotNull('actual_end_at')->max('actual_end_at') ?? $existingStart;
 
-                    // Positive duration intersection: left.start < right.end && right.start < left.end
                     if ($newStart->lt($existingEnd) && $existingStart->lt($newEnd)) {
                         $noConflict = false;
                         $conflictingAssignment = $existing;
@@ -277,10 +273,9 @@ final class HistoricalCrewAssignmentValidator
         }
 
         $checks[] = [
-            'key' => 'no_conflict',
-            'label' => 'No conflicting assignment found',
+            'code' => 'no_conflict',
             'passed' => $noConflict,
-            'message' => $conflictMessage,
+            'message' => $conflictMessage ?? 'No conflicting assignment found.',
         ];
 
         // 6. Current Operational State Isolation Check
@@ -293,30 +288,33 @@ final class HistoricalCrewAssignmentValidator
                 ->first()
             : null;
 
-        $currentIsolated = true;
         $currentIsolatedMessage = $activeAssignment !== null
             ? "Current active assignment {$activeAssignment->assignment_no} will remain untouched."
             : 'No active operational assignment exists; operations will remain untouched.';
 
         $checks[] = [
-            'key' => 'current_isolated',
-            'label' => 'Existing current assignment will not be modified',
-            'passed' => $currentIsolated,
+            'code' => 'current_isolated',
+            'passed' => true,
             'message' => $currentIsolatedMessage,
         ];
 
-        // 7. Sea Service Impact & Deduplication Check
+        // 7. Sea Service Impact & Inclusive Overlap Check
         $seaDuration = $data->seaServiceDuration();
         $seaStartDate = $data->joinedVesselAt->toDateString();
         $seaEndDate = $data->disembarkedAt->toDateString();
+        $vesselName = $vessel?->name ?? 'Unknown Vessel';
         $syncEnabled = $this->seaServiceSync->isEnabled($data->companyId);
 
         $seaServiceImpact = [
             'status' => 'will_create',
             'days' => $seaDuration['days'],
             'months' => $seaDuration['months'],
-            'message' => "{$seaDuration['days']} days will be recorded/synchronized to Sea Service.",
+            'start_date' => $seaStartDate,
+            'end_date' => $seaEndDate,
+            'vessel_id' => $data->vesselId,
+            'vessel_name' => $vesselName,
             'existing_id' => null,
+            'message' => "{$seaDuration['days']} days will be recorded/synchronized to Sea Service.",
         ];
 
         if (! $syncEnabled) {
@@ -333,58 +331,98 @@ final class HistoricalCrewAssignmentValidator
                 $recordStart = $record->start_date?->toDateString();
                 $recordEnd = $record->end_date?->toDateString();
 
-                // Exact match: same vessel and exact same dates
+                if ($recordStart === null || $recordEnd === null) {
+                    continue;
+                }
+
+                // Check Exact Match: same vessel and exact same calendar dates
                 if ((int) $record->vessel_id === $data->vesselId
                     && $recordStart === $seaStartDate
                     && $recordEnd === $seaEndDate) {
-                    if ($record->crew_assignment_phase_id === null) {
-                        $seaServiceImpact['status'] = 'will_link';
-                        $seaServiceImpact['existing_id'] = (int) $record->id;
-                        $seaServiceImpact['message'] = "Matches existing unlinked Sea Service record #{$record->id} ({$seaDuration['days']} days) and will link safely without duplicating.";
-                        break;
-                    }
-                } elseif ($recordStart !== null && $recordEnd !== null) {
-                    // Conflicting partial overlap with another sea service record
-                    $recStartCarbon = Carbon::parse($recordStart);
-                    $recEndCarbon = Carbon::parse($recordEnd);
-                    $seaStartCarbon = Carbon::parse($seaStartDate);
-                    $seaEndCarbon = Carbon::parse($seaEndDate);
 
-                    if ($seaStartCarbon->lt($recEndCarbon) && $recStartCarbon->lt($seaEndCarbon)) {
-                        $conflictVesselName = $record->vessel?->name ?? 'another vessel';
-                        $errMsg = sprintf(
-                            'Overlaps existing Sea Service record (%s, %s -> %s).',
-                            $conflictVesselName,
-                            $recStartCarbon->format('d M Y'),
-                            $recEndCarbon->format('d M Y'),
-                        );
+                    if ($record->crew_assignment_phase_id !== null) {
+                        $errMsg = "Matches existing Sea Service record #{$record->id} which is already linked to another assignment phase.";
                         $errors['sea_service'] = $errMsg;
                         $seaServiceImpact['status'] = 'conflict';
                         $seaServiceImpact['message'] = $errMsg;
                         break;
                     }
+
+                    // Check for conflicting HR history: Rank conflict
+                    if ($record->rank_id !== null && (int) $record->rank_id !== $data->rankId) {
+                        $existingRankName = Rank::query()->find($record->rank_id)?->name ?? '#'.$record->rank_id;
+                        $proposedRankName = $rank?->name ?? '#'.$data->rankId;
+                        $errMsg = "Matches existing Sea Service record #{$record->id} with conflicting rank ({$existingRankName} vs {$proposedRankName}). Cannot automatically overwrite HR history.";
+                        $errors['sea_service'] = $errMsg;
+                        $seaServiceImpact['status'] = 'conflict';
+                        $seaServiceImpact['message'] = $errMsg;
+                        break;
+                    }
+
+                    // Check for conflicting client
+                    if ($record->client_id !== null && $data->clientId !== null && (int) $record->client_id !== $data->clientId) {
+                        $errMsg = "Matches existing Sea Service record #{$record->id} with conflicting client.";
+                        $errors['sea_service'] = $errMsg;
+                        $seaServiceImpact['status'] = 'conflict';
+                        $seaServiceImpact['message'] = $errMsg;
+                        break;
+                    }
+
+                    // Compatible exact unlinked match: safe to link
+                    $seaServiceImpact['status'] = 'will_link';
+                    $seaServiceImpact['existing_id'] = (int) $record->id;
+                    $seaServiceImpact['message'] = "Matches existing unlinked Sea Service record #{$record->id} ({$seaDuration['days']} days) and will link safely without duplicating.";
+                    break;
+                }
+
+                // Non-exact match: Check inclusive calendar date overlap: [start1, end1] and [start2, end2]
+                // Touching boundary (same day) is an overlap on inclusive calendar days!
+                if ($recordStart <= $seaEndDate && $seaStartDate <= $recordEnd) {
+                    $conflictVesselName = $record->vessel?->name ?? 'another vessel';
+                    $recStartFormatted = Carbon::parse($recordStart)->format('d M Y');
+                    $recEndFormatted = Carbon::parse($recordEnd)->format('d M Y');
+                    $errMsg = sprintf(
+                        'Overlaps existing Sea Service record #%d (%s, %s -> %s).',
+                        $record->id,
+                        $conflictVesselName,
+                        $recStartFormatted,
+                        $recEndFormatted,
+                    );
+                    $errors['sea_service'] = $errMsg;
+                    $seaServiceImpact['status'] = 'conflict';
+                    $seaServiceImpact['message'] = $errMsg;
+                    break;
                 }
             }
         }
 
+        // Summary for preview
+        $summary = [
+            'joined_vessel_at' => $data->joinedVesselAt->copy()->timezone($timezone)->format('d M Y'),
+            'disembarked_at' => $data->disembarkedAt->copy()->timezone($timezone)->format('d M Y'),
+            'sea_service_days' => $seaDuration['days'],
+            'remarks' => $data->remarks,
+        ];
+
         // Build Timeline for preview
         $timeline = [];
         foreach ($data->phasesToCreate() as $phase) {
+            $phaseStart = $phase['actual_start_at']->copy()->timezone($timezone);
+            $phaseEnd = $phase['actual_end_at']->copy()->timezone($timezone);
+            $duration = null;
+            if ($phase['phase_code'] === CrewPhaseCode::OnVessel) {
+                $duration = $seaDuration['days'];
+            } elseif ($phaseStart->toDateString() !== $phaseEnd->toDateString()) {
+                $duration = (int) $phaseStart->diffInDays($phaseEnd) + 1;
+            }
+
             $timeline[] = [
                 'phase_code' => $phase['phase_code']->value,
-                'label' => $phase['phase_code']->label(),
-                'timestamp' => $phase['actual_start_at']->copy()->timezone($timezone)->toDateTimeString(),
-                'formatted' => $phase['actual_start_at']->copy()->timezone($timezone)->format('d M Y H:i'),
+                'phase_label' => $phase['phase_code']->label(),
+                'start' => $phaseStart->format('d M Y H:i'),
+                'end' => $phaseEnd->format('d M Y H:i'),
+                'duration_days' => $duration,
             ];
-            // If P4 or final phase, also show end
-            if ($phase['phase_code']->value === 'p4') {
-                $timeline[] = [
-                    'phase_code' => 'p4_end',
-                    'label' => 'Disembarked',
-                    'timestamp' => $phase['actual_end_at']->copy()->timezone($timezone)->toDateTimeString(),
-                    'formatted' => $phase['actual_end_at']->copy()->timezone($timezone)->format('d M Y H:i'),
-                ];
-            }
         }
 
         $isValid = empty($errors);
@@ -411,8 +449,8 @@ final class HistoricalCrewAssignmentValidator
                 'id' => (int) $client->id,
                 'name' => (string) $client->name,
             ] : null,
+            summary: $summary,
             timeline: $timeline,
-            durationDays: $seaDuration['days'],
             seaService: $seaServiceImpact,
             conflictingAssignment: $conflictingAssignment,
         );

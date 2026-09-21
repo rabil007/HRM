@@ -43,6 +43,7 @@ import type {
     CurrentCrewHomeRow,
     CurrentCrewView,
     CurrentCrewVesselRow,
+    HistoricalFormOptions,
 } from '@/features/organization/crew/types';
 import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
 import { RecordSelectionHead } from '@/features/organization/shared/record-selection-checkbox';
@@ -137,6 +138,7 @@ export function CurrentCrewContent({
     summary,
     filter_options: filterOptions,
     form_options: formOptions,
+    historical_form_options: historicalFormOptions,
     can,
     saved_views = [],
 }: {
@@ -150,6 +152,7 @@ export function CurrentCrewContent({
     summary: CrewAssignmentSummary;
     filter_options: CrewAssignmentFilterOptions;
     form_options?: CrewAssignmentFormOptions;
+    historical_form_options?: HistoricalFormOptions;
     can: CrewAssignmentPagePermissions;
     saved_views?: SavedView[];
 }) {
@@ -737,11 +740,11 @@ export function CurrentCrewContent({
                 }}
             />
 
-            {can.create_historical && formOptions ? (
+            {can.create_historical && historicalFormOptions ? (
                 <AddPastDataDialog
                     open={isAddPastDataOpen}
                     onOpenChange={setIsAddPastDataOpen}
-                    formOptions={formOptions}
+                    formOptions={historicalFormOptions}
                 />
             ) : null}
         </Main>

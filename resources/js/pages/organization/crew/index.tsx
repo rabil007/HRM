@@ -10,6 +10,7 @@ import type {
     CurrentCrewHomeRow,
     CurrentCrewView,
     CurrentCrewVesselRow,
+    HistoricalFormOptions,
 } from '@/features/organization/crew/types';
 import type { SavedView } from '@/lib/saved-views';
 import type { PaginationMeta } from '@/types/pagination';
@@ -25,6 +26,7 @@ export default function CrewAssignmentsIndex({
     summary,
     filter_options,
     form_options,
+    historical_form_options,
     can,
     saved_views = [],
 }: {
@@ -38,6 +40,7 @@ export default function CrewAssignmentsIndex({
     summary: CrewAssignmentSummary;
     filter_options: CrewAssignmentFilterOptions;
     form_options?: CrewAssignmentFormOptions;
+    historical_form_options?: HistoricalFormOptions;
     can: CrewAssignmentPagePermissions;
     saved_views?: SavedView[];
 }) {
@@ -55,6 +58,7 @@ export default function CrewAssignmentsIndex({
                 summary={summary}
                 filter_options={filter_options}
                 form_options={form_options}
+                historical_form_options={historical_form_options}
                 can={can}
                 saved_views={saved_views}
             />

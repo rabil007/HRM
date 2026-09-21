@@ -726,8 +726,9 @@ export interface HistoricalPreviewTimelineItem {
 }
 
 export interface HistoricalSeaServiceImpact {
-    status: 'will_create' | 'will_link' | 'warning';
+    status: 'will_create' | 'will_link' | 'warning' | 'conflict' | 'disabled';
     days: number;
+    months: number;
     start_date: string;
     end_date: string;
     vessel_id: number;
@@ -737,6 +738,7 @@ export interface HistoricalSeaServiceImpact {
 }
 
 export interface HistoricalCrewAssignmentPreviewData {
+    valid: boolean;
     employee: {
         id: number;
         name: string;
@@ -764,6 +766,7 @@ export interface HistoricalCrewAssignmentPreviewData {
     checks: HistoricalPreviewCheck[];
     warnings: string[];
     sea_service: HistoricalSeaServiceImpact;
+    errors?: string[];
 }
 
 export interface HistoricalCrewAssignmentFormData {
@@ -775,11 +778,34 @@ export interface HistoricalCrewAssignmentFormData {
     disembarked_at: string;
     mobilisation_at?: string;
     arrival_at?: string;
+    join_standby_at?: string;
     training_started_at?: string;
     training_ended_at?: string;
+    post_training_join_standby_at?: string;
     ready_to_join_at?: string;
     post_signoff_standby_at?: string;
     travel_home_at?: string;
     assignment_closed_at?: string;
     remarks?: string;
+}
+
+export interface HistoricalEmployeeOption {
+    id: number;
+    name: string;
+    employee_no: string | null;
+    rank_id: number | null;
+    status: string;
+}
+
+export interface HistoricalFormOptions {
+    employees: HistoricalEmployeeOption[];
+    ranks: Array<{ id: number; name: string; [key: string]: unknown }>;
+    vessels: Array<{
+        id: number;
+        name: string;
+        client_id?: number | null;
+        [key: string]: unknown;
+    }>;
+    clients: Array<{ id: number; name: string; [key: string]: unknown }>;
+    company_timezone: string;
 }

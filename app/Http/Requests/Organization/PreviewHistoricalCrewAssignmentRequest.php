@@ -4,7 +4,7 @@ namespace App\Http\Requests\Organization;
 
 use App\Models\CrewAssignment;
 use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
-use App\Support\Employees\ActiveCompanyEmployeeRule;
+use App\Support\Employees\HistoricalCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -58,7 +58,7 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             'employee_id' => [
                 'required',
                 'integer',
-                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
+                HistoricalCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
             'vessel_id' => [
                 'required',
@@ -70,10 +70,16 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             'joined_vessel_at' => ['required', 'date'],
             'disembarked_at' => ['required', 'date'],
             'mobilisation_at' => ['nullable', 'date'],
+            'mobilisation_start_at' => ['nullable', 'date'],
             'arrival_at' => ['nullable', 'date'],
+            'join_standby_at' => ['nullable', 'date'],
+            'training_start_at' => ['nullable', 'date'],
             'training_started_at' => ['nullable', 'date'],
+            'training_end_at' => ['nullable', 'date'],
             'training_ended_at' => ['nullable', 'date'],
+            'post_training_join_standby_at' => ['nullable', 'date'],
             'ready_to_join_at' => ['nullable', 'date'],
+            'demob_standby_at' => ['nullable', 'date'],
             'post_signoff_standby_at' => ['nullable', 'date'],
             'travel_home_at' => ['nullable', 'date'],
             'assignment_closed_at' => ['nullable', 'date'],

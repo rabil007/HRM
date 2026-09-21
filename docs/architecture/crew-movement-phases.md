@@ -1259,9 +1259,17 @@ High-trust maritime operators frequently need to record past assignments and his
 - **Live Assignments (`Start Assignment`)**: Represents active, real-time crew operations happening now. Requires active employee availability, initializes operational phases (P0/P1/P4), generates operational alerts, hotel stays, planning relief associations, and changes current crew status.
 - **Historical Data (`Add Past Data`)**: Represents completed past movements that occurred entirely in the past. Bypasses the live movement lifecycle and is processed by a dedicated backend service (`HistoricalCrewAssignmentService`). Creates assignments directly with status `Completed` and `source = historical_manual`.
 
+### Employee Eligibility & Status Handling
+
+Unlike live assignment creation (which strictly requires active, non-assigned employees), historical manual entry allows visible company employees regardless of current HR status:
+- `active`, `inactive`, `terminated`, `on_leave` are all eligible for historical recording.
+- The employee must belong to the active company and must not be soft-deleted.
+- Role-based `EmployeeVisibilityScope` remains strictly authoritative: employees in hidden departments remain inaccessible.
+- The dedicated `HistoricalCompanyEmployeeRule` enforces this policy on the backend without weakening live assignment rules.
+
 ### Add Past Data Dialog & Manual Entry Flow
 
-On `/organization/crew`, users with the authoritative permission `crew_operations.assignments.create_historical` see an **Add Past Data** action beside **Start Assignment**.
+On `/organization/crew`, users with the authoritative permission `crew_operations.assignments.create_historical` see an **Add Past Data** action beside **Start Assignment**. Form options for historical employees are isolated in `historical_form_options` and only delivered when authorized.
 
 The action opens a large centered modal containing:
 - **Manual Entry** (fully functional in Phase 1)
@@ -1270,41 +1278,70 @@ The action opens a large centered modal containing:
 #### 2-Step Authoritative Flow: Enter → Validate → Preview → Confirm → Persist
 
 1. **Enter**: Operator enters required master data:
-   - Employee (`*`, tenant- and visibility-scoped)
-   - Vessel (`*`, company-scoped)
+   - Employee (`*`, tenant- and visibility-scoped, displays status tag e.g. `Terminated`)
+   - Vessel (`*`, company-scoped via `ClientAssignmentRules`)
    - Rank (`*`)
-   - Client (auto-resolved from vessel or selectable)
-   - Joined Vessel (`joined_vessel_at`, `*`)
-   - Disembarked (`disembarked_at`, `*`)
+   - Client (auto-resolved from vessel or selectable via `ClientAssignmentRules`)
+   - Joined Vessel (`joined_vessel_at`, `*`, P4 start)
+   - Disembarked (`disembarked_at`, `*`, P4 end)
    - Remarks (optional)
-   - Optional Collapsed Phases (`+ Add More Movement Details`): P0 Mobilisation, P1 Arrival/Standby, P2A Training Start/End, P3 Ready to Join, P5 Post-Sign-Off Standby, P6 Travel Home, Closed Date.
-2. **Validate**: Client calls `POST /organization/crew/historical/preview`. The backend authoritatively runs domain validations (chronology, tenancy, past timestamp guard, temporal overlap, Sea Service matching). No database records are written.
-3. **Preview**: Dialog renders an authoritative verification breakdown:
-   - Summary of employee, vessel, rank, client, and onboard dates
-   - Calculated Sea Service duration
-   - Visual movement timeline
-   - 6-point verification checklist
-   - Explicit Sea Service synchronization impact and deduplication notice
+   - Optional Collapsed Phases (`+ Add More Movement Details`):
+     - Mobilisation Start (P0)
+     - Travel In / Arrival (P1 legacy)
+     - Join Standby Start (P2A)
+     - Training Start & Training End (P2B)
+     - Post-Training Standby Start (P2A, optional loop)
+     - Ready to Join (P3 legacy)
+     - Post Sign-Off / Demob Standby (P5)
+     - Travel Home / Redeploy (P6)
+     - Assignment Closed Date
+2. **Validate**: Client calls `POST /organization/crew/historical/preview`. The backend authoritatively runs domain validations (chronology, tenancy, company timezone guards, temporal overlap, Sea Service matching). No database records are written.
+3. **Preview**: Dialog renders a canonical verification breakdown:
+   - Summary of employee, vessel, rank, client, onboard dates, and remarks
+   - Sea Service impact badge (`Will Create`, `Will Link Existing`, `Conflict`, `Disabled`) with calculated calendar days and months
+   - Visual movement timeline showing ordered completed phases with start, end, and duration days
+   - Canonical 6-point verification checklist (`code`, `passed`, `message`)
    - Non-blocking advisory warnings (if any)
-4. **Confirm & Persist**: User confirms by clicking **Add Historical Assignment**. `POST /organization/crew/historical` re-executes authoritative validation inside a database transaction (`DB::transaction` with row-level locks on `crew_assignments`), writes domain records, synchronizes Sea Service, and logs an audit activity event.
+4. **Confirm & Persist**: User confirms by clicking **Add Historical Assignment**. `POST /organization/crew/historical`:
+   - Acquires an authoritative row-level lock on the `Employee` row (`lockForUpdate()` scoped by `company_id` and `employee_id`), preventing concurrent double-submits even when an employee has zero previous assignments.
+   - Locks existing assignment history.
+   - Re-executes authoritative validation inside the transaction.
+   - Writes domain records (`CrewAssignment`, `CrewAssignmentPhase`).
+   - Synchronizes Sea Service (`EmployeeSeaService`).
+   - Logs an audit activity event with native `activity_log.company_id = assignment.company_id`.
 
 ### Strict Historical Validation Rules
 
-1. **Company Timezone Semantics**:
-   - Historical dates and timestamps are interpreted in the company timezone (`CompanyTimezone::forCompanyId($companyId)`).
+1. **Company Timezone Semantics & Sea Service Calendar Dates**:
+   - Dates without timezone offset are treated as company-local wall-clock time (`CompanyTimezone::forCompanyId($companyId)`).
+   - Dates with explicit offset are parsed as absolute instants.
    - Future actual timestamps are strictly rejected (`joined_vessel_at <= companyNow`, `disembarked_at <= companyNow`).
-2. **Strict Chronological Invariants**:
-   - `joined_vessel_at < disembarked_at` (actual start strictly before actual end for onboard service).
-   - When optional phases are supplied, ordering is enforced:
-     `mobilisation <= arrival <= join_standby <= training_start <= training_end <= ready <= joined_vessel < disembarked <= post_signoff <= travel_home <= assignment_closed`.
-   - Chronological checks are only evaluated between phases that were explicitly provided.
+   - Sea Service uses calendar dates: `start_date` and `end_date` are derived from the company-local calendar date without early UTC drift. For example, for an `Asia/Dubai` (+04:00) company, `2024-01-15 00:00:00` retains `start_date = 2024-01-15` and never shifts backward to `2024-01-14`.
+2. **Phase Definitions & Chronological Invariants**:
+   - Phase codes follow canonical definitions:
+     - `P0`: Pre-Mobilisation
+     - `P1`: Travel In (legacy)
+     - `P2A`: Join Standby
+     - `P2B`: Training
+     - `P3`: Ready to Join (legacy)
+     - `P4`: On Vessel
+     - `P5`: Demobilisation Standby
+     - `P6`: Home / Redeployment
+   - Training is strictly **P2B**, never P2A.
+   - If a training loop occurs, it is captured as:
+     `P2A Join Standby → P2B Training → P2A Post-Training Standby → P4 On Vessel`.
+     Ordered completed phases are created with sequential order: `seq 1 P2A`, `seq 2 P2B`, `seq 3 P2A`, `seq 4 P4`.
+   - `joined_vessel_at < disembarked_at` (actual start strictly before actual end; zero-length P4 service is prohibited).
+   - When optional phases are supplied, strict chronological ordering is enforced:
+     `mobilisation <= travel_in <= join_standby <= training_start <= training_end <= post_training_join_standby <= ready_to_join <= joined_vessel < disembarked <= demob_standby <= travel_home <= assignment_closed`.
+   - Chronological checks are evaluated only between phases that were explicitly provided.
 3. **Zero Invented History**:
    - Only explicitly supplied historical facts are persisted.
-   - If the operator supplies only Joined Vessel and Disembarked dates, the system creates **only** the completed P4 phase without fabricating P0, P1, P2A, P2B, P3, P5, or P6 phases.
-4. **Historical Overlap Semantics**:
-   - Historical records are validated using **temporal overlap** against the employee's existing assignments, **not** the operational "employee has an active assignment" rule.
-   - An employee can have past completed assignments (e.g. 2024, 2025) while currently having an Active operational assignment (e.g. 2026).
-   - If an interval conflict exists with an existing assignment, the validator rejects the submission with detailed overlap window information (e.g., `Overlaps CA-2024-000031 (15-May-2024 -> 30-Jun-2024)`). Existing assignments are never silently modified or overwritten.
+   - If only Joined Vessel and Disembarked dates are supplied, the system creates **only** the completed P4 phase without fabricating P0, P1, P2A, P2B, P3, P5, or P6 phases.
+4. **Historical Temporal Overlap Semantics**:
+   - Historical records are validated using **temporal interval overlap** against the employee's existing assignments, **not** the operational "employee has an active assignment" rule.
+   - An employee can have past completed assignments while currently having an Active operational assignment.
+   - If an interval conflict exists with an existing assignment, the validator rejects the submission with detailed overlap window information. Existing assignments are never silently modified or overwritten.
 
 ### Operational State Isolation
 
@@ -1319,8 +1356,10 @@ Persisting historical data leaves the operational state completely untouched:
 ### Sea Service Synchronization & Deduplication
 
 - A completed historical P4 period represents genuine vessel service and creates or synchronizes an `EmployeeSeaService` record.
-- **Exact Match Deduplication**: If an unlinked `EmployeeSeaService` record already exists for the same employee, vessel, and identical start/end dates, the service links the existing record to the new historical phase instead of creating a duplicate row.
-- **Conflict Protection**: If an existing Sea Service record partially or ambiguously overlaps the historical window without matching exactly, validation blocks to prevent data corruption.
+- **Exact Match Deduplication**: If an unlinked `EmployeeSeaService` record already exists for the same employee, vessel, and identical start/end dates:
+  - If compatible (same rank, compatible client), the existing record is linked to the new historical phase without rewriting historic HR fields.
+  - If conflicting (different rank or conflicting client), validation blocks with an explicit conflict error rather than silently overwriting historical HR records.
+- **Inclusive Calendar Overlap Protection**: Because Sea Service records represent inclusive calendar dates, overlap checks enforce `$start1 <= $end2 && $start2 <= $end1`. Touching boundaries (where one service ends on day X and another starts on day X) are flagged as overlapping because day X cannot belong to two vessel services simultaneously. Adjacent dates (e.g. ending on 10-Jan and starting on 11-Jan) are fully allowed.
 
 ### Phase 2 Architecture Alignment
 
