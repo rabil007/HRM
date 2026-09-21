@@ -90,6 +90,8 @@ test('authorized user can download historical import template with required shee
 
     expect($instructionText)->toContain('At least one movement date is required.')
         ->and($instructionText)->toContain('On Vessel and Disembarked are optional')
+        ->and($instructionText)->toContain('Ambiguous duplicate names are blocked during validation.')
+        ->and($instructionText)->not->toContain('names are unique')
         ->and($instructionText)->not->toContain('Travel In')
         ->and($instructionText)->not->toContain('Ready to Join')
         ->and($instructionText)->not->toContain('P1')
@@ -339,6 +341,7 @@ test('inactive master data rows return warning when domain rules allow them', fu
             'client' => $inactiveClient->name,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
+            'travel_home_date' => '2024-07-23',
         ],
     ]);
 
@@ -1164,6 +1167,60 @@ test('excel active oms assignment blocks another open import row', function () {
     $row = collect($response->json('rows'))->first();
     expect($row['status'])->toBe('blocked');
     expect(implode(' ', $row['errors'] ?? []))->toContain('already has an active Crew Assignment');
+});
+
+test('excel open bootstrap is blocked for terminated employees but completed history remains allowed', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'TERM01',
+        'status' => 'terminated',
+    ]);
+    $vessel = makeCrewMovementVessel('Excel Terminated Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $openFile = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => 'TERM01',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+        ],
+    ]);
+
+    $openResponse = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $openFile,
+        ])
+        ->assertOk();
+
+    $openRow = collect($openResponse->json('rows'))->first();
+    expect($openRow['status'])->toBe('blocked');
+    expect(implode(' ', $openRow['errors'] ?? []))->toContain('not currently Active');
+
+    $completedFile = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => 'TERM01',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2023-01-01',
+            'disembark_date' => '2023-06-30',
+            'travel_home_date' => '2023-07-03',
+        ],
+    ]);
+
+    $completedResponse = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $completedFile,
+        ])
+        ->assertOk();
+
+    $completedRow = collect($completedResponse->json('rows'))->first();
+    expect($completedRow['status'])->toBeIn(['ready', 'warning'])
+        ->and($completedRow['inferred_state']['assignment_status'] ?? null)->toBe('completed');
 });
 
 test('excel multiple exact sea service matches are blocked', function () {

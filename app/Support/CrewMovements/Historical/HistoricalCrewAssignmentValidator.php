@@ -20,6 +20,8 @@ final class HistoricalCrewAssignmentValidator
 {
     public const ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE = 'This employee already has an active Crew Assignment in OMS-HRM. Historical records before the active assignment may still be imported, but this row cannot become another current assignment.';
 
+    public const OPEN_BOOTSTRAP_REQUIRES_ACTIVE_EMPLOYEE_MESSAGE = 'This historical record would become the employee\'s current active Crew Assignment, but the employee is not currently Active. Complete the historical movement through Home / Redeployment, or reactivate the employee before using this record to establish their current Crew state.';
+
     public function __construct(
         private readonly SeaServiceSyncService $seaServiceSync,
         private readonly HistoricalSeaServiceMatchResolver $seaServiceMatchResolver,
@@ -55,11 +57,6 @@ final class HistoricalCrewAssignmentValidator
             $errors['employee_id'] = $employeeMessage;
         } else {
             $employeeMessage = 'Employee belongs to active company and is visible to your role.';
-
-            if ($employee->status !== 'active') {
-                $statusLabel = str_replace('_', ' ', (string) $employee->status);
-                $warnings[] = "Employee status is currently '{$statusLabel}'. Historical recording is still allowed.";
-            }
         }
 
         $checks[] = [
@@ -260,7 +257,18 @@ final class HistoricalCrewAssignmentValidator
             $newEnd = $data->intervalEnd();
         }
 
-        // 5. Existing Active OMS assignment protection for open bootstrap rows
+        // 5. Open/current bootstrap requires Active HR status (completed history remains allowed).
+        if ($employee !== null && $employee->status !== 'active') {
+            $statusLabel = str_replace('_', ' ', (string) $employee->status);
+
+            if ($isOpenBootstrap) {
+                $errors['assignment'] = self::OPEN_BOOTSTRAP_REQUIRES_ACTIVE_EMPLOYEE_MESSAGE;
+            } else {
+                $warnings[] = "Employee status is currently '{$statusLabel}'. Completed historical recording is still allowed.";
+            }
+        }
+
+        // 6. Existing Active OMS assignment protection for open bootstrap rows
         $activeAssignment = null;
 
         if ($employee !== null) {
@@ -278,11 +286,11 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
-        if ($isOpenBootstrap && $activeAssignment !== null) {
+        if ($isOpenBootstrap && $activeAssignment !== null && ! isset($errors['assignment'])) {
             $errors['assignment'] = self::ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE;
         }
 
-        // 6. Overlap Check with Existing Assignment History
+        // 7. Overlap Check with Existing Assignment History
         $noConflict = true;
         $conflictMessage = null;
         $conflictingAssignment = null;
@@ -332,13 +340,13 @@ final class HistoricalCrewAssignmentValidator
             'message' => $errors['assignment'] ?? $conflictMessage ?? 'No conflicting assignment found.',
         ];
 
-        // 7. Current operational isolation messaging
-        if ($isOpenBootstrap && $activeAssignment === null) {
+        // 8. Current operational isolation messaging
+        if (isset($errors['assignment'])) {
+            $currentIsolatedMessage = $errors['assignment'];
+        } elseif ($isOpenBootstrap && $activeAssignment === null) {
             $currentIsolatedMessage = 'No conflicting active OMS assignment exists; this row may bootstrap the current operational state.';
         } elseif ($activeAssignment !== null && ! $isOpenBootstrap) {
             $currentIsolatedMessage = "Current active assignment {$activeAssignment->assignment_no} will remain untouched.";
-        } elseif ($activeAssignment !== null) {
-            $currentIsolatedMessage = self::ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE;
         } else {
             $currentIsolatedMessage = 'No active operational assignment exists.';
         }
@@ -349,7 +357,7 @@ final class HistoricalCrewAssignmentValidator
             'message' => $currentIsolatedMessage,
         ];
 
-        // 8. Sea Service Impact (only for completed P4)
+        // 9. Sea Service Impact (only for completed P4)
         $seaDuration = $data->seaServiceDuration();
         $seaStartDate = $data->joinedVesselAt?->toDateString();
         $seaEndDate = $data->disembarkedAt?->toDateString();

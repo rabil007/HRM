@@ -232,4 +232,124 @@ final class HistoricalPhaseBuilder
             default => null,
         };
     }
+
+    /**
+     * Derive Last Movement vs Inferred State from persisted phases.
+     *
+     * Training End that opens P2A must report Last Movement = Training End,
+     * while Inferred State remains Join Standby.
+     *
+     * @param  iterable<object|array{
+     *     phase_code: CrewPhaseCode|string|null,
+     *     actual_start_at: ?CarbonInterface,
+     *     actual_end_at?: ?CarbonInterface,
+     *     sequence?: int|null
+     * }>  $phases
+     * @return array{event_key: string, event_label: string, event_at: ?CarbonInterface, inferred_label: string}|null
+     */
+    public static function lastMovementFromPhases(iterable $phases): ?array
+    {
+        $normalized = [];
+
+        foreach ($phases as $phase) {
+            $code = is_array($phase)
+                ? ($phase['phase_code'] ?? null)
+                : ($phase->phase_code ?? null);
+            $start = is_array($phase)
+                ? ($phase['actual_start_at'] ?? null)
+                : ($phase->actual_start_at ?? null);
+            $end = is_array($phase)
+                ? ($phase['actual_end_at'] ?? null)
+                : ($phase->actual_end_at ?? null);
+            $sequence = is_array($phase)
+                ? ($phase['sequence'] ?? null)
+                : ($phase->sequence ?? null);
+
+            if ($code instanceof CrewPhaseCode) {
+                $phaseCode = $code;
+            } elseif (is_string($code) && $code !== '') {
+                $phaseCode = CrewPhaseCode::tryFrom($code);
+            } else {
+                $phaseCode = null;
+            }
+
+            if ($phaseCode === null || $start === null) {
+                continue;
+            }
+
+            $normalized[] = [
+                'phase_code' => $phaseCode,
+                'actual_start_at' => $start,
+                'actual_end_at' => $end,
+                'sequence' => $sequence,
+            ];
+        }
+
+        if ($normalized === []) {
+            return null;
+        }
+
+        usort($normalized, function (array $a, array $b): int {
+            $seqA = $a['sequence'];
+            $seqB = $b['sequence'];
+
+            if ($seqA !== null && $seqB !== null && $seqA !== $seqB) {
+                return $seqA <=> $seqB;
+            }
+
+            return $a['actual_start_at']->timestamp <=> $b['actual_start_at']->timestamp;
+        });
+
+        $last = $normalized[array_key_last($normalized)];
+        $previous = count($normalized) > 1 ? $normalized[count($normalized) - 2] : null;
+        $inferredLabel = $last['phase_code']->label();
+
+        $fromTrainingEnd = $last['phase_code'] === CrewPhaseCode::JoinStandby
+            && $previous !== null
+            && $previous['phase_code'] === CrewPhaseCode::Training
+            && $previous['actual_end_at'] !== null
+            && $previous['actual_end_at']->equalTo($last['actual_start_at']);
+
+        [$eventKey, $eventLabel] = match (true) {
+            $last['phase_code'] === CrewPhaseCode::PreMobilisation => [
+                self::EVENT_PRE_MOBILISATION,
+                'Pre-Mobilisation',
+            ],
+            $fromTrainingEnd => [
+                self::EVENT_TRAINING_END,
+                'Training End',
+            ],
+            $last['phase_code'] === CrewPhaseCode::JoinStandby => [
+                self::EVENT_JOIN_STANDBY,
+                'Join Standby',
+            ],
+            $last['phase_code'] === CrewPhaseCode::Training => [
+                self::EVENT_TRAINING_START,
+                'Training Start',
+            ],
+            $last['phase_code'] === CrewPhaseCode::OnVessel => [
+                self::EVENT_ON_VESSEL,
+                'On Vessel',
+            ],
+            $last['phase_code'] === CrewPhaseCode::DemobStandby => [
+                self::EVENT_DISEMBARKED,
+                'Disembarked',
+            ],
+            $last['phase_code'] === CrewPhaseCode::HomeRedeploy => [
+                self::EVENT_HOME,
+                'Home / Redeployment',
+            ],
+            default => [
+                $last['phase_code']->value,
+                $last['phase_code']->label(),
+            ],
+        };
+
+        return [
+            'event_key' => $eventKey,
+            'event_label' => $eventLabel,
+            'event_at' => $last['actual_start_at'],
+            'inferred_label' => $inferredLabel,
+        ];
+    }
 }

@@ -588,7 +588,7 @@ test('preview response matches the canonical contract exactly', function () {
     expect($data['sea_service']['end_date'])->toBe('2024-07-20');
 });
 
-test('historical entry supports active, inactive, terminated, and on_leave company employees', function (string $status) {
+test('completed historical history is allowed for active inactive terminated and on_leave employees', function (string $status) {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Historical Vessel', $company);
     $employee = Employee::factory()->forCompany($company)->create(['status' => $status]);
@@ -599,31 +599,134 @@ test('historical entry supports active, inactive, terminated, and on_leave compa
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $previewResponse = $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-        ]);
+    $payload = [
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'joined_vessel_at' => '2024-01-15',
+        'disembarked_at' => '2024-07-20',
+        'travel_home_at' => '2024-07-23',
+    ];
 
-    $previewResponse->assertOk()
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), $payload)
+        ->assertOk()
         ->assertJsonPath('valid', true)
-        ->assertJsonPath('employee.id', $employee->id);
+        ->assertJsonPath('summary.assignment_status', 'completed');
 
-    $storeResponse = $this->actingAs($user)
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), $payload)
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->first();
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($assignment->closed_at)->not->toBeNull();
+})->with(['active', 'inactive', 'terminated', 'on_leave']);
+
+test('open historical bootstrap is blocked for inactive terminated and on_leave employees', function (string $status) {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Historical Vessel', $company);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => $status]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $payload = [
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'joined_vessel_at' => '2024-01-15',
+        'disembarked_at' => '2024-07-20',
+    ];
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), $payload)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['assignment']);
+
+    expect($this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), $payload)
+        ->json('errors.assignment.0'))
+        ->toContain('not currently Active');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), $payload)
+        ->assertSessionHasErrors(['assignment']);
+
+    expect(CrewAssignment::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
+})->with(['inactive', 'terminated', 'on_leave']);
+
+test('open historical bootstrap is allowed for active employees', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Historical Vessel', $company);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $payload = [
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'joined_vessel_at' => '2024-01-15',
+    ];
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), $payload)
+        ->assertOk()
+        ->assertJsonPath('valid', true)
+        ->assertJsonPath('summary.assignment_status', 'active')
+        ->assertJsonPath('inferred_state.phase_code', 'p4');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), $payload)
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->first();
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and($assignment->currentPhase?->actual_end_at)->toBeNull();
+});
+
+test('historical rank snapshot persists independently of employee current rank', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    $currentRank = Rank::query()->create(['name' => 'Current Rank '.Str::random(5), 'is_active' => true]);
+    $historicalRank = Rank::query()->create(['name' => 'Historical Rank '.Str::random(5), 'is_active' => true]);
+    $employee->update(['rank_id' => $currentRank->id, 'status' => 'active']);
+    $vessel = makeCrewMovementVessel('Rank Snapshot Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
         ->post(route('organization.crew-assignments.historical.store'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'rank_id' => $historicalRank->id,
             'joined_vessel_at' => '2024-01-15',
             'disembarked_at' => '2024-07-20',
-        ]);
+            'travel_home_at' => '2024-07-23',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.index'));
 
-    $storeResponse->assertRedirect(route('organization.crew-assignments.index'));
-    expect(CrewAssignment::query()->where('employee_id', $employee->id)->where('status', CrewAssignmentStatus::Active)->exists())->toBeTrue();
-})->with(['active', 'inactive', 'terminated', 'on_leave']);
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->firstOrFail();
+    $sea = EmployeeSeaService::query()->where('employee_id', $employee->id)->firstOrFail();
+
+    expect($assignment->rank_id)->toBe($historicalRank->id)
+        ->and($sea->rank_id)->toBe($historicalRank->id)
+        ->and($employee->fresh()->rank_id)->toBe($currentRank->id);
+});
 
 test('historical entry rejects soft-deleted employees', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();

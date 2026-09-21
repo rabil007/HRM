@@ -149,10 +149,20 @@ export function AddPastDataDialog({
 
     const handleEmployeeChange = (employeeIdStr: string) => {
         const empId = employeeIdStr ? Number(employeeIdStr) : '';
-        form.setData((prev) => ({
-            ...prev,
-            employee_id: empId,
-        }));
+        form.setData((prev) => {
+            const previousId =
+                prev.employee_id === '' || prev.employee_id === null
+                    ? ''
+                    : Number(prev.employee_id);
+            const nextId = empId === '' ? '' : Number(empId);
+            const employeeChanged = previousId !== nextId;
+
+            return {
+                ...prev,
+                employee_id: empId,
+                rank_id: employeeChanged ? '' : prev.rank_id,
+            };
+        });
     };
 
     const handleVesselChange = (vesselIdStr: string) => {

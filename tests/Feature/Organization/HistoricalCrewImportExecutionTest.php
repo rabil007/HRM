@@ -149,6 +149,7 @@ test('partial import skips blocked rows and imports ready plus warning rows', fu
             'rank' => $rank->name,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
+            'travel_home_date' => '2024-07-23',
         ],
         [
             'employee_no' => 'MISSING-999',
@@ -556,6 +557,150 @@ test('batch detail and result workbook download work for company actor', functio
     expect($flat)->toContain('3119')
         ->and($flat)->not->toContain('hidden department');
     @unlink($tempPath);
+});
+
+test('result workbook reports Training End as last movement when inferred state is Join Standby', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'TRAIN01', 'status' => 'active']);
+    $vessel = makeCrewMovementVessel('Training End Result Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => 'TRAIN01',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'join_standby_date' => '2024-09-03',
+            'training_start_date' => '2024-09-05',
+            'training_end_date' => '2024-09-10',
+        ],
+    ]);
+
+    $import = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => $file,
+            'idempotency_key' => historicalImportIdempotencyKey('training-end-result'),
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->firstOrFail();
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
+
+    $download = $this->actingAs($user)
+        ->get(route('organization.crew-assignments.historical.import.batches.result', $import->json('id')));
+
+    $download->assertOk();
+    $tempPath = tempnam(sys_get_temp_dir(), 'hist-training-result-').'.xlsx';
+    file_put_contents($tempPath, $download->streamedContent());
+    $rows = IOFactory::load($tempPath)->getActiveSheet()->toArray();
+    @unlink($tempPath);
+
+    $header = $rows[0];
+    $data = $rows[1];
+    $lastMovementIndex = array_search('Last Movement', $header, true);
+    $inferredIndex = array_search('Inferred State', $header, true);
+
+    expect($lastMovementIndex)->not->toBeFalse()
+        ->and($inferredIndex)->not->toBeFalse()
+        ->and((string) $data[$lastMovementIndex])->toContain('Training End')
+        ->and((string) $data[$lastMovementIndex])->toContain('10 Sep')
+        ->and((string) $data[$lastMovementIndex])->not->toContain('Join Standby —')
+        ->and((string) $data[$inferredIndex])->toBe('Join Standby');
+});
+
+test('result workbook reports Disembarked as last movement for Active P5 endings', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'P5RES01', 'status' => 'active']);
+    $vessel = makeCrewMovementVessel('P5 Result Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => 'P5RES01',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2024-01-15',
+            'disembark_date' => '2024-07-20',
+        ],
+    ]);
+
+    $import = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => $file,
+            'idempotency_key' => historicalImportIdempotencyKey('p5-result'),
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $download = $this->actingAs($user)
+        ->get(route('organization.crew-assignments.historical.import.batches.result', $import->json('id')));
+    $path = tempnam(sys_get_temp_dir(), 'hist-p5-result-').'.xlsx';
+    file_put_contents($path, $download->streamedContent());
+    $rows = IOFactory::load($path)->getActiveSheet()->toArray();
+    @unlink($path);
+
+    $header = $rows[0];
+    $data = $rows[1];
+    $lastIdx = array_search('Last Movement', $header, true);
+    $inferredIdx = array_search('Inferred State', $header, true);
+
+    expect((string) $data[$lastIdx])->toContain('Disembarked')
+        ->and((string) $data[$inferredIdx])->toBe('Demobilisation Standby');
+});
+
+test('result workbook reports Home / Redeployment as last movement for Completed P6 endings', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'P6RES01', 'status' => 'active']);
+    $vessel = makeCrewMovementVessel('P6 Result Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => 'P6RES01',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'vessel_join_date' => '2023-01-15',
+            'disembark_date' => '2023-07-20',
+            'travel_home_date' => '2023-07-23',
+        ],
+    ]);
+
+    $import = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => $file,
+            'idempotency_key' => historicalImportIdempotencyKey('p6-result'),
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $download = $this->actingAs($user)
+        ->get(route('organization.crew-assignments.historical.import.batches.result', $import->json('id')));
+    $path = tempnam(sys_get_temp_dir(), 'hist-p6-result-').'.xlsx';
+    file_put_contents($path, $download->streamedContent());
+    $rows = IOFactory::load($path)->getActiveSheet()->toArray();
+    @unlink($path);
+
+    $header = $rows[0];
+    $data = $rows[1];
+    $lastIdx = array_search('Last Movement', $header, true);
+    $inferredIdx = array_search('Inferred State', $header, true);
+
+    expect((string) $data[$lastIdx])->toContain('Home / Redeployment')
+        ->and((string) $data[$inferredIdx])->toBe('Home / Redeployment');
 });
 
 test('cross company employee and vessel remain blocked on import', function () {

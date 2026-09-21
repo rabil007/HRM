@@ -2,7 +2,6 @@
 
 namespace App\Support\CrewMovements\Historical;
 
-use App\Enums\CrewPhaseStatus;
 use App\Models\HistoricalCrewImportBatch;
 use App\Models\HistoricalCrewImportRow;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -100,34 +99,18 @@ final class HistoricalCrewImportResultExporter
             return ['', ''];
         }
 
-        $current = $assignment->currentPhase;
-        $inferred = $current?->phase_code?->label() ?? '';
+        $resolved = HistoricalPhaseBuilder::lastMovementFromPhases($assignment->phases);
 
-        $lastPhase = $assignment->phases
-            ->sortByDesc('sequence')
-            ->first();
+        if ($resolved === null) {
+            $inferred = $assignment->currentPhase?->phase_code?->label() ?? '';
 
-        $lastMovement = '';
-
-        if ($lastPhase?->phase_code !== null && $lastPhase->actual_start_at !== null) {
-            $eventLabel = $lastPhase->phase_code->label();
-
-            if ($lastPhase->phase_code->value === 'p5') {
-                $eventLabel = 'Disembarked';
-            } elseif ($lastPhase->phase_code->value === 'p6') {
-                $eventLabel = 'Home / Redeployment';
-            } elseif ($lastPhase->phase_code->value === 'p2a'
-                && $assignment->phases->contains(
-                    fn ($phase): bool => $phase->phase_code?->value === 'p2b'
-                        && $phase->status === CrewPhaseStatus::Completed
-                )) {
-                // Post-training Join Standby is still shown as Join Standby / Training End context.
-                $eventLabel = 'Join Standby';
-            }
-
-            $lastMovement = $eventLabel.' — '.$lastPhase->actual_start_at->format('d M Y');
+            return ['', $inferred];
         }
 
-        return [$lastMovement, $inferred];
+        $lastMovement = $resolved['event_at'] !== null
+            ? $resolved['event_label'].' — '.$resolved['event_at']->format('d M Y')
+            : $resolved['event_label'];
+
+        return [$lastMovement, $resolved['inferred_label']];
     }
 }

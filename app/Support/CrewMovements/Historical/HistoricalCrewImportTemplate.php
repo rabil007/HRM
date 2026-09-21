@@ -93,7 +93,8 @@ final class HistoricalCrewImportTemplate
             ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
             ['- Maximum 5,000 historical assignment rows per workbook.'],
-            ['- Vessel / Rank / Client must match Reference Data exactly (names are unique).'],
+            ['- Vessel, Rank and Client values must exactly match a value in Reference Data.'],
+            ['- Ambiguous duplicate names are blocked during validation.'],
             ['- Inactive Vessel / Rank / Client values are allowed for historical backfill (shown as warnings).'],
             ['- Historical Client may differ from the Vessel\'s Current Client in Reference Data.'],
             [''],
@@ -115,8 +116,8 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyle('A7')->getFont()->setBold(true);
         $sheet->getStyle('A14')->getFont()->setBold(true);
         $sheet->getStyle('A20')->getFont()->setBold(true);
-        $sheet->getStyle('A39')->getFont()->setBold(true);
-        $sheet->getStyle('A43')->getFont()->setBold(true);
+        $sheet->getStyle('A37')->getFont()->setBold(true);
+        $sheet->getStyle('A41')->getFont()->setBold(true);
         $sheet->getColumnDimension('A')->setWidth(110);
     }
 
