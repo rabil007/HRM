@@ -48,6 +48,7 @@ require __DIR__.'/Support/crew-assignment-fixtures.php';
 require __DIR__.'/Support/crew-operations-fixtures.php';
 require __DIR__.'/Support/crew-operational-alert-notification-fixtures.php';
 require __DIR__.'/Support/crew-timeline-fixtures.php';
+require __DIR__.'/Support/crew-timeline-hardening-fixtures.php';
 require __DIR__.'/Support/payroll-fixtures.php';
 require __DIR__.'/Support/crew-timesheet-import.php';
 require __DIR__.'/Support/company-authorization.php';

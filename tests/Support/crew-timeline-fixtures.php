@@ -106,6 +106,8 @@ function makeDailyCrewTimelineFixtures(): array
         'source' => 'manual',
     ]);
 
+    grantCrewTimelineWorkflowPermissions($user, $company);
+
     return compact('user', 'company', 'employee', 'rank', 'period', 'assignment', 'vessel');
 }
 
@@ -128,7 +130,7 @@ function addTimelinePhase(
     ]);
 }
 
-function grantApplyPermissions(User $user, Company $company, array $extra = []): void
+function grantCrewTimelineWorkflowPermissions(User $user, Company $company, array $extra = []): void
 {
     grantCompanyPermissions($user, $company, array_values(array_unique(array_merge([
         'payroll.crew_timesheets.view',
@@ -136,10 +138,16 @@ function grantApplyPermissions(User $user, Company $company, array $extra = []):
         'payroll.crew_timesheets.submit',
         'payroll.crew_timesheets.approve',
         'payroll.crew_timesheets.return',
+    ], $extra))));
+}
+
+function grantApplyPermissions(User $user, Company $company, array $extra = []): void
+{
+    grantCrewTimelineWorkflowPermissions($user, $company, [
         'payroll.crew_timesheets.apply_approved',
         'payroll.crew_timesheets.create',
         'payroll.crew_timesheets.update',
-    ], $extra))));
+    ]);
 }
 
 /**
