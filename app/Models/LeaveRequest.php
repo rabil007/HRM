@@ -105,4 +105,9 @@ class LeaveRequest extends Model
     {
         return $this->hasMany(LeaveRequestApproval::class)->orderBy('sequence');
     }
+
+    public function approvalReassignments(): HasMany
+    {
+        return $this->hasMany(LeaveRequestApprovalReassignment::class)->orderBy('id');
+    }
 }

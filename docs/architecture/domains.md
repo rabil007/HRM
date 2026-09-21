@@ -835,6 +835,8 @@ Assigned approvers may view a request and act on their current pending step only
 
 Privileged administrators with `attendance.leave-requests.view` + `view_all` + `delete_any` may **void and remove** a request in any status via `AdministrativelyDeleteLeaveRequest`. That path soft-deletes the request, records the prior status and reason, reverses balance exactly once (pending release / approved used reversal / no mutation for rejected or cancelled), cancels only open approval steps, preserves completed approvals/comments/provenance and attachment files, and writes a company-scoped audit activity visible to `audit.view`.
 
+Privileged administrators with `attendance.leave-requests.view` + `view_all` + `reassign_approval` may **reassign the current required Pending approval step** via `ReassignLeaveRequestApproval` when the current approver can no longer act (inactive employee/user, lost membership/permissions, incorrect selection, or otherwise stuck). The action locks the request and approvals, reassigns only that Pending required row’s `approver_employee_id` / `approver_user_id`, leaves sequence/status/`acted_at`/policy provenance untouched, does not rebuild Waiting steps or the policy snapshot, and does not change leave balances. Append-only rows in `leave_request_approval_reassignments` (with name snapshots) plus a company-scoped activity entry record from/to/reason/actor. After commit, the new approver receives the existing action-required email when company notification settings and the template allow it. Concurrent advancement (expected current approver no longer pending) is rejected with a refresh message. Ordinary `approve` alone never grants reassignment.
+
 `SetCurrentCompany` only activates active companies with an active `company_user` membership (or the legacy home-company path when no pivot row exists). `EmailTemplatesSeeder` creates missing built-in templates (including leave, invitation, payslip, bulk document, expiry summaries, and document-recipient mail) without overwriting administrator subject, body, TO/CC, enabled, footer, or dispatch customizations. Known previous stock defaults may be upgraded; customized content is left untouched.
 
 ### Production rollout (leave approvals)
@@ -845,6 +847,7 @@ Privileged administrators with `attendance.leave-requests.view` + `view_all` + `
 3. Assign new permissions to existing company roles (Organization → Roles):
    - `attendance.leave-requests.view_all`
    - `attendance.leave-requests.delete_any` (only for trusted HR/system administrators who may void requests)
+   - `attendance.leave-requests.reassign_approval` (only for trusted administrators who may recover stuck pending approvals)
    - `attendance.leave-approval-policies.*`
    - `attendance.leave-approval-settings.view|update`
 4. Configure one active company default policy and/or department policies.
@@ -860,7 +863,7 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 
 ### Main artifacts
 
-- `AttendanceRecord`, `LeaveType`, `LeaveBalance`, `LeaveRequest`, `LeaveApprovalPolicy`, `LeaveApprovalPolicyStep`, `LeaveRequestApproval`, `CompanyLeaveApprovalSetting`
+- `AttendanceRecord`, `LeaveType`, `LeaveBalance`, `LeaveRequest`, `LeaveApprovalPolicy`, `LeaveApprovalPolicyStep`, `LeaveRequestApproval`, `LeaveRequestApprovalReassignment`, `CompanyLeaveApprovalSetting`
 - Controllers under `app/Http/Controllers/Attendance/`
 - Pages under `resources/js/pages/attendance/`
 - `LeaveApprovalNeedsActionCounter` (sidebar Approvals badge / shared `auth.leave_approvals_count`)
@@ -874,7 +877,7 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 `attendance.records.manage` is same-company HR/admin attendance. Without it, create/update/delete apply only to the user's linked Employee in the **active** company. `employee_id` from the client is not authorization. Cross-company employees are 404. Hikvision sync is separate ingestion.
 
 - `attendance.types.view|create|update|delete`
-- `attendance.leave-requests.view|view_all|create|update|delete|delete_any|approve`
+- `attendance.leave-requests.view|view_all|create|update|delete|delete_any|reassign_approval|approve`
 - `attendance.leave-approval-policies.view|create|update|delete`
 - `attendance.leave-approval-settings.view|update`
 

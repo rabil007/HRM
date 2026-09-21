@@ -13,11 +13,13 @@ import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaveRequestAdministrativeDeleteDialog } from '@/features/attendance/leave-requests/components/leave-request-administrative-delete-dialog';
 import { LeaveRequestCancelDialog } from '@/features/attendance/leave-requests/components/leave-request-cancel-dialog';
 import { LeaveRequestDeleteDialog } from '@/features/attendance/leave-requests/components/leave-request-delete-dialog';
 import { LeaveRequestFormSheet } from '@/features/attendance/leave-requests/components/leave-request-form-sheet';
+import { LeaveRequestReassignApprovalDialog } from '@/features/attendance/leave-requests/components/leave-request-reassign-approval-dialog';
 import { LeaveRequestRejectDialog } from '@/features/attendance/leave-requests/components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from '@/features/attendance/leave-requests/components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from '@/features/attendance/leave-requests/components/leave-request-status-badge';
@@ -28,6 +30,7 @@ import type {
     LeaveRequestEmployeeOption,
     LeaveRequestPermissions,
     LeaveRequestTypeOption,
+    LeaveReassignmentApproverCandidate,
 } from '@/features/attendance/leave-requests/types';
 import { firstValidationError } from '@/lib/first-validation-error';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -65,8 +68,12 @@ function approvalStatusClass(status: string) {
 
 function ApprovalTimeline({
     approvals,
+    canReassignCurrentApproval,
+    onReassign,
 }: {
     approvals: LeaveRequestApproval[];
+    canReassignCurrentApproval: boolean;
+    onReassign: (approval: LeaveRequestApproval) => void;
 }) {
     if (approvals.length === 0) {
         return (
@@ -83,6 +90,10 @@ function ApprovalTimeline({
                     approval.approver_employee?.name ??
                     approval.approver_user?.name ??
                     '—';
+                const showReassign =
+                    canReassignCurrentApproval &&
+                    approval.is_required &&
+                    String(approval.status) === 'pending';
 
                 return (
                     <div
@@ -134,6 +145,19 @@ function ApprovalTimeline({
                                     {approval.comments}
                                 </p>
                             ) : null}
+                            {showReassign ? (
+                                <div className="pt-1">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-xl"
+                                        onClick={() => onReassign(approval)}
+                                    >
+                                        Reassign approval
+                                    </Button>
+                                </div>
+                            ) : null}
                         </div>
                         <div className="shrink-0 text-xs text-muted-foreground/60">
                             {approval.acted_at
@@ -151,6 +175,7 @@ export default function LeaveRequestDetails({
     leave_request,
     employees,
     leave_types,
+    reassignment_approver_candidates = [],
     recent_activity,
     can_view_audit,
     can,
@@ -159,6 +184,7 @@ export default function LeaveRequestDetails({
     leave_request: LeaveRequest;
     employees: LeaveRequestEmployeeOption[];
     leave_types: LeaveRequestTypeOption[];
+    reassignment_approver_candidates?: LeaveReassignmentApproverCandidate[];
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     can: LeaveRequestPermissions;
@@ -170,6 +196,9 @@ export default function LeaveRequestDetails({
         useState(false);
     const [isRejectOpen, setIsRejectOpen] = useState(false);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
+    const [isReassignOpen, setIsReassignOpen] = useState(false);
+    const [reassignApprovalStep, setReassignApprovalStep] =
+        useState<LeaveRequestApproval | null>(null);
     const form = useForm(leaveRequestToFormData(leave_request));
 
     const canModify = Boolean(leave_request.can_edit);
@@ -417,6 +446,13 @@ export default function LeaveRequestDetails({
                 <CardContent className="p-0">
                     <ApprovalTimeline
                         approvals={leave_request.approvals ?? []}
+                        canReassignCurrentApproval={Boolean(
+                            leave_request.can_reassign_current_approval,
+                        )}
+                        onReassign={(approval) => {
+                            setReassignApprovalStep(approval);
+                            setIsReassignOpen(true);
+                        }}
                     />
                 </CardContent>
             </Card>
@@ -458,6 +494,30 @@ export default function LeaveRequestDetails({
                 onOpenChange={setIsAdministrativeDeleteOpen}
                 leaveRequest={leave_request}
                 onSuccess={() => router.visit(leaveMyLeave.url())}
+            />
+
+            <LeaveRequestReassignApprovalDialog
+                open={isReassignOpen}
+                onOpenChange={(open) => {
+                    setIsReassignOpen(open);
+
+                    if (!open) {
+                        setReassignApprovalStep(null);
+                    }
+                }}
+                leaveRequest={leave_request}
+                approval={reassignApprovalStep}
+                candidates={reassignment_approver_candidates}
+                onSuccess={() => {
+                    setReassignApprovalStep(null);
+                    router.reload({
+                        only: [
+                            'leave_request',
+                            'reassignment_approver_candidates',
+                            'recent_activity',
+                        ],
+                    });
+                }}
             />
 
             <LeaveRequestRejectDialog

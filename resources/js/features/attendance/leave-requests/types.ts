@@ -62,6 +62,13 @@ export type LeaveRequestApproval = {
     policy_step_label?: string | null;
 };
 
+export type LeaveReassignmentApproverCandidate = {
+    id: number;
+    employee_no: string | null;
+    name: string | null;
+    actionable: boolean;
+};
+
 export type LeaveRequest = {
     id: number;
     employee: LeaveRequestEmployeeOption | null;
@@ -82,6 +89,7 @@ export type LeaveRequest = {
     can_cancel?: boolean;
     can_delete?: boolean;
     can_administratively_delete?: boolean;
+    can_reassign_current_approval?: boolean;
     approvals?: LeaveRequestApproval[];
 };
 
@@ -108,6 +116,7 @@ export type LeaveRequestPermissions = {
     delete: boolean;
     approve: boolean;
     view_all: boolean;
+    reassign_approval?: boolean;
 };
 
 export const defaultLeaveRequestFormData = (): LeaveRequestFormData => ({

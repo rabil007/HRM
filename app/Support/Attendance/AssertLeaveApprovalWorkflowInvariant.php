@@ -30,9 +30,59 @@ final class AssertLeaveApprovalWorkflowInvariant
         Collection $approvals,
         ?User $actor = null,
     ): LeaveRequestApproval {
+        $pendingStep = $this->assertPendingWorkflowStructure(
+            leaveRequest: $leaveRequest,
+            approvals: $approvals,
+            allowUnavailableCurrentApprover: false,
+        );
+
+        $this->assertPendingApproverIntegrity($leaveRequest, $pendingStep);
+
+        if ($actor !== null && (int) $pendingStep->approver_user_id !== (int) $actor->id) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'There is no pending approval step assigned to you for this leave request.',
+            ]);
+        }
+
+        return $pendingStep;
+    }
+
+    /**
+     * Structural pending-workflow checks for administrative reassignment.
+     *
+     * Skips current-approver membership/eligibility integrity so a stuck
+     * unavailable approver can be recovered without rebuilding the snapshot.
+     *
+     * @param  Collection<int, LeaveRequestApproval>  $approvals  Locked, ordered by sequence
+     *
+     * @throws ValidationException
+     */
+    public function forReassignment(
+        LeaveRequest $leaveRequest,
+        Collection $approvals,
+    ): LeaveRequestApproval {
+        return $this->assertPendingWorkflowStructure(
+            leaveRequest: $leaveRequest,
+            approvals: $approvals,
+            allowUnavailableCurrentApprover: true,
+        );
+    }
+
+    /**
+     * @param  Collection<int, LeaveRequestApproval>  $approvals
+     *
+     * @throws ValidationException
+     */
+    private function assertPendingWorkflowStructure(
+        LeaveRequest $leaveRequest,
+        Collection $approvals,
+        bool $allowUnavailableCurrentApprover,
+    ): LeaveRequestApproval {
         if ($leaveRequest->status !== 'pending') {
             throw ValidationException::withMessages([
-                'leave_request' => 'Leave approval workflow invariant requires a pending leave request.',
+                'leave_request' => $allowUnavailableCurrentApprover
+                    ? 'Only pending leave requests can have their current approval reassigned.'
+                    : 'Leave approval workflow invariant requires a pending leave request.',
             ]);
         }
 
@@ -47,7 +97,9 @@ final class AssertLeaveApprovalWorkflowInvariant
 
         if ($pending->count() !== 1) {
             throw ValidationException::withMessages([
-                'leave_request' => 'This leave request has a corrupted approval workflow (expected exactly one pending step).',
+                'leave_request' => $allowUnavailableCurrentApprover
+                    ? 'The approval workflow has changed. Refresh the request and try again.'
+                    : 'This leave request has a corrupted approval workflow (expected exactly one pending step).',
             ]);
         }
 
@@ -56,11 +108,11 @@ final class AssertLeaveApprovalWorkflowInvariant
 
         if (! $pendingStep->is_required) {
             throw ValidationException::withMessages([
-                'leave_request' => 'This leave request has a corrupted approval workflow (optional step cannot be pending).',
+                'leave_request' => $allowUnavailableCurrentApprover
+                    ? 'Only the current required pending approval step can be reassigned.'
+                    : 'This leave request has a corrupted approval workflow (optional step cannot be pending).',
             ]);
         }
-
-        $this->assertPendingApproverIntegrity($leaveRequest, $pendingStep);
 
         $seenPending = false;
         $seenApproverEmployeeIds = [];
@@ -129,12 +181,6 @@ final class AssertLeaveApprovalWorkflowInvariant
                     'leave_request' => 'This leave request has a corrupted approval workflow (unexpected later optional step status).',
                 ]);
             }
-        }
-
-        if ($actor !== null && (int) $pendingStep->approver_user_id !== (int) $actor->id) {
-            throw ValidationException::withMessages([
-                'leave_request' => 'There is no pending approval step assigned to you for this leave request.',
-            ]);
         }
 
         return $pendingStep;

@@ -29,6 +29,7 @@ function leaveRequest(overrides: Partial<LeaveRequest> = {}): LeaveRequest {
         can_cancel: false,
         can_delete: false,
         can_administratively_delete: false,
+        can_reassign_current_approval: false,
         ...overrides,
     };
 }
