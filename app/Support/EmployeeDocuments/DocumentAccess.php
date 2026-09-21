@@ -54,13 +54,14 @@ class DocumentAccess
 
         $currentUser = $user ?? auth()->user();
         if ($currentUser instanceof User) {
-            $employee = $document->relationLoaded('employee')
+            $employee = ($document->relationLoaded('employee') && $document->employee !== null)
                 ? $document->employee
-                : Employee::query()->where('company_id', $companyId)->find($document->employee_id);
+                : Employee::withTrashed()
+                    ->where('company_id', $companyId)
+                    ->find($document->employee_id);
 
-            if ($employee !== null) {
-                abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: $allowSelf), 404);
-            }
+            abort_if($employee === null, 404);
+            abort_unless(EmployeeVisibilityScope::canAccess($currentUser, $employee, $companyId, allowSelf: $allowSelf), 404);
         }
     }
 

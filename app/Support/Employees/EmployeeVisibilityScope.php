@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Support\Auth\UnrestrictedCompanyAccess;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 final class EmployeeVisibilityScope
 {
@@ -266,10 +267,10 @@ final class EmployeeVisibilityScope
      *
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
-     * @param  Builder<TModel>  $query
-     * @return Builder<TModel>
+     * @param  Builder<TModel>|\Illuminate\Database\Eloquent\Relations\Relation<TModel, *, *>  $query
+     * @return Builder<TModel>|\Illuminate\Database\Eloquent\Relations\Relation<TModel, *, *>
      */
-    public static function whereHas(Builder $query, ?User $user, int $companyId, string $relation = 'employee'): Builder
+    public static function whereHas(Builder|Relation $query, ?User $user, int $companyId, string $relation = 'employee'): Builder|Relation
     {
         if ($user === null || $companyId <= 0) {
             return $query->whereRaw('1 = 0');

@@ -37,18 +37,18 @@ final class DashboardComposer
         $props['can'] = $this->can($user);
 
         if ($user->can('employees.view')) {
-            $props['employee_analytics'] = $this->analytics->workforceSummary($companyId);
+            $props['employee_analytics'] = $this->analytics->workforceSummary($companyId, $user);
             $props['organization_snapshot'] = $this->analytics->organizationSummary($companyId);
         }
 
         if ($user->can('documents.view')) {
-            $docs = $this->analytics->documentSummary($companyId);
+            $docs = $this->analytics->documentSummary($companyId, $user);
             $props['document_compliance'] = $docs['document_compliance'];
             $props['document_health'] = $docs['document_health'];
         }
 
         if ($user->can('attendance.overview.view')) {
-            $props['attendance_analytics'] = $this->analytics->attendanceSummary($companyId);
+            $props['attendance_analytics'] = $this->analytics->attendanceSummary($companyId, $user);
         }
 
         if ($user->can('attendance.leave-requests.view') || $user->can('attendance.overview.view')) {
@@ -56,15 +56,15 @@ final class DashboardComposer
         }
 
         if ($user->can('contracts.view')) {
-            $props['contracts_summary'] = $this->analytics->contractsSummary($companyId);
+            $props['contracts_summary'] = $this->analytics->contractsSummary($companyId, $user);
         }
 
         if ($user->can('training.view')) {
-            $props['training_summary'] = $this->analytics->trainingSummary($companyId);
+            $props['training_summary'] = $this->analytics->trainingSummary($companyId, $user);
         }
 
         if ($user->can('bank_accounts.view')) {
-            $props['bank_accounts_summary'] = $this->analytics->bankAccountsSummary($companyId);
+            $props['bank_accounts_summary'] = $this->analytics->bankAccountsSummary($companyId, $user);
         }
 
         if ($user->can('crew_operations.overview.view')) {
@@ -100,19 +100,19 @@ final class DashboardComposer
 
         return [
             'workforce_trends' => Inertia::defer(
-                fn (): array => $this->analytics->workforceTrends($companyId),
+                fn (): array => $this->analytics->workforceTrends($companyId, $user),
                 'secondary',
             ),
             'employees_by_department' => Inertia::defer(
-                fn (): array => $this->analytics->employeesByDepartment($companyId),
+                fn (): array => $this->analytics->employeesByDepartment($companyId, $user),
                 'secondary',
             ),
             'employees_by_branch' => Inertia::defer(
-                fn (): array => $this->analytics->employeesByBranch($companyId),
+                fn (): array => $this->analytics->employeesByBranch($companyId, $user),
                 'secondary',
             ),
             'recent_hires' => Inertia::defer(
-                fn (): array => $this->analytics->recentHires($companyId),
+                fn (): array => $this->analytics->recentHires($companyId, $user),
                 'secondary',
             ),
         ];

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\Attendance\TodayAttendanceTimeline;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -62,8 +63,8 @@ class AttendanceCalendarController extends Controller
             ->where('end_date', '>=', "{$year}-01-01")
             ->count();
 
-        $employees = $this->calendarEmployeeOptions($companyId, $selectedEmployeeId, $canSelectEmployee);
-        $selectedEmployee = $this->selectedEmployeePayload($companyId, $selectedEmployeeId);
+        $employees = $this->calendarEmployeeOptions($companyId, $selectedEmployeeId, $canSelectEmployee, $user);
+        $selectedEmployee = $this->selectedEmployeePayload($companyId, $selectedEmployeeId, $user);
         $canApprove = $user?->can('attendance.leave-requests.approve') ?? false;
 
         return Inertia::render('attendance/calendar', [
@@ -128,6 +129,8 @@ class AttendanceCalendarController extends Controller
                 fn ($query) => $query->whereKey($linkedEmployeeId),
                 fn ($query) => $query->whereRaw('1 = 0'),
             );
+        } else {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
         }
 
         return $employeesQuery
@@ -143,25 +146,31 @@ class AttendanceCalendarController extends Controller
     /**
      * @return list<array{id: int, employee_no: string|null, name: string}>
      */
-    private function calendarEmployeeOptions(int $companyId, ?int $selectedEmployeeId, bool $canSelectEmployee): array
+    private function calendarEmployeeOptions(int $companyId, ?int $selectedEmployeeId, bool $canSelectEmployee, ?User $user = null): array
     {
         if (! $canSelectEmployee) {
             return [];
         }
 
-        $employees = Employee::query()
+        $employeesQuery = Employee::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
-            ->orderBy('name')
-            ->get(['id', 'employee_no', 'name']);
+            ->orderBy('name');
+
+        EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+
+        $employees = $employeesQuery->get(['id', 'employee_no', 'name']);
 
         if ($selectedEmployeeId !== null && ! $employees->contains('id', $selectedEmployeeId)) {
-            $selected = Employee::query()
+            $selectedQuery = Employee::query()
                 ->where('company_id', $companyId)
-                ->whereKey($selectedEmployeeId)
-                ->first(['id', 'employee_no', 'name']);
+                ->whereKey($selectedEmployeeId);
 
-            if ($selected !== null) {
+            EmployeeVisibilityScope::apply($selectedQuery, $user, $companyId);
+
+            $selected = $selectedQuery->first(['id', 'employee_no', 'name']);
+
+            if ($selected instanceof Employee) {
                 $employees->push($selected);
                 $employees = $employees->sortBy('name')->values();
             }
@@ -179,16 +188,19 @@ class AttendanceCalendarController extends Controller
     /**
      * @return array{id: int, employee_no: string|null, name: string}|null
      */
-    private function selectedEmployeePayload(int $companyId, ?int $selectedEmployeeId): ?array
+    private function selectedEmployeePayload(int $companyId, ?int $selectedEmployeeId, ?User $user = null): ?array
     {
         if ($selectedEmployeeId === null) {
             return null;
         }
 
-        $employee = Employee::query()
+        $query = Employee::query()
             ->where('company_id', $companyId)
-            ->whereKey($selectedEmployeeId)
-            ->first(['id', 'employee_no', 'name']);
+            ->whereKey($selectedEmployeeId);
+
+        EmployeeVisibilityScope::apply($query, $user, $companyId);
+
+        $employee = $query->first(['id', 'employee_no', 'name']);
 
         if ($employee === null) {
             return null;

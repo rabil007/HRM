@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
 use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Payroll\CrewTimeline\CrewTimelineDepartmentTree;
 use App\Support\Payroll\CrewTimeline\CrewTimelinePagePermissions;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewFilters;
@@ -26,8 +27,10 @@ class CrewTimesheetPreparationShowController extends Controller
     ): Response {
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = CrewTimesheetPreparationReviewFilters::fromRequest($request);
+        $user = $request->user();
 
-        $loaded = $reviewQuery->findForReview($payrollPeriod, (int) $preparation->id, $companyId);
+        $loaded = $reviewQuery->findForReview($payrollPeriod, (int) $preparation->id, $companyId, $user);
+        $allowedDepartmentIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
 
         return Inertia::render('payroll/crew-timeline/show', [
             ...$reviewResource->toArray($payrollPeriod, $loaded, $filters),
@@ -41,6 +44,7 @@ class CrewTimesheetPreparationShowController extends Controller
                 $companyId,
                 $loaded,
                 new EmployeeDirectoryFilters(search: $filters->search),
+                $allowedDepartmentIds,
             ),
             'department_tree_selected_id' => $filters->departmentId !== ''
                 ? (int) $filters->departmentId

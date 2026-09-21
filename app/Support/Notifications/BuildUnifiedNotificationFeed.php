@@ -7,6 +7,7 @@ use App\Enums\AnnouncementDeliveryStatus;
 use App\Enums\AnnouncementStatus;
 use App\Enums\CrewOperationalAlertStatus;
 use App\Models\AnnouncementRecipient;
+use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationalAlertRecipient;
 use App\Models\User;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
@@ -116,48 +117,151 @@ final class BuildUnifiedNotificationFeed
      *     source_label: string
      * }>
      */
-    private function crewItems(User $user, int $companyId): Collection
+    private function crewItems(User $user, int $companyId, int $limit = 20): Collection
     {
-        return CrewOperationalAlertRecipient::query()
-            ->where('company_id', $companyId)
-            ->where('user_id', $user->id)
-            ->whereHas('alert', fn ($query) => $query->where('company_id', $companyId))
-            ->with(['alert'])
-            ->latest('id')
-            ->limit(20)
-            ->get()
-            ->filter(function (CrewOperationalAlertRecipient $recipient) use ($user, $companyId): bool {
+        if (EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return CrewOperationalAlertRecipient::query()
+                ->where('company_id', $companyId)
+                ->where('user_id', $user->id)
+                ->whereHas('alert', fn ($query) => $query->where('company_id', $companyId))
+                ->with(['alert'])
+                ->latest('id')
+                ->limit($limit)
+                ->get()
+                ->map(fn (CrewOperationalAlertRecipient $recipient) => $this->mapCrewItem($recipient, $user));
+        }
+
+        $visibleRecipients = collect();
+        $batchSize = 50;
+        $maxScan = 500;
+        $scanned = 0;
+        $lastId = null;
+
+        while ($visibleRecipients->count() < $limit && $scanned < $maxScan) {
+            $query = CrewOperationalAlertRecipient::query()
+                ->where('company_id', $companyId)
+                ->where('user_id', $user->id)
+                ->whereHas('alert', fn ($query) => $query->where('company_id', $companyId))
+                ->with(['alert'])
+                ->orderByDesc('id')
+                ->limit($batchSize);
+
+            if ($lastId !== null) {
+                $query->where('id', '<', $lastId);
+            }
+
+            $chunk = $query->get();
+            if ($chunk->isEmpty()) {
+                break;
+            }
+
+            $lastId = $chunk->last()->id;
+            $scanned += $chunk->count();
+
+            $employeeIds = [];
+            foreach ($chunk as $recipient) {
+                $context = $recipient->alert?->context;
+                if (is_array($context) && array_key_exists('employee_id', $context)) {
+                    $rawId = $context['employee_id'];
+                    if (is_int($rawId) || (is_string($rawId) && ctype_digit($rawId))) {
+                        $id = (int) $rawId;
+                        if ($id > 0) {
+                            $employeeIds[] = $id;
+                        }
+                    }
+                }
+            }
+
+            $authorizedIds = ! empty($employeeIds)
+                ? EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, array_values(array_unique($employeeIds)))
+                : [];
+            $authorizedLookup = array_flip($authorizedIds);
+
+            foreach ($chunk as $recipient) {
                 $alert = $recipient->alert;
                 if ($alert === null) {
-                    return false;
+                    continue;
                 }
 
-                $employeeId = $alert->context['employee_id'] ?? null;
-                if ($employeeId !== null && is_numeric($employeeId)) {
-                    return EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, $companyId);
+                if (! $this->isAlertVisible($alert, $user, $companyId, $authorizedLookup)) {
+                    continue;
                 }
 
-                return true;
-            })
-            ->map(function (CrewOperationalAlertRecipient $recipient) use ($user): array {
-                $alert = $recipient->alert;
+                $visibleRecipients->push($this->mapCrewItem($recipient, $user));
 
-                return [
-                    'id' => 'crew_operational_alert:'.$recipient->id,
-                    'source' => 'crew_operational_alert',
-                    'title' => $alert?->title,
-                    'summary' => (string) ($alert?->message ?? ''),
-                    'severity' => $alert?->severity->value,
-                    'created_at' => $alert?->last_detected_at?->toIso8601String()
-                        ?? $recipient->created_at?->toIso8601String(),
-                    'read_at' => $recipient->read_at?->toIso8601String(),
-                    'is_read' => $recipient->read_at !== null,
-                    'url' => $alert !== null
-                        ? $this->resolveCrewUrl->forUser($user, $alert)
-                        : null,
-                    'source_label' => 'Crew Operations',
-                ];
-            });
+                if ($visibleRecipients->count() >= $limit) {
+                    break;
+                }
+            }
+        }
+
+        return $visibleRecipients;
+    }
+
+    /**
+     * @return array{
+     *     id: string,
+     *     source: 'crew_operational_alert',
+     *     title: string|null,
+     *     summary: string,
+     *     severity: string|null,
+     *     created_at: string|null,
+     *     read_at: string|null,
+     *     is_read: bool,
+     *     url: string|null,
+     *     source_label: string
+     * }
+     */
+    private function mapCrewItem(CrewOperationalAlertRecipient $recipient, User $user): array
+    {
+        $alert = $recipient->alert;
+
+        return [
+            'id' => 'crew_operational_alert:'.$recipient->id,
+            'source' => 'crew_operational_alert',
+            'title' => $alert?->title,
+            'summary' => (string) ($alert?->message ?? ''),
+            'severity' => $alert?->severity?->value,
+            'created_at' => $alert?->last_detected_at?->toIso8601String()
+                ?? $recipient->created_at?->toIso8601String(),
+            'read_at' => $recipient->read_at?->toIso8601String(),
+            'is_read' => $recipient->read_at !== null,
+            'url' => $alert !== null
+                ? $this->resolveCrewUrl->forUser($user, $alert)
+                : null,
+            'source_label' => 'Crew Operations',
+        ];
+    }
+
+    /**
+     * @param  array<int, int>|null  $authorizedLookup
+     */
+    private function isAlertVisible(
+        CrewOperationalAlert $alert,
+        User $user,
+        int $companyId,
+        ?array $authorizedLookup = null,
+    ): bool {
+        $context = $alert->context;
+        if (is_array($context) && array_key_exists('employee_id', $context)) {
+            $rawId = $context['employee_id'];
+            if (! is_int($rawId) && ! (is_string($rawId) && ctype_digit($rawId))) {
+                return false;
+            }
+
+            $employeeId = (int) $rawId;
+            if ($employeeId <= 0) {
+                return false;
+            }
+
+            if ($authorizedLookup !== null) {
+                return isset($authorizedLookup[$employeeId]);
+            }
+
+            return EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId);
+        }
+
+        return true;
     }
 
     private function unreadAnnouncementCount(User $user, int $companyId): int
@@ -188,7 +292,7 @@ final class BuildUnifiedNotificationFeed
                 ->count();
         }
 
-        return CrewOperationalAlertRecipient::query()
+        $recipients = CrewOperationalAlertRecipient::query()
             ->where('company_id', $companyId)
             ->where('user_id', $user->id)
             ->whereNull('read_at')
@@ -196,20 +300,38 @@ final class BuildUnifiedNotificationFeed
                 ->where('company_id', $companyId)
                 ->where('status', CrewOperationalAlertStatus::Active->value))
             ->with('alert')
-            ->get()
-            ->filter(function (CrewOperationalAlertRecipient $recipient) use ($user, $companyId): bool {
-                $alert = $recipient->alert;
-                if ($alert === null) {
-                    return false;
-                }
+            ->get();
 
-                $employeeId = $alert->context['employee_id'] ?? null;
-                if ($employeeId !== null && is_numeric($employeeId)) {
-                    return EmployeeVisibilityScope::canAccessId($user, (int) $employeeId, $companyId);
-                }
+        if ($recipients->isEmpty()) {
+            return 0;
+        }
 
-                return true;
-            })
-            ->count();
+        $employeeIds = [];
+        foreach ($recipients as $recipient) {
+            $context = $recipient->alert?->context;
+            if (is_array($context) && array_key_exists('employee_id', $context)) {
+                $rawId = $context['employee_id'];
+                if (is_int($rawId) || (is_string($rawId) && ctype_digit($rawId))) {
+                    $id = (int) $rawId;
+                    if ($id > 0) {
+                        $employeeIds[] = $id;
+                    }
+                }
+            }
+        }
+
+        $authorizedIds = ! empty($employeeIds)
+            ? EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, array_values(array_unique($employeeIds)))
+            : [];
+        $authorizedLookup = array_flip($authorizedIds);
+
+        return $recipients->filter(function (CrewOperationalAlertRecipient $recipient) use ($user, $companyId, $authorizedLookup): bool {
+            $alert = $recipient->alert;
+            if ($alert === null) {
+                return false;
+            }
+
+            return $this->isAlertVisible($alert, $user, $companyId, $authorizedLookup);
+        })->count();
     }
 }

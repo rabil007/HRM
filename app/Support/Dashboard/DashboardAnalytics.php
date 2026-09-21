@@ -15,6 +15,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\User;
 use App\Support\Activity\ActivityChangePresenter;
+use App\Support\Activity\ActivityLogVisibilityScope;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\BankAccounts\BankAccountSummaryQuery;
@@ -24,6 +25,7 @@ use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewOperations\CrewOperationsDashboardAnalytics;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\EmployeeTrainings\TrainingSummaryQuery;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
@@ -90,15 +92,15 @@ final class DashboardAnalytics
      *
      * @return array<string, mixed>
      */
-    public function forCompany(int $companyId): array
+    public function forCompany(int $companyId, ?User $user = null): array
     {
         return array_merge(
-            $this->primaryForCompany($companyId),
+            $this->primaryForCompany($companyId, $user),
             [
-                'workforce_trends' => $this->workforceTrends($companyId),
-                'employees_by_department' => $this->employeesByDepartment($companyId),
-                'employees_by_branch' => $this->employeesByBranch($companyId),
-                'recent_hires' => $this->recentHires($companyId),
+                'workforce_trends' => $this->workforceTrends($companyId, $user),
+                'employees_by_department' => $this->employeesByDepartment($companyId, $user),
+                'employees_by_branch' => $this->employeesByBranch($companyId, $user),
+                'recent_hires' => $this->recentHires($companyId, $user),
             ],
         );
     }
@@ -108,13 +110,13 @@ final class DashboardAnalytics
      *
      * @return array<string, mixed>
      */
-    public function primaryForCompany(int $companyId): array
+    public function primaryForCompany(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'primary', function () use ($companyId): array {
-            $workforce = $this->workforceSummary($companyId);
+        return $this->rememberScoped($companyId, $user, 'primary', function () use ($companyId, $user): array {
+            $workforce = $this->workforceSummary($companyId, $user);
             $org = $this->organizationSummary($companyId);
-            $docs = $this->documentSummary($companyId);
-            $attendance = $this->attendanceSummary($companyId);
+            $docs = $this->documentSummary($companyId, $user);
+            $attendance = $this->attendanceSummary($companyId, $user);
 
             return [
                 'employee_analytics' => $workforce,
@@ -139,15 +141,19 @@ final class DashboardAnalytics
      *     without_user_account: int
      * }
      */
-    public function workforceSummary(int $companyId): array
+    public function workforceSummary(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'workforce', function () use ($companyId): array {
+        return $this->rememberScoped($companyId, $user, 'workforce', function () use ($companyId, $user): array {
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $startOfMonth = now($timezone)->startOfMonth()->toDateString();
             $endOfMonth = now($timezone)->endOfMonth()->toDateString();
 
-            $employeeStats = Employee::query()
-                ->where('company_id', $companyId)
+            $query = Employee::query()->where('company_id', $companyId);
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($query, $user, $companyId);
+            }
+
+            $employeeStats = $query
                 ->selectRaw('COUNT(*) as `total`')
                 ->selectRaw("SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as `active`")
                 ->selectRaw("SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as `inactive`")
@@ -210,10 +216,10 @@ final class DashboardAnalytics
      *     document_health: list<array{name: string, value: int, key: string}>
      * }
      */
-    public function documentSummary(int $companyId): array
+    public function documentSummary(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'documents', function () use ($companyId): array {
-            $documentSummary = $this->documentBrowse->expirySummary($companyId);
+        return $this->rememberScoped($companyId, $user, 'documents', function () use ($companyId, $user): array {
+            $documentSummary = $this->documentBrowse->expirySummary($companyId, user: $user);
 
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $uploadedThisMonthQuery = EmployeeDocument::query()
@@ -221,10 +227,17 @@ final class DashboardAnalytics
                 ->whereBetween('created_at', [now($timezone)->startOfMonth()->toDateTimeString(), now($timezone)->endOfMonth()->toDateTimeString()]);
 
             ActiveEmployeeConstraint::whereHas($uploadedThisMonthQuery, $companyId);
+            if ($user !== null) {
+                EmployeeVisibilityScope::whereHas($uploadedThisMonthQuery, $user, $companyId, 'employee');
+            }
 
             $uploadedThisMonth = (int) $uploadedThisMonthQuery->count();
 
-            $totalEmployees = (int) Employee::query()->where('company_id', $companyId)->active()->count();
+            $totalEmployeesQuery = Employee::query()->where('company_id', $companyId)->active();
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($totalEmployeesQuery, $user, $companyId);
+            }
+            $totalEmployees = (int) $totalEmployeesQuery->count();
             $totalDocuments = $documentSummary['total_documents'];
             $expired = $documentSummary['expired'];
 
@@ -254,10 +267,14 @@ final class DashboardAnalytics
     /**
      * @return array<string, mixed>
      */
-    public function attendanceSummary(int $companyId): array
+    public function attendanceSummary(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'attendance', function () use ($companyId): array {
-            $activeEmployees = (int) Employee::query()->where('company_id', $companyId)->active()->count();
+        return $this->rememberScoped($companyId, $user, 'attendance', function () use ($companyId, $user): array {
+            $activeQuery = Employee::query()->where('company_id', $companyId)->active();
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($activeQuery, $user, $companyId);
+            }
+            $activeEmployees = (int) $activeQuery->count();
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $todayDate = now($timezone)->toDateString();
             $tomorrowDate = now($timezone)->addDay()->toDateString();
@@ -269,6 +286,9 @@ final class DashboardAnalytics
                 ->where('date', '<', $tomorrowDate);
 
             ActiveEmployeeConstraint::whereHas($distinctRow, $companyId);
+            if ($user !== null) {
+                EmployeeVisibilityScope::whereHas($distinctRow, $user, $companyId, 'employee');
+            }
 
             $distinctRow = $distinctRow
                 ->selectRaw('
@@ -305,8 +325,8 @@ final class DashboardAnalytics
                 'late_today' => $lateToday,
                 'absent_today' => $absentToday,
                 'active_employees' => $activeEmployees,
-                'weekly_trends' => $this->attendanceWeeklyTrends($companyId, $timezone, $weekStart, $todayDate),
-                'recent_records' => $this->recentAttendanceRecords($companyId),
+                'weekly_trends' => $this->attendanceWeeklyTrends($companyId, $timezone, $weekStart, $todayDate, $user),
+                'recent_records' => $this->recentAttendanceRecords($companyId, $user),
             ];
         });
     }
@@ -372,30 +392,30 @@ final class DashboardAnalytics
     /**
      * @return array<string, mixed>
      */
-    public function contractsSummary(int $companyId): array
+    public function contractsSummary(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'contracts', function () use ($companyId): array {
-            return $this->contractSummaryQuery->forCompany($companyId, new ContractDirectoryFilters);
+        return $this->rememberScoped($companyId, $user, 'contracts', function () use ($companyId, $user): array {
+            return $this->contractSummaryQuery->forCompany($companyId, new ContractDirectoryFilters, $user);
         });
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function trainingSummary(int $companyId): array
+    public function trainingSummary(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'training', function () use ($companyId): array {
-            return $this->trainingSummaryQuery->forCompany($companyId);
+        return $this->rememberScoped($companyId, $user, 'training', function () use ($companyId, $user): array {
+            return $this->trainingSummaryQuery->forCompany($companyId, null, $user);
         });
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function bankAccountsSummary(int $companyId): array
+    public function bankAccountsSummary(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'bank_accounts', function () use ($companyId): array {
-            return $this->bankAccountSummaryQuery->forCompany($companyId);
+        return $this->rememberScoped($companyId, $user, 'bank_accounts', function () use ($companyId, $user): array {
+            return $this->bankAccountSummaryQuery->forCompany($companyId, $user);
         });
     }
 
@@ -412,7 +432,7 @@ final class DashboardAnalytics
      */
     public function payrollSummary(int $companyId, User $user): array
     {
-        return $this->rememberCompany($companyId, 'payroll', function () use ($companyId, $user): array {
+        return $this->rememberScoped($companyId, $user, 'payroll', function () use ($companyId, $user): array {
             $draftPeriods = (int) PayrollPeriod::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'draft')
@@ -464,17 +484,18 @@ final class DashboardAnalytics
      */
     public function crewSummary(int $companyId, User $user): array
     {
-        return $this->rememberCompany($companyId, 'crew', function () use ($companyId, $user): array {
+        return $this->rememberScoped($companyId, $user, 'crew', function () use ($companyId, $user): array {
             $crewAnalytics = app(CrewOperationsDashboardAnalytics::class);
             $full = $crewAnalytics->forCompany($companyId, $user);
             $pulse = $full['daily_pulse'] ?? [];
             $maxHomeDays = (int) ($full['max_home_days'] ?? 0);
 
-            $employees = Employee::query()
+            $employeeQuery = Employee::query()
                 ->where('company_id', $companyId)
                 ->active()
-                ->with(['company'])
-                ->get();
+                ->with(['company']);
+            EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
+            $employees = $employeeQuery->get();
 
             $resolver = new CrewAssignmentStatusResolver;
             $inHome = 0;
@@ -528,7 +549,7 @@ final class DashboardAnalytics
      */
     public function announcementsSummary(int $companyId, User $user): array
     {
-        return $this->rememberCompany($companyId, 'announcements', function () use ($companyId): array {
+        return $this->rememberScoped($companyId, $user, 'announcements', function () use ($companyId): array {
             $published = (int) Announcement::query()
                 ->where('company_id', $companyId)
                 ->where('status', AnnouncementStatus::Published)
@@ -577,15 +598,17 @@ final class DashboardAnalytics
             return ['recent' => []];
         }
 
-        return $this->rememberCompany($companyId, 'audit', function () use ($companyId): array {
-            $logs = Activity::query()
+        return $this->rememberScoped($companyId, $user, 'audit', function () use ($companyId, $user): array {
+            $query = Activity::query()
                 ->where('company_id', $companyId)
                 ->with(['causer:id,name'])
-                ->latest('id')
-                ->limit(6)
-                ->get();
+                ->latest('id');
 
-            $recent = ActivityChangePresenter::presentLogs($logs, $companyId)
+            ActivityLogVisibilityScope::apply($query, $user, $companyId);
+
+            $logs = $query->limit(6)->get();
+
+            $recent = ActivityChangePresenter::presentLogs($logs, $companyId, $user)
                 ->map(fn (Activity $log): array => [
                     'id' => $log->id,
                     'causer_name' => $log->causer?->name ?? 'System',
@@ -628,6 +651,7 @@ final class DashboardAnalytics
                     ->whereNotNull('expiry_date')
                     ->where('expiry_date', '<', $today);
                 ActiveEmployeeConstraint::whereHas($expiredDocsQuery, $companyId);
+                EmployeeVisibilityScope::whereHas($expiredDocsQuery, $user, $companyId, 'employee');
                 $expiredDocs = (int) $expiredDocsQuery->count();
 
                 if ($expiredDocs > 0) {
@@ -649,6 +673,7 @@ final class DashboardAnalytics
                     ->where('expiry_date', '>=', $today)
                     ->where('expiry_date', '<=', now($timezone)->addDays(7)->toDateString());
                 ActiveEmployeeConstraint::whereHas($expiring7Query, $companyId);
+                EmployeeVisibilityScope::whereHas($expiring7Query, $user, $companyId, 'employee');
                 $expiring7Docs = (int) $expiring7Query->count();
 
                 if ($expiring7Docs > 0) {
@@ -687,7 +712,7 @@ final class DashboardAnalytics
 
             // Contracts ending within 30 days & No contract employees
             if ($user->can('contracts.view')) {
-                $summary = $this->contractsSummary($companyId);
+                $summary = $this->contractsSummary($companyId, $user);
                 if (($summary['ending_30'] ?? 0) > 0) {
                     $items[] = [
                         'key' => 'contracts_ending_30',
@@ -717,7 +742,7 @@ final class DashboardAnalytics
 
             // Expired training
             if ($user->can('training.view')) {
-                $training = $this->trainingSummary($companyId);
+                $training = $this->trainingSummary($companyId, $user);
                 if (($training['expired'] ?? 0) > 0) {
                     $items[] = [
                         'key' => 'expired_training',
@@ -734,7 +759,7 @@ final class DashboardAnalytics
 
             // Employees missing bank accounts
             if ($user->can('bank_accounts.view')) {
-                $bankSummary = $this->bankAccountsSummary($companyId);
+                $bankSummary = $this->bankAccountsSummary($companyId, $user);
                 if (($bankSummary['no_account_employees'] ?? 0) > 0) {
                     $items[] = [
                         'key' => 'no_bank_account_employees',
@@ -953,9 +978,9 @@ final class DashboardAnalytics
      *
      * @return list<array{month: string, headcount: int, new_hires: int, documents: int}>
      */
-    public function workforceTrends(int $companyId): array
+    public function workforceTrends(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'workforce_trends', function () use ($companyId): array {
+        return $this->rememberScoped($companyId, $user, 'workforce_trends', function () use ($companyId, $user): array {
             $months = [];
             $rangeStart = now()->subMonths(5)->startOfMonth();
             $rangeEnd = now()->endOfMonth();
@@ -972,31 +997,43 @@ final class DashboardAnalytics
             }
 
             // Single aggregated hire query (using COALESCE(hire_date, created_at))
+            $hireQuery = Employee::query()->where('company_id', $companyId);
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($hireQuery, $user, $companyId);
+            }
             $hireCounts = $this->monthlyCounts(
-                Employee::query()->where('company_id', $companyId),
+                $hireQuery,
                 $rangeStart->toDateString(),
                 $rangeEnd->toDateString(),
                 'COALESCE(hire_date, DATE(created_at))'
             );
 
             // Single aggregated termination query
+            $termQuery = Employee::query()->where('company_id', $companyId)->whereNotNull('termination_date');
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($termQuery, $user, $companyId);
+            }
             $termCounts = $this->monthlyCounts(
-                Employee::query()->where('company_id', $companyId)->whereNotNull('termination_date'),
+                $termQuery,
                 $rangeStart->toDateString(),
                 $rangeEnd->toDateString(),
                 'termination_date'
             );
 
             // Single aggregated document query
+            $documentQuery = EmployeeDocument::query()->where('company_id', $companyId);
+            if ($user !== null) {
+                EmployeeVisibilityScope::whereHas($documentQuery, $user, $companyId, 'employee');
+            }
             $documentCounts = $this->monthlyCounts(
-                EmployeeDocument::query()->where('company_id', $companyId),
+                $documentQuery,
                 $rangeStart->toDateTimeString(),
                 $rangeEnd->toDateTimeString(),
                 'created_at'
             );
 
             // Baseline headcount before rangeStart
-            $baselineHeadcount = (int) Employee::query()
+            $baselineQuery = Employee::query()
                 ->where('company_id', $companyId)
                 ->where(function (Builder $query) use ($rangeStart): void {
                     $query->where('hire_date', '<', $rangeStart->toDateString())
@@ -1008,8 +1045,13 @@ final class DashboardAnalytics
                 ->where(function (Builder $query) use ($rangeStart): void {
                     $query->whereNull('termination_date')
                         ->orWhere('termination_date', '>=', $rangeStart->toDateString());
-                })
-                ->count();
+                });
+
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($baselineQuery, $user, $companyId);
+            }
+
+            $baselineHeadcount = (int) $baselineQuery->count();
 
             $points = [];
             $runningHeadcount = $baselineHeadcount;
@@ -1036,12 +1078,18 @@ final class DashboardAnalytics
      *
      * @return list<array{name: string, count: int}>
      */
-    public function employeesByDepartment(int $companyId): array
+    public function employeesByDepartment(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'employees_by_department', function () use ($companyId): array {
-            $all = Employee::query()
+        return $this->rememberScoped($companyId, $user, 'employees_by_department', function () use ($companyId, $user): array {
+            $query = Employee::query()
                 ->where('employees.company_id', $companyId)
-                ->active()
+                ->active();
+
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($query, $user, $companyId);
+            }
+
+            $all = $query
                 ->leftJoin('departments', 'departments.id', '=', 'employees.department_id')
                 ->selectRaw("COALESCE(departments.name, 'Unassigned') as label")
                 ->selectRaw('COUNT(*) as count')
@@ -1079,12 +1127,18 @@ final class DashboardAnalytics
      *
      * @return list<array{name: string, count: int}>
      */
-    public function employeesByBranch(int $companyId): array
+    public function employeesByBranch(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'employees_by_branch', function () use ($companyId): array {
-            $all = Employee::query()
+        return $this->rememberScoped($companyId, $user, 'employees_by_branch', function () use ($companyId, $user): array {
+            $query = Employee::query()
                 ->where('employees.company_id', $companyId)
-                ->active()
+                ->active();
+
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($query, $user, $companyId);
+            }
+
+            $all = $query
                 ->leftJoin('branches', 'branches.id', '=', 'employees.branch_id')
                 ->selectRaw("COALESCE(branches.name, 'Unassigned') as label")
                 ->selectRaw('COUNT(*) as count')
@@ -1122,12 +1176,18 @@ final class DashboardAnalytics
      *
      * @return list<array{id: int, name: string, employee_no: string, hired_at: string}>
      */
-    public function recentHires(int $companyId): array
+    public function recentHires(int $companyId, ?User $user = null): array
     {
-        return $this->rememberCompany($companyId, 'recent_hires', function () use ($companyId): array {
-            return Employee::query()
+        return $this->rememberScoped($companyId, $user, 'recent_hires', function () use ($companyId, $user): array {
+            $query = Employee::query()
                 ->where('company_id', $companyId)
-                ->active()
+                ->active();
+
+            if ($user !== null) {
+                EmployeeVisibilityScope::apply($query, $user, $companyId);
+            }
+
+            return $query
                 ->orderByRaw('COALESCE(hire_date, DATE(created_at)) DESC')
                 ->orderByDesc('created_at')
                 ->limit(5)
@@ -1152,13 +1212,20 @@ final class DashboardAnalytics
         string $timezone,
         string $weekStart,
         string $weekEnd,
+        ?User $user = null,
     ): array {
         $weekEndExclusive = Carbon::parse($weekEnd, $timezone)->addDay()->toDateString();
 
-        $rows = AttendanceRecord::query()
+        $query = AttendanceRecord::query()
             ->where('company_id', $companyId)
             ->where('date', '>=', $weekStart)
-            ->where('date', '<', $weekEndExclusive)
+            ->where('date', '<', $weekEndExclusive);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        }
+
+        $rows = $query
             ->selectRaw('date as attendance_date')
             ->selectRaw('SUM(CASE WHEN clock_in IS NOT NULL THEN 1 ELSE 0 END) as check_ins')
             ->selectRaw('SUM(CASE WHEN clock_out IS NOT NULL THEN 1 ELSE 0 END) as check_outs')
@@ -1186,11 +1253,17 @@ final class DashboardAnalytics
     /**
      * @return list<array<string, mixed>>
      */
-    private function recentAttendanceRecords(int $companyId): array
+    private function recentAttendanceRecords(int $companyId, ?User $user = null): array
     {
-        return AttendanceRecord::query()
+        $query = AttendanceRecord::query()
             ->with('employee:id,name')
-            ->where('company_id', $companyId)
+            ->where('company_id', $companyId);
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        }
+
+        return $query
             ->orderByDesc('date')
             ->orderByDesc('id')
             ->limit(8)
@@ -1297,5 +1370,20 @@ final class DashboardAnalytics
         } catch (\Throwable) {
             return $callback();
         }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    private function rememberScoped(int $companyId, ?User $user, string $part, callable $callback): mixed
+    {
+        if ($user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $this->rememberCompany($companyId, $part, $callback);
+        }
+
+        return $this->rememberUser($companyId, (int) $user->id, $part, $callback);
     }
 }
