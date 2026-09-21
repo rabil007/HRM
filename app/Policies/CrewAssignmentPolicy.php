@@ -22,6 +22,11 @@ class CrewAssignmentPolicy
         return $user->can('crew_operations.assignments.create');
     }
 
+    public function createHistorical(User $user): bool
+    {
+        return $user->can('crew_operations.assignments.create_historical');
+    }
+
     public function start(User $user): bool
     {
         return $user->can('crew_operations.assignments.create')

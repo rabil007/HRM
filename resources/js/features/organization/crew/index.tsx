@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import { Filter, Loader2, Plus, Ship, Trash2 } from 'lucide-react';
+import { Filter, History, Loader2, Plus, Ship, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -16,6 +16,7 @@ import { SearchBar } from '@/components/search-bar';
 import { SelectionToolbar } from '@/components/selection/selection-toolbar';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { AddPastDataDialog } from '@/features/organization/crew/actions/add-past-data-dialog';
 import { VoidErroneousAssignmentDialog } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
 import type { VoidableAssignment } from '@/features/organization/crew/actions/void-erroneous-assignment-dialog';
 import { CrewAssignmentMobileCard } from '@/features/organization/crew/components/crew-assignment-mobile-card';
@@ -160,6 +161,7 @@ export function CurrentCrewContent({
         null,
     );
     const [isBulkVoidOpen, setIsBulkVoidOpen] = useState(false);
+    const [isAddPastDataOpen, setIsAddPastDataOpen] = useState(false);
 
     const visibleAssignmentIds = useMemo(
         () => assignments.map((assignment) => assignment.id),
@@ -262,6 +264,15 @@ export function CurrentCrewContent({
                 right={
                     <div className="flex flex-wrap items-center gap-2">
                         <CrewPhaseGuideDialog />
+                        {can.create_historical ? (
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsAddPastDataOpen(true)}
+                            >
+                                <History className="h-4 w-4" />
+                                Add Past Data
+                            </Button>
+                        ) : null}
                         {can.create ? (
                             <Button
                                 onClick={() =>
@@ -725,6 +736,14 @@ export function CurrentCrewContent({
                     setIsBulkVoidOpen(false);
                 }}
             />
+
+            {can.create_historical && formOptions ? (
+                <AddPastDataDialog
+                    open={isAddPastDataOpen}
+                    onOpenChange={setIsAddPastDataOpen}
+                    formOptions={formOptions}
+                />
+            ) : null}
         </Main>
     );
 }

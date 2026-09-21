@@ -171,6 +171,7 @@ use App\Http\Controllers\Organization\EmployeeTrashController;
 use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
+use App\Http\Controllers\Organization\HistoricalCrewAssignmentController;
 use App\Http\Controllers\Organization\LeaveReportController;
 use App\Http\Controllers\Organization\OrganizationBulkRecordController;
 use App\Http\Controllers\Organization\PositionAttachmentController;
@@ -591,6 +592,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:crew_operations.assignments.view')
         ->name('organization.crew-assignments.onboard-vessels.export');
     Route::post('organization/crew', [CrewAssignmentController::class, 'store'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-assignments.store');
+    Route::post('organization/crew/historical/preview', [HistoricalCrewAssignmentController::class, 'preview'])
+        ->middleware('can:crew_operations.assignments.create_historical')
+        ->name('organization.crew-assignments.historical.preview');
+    Route::post('organization/crew/historical', [HistoricalCrewAssignmentController::class, 'store'])
+        ->middleware('can:crew_operations.assignments.create_historical')
+        ->name('organization.crew-assignments.historical.store');
     Route::post('organization/crew/void-preview', PreviewVoidCrewAssignmentsController::class)
         ->middleware(['can:crew_operations.assignments.void', 'privileged.2fa'])
         ->name('organization.crew-assignments.void-preview');

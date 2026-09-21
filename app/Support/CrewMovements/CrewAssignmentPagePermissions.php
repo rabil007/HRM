@@ -39,7 +39,8 @@ class CrewAssignmentPagePermissions
      *     view_planning: bool,
      *     view_employee: bool,
      *     delete_sea_service: bool,
-     *     delete_training: bool
+     *     delete_training: bool,
+     *     create_historical: bool
      * }
      */
     public static function for(?User $user): array
@@ -50,6 +51,7 @@ class CrewAssignmentPagePermissions
         return [
             'view' => $user?->can('crew_operations.assignments.view') ?? false,
             'create' => $create,
+            'create_historical' => $user?->can('crew_operations.assignments.create_historical') ?? false,
             'start' => $create && $performMovement,
             'update' => $user?->can('crew_operations.assignments.update') ?? false,
             'perform_movement' => $performMovement,

@@ -1881,6 +1881,12 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to view leave reporting data available to them within the active company.',
                 'group' => 'Reports',
             ],
+            311 => [
+                'name' => 'crew_operations.assignments.create_historical',
+                'label' => 'Create Historical Crew Assignments',
+                'description' => 'Allows the user to record completed past crew movements without affecting current operations.',
+                'group' => 'Crew Operations',
+            ],
         ];
     }
 }

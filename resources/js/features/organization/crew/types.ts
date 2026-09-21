@@ -552,6 +552,7 @@ export interface CrewAssignmentFilters {
 export interface CrewAssignmentPagePermissions {
     view: boolean;
     create: boolean;
+    create_historical?: boolean;
     start: boolean;
     update: boolean;
     perform_movement: boolean;
@@ -708,4 +709,77 @@ export interface CrewMovementActionFormData {
     check_out_date: string;
     source_check_out_date: string;
     no_hotel_accommodation: boolean;
+}
+
+export interface HistoricalPreviewCheck {
+    code: string;
+    passed: boolean;
+    message: string;
+}
+
+export interface HistoricalPreviewTimelineItem {
+    phase_code: string;
+    phase_label: string;
+    start: string;
+    end: string | null;
+    duration_days: number | null;
+}
+
+export interface HistoricalSeaServiceImpact {
+    status: 'will_create' | 'will_link' | 'warning';
+    days: number;
+    start_date: string;
+    end_date: string;
+    vessel_id: number;
+    vessel_name: string;
+    existing_id?: number | null;
+    message: string;
+}
+
+export interface HistoricalCrewAssignmentPreviewData {
+    employee: {
+        id: number;
+        name: string;
+        employee_no: string | null;
+    };
+    vessel: {
+        id: number;
+        name: string;
+    };
+    rank: {
+        id: number;
+        name: string;
+    };
+    client: {
+        id: number;
+        name: string;
+    } | null;
+    summary: {
+        joined_vessel_at: string;
+        disembarked_at: string;
+        sea_service_days: number;
+        remarks: string | null;
+    };
+    timeline: HistoricalPreviewTimelineItem[];
+    checks: HistoricalPreviewCheck[];
+    warnings: string[];
+    sea_service: HistoricalSeaServiceImpact;
+}
+
+export interface HistoricalCrewAssignmentFormData {
+    employee_id: string | number;
+    vessel_id: string | number;
+    rank_id: string | number;
+    client_id: string | number;
+    joined_vessel_at: string;
+    disembarked_at: string;
+    mobilisation_at?: string;
+    arrival_at?: string;
+    training_started_at?: string;
+    training_ended_at?: string;
+    ready_to_join_at?: string;
+    post_signoff_standby_at?: string;
+    travel_home_at?: string;
+    assignment_closed_at?: string;
+    remarks?: string;
 }

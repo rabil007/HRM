@@ -18,6 +18,7 @@ use App\Models\Employee;
 use App\Models\Hotel;
 use App\Models\Rank;
 use App\Models\RoomType;
+use App\Models\User;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
@@ -130,7 +131,7 @@ class CrewAssignmentController extends Controller
             'filters' => CurrentCrewRequestFilters::inertiaFilters($filters, $view),
             'summary' => $summary,
             'filter_options' => $filterOptions,
-            'form_options' => $this->movementFormOptions($companyId),
+            'form_options' => $this->movementFormOptions($companyId, $request->user()),
             'can' => CrewAssignmentPagePermissions::for($request->user()),
             'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Crew),
         ]);
@@ -347,7 +348,7 @@ class CrewAssignmentController extends Controller
             'corrections' => $corrections,
             'correction_request_context' => $correctionRequestContext,
             'recent_activity' => $recentActivity,
-            'form_options' => $this->movementFormOptions($companyId),
+            'form_options' => $this->movementFormOptions($companyId, $request->user()),
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }
@@ -626,25 +627,47 @@ class CrewAssignmentController extends Controller
 
     /**
      * @return array{
-     *     employees: list<array<string, mixed>>,
+     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null}>,
      *     ranks: list<array<string, mixed>>,
      *     vessels: list<array<string, mixed>>,
      *     clients: list<array<string, mixed>>,
      *     courses: list<array<string, mixed>>,
      *     hotels: list<array{id: int, name: string}>,
-     *     room_types: list<array{id: int, name: string, hotel_id: int|null}>
+     *     room_types: list<array{id: int, name: string, hotel_id: int|null}>,
+     *     company_timezone: string
      * }
      */
-    private function movementFormOptions(int $companyId): array
+    private function movementFormOptions(int $companyId, ?User $user = null): array
     {
+        $employeeQuery = Employee::query()
+            ->where('company_id', $companyId)
+            ->active();
+
+        if ($user !== null) {
+            $employeeQuery = EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
+        }
+
+        $employees = $employeeQuery
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_no', 'rank_id'])
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'employee_no' => $employee->employee_no,
+                'rank_id' => $employee->rank_id,
+            ])
+            ->values()
+            ->all();
+
         return [
-            'employees' => [],
+            'employees' => $employees,
             'ranks' => $this->activeRanksWithTour($companyId),
             'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
             'courses' => $this->activeCourses(),
             'hotels' => $this->activeHotels($companyId),
             'room_types' => $this->activeRoomTypes($companyId),
+            'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
     }
 
