@@ -1136,3 +1136,145 @@ test('vessel client auto-resolves via ClientAssignmentRules when client_id omitt
         ->assertJsonPath('client.id', $client->id)
         ->assertJsonPath('client.name', $client->name);
 });
+
+test('historical form options include inactive vessel rank and client while live options stay active-only', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $activeRank] = makeCrewAssignmentFixtures();
+
+    $inactiveRank = Rank::query()->create(['name' => 'Inactive Rank Opt '.Str::random(5), 'is_active' => false]);
+    $inactiveClient = Client::factory()->create(['name' => 'Inactive Client Opt '.Str::random(5), 'is_active' => false]);
+    $inactiveVessel = makeCrewMovementVessel('Inactive Vessel Opt '.Str::random(5), $company, $inactiveClient);
+    $inactiveVessel->update(['is_active' => false]);
+    $activeVessel = makeCrewMovementVessel('Active Vessel Opt '.Str::random(5), $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create_historical',
+        'crew_operations.assignments.create',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('historical_form_options.vessels', fn (Assert $vessels) => $vessels
+                ->where('0.id', fn ($id) => true)
+                ->etc()
+            )
+            ->where('historical_form_options.vessels', function ($vessels) use ($inactiveVessel, $activeVessel) {
+                $ids = collect($vessels)->pluck('id')->all();
+                $inactive = collect($vessels)->firstWhere('id', $inactiveVessel->id);
+
+                return in_array($inactiveVessel->id, $ids, true)
+                    && in_array($activeVessel->id, $ids, true)
+                    && $inactive !== null
+                    && str_contains((string) $inactive['name'], 'Inactive')
+                    && ($inactive['is_active'] ?? true) === false;
+            })
+            ->where('historical_form_options.ranks', function ($ranks) use ($inactiveRank, $activeRank) {
+                $ids = collect($ranks)->pluck('id')->all();
+                $inactive = collect($ranks)->firstWhere('id', $inactiveRank->id);
+
+                return in_array($inactiveRank->id, $ids, true)
+                    && in_array($activeRank->id, $ids, true)
+                    && $inactive !== null
+                    && str_contains((string) $inactive['name'], 'Inactive');
+            })
+            ->where('historical_form_options.clients', function ($clients) use ($inactiveClient) {
+                $inactive = collect($clients)->firstWhere('id', $inactiveClient->id);
+
+                return $inactive !== null
+                    && str_contains((string) $inactive['name'], 'Inactive')
+                    && ($inactive['is_active'] ?? true) === false;
+            })
+            ->where('form_options.vessels', function ($vessels) use ($inactiveVessel, $activeVessel) {
+                $ids = collect($vessels)->pluck('id')->all();
+
+                return ! in_array($inactiveVessel->id, $ids, true)
+                    && in_array($activeVessel->id, $ids, true);
+            })
+            ->where('form_options.ranks', function ($ranks) use ($inactiveRank, $activeRank) {
+                $ids = collect($ranks)->pluck('id')->all();
+
+                return ! in_array($inactiveRank->id, $ids, true)
+                    && in_array($activeRank->id, $ids, true);
+            })
+            ->where('form_options.clients', function ($clients) use ($inactiveClient) {
+                $ids = collect($clients)->pluck('id')->all();
+
+                return ! in_array($inactiveClient->id, $ids, true);
+            })
+        );
+});
+
+test('historical validation aliases training and demob fields and surfaces sea service and overlap messages', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Alias Vessel', $company);
+    $otherRank = Rank::query()->create(['name' => 'Master Alias '.Str::random(4), 'is_active' => true]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    // Chronology: training_end before training_start → aliased form keys
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'joined_vessel_at' => '2024-06-01',
+            'disembarked_at' => '2024-08-01',
+            'training_started_at' => '2024-05-20',
+            'training_ended_at' => '2024-05-10',
+            'post_signoff_standby_at' => '2024-07-01',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['training_started_at', 'training_ended_at', 'post_signoff_standby_at']);
+
+    // Persist a sea service conflict for overlap/conflict messaging
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $otherRank->id,
+        'start_date' => '2023-01-01',
+        'end_date' => '2023-06-30',
+        'total_days' => 181,
+        'total_months' => 6,
+        'sort_order' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'joined_vessel_at' => '2023-01-01',
+            'disembarked_at' => '2023-06-30',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['sea_service']);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'joined_vessel_at' => '2022-01-01',
+            'disembarked_at' => '2022-06-30',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'joined_vessel_at' => '2022-03-01',
+            'disembarked_at' => '2022-08-01',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['overlap']);
+});

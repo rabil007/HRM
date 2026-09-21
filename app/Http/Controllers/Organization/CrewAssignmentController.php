@@ -19,6 +19,7 @@ use App\Models\Hotel;
 use App\Models\Rank;
 use App\Models\RoomType;
 use App\Models\User;
+use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
@@ -687,11 +688,107 @@ class CrewAssignmentController extends Controller
 
         return [
             'employees' => $employees,
-            'ranks' => $this->activeRanksWithTour($companyId),
-            'vessels' => $this->activeVessels($companyId),
-            'clients' => $this->activeClients(),
+            'ranks' => $this->historicalRanksWithTour(),
+            'vessels' => $this->historicalVessels($companyId),
+            'clients' => $this->historicalClients(),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
+    }
+
+    /**
+     * Historical backfill may reference inactive ranks. Live form options stay active-only.
+     *
+     * @return list<array{
+     *     id: int,
+     *     name: string,
+     *     is_active: bool,
+     *     max_tour_of_duty_days: int|null,
+     *     resolved_tour_of_duty_days: int|null
+     * }>
+     */
+    private function historicalRanksWithTour(): array
+    {
+        return Rank::query()
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active', 'max_tour_of_duty_days'])
+            ->map(function (Rank $rank): array {
+                $isActive = (bool) $rank->is_active;
+                $label = (string) $rank->name;
+
+                if (! $isActive) {
+                    $label .= ' — Inactive';
+                }
+
+                return [
+                    'id' => (int) $rank->id,
+                    'name' => $label,
+                    'is_active' => $isActive,
+                    'max_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
+                    'resolved_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Historical backfill may reference inactive company vessels (including legacy unassigned clients).
+     *
+     * @return list<array{id: int, name: string, client_id: int|null, is_active: bool}>
+     */
+    private function historicalVessels(int $companyId): array
+    {
+        return ResolvesCompanyVessels::queryForCompany($companyId)
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'client_id', 'is_active'])
+            ->map(function (Vessel $vessel): array {
+                $isActive = (bool) $vessel->is_active;
+                $label = (string) $vessel->name;
+
+                if (! $isActive) {
+                    $label .= ' — Inactive';
+                }
+
+                return [
+                    'id' => (int) $vessel->id,
+                    'name' => $label,
+                    'client_id' => $vessel->client_id !== null ? (int) $vessel->client_id : null,
+                    'is_active' => $isActive,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Historical backfill may reference inactive clients.
+     *
+     * @return list<array{id: int, name: string, is_active: bool}>
+     */
+    private function historicalClients(): array
+    {
+        return Client::query()
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active'])
+            ->map(function (Client $client): array {
+                $isActive = (bool) $client->is_active;
+                $label = (string) $client->name;
+
+                if (! $isActive) {
+                    $label .= ' — Inactive';
+                }
+
+                return [
+                    'id' => (int) $client->id,
+                    'name' => $label,
+                    'is_active' => $isActive,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

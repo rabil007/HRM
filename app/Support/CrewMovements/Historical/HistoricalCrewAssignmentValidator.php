@@ -48,6 +48,11 @@ final class HistoricalCrewAssignmentValidator
             $errors['employee_id'] = $employeeMessage;
         } else {
             $employeeMessage = 'Employee belongs to active company and is visible to your role.';
+
+            if ($employee->status !== 'active') {
+                $statusLabel = str_replace('_', ' ', (string) $employee->status);
+                $warnings[] = "Employee status is currently '{$statusLabel}'. Historical recording is still allowed.";
+            }
         }
 
         $checks[] = [
@@ -112,6 +117,10 @@ final class HistoricalCrewAssignmentValidator
             }
         } elseif ($vessel !== null && $vessel->client_id !== null) {
             $client = Client::query()->find((int) $vessel->client_id);
+        }
+
+        if ($client !== null && ! $client->is_active) {
+            $warnings[] = "Client '{$client->name}' is currently inactive in master data.";
         }
 
         // 4. Chronological & Future Dates Check
@@ -426,6 +435,7 @@ final class HistoricalCrewAssignmentValidator
         }
 
         $isValid = empty($errors);
+        $errors = HistoricalCrewAssignmentErrorMapper::withFormAliases($errors);
 
         return new HistoricalCrewAssignmentValidationResult(
             valid: $isValid,

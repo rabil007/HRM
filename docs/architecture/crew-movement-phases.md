@@ -1272,8 +1272,25 @@ Unlike live assignment creation (which strictly requires active, non-assigned em
 On `/organization/crew`, users with the authoritative permission `crew_operations.assignments.create_historical` see an **Add Past Data** action beside **Start Assignment**. Form options for historical employees are isolated in `historical_form_options` and only delivered when authorized.
 
 The action opens a large centered modal containing:
-- **Manual Entry** (fully functional in Phase 1)
-- **Import Excel** (marked as Phase 2 / Coming Soon; template download and bulk parsing will be added in Phase 2)
+- **Manual Entry** (fully functional)
+- **Import Excel** (Phase 2: template download + upload + validation preview; confirmed bulk persistence is Phase 3)
+
+#### Historical master-data selection
+
+Historical backfill deliberately differs from live Crew Assignment creation:
+
+| Master data | Historical options | Live options |
+| --- | --- | --- |
+| Employees | Visible company employees of any HR status (`active`, `inactive`, `terminated`, `on_leave`, …), excluding soft-deleted; `EmployeeVisibilityScope` still applies | Empty on the Crew index; live create uses operational availability rules |
+| Vessels | Active **and** inactive company vessels (UI labels inactive as `Name — Inactive`) | Active vessels with an assignable client only |
+| Ranks | Active **and** inactive ranks | Active ranks only |
+| Clients | Active **and** inactive clients | Active clients only |
+
+Backend historical validation already allows inactive Vessel / Rank / Client with non-blocking warnings. Tenant ownership and visibility remain authoritative.
+
+#### Validation error presentation
+
+Domain validator keys such as `training_start_at`, `training_end_at`, `demob_standby_at`, and `mobilisation_start_at` are aliased to Manual Entry form fields (`training_started_at`, `training_ended_at`, `post_signoff_standby_at`, `mobilisation_at`). Domain failures (`overlap`, `sea_service`, `assignment`, `dates`) are shown in the visible validation alert with the full backend message — never reduced to a generic “Validation failed.”
 
 #### 2-Step Authoritative Flow: Enter → Validate → Preview → Confirm → Persist
 
@@ -1361,24 +1378,82 @@ Persisting historical data leaves the operational state completely untouched:
   - If conflicting (different rank or conflicting client), validation blocks with an explicit conflict error rather than silently overwriting historical HR records.
 - **Inclusive Calendar Overlap Protection**: Because Sea Service records represent inclusive calendar dates, overlap checks enforce `$start1 <= $end2 && $start2 <= $end1`. Touching boundaries (where one service ends on day X and another starts on day X) are flagged as overlapping because day X cannot belong to two vessel services simultaneously. Adjacent dates (e.g. ending on 10-Jan and starting on 11-Jan) are fully allowed.
 
+### Phase 2 — Historical Excel Template + Upload + Validation Preview
+
+Phase 2 adds spreadsheet staging without persistence.
+
+```text
+Download Template
+       ↓
+Fill Excel (Historical Assignments + Reference Data)
+       ↓
+Upload
+       ↓
+HistoricalCrewImportParser (normalize rows / dates)
+       ↓
+Resolve employee_no / vessel / rank / client
+       ↓
+HistoricalCrewAssignmentData
+       ↓
+HistoricalCrewAssignmentValidator (same rules as Manual Entry)
+       ↓
+Workbook duplicate / cross-row overlap detection
+       ↓
+Validation Preview (Ready / Warning / Blocked)
+```
+
+**No** `CrewAssignment`, `CrewAssignmentPhase`, `EmployeeSeaService`, planning, hotel, payroll, or timesheet records are created during Validate File. Phase 3 must re-run validation under locks before calling `HistoricalCrewAssignmentService::create()`.
+
+#### Template workbook
+
+`Historical_Crew_Import_Template.xlsx` (permission `crew_operations.assignments.create_historical`):
+
+| Sheet | Contents |
+| --- | --- |
+| Instructions | Purpose, workflow, date format (`YYYY-MM-DD`), phase mapping, isolation notes |
+| Historical Assignments | Import columns with required markers, frozen header, sample row, date / employee_no formatting |
+| Reference Data | Company-scoped Employees (visibility-filtered), Vessels (incl. inactive), Ranks (incl. inactive), Clients (incl. inactive), with status labels |
+
+Assignment columns: `employee_no *`, `vessel *`, `rank *`, `client`, optional phase dates (`mobilisation_date` … `assignment_close_date`), `vessel_join_date *`, `disembark_date *`, `remarks`.
+
+#### Identifier matching
+
+- Employee: authoritative `employee_no` (case-insensitive), never name
+- Vessel / Rank / Client: exact name match (names are unique in schema); ambiguous matches are blocked — never guess
+- Reference Data includes IDs for operator disambiguation
+
+#### Date normalization
+
+Excel serials, `YYYY-MM-DD`, and common regional strings are normalized to company calendar dates via the same day-grain semantics as Manual Entry (no UAE midnight → previous UTC day drift).
+
+#### Ready / Warning / Blocked
+
+| Status | Examples |
+| --- | --- |
+| Ready | Fully valid, no warnings |
+| Warning | Inactive vessel/rank/client, terminated employee, Sea Service sync disabled — allowed by historical rules |
+| Blocked | Missing/unknown/hidden employee, unknown/ambiguous master data, future dates, chronology errors, assignment overlap, Sea Service conflict, workbook duplicate / overlapping rows |
+
+#### Endpoints
+
+- `GET /organization/crew/historical/import/template`
+- `POST /organization/crew/historical/import/validate` (JSON preview only)
+
 ### Phase 2 Architecture Alignment
 
 The backend service layer is completely isolated from HTTP/form concerns:
 ```text
-Manual Entry Form (Phase 1) ──┐
-                              ├──> HistoricalCrewAssignmentData (DTO)
-Excel Importer (Phase 2)    ──┘           │
-                                          ▼
-                         HistoricalCrewAssignmentValidator
-                                          │
-                                          ▼
-                          HistoricalCrewAssignmentService
-                                          │
-                        ┌─────────────────┴─────────────────┐
-                        ▼                                   ▼
-          CrewAssignment (Completed)              EmployeeSeaService
+Manual Entry Form ──┐
+                    ├──> HistoricalCrewAssignmentData (DTO)
+Excel Importer    ──┘           │
+                                ▼
+               HistoricalCrewAssignmentValidator
+                                │
+              ┌─────────────────┴─────────────────┐
+              ▼                                   ▼
+   Preview only (Phase 2)          HistoricalCrewAssignmentService (Phase 1 manual / Phase 3 bulk)
 ```
-Phase 2 will implement Excel template generation, file upload, spreadsheet parsing, and batch row normalization directly into `HistoricalCrewAssignmentData` instances, using the identical validation and persistence pipelines.
+Phase 3 will revalidate the same normalized rows under authoritative locks, then call `HistoricalCrewAssignmentService::create()` — not a separate import persistence engine.
 
 ## Master data
 

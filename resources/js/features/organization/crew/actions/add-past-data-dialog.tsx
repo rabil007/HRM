@@ -38,11 +38,13 @@ import {
     useCompanyTimezone,
 } from '@/lib/company-timezone';
 import { formatDisplayDate } from '@/lib/format-date';
+import { mapHistoricalValidationErrors } from '../lib/historical-validation-errors';
 import type {
     HistoricalCrewAssignmentFormData,
     HistoricalCrewAssignmentPreviewData,
     HistoricalFormOptions,
 } from '../types';
+import { HistoricalImportExcelPanel } from './historical-import-excel-panel';
 
 interface AddPastDataDialogProps {
     open: boolean;
@@ -199,7 +201,7 @@ export function AddPastDataDialog({
             const errorObj = err as {
                 response?: {
                     data?: {
-                        errors?: Record<string, string[]>;
+                        errors?: Record<string, string | string[]>;
                         message?: string;
                     };
                 };
@@ -207,29 +209,20 @@ export function AddPastDataDialog({
             const errors = errorObj?.response?.data?.errors;
 
             if (errors) {
-                const mapped: Record<string, string> = {};
-                const topMessages: string[] = [];
+                const { fieldErrors, alertMessage } =
+                    mapHistoricalValidationErrors(errors);
 
-                for (const [key, msgs] of Object.entries(errors)) {
-                    if (Array.isArray(msgs) && msgs.length > 0) {
-                        mapped[key] = msgs[0];
+                form.setError(fieldErrors);
 
-                        if (['assignment', 'overlap', 'dates'].includes(key)) {
-                            topMessages.push(msgs[0]);
-                        }
-                    }
-                }
-
-                form.setError(mapped);
-
-                if (topMessages.length > 0) {
-                    setValidationError(topMessages.join(' '));
+                if (alertMessage) {
+                    setValidationError(alertMessage);
                 } else if (errorObj?.response?.data?.message) {
                     setValidationError(errorObj.response.data.message);
                 }
             } else {
                 setValidationError(
-                    'Validation failed. Please check the provided information.',
+                    errorObj?.response?.data?.message ??
+                        'Validation failed. Please check the provided information.',
                 );
             }
         } finally {
@@ -246,10 +239,15 @@ export function AddPastDataDialog({
             onError: (errs) => {
                 setStep('form');
 
-                if (errs.assignment || errs.overlap) {
-                    setValidationError(
-                        errs.assignment || errs.overlap || 'Validation error',
+                const { fieldErrors, alertMessage } =
+                    mapHistoricalValidationErrors(
+                        errs as Record<string, string | string[]>,
                     );
+
+                form.setError(fieldErrors);
+
+                if (alertMessage) {
+                    setValidationError(alertMessage);
                 }
             },
         });
@@ -290,42 +288,15 @@ export function AddPastDataDialog({
                         </TabsTrigger>
                         <TabsTrigger
                             value="excel"
-                            className="flex items-center gap-2 text-muted-foreground"
+                            className="flex items-center gap-2"
                         >
                             <FileSpreadsheet className="h-4 w-4" />
                             Import Excel
-                            <Badge
-                                variant="outline"
-                                className="ml-1 px-1 py-0 text-[10px] font-normal"
-                            >
-                                Phase 2
-                            </Badge>
                         </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="excel" className="py-6">
-                        <div className="space-y-3 rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                                <FileSpreadsheet className="h-6 w-6" />
-                            </div>
-                            <h3 className="text-base font-semibold text-foreground">
-                                Excel Import (Coming Soon)
-                            </h3>
-                            <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                                Historical spreadsheet upload with template
-                                validation and batch import is planned for Phase
-                                2. Please use the <strong>Manual Entry</strong>{' '}
-                                tab to record past assignments now.
-                            </p>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setActiveTab('manual')}
-                                className="mt-2"
-                            >
-                                Switch to Manual Entry
-                            </Button>
-                        </div>
+                    <TabsContent value="excel" className="py-2">
+                        <HistoricalImportExcelPanel />
                     </TabsContent>
 
                     <TabsContent value="manual" className="space-y-4 pt-2">
@@ -335,7 +306,7 @@ export function AddPastDataDialog({
                                     <Alert variant="destructive">
                                         <AlertTriangle className="h-4 w-4" />
                                         <AlertTitle>
-                                            Validation Block
+                                            Historical record cannot be added
                                         </AlertTitle>
                                         <AlertDescription>
                                             {validationError}

@@ -799,13 +799,81 @@ export interface HistoricalEmployeeOption {
 
 export interface HistoricalFormOptions {
     employees: HistoricalEmployeeOption[];
-    ranks: Array<{ id: number; name: string; [key: string]: unknown }>;
+    ranks: Array<{
+        id: number;
+        name: string;
+        is_active?: boolean;
+        [key: string]: unknown;
+    }>;
     vessels: Array<{
         id: number;
         name: string;
         client_id?: number | null;
+        is_active?: boolean;
         [key: string]: unknown;
     }>;
-    clients: Array<{ id: number; name: string; [key: string]: unknown }>;
+    clients: Array<{
+        id: number;
+        name: string;
+        is_active?: boolean;
+        [key: string]: unknown;
+    }>;
     company_timezone: string;
+}
+
+export type HistoricalImportRowStatus = 'ready' | 'warning' | 'blocked';
+
+export interface HistoricalImportPreviewRow {
+    row: number;
+    status: HistoricalImportRowStatus;
+    employee: {
+        id: number | null;
+        employee_no: string | null;
+        name: string | null;
+        label: string;
+    };
+    vessel: {
+        id: number | null;
+        name: string | null;
+    };
+    rank: {
+        id: number | null;
+        name: string | null;
+    };
+    client: {
+        id: number | null;
+        name: string | null;
+    } | null;
+    joined_vessel_at: string | null;
+    disembarked_at: string | null;
+    errors: string[];
+    error_fields: Record<string, string>;
+    warnings: string[];
+    workbook_messages: string[];
+    checks: HistoricalPreviewCheck[];
+    timeline: HistoricalPreviewTimelineItem[];
+    sea_service: HistoricalSeaServiceImpact | null;
+    summary: {
+        joined_vessel_at: string | null;
+        disembarked_at: string | null;
+        sea_service_days: number | null;
+        remarks: string | null;
+    };
+    conflicting_assignment: {
+        id: number;
+        assignment_no: string;
+        started_at: string | null;
+        closed_at: string | null;
+    } | null;
+}
+
+export interface HistoricalImportPreviewResponse {
+    summary: {
+        total: number;
+        ready: number;
+        warning: number;
+        blocked: number;
+    };
+    rows: HistoricalImportPreviewRow[];
+    phase_note: string;
 }

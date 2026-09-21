@@ -595,6 +595,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/crew/historical/preview', [HistoricalCrewAssignmentController::class, 'preview'])
         ->middleware('can:crew_operations.assignments.create_historical')
         ->name('organization.crew-assignments.historical.preview');
+    Route::get('organization/crew/historical/import/template', [HistoricalCrewAssignmentController::class, 'importTemplate'])
+        ->middleware('can:crew_operations.assignments.create_historical')
+        ->name('organization.crew-assignments.historical.import.template');
+    Route::post('organization/crew/historical/import/validate', [HistoricalCrewAssignmentController::class, 'importValidate'])
+        ->middleware('can:crew_operations.assignments.create_historical')
+        ->name('organization.crew-assignments.historical.import.validate');
     Route::post('organization/crew/historical', [HistoricalCrewAssignmentController::class, 'store'])
         ->middleware('can:crew_operations.assignments.create_historical')
         ->name('organization.crew-assignments.historical.store');
