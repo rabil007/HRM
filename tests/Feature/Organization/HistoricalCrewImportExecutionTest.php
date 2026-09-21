@@ -19,11 +19,6 @@ use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Spatie\Activitylog\Models\Activity;
 
-function historicalImportIdempotencyKey(string $suffix = ''): string
-{
-    return str_pad('hist-import-'.Str::lower(Str::random(12)).$suffix, 16, '0');
-}
-
 test('ready rows import as completed historical_import with batch linkage and sea service', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119', 'name' => 'Ranjan Rai']);

@@ -12,6 +12,7 @@ use App\Support\CrewMovements\Historical\HistoricalCrewImportBatchNumberGenerato
 use App\Support\CrewMovements\Historical\HistoricalCrewImportExecutionService;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportPreviewService;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportResultExporter;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -149,9 +150,17 @@ test('interrupted importing batch resumes without duplicating assignments', func
         'errors' => [],
     ]);
 
+    $resumeFile = new UploadedFile(
+        $file->getRealPath(),
+        'historical-crew-import.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true,
+    );
+
     $response = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
-            'file' => makeHistoricalCrewImportFile($rows),
+            'file' => $resumeFile,
             'idempotency_key' => $key,
             'confirmed' => '1',
         ]);
@@ -205,9 +214,17 @@ test('active importing batch rejects concurrent retry until stale', function () 
         'summary' => [],
     ]);
 
+    $retryFile = new UploadedFile(
+        $file->getRealPath(),
+        'historical-crew-import.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true,
+    );
+
     $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
-            'file' => makeHistoricalCrewImportFile([$row]),
+            'file' => $retryFile,
             'idempotency_key' => $key,
             'confirmed' => '1',
         ])

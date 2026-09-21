@@ -12,6 +12,11 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
+function historicalImportIdempotencyKey(string $suffix = ''): string
+{
+    return str_pad('hist-import-'.Str::lower(Str::random(12)).$suffix, 16, '0');
+}
+
 function makeHistoricalImportOtherCompany(): Company
 {
     $country = Country::first() ?? Country::query()->create(['code' => 'OC', 'name' => 'Other Land', 'dial_code' => '+002', 'is_active' => true]);
