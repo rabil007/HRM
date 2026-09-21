@@ -153,6 +153,8 @@ final class LeaveBalanceManager
 
     /**
      * Lock and snapshot allocation balances for the request date span in deterministic year order.
+     * May create missing LeaveBalance rows (provisioning path). Prefer
+     * inspectExistingAllocationBalances() for read-only workflows.
      *
      * @return list<array{
      *     year: int,
@@ -191,6 +193,69 @@ final class LeaveBalanceManager
             }
 
             $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, (int) $year, lock: $lock);
+
+            $snapshots[] = [
+                'year' => (int) $year,
+                'days' => (float) $days,
+                'pending_days' => (float) $balance->pending_days,
+                'used_days' => (float) $balance->used_days,
+                'remaining_days' => (float) $balance->remaining_days,
+            ];
+        }
+
+        return $snapshots;
+    }
+
+    /**
+     * Read-only allocation balance inspection. Never creates LeaveBalance rows.
+     *
+     * @return list<array{
+     *     year: int,
+     *     days: float,
+     *     pending_days: float,
+     *     used_days: float,
+     *     remaining_days: float
+     * }>
+     *
+     * @throws RuntimeException
+     */
+    public function inspectExistingAllocationBalances(LeaveRequest $leaveRequest, bool $lock = true): array
+    {
+        $companyId = (int) $leaveRequest->company_id;
+        $employeeId = (int) $leaveRequest->employee_id;
+        $leaveTypeId = (int) $leaveRequest->leave_type_id;
+        $startDate = $leaveRequest->start_date?->toDateString();
+        $endDate = $leaveRequest->end_date?->toDateString();
+
+        if ($startDate === null || $endDate === null || $startDate === '' || $endDate === '') {
+            throw new RuntimeException('Leave request dates are missing; cannot inspect leave balances.');
+        }
+
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->first();
+
+        if ($leaveType === null) {
+            throw new RuntimeException('The leave type for this request is missing or does not belong to the request company.');
+        }
+
+        $snapshots = [];
+
+        foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
+            if ($days <= 0) {
+                continue;
+            }
+
+            $balance = $this->existingBalance($companyId, $employeeId, (int) $leaveType->id, (int) $year, lock: $lock);
+
+            if ($balance === null) {
+                throw new RuntimeException(sprintf(
+                    'Leave balance integrity check failed: missing %s balance for %d.',
+                    $leaveType->name,
+                    (int) $year,
+                ));
+            }
 
             $snapshots[] = [
                 'year' => (int) $year,
@@ -671,40 +736,80 @@ final class LeaveBalanceManager
 
     public function syncCompany(int $companyId, ?int $year = null): int
     {
+        $businessYear = $this->businessYearForCompany($companyId);
         $years = $year !== null
             ? [$year]
             : $this->yearsWithLeaveActivity($companyId);
 
         if ($years === []) {
-            $years = [$this->businessYearForCompany($companyId)];
+            $years = [$businessYear];
         }
 
         $synced = 0;
+        $provisionYears = array_values(array_filter(
+            $years,
+            fn (int $targetYear): bool => $targetYear >= $businessYear,
+        ));
 
-        Employee::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->select('id')
-            ->chunkById(100, function (Collection $employees) use ($companyId, $years, &$synced): void {
-                foreach ($employees as $employee) {
-                    foreach ($years as $targetYear) {
-                        $this->ensureEmployeeYear($companyId, (int) $employee->id, $targetYear);
-                        $synced += $this->syncEmployeeYear($companyId, (int) $employee->id, $targetYear);
+        // Normal provisioning: active employees for current/future business years only.
+        if ($provisionYears !== []) {
+            Employee::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'active')
+                ->select('id')
+                ->chunkById(100, function (Collection $employees) use ($companyId, $provisionYears): void {
+                    foreach ($employees as $employee) {
+                        foreach ($provisionYears as $targetYear) {
+                            $this->ensureEmployeeYear($companyId, (int) $employee->id, $targetYear);
+                        }
                     }
-                }
-            });
+                });
+        }
+
+        foreach ($this->discoverBalanceRepairKeys($companyId, $years) as $key) {
+            $result = $this->repairBalanceKey(
+                companyId: $companyId,
+                employeeId: $key['employee_id'],
+                leaveTypeId: $key['leave_type_id'],
+                year: $key['year'],
+                businessYear: $businessYear,
+            );
+
+            if ($result === 'synced') {
+                $synced++;
+            }
+        }
 
         return $synced;
     }
 
     public function syncEmployeeYear(int $companyId, int $employeeId, int $year): int
     {
-        $leaveTypeIds = $this->leaveTypeIdsForEmployeeYear($companyId, $employeeId, $year);
+        $businessYear = $this->businessYearForCompany($companyId);
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'status']);
+
+        if ($employee !== null && $employee->status === 'active' && $year >= $businessYear) {
+            $this->ensureEmployeeYear($companyId, $employeeId, $year);
+        }
+
         $synced = 0;
+        $leaveTypeIds = $this->leaveTypeIdsForEmployeeYear($companyId, $employeeId, $year);
 
         foreach ($leaveTypeIds as $leaveTypeId) {
-            $this->synchronizeBalanceKey($companyId, $employeeId, $leaveTypeId, $year);
-            $synced++;
+            $result = $this->repairBalanceKey(
+                companyId: $companyId,
+                employeeId: $employeeId,
+                leaveTypeId: $leaveTypeId,
+                year: $year,
+                businessYear: $businessYear,
+            );
+
+            if ($result === 'synced') {
+                $synced++;
+            }
         }
 
         return $synced;
@@ -713,9 +818,15 @@ final class LeaveBalanceManager
     /**
      * Recalculate used/pending for one balance key under a short per-key transaction lock.
      * Does not overwrite entitled_days or carried_days (policy / HR entitlement fields).
+     * Creates a balance only when $createIfMissing is true (normal provisioning).
      */
-    public function synchronizeBalanceKey(int $companyId, int $employeeId, int $leaveTypeId, int $year): void
-    {
+    public function synchronizeBalanceKey(
+        int $companyId,
+        int $employeeId,
+        int $leaveTypeId,
+        int $year,
+        bool $createIfMissing = true,
+    ): void {
         $leaveType = LeaveType::query()
             ->where('company_id', $companyId)
             ->whereKey($leaveTypeId)
@@ -725,14 +836,129 @@ final class LeaveBalanceManager
             return;
         }
 
-        DB::transaction(function () use ($companyId, $employeeId, $leaveType, $leaveTypeId, $year): void {
-            $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+        DB::transaction(function () use ($companyId, $employeeId, $leaveType, $leaveTypeId, $year, $createIfMissing): void {
+            if ($createIfMissing) {
+                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+            } else {
+                $balance = $this->existingBalance($companyId, $employeeId, (int) $leaveType->id, $year, lock: true);
+
+                if ($balance === null) {
+                    return;
+                }
+            }
 
             $balance->forceFill([
                 'used_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'approved'),
                 'pending_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'pending'),
             ])->save();
         });
+    }
+
+    /**
+     * @param  list<int>  $years
+     * @return list<array{employee_id: int, leave_type_id: int, year: int}>
+     */
+    private function discoverBalanceRepairKeys(int $companyId, array $years): array
+    {
+        $keys = [];
+
+        LeaveBalance::query()
+            ->where('company_id', $companyId)
+            ->whereIn('year', $years)
+            ->get(['employee_id', 'leave_type_id', 'year'])
+            ->each(function (LeaveBalance $row) use (&$keys, $companyId): void {
+                $key = $this->balanceLockKey($companyId, (int) $row->employee_id, (int) $row->leave_type_id, (int) $row->year);
+                $keys[$key] = [
+                    'employee_id' => (int) $row->employee_id,
+                    'leave_type_id' => (int) $row->leave_type_id,
+                    'year' => (int) $row->year,
+                ];
+            });
+
+        LeaveRequest::query()
+            ->where('company_id', $companyId)
+            ->whereIn('status', ['approved', 'pending'])
+            ->get(['employee_id', 'leave_type_id', 'start_date', 'end_date'])
+            ->each(function (LeaveRequest $request) use (&$keys, $companyId, $years): void {
+                $startYear = $request->start_date?->year;
+                $endYear = $request->end_date?->year;
+
+                if ($startYear === null || $endYear === null) {
+                    return;
+                }
+
+                for ($year = min($startYear, $endYear); $year <= max($startYear, $endYear); $year++) {
+                    if (! in_array($year, $years, true)) {
+                        continue;
+                    }
+
+                    $key = $this->balanceLockKey(
+                        $companyId,
+                        (int) $request->employee_id,
+                        (int) $request->leave_type_id,
+                        $year,
+                    );
+                    $keys[$key] = [
+                        'employee_id' => (int) $request->employee_id,
+                        'leave_type_id' => (int) $request->leave_type_id,
+                        'year' => $year,
+                    ];
+                }
+            });
+
+        return array_values($keys);
+    }
+
+    /**
+     * @return 'synced'|'skipped'|'anomaly'
+     */
+    private function repairBalanceKey(
+        int $companyId,
+        int $employeeId,
+        int $leaveTypeId,
+        int $year,
+        int $businessYear,
+    ): string {
+        $existing = $this->existingBalance($companyId, $employeeId, $leaveTypeId, $year, lock: false);
+
+        if ($existing !== null) {
+            $this->synchronizeBalanceKey($companyId, $employeeId, $leaveTypeId, $year, createIfMissing: false);
+
+            return 'synced';
+        }
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'status']);
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->first();
+
+        if (
+            $year >= $businessYear
+            && $employee !== null
+            && $employee->status === 'active'
+            && $leaveType !== null
+            && $leaveType->status === 'active'
+        ) {
+            $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
+            $this->synchronizeBalanceKey($companyId, $employeeId, $leaveTypeId, $year, createIfMissing: false);
+
+            return 'synced';
+        }
+
+        // Missing historical (or inactive) balance: do not invent entitlement from today's policy.
+        report(new RuntimeException(sprintf(
+            'Leave balance repair anomaly: missing company %d employee %d leave type %d year %d balance; entitlement was not invented.',
+            $companyId,
+            $employeeId,
+            $leaveTypeId,
+            $year,
+        )));
+
+        return 'anomaly';
     }
 
     /**
@@ -935,6 +1161,26 @@ final class LeaveBalanceManager
         return $this->daysForRequestInYear($request, $year) > 0;
     }
 
+    private function existingBalance(
+        int $companyId,
+        int $employeeId,
+        int $leaveTypeId,
+        int $year,
+        bool $lock,
+    ): ?LeaveBalance {
+        $query = LeaveBalance::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->where('leave_type_id', $leaveTypeId)
+            ->where('year', $year);
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
+    }
+
     private function lockedBalance(
         int $companyId,
         int $employeeId,
@@ -942,17 +1188,7 @@ final class LeaveBalanceManager
         int $year,
         bool $lock,
     ): LeaveBalance {
-        $query = LeaveBalance::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $employeeId)
-            ->where('leave_type_id', $leaveType->id)
-            ->where('year', $year);
-
-        if ($lock) {
-            $query->lockForUpdate();
-        }
-
-        $balance = $query->first();
+        $balance = $this->existingBalance($companyId, $employeeId, (int) $leaveType->id, $year, lock: $lock);
 
         if ($balance !== null) {
             return $balance;

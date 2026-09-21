@@ -45,10 +45,12 @@ export function LeaveRequestReassignApprovalDialog({
     const form = useForm<{
         new_approver_employee_id: number | '';
         expected_approver_employee_id: number | '';
+        expected_approval_id: number | '';
         reassignment_reason: string;
     }>({
         new_approver_employee_id: '',
         expected_approver_employee_id: currentApproverId ?? '',
+        expected_approval_id: approval?.id ?? '',
         reassignment_reason: '',
     });
 
@@ -60,15 +62,20 @@ export function LeaveRequestReassignApprovalDialog({
             !approval ||
             !form.data.new_approver_employee_id ||
             !(form.data.expected_approver_employee_id || currentApproverId) ||
+            !(form.data.expected_approval_id || approval.id) ||
             !form.data.reassignment_reason.trim()
         ) {
             return;
         }
 
-        form.setData(
-            'expected_approver_employee_id',
-            form.data.expected_approver_employee_id || currentApproverId || '',
-        );
+        form.setData({
+            ...form.data,
+            expected_approver_employee_id:
+                form.data.expected_approver_employee_id ||
+                currentApproverId ||
+                '',
+            expected_approval_id: form.data.expected_approval_id || approval.id,
+        });
 
         form.put(reassignApproval.url(leaveRequest.id), {
             preserveScroll: true,
@@ -98,6 +105,7 @@ export function LeaveRequestReassignApprovalDialog({
                     form.setData({
                         new_approver_employee_id: '',
                         expected_approver_employee_id: currentApproverId ?? '',
+                        expected_approval_id: approval.id,
                         reassignment_reason: '',
                     });
                     form.clearErrors();

@@ -11,6 +11,7 @@ use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\Attendance\TodayAttendanceTimeline;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -28,7 +29,8 @@ class AttendanceCalendarController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $user = $request->user();
-        $year = $this->resolveYear($request);
+        $companyToday = now(CompanyTimezone::forCompanyId($companyId));
+        $year = $this->resolveYear($request, $companyToday->year);
         $linkedEmployeeId = $this->visibility->linkedEmployeeId($user, $companyId);
         $selectedEmployeeId = $this->visibility->resolveCalendarEmployeeId($request, $user, $companyId);
         $canSelectEmployee = $this->visibility->canViewAll($user);
@@ -69,7 +71,7 @@ class AttendanceCalendarController extends Controller
 
         return Inertia::render('attendance/calendar', [
             'year' => $year,
-            'today' => now()->toDateString(),
+            'today' => $companyToday->toDateString(),
             'calendar_leaves' => $calendarLeaves,
             'approved_leaves' => $calendarLeaves,
             'leave_types' => $leaveTypes,
@@ -227,9 +229,9 @@ class AttendanceCalendarController extends Controller
         $query->where('employee_id', $selectedEmployeeId);
     }
 
-    private function resolveYear(Request $request): int
+    private function resolveYear(Request $request, int $defaultYear): int
     {
-        $year = (int) $request->query('year', now()->year);
+        $year = (int) $request->query('year', $defaultYear);
 
         return max(1970, min(2100, $year));
     }

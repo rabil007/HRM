@@ -9,6 +9,7 @@ use App\Models\LeaveRequestApproval;
 use App\Models\LeaveRequestApprovalReassignment;
 use App\Models\User;
 use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
+use App\Support\Attendance\LeaveApprovalApproverDuplicates;
 use App\Support\Attendance\LeaveApproverEligibility;
 use App\Support\Attendance\LeaveBalanceManager;
 use Illuminate\Support\Collection;
@@ -36,6 +37,7 @@ final class ReassignLeaveRequestApproval
         int $newApproverEmployeeId,
         string $reason,
         ?int $expectedApproverEmployeeId = null,
+        ?int $expectedApprovalId = null,
     ): LeaveRequest {
         $reason = trim($reason);
 
@@ -52,6 +54,7 @@ final class ReassignLeaveRequestApproval
             $newApproverEmployeeId,
             $reason,
             $expectedApproverEmployeeId,
+            $expectedApprovalId,
         ): array {
             if ((int) $leaveRequest->company_id !== $companyId) {
                 abort(404);
@@ -79,6 +82,15 @@ final class ReassignLeaveRequestApproval
             $pendingStep = $this->assertInvariant->forReassignment($locked, $approvals);
 
             if (
+                $expectedApprovalId !== null
+                && (int) $pendingStep->id !== $expectedApprovalId
+            ) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'The approval workflow has changed. Refresh the request and try again.',
+                ]);
+            }
+
+            if (
                 $expectedApproverEmployeeId !== null
                 && (int) ($pendingStep->approver_employee_id ?? 0) !== $expectedApproverEmployeeId
             ) {
@@ -97,12 +109,10 @@ final class ReassignLeaveRequestApproval
                 ]);
             }
 
-            $fromEmployeeId = $pendingStep->approver_employee_id !== null
-                ? (int) $pendingStep->approver_employee_id
-                : null;
-            $fromUserId = $pendingStep->approver_user_id !== null
-                ? (int) $pendingStep->approver_user_id
-                : null;
+            [$fromEmployeeId, $fromUserId, $fromName] = $this->resolveCurrentApproverIdentity(
+                companyId: $companyId,
+                pendingStep: $pendingStep,
+            );
 
             if ($fromEmployeeId !== null && $fromEmployeeId === $newApproverEmployeeId) {
                 throw ValidationException::withMessages([
@@ -110,7 +120,8 @@ final class ReassignLeaveRequestApproval
                 ]);
             }
 
-            $balancesBefore = $this->leaveBalances->snapshotAllocationBalances($locked, lock: true);
+            $balancesBefore = $this->leaveBalances->inspectExistingAllocationBalances($locked, lock: true);
+            $balanceCountBefore = $this->countCompanyLeaveBalances($companyId);
 
             $newApprover = $this->resolveEligibleReplacement(
                 leaveRequest: $locked,
@@ -120,12 +131,6 @@ final class ReassignLeaveRequestApproval
                 newApproverEmployeeId: $newApproverEmployeeId,
             );
 
-            $fromEmployee = $fromEmployeeId !== null
-                ? Employee::query()->whereKey($fromEmployeeId)->first(['id', 'name'])
-                : null;
-            $fromName = (string) ($fromEmployee?->name
-                ?? $pendingStep->approverUser?->name
-                ?? 'Unknown approver');
             $toName = (string) $newApprover->name;
             $actorName = (string) $actor->name;
 
@@ -151,9 +156,10 @@ final class ReassignLeaveRequestApproval
                 'reassigned_by_name' => $actorName,
             ]);
 
-            $balancesAfter = $this->leaveBalances->snapshotAllocationBalances($locked, lock: true);
+            $balancesAfter = $this->leaveBalances->inspectExistingAllocationBalances($locked, lock: true);
+            $balanceCountAfter = $this->countCompanyLeaveBalances($companyId);
 
-            if ($balancesBefore !== $balancesAfter) {
+            if ($balancesBefore !== $balancesAfter || $balanceCountBefore !== $balanceCountAfter) {
                 throw ValidationException::withMessages([
                     'leave_request' => 'Leave balances must not change during approval reassignment.',
                 ]);
@@ -176,7 +182,6 @@ final class ReassignLeaveRequestApproval
 
             return [
                 'leave_request' => $fresh,
-                'notify' => true,
             ];
         });
 
@@ -194,12 +199,65 @@ final class ReassignLeaveRequestApproval
     }
 
     /**
+     * @return array{0: int|null, 1: int|null, 2: string}
+     */
+    private function resolveCurrentApproverIdentity(int $companyId, LeaveRequestApproval $pendingStep): array
+    {
+        if ((int) $pendingStep->company_id !== $companyId) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (approval company mismatch).',
+            ]);
+        }
+
+        $fromEmployeeId = $pendingStep->approver_employee_id !== null
+            ? (int) $pendingStep->approver_employee_id
+            : null;
+        $fromUserId = $pendingStep->approver_user_id !== null
+            ? (int) $pendingStep->approver_user_id
+            : null;
+
+        if ($fromEmployeeId === null) {
+            return [null, $fromUserId, 'Unknown approver'];
+        }
+
+        $fromEmployee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($fromEmployeeId)
+            ->first(['id', 'name', 'user_id', 'company_id']);
+
+        if ($fromEmployee === null) {
+            // Employee missing or belongs to another company — structural corruption.
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (approver employee is not in the request company).',
+            ]);
+        }
+
+        if (
+            $fromUserId !== null
+            && $fromEmployee->user_id !== null
+            && (int) $fromEmployee->user_id !== $fromUserId
+        ) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (approver user does not match the linked employee).',
+            ]);
+        }
+
+        return [
+            $fromEmployeeId,
+            $fromUserId,
+            (string) ($fromEmployee->name !== '' && $fromEmployee->name !== null
+                ? $fromEmployee->name
+                : 'Unknown approver'),
+        ];
+    }
+
+    /**
      * @param  Collection<int, LeaveRequestApproval>  $approvals
      */
     private function resolveEligibleReplacement(
         LeaveRequest $leaveRequest,
         int $companyId,
-        $approvals,
+        Collection $approvals,
         LeaveRequestApproval $pendingStep,
         int $newApproverEmployeeId,
     ): Employee {
@@ -221,22 +279,13 @@ final class ReassignLeaveRequestApproval
             ]);
         }
 
-        $duplicateElsewhere = $approvals->contains(function (LeaveRequestApproval $step) use ($newApproverEmployeeId, $pendingStep): bool {
-            if ((int) $step->id === (int) $pendingStep->id) {
-                return false;
-            }
-
-            if (! $step->is_required) {
-                return false;
-            }
-
-            return $step->approver_employee_id !== null
-                && (int) $step->approver_employee_id === $newApproverEmployeeId;
-        });
-
-        if ($duplicateElsewhere) {
+        if (LeaveApprovalApproverDuplicates::containsEmployee(
+            $approvals,
+            $newApproverEmployeeId,
+            exceptApprovalId: (int) $pendingStep->id,
+        )) {
             throw ValidationException::withMessages([
-                'new_approver_employee_id' => 'The selected employee is already a required approver on this leave request.',
+                'new_approver_employee_id' => 'The selected employee is already an approver on this leave request.',
             ]);
         }
 
@@ -258,6 +307,14 @@ final class ReassignLeaveRequestApproval
         }
 
         return $newApprover;
+    }
+
+    private function countCompanyLeaveBalances(int $companyId): int
+    {
+        return (int) DB::table('leave_balances')
+            ->where('company_id', $companyId)
+            ->whereNull('deleted_at')
+            ->count();
     }
 
     /**

@@ -772,3 +772,28 @@ test('cross company pending and approved leave is never exposed on calendar', fu
             ->where('calendar_leaves.0.employee.id', $ownEmployee->id)
             ->where('pending_request_count', 1));
 });
+
+test('attendance calendar default year and today use company timezone', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2027-01-01 00:30:00', 'UTC'));
+
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    $company->forceFill(['timezone' => 'America/New_York'])->save();
+    ['employee' => $employee] = makeAttendanceCalendarActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    $this->get(route('attendance.calendar.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('year', 2026)
+            ->where('today', '2026-12-31'));
+
+    $this->get(route('attendance.calendar.index', ['year' => 2025]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('year', 2025)
+            ->where('today', '2026-12-31'));
+
+    Carbon\Carbon::setTestNow();
+});

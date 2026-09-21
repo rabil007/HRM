@@ -9,6 +9,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
+use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
@@ -17,9 +18,11 @@ use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\CancelLeaveRequestWorkflow;
+use App\Support\Attendance\Actions\DeleteLeaveRequest;
 use App\Support\Attendance\Actions\ReassignLeaveRequestApproval;
 use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
+use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAuthorization;
 use Database\Seeders\EmailTemplatesSeeder;
@@ -27,6 +30,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * @return array{
@@ -42,21 +46,16 @@ use Spatie\Activitylog\Models\Activity;
  */
 function makeLeaveReassignmentContext(): array
 {
+    $suffix = fake()->unique()->numerify('##');
     $country = Country::query()->create([
-        'code' => 'RA'.fake()->unique()->numerify('##'),
-        'name' => 'Reassignland',
-        'dial_code' => '+971',
-        'is_active' => true,
+        'code' => 'R'.$suffix, 'name' => 'Reassignland '.$suffix, 'dial_code' => '+971', 'is_active' => true,
     ]);
     $currency = Currency::query()->create([
-        'code' => 'RA'.fake()->unique()->numerify('##'),
-        'name' => 'Reassign Currency',
-        'symbol' => 'R$',
-        'is_active' => true,
+        'code' => 'R'.$suffix, 'name' => 'Reassign Currency '.$suffix, 'symbol' => 'R$', 'is_active' => true,
     ]);
     $company = Company::query()->create([
-        'name' => 'Reassign Co',
-        'slug' => 'ra-'.fake()->unique()->numerify('####'),
+        'name' => 'Reassign Co '.$suffix,
+        'slug' => 'ra-'.$suffix,
         'working_days' => [1, 2, 3, 4, 5],
         'country_id' => $country->id,
         'currency_id' => $currency->id,
@@ -65,10 +64,10 @@ function makeLeaveReassignmentContext(): array
         'status' => 'active',
     ]);
 
-    $step1 = makeActionableApprover($company, ['name' => 'Mohamed', 'work_email' => 'mohamed-ra@example.com']);
-    $step2 = makeActionableApprover($company, ['name' => 'Rima', 'work_email' => 'rima-ra@example.com']);
-    $step3 = makeActionableApprover($company, ['name' => 'Ahmed', 'work_email' => 'ahmed-ra@example.com']);
-    $replacement = makeActionableApprover($company, ['name' => 'Sara', 'work_email' => 'sara-ra@example.com']);
+    $step1 = makeActionableApprover($company, ['name' => 'Mohamed', 'work_email' => "mohamed-ra-{$suffix}@example.com"]);
+    $step2 = makeActionableApprover($company, ['name' => 'Rima', 'work_email' => "rima-ra-{$suffix}@example.com"]);
+    $step3 = makeActionableApprover($company, ['name' => 'Ahmed', 'work_email' => "ahmed-ra-{$suffix}@example.com"]);
+    $replacement = makeActionableApprover($company, ['name' => 'Sara', 'work_email' => "sara-ra-{$suffix}@example.com"]);
 
     ensureDefaultLeaveApprovalPolicy($company, [
         ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $step1['employee']->id, 'required' => true],
@@ -78,13 +77,9 @@ function makeLeaveReassignmentContext(): array
 
     $employee = Employee::factory()->forCompany($company)->create([
         'status' => 'active',
-        'work_email' => 'requester-ra@example.com',
+        'work_email' => "requester-ra-{$suffix}@example.com",
     ]);
-    $leaveType = LeaveType::factory()->for($company)->create([
-        'status' => 'active',
-        'days_per_year' => 40,
-    ]);
-
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 40]);
     $admin = User::factory()->create(['status' => 'active', 'name' => 'HR Admin']);
     DB::table('company_user')->insert([
         'company_id' => $company->id,
@@ -93,19 +88,9 @@ function makeLeaveReassignmentContext(): array
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-
     app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $employee->id, 2026);
 
-    return [
-        'company' => $company,
-        'employee' => $employee,
-        'leaveType' => $leaveType,
-        'step1' => $step1,
-        'step2' => $step2,
-        'step3' => $step3,
-        'replacement' => $replacement,
-        'admin' => $admin,
-    ];
+    return compact('company', 'employee', 'leaveType', 'step1', 'step2', 'step3', 'replacement', 'admin');
 }
 
 function grantLeaveReassignmentPermissions(User $user, Company $company): void
@@ -114,7 +99,7 @@ function grantLeaveReassignmentPermissions(User $user, Company $company): void
         'attendance.leave-requests.view',
         'attendance.leave-requests.view_all',
         'attendance.leave-requests.reassign_approval',
-    ]);
+    ], 'leave-reassign-'.$user->id);
 }
 
 function submitMultiStepLeaveForReassignment(array $context, string $start = '2026-03-02', string $end = '2026-03-04'): LeaveRequest
@@ -142,6 +127,7 @@ function advanceFirstStepForReassignment(array $context, LeaveRequest $leaveRequ
     );
 }
 
+/** @return array{pending_days: string, used_days: string, remaining_days: string} */
 function balanceSnapshotFor(LeaveRequest $leaveRequest): array
 {
     $balance = LeaveBalance::query()
@@ -158,45 +144,69 @@ function balanceSnapshotFor(LeaveRequest $leaveRequest): array
     ];
 }
 
-test('privileged user can reassign current required pending approval without changing history or balances', function () {
-    $context = makeLeaveReassignmentContext();
-    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
+function currentRequiredPendingApproval(LeaveRequest $leaveRequest): LeaveRequestApproval
+{
+    $leaveRequest->loadMissing('approvals');
+    $pending = $leaveRequest->approvals
+        ->sortBy('sequence')
+        ->first(fn (LeaveRequestApproval $a): bool => $a->is_required && $a->status === LeaveRequestApprovalStatus::Pending);
 
-    $leaveRequest = submitMultiStepLeaveForReassignment($context);
-    $leaveRequest = advanceFirstStepForReassignment($context, $leaveRequest);
+    expect($pending)->not->toBeNull();
 
-    $beforeBalances = balanceSnapshotFor($leaveRequest);
-    $approved = $leaveRequest->approvals->firstWhere('sequence', 1);
-    $waiting = $leaveRequest->approvals->firstWhere('sequence', 3);
-    $pending = $leaveRequest->approvals->firstWhere('sequence', 2);
+    return $pending;
+}
 
-    expect($pending->status)->toBe(LeaveRequestApprovalStatus::Pending)
-        ->and((int) $pending->approver_employee_id)->toBe((int) $context['step2']['employee']->id);
+function reassignCurrentPending(array $context, LeaveRequest $leaveRequest, int $newEmployeeId, string $reason): LeaveRequest
+{
+    $pending = currentRequiredPendingApproval($leaveRequest);
 
-    $policySnapshot = [
-        'policy_id' => $pending->policy_id,
-        'policy_name' => $pending->policy_name,
-        'policy_step_id' => $pending->policy_step_id,
-        'policy_step_label' => $pending->policy_step_label,
-        'approver_type' => $pending->approver_type,
-        'source_department_id' => $pending->source_department_id,
-        'sequence' => $pending->sequence,
-        'is_required' => $pending->is_required,
-        'acted_at' => $pending->acted_at,
-        'comments' => $pending->comments,
-        'status' => $pending->status,
-    ];
-
-    $fresh = app(ReassignLeaveRequestApproval::class)->handle(
+    return app(ReassignLeaveRequestApproval::class)->handle(
         leaveRequest: $leaveRequest,
         companyId: (int) $context['company']->id,
         actor: $context['admin'],
-        newApproverEmployeeId: (int) $context['replacement']['employee']->id,
-        reason: 'Rima left company.',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
+        newApproverEmployeeId: $newEmployeeId,
+        reason: $reason,
+        expectedApproverEmployeeId: (int) $pending->approver_employee_id,
+        expectedApprovalId: (int) $pending->id,
     );
+}
 
-    $fresh->load('approvals');
+function expectReassignmentFails(
+    array $context,
+    LeaveRequest $leaveRequest,
+    int $newEmployeeId,
+    string $reason,
+    ?int $expectedApproverEmployeeId = null,
+    ?int $expectedApprovalId = null,
+): void {
+    $pending = currentRequiredPendingApproval($leaveRequest->fresh(['approvals']) ?? $leaveRequest);
+
+    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
+        leaveRequest: $leaveRequest->fresh() ?? $leaveRequest,
+        companyId: (int) $context['company']->id,
+        actor: $context['admin'],
+        newApproverEmployeeId: $newEmployeeId,
+        reason: $reason,
+        expectedApproverEmployeeId: $expectedApproverEmployeeId ?? (int) $pending->approver_employee_id,
+        expectedApprovalId: $expectedApprovalId ?? (int) $pending->id,
+    ))->toThrow(ValidationException::class);
+}
+
+test('privileged reassignment preserves approvals balances history activity and authorization', function () {
+    $context = makeLeaveReassignmentContext();
+    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
+    $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
+    $beforeBalances = balanceSnapshotFor($leaveRequest);
+    $approved = $leaveRequest->approvals->firstWhere('sequence', 1);
+    $waiting = $leaveRequest->approvals->firstWhere('sequence', 3);
+    $pending = currentRequiredPendingApproval($leaveRequest);
+    $policy = collect($pending->only([
+        'policy_id', 'policy_name', 'policy_step_id', 'policy_step_label',
+        'approver_type', 'source_department_id', 'sequence',
+    ]));
+
+    $fresh = reassignCurrentPending($context, $leaveRequest, (int) $context['replacement']['employee']->id, 'Rima left company.')
+        ->load('approvals');
     $step1 = $fresh->approvals->firstWhere('sequence', 1);
     $step2 = $fresh->approvals->firstWhere('sequence', 2);
     $step3 = $fresh->approvals->firstWhere('sequence', 3);
@@ -210,22 +220,13 @@ test('privileged user can reassign current required pending approval without cha
         ->and($step2->acted_at)->toBeNull()
         ->and((int) $step2->approver_employee_id)->toBe((int) $context['replacement']['employee']->id)
         ->and((int) $step2->approver_user_id)->toBe((int) $context['replacement']['user']->id)
-        ->and($step2->policy_id)->toBe($policySnapshot['policy_id'])
-        ->and($step2->policy_name)->toBe($policySnapshot['policy_name'])
-        ->and($step2->policy_step_id)->toBe($policySnapshot['policy_step_id'])
-        ->and($step2->policy_step_label)->toBe($policySnapshot['policy_step_label'])
-        ->and($step2->approver_type)->toBe($policySnapshot['approver_type'])
-        ->and($step2->source_department_id)->toBe($policySnapshot['source_department_id'])
-        ->and($step2->sequence)->toBe($policySnapshot['sequence'])
+        ->and(collect($step2->only($policy->keys()->all())))->toEqual($policy)
         ->and($step2->is_required)->toBeTrue()
         ->and($step3->status)->toBe(LeaveRequestApprovalStatus::Waiting)
         ->and((int) $step3->approver_employee_id)->toBe((int) $waiting->approver_employee_id)
         ->and(balanceSnapshotFor($fresh))->toBe($beforeBalances);
 
-    $history = LeaveRequestApprovalReassignment::query()
-        ->where('leave_request_id', $fresh->id)
-        ->sole();
-
+    $history = LeaveRequestApprovalReassignment::query()->where('leave_request_id', $fresh->id)->sole();
     expect((int) $history->from_approver_employee_id)->toBe((int) $context['step2']['employee']->id)
         ->and((int) $history->to_approver_employee_id)->toBe((int) $context['replacement']['employee']->id)
         ->and($history->reason)->toBe('Rima left company.')
@@ -237,35 +238,28 @@ test('privileged user can reassign current required pending approval without cha
         ->where('subject_type', LeaveRequest::class)
         ->where('subject_id', $fresh->id)
         ->where('description', 'Leave approval reassigned')
-        ->latest('id')
-        ->first();
-
-    expect($activity)->not->toBeNull()
+        ->sole();
+    expect(Activity::query()
+        ->where('subject_type', LeaveRequest::class)
+        ->where('subject_id', $fresh->id)
+        ->where('description', 'Leave approval reassigned')
+        ->count())->toBe(1)
         ->and($activity->properties['from_approver_name'])->toBe('Rima')
         ->and($activity->properties['to_approver_name'])->toBe('Sara')
         ->and($activity->properties['reason'])->toBe('Rima left company.')
         ->and((int) $activity->causer_id)->toBe((int) $context['admin']->id);
 
-    expect(
-        app(LeaveRequestAuthorization::class)->canApproveCurrentStep(
-            $fresh,
-            $context['replacement']['user'],
-            (int) $context['company']->id,
-        ),
-    )->toBeTrue()
-        ->and(
-            app(LeaveRequestAuthorization::class)->canApproveCurrentStep(
-                $fresh,
-                $context['step2']['user'],
-                (int) $context['company']->id,
-            ),
-        )->toBeFalse();
+    app(PermissionRegistrar::class)->setPermissionsTeamId($context['company']->id);
+    $auth = app(LeaveRequestAuthorization::class);
+    expect($auth->canApproveCurrentStep($fresh, $context['replacement']['user'], (int) $context['company']->id))->toBeTrue()
+        ->and($auth->canApproveCurrentStep($fresh, $context['step2']['user'], (int) $context['company']->id))->toBeFalse();
 });
 
-test('reassignment reason is required and current approver cannot be selected', function () {
+test('reason required current-approver no-op and ineligible replacements are rejected', function () {
     $context = makeLeaveReassignmentContext();
     grantLeaveReassignmentPermissions($context['admin'], $context['company']);
     $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
+    $pending = currentRequiredPendingApproval($leaveRequest);
 
     expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
         leaveRequest: $leaveRequest,
@@ -273,182 +267,84 @@ test('reassignment reason is required and current approver cannot be selected', 
         actor: $context['admin'],
         newApproverEmployeeId: (int) $context['replacement']['employee']->id,
         reason: '   ',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
+        expectedApproverEmployeeId: (int) $pending->approver_employee_id,
+        expectedApprovalId: (int) $pending->id,
     ))->toThrow(ValidationException::class);
 
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $context['step2']['employee']->id,
-        reason: 'No-op attempt',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
-
+    expectReassignmentFails($context, $leaveRequest, (int) $context['step2']['employee']->id, 'No-op');
     expect(LeaveRequestApprovalReassignment::query()->count())->toBe(0);
-});
 
-test('leave requester and ineligible employees cannot become the replacement approver', function () {
-    $context = makeLeaveReassignmentContext();
-    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
-    $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $context['employee']->id,
-        reason: 'Requester',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $context['step1']['employee']->id,
-        reason: 'Duplicate required approver',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
+    expectReassignmentFails($context, $leaveRequest, (int) $context['employee']->id, 'Requester');
+    expectReassignmentFails($context, $leaveRequest, (int) $context['step1']['employee']->id, 'Duplicate required');
 
     $inactiveEmployee = makeActionableApprover($context['company'], ['name' => 'Inactive Emp']);
     $inactiveEmployee['employee']->forceFill(['status' => 'inactive'])->save();
+    expectReassignmentFails($context, $leaveRequest, (int) $inactiveEmployee['employee']->id, 'Inactive employee');
 
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $inactiveEmployee['employee']->id,
-        reason: 'Inactive employee',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
-
-    $noUser = Employee::factory()->forCompany($context['company'])->create([
-        'status' => 'active',
-        'user_id' => null,
-        'name' => 'No User',
-    ]);
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $noUser->id,
-        reason: 'No linked user',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
+    $noUser = Employee::factory()->forCompany($context['company'])->create(['status' => 'active', 'user_id' => null, 'name' => 'No User']);
+    expectReassignmentFails($context, $leaveRequest, (int) $noUser->id, 'No linked user');
 
     $inactiveUserPair = makeActionableApprover($context['company'], ['name' => 'Inactive User Emp']);
     $inactiveUserPair['user']->forceFill(['status' => 'inactive'])->save();
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $inactiveUserPair['employee']->id,
-        reason: 'Inactive linked user',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
+    expectReassignmentFails($context, $leaveRequest, (int) $inactiveUserPair['employee']->id, 'Inactive linked user');
 
     $noMembership = makeActionableApprover($context['company'], ['name' => 'No Membership']);
-    DB::table('company_user')
-        ->where('company_id', $context['company']->id)
-        ->where('user_id', $noMembership['user']->id)
+    DB::table('company_user')->where('company_id', $context['company']->id)->where('user_id', $noMembership['user']->id)
         ->update(['status' => 'inactive']);
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $noMembership['employee']->id,
-        reason: 'No active membership',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
+    expectReassignmentFails($context, $leaveRequest, (int) $noMembership['employee']->id, 'No active membership');
 
     $missingApprove = makeActionableApprover($context['company'], ['name' => 'View Only']);
-    grantCompanyPermissions($missingApprove['user'], $context['company'], [
-        'attendance.leave-requests.view',
-    ], 'view-only-'.$missingApprove['user']->id);
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $missingApprove['employee']->id,
-        reason: 'Missing approve',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
+    grantCompanyPermissions($missingApprove['user'], $context['company'], ['attendance.leave-requests.view'], 'view-only-'.$missingApprove['user']->id);
+    expectReassignmentFails($context, $leaveRequest, (int) $missingApprove['employee']->id, 'Missing approve');
 
     $missingView = makeActionableApprover($context['company'], ['name' => 'Approve Only']);
-    grantCompanyPermissions($missingView['user'], $context['company'], [
-        'attendance.leave-requests.approve',
-    ], 'approve-only-'.$missingView['user']->id);
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $missingView['employee']->id,
-        reason: 'Missing view',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
+    grantCompanyPermissions($missingView['user'], $context['company'], ['attendance.leave-requests.approve'], 'approve-only-'.$missingView['user']->id);
+    expectReassignmentFails($context, $leaveRequest, (int) $missingView['employee']->id, 'Missing view');
 });
 
-test('cross-company employees and requests are rejected safely', function () {
+test('cross-company missing permission and terminal requests cannot reassign', function () {
     $context = makeLeaveReassignmentContext();
     grantLeaveReassignmentPermissions($context['admin'], $context['company']);
     $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
+    $pending = currentRequiredPendingApproval($leaveRequest);
 
     $other = makeLeaveReassignmentContext();
     grantLeaveReassignmentPermissions($other['admin'], $other['company']);
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $other['replacement']['employee']->id,
-        reason: 'Cross company employee',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
+    expectReassignmentFails($context, $leaveRequest, (int) $other['replacement']['employee']->id, 'Cross company employee');
 
     $this->actingAs($other['admin'])
         ->withSession(['current_company_id' => $other['company']->id])
         ->put(route('attendance.leave-requests.reassign-approval', $leaveRequest), [
             'new_approver_employee_id' => $other['replacement']['employee']->id,
             'expected_approver_employee_id' => $context['step2']['employee']->id,
+            'expected_approval_id' => $pending->id,
             'reassignment_reason' => 'Cross company request',
         ])
         ->assertNotFound();
-});
 
-test('users without reassign permission cannot reassign', function () {
-    $context = makeLeaveReassignmentContext();
-    grantCompanyPermissions($context['admin'], $context['company'], [
-        'attendance.leave-requests.view',
-        'attendance.leave-requests.view_all',
-        'attendance.leave-requests.approve',
+    $forbidden = User::factory()->create(['status' => 'active']);
+    DB::table('company_user')->insert([
+        'company_id' => $context['company']->id, 'user_id' => $forbidden->id, 'status' => 'active',
+        'created_at' => now(), 'updated_at' => now(),
     ]);
-    $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
+    grantCompanyPermissions($forbidden, $context['company'], [
+        'attendance.leave-requests.view', 'attendance.leave-requests.view_all', 'attendance.leave-requests.approve',
+    ], 'leave-no-reassign-'.$forbidden->id);
 
-    $this->actingAs($context['admin'])
+    $this->actingAs($forbidden)
         ->withSession(['current_company_id' => $context['company']->id])
         ->put(route('attendance.leave-requests.reassign-approval', $leaveRequest), [
             'new_approver_employee_id' => $context['replacement']['employee']->id,
-            'expected_approver_employee_id' => $context['step2']['employee']->id,
+            'expected_approver_employee_id' => $pending->approver_employee_id,
+            'expected_approval_id' => $pending->id,
             'reassignment_reason' => 'Should fail',
         ])
         ->assertForbidden();
-});
-
-test('terminal requests cannot be reassigned', function () {
-    $context = makeLeaveReassignmentContext();
-    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
 
     $approved = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-04-01', '2026-04-02'));
     app(ApproveLeaveRequestStep::class)->handle($approved, $context['step2']['user'], (int) $context['company']->id);
     $approved = app(ApproveLeaveRequestStep::class)->handle($approved->fresh(), $context['step3']['user'], (int) $context['company']->id);
     expect($approved->status)->toBe('approved');
-
     expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
         leaveRequest: $approved,
         companyId: (int) $context['company']->id,
@@ -459,14 +355,7 @@ test('terminal requests cannot be reassigned', function () {
     ))->toThrow(ValidationException::class);
 
     $rejected = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-05-04', '2026-05-05'));
-    app(RejectLeaveRequestStep::class)->handle(
-        $rejected,
-        $context['step2']['user'],
-        (int) $context['company']->id,
-        'No',
-    );
-    expect($rejected->fresh()->status)->toBe('rejected');
-
+    app(RejectLeaveRequestStep::class)->handle($rejected, $context['step2']['user'], (int) $context['company']->id, 'No');
     expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
         leaveRequest: $rejected->fresh(),
         companyId: (int) $context['company']->id,
@@ -477,13 +366,7 @@ test('terminal requests cannot be reassigned', function () {
     ))->toThrow(ValidationException::class);
 
     $cancelled = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-06-01', '2026-06-02'));
-    app(CancelLeaveRequestWorkflow::class)->handle(
-        $cancelled,
-        $context['admin'],
-        (int) $context['company']->id,
-        'Cancel',
-    );
-
+    app(CancelLeaveRequestWorkflow::class)->handle($cancelled, $context['admin'], (int) $context['company']->id, 'Cancel');
     expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
         leaveRequest: $cancelled->fresh(),
         companyId: (int) $context['company']->id,
@@ -494,117 +377,118 @@ test('terminal requests cannot be reassigned', function () {
     ))->toThrow(ValidationException::class);
 });
 
-test('concurrent workflow advancement rejects stale reassignment', function () {
+test('stale concurrent and rebuild tokens reject while eligibility and inactive current remain recoverable', function () {
     $context = makeLeaveReassignmentContext();
     grantLeaveReassignmentPermissions($context['admin'], $context['company']);
+
     $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
-
-    app(ApproveLeaveRequestStep::class)->handle(
-        $leaveRequest,
-        $context['step2']['user'],
-        (int) $context['company']->id,
-        'Rima approved first',
-    );
-
+    $pending = currentRequiredPendingApproval($leaveRequest);
+    app(ApproveLeaveRequestStep::class)->handle($leaveRequest, $context['step2']['user'], (int) $context['company']->id, 'Rima approved first');
     expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
         leaveRequest: $leaveRequest->fresh(),
         companyId: (int) $context['company']->id,
         actor: $context['admin'],
         newApproverEmployeeId: (int) $context['replacement']['employee']->id,
-        reason: 'Stale dialog',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
+        reason: 'Stale after concurrent approve',
+        expectedApproverEmployeeId: (int) $pending->approver_employee_id,
+        expectedApprovalId: (int) $pending->id,
     ))->toThrow(ValidationException::class);
-
     expect(LeaveRequestApprovalReassignment::query()->count())->toBe(0);
-});
 
-test('new approver eligibility is rechecked at execution time', function () {
-    $context = makeLeaveReassignmentContext();
-    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
-    $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
-
-    $context['replacement']['user']->forceFill(['status' => 'inactive'])->save();
-
+    $rebuildable = submitMultiStepLeaveForReassignment($context, '2026-03-09', '2026-03-10');
+    $oldStep1Id = (int) currentRequiredPendingApproval($rebuildable)->id;
+    app(UpdateLeaveRequestWithApprovals::class)->handle(
+        leaveRequest: $rebuildable,
+        companyId: (int) $context['company']->id,
+        attributes: [
+            'employee_id' => $context['employee']->id,
+            'leave_type_id' => $context['leaveType']->id,
+            'start_date' => '2026-03-16',
+            'end_date' => '2026-03-17',
+            'reason' => 'Rebuild approvals',
+        ],
+        actor: $context['admin'],
+    );
+    $rebuilt = $rebuildable->fresh(['approvals']);
+    expect((int) currentRequiredPendingApproval($rebuilt)->id)->not->toBe($oldStep1Id);
     expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
+        leaveRequest: $rebuilt,
         companyId: (int) $context['company']->id,
         actor: $context['admin'],
         newApproverEmployeeId: (int) $context['replacement']['employee']->id,
-        reason: 'Became ineligible',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
+        reason: 'Stale approval id after rebuild',
+        expectedApproverEmployeeId: (int) $context['step1']['employee']->id,
+        expectedApprovalId: $oldStep1Id,
     ))->toThrow(ValidationException::class);
+
+    $second = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-03-23', '2026-03-24'));
+    $secondPending = currentRequiredPendingApproval($second);
+    reassignCurrentPending($context, $second, (int) $context['replacement']['employee']->id, 'Admin A reassigned first');
+    $otherReplacement = makeActionableApprover($context['company'], ['name' => 'Other Admin Target']);
+    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
+        leaveRequest: $second->fresh(),
+        companyId: (int) $context['company']->id,
+        actor: $context['admin'],
+        newApproverEmployeeId: (int) $otherReplacement['employee']->id,
+        reason: 'Admin B stale dialog',
+        expectedApproverEmployeeId: (int) $secondPending->approver_employee_id,
+        expectedApprovalId: (int) $secondPending->id,
+    ))->toThrow(ValidationException::class);
+    expect(LeaveRequestApprovalReassignment::query()->where('leave_request_id', $second->id)->count())->toBe(1);
+
+    $eligibility = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-03-30', '2026-03-31'));
+    $context['replacement']['user']->forceFill(['status' => 'inactive'])->save();
+    expectReassignmentFails($context, $eligibility, (int) $context['replacement']['employee']->id, 'Became ineligible');
+    $context['replacement']['user']->forceFill(['status' => 'active'])->save();
+    $context['step2']['employee']->forceFill(['status' => 'inactive'])->save();
+    $recovered = reassignCurrentPending($context, $eligibility->fresh(['approvals']), (int) $context['replacement']['employee']->id, 'Recover inactive Rima');
+    expect((int) currentRequiredPendingApproval($recovered)->approver_employee_id)->toBe((int) $context['replacement']['employee']->id);
 });
 
-test('new approver receives action-required email after commit when enabled and not when disabled', function () {
+test('emails queue when enabled and stay quiet when disabled or failed', function () {
     $context = makeLeaveReassignmentContext();
     grantLeaveReassignmentPermissions($context['admin'], $context['company']);
     $this->seed(EmailTemplatesSeeder::class);
-    EmailTemplate::query()
-        ->where('slug', 'leave_request_approver_action_required')
-        ->update(['enabled' => true]);
-
-    $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
+    EmailTemplate::query()->where('slug', 'leave_request_approver_action_required')->update(['enabled' => true]);
 
     Mail::fake();
-
-    app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $context['replacement']['employee']->id,
-        reason: 'Notify Sara',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
+    reassignCurrentPending(
+        $context,
+        advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context)),
+        (int) $context['replacement']['employee']->id,
+        'Notify Sara',
     );
-
     Mail::assertQueued(LeaveRequestSubmittedMail::class);
 
     CompanyLeaveApprovalSetting::query()->updateOrCreate(
         ['company_id' => $context['company']->id],
-        [
-            'email_notifications_enabled' => false,
-            'notify_next_approver' => true,
-        ],
+        ['email_notifications_enabled' => false, 'notify_next_approver' => true],
     );
-
-    $leaveRequest2 = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-07-06', '2026-07-07'));
     Mail::fake();
-
-    app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest2,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $context['replacement']['employee']->id,
-        reason: 'Notifications off',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
+    reassignCurrentPending(
+        $context,
+        advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-07-06', '2026-07-07')),
+        (int) $context['replacement']['employee']->id,
+        'Notifications off',
     );
+    Mail::assertNothingQueued();
 
+    Mail::fake();
+    expectReassignmentFails(
+        $context,
+        advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-07-13', '2026-07-14')),
+        (int) $context['step2']['employee']->id,
+        'No-op should not mail',
+    );
     Mail::assertNothingQueued();
 });
 
-test('failed reassignment transaction sends no email', function () {
-    $context = makeLeaveReassignmentContext();
-    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
-    $this->seed(EmailTemplatesSeeder::class);
-    $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
-
-    Mail::fake();
-
-    expect(fn () => app(ReassignLeaveRequestApproval::class)->handle(
-        leaveRequest: $leaveRequest,
-        companyId: (int) $context['company']->id,
-        actor: $context['admin'],
-        newApproverEmployeeId: (int) $context['step2']['employee']->id,
-        reason: 'No-op should not mail',
-        expectedApproverEmployeeId: (int) $context['step2']['employee']->id,
-    ))->toThrow(ValidationException::class);
-
-    Mail::assertNothingQueued();
-});
-
-test('detail page exposes can_reassign_current_approval only for privileged actors on pending requests', function () {
+test('detail page candidates http put balances history rebuild soft-delete and fyi duplicates', function () {
     $context = makeLeaveReassignmentContext();
     grantLeaveReassignmentPermissions($context['admin'], $context['company']);
     $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
+    $pending = currentRequiredPendingApproval($leaveRequest);
+    $balanceCountBefore = LeaveBalance::query()->where('company_id', $context['company']->id)->count();
 
     $this->actingAs($context['admin'])
         ->withSession(['current_company_id' => $context['company']->id])
@@ -614,20 +498,16 @@ test('detail page exposes can_reassign_current_approval only for privileged acto
             ->where('leave_request.can_reassign_current_approval', true)
             ->has('reassignment_approver_candidates')
             ->where('reassignment_approver_candidates', fn ($candidates) => collect($candidates)
-                ->contains(fn ($candidate) => (int) $candidate['id'] === (int) $context['replacement']['employee']->id)));
+                ->contains(fn ($c) => (int) $c['id'] === (int) $context['replacement']['employee']->id)));
 
     $viewer = User::factory()->create(['status' => 'active']);
     DB::table('company_user')->insert([
-        'company_id' => $context['company']->id,
-        'user_id' => $viewer->id,
-        'status' => 'active',
-        'created_at' => now(),
-        'updated_at' => now(),
+        'company_id' => $context['company']->id, 'user_id' => $viewer->id, 'status' => 'active',
+        'created_at' => now(), 'updated_at' => now(),
     ]);
     grantCompanyPermissions($viewer, $context['company'], [
-        'attendance.leave-requests.view',
-        'attendance.leave-requests.view_all',
-    ]);
+        'attendance.leave-requests.view', 'attendance.leave-requests.view_all',
+    ], 'leave-viewer-'.$viewer->id);
 
     $this->actingAs($viewer)
         ->withSession(['current_company_id' => $context['company']->id])
@@ -636,27 +516,72 @@ test('detail page exposes can_reassign_current_approval only for privileged acto
         ->assertInertia(fn ($page) => $page
             ->where('leave_request.can_reassign_current_approval', false)
             ->where('reassignment_approver_candidates', []));
-});
-
-test('http reassignment endpoint updates only the current pending step', function () {
-    $context = makeLeaveReassignmentContext();
-    grantLeaveReassignmentPermissions($context['admin'], $context['company']);
-    $leaveRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context));
 
     $this->actingAs($context['admin'])
         ->withSession(['current_company_id' => $context['company']->id])
         ->put(route('attendance.leave-requests.reassign-approval', $leaveRequest), [
             'new_approver_employee_id' => $context['replacement']['employee']->id,
-            'expected_approver_employee_id' => $context['step2']['employee']->id,
+            'expected_approver_employee_id' => $pending->approver_employee_id,
+            'expected_approval_id' => $pending->id,
             'reassignment_reason' => 'HTTP recovery',
         ])
         ->assertRedirect(route('attendance.leave-requests.show', $leaveRequest));
 
-    $pending = LeaveRequestApproval::query()
-        ->where('leave_request_id', $leaveRequest->id)
-        ->where('sequence', 2)
-        ->firstOrFail();
+    expect((int) LeaveRequestApproval::query()->where('leave_request_id', $leaveRequest->id)->where('sequence', 2)->value('approver_employee_id'))
+        ->toBe((int) $context['replacement']['employee']->id)
+        ->and(LeaveBalance::query()->where('company_id', $context['company']->id)->count())->toBe($balanceCountBefore);
 
-    expect((int) $pending->approver_employee_id)->toBe((int) $context['replacement']['employee']->id)
-        ->and($pending->status)->toBe(LeaveRequestApprovalStatus::Pending);
+    $missingBalanceRequest = advanceFirstStepForReassignment($context, submitMultiStepLeaveForReassignment($context, '2026-08-03', '2026-08-04'));
+    LeaveBalance::query()
+        ->where('company_id', $context['company']->id)
+        ->where('employee_id', $context['employee']->id)
+        ->where('leave_type_id', $context['leaveType']->id)
+        ->where('year', 2026)
+        ->forceDelete();
+    expect(fn () => reassignCurrentPending($context, $missingBalanceRequest, (int) $context['replacement']['employee']->id, 'Missing balance'))
+        ->toThrow(RuntimeException::class);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $context['company']->id, (int) $context['employee']->id, 2026);
+
+    $editable = submitMultiStepLeaveForReassignment($context, '2026-09-01', '2026-09-02');
+    reassignCurrentPending($context, $editable, (int) $context['replacement']['employee']->id, 'First-step reassignment before edit');
+    $updated = app(UpdateLeaveRequestWithApprovals::class)->handle(
+        leaveRequest: $editable->fresh(),
+        companyId: (int) $context['company']->id,
+        attributes: [
+            'employee_id' => $context['employee']->id,
+            'leave_type_id' => $context['leaveType']->id,
+            'start_date' => '2026-09-07',
+            'end_date' => '2026-09-08',
+            'reason' => 'Updated after first-step reassignment',
+        ],
+        actor: $context['admin'],
+    );
+    expect(LeaveRequestApprovalReassignment::query()->where('leave_request_id', $updated->id)->count())->toBe(1)
+        ->and((int) currentRequiredPendingApproval($updated)->approver_employee_id)->toBe((int) $context['step1']['employee']->id);
+
+    $deletable = submitMultiStepLeaveForReassignment($context, '2026-09-14', '2026-09-15');
+    reassignCurrentPending($context, $deletable, (int) $context['replacement']['employee']->id, 'History before soft delete');
+    app(DeleteLeaveRequest::class)->handle($deletable->fresh(), (int) $context['company']->id);
+    expect(LeaveRequest::query()->find($deletable->id))->toBeNull()
+        ->and(LeaveRequest::withTrashed()->find($deletable->id))->not->toBeNull()
+        ->and(LeaveRequestApprovalReassignment::query()->where('leave_request_id', $deletable->id)->count())->toBe(1);
+
+    LeaveApprovalPolicy::query()->where('company_id', $context['company']->id)->delete();
+    ensureDefaultLeaveApprovalPolicy($context['company'], [
+        ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $context['step2']['employee']->id, 'required' => true],
+        ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $context['replacement']['employee']->id, 'required' => false],
+    ]);
+    $fyiRequest = submitMultiStepLeaveForReassignment($context, '2026-10-05', '2026-10-06');
+    expect((int) currentRequiredPendingApproval($fyiRequest)->approver_employee_id)->toBe((int) $context['step2']['employee']->id);
+    expectReassignmentFails($context, $fyiRequest, (int) $context['replacement']['employee']->id, 'FYI duplicate Sara');
+
+    $this->actingAs($context['admin'])
+        ->withSession(['current_company_id' => $context['company']->id])
+        ->get(route('attendance.leave-requests.show', $fyiRequest))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('leave_request.can_reassign_current_approval', true)
+            ->where('reassignment_approver_candidates', fn ($candidates) => collect($candidates)
+                ->doesntContain(fn ($c) => (int) $c['id'] === (int) $context['replacement']['employee']->id)
+                && collect($candidates)->contains(fn ($c) => (int) $c['id'] === (int) $context['step1']['employee']->id)));
 });
