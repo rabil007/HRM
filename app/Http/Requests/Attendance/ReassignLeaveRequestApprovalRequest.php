@@ -72,6 +72,12 @@ class ReassignLeaveRequestApprovalRequest extends FormRequest
                 Rule::exists('employees', 'id')->where(fn ($query) => $query
                     ->where('company_id', $companyId)),
             ],
+            'expected_approval_id' => [
+                'required',
+                'integer',
+                Rule::exists('leave_request_approvals', 'id')->where(fn ($query) => $query
+                    ->where('company_id', $companyId)),
+            ],
             'reassignment_reason' => ['required', 'string', 'max:2000'],
         ];
     }
@@ -84,6 +90,7 @@ class ReassignLeaveRequestApprovalRequest extends FormRequest
         return [
             'new_approver_employee_id.exists' => 'The selected employee must be an active employee in this company.',
             'expected_approver_employee_id.required' => 'The current approver context is required. Refresh the request and try again.',
+            'expected_approval_id.required' => 'The approval step context is required. Refresh the request and try again.',
             'reassignment_reason.required' => 'A reassignment reason is required.',
         ];
     }

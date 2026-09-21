@@ -27,6 +27,7 @@ use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
 use App\Support\Attendance\CalculateLeaveRequestDays;
+use App\Support\Attendance\LeaveApprovalApproverDuplicates;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
@@ -444,6 +445,7 @@ class LeaveRequestController extends Controller
                 newApproverEmployeeId: (int) $data['new_approver_employee_id'],
                 reason: (string) $data['reassignment_reason'],
                 expectedApproverEmployeeId: (int) $data['expected_approver_employee_id'],
+                expectedApprovalId: (int) $data['expected_approval_id'],
             );
         } catch (ValidationException $exception) {
             throw $exception;
@@ -672,27 +674,11 @@ class LeaveRequestController extends Controller
      */
     private function reassignmentApproverCandidates(LeaveRequest $leaveRequest, int $companyId): array
     {
-        $excludedEmployeeIds = collect([(int) $leaveRequest->employee_id]);
-
-        foreach ($leaveRequest->approvals as $approval) {
-            if (! $approval->is_required || $approval->approver_employee_id === null) {
-                continue;
-            }
-
-            $status = $approval->status instanceof LeaveRequestApprovalStatus
-                ? $approval->status
-                : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
-
-            if ($status === LeaveRequestApprovalStatus::Pending) {
-                $excludedEmployeeIds->push((int) $approval->approver_employee_id);
-
-                continue;
-            }
-
-            $excludedEmployeeIds->push((int) $approval->approver_employee_id);
-        }
-
-        $excluded = $excludedEmployeeIds->unique()->all();
+        $excluded = collect([(int) $leaveRequest->employee_id])
+            ->merge(LeaveApprovalApproverDuplicates::employeeIds($leaveRequest->approvals))
+            ->unique()
+            ->values()
+            ->all();
 
         return collect($this->presentApproverOption->forCompany($companyId, activeOnly: true))
             ->filter(fn (array $option): bool => $option['actionable'] === true)

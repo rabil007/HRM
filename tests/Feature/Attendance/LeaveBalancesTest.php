@@ -502,3 +502,196 @@ test('rollover remains company scoped', function () {
                 ->exists()
         )->toBeFalse();
 });
+
+test('automatic rollover uses each company business year near the UTC boundary', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2027-01-01 00:30:00', 'UTC'));
+
+    $dubai = makeLeaveBalanceFixtures()['company'];
+    $dubai->forceFill(['timezone' => 'Asia/Dubai'])->save();
+
+    $newYorkCountry = Country::query()->create([
+        'code' => 'NY'.fake()->unique()->numerify('##'),
+        'name' => 'NY Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+    $newYorkCurrency = Currency::query()->create([
+        'code' => 'NY'.fake()->unique()->numerify('##'),
+        'name' => 'NY Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+    $newYork = Company::query()->create([
+        'name' => 'NY Co',
+        'slug' => 'ny-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $newYorkCountry->id,
+        'currency_id' => $newYorkCurrency->id,
+        'timezone' => 'America/New_York',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    foreach ([$dubai, $newYork] as $company) {
+        $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+        $leaveType = LeaveType::factory()->for($company)->create([
+            'days_per_year' => 30,
+            'carry_forward' => true,
+            'max_carry_days' => 10,
+            'status' => 'active',
+        ]);
+        LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
+            'year' => 2026,
+            'entitled_days' => 30,
+            'carried_days' => 0,
+            'used_days' => 20,
+            'pending_days' => 0,
+            'rollover_applied_at' => now(),
+        ]);
+    }
+
+    $this->artisan('leave-balances:rollover')->assertSuccessful();
+
+    // Dubai is already 04:30 on 1 Jan 2027 → opens 2027.
+    expect(
+        LeaveBalance::query()->where('company_id', $dubai->id)->where('year', 2027)->exists()
+    )->toBeTrue();
+
+    // New York is still 19:30 on 31 Dec 2026 → must not open 2027 yet.
+    expect(
+        LeaveBalance::query()->where('company_id', $newYork->id)->where('year', 2027)->exists()
+    )->toBeFalse();
+
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2027-01-01 05:30:00', 'UTC'));
+    $this->artisan('leave-balances:rollover')->assertSuccessful();
+
+    expect(
+        LeaveBalance::query()->where('company_id', $newYork->id)->where('year', 2027)->exists()
+    )->toBeTrue();
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('corrective rollover backfill marks current company year as opened without changing carry', function () {
+    $company = makeLeaveBalanceFixtures()['company'];
+    $company->forceFill(['timezone' => 'Asia/Dubai'])->save();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    $current = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
+        'year' => 2026,
+        'entitled_days' => 30,
+        'carried_days' => 4,
+        'used_days' => 1,
+        'pending_days' => 0,
+        'rollover_applied_at' => null,
+    ]);
+    $future = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
+        'year' => 2027,
+        'entitled_days' => 30,
+        'carried_days' => 0,
+        'used_days' => 0,
+        'pending_days' => 2,
+        'rollover_applied_at' => null,
+    ]);
+
+    $migration = require base_path('database/migrations/2026_09_21_170000_correct_leave_balances_rollover_applied_at_by_company_year.php');
+    $migration->up();
+
+    $current->refresh();
+    $future->refresh();
+
+    expect($current->rollover_applied_at)->not->toBeNull()
+        ->and((float) $current->carried_days)->toBe(4.0)
+        ->and($future->rollover_applied_at)->toBeNull()
+        ->and((float) $future->pending_days)->toBe(2.0);
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('sync repairs inactive employee historical balances without inventing missing historical entitlement', function () {
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $active = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $inactive = Employee::factory()->forCompany($company)->create(['status' => 'inactive']);
+    $irrelevant = Employee::factory()->forCompany($company)->create(['status' => 'terminated']);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    LeaveBalance::factory()->forEmployee($inactive)->forLeaveType($leaveType)->create([
+        'year' => 2023,
+        'entitled_days' => 25,
+        'carried_days' => 2,
+        'used_days' => 0,
+        'pending_days' => 0,
+        'rollover_applied_at' => now(),
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $inactive->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2023-03-01',
+        'end_date' => '2023-03-03',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    // Historical approved leave with no balance — must not invent 2024 entitlement from today's 30.
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $inactive->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2024-04-01',
+        'end_date' => '2024-04-02',
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    $beforeCount = LeaveBalance::query()->where('company_id', $company->id)->count();
+
+    app(LeaveBalanceManager::class)->syncCompany((int) $company->id, 2023);
+    app(LeaveBalanceManager::class)->syncCompany((int) $company->id, 2024);
+
+    $inactive2023 = LeaveBalance::query()
+        ->where('employee_id', $inactive->id)
+        ->where('leave_type_id', $leaveType->id)
+        ->where('year', 2023)
+        ->first();
+
+    expect($inactive2023)->not->toBeNull()
+        ->and((float) $inactive2023->used_days)->toBe(3.0)
+        ->and((float) $inactive2023->entitled_days)->toBe(25.0)
+        ->and((float) $inactive2023->carried_days)->toBe(2.0)
+        ->and(
+            LeaveBalance::query()
+                ->where('employee_id', $inactive->id)
+                ->where('year', 2024)
+                ->exists()
+        )->toBeFalse()
+        ->and(
+            LeaveBalance::query()
+                ->where('employee_id', $irrelevant->id)
+                ->exists()
+        )->toBeFalse();
+
+    // Current-year provisioning for active employees still works.
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $active->id, 2026);
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $active->id)
+            ->where('year', 2026)
+            ->exists()
+    )->toBeTrue()
+        ->and(LeaveBalance::query()->where('company_id', $company->id)->where('year', 2024)->count())
+        ->toBe(0);
+
+    expect(LeaveBalance::query()->where('company_id', $company->id)->count())
+        ->toBeGreaterThanOrEqual($beforeCount);
+});

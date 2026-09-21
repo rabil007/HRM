@@ -14,7 +14,7 @@ Schedule::command('documents:dispatch-expiry-alerts')
     ->withoutOverlapping();
 
 Schedule::command('leave-balances:rollover')
-    ->yearlyOn(1, 1, '00:30')
+    ->dailyAt('00:30')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 

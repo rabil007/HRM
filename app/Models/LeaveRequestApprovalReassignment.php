@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\LogsActivityWithCompany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\Activitylog\Support\LogOptions;
 
+/**
+ * Append-only leave approval reassignment history.
+ * Relational history is authoritative; LeaveRequest activity feed records the user-facing event.
+ */
 class LeaveRequestApprovalReassignment extends Model
 {
-    use LogsActivityWithCompany;
-
     protected $guarded = [];
 
     /**
@@ -29,22 +29,6 @@ class LeaveRequestApprovalReassignment extends Model
             'to_approver_user_id' => 'integer',
             'reassigned_by_user_id' => 'integer',
         ];
-    }
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()
-            ->logOnly([
-                'company_id',
-                'leave_request_id',
-                'leave_request_approval_id',
-                'sequence',
-                'from_approver_employee_id',
-                'to_approver_employee_id',
-                'reason',
-                'reassigned_by_user_id',
-            ])
-            ->logOnlyDirty();
     }
 
     public function company(): BelongsTo
