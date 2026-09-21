@@ -741,6 +741,17 @@ export function HistoricalImportExcelPanel(): ReactElement {
                     ) : null}
                 </div>
 
+                {importResult.resumed ? (
+                    <Alert>
+                        <CheckCircle2 className="h-4 w-4" />
+                        <AlertTitle>Import resumed</AlertTitle>
+                        <AlertDescription>
+                            This confirmation continued an interrupted import.
+                            Already imported rows were not duplicated.
+                        </AlertDescription>
+                    </Alert>
+                ) : null}
+
                 <Button variant="outline" size="sm" className="gap-2" asChild>
                     <a
                         href={HistoricalCrewAssignmentController.importBatchResultDownload.url(

@@ -13,10 +13,13 @@ return new class extends Migration
         }
 
         Schema::table('crew_assignments', function (Blueprint $table) {
-            $table->foreignId('historical_import_batch_id')
+            $table->unsignedBigInteger('historical_import_batch_id')
                 ->nullable()
-                ->after('source')
-                ->constrained('historical_crew_import_batches')
+                ->after('source');
+
+            $table->foreign('historical_import_batch_id', 'fk_crew_assignment_hist_batch')
+                ->references('id')
+                ->on('historical_crew_import_batches')
                 ->nullOnDelete();
 
             $table->index(['company_id', 'historical_import_batch_id'], 'idx_crew_assignments_company_hist_batch');
@@ -30,8 +33,9 @@ return new class extends Migration
         }
 
         Schema::table('crew_assignments', function (Blueprint $table) {
+            $table->dropForeign('fk_crew_assignment_hist_batch');
             $table->dropIndex('idx_crew_assignments_company_hist_batch');
-            $table->dropConstrainedForeignId('historical_import_batch_id');
+            $table->dropColumn('historical_import_batch_id');
         });
     }
 };

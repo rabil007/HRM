@@ -5,13 +5,14 @@ namespace App\Support\CrewMovements\Historical;
 use App\Models\HistoricalCrewImportBatch;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 final class HistoricalCrewImportBatchNumberGenerator
 {
     public function next(int $companyId): string
     {
         return DB::transaction(function () use ($companyId): string {
-            for ($attempt = 0; $attempt < 5; $attempt++) {
+            for ($attempt = 0; $attempt < 8; $attempt++) {
                 try {
                     $last = HistoricalCrewImportBatch::query()
                         ->where('company_id', $companyId)
@@ -27,11 +28,11 @@ final class HistoricalCrewImportBatchNumberGenerator
 
                     return sprintf('HI-%06d', $next);
                 } catch (QueryException) {
-                    continue;
+                    // Concurrent lock contention — retry.
                 }
             }
 
-            return sprintf('HI-%06d', (int) now()->format('His'));
+            throw new RuntimeException('Unable to allocate a historical import batch number.');
         });
     }
 }

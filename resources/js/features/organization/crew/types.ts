@@ -881,8 +881,10 @@ export interface HistoricalImportBatchSummary {
     failed_rows: number;
     skipped_rows: number;
     imported_with_warnings: number;
+    resumed?: boolean;
     created_by: string | null;
     started_at: string | null;
+    last_progress_at?: string | null;
     completed_at: string | null;
     created_at: string | null;
 }

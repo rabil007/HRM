@@ -1480,12 +1480,18 @@ Blocked rows are recorded as skipped. Warnings remain visible on imported rows. 
 
 | Concept | Detail |
 | --- | --- |
-| `historical_crew_import_batches` | Company-scoped batch with counts, status, filename, actor, idempotency key |
-| `historical_crew_import_rows` | Per Excel row result (status, warnings/errors, assignment link) |
+| `historical_crew_import_batches` | Company-scoped batch with counts, status, filename, actor, idempotency key, workbook hash |
+| `historical_crew_import_rows` | Per Excel row result (status, warnings/errors, assignment link); unique per batch + row_number |
 | `crew_assignments.historical_import_batch_id` | Traceability to the batch |
 | `source` | `historical_import` (manual remains `historical_manual`) |
 
 Statuses: `importing`, `completed`, `completed_with_errors`, `failed`. No blanket rollback button — use existing assignment correction/void workflows.
+
+Interrupted imports (`status = importing` with no progress for 15 minutes) are **resumable** under the same company-scoped `idempotency_key` and matching workbook SHA-256 hash. Terminal row results are skipped on resume; assignment creation and row-result persistence run in one per-row database transaction.
+
+#### Schema naming & repair
+
+Historical import tables use **explicit short MySQL FK/index names** (e.g. `fk_hist_crew_rows_batch`, `uq_hist_crew_import_rows_batch_row`) to stay under MySQL’s 64-character identifier limit. A reconciliation migration (`repair_historical_crew_import_schema`) repairs interrupted legacy deployments that created tables without FKs/indexes, and adds `workbook_hash` / `last_progress_at` for resume.
 
 #### Isolation & Sea Service
 

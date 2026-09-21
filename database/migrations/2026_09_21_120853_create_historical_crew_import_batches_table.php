@@ -27,14 +27,16 @@ return new class extends Migration
             $table->unsignedInteger('failed_rows')->default(0);
             $table->unsignedInteger('skipped_rows')->default(0);
             $table->string('idempotency_key', 64)->nullable();
+            $table->string('workbook_hash', 64)->nullable();
             $table->timestamp('started_at')->nullable();
+            $table->timestamp('last_progress_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->json('summary')->nullable();
             $table->timestamps();
 
-            $table->unique(['company_id', 'batch_no']);
-            $table->unique(['company_id', 'idempotency_key']);
-            $table->index(['company_id', 'created_at']);
+            $table->unique(['company_id', 'batch_no'], 'uq_hist_crew_batches_company_batch_no');
+            $table->unique(['company_id', 'idempotency_key'], 'uq_hist_crew_batches_company_idem');
+            $table->index(['company_id', 'created_at'], 'idx_hist_crew_batches_company_created');
         });
     }
 

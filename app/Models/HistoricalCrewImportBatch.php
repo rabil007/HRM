@@ -43,6 +43,7 @@ class HistoricalCrewImportBatch extends Model
             'failed_rows' => 'integer',
             'skipped_rows' => 'integer',
             'started_at' => 'datetime',
+            'last_progress_at' => 'datetime',
             'completed_at' => 'datetime',
             'summary' => 'array',
         ];
