@@ -70,3 +70,35 @@ test('office leave period summary aggregates approved leave by employee and type
         ->and(collect($summary->leaveUsage)->firstWhere('code', 'AL')['days'])->toBe(2.0)
         ->and(collect($summary->leaveUsage)->firstWhere('code', 'SL')['days'])->toBe(1.0);
 });
+
+test('inactive leave type with approved historical leave still appears in office leave usage', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $emergency = LeaveType::factory()->for($company)->create([
+        'name' => 'Emergency Leave',
+        'code' => 'EL',
+        'status' => 'inactive',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $emergency->id,
+        'start_date' => '2026-08-03',
+        'end_date' => '2026-08-07',
+        'total_days' => 5,
+        'status' => 'approved',
+    ]);
+
+    $summary = app(OfficeLeavePeriodSummary::class)->forEmployees(
+        $company->id,
+        '2026-08-01',
+        '2026-08-31',
+        [$employee->id],
+    )->get($employee->id);
+
+    expect($summary)->not->toBeNull()
+        ->and($summary->totalLeaveDays)->toBe(5.0)
+        ->and(collect($summary->leaveUsage)->firstWhere('code', 'EL')['days'])->toBe(5.0)
+        ->and(collect($summary->leaveUsage)->firstWhere('code', 'EL')['payroll_treatment'])->toBe('paid');
+});

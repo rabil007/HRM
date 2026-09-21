@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\LeaveTypePayrollTreatment;
 use App\Models\LeaveType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -28,6 +29,14 @@ class LeaveTypeFactory extends Factory
             'max_carry_days' => 0,
             'color' => '#3b82f6',
             'status' => 'active',
+            'payroll_treatment' => LeaveTypePayrollTreatment::Paid,
         ];
+    }
+
+    public function unpaid(): static
+    {
+        return $this->state(fn (): array => [
+            'payroll_treatment' => LeaveTypePayrollTreatment::Unpaid,
+        ]);
     }
 }

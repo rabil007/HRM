@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Attendance\Concerns;
 
+use App\Enums\LeaveTypePayrollTreatment;
 use App\Models\LeaveType;
 use Illuminate\Validation\Rule;
 
@@ -29,6 +30,7 @@ trait LeaveTypeValidationRules
             'max_carry_days' => ['required', 'integer', 'min:0'],
             'color' => ['nullable', 'string', 'max:20'],
             'status' => ['required', 'in:active,inactive'],
+            'payroll_treatment' => ['required', Rule::in(LeaveTypePayrollTreatment::values())],
         ];
     }
 }

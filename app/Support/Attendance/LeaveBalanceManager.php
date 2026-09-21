@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,8 @@ final class LeaveBalanceManager
 
     public function provisionEmployee(Employee $employee): void
     {
-        $this->ensureEmployeeYear((int) $employee->company_id, (int) $employee->id, (int) now()->year);
+        $companyId = (int) $employee->company_id;
+        $this->ensureEmployeeYear($companyId, (int) $employee->id, $this->businessYearForCompany($companyId));
     }
 
     public function provisionLeaveType(LeaveType $leaveType): void
@@ -29,7 +31,7 @@ final class LeaveBalanceManager
         }
 
         $companyId = (int) $leaveType->company_id;
-        $year = (int) now()->year;
+        $year = $this->businessYearForCompany($companyId);
 
         Employee::query()
             ->where('company_id', $companyId)
@@ -639,7 +641,7 @@ final class LeaveBalanceManager
     public function rolloverCompany(int $companyId, int $year): int
     {
         $previousYear = $year - 1;
-        $created = 0;
+        $applied = 0;
 
         $leaveTypes = LeaveType::query()
             ->where('company_id', $companyId)
@@ -654,17 +656,17 @@ final class LeaveBalanceManager
             ->where('company_id', $companyId)
             ->where('status', 'active')
             ->select('id')
-            ->chunkById(100, function (Collection $employees) use ($companyId, $leaveTypes, $year, $previousYear, &$created): void {
+            ->chunkById(100, function (Collection $employees) use ($companyId, $leaveTypes, $year, $previousYear, &$applied): void {
                 foreach ($employees as $employee) {
                     foreach ($leaveTypes as $leaveType) {
                         if ($this->rolloverEmployeeLeaveType($companyId, (int) $employee->id, $leaveType, $year, $previousYear)) {
-                            $created++;
+                            $applied++;
                         }
                     }
                 }
             });
 
-        return $created;
+        return $applied;
     }
 
     public function syncCompany(int $companyId, ?int $year = null): int
@@ -674,7 +676,7 @@ final class LeaveBalanceManager
             : $this->yearsWithLeaveActivity($companyId);
 
         if ($years === []) {
-            $years = [(int) now()->year];
+            $years = [$this->businessYearForCompany($companyId)];
         }
 
         $synced = 0;
@@ -697,15 +699,11 @@ final class LeaveBalanceManager
 
     public function syncEmployeeYear(int $companyId, int $employeeId, int $year): int
     {
-        $leaveTypes = LeaveType::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->get();
-
+        $leaveTypeIds = $this->leaveTypeIdsForEmployeeYear($companyId, $employeeId, $year);
         $synced = 0;
 
-        foreach ($leaveTypes as $leaveType) {
-            $this->synchronizeBalanceKey($companyId, $employeeId, (int) $leaveType->id, $year);
+        foreach ($leaveTypeIds as $leaveTypeId) {
+            $this->synchronizeBalanceKey($companyId, $employeeId, $leaveTypeId, $year);
             $synced++;
         }
 
@@ -714,6 +712,7 @@ final class LeaveBalanceManager
 
     /**
      * Recalculate used/pending for one balance key under a short per-key transaction lock.
+     * Does not overwrite entitled_days or carried_days (policy / HR entitlement fields).
      */
     public function synchronizeBalanceKey(int $companyId, int $employeeId, int $leaveTypeId, int $year): void
     {
@@ -741,15 +740,74 @@ final class LeaveBalanceManager
      */
     private function yearsWithLeaveActivity(int $companyId): array
     {
-        return LeaveRequest::query()
+        $years = collect();
+
+        LeaveRequest::query()
             ->where('company_id', $companyId)
-            ->selectRaw('DISTINCT YEAR(start_date) as year')
+            ->select(['id', 'start_date', 'end_date'])
+            ->orderBy('id')
+            ->chunkById(500, function (Collection $requests) use ($years): void {
+                foreach ($requests as $request) {
+                    $startYear = $request->start_date?->year;
+                    $endYear = $request->end_date?->year;
+
+                    if ($startYear === null || $endYear === null) {
+                        continue;
+                    }
+
+                    for ($year = min($startYear, $endYear); $year <= max($startYear, $endYear); $year++) {
+                        $years->push($year);
+                    }
+                }
+            });
+
+        LeaveBalance::query()
+            ->where('company_id', $companyId)
+            ->distinct()
             ->pluck('year')
+            ->each(fn ($year) => $years->push((int) $year));
+
+        return $years
+            ->push($this->businessYearForCompany($companyId))
             ->map(fn ($value): int => (int) $value)
             ->filter(fn (int $value): bool => $value > 0)
-            ->push((int) now()->year)
             ->unique()
             ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Active leave types plus any type referenced by balances or overlapping requests
+     * for this employee/year (including inactive types with historical usage).
+     *
+     * @return list<int>
+     */
+    private function leaveTypeIdsForEmployeeYear(int $companyId, int $employeeId, int $year): array
+    {
+        $activeIds = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->pluck('id');
+
+        $balanceIds = LeaveBalance::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->where('year', $year)
+            ->pluck('leave_type_id');
+
+        $requestIds = LeaveRequest::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->where('start_date', '<=', "{$year}-12-31")
+            ->where('end_date', '>=', "{$year}-01-01")
+            ->pluck('leave_type_id');
+
+        return $activeIds
+            ->merge($balanceIds)
+            ->merge($requestIds)
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
             ->values()
             ->all();
     }
@@ -761,45 +819,69 @@ final class LeaveBalanceManager
         int $year,
         int $previousYear,
     ): bool {
-        $existing = LeaveBalance::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $employeeId)
-            ->where('leave_type_id', $leaveType->id)
-            ->where('year', $year)
-            ->exists();
+        return DB::transaction(function () use ($companyId, $employeeId, $leaveType, $year, $previousYear): bool {
+            $previousBalance = LeaveBalance::query()
+                ->where('company_id', $companyId)
+                ->where('employee_id', $employeeId)
+                ->where('leave_type_id', $leaveType->id)
+                ->where('year', $previousYear)
+                ->lockForUpdate()
+                ->first();
 
-        if ($existing) {
-            return false;
-        }
+            $balance = LeaveBalance::query()
+                ->where('company_id', $companyId)
+                ->where('employee_id', $employeeId)
+                ->where('leave_type_id', $leaveType->id)
+                ->where('year', $year)
+                ->lockForUpdate()
+                ->first();
 
-        $previousBalance = LeaveBalance::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $employeeId)
-            ->where('leave_type_id', $leaveType->id)
-            ->where('year', $previousYear)
-            ->first();
+            $carriedDays = 0.0;
 
-        $carriedDays = 0.0;
+            if ($leaveType->carry_forward && $previousBalance !== null) {
+                $remaining = max(0, (float) $previousBalance->remaining_days);
+                $carriedDays = min($remaining, (float) $leaveType->max_carry_days);
+            }
 
-        if ($leaveType->carry_forward && $previousBalance !== null) {
-            $remaining = max(0, (float) $previousBalance->remaining_days);
-            $carriedDays = min($remaining, (float) $leaveType->max_carry_days);
-        }
+            if ($balance === null) {
+                LeaveBalance::query()->create([
+                    'company_id' => $companyId,
+                    'employee_id' => $employeeId,
+                    'leave_type_id' => $leaveType->id,
+                    'year' => $year,
+                    'entitled_days' => $leaveType->days_per_year,
+                    'carried_days' => $carriedDays,
+                    'used_days' => 0,
+                    'pending_days' => 0,
+                    'rollover_applied_at' => now(),
+                ]);
 
-        LeaveBalance::query()->create([
-            'company_id' => $companyId,
-            'employee_id' => $employeeId,
-            'leave_type_id' => $leaveType->id,
-            'year' => $year,
-            'entitled_days' => $leaveType->days_per_year,
-            'carried_days' => $carriedDays,
-            'used_days' => 0,
-            'pending_days' => 0,
-        ]);
+                $this->synchronizeBalanceKey($companyId, $employeeId, (int) $leaveType->id, $year);
 
-        $this->synchronizeBalanceKey($companyId, $employeeId, (int) $leaveType->id, $year);
+                return true;
+            }
 
-        return true;
+            if ($balance->rollover_applied_at !== null) {
+                $this->synchronizeBalanceKey($companyId, $employeeId, (int) $leaveType->id, $year);
+
+                return false;
+            }
+
+            // Provisional future-year row: apply carry once without wiping pending/used.
+            $balance->forceFill([
+                'carried_days' => $carriedDays,
+                'rollover_applied_at' => now(),
+            ])->save();
+
+            $this->synchronizeBalanceKey($companyId, $employeeId, (int) $leaveType->id, $year);
+
+            return true;
+        });
+    }
+
+    private function businessYearForCompany(int $companyId): int
+    {
+        return (int) now(CompanyTimezone::forCompanyId($companyId))->year;
     }
 
     private function sumRequestDaysForYear(

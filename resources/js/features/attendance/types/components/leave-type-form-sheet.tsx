@@ -203,6 +203,41 @@ export function LeaveTypeFormSheet({
 
                         <div className="space-y-2">
                             <Label
+                                htmlFor="payroll_treatment"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Payroll treatment
+                            </Label>
+                            <AppSelect
+                                value={form.data.payroll_treatment}
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'payroll_treatment',
+                                        v as 'paid' | 'unpaid',
+                                    )
+                                }
+                                variant="card"
+                            >
+                                <AppSelectItem value="paid">
+                                    Paid leave
+                                </AppSelectItem>
+                                <AppSelectItem value="unpaid">
+                                    Unpaid leave
+                                </AppSelectItem>
+                            </AppSelect>
+                            <p className="text-xs text-muted-foreground">
+                                Controls salary deduction for office payroll.
+                                Renaming the code later does not change this.
+                            </p>
+                            {form.errors.payroll_treatment ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.payroll_treatment}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label
                                 htmlFor="color"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >

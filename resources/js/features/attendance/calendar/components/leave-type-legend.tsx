@@ -16,7 +16,10 @@ function LeaveTypeBalance({
     leaveType: CalendarLeaveType;
     year: number;
 }) {
-    if (leaveType.remaining_days === null || leaveType.entitled_days === null) {
+    const totalAvailable =
+        leaveType.total_available_days ?? leaveType.entitled_days;
+
+    if (leaveType.remaining_days === null || totalAvailable === null) {
         return null;
     }
 
@@ -28,10 +31,17 @@ function LeaveTypeBalance({
                 </span>
                 <span> of </span>
                 <span className="font-semibold tabular-nums">
-                    {formatDays(leaveType.entitled_days)}
+                    {formatDays(totalAvailable)}
                 </span>
                 <span> days left</span>
             </div>
+            {(leaveType.carried_days ?? 0) > 0 ? (
+                <div className="tabular-nums">
+                    {formatDays(leaveType.base_entitlement_days ?? 0)} base
+                    {' · '}
+                    {formatDays(leaveType.carried_days ?? 0)} carried
+                </div>
+            ) : null}
             {(leaveType.used_days ?? 0) > 0 ||
             (leaveType.pending_days ?? 0) > 0 ? (
                 <div className="tabular-nums">

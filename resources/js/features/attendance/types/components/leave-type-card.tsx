@@ -53,6 +53,14 @@ export function LeaveTypeCard({
                                     Carry forward
                                 </Badge>
                             ) : null}
+                            {leaveType.payroll_treatment === 'unpaid' ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                                >
+                                    Unpaid
+                                </Badge>
+                            ) : null}
                         </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">

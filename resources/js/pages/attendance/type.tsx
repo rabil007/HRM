@@ -102,6 +102,14 @@ export default function AttendanceTypeDetails({
                                 label="Max carry days"
                                 value={String(leave_type.max_carry_days)}
                             />
+                            <Field
+                                label="Payroll treatment"
+                                value={
+                                    leave_type.payroll_treatment === 'unpaid'
+                                        ? 'Unpaid leave'
+                                        : 'Paid leave'
+                                }
+                            />
                             <div className="flex items-center justify-between gap-3 px-6 py-4">
                                 <div className="text-sm font-semibold text-muted-foreground/80">
                                     Color

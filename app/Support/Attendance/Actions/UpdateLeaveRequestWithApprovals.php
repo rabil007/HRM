@@ -3,7 +3,6 @@
 namespace App\Support\Attendance\Actions;
 
 use App\Enums\LeaveApprovalApproverType;
-use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
@@ -14,6 +13,7 @@ use App\Support\Attendance\AssertLeaveRequestOverlap;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
+use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
 use App\Support\Attendance\ValidateLeaveRequestDateRange;
 use Illuminate\Http\UploadedFile;
@@ -93,7 +93,7 @@ final class UpdateLeaveRequestWithApprovals
                     ->lockForUpdate()
                     ->get();
 
-                if ($this->approvalProcessHasStarted($approvals)) {
+                if (LeaveRequestAuthorization::requiredApprovalHasBeenActed($approvals)) {
                     throw ValidationException::withMessages([
                         'leave_request' => self::EDIT_BLOCKED_MESSAGE,
                     ]);
@@ -201,7 +201,7 @@ final class UpdateLeaveRequestWithApprovals
                     ->lockForUpdate()
                     ->get();
 
-                if ($this->approvalProcessHasStarted($approvals)) {
+                if (LeaveRequestAuthorization::requiredApprovalHasBeenActed($approvals)) {
                     throw ValidationException::withMessages([
                         'leave_request' => self::EDIT_BLOCKED_MESSAGE,
                     ]);
@@ -300,24 +300,6 @@ final class UpdateLeaveRequestWithApprovals
                 'leave_type_id' => 'The selected leave type is invalid or inactive for this company.',
             ]);
         }
-    }
-
-    /**
-     * @param  iterable<int, LeaveRequestApproval>  $approvals
-     */
-    private function approvalProcessHasStarted(iterable $approvals): bool
-    {
-        foreach ($approvals as $approval) {
-            $status = $approval->status instanceof LeaveRequestApprovalStatus
-                ? $approval->status
-                : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
-
-            if ($status !== null && $status->isTerminal()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

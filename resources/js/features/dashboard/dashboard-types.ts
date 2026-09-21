@@ -203,8 +203,11 @@ export type PersonalDashboard = {
         name: string;
         code: string;
         color: string | null;
-        entitled_days: number;
+        base_entitlement_days?: number;
         carried_days: number;
+        total_available_days?: number;
+        /** Compatibility alias for total_available_days (base + carry). */
+        entitled_days: number;
         used_days: number;
         pending_days: number;
         remaining_days: number;

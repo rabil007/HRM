@@ -100,10 +100,13 @@ Calculation inputs include:
 
 - the inclusive pay-period day count;
 - approved leave requests overlapping the period;
-- unpaid leave types identified by the `UL`, `UNPAID`, or `LOP` code;
+- leave types referenced by those approved requests (including types that are inactive or soft-deleted today) plus currently active types for zero-value presentation;
+- unpaid leave identified by the leave type's stable `payroll_treatment = unpaid` field (not by editable codes such as `UL` / `UNPAID` / `LOP`);
 - optional per-employee start and end dates supplied during generation;
 - excluded employee IDs;
 - period salary inputs added after the base calculation.
+
+Historical approved leave must remain in payroll even when the leave type is later deactivated. Changing a leave type's code or name after creation does not change office unpaid-leave deductions.
 
 The calculator prorates contract salary components when employee-specific dates shorten the payable period, applies unpaid-leave deductions, and records leave usage in `calculation_breakdown`. `GenerateOfficePayroll` then calls `RecalculateOfficePayroll`, which applies configured salary input additions and deductions.
 

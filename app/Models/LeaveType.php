@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LeaveTypePayrollTreatment;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\LeaveTypeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,6 +30,7 @@ class LeaveType extends Model
         return [
             'days_per_year' => 'decimal:2',
             'carry_forward' => 'boolean',
+            'payroll_treatment' => LeaveTypePayrollTreatment::class,
         ];
     }
 
@@ -44,8 +46,14 @@ class LeaveType extends Model
                 'max_carry_days',
                 'color',
                 'status',
+                'payroll_treatment',
             ])
             ->logOnlyDirty();
+    }
+
+    public function isUnpaidForPayroll(): bool
+    {
+        return $this->payroll_treatment === LeaveTypePayrollTreatment::Unpaid;
     }
 
     public function company(): BelongsTo

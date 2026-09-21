@@ -245,6 +245,7 @@ test('creating leave type provisions balances for active employees', function ()
         'max_carry_days' => 5,
         'color' => '#3b82f6',
         'status' => 'active',
+        'payroll_treatment' => 'paid',
     ])->assertRedirect();
 
     $leaveType = LeaveType::query()->where('company_id', $company->id)->where('code', 'AL')->first();
@@ -257,4 +258,247 @@ test('creating leave type provisions balances for active employees', function ()
                 ->where('year', (int) now()->year)
                 ->count(),
         )->toBe(2);
+});
+
+test('future-year provisional balance receives carry on rollover without losing pending', function () {
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'carry_forward' => true,
+        'max_carry_days' => 10,
+        'status' => 'active',
+    ]);
+
+    LeaveBalance::factory()
+        ->forEmployee($employee)
+        ->forLeaveType($leaveType)
+        ->create([
+            'year' => 2026,
+            'entitled_days' => 30,
+            'carried_days' => 0,
+            'used_days' => 22,
+            'pending_days' => 0,
+            'rollover_applied_at' => now(),
+        ]);
+
+    // Provisional 2027 row from a future leave reservation (carry not yet applied).
+    LeaveBalance::factory()
+        ->forEmployee($employee)
+        ->forLeaveType($leaveType)
+        ->create([
+            'year' => 2027,
+            'entitled_days' => 30,
+            'carried_days' => 0,
+            'used_days' => 0,
+            'pending_days' => 0,
+            'rollover_applied_at' => null,
+        ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2027-01-05',
+        'end_date' => '2027-01-09',
+        'total_days' => 5,
+        'status' => 'pending',
+    ]);
+
+    app(LeaveBalanceManager::class)->rolloverCompany($company->id, 2027);
+
+    $balance = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $leaveType->id)
+        ->where('year', 2027)
+        ->first();
+
+    expect($balance)->not->toBeNull()
+        ->and((float) $balance->entitled_days)->toBe(30.0)
+        ->and((float) $balance->carried_days)->toBe(8.0)
+        ->and((float) $balance->pending_days)->toBe(5.0)
+        ->and((float) $balance->remaining_days)->toBe(33.0)
+        ->and($balance->rollover_applied_at)->not->toBeNull();
+
+    // Idempotent second run
+    app(LeaveBalanceManager::class)->rolloverCompany($company->id, 2027);
+
+    $balance->refresh();
+    expect((float) $balance->carried_days)->toBe(8.0)
+        ->and((float) $balance->pending_days)->toBe(5.0)
+        ->and((float) $balance->remaining_days)->toBe(33.0);
+});
+
+test('rollover respects max carry cap and disabled carry forward', function () {
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $capped = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'carry_forward' => true,
+        'max_carry_days' => 5,
+        'status' => 'active',
+    ]);
+    $noCarry = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 20,
+        'carry_forward' => false,
+        'max_carry_days' => 10,
+        'status' => 'active',
+    ]);
+
+    foreach ([$capped, $noCarry] as $type) {
+        LeaveBalance::factory()
+            ->forEmployee($employee)
+            ->forLeaveType($type)
+            ->create([
+                'year' => 2026,
+                'entitled_days' => $type->days_per_year,
+                'carried_days' => 0,
+                'used_days' => 10,
+                'pending_days' => 0,
+                'rollover_applied_at' => now(),
+            ]);
+    }
+
+    app(LeaveBalanceManager::class)->rolloverCompany($company->id, 2027);
+
+    $cappedBalance = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $capped->id)
+        ->where('year', 2027)
+        ->first();
+    $noCarryBalance = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $noCarry->id)
+        ->where('year', 2027)
+        ->first();
+
+    expect((float) $cappedBalance->carried_days)->toBe(5.0)
+        ->and((float) $noCarryBalance->carried_days)->toBe(0.0);
+});
+
+test('sync repairs multi-year leave allocation and inactive leave type balances', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $activeType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    $inactiveType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 10,
+        'status' => 'inactive',
+        'code' => 'EMG',
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $activeType->id,
+        'start_date' => '2026-12-30',
+        'end_date' => '2027-01-03',
+        'total_days' => 5,
+        'status' => 'approved',
+        'approved_by' => $user->id,
+        'decided_at' => now(),
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $inactiveType->id,
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-08-02',
+        'total_days' => 2,
+        'status' => 'approved',
+        'approved_by' => $user->id,
+        'decided_at' => now(),
+    ]);
+
+    // Corrupt / missing usage on existing inactive-type balance.
+    LeaveBalance::factory()
+        ->forEmployee($employee)
+        ->forLeaveType($inactiveType)
+        ->create([
+            'year' => 2026,
+            'entitled_days' => 10,
+            'used_days' => 0,
+            'pending_days' => 0,
+            'carried_days' => 0,
+        ]);
+
+    $this->artisan('leave-balances:sync')->assertSuccessful();
+
+    $y2026 = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $activeType->id)
+        ->where('year', 2026)
+        ->first();
+    $y2027 = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $activeType->id)
+        ->where('year', 2027)
+        ->first();
+    $inactiveBalance = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $inactiveType->id)
+        ->where('year', 2026)
+        ->first();
+
+    expect($y2026)->not->toBeNull()
+        ->and((float) $y2026->used_days)->toBe(2.0)
+        ->and($y2027)->not->toBeNull()
+        ->and((float) $y2027->used_days)->toBe(3.0)
+        ->and($inactiveBalance)->not->toBeNull()
+        ->and((float) $inactiveBalance->used_days)->toBe(2.0)
+        ->and((float) $inactiveBalance->entitled_days)->toBe(10.0);
+});
+
+test('rollover remains company scoped', function () {
+    ['company' => $companyA] = makeLeaveBalanceFixtures();
+    ['company' => $companyB] = makeLeaveBalanceFixtures();
+    $employeeA = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    $employeeB = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+    $typeA = LeaveType::factory()->for($companyA)->create([
+        'days_per_year' => 30,
+        'carry_forward' => true,
+        'max_carry_days' => 10,
+        'status' => 'active',
+    ]);
+    $typeB = LeaveType::factory()->for($companyB)->create([
+        'days_per_year' => 30,
+        'carry_forward' => true,
+        'max_carry_days' => 10,
+        'status' => 'active',
+    ]);
+
+    LeaveBalance::factory()->forEmployee($employeeA)->forLeaveType($typeA)->create([
+        'year' => 2026,
+        'entitled_days' => 30,
+        'used_days' => 20,
+        'pending_days' => 0,
+        'carried_days' => 0,
+        'rollover_applied_at' => now(),
+    ]);
+    LeaveBalance::factory()->forEmployee($employeeB)->forLeaveType($typeB)->create([
+        'year' => 2026,
+        'entitled_days' => 30,
+        'used_days' => 20,
+        'pending_days' => 0,
+        'carried_days' => 0,
+        'rollover_applied_at' => now(),
+    ]);
+
+    app(LeaveBalanceManager::class)->rolloverCompany($companyA->id, 2027);
+
+    expect(
+        LeaveBalance::query()
+            ->where('company_id', $companyA->id)
+            ->where('year', 2027)
+            ->exists()
+    )->toBeTrue()
+        ->and(
+            LeaveBalance::query()
+                ->where('company_id', $companyB->id)
+                ->where('year', 2027)
+                ->exists()
+        )->toBeFalse();
 });

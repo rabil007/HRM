@@ -32,6 +32,7 @@ class LeaveBalance extends Model
                 'used_days',
                 'pending_days',
                 'carried_days',
+                'rollover_applied_at',
                 'remaining_days',
             ])
             ->logOnlyDirty();
@@ -49,6 +50,7 @@ class LeaveBalance extends Model
             'pending_days' => 'decimal:2',
             'carried_days' => 'decimal:2',
             'remaining_days' => 'decimal:2',
+            'rollover_applied_at' => 'datetime',
         ];
     }
 

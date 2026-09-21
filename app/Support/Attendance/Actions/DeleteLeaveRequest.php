@@ -2,11 +2,11 @@
 
 namespace App\Support\Attendance\Actions;
 
-use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
+use App\Support\Attendance\LeaveRequestAuthorization;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -46,7 +46,7 @@ final class DeleteLeaveRequest
                 ->lockForUpdate()
                 ->get();
 
-            if ($this->hasActedApprovals($approvals)) {
+            if (LeaveRequestAuthorization::requiredApprovalHasBeenActed($approvals)) {
                 throw ValidationException::withMessages([
                     'leave_request' => self::APPROVAL_STARTED_MESSAGE,
                 ]);
@@ -67,23 +67,5 @@ final class DeleteLeaveRequest
         });
 
         $this->attachments->deleteFromStorage($attachmentsToDelete);
-    }
-
-    /**
-     * @param  iterable<int, LeaveRequestApproval>  $approvals
-     */
-    private function hasActedApprovals(iterable $approvals): bool
-    {
-        foreach ($approvals as $approval) {
-            $status = $approval->status instanceof LeaveRequestApprovalStatus
-                ? $approval->status
-                : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
-
-            if ($status !== null && $status->isTerminal()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

@@ -62,6 +62,7 @@ function validLeaveTypePayload(array $overrides = []): array
         'max_carry_days' => 0,
         'color' => '#3b82f6',
         'status' => 'active',
+        'payroll_treatment' => 'paid',
     ], $overrides);
 }
 
@@ -268,4 +269,34 @@ test('delete is blocked when leave type is used in leave requests', function () 
         ->assertSessionHasErrors('leave_type');
 
     $this->assertDatabaseHas('leave_types', ['id' => $leaveType->id]);
+});
+
+test('leave type payroll treatment survives code and name renames', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.types.view',
+        'attendance.types.create',
+        'attendance.types.update',
+    ]);
+
+    $this->post('/attendance/types', validLeaveTypePayload([
+        'name' => 'Unpaid Leave',
+        'code' => 'UL',
+        'payroll_treatment' => 'unpaid',
+    ]))->assertRedirect();
+
+    $leaveType = LeaveType::query()->where('company_id', $company->id)->where('code', 'UL')->firstOrFail();
+    expect($leaveType->payroll_treatment->value)->toBe('unpaid');
+
+    $this->put("/attendance/types/{$leaveType->id}", validLeaveTypePayload([
+        'name' => 'Personal Unpaid Leave',
+        'code' => 'UNPL',
+        'payroll_treatment' => 'unpaid',
+    ]))->assertRedirect();
+
+    $leaveType->refresh();
+    expect($leaveType->code)->toBe('UNPL')
+        ->and($leaveType->name)->toBe('Personal Unpaid Leave')
+        ->and($leaveType->payroll_treatment->value)->toBe('unpaid');
 });

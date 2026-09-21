@@ -16,8 +16,10 @@ use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
+use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
 use Database\Seeders\EmailTemplatesSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 beforeEach(function () {
@@ -366,4 +368,115 @@ test('cross-company notify-only employee is not resolved into the snapshot', fun
     Mail::assertNotQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail): bool {
         return $mail->hasTo('foreign-listener@example.com');
     });
+});
+
+test('required pending with FYI skipped remains editable and deletable', function () {
+    $fixtures = makeNotifyOnlyFixtures();
+    $company = $fixtures['company'];
+    $companyId = (int) $company->id;
+
+    $owner = User::factory()->create(['status' => 'active']);
+    DB::table('company_user')->insert([
+        'company_id' => $company->id,
+        'user_id' => $owner->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $fixtures['employee']->update(['user_id' => $owner->id]);
+
+    grantCompanyPermissions($owner, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.update',
+        'attendance.leave-requests.delete',
+    ]);
+
+    $leaveRequest = submitNotifyOnlyRequest($fixtures, 'Editable with FYI skipped');
+    $authorization = app(LeaveRequestAuthorization::class);
+    $leaveRequest->load('approvals');
+
+    expect($authorization->approvalProcessHasStarted($leaveRequest, $companyId))->toBeFalse()
+        ->and($authorization->canEdit($leaveRequest, $owner, $companyId))->toBeTrue()
+        ->and($authorization->canDelete($leaveRequest, $owner, $companyId))->toBeTrue();
+
+    $this->actingAs($owner)
+        ->withSession(['current_company_id' => $companyId])
+        ->put("/attendance/leave-requests/{$leaveRequest->id}", [
+            'employee_id' => $fixtures['employee']->id,
+            'leave_type_id' => $fixtures['leaveType']->id,
+            'start_date' => '2026-09-03',
+            'end_date' => '2026-09-04',
+            'reason' => 'Edited while FYI skipped',
+        ])
+        ->assertRedirect();
+
+    expect($leaveRequest->fresh()->reason)->toBe('Edited while FYI skipped');
+
+    $this->actingAs($owner)
+        ->withSession(['current_company_id' => $companyId])
+        ->delete("/attendance/leave-requests/{$leaveRequest->id}")
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(LeaveRequest::query()->whereKey($leaveRequest->id)->exists())->toBeFalse();
+});
+
+test('required approved blocks edit and ordinary delete while notify-only still cannot act', function () {
+    $fixtures = makeNotifyOnlyFixtures();
+    $company = $fixtures['company'];
+    $companyId = (int) $company->id;
+
+    $owner = User::factory()->create(['status' => 'active']);
+    DB::table('company_user')->insert([
+        'company_id' => $company->id,
+        'user_id' => $owner->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $fixtures['employee']->update(['user_id' => $owner->id]);
+
+    $leaveRequest = submitNotifyOnlyRequest($fixtures, 'Approval started');
+
+    app(ApproveLeaveRequestStep::class)->handle(
+        $leaveRequest->fresh(),
+        $fixtures['managerUser'],
+        $companyId,
+    );
+
+    $authorization = app(LeaveRequestAuthorization::class);
+    $leaveRequest->refresh()->load('approvals');
+
+    expect($authorization->approvalProcessHasStarted($leaveRequest, $companyId))->toBeTrue()
+        ->and($authorization->canEdit($leaveRequest, $owner, $companyId))->toBeFalse()
+        ->and($authorization->canDelete($leaveRequest, $owner, $companyId))->toBeFalse()
+        ->and($authorization->canApproveCurrentStep($leaveRequest, $fixtures['listenerA']['user'], $companyId))->toBeFalse();
+
+    grantCompanyPermissions($owner, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.update',
+        'attendance.leave-requests.delete',
+    ]);
+
+    $this->actingAs($owner)
+        ->withSession(['current_company_id' => $companyId])
+        ->from('/attendance/my-leave')
+        ->put("/attendance/leave-requests/{$leaveRequest->id}", [
+            'employee_id' => $fixtures['employee']->id,
+            'leave_type_id' => $fixtures['leaveType']->id,
+            'start_date' => '2026-09-05',
+            'end_date' => '2026-09-06',
+            'reason' => 'Should fail',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('leave_request');
+
+    $this->actingAs($owner)
+        ->withSession(['current_company_id' => $companyId])
+        ->from('/attendance/my-leave')
+        ->delete("/attendance/leave-requests/{$leaveRequest->id}")
+        ->assertRedirect()
+        ->assertSessionHasErrors('leave_request');
+
+    expect($leaveRequest->fresh())->not->toBeNull();
 });

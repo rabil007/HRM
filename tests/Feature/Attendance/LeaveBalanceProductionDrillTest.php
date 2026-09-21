@@ -88,6 +88,7 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         'max_carry_days' => 10,
         'color' => '#3b82f6',
         'status' => 'active',
+        'payroll_treatment' => 'paid',
     ])->assertRedirect();
 
     $annualLeave = LeaveType::query()
@@ -199,6 +200,9 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
     $legend = app(LeaveTypeYearBalance::class)->forEmployee($company->id, $employee->id, 2026);
 
     expect($legend)->toHaveCount(1)
+        ->and($legend[0]['base_entitlement_days'])->toBe(30.0)
+        ->and($legend[0]['carried_days'])->toBe(0.0)
+        ->and($legend[0]['total_available_days'])->toBe(30.0)
         ->and($legend[0]['entitled_days'])->toBe(30.0)
         ->and($legend[0]['used_days'])->toBe(5.0)
         ->and($legend[0]['pending_days'])->toBe(0.0)

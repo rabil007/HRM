@@ -1,3 +1,5 @@
+export type LeaveTypePayrollTreatment = 'paid' | 'unpaid';
+
 export type LeaveType = {
     id: number;
     name: string;
@@ -7,6 +9,7 @@ export type LeaveType = {
     max_carry_days: number;
     color: string | null;
     status: 'active' | 'inactive';
+    payroll_treatment: LeaveTypePayrollTreatment;
 };
 
 export type LeaveTypeFormData = {
@@ -17,6 +20,7 @@ export type LeaveTypeFormData = {
     max_carry_days: string;
     color: string;
     status: 'active' | 'inactive';
+    payroll_treatment: LeaveTypePayrollTreatment;
 };
 
 export const defaultLeaveTypeFormData = (): LeaveTypeFormData => ({
@@ -27,6 +31,7 @@ export const defaultLeaveTypeFormData = (): LeaveTypeFormData => ({
     max_carry_days: '0',
     color: '#3b82f6',
     status: 'active',
+    payroll_treatment: 'paid',
 });
 
 export function leaveTypeToFormData(leaveType: LeaveType): LeaveTypeFormData {
@@ -38,5 +43,6 @@ export function leaveTypeToFormData(leaveType: LeaveType): LeaveTypeFormData {
         max_carry_days: String(leaveType.max_carry_days),
         color: leaveType.color ?? '#3b82f6',
         status: leaveType.status,
+        payroll_treatment: leaveType.payroll_treatment ?? 'paid',
     };
 }

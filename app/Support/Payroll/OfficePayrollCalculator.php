@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\LeaveTypePayrollTreatment;
 use App\Enums\SalaryComponentCode;
 use App\Enums\SalaryComponentStatus;
 use App\Models\ContractSalaryComponent;
@@ -12,7 +13,7 @@ final class OfficePayrollCalculator
 {
     /**
      * @param  Collection<int, ContractSalaryComponent>  $components
-     * @param  list<array{leave_type_id: int, code: string, name: string, color: string|null, days: float}>  $leaveUsage
+     * @param  list<array{leave_type_id: int, code: string, name: string, color: string|null, days: float, payroll_treatment?: string}>  $leaveUsage
      * @return array{
      *     basic_salary: string,
      *     housing_allowance: string,
@@ -68,8 +69,8 @@ final class OfficePayrollCalculator
 
         $unpaidDaysFromUsage = 0.0;
         foreach ($leaveUsage as $usage) {
-            $code = strtoupper((string) ($usage['code'] ?? ''));
-            if (in_array($code, ['UL', 'UNPAID', 'LOP'], true)) {
+            $treatment = strtolower((string) ($usage['payroll_treatment'] ?? LeaveTypePayrollTreatment::Paid->value));
+            if ($treatment === LeaveTypePayrollTreatment::Unpaid->value) {
                 $unpaidDaysFromUsage += (float) ($usage['days'] ?? 0.0);
             }
         }

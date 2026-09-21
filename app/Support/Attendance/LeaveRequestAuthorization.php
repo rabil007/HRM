@@ -191,16 +191,38 @@ final class LeaveRequestAuthorization
         ];
     }
 
+    /**
+     * Ordinary pre-action edit/delete is blocked only after a *required*
+     * approval step has been decided (Approved / Rejected) by an approver.
+     *
+     * Automatic FYI / notify-only Skipped rows are terminal but are not a
+     * human approval action and must not start this gate.
+     */
     public function approvalProcessHasStarted(LeaveRequest $leaveRequest, int $companyId): bool
     {
-        $approvals = $this->approvalsFor($leaveRequest, $companyId);
+        return self::requiredApprovalHasBeenActed($this->approvalsFor($leaveRequest, $companyId));
+    }
 
+    /**
+     * Shared semantic for Authorization, Update, and Delete.
+     *
+     * @param  iterable<int, LeaveRequestApproval>  $approvals
+     */
+    public static function requiredApprovalHasBeenActed(iterable $approvals): bool
+    {
         foreach ($approvals as $approval) {
+            if (! (bool) $approval->is_required) {
+                continue;
+            }
+
             $status = $approval->status instanceof LeaveRequestApprovalStatus
                 ? $approval->status
                 : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
 
-            if ($status !== null && $status->isTerminal()) {
+            if (in_array($status, [
+                LeaveRequestApprovalStatus::Approved,
+                LeaveRequestApprovalStatus::Rejected,
+            ], true)) {
                 return true;
             }
         }
