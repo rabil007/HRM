@@ -71,19 +71,20 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             'disembarked_at' => ['required', 'date'],
             'mobilisation_at' => ['nullable', 'date'],
             'mobilisation_start_at' => ['nullable', 'date'],
-            'arrival_at' => ['nullable', 'date'],
             'join_standby_at' => ['nullable', 'date'],
             'training_start_at' => ['nullable', 'date'],
             'training_started_at' => ['nullable', 'date'],
             'training_end_at' => ['nullable', 'date'],
             'training_ended_at' => ['nullable', 'date'],
             'post_training_join_standby_at' => ['nullable', 'date'],
-            'ready_to_join_at' => ['nullable', 'date'],
             'demob_standby_at' => ['nullable', 'date'],
             'post_signoff_standby_at' => ['nullable', 'date'],
             'travel_home_at' => ['nullable', 'date'],
             'assignment_closed_at' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
+            // Legacy P1/P3 inputs are no longer accepted for new historical entry.
+            'arrival_at' => ['prohibited'],
+            'ready_to_join_at' => ['prohibited'],
         ];
     }
 

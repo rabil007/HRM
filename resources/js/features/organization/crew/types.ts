@@ -777,12 +777,10 @@ export interface HistoricalCrewAssignmentFormData {
     joined_vessel_at: string;
     disembarked_at: string;
     mobilisation_at?: string;
-    arrival_at?: string;
     join_standby_at?: string;
     training_started_at?: string;
     training_ended_at?: string;
     post_training_join_standby_at?: string;
-    ready_to_join_at?: string;
     post_signoff_standby_at?: string;
     travel_home_at?: string;
     assignment_closed_at?: string;

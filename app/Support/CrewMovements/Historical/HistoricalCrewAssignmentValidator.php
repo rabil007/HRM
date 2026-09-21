@@ -137,12 +137,10 @@ final class HistoricalCrewAssignmentValidator
 
         $allSuppliedTimestamps = [
             'mobilisation_start_at' => $data->mobilisationStartAt,
-            'arrival_at' => $data->arrivalAt,
             'join_standby_at' => $data->joinStandbyAt,
             'training_start_at' => $data->trainingStartAt,
             'training_end_at' => $data->trainingEndAt,
             'post_training_join_standby_at' => $data->postTrainingJoinStandbyAt,
-            'ready_to_join_at' => $data->readyToJoinAt,
             'joined_vessel_at' => $data->joinedVesselAt,
             'disembarked_at' => $data->disembarkedAt,
             'demob_standby_at' => $data->demobStandbyAt,
@@ -157,31 +155,29 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
-        // Mandatory P4 check: joined_vessel_at < disembarked_at
+        // Mandatory On Vessel check: joined_vessel_at < disembarked_at
         if (! $data->joinedVesselAt->lt($data->disembarkedAt)) {
             $datesValid = false;
-            $errors['disembarked_at'] = 'Disembarkation must be after joined vessel date.';
+            $errors['disembarked_at'] = 'Disembarked must be after On Vessel.';
         }
 
         // Training start & end consistency
         if ($data->trainingEndAt !== null && $data->trainingStartAt === null) {
             $datesValid = false;
-            $errors['training_start_at'] = 'Training start date is required when training end is provided.';
+            $errors['training_start_at'] = 'Training Start is required when Training End is provided.';
         }
 
-        // Chronological chain comparison
+        // Chronological chain comparison (modern product flow only)
         $chainDefinitions = [
-            ['field' => 'mobilisation_start_at', 'label' => 'Mobilisation Start', 'ts' => $data->mobilisationStartAt],
-            ['field' => 'arrival_at', 'label' => 'Arrival / Travel In', 'ts' => $data->arrivalAt],
-            ['field' => 'join_standby_at', 'label' => 'Join Standby Start', 'ts' => $data->joinStandbyAt],
+            ['field' => 'mobilisation_start_at', 'label' => 'Pre-Mobilisation', 'ts' => $data->mobilisationStartAt],
+            ['field' => 'join_standby_at', 'label' => 'Join Standby', 'ts' => $data->joinStandbyAt],
             ['field' => 'training_start_at', 'label' => 'Training Start', 'ts' => $data->trainingStartAt],
             ['field' => 'training_end_at', 'label' => 'Training End', 'ts' => $data->trainingEndAt],
-            ['field' => 'post_training_join_standby_at', 'label' => 'Post-Training Standby', 'ts' => $data->postTrainingJoinStandbyAt],
-            ['field' => 'ready_to_join_at', 'label' => 'Ready to Join', 'ts' => $data->readyToJoinAt],
-            ['field' => 'joined_vessel_at', 'label' => 'Joined Vessel', 'ts' => $data->joinedVesselAt],
+            ['field' => 'post_training_join_standby_at', 'label' => 'Post-Training Join Standby', 'ts' => $data->postTrainingJoinStandbyAt],
+            ['field' => 'joined_vessel_at', 'label' => 'On Vessel', 'ts' => $data->joinedVesselAt],
             ['field' => 'disembarked_at', 'label' => 'Disembarked', 'ts' => $data->disembarkedAt],
             ['field' => 'demob_standby_at', 'label' => 'Demobilisation Standby', 'ts' => $data->demobStandbyAt],
-            ['field' => 'travel_home_at', 'label' => 'Travel Home', 'ts' => $data->travelHomeAt],
+            ['field' => 'travel_home_at', 'label' => 'Home / Redeployment', 'ts' => $data->travelHomeAt],
             ['field' => 'assignment_closed_at', 'label' => 'Assignment Closed', 'ts' => $data->assignmentClosedAt],
         ];
 

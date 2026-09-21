@@ -1299,19 +1299,18 @@ Domain validator keys such as `training_start_at`, `training_end_at`, `demob_sta
    - Vessel (`*`, company-scoped via `ClientAssignmentRules`)
    - Rank (`*`)
    - Client (auto-resolved from vessel or selectable via `ClientAssignmentRules`)
-   - Joined Vessel (`joined_vessel_at`, `*`, P4 start)
-   - Disembarked (`disembarked_at`, `*`, P4 end)
+   - On Vessel (`joined_vessel_at`, `*`)
+   - Disembarked (`disembarked_at`, `*`)
    - Remarks (optional)
-   - Optional Collapsed Phases (`+ Add More Movement Details`):
-     - Mobilisation Start (P0)
-     - Travel In / Arrival (P1 legacy)
-     - Join Standby Start (P2A)
-     - Training Start & Training End (P2B)
-     - Post-Training Standby Start (P2A, optional loop)
-     - Ready to Join (P3 legacy)
-     - Post Sign-Off / Demob Standby (P5)
-     - Travel Home / Redeploy (P6)
-     - Assignment Closed Date
+   - Optional **More Movement Details** (modern product flow only):
+     - Pre-Mobilisation
+     - Join Standby
+     - Training Start & Training End
+     - Post-Training Join Standby
+     - Demobilisation Standby
+     - Home / Redeployment
+     - Assignment Closed
+   - **Travel In (P1)** and **Ready to Join (P3)** are not available for new Manual or Excel historical entry. Existing DB records with those phases remain readable for compatibility.
 2. **Validate**: Client calls `POST /organization/crew/historical/preview`. The backend authoritatively runs domain validations (chronology, tenancy, company timezone guards, temporal overlap, Sea Service matching). No database records are written.
 3. **Preview**: Dialog renders a canonical verification breakdown:
    - Summary of employee, vessel, rank, client, onboard dates, and remarks
@@ -1335,26 +1334,20 @@ Domain validator keys such as `training_start_at`, `training_end_at`, `demob_sta
    - Future actual timestamps are strictly rejected (`joined_vessel_at <= companyNow`, `disembarked_at <= companyNow`).
    - Sea Service uses calendar dates: `start_date` and `end_date` are derived from the company-local calendar date without early UTC drift. For example, for an `Asia/Dubai` (+04:00) company, `2024-01-15 00:00:00` retains `start_date = 2024-01-15` and never shifts backward to `2024-01-14`.
 2. **Phase Definitions & Chronological Invariants**:
-   - Phase codes follow canonical definitions:
-     - `P0`: Pre-Mobilisation
-     - `P1`: Travel In (legacy)
-     - `P2A`: Join Standby
-     - `P2B`: Training
-     - `P3`: Ready to Join (legacy)
-     - `P4`: On Vessel
-     - `P5`: Demobilisation Standby
-     - `P6`: Home / Redeployment
+   - New Historical Crew Data input follows the **modern product flow** only:
+     - Pre-Mobilisation → Join Standby → Training → Join Standby → On Vessel → Demobilisation Standby → Home / Redeployment
+   - `P1 Travel In` and `P3 Ready to Join` remain database/legacy compatibility phases only and are **not** available for new Manual or Excel historical entry.
    - Training is strictly **P2B**, never P2A.
    - If a training loop occurs, it is captured as:
-     `P2A Join Standby → P2B Training → P2A Post-Training Standby → P4 On Vessel`.
+     `Join Standby → Training → Join Standby → On Vessel`.
      Ordered completed phases are created with sequential order: `seq 1 P2A`, `seq 2 P2B`, `seq 3 P2A`, `seq 4 P4`.
-   - `joined_vessel_at < disembarked_at` (actual start strictly before actual end; zero-length P4 service is prohibited).
-   - When optional phases are supplied, strict chronological ordering is enforced:
-     `mobilisation <= travel_in <= join_standby <= training_start <= training_end <= post_training_join_standby <= ready_to_join <= joined_vessel < disembarked <= demob_standby <= travel_home <= assignment_closed`.
-   - Chronological checks are evaluated only between phases that were explicitly provided.
+   - `On Vessel < Disembarked` (actual start strictly before actual end; zero-length On Vessel service is prohibited).
+   - When optional phases are supplied, chronological ordering is enforced:
+     `Pre-Mobilisation <= Join Standby <= Training Start <= Training End <= Post-Training Join Standby <= On Vessel < Disembarked <= Demobilisation Standby <= Home / Redeployment <= Assignment Closed`.
+   - Chronological checks are evaluated only between dates that were explicitly provided.
 3. **Zero Invented History**:
    - Only explicitly supplied historical facts are persisted.
-   - If only Joined Vessel and Disembarked dates are supplied, the system creates **only** the completed P4 phase without fabricating P0, P1, P2A, P2B, P3, P5, or P6 phases.
+   - If only On Vessel and Disembarked dates are supplied, the system creates **only** the completed On Vessel (P4) phase without fabricating other phases.
 4. **Historical Temporal Overlap Semantics**:
    - Historical records are validated using **temporal interval overlap** against the employee's existing assignments, **not** the operational "employee has an active assignment" rule.
    - An employee can have past completed assignments while currently having an Active operational assignment.
@@ -1410,11 +1403,11 @@ Validation Preview (Ready / Warning / Blocked)
 
 | Sheet | Contents |
 | --- | --- |
-| Instructions | Purpose, workflow, date format (`YYYY-MM-DD`), phase mapping, isolation notes |
-| Historical Assignments | Import columns with required markers, frozen header, sample row, date / employee_no formatting |
-| Reference Data | Company-scoped Employees (visibility-filtered), Vessels (incl. inactive), Ranks (incl. inactive), Clients (incl. inactive), with status labels |
+| Instructions | Purpose, workflow, date format (`YYYY-MM-DD`), modern movement sequence, isolation notes |
+| Historical Assignments | Friendly product column headers with required markers, frozen header, sample row |
+| Reference Data | Company-scoped Employees (visibility-filtered), Vessels (incl. inactive), Ranks (incl. inactive), Clients (incl. inactive), with friendly headings and status labels |
 
-Assignment columns: `employee_no *`, `vessel *`, `rank *`, `client`, optional phase dates (`mobilisation_date` … `assignment_close_date`), `vessel_join_date *`, `disembark_date *`, `remarks`.
+Assignment columns (product labels): `Employee No *`, `Employee`, `Vessel *`, `Rank *`, `Client`, `Pre-Mobilisation`, `Join Standby`, `Training Start`, `Training End`, `Post-Training Join Standby`, `On Vessel *`, `Disembarked *`, `Demobilisation Standby`, `Home / Redeployment`, `Assignment Closed`, `Remarks`. Legacy `Travel In` / `Ready to Join` columns are rejected as an outdated template.
 
 Database-controlled strings in the template (and result exports) are written as explicit text; values beginning with `=`, `+`, `-`, or `@` are prefixed so Excel does not treat them as formulas.
 
@@ -1422,7 +1415,7 @@ Database-controlled strings in the template (and result exports) are written as 
 
 - Employee: authoritative `employee_no` (case-insensitive), never name
 - Vessel / Rank / Client: exact name match (names are unique in schema); ambiguous matches are blocked — never guess
-- Reference Data includes IDs for operator disambiguation
+- Reference Data uses friendly headings (Employee No, Vessel, Rank, Client) without internal IDs
 - Visibility-restricted users receive a neutral unavailable message for both hidden and nonexistent employees (no existence leak)
 
 #### Date normalization

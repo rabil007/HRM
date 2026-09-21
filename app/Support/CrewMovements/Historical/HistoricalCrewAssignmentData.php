@@ -24,12 +24,10 @@ final class HistoricalCrewAssignmentData
         public readonly string $timezone,
         public readonly ?string $remarks = null,
         public readonly ?CarbonInterface $mobilisationStartAt = null,
-        public readonly ?CarbonInterface $arrivalAt = null,
         public readonly ?CarbonInterface $joinStandbyAt = null,
         public readonly ?CarbonInterface $trainingStartAt = null,
         public readonly ?CarbonInterface $trainingEndAt = null,
         public readonly ?CarbonInterface $postTrainingJoinStandbyAt = null,
-        public readonly ?CarbonInterface $readyToJoinAt = null,
         public readonly ?CarbonInterface $demobStandbyAt = null,
         public readonly ?CarbonInterface $travelHomeAt = null,
         public readonly ?CarbonInterface $assignmentClosedAt = null,
@@ -59,12 +57,10 @@ final class HistoricalCrewAssignmentData
             timezone: $timezone,
             remarks: isset($data['remarks']) && is_string($data['remarks']) && trim($data['remarks']) !== '' ? trim($data['remarks']) : null,
             mobilisationStartAt: self::parseTimestamp($data['mobilisation_start_at'] ?? $data['mobilisation_at'] ?? null, $timezone),
-            arrivalAt: self::parseTimestamp($data['arrival_at'] ?? null, $timezone),
             joinStandbyAt: self::parseTimestamp($data['join_standby_at'] ?? null, $timezone),
             trainingStartAt: self::parseTimestamp($data['training_start_at'] ?? $data['training_started_at'] ?? null, $timezone),
             trainingEndAt: self::parseTimestamp($data['training_end_at'] ?? $data['training_ended_at'] ?? null, $timezone),
             postTrainingJoinStandbyAt: self::parseTimestamp($data['post_training_join_standby_at'] ?? null, $timezone),
-            readyToJoinAt: self::parseTimestamp($data['ready_to_join_at'] ?? null, $timezone),
             demobStandbyAt: self::parseTimestamp($data['demob_standby_at'] ?? $data['post_signoff_standby_at'] ?? null, $timezone),
             travelHomeAt: self::parseTimestamp($data['travel_home_at'] ?? null, $timezone),
             assignmentClosedAt: self::parseTimestamp($data['assignment_closed_at'] ?? null, $timezone),
@@ -92,11 +88,9 @@ final class HistoricalCrewAssignmentData
     {
         $candidates = array_filter([
             $this->mobilisationStartAt,
-            $this->arrivalAt,
             $this->joinStandbyAt,
             $this->trainingStartAt,
             $this->postTrainingJoinStandbyAt,
-            $this->readyToJoinAt,
             $this->joinedVesselAt,
         ]);
 
@@ -155,13 +149,11 @@ final class HistoricalCrewAssignmentData
     {
         $phases = [];
 
-        // 1. P0 Pre-Mobilisation
+        // P0 Pre-Mobilisation
         if ($this->mobilisationStartAt !== null) {
-            $nextStart = $this->arrivalAt
-                ?? $this->joinStandbyAt
+            $nextStart = $this->joinStandbyAt
                 ?? $this->trainingStartAt
                 ?? $this->postTrainingJoinStandbyAt
-                ?? $this->readyToJoinAt
                 ?? $this->joinedVesselAt;
 
             $phases[] = [
@@ -172,27 +164,10 @@ final class HistoricalCrewAssignmentData
             ];
         }
 
-        // 2. P1 Travel In (legacy)
-        if ($this->arrivalAt !== null) {
-            $nextStart = $this->joinStandbyAt
-                ?? $this->trainingStartAt
-                ?? $this->postTrainingJoinStandbyAt
-                ?? $this->readyToJoinAt
-                ?? $this->joinedVesselAt;
-
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::TravelIn,
-                'actual_start_at' => $this->arrivalAt,
-                'actual_end_at' => $nextStart,
-                'remarks' => null,
-            ];
-        }
-
-        // 3. P2A Join Standby (first standby)
+        // P2A Join Standby (first standby)
         if ($this->joinStandbyAt !== null) {
             $nextStart = $this->trainingStartAt
                 ?? $this->postTrainingJoinStandbyAt
-                ?? $this->readyToJoinAt
                 ?? $this->joinedVesselAt;
 
             $phases[] = [
@@ -203,11 +178,10 @@ final class HistoricalCrewAssignmentData
             ];
         }
 
-        // 4. P2B Training
+        // P2B Training
         if ($this->trainingStartAt !== null) {
             $trainingEnd = $this->trainingEndAt
                 ?? $this->postTrainingJoinStandbyAt
-                ?? $this->readyToJoinAt
                 ?? $this->joinedVesselAt;
 
             $phases[] = [
@@ -218,30 +192,17 @@ final class HistoricalCrewAssignmentData
             ];
         }
 
-        // 5. P2A Join Standby (second standby / post-training)
+        // P2A Join Standby (post-training) — only when supplied
         if ($this->postTrainingJoinStandbyAt !== null) {
-            $nextStart = $this->readyToJoinAt
-                ?? $this->joinedVesselAt;
-
             $phases[] = [
                 'phase_code' => CrewPhaseCode::JoinStandby,
                 'actual_start_at' => $this->postTrainingJoinStandbyAt,
-                'actual_end_at' => $nextStart,
-                'remarks' => null,
-            ];
-        }
-
-        // 6. P3 Ready to Join (legacy)
-        if ($this->readyToJoinAt !== null) {
-            $phases[] = [
-                'phase_code' => CrewPhaseCode::ReadyToJoin,
-                'actual_start_at' => $this->readyToJoinAt,
                 'actual_end_at' => $this->joinedVesselAt,
                 'remarks' => null,
             ];
         }
 
-        // 7. P4 On Vessel (mandatory)
+        // P4 On Vessel (mandatory)
         $phases[] = [
             'phase_code' => CrewPhaseCode::OnVessel,
             'actual_start_at' => $this->joinedVesselAt,
@@ -249,7 +210,7 @@ final class HistoricalCrewAssignmentData
             'remarks' => $this->remarks,
         ];
 
-        // 8. P5 Demobilisation Standby
+        // P5 Demobilisation Standby
         if ($this->demobStandbyAt !== null) {
             $nextStart = $this->travelHomeAt
                 ?? $this->assignmentClosedAt
@@ -263,7 +224,7 @@ final class HistoricalCrewAssignmentData
             ];
         }
 
-        // 9. P6 Home / Redeployment
+        // P6 Home / Redeployment
         if ($this->travelHomeAt !== null) {
             $homeEnd = $this->assignmentClosedAt ?? $this->travelHomeAt;
 

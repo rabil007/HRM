@@ -137,16 +137,17 @@ final class HistoricalCrewImportParser
         $map = [];
 
         for ($column = 1; $column <= $highestColumnIndex; $column++) {
-            $header = HistoricalCrewImportColumns::normalizeHeader(
-                (string) ($sheet->getCellByColumnAndRow($column, 1)->getValue() ?? ''),
-            );
+            $rawHeader = (string) ($sheet->getCellByColumnAndRow($column, 1)->getValue() ?? '');
+            $header = HistoricalCrewImportColumns::normalizeHeader($rawHeader);
 
             if ($header === '') {
                 continue;
             }
 
             if (isset($map[$header])) {
-                throw new \InvalidArgumentException("Duplicate column header \"{$header}\" in Historical Assignments.");
+                $label = HistoricalCrewImportColumns::labels()[$header] ?? $header;
+
+                throw new \InvalidArgumentException("Duplicate column header \"{$label}\" in Historical Assignments.");
             }
 
             $map[$header] = $column;
@@ -164,7 +165,7 @@ final class HistoricalCrewImportParser
 
         foreach (HistoricalCrewImportColumns::requiredHeaders() as $header) {
             if (! isset($columnMap[$header])) {
-                $missing[] = $header;
+                $missing[] = HistoricalCrewImportColumns::labels()[$header] ?? $header;
             }
         }
 

@@ -159,7 +159,6 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                     <ul className="space-y-1 text-xs text-muted-foreground">
                         {row.timeline.map((item, idx) => (
                             <li key={idx}>
-                                [{item.phase_code.toUpperCase()}]{' '}
                                 {item.phase_label}:{' '}
                                 {formatDisplayDate(item.start)}
                                 {item.end
@@ -953,8 +952,8 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                 <TableHead className="w-14">Row</TableHead>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Vessel</TableHead>
-                                <TableHead>Join</TableHead>
-                                <TableHead>Sign Off</TableHead>
+                                <TableHead>On Vessel</TableHead>
+                                <TableHead>Disembarked</TableHead>
                                 <TableHead className="w-24">Status</TableHead>
                             </TableRow>
                         </TableHeader>

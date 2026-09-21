@@ -1278,3 +1278,71 @@ test('historical validation aliases training and demob fields and surfaces sea s
         ->assertStatus(422)
         ->assertJsonValidationErrors(['overlap']);
 });
+
+test('manual historical entry rejects legacy arrival_at and ready_to_join_at inputs', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Legacy Reject Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'joined_vessel_at' => '2024-01-15',
+            'disembarked_at' => '2024-07-20',
+            'arrival_at' => '2024-01-10',
+            'ready_to_join_at' => '2024-01-14',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['arrival_at', 'ready_to_join_at']);
+});
+
+test('modern full lifecycle creates only P0 P2A P4 P5 P6 without P1 or P3', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Modern Lifecycle Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'mobilisation_at' => '2024-01-01',
+            'join_standby_at' => '2024-01-05',
+            'joined_vessel_at' => '2024-01-15',
+            'disembarked_at' => '2024-07-20',
+            'demob_standby_at' => '2024-07-21',
+            'travel_home_at' => '2024-07-22',
+            'assignment_closed_at' => '2024-07-23',
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()
+        ->where('employee_id', $employee->id)
+        ->where('source', 'historical_manual')
+        ->firstOrFail();
+
+    $phases = CrewAssignmentPhase::query()
+        ->where('crew_assignment_id', $assignment->id)
+        ->orderBy('sequence')
+        ->get();
+
+    expect($phases->pluck('phase_code')->all())->toBe([
+        CrewPhaseCode::PreMobilisation,
+        CrewPhaseCode::JoinStandby,
+        CrewPhaseCode::OnVessel,
+        CrewPhaseCode::DemobStandby,
+        CrewPhaseCode::HomeRedeploy,
+    ])
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::TravelIn))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::ReadyToJoin))->toBeFalse();
+});

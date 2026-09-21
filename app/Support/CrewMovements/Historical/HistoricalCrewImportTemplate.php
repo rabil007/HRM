@@ -65,7 +65,7 @@ final class HistoricalCrewImportTemplate
             ['Historical Crew Import — Instructions'],
             [''],
             ['Purpose'],
-            ['Import completed historical crew assignments.'],
+            ['Import completed historical crew assignments using the same movement flow as Crew Operations.'],
             [''],
             ['Workflow'],
             ['1. Fill the Historical Assignments sheet using values from Reference Data.'],
@@ -76,15 +76,13 @@ final class HistoricalCrewImportTemplate
             [''],
             ['Important'],
             ['- Do not enter future dates.'],
-            ['- Do not invent unknown movement dates.'],
-            ['- Joined Vessel (vessel_join_date) and Disembarked (disembark_date) are required.'],
-            ['- Optional phase dates should be entered only when known.'],
-            ['- Employee is identified by employee_no (not by name).'],
+            ['- On Vessel and Disembarked are required.'],
+            ['- Other movement dates are optional. Only enter a date when the historical information is known.'],
+            ['- Do not guess missing movement dates.'],
+            ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
             ['- Maximum 5,000 historical assignment rows per workbook.'],
-            ['- Historical rows do not change current Crew status.'],
-            ['- Historical data does not change Crew Planning.'],
-            ['- Historical data does not alter finalized payroll.'],
+            ['- Historical rows do not change current Crew status, Crew Planning, or finalized payroll.'],
             ['- Vessel / Rank / Client must match Reference Data exactly (names are unique).'],
             ['- Inactive Vessel / Rank / Client values are allowed for historical backfill (shown as warnings).'],
             [''],
@@ -92,17 +90,16 @@ final class HistoricalCrewImportTemplate
             ['Prefer YYYY-MM-DD (example: 2024-01-15).'],
             ['Excel date cells are also accepted and normalized to company calendar dates.'],
             [''],
-            ['Phase mapping (do not invent missing phases)'],
-            ['mobilisation_date → P0 Pre-Mobilisation'],
-            ['travel_in_date → P1 Travel In (legacy)'],
-            ['join_standby_date → P2A Join Standby'],
-            ['training_start_date / training_end_date → P2B Training'],
-            ['post_training_join_standby_date → P2A Post-Training Standby'],
-            ['ready_to_join_date → P3 Ready to Join (legacy)'],
-            ['vessel_join_date / disembark_date → P4 On Vessel (required)'],
-            ['demob_standby_date → P5 Demobilisation Standby'],
-            ['travel_home_date → P6 Home / Redeployment'],
-            ['assignment_close_date → Assignment closed marker'],
+            ['Optional movement history'],
+            ['Pre-Mobilisation'],
+            ['→ Join Standby'],
+            ['→ Training'],
+            ['→ Join Standby (post-training, only when known)'],
+            ['→ On Vessel'],
+            ['→ Demobilisation Standby'],
+            ['→ Home / Redeployment'],
+            [''],
+            ['Only create a second Join Standby date when the crew member returned to standby after training.'],
         ];
 
         foreach ($lines as $index => $line) {
@@ -113,8 +110,8 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyle('A3')->getFont()->setBold(true);
         $sheet->getStyle('A6')->getFont()->setBold(true);
         $sheet->getStyle('A13')->getFont()->setBold(true);
-        $sheet->getStyle('A25')->getFont()->setBold(true);
-        $sheet->getStyle('A29')->getFont()->setBold(true);
+        $sheet->getStyle('A26')->getFont()->setBold(true);
+        $sheet->getStyle('A30')->getFont()->setBold(true);
         $sheet->getColumnDimension('A')->setWidth(110);
     }
 
@@ -144,16 +141,15 @@ final class HistoricalCrewImportTemplate
 
         $sample = [
             HistoricalCrewImportColumns::EMPLOYEE_NO => 'EXAMPLE001',
+            HistoricalCrewImportColumns::EMPLOYEE => '',
             HistoricalCrewImportColumns::VESSEL => 'Example Vessel',
             HistoricalCrewImportColumns::RANK => 'Example Rank',
             HistoricalCrewImportColumns::CLIENT => '',
             HistoricalCrewImportColumns::MOBILISATION_DATE => '',
-            HistoricalCrewImportColumns::TRAVEL_IN_DATE => '',
             HistoricalCrewImportColumns::JOIN_STANDBY_DATE => '',
             HistoricalCrewImportColumns::TRAINING_START_DATE => '',
             HistoricalCrewImportColumns::TRAINING_END_DATE => '',
             HistoricalCrewImportColumns::POST_TRAINING_JOIN_STANDBY_DATE => '',
-            HistoricalCrewImportColumns::READY_TO_JOIN_DATE => '',
             HistoricalCrewImportColumns::VESSEL_JOIN_DATE => '2024-01-15',
             HistoricalCrewImportColumns::DISEMBARK_DATE => '2024-07-20',
             HistoricalCrewImportColumns::DEMOB_STANDBY_DATE => '',
@@ -219,7 +215,7 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
 
         $headerRow = $startRow + 1;
-        foreach (['employee_no', 'employee_name', 'status', 'department'] as $index => $header) {
+        foreach (['Employee No', 'Employee', 'Status', 'Department'] as $index => $header) {
             $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
             $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
         }
@@ -251,7 +247,7 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
 
         $headerRow = $startRow + 1;
-        foreach (['vessel_id', 'vessel_name', 'status', 'client'] as $index => $header) {
+        foreach (['Vessel', 'Status', 'Client'] as $index => $header) {
             $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
             $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
         }
@@ -266,10 +262,9 @@ final class HistoricalCrewImportTemplate
 
         foreach ($vessels as $vessel) {
             /** @var Vessel $vessel */
-            $sheet->setCellValueByColumnAndRow(1, $row, (int) $vessel->id);
-            $this->writeSafeString($sheet, 2, $row, (string) $vessel->name);
-            $this->writeSafeString($sheet, 3, $row, $vessel->is_active ? 'Active' : 'Inactive');
-            $this->writeSafeString($sheet, 4, $row, $vessel->client?->name ?? '');
+            $this->writeSafeString($sheet, 1, $row, (string) $vessel->name);
+            $this->writeSafeString($sheet, 2, $row, $vessel->is_active ? 'Active' : 'Inactive');
+            $this->writeSafeString($sheet, 3, $row, $vessel->client?->name ?? '');
             $row++;
         }
 
@@ -282,7 +277,7 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
 
         $headerRow = $startRow + 1;
-        foreach (['rank_id', 'rank_name', 'status'] as $index => $header) {
+        foreach (['Rank', 'Status'] as $index => $header) {
             $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
             $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
         }
@@ -290,9 +285,8 @@ final class HistoricalCrewImportTemplate
         $row = $headerRow + 1;
 
         foreach (Rank::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $rank) {
-            $sheet->setCellValueByColumnAndRow(1, $row, (int) $rank->id);
-            $this->writeSafeString($sheet, 2, $row, (string) $rank->name);
-            $this->writeSafeString($sheet, 3, $row, $rank->is_active ? 'Active' : 'Inactive');
+            $this->writeSafeString($sheet, 1, $row, (string) $rank->name);
+            $this->writeSafeString($sheet, 2, $row, $rank->is_active ? 'Active' : 'Inactive');
             $row++;
         }
 
@@ -305,7 +299,7 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
 
         $headerRow = $startRow + 1;
-        foreach (['client_id', 'client_name', 'status'] as $index => $header) {
+        foreach (['Client', 'Status'] as $index => $header) {
             $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
             $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
         }
@@ -313,9 +307,8 @@ final class HistoricalCrewImportTemplate
         $row = $headerRow + 1;
 
         foreach (Client::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $client) {
-            $sheet->setCellValueByColumnAndRow(1, $row, (int) $client->id);
-            $this->writeSafeString($sheet, 2, $row, (string) $client->name);
-            $this->writeSafeString($sheet, 3, $row, $client->is_active ? 'Active' : 'Inactive');
+            $this->writeSafeString($sheet, 1, $row, (string) $client->name);
+            $this->writeSafeString($sheet, 2, $row, $client->is_active ? 'Active' : 'Inactive');
             $row++;
         }
 

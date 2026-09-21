@@ -20,15 +20,15 @@ final class HistoricalCrewImportResultExporter
         $sheet->setTitle('Import Result');
 
         $headers = [
-            'row_number',
-            'employee_no',
-            'employee_name',
-            'vessel',
-            'rank',
-            'status',
-            'warnings',
-            'errors',
-            'assignment_no',
+            'Row',
+            'Employee No',
+            'Employee',
+            'Vessel',
+            'Rank',
+            'Status',
+            'Warnings',
+            'Errors',
+            'Assignment',
         ];
 
         foreach ($headers as $index => $header) {

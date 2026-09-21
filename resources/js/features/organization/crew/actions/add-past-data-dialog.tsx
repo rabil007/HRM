@@ -76,12 +76,10 @@ export function AddPastDataDialog({
         joined_vessel_at: '',
         disembarked_at: '',
         mobilisation_at: '',
-        arrival_at: '',
         join_standby_at: '',
         training_started_at: '',
         training_ended_at: '',
         post_training_join_standby_at: '',
-        ready_to_join_at: '',
         post_signoff_standby_at: '',
         travel_home_at: '',
         assignment_closed_at: '',
@@ -152,7 +150,7 @@ export function AddPastDataDialog({
         }
 
         if (!form.data.joined_vessel_at) {
-            localErrors.joined_vessel_at = 'Joined vessel date is required.';
+            localErrors.joined_vessel_at = 'On Vessel date is required.';
         }
 
         if (!form.data.disembarked_at) {
@@ -175,13 +173,11 @@ export function AddPastDataDialog({
             joined_vessel_at: form.data.joined_vessel_at,
             disembarked_at: form.data.disembarked_at,
             mobilisation_at: form.data.mobilisation_at || null,
-            arrival_at: form.data.arrival_at || null,
             join_standby_at: form.data.join_standby_at || null,
             training_started_at: form.data.training_started_at || null,
             training_ended_at: form.data.training_ended_at || null,
             post_training_join_standby_at:
                 form.data.post_training_join_standby_at || null,
-            ready_to_join_at: form.data.ready_to_join_at || null,
             post_signoff_standby_at: form.data.post_signoff_standby_at || null,
             travel_home_at: form.data.travel_home_at || null,
             assignment_closed_at: form.data.assignment_closed_at || null,
@@ -487,18 +483,16 @@ export function AddPastDataDialog({
                                         </div>
                                     </div>
 
-                                    {/* Primary Onboard Period (P4) */}
+                                    {/* Main Vessel Service */}
                                     <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
                                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                                             <Ship className="h-4 w-4 text-primary" />
-                                            <span>
-                                                Onboard Period (P4 Sea Service)
-                                            </span>
+                                            <span>Main Vessel Service</span>
                                         </div>
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-joined-vessel">
-                                                    Joined Vessel (P4 Start){' '}
+                                                    On Vessel{' '}
                                                     <span className="text-destructive">
                                                         *
                                                     </span>
@@ -528,7 +522,7 @@ export function AddPastDataDialog({
 
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-disembarked">
-                                                    Disembarked (P4 End){' '}
+                                                    Disembarked{' '}
                                                     <span className="text-destructive">
                                                         *
                                                     </span>
@@ -576,11 +570,11 @@ export function AddPastDataDialog({
                                         >
                                             <span className="flex items-center gap-2">
                                                 <span>
-                                                    Add More Movement Details
+                                                    More Movement Details
                                                 </span>
                                                 <span className="text-xs font-normal text-muted-foreground">
                                                     (Pre-Mobilisation, Standby,
-                                                    Training, Travel, Demob)
+                                                    Training, Demob, Home)
                                                 </span>
                                             </span>
                                             {showMoreDetails ? (
@@ -593,18 +587,16 @@ export function AddPastDataDialog({
                                         {showMoreDetails && (
                                             <div className="space-y-4 border-t border-border/60 bg-card p-4 text-sm">
                                                 <p className="text-xs text-muted-foreground">
-                                                    Optional historical phases
-                                                    will only be recorded if
-                                                    explicitly provided. Omitted
-                                                    phases are never fabricated.
+                                                    Optional movement dates are
+                                                    recorded only when known.
+                                                    Missing dates are never
+                                                    guessed.
                                                 </p>
 
                                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                    {/* P0 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-mobilisation">
-                                                            Mobilisation Start
-                                                            (P0)
+                                                            Pre-Mobilisation
                                                         </Label>
                                                         <Input
                                                             id="historical-mobilisation"
@@ -630,41 +622,9 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
-                                                    {/* P1 */}
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-arrival">
-                                                            Travel In / Arrival
-                                                            (P1 legacy)
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-arrival"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .arrival_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'arrival_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .arrival_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    {/* P2A Join Standby Start */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-join-standby">
-                                                            Join Standby Start
-                                                            (P2A)
+                                                            Join Standby
                                                         </Label>
                                                         <Input
                                                             id="historical-join-standby"
@@ -690,10 +650,9 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
-                                                    {/* P2B Training Start */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-training-start">
-                                                            Training Start (P2B)
+                                                            Training Start
                                                         </Label>
                                                         <Input
                                                             id="historical-training-start"
@@ -719,10 +678,9 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
-                                                    {/* P2B Training End */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-training-end">
-                                                            Training End (P2B)
+                                                            Training End
                                                         </Label>
                                                         <Input
                                                             id="historical-training-end"
@@ -748,11 +706,10 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
-                                                    {/* P2A Post-Training Standby */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-post-training-standby">
-                                                            Post-Training
-                                                            Standby (P2A Return)
+                                                            Post-Training Join
+                                                            Standby
                                                         </Label>
                                                         <Input
                                                             id="historical-post-training-standby"
@@ -778,41 +735,10 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
-                                                    {/* P3 */}
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="historical-ready-to-join">
-                                                            Ready to Join (P3
-                                                            legacy)
-                                                        </Label>
-                                                        <Input
-                                                            id="historical-ready-to-join"
-                                                            type="date"
-                                                            value={
-                                                                form.data
-                                                                    .ready_to_join_at ??
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'ready_to_join_at',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <InputError
-                                                            message={
-                                                                form.errors
-                                                                    .ready_to_join_at
-                                                            }
-                                                        />
-                                                    </div>
-
-                                                    {/* P5 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-post-signoff">
-                                                            Post Sign-Off Demob
-                                                            Standby (P5)
+                                                            Demobilisation
+                                                            Standby
                                                         </Label>
                                                         <Input
                                                             id="historical-post-signoff"
@@ -838,11 +764,9 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
-                                                    {/* P6 */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-travel-home">
-                                                            Travel Home / Home
-                                                            Redeploy (P6)
+                                                            Home / Redeployment
                                                         </Label>
                                                         <Input
                                                             id="historical-travel-home"
@@ -868,11 +792,9 @@ export function AddPastDataDialog({
                                                         />
                                                     </div>
 
-                                                    {/* Closed At */}
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="historical-closed-at">
                                                             Assignment Closed
-                                                            Date
                                                         </Label>
                                                         <Input
                                                             id="historical-closed-at"
@@ -1054,9 +976,7 @@ export function AddPastDataDialog({
                                                     <div className="absolute top-1 -left-6 h-3 w-3 rounded-full border-2 border-background bg-primary" />
                                                     <div>
                                                         <span className="block text-xs font-semibold text-foreground">
-                                                            [
-                                                            {item.phase_code.toUpperCase()}
-                                                            ] {item.phase_label}
+                                                            {item.phase_label}
                                                         </span>
                                                         <span className="text-xs text-muted-foreground">
                                                             {formatDisplayDate(
