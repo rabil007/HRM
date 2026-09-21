@@ -99,12 +99,12 @@ final class HistoricalCrewImportResultExporter
             return ['', ''];
         }
 
-        $resolved = HistoricalPhaseBuilder::lastMovementFromPhases($assignment->phases);
+        $resolved = HistoricalPhaseBuilder::lastMovementFromPhases(
+            $this->phasesAsOfSuccessfulImport($row),
+        );
 
         if ($resolved === null) {
-            $inferred = $assignment->currentPhase?->phase_code?->label() ?? '';
-
-            return ['', $inferred];
+            return ['', ''];
         }
 
         $lastMovement = $resolved['event_at'] !== null
@@ -112,5 +112,46 @@ final class HistoricalCrewImportResultExporter
             : $resolved['event_label'];
 
         return [$lastMovement, $resolved['inferred_label']];
+    }
+
+    /**
+     * Scope to phases that existed when this import row successfully completed.
+     *
+     * Uses the row's updated_at (successful write / resume), not an earlier failed
+     * row creation time, so later live Crew movements do not rewrite audit results.
+     *
+     * @return list<object|array{
+     *     phase_code: mixed,
+     *     actual_start_at: mixed,
+     *     actual_end_at?: mixed,
+     *     sequence?: mixed
+     * }>
+     */
+    private function phasesAsOfSuccessfulImport(HistoricalCrewImportRow $row): array
+    {
+        $assignment = $row->assignment;
+
+        if ($assignment === null) {
+            return [];
+        }
+
+        $cutoff = $row->updated_at;
+
+        if ($cutoff === null) {
+            return $assignment->phases->all();
+        }
+
+        return $assignment->phases
+            ->filter(function (object $phase) use ($cutoff): bool {
+                $createdAt = $phase->created_at ?? null;
+
+                if ($createdAt === null) {
+                    return false;
+                }
+
+                return $createdAt->lte($cutoff);
+            })
+            ->values()
+            ->all();
     }
 }

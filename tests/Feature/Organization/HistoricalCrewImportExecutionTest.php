@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\HistoricalCrewImportBatchStatus;
 use App\Enums\HistoricalCrewImportRowStatus;
@@ -13,7 +14,9 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\HistoricalCrewImportBatch;
 use App\Models\HistoricalCrewImportRow;
+use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -701,6 +704,152 @@ test('result workbook reports Home / Redeployment as last movement for Completed
 
     expect((string) $data[$lastIdx])->toContain('Home / Redeployment')
         ->and((string) $data[$inferredIdx])->toBe('Home / Redeployment');
+});
+
+test('result workbook stays On Vessel after later live disembarkation', function () {
+    Carbon::setTestNow('2025-03-01 10:00:00');
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'AUDITP4', 'status' => 'active']);
+    $vessel = makeCrewMovementVessel('Audit Stable P4 Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $import = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'AUDITP4',
+                    'vessel' => $vessel->name,
+                    'rank' => $rank->name,
+                    'vessel_join_date' => '2024-01-15',
+                ],
+            ]),
+            'idempotency_key' => historicalImportIdempotencyKey('audit-p4-stable'),
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $batchId = $import->json('id');
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->firstOrFail();
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
+
+    Carbon::setTestNow('2025-03-01 12:00:00');
+
+    app(CrewMovementService::class)->perform(
+        $company->id,
+        $assignment->id,
+        CrewMovementAction::ConfirmDisembarkation,
+        [
+            'occurred_at' => '2025-03-01 12:00:00',
+            'next_phase' => CrewPhaseCode::DemobStandby->value,
+        ],
+        $user->id,
+    );
+
+    Carbon::setTestNow('2025-03-01 15:00:00');
+
+    app(CrewMovementService::class)->perform(
+        $company->id,
+        $assignment->id,
+        CrewMovementAction::TravelHome,
+        [
+            'occurred_at' => '2025-03-01 15:00:00',
+        ],
+        $user->id,
+    );
+
+    $assignment->refresh()->load('currentPhase');
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Completed);
+
+    $download = $this->actingAs($user)
+        ->get(route('organization.crew-assignments.historical.import.batches.result', $batchId));
+    $path = tempnam(sys_get_temp_dir(), 'hist-audit-p4-').'.xlsx';
+    file_put_contents($path, $download->streamedContent());
+    $rows = IOFactory::load($path)->getActiveSheet()->toArray();
+    @unlink($path);
+
+    $header = $rows[0];
+    $data = $rows[1];
+    $lastIdx = array_search('Last Movement', $header, true);
+    $inferredIdx = array_search('Inferred State', $header, true);
+
+    expect((string) $data[$lastIdx])->toContain('On Vessel')
+        ->and((string) $data[$inferredIdx])->toBe('On Vessel');
+
+    Carbon::setTestNow();
+});
+
+test('result workbook stays Training End / Join Standby after later live join vessel', function () {
+    Carbon::setTestNow('2025-04-01 10:00:00');
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'AUDITTEND', 'status' => 'active']);
+    $vessel = makeCrewMovementVessel('Audit Stable Training End Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $import = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'AUDITTEND',
+                    'vessel' => $vessel->name,
+                    'rank' => $rank->name,
+                    'training_start_date' => '2024-09-05',
+                    'training_end_date' => '2024-09-10',
+                ],
+            ]),
+            'idempotency_key' => historicalImportIdempotencyKey('audit-training-end-stable'),
+            'confirmed' => '1',
+        ])
+        ->assertOk();
+
+    $batchId = $import->json('id');
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->firstOrFail();
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
+
+    Carbon::setTestNow('2025-04-01 12:00:00');
+
+    app(CrewMovementService::class)->perform(
+        $company->id,
+        $assignment->id,
+        CrewMovementAction::JoinVessel,
+        [
+            'occurred_at' => '2025-04-01 12:00:00',
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+        ],
+        $user->id,
+    );
+
+    $assignment->refresh()->load('currentPhase');
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
+
+    $download = $this->actingAs($user)
+        ->get(route('organization.crew-assignments.historical.import.batches.result', $batchId));
+    $path = tempnam(sys_get_temp_dir(), 'hist-audit-tend-').'.xlsx';
+    file_put_contents($path, $download->streamedContent());
+    $rows = IOFactory::load($path)->getActiveSheet()->toArray();
+    @unlink($path);
+
+    $header = $rows[0];
+    $data = $rows[1];
+    $lastIdx = array_search('Last Movement', $header, true);
+    $inferredIdx = array_search('Inferred State', $header, true);
+
+    expect((string) $data[$lastIdx])->toContain('Training End')
+        ->and((string) $data[$lastIdx])->toContain('10 Sep')
+        ->and((string) $data[$inferredIdx])->toBe('Join Standby');
+
+    Carbon::setTestNow();
 });
 
 test('cross company employee and vessel remain blocked on import', function () {

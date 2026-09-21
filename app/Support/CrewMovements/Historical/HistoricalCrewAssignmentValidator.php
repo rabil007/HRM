@@ -162,6 +162,21 @@ final class HistoricalCrewAssignmentValidator
             $errors['training_start_at'] = 'Training Start is required when Training End is provided.';
         }
 
+        // Training Start may remain open only when it is the latest known movement.
+        // Do not invent Training End from a later On Vessel / Disembarked / Home timestamp.
+        if (
+            $data->trainingStartAt !== null
+            && $data->trainingEndAt === null
+            && (
+                $data->joinedVesselAt !== null
+                || $data->disembarkedAt !== null
+                || $data->travelHomeAt !== null
+            )
+        ) {
+            $datesValid = false;
+            $errors['training_end_at'] = 'Training End is required before On Vessel when Training Start has been entered.';
+        }
+
         if ($data->disembarkedAt !== null && $data->joinedVesselAt === null) {
             $datesValid = false;
             $errors['joined_vessel_at'] = 'On Vessel is required when Disembarked is provided.';

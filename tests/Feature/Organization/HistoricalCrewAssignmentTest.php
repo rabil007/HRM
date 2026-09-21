@@ -1975,6 +1975,110 @@ test('phase inference: training end plus later on vessel closes P2A at on vessel
         ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
 });
 
+test('training start only creates active P2B without inventing a training end', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Training Start Only Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'training_started_at' => '2024-06-01',
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::Training)
+        ->and($phases)->toHaveCount(1)
+        ->and($phases[0]->phase_code)->toBe(CrewPhaseCode::Training)
+        ->and($phases[0]->actual_start_at->toDateString())->toBe('2024-06-01')
+        ->and($phases[0]->actual_end_at)->toBeNull()
+        ->and($phases[0]->status)->toBe(CrewPhaseStatus::Active);
+});
+
+test('training start plus later on vessel without training end is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Missing Training End Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'training_started_at' => '2024-06-01',
+            'joined_vessel_at' => '2024-06-15',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['training_ended_at']);
+
+    expect($response->json('errors.training_ended_at.0'))
+        ->toContain('Training End is required before On Vessel');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'training_started_at' => '2024-06-01',
+            'joined_vessel_at' => '2024-06-15',
+        ])
+        ->assertSessionHasErrors(['training_ended_at']);
+
+    expect(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('training start end and later on vessel reconstructs P2B then P2A then active P4', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Complete Training Then Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'training_started_at' => '2024-06-01',
+            'training_ended_at' => '2024-06-05',
+            'joined_vessel_at' => '2024-06-15',
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($phases->pluck('phase_code')->all())->toBe([
+            CrewPhaseCode::Training,
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::OnVessel,
+        ])
+        ->and($phases[0]->actual_start_at->toDateString())->toBe('2024-06-01')
+        ->and($phases[0]->actual_end_at->toDateString())->toBe('2024-06-05')
+        ->and($phases[1]->actual_start_at->toDateString())->toBe('2024-06-05')
+        ->and($phases[1]->actual_end_at->toDateString())->toBe('2024-06-15')
+        ->and($phases[2]->actual_start_at->toDateString())->toBe('2024-06-15')
+        ->and($phases[2]->actual_end_at)->toBeNull()
+        ->and($phases[2]->status)->toBe(CrewPhaseStatus::Active);
+});
+
 test('on vessel only creates active P4 without sea service', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('On Vessel Only', $company);

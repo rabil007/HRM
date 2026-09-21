@@ -1280,3 +1280,72 @@ test('excel multiple exact sea service matches are blocked', function () {
         ->and($errors)->toContain('#'.$second->id)
         ->and($errors)->toContain('Multiple Sea Service records match');
 });
+
+test('excel training start plus on vessel without training end is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Missing Training End Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'training_start_date' => '2024-06-01',
+            'vessel_join_date' => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $errors = implode(' ', $row['errors'] ?? []);
+
+    expect($row['status'])->toBe('blocked')
+        ->and($errors)->toContain('Training End is required before On Vessel');
+});
+
+test('excel training start training end and on vessel is ready with P2B P2A P4 timeline', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Complete Training Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'training_start_date' => '2024-06-01',
+            'training_end_date' => '2024-06-05',
+            'vessel_join_date' => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
+
+    expect($row['status'])->toBeIn(['ready', 'warning'])
+        ->and($phaseCodes)->toBe(['p2b', 'p2a', 'p4'])
+        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p4')
+        ->and($row['is_open'] ?? false)->toBeTrue();
+});
