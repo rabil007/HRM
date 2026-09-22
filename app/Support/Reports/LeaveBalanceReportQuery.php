@@ -27,7 +27,7 @@ final class LeaveBalanceReportQuery
         return $this->ordered($this->filteredQuery())
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (LeaveBalance $balance): array => LeaveBalanceReportPresenter::toArray($balance));
+            ->through(fn (LeaveBalance $balance): array => LeaveBalanceReportPresenter::toArray($balance, $this->user));
     }
 
     /**
@@ -71,7 +71,7 @@ final class LeaveBalanceReportQuery
 
         if ($withRelations) {
             $query->with([
-                'employee:id,company_id,employee_no,name,department_id,status',
+                'employee:id,company_id,employee_no,name,department_id,status,image',
                 'employee.department:id,name',
                 'leaveType' => fn ($leaveType) => $leaveType->withTrashed()->select([
                     'id',

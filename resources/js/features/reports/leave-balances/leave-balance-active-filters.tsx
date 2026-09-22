@@ -2,10 +2,12 @@ import { X } from 'lucide-react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatDisplayDate } from '@/lib/format-date';
-import type { LeaveReportFilters, LeaveReportProps } from './types';
+import type {
+    LeaveBalanceReportFilters,
+    LeaveBalanceReportProps,
+} from './types';
 
-type FilterOptions = LeaveReportProps['filter_options'];
+type FilterOptions = LeaveBalanceReportProps['filter_options'];
 
 type ActiveFilterChip = {
     key: string;
@@ -13,30 +15,11 @@ type ActiveFilterChip = {
     onClear: () => void;
 };
 
-function formatDateRange(from: string, to: string): string {
-    if (from && to) {
-        return `${formatDisplayDate(from)} → ${formatDisplayDate(to)}`;
-    }
-
-    if (from) {
-        return `From ${formatDisplayDate(from)}`;
-    }
-
-    return `Until ${formatDisplayDate(to)}`;
-}
-
 function resolveLabel(
-    key: keyof LeaveReportFilters,
+    key: keyof LeaveBalanceReportFilters,
     value: string,
     options: FilterOptions,
 ): string {
-    if (key === 'status') {
-        return (
-            options.statuses.find((option) => option.value === value)?.label ??
-            value
-        );
-    }
-
     if (key === 'employee_id') {
         const employee = options.employees.find(
             (option) => String(option.id) === value,
@@ -51,6 +34,13 @@ function resolveLabel(
             : employee.name;
     }
 
+    if (key === 'department_id') {
+        return (
+            options.departments.find((option) => String(option.id) === value)
+                ?.name ?? value
+        );
+    }
+
     if (key === 'leave_type_id') {
         return (
             options.leave_types.find((option) => String(option.id) === value)
@@ -58,10 +48,17 @@ function resolveLabel(
         );
     }
 
-    if (key === 'department_id') {
+    if (key === 'category') {
         return (
-            options.departments.find((option) => String(option.id) === value)
-                ?.name ?? value
+            options.categories.find((option) => option.value === value)
+                ?.label ?? value
+        );
+    }
+
+    if (key === 'employee_status') {
+        return (
+            options.employee_statuses.find((option) => option.value === value)
+                ?.label ?? value
         );
     }
 
@@ -75,11 +72,11 @@ function buildActiveFilterChips({
     onClearSearch,
     onApply,
 }: {
-    filters: LeaveReportFilters;
+    filters: LeaveBalanceReportFilters;
     searchInput: string;
     options: FilterOptions;
     onClearSearch: () => void;
-    onApply: (next: Partial<LeaveReportFilters>) => void;
+    onApply: (next: Partial<LeaveBalanceReportFilters>) => void;
 }): ActiveFilterChip[] {
     const chips: ActiveFilterChip[] = [];
 
@@ -88,18 +85,6 @@ function buildActiveFilterChips({
             key: 'search',
             label: `Search: ${searchInput.trim()}`,
             onClear: onClearSearch,
-        });
-    }
-
-    if (filters.leave_from !== '' || filters.leave_to !== '') {
-        chips.push({
-            key: 'leave_period',
-            label: `Leave period: ${formatDateRange(filters.leave_from, filters.leave_to)}`,
-            onClear: () =>
-                onApply({
-                    leave_from: '',
-                    leave_to: '',
-                }),
         });
     }
 
@@ -127,35 +112,19 @@ function buildActiveFilterChips({
         });
     }
 
-    if (filters.status !== '') {
+    if (filters.category !== '') {
         chips.push({
-            key: 'status',
-            label: `Status: ${resolveLabel('status', filters.status, options)}`,
-            onClear: () => onApply({ status: '' }),
+            key: 'category',
+            label: `Category: ${resolveLabel('category', filters.category, options)}`,
+            onClear: () => onApply({ category: '' }),
         });
     }
 
-    if (filters.submitted_from !== '' || filters.submitted_to !== '') {
+    if (filters.employee_status !== '') {
         chips.push({
-            key: 'submitted',
-            label: `Submitted: ${formatDateRange(filters.submitted_from, filters.submitted_to)}`,
-            onClear: () =>
-                onApply({
-                    submitted_from: '',
-                    submitted_to: '',
-                }),
-        });
-    }
-
-    if (filters.decided_from !== '' || filters.decided_to !== '') {
-        chips.push({
-            key: 'decided',
-            label: `Decided: ${formatDateRange(filters.decided_from, filters.decided_to)}`,
-            onClear: () =>
-                onApply({
-                    decided_from: '',
-                    decided_to: '',
-                }),
+            key: 'employee_status',
+            label: `Status: ${resolveLabel('employee_status', filters.employee_status, options)}`,
+            onClear: () => onApply({ employee_status: '' }),
         });
     }
 
@@ -163,40 +132,36 @@ function buildActiveFilterChips({
 }
 
 /** Secondary filters (not on the primary toolbar). */
-export function countSheetFilters(filters: LeaveReportFilters): number {
+export function countSheetFilters(filters: LeaveBalanceReportFilters): number {
     let count = 0;
 
     if (filters.employee_id !== '') {
         count += 1;
     }
 
-    if (filters.status !== '') {
+    if (filters.category !== '') {
         count += 1;
     }
 
-    if (filters.submitted_from !== '' || filters.submitted_to !== '') {
-        count += 1;
-    }
-
-    if (filters.decided_from !== '' || filters.decided_to !== '') {
+    if (filters.employee_status !== '') {
         count += 1;
     }
 
     return count;
 }
 
-export function LeaveReportActiveFilters({
+export function LeaveBalanceReportActiveFilters({
     filters,
     searchInput,
     options,
     onClearSearch,
     onApply,
 }: {
-    filters: LeaveReportFilters;
+    filters: LeaveBalanceReportFilters;
     searchInput: string;
     options: FilterOptions;
     onClearSearch: () => void;
-    onApply: (next: Partial<LeaveReportFilters>) => void;
+    onApply: (next: Partial<LeaveBalanceReportFilters>) => void;
 }) {
     const chips = useMemo(
         () =>

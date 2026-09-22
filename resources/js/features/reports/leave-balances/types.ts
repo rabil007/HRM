@@ -25,6 +25,8 @@ export type LeaveBalanceReportRow = {
         id: number | null;
         employee_no: string | null;
         name: string;
+        image: string | null;
+        can_view: boolean;
         status: string | null;
         status_label: string | null;
     };

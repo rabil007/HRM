@@ -4,15 +4,21 @@ namespace App\Support\Reports;
 
 use App\Enums\LeaveTypeCategory;
 use App\Models\LeaveBalance;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 final class LeaveBalanceReportPresenter
 {
     /**
      * @return array<string, mixed>
      */
-    public static function toArray(LeaveBalance $balance): array
+    public static function toArray(LeaveBalance $balance, ?User $user = null): array
     {
         $employee = $balance->employee;
+        $companyId = (int) $balance->company_id;
+        $canViewEmployee = $employee !== null
+            && ($user?->can('employees.view') ?? false)
+            && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
         $leaveType = $balance->leaveType;
         $category = $leaveType?->category instanceof LeaveTypeCategory
             ? $leaveType->category
@@ -28,6 +34,8 @@ final class LeaveBalanceReportPresenter
                 'id' => $employee?->id,
                 'employee_no' => $employee?->employee_no,
                 'name' => $employee?->name ?? 'Unavailable employee',
+                'image' => $canViewEmployee ? $employee?->image : null,
+                'can_view' => $canViewEmployee,
                 'status' => $employee?->status,
                 'status_label' => $employee?->status !== null
                     ? LeaveBalanceReportFilters::employeeStatusLabel((string) $employee->status)

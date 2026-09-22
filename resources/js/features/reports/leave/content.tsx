@@ -3,10 +3,8 @@ import {
     Download,
     FileSpreadsheet,
     FileText,
-    Filter,
     Loader2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { EmptyState } from '@/components/empty-state';
@@ -23,7 +21,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { exportMethod } from '@/routes/organization/reports/leave';
-import { LeaveReportFiltersSheet } from './filters-sheet';
 import {
     LeaveReportActiveFilters,
     countSheetFilters,
@@ -44,14 +41,9 @@ export function LeaveReportContent(props: LeaveReportProps) {
         department_tree_selected_id: departmentTreeSelectedId,
         can,
     } = props;
-    const [filtersOpen, setFiltersOpen] = useState(false);
     const controls = useLeaveReportFilters(filters, pagination.per_page);
-    const sheetFiltersCount = useMemo(
-        () => countSheetFilters(filters),
-        [filters],
-    );
     const hasActiveFilters =
-        sheetFiltersCount > 0 ||
+        countSheetFilters(filters) > 0 ||
         filters.leave_from !== '' ||
         filters.leave_to !== '' ||
         filters.department_id !== '' ||
@@ -166,20 +158,6 @@ export function LeaveReportContent(props: LeaveReportProps) {
                             {controls.isLoading ? (
                                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
                             ) : null}
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                className="h-11"
-                                onClick={() => setFiltersOpen(true)}
-                            >
-                                <Filter className="mr-2 size-4" />
-                                Filters
-                                {sheetFiltersCount ? (
-                                    <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                        {sheetFiltersCount}
-                                    </span>
-                                ) : null}
-                            </Button>
                             {hasActiveFilters ? (
                                 <Button
                                     type="button"
@@ -231,17 +209,6 @@ export function LeaveReportContent(props: LeaveReportProps) {
                 onPerPageChange={controls.perPage}
                 label="leave requests"
             />
-
-            {filtersOpen ? (
-                <LeaveReportFiltersSheet
-                    open
-                    onOpenChange={setFiltersOpen}
-                    filters={filters}
-                    options={options}
-                    onApply={controls.apply}
-                    onClear={controls.clear}
-                />
-            ) : null}
         </Main>
     );
 }

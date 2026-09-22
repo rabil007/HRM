@@ -203,3 +203,41 @@ test('leave balance report filter options hide employees outside department visi
     expect($this->actingAs($user)->get(route('organization.reports.leave-balances.index', ['year' => 2026]))->getContent())
         ->not->toContain('Office Staff');
 });
+
+test('leave balance report includes employee photo when the viewer can access the employee', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, ['reports.leave_balance.view', 'employees.view']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee->update([
+        'name' => 'Photo Person',
+        'image' => 'employees/photos/photo-person.jpg',
+    ]);
+    makeBalance($employee, $leaveType, 2026, []);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave-balances.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('balances', 1)
+            ->where('balances.0.employee.name', 'Photo Person')
+            ->where('balances.0.employee.image', 'employees/photos/photo-person.jpg')
+            ->where('balances.0.employee.can_view', true));
+});
+
+test('leave balance report hides employee photo without employees.view', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, ['reports.leave_balance.view']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee->update(['image' => 'employees/photos/hidden.jpg']);
+    makeBalance($employee, $leaveType, 2026, []);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave-balances.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('balances', 1)
+            ->where('balances.0.employee.image', null)
+            ->where('balances.0.employee.can_view', false));
+});
