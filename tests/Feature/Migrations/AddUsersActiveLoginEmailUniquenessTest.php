@@ -48,8 +48,7 @@ test('migration succeeds on clean User data', function () {
     User::factory()->create(['email' => 'clean-two@example.com']);
 
     expect(Schema::hasColumn('users', 'active_login_email'))->toBeTrue()
-        ->and(usersIndexNames()->contains('uq_users_active_login_email'))->toBeTrue()
-        ->and(usersIndexNames()->contains('uq_user_email_company'))->toBeTrue();
+        ->and(usersIndexNames()->contains('uq_users_active_login_email'))->toBeTrue();
 
     $migration = usersActiveLoginEmailUniquenessMigration();
     $migration->down();
@@ -160,7 +159,7 @@ test('restoring a deleted User fails when another live User owns that email', fu
         ->and(User::withTrashed()->find($deleted->id)?->trashed())->toBeTrue();
 });
 
-test('legacy company email unique still blocks same-home-company reuse after soft delete', function () {
+test('same-home-company soft-deleted email reuse is allowed while live uniqueness remains', function () {
     ['companyA' => $companyA] = makeTwoCompaniesForUserEmailIdentity('legacy');
 
     $deleted = User::factory()->create([
@@ -169,12 +168,15 @@ test('legacy company email unique still blocks same-home-company reuse after sof
     ]);
     $deleted->delete();
 
-    expect(fn () => User::factory()->create([
+    $live = User::factory()->create([
         'email' => 'same-home@example.com',
         'company_id' => $companyA->id,
-    ]))->toThrow(QueryException::class);
+    ]);
 
-    expect(User::withTrashed()->where('email', 'same-home@example.com')->count())->toBe(1);
+    expect($live->id)->not->toBe($deleted->id)
+        ->and(User::withTrashed()->where('email', 'same-home@example.com')->count())->toBe(2)
+        ->and(User::query()->where('email', 'same-home@example.com')->count())->toBe(1)
+        ->and($deleted->fresh()?->trashed())->toBeTrue();
 });
 
 test('migration preflight fails safely when duplicate live normalized emails already exist', function () {
@@ -233,7 +235,6 @@ test('rollback removes the new uniqueness mechanism without changing User rows',
 
     expect(Schema::hasColumn('users', 'active_login_email'))->toBeFalse()
         ->and(usersIndexNames()->contains('uq_users_active_login_email'))->toBeFalse()
-        ->and(usersIndexNames()->contains('uq_user_email_company'))->toBeTrue()
         ->and($after)->toBe($snapshot);
 
     Artisan::call('migrate', [
