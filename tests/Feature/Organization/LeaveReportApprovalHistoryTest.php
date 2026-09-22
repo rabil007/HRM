@@ -3,9 +3,11 @@
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Enums\LeaveTypeCategory;
 use App\Exports\LeaveReportExport;
+use App\Models\Company;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveRequestApprovalReassignment;
 use App\Models\LeaveType;
+use App\Models\User;
 use App\Support\Reports\LeaveReportFilters;
 use App\Support\Reports\LeaveReportQuery;
 use Carbon\CarbonImmutable;
@@ -228,4 +230,77 @@ test('leave report history and filters omit employees outside the visibility sco
         ->not->toContain('Office Staff')
         ->not->toContain('Hidden Approver')
         ->not->toContain($officeDept->name);
+});
+
+test('leave report hides foreign-company approver user fallback names', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+
+    $foreignCompany = Company::query()->create([
+        'name' => 'Foreign Approver Co',
+        'slug' => 'foreign-approver-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+    $foreignUser = User::factory()->create(['name' => 'Foreign Fallback Approver']);
+    $foreignEmployee = createAttendanceLeaveEmployee($foreignCompany, ['name' => 'Foreign Emp']);
+    $localUser = User::factory()->create(['name' => 'Local Fallback Approver']);
+    DB::table('company_user')->insert([
+        'company_id' => $company->id,
+        'user_id' => $localUser->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $request = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $request->id,
+        'sequence' => 1,
+        'approver_employee_id' => $foreignEmployee->id,
+        'approver_user_id' => $foreignUser->id,
+        'status' => LeaveRequestApprovalStatus::Pending,
+        'is_required' => true,
+        'policy_step_label' => 'Foreign User Step',
+    ]);
+    LeaveRequestApproval::factory()->approved()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $request->id,
+        'sequence' => 2,
+        // Corrupt employee FK from another company; same-company user remains as fallback.
+        'approver_employee_id' => $foreignEmployee->id,
+        'approver_user_id' => $localUser->id,
+        'is_required' => true,
+        'policy_step_label' => 'Local User Step',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_requests.0.approval_chain', function ($chain) {
+                $names = collect($chain)->pluck('approver_name')->all();
+
+                return in_array('Former / unavailable approver', $names, true)
+                    && in_array('Local Fallback Approver', $names, true)
+                    && ! in_array('Foreign Fallback Approver', $names, true)
+                    && ! in_array('Foreign Emp', $names, true);
+            }));
+
+    expect($this->actingAs($user)->get(route('organization.reports.leave.index'))->getContent())
+        ->not->toContain('Foreign Fallback Approver')
+        ->not->toContain('Foreign Emp');
 });

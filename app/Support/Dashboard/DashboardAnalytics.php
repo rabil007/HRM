@@ -16,6 +16,7 @@ use App\Models\PayrollRecord;
 use App\Models\User;
 use App\Support\Activity\ActivityChangePresenter;
 use App\Support\Activity\ActivityLogVisibilityScope;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\BankAccounts\BankAccountSummaryQuery;
@@ -69,6 +70,8 @@ final class DashboardAnalytics
             'organization',
             'documents',
             'attendance',
+            'leave',
+            'attention',
             'contracts',
             'training',
             'bank_accounts',
@@ -271,6 +274,7 @@ final class DashboardAnalytics
     {
         return $this->rememberScoped($companyId, $user, 'attendance', function () use ($companyId, $user): array {
             $activeQuery = Employee::query()->where('company_id', $companyId)->active();
+            AttendanceLeaveDepartmentScope::apply($activeQuery, $companyId);
             if ($user !== null) {
                 EmployeeVisibilityScope::apply($activeQuery, $user, $companyId);
             }
@@ -286,6 +290,7 @@ final class DashboardAnalytics
                 ->where('date', '<', $tomorrowDate);
 
             ActiveEmployeeConstraint::whereHas($distinctRow, $companyId);
+            AttendanceLeaveDepartmentScope::whereHas($distinctRow, $companyId);
             if ($user !== null) {
                 EmployeeVisibilityScope::whereHas($distinctRow, $user, $companyId, 'employee');
             }
@@ -353,6 +358,7 @@ final class DashboardAnalytics
                 ->whereDate('start_date', '<=', $today)
                 ->whereDate('end_date', '>=', $today);
             ActiveEmployeeConstraint::whereHas($onLeaveTodayQuery, $companyId);
+            AttendanceLeaveDepartmentScope::whereHas($onLeaveTodayQuery, $companyId);
             EmployeeVisibilityScope::whereHas($onLeaveTodayQuery, $user, $companyId, 'employee');
             $onLeaveToday = (int) $onLeaveTodayQuery->count();
 
@@ -362,6 +368,7 @@ final class DashboardAnalytics
                 ->whereDate('start_date', '>', $today)
                 ->whereDate('start_date', '<=', $in7Days);
             ActiveEmployeeConstraint::whereHas($upcomingQuery, $companyId);
+            AttendanceLeaveDepartmentScope::whereHas($upcomingQuery, $companyId);
             EmployeeVisibilityScope::whereHas($upcomingQuery, $user, $companyId, 'employee');
             $upcomingThisWeek = (int) $upcomingQuery->count();
 
@@ -1224,6 +1231,7 @@ final class DashboardAnalytics
             ->where('date', '>=', $weekStart)
             ->where('date', '<', $weekEndExclusive);
 
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId);
         if ($user !== null) {
             EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
         }
@@ -1262,6 +1270,7 @@ final class DashboardAnalytics
             ->with('employee:id,name')
             ->where('company_id', $companyId);
 
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId);
         if ($user !== null) {
             EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
         }

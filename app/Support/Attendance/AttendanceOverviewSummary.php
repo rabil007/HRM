@@ -4,8 +4,11 @@ namespace App\Support\Attendance;
 
 use App\Models\AttendanceRecord;
 use App\Models\LeaveRequest;
+use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 final class AttendanceOverviewSummary
@@ -38,7 +41,7 @@ final class AttendanceOverviewSummary
      *     recent_pending_leaves: list<array{id: int, employee_name: string, leave_type: string|null, start_date: string, end_date: string, total_days: string|float, created_at: string|null}>,
      * }
      */
-    public static function forCompany(int $companyId): array
+    public static function forCompany(int $companyId, User $user): array
     {
         $now = Carbon::now();
         $monthStart = $now->copy()->startOfMonth()->toDateString();
@@ -50,8 +53,7 @@ final class AttendanceOverviewSummary
         $monthlyStatusQuery = AttendanceRecord::query()
             ->where('company_id', $companyId)
             ->whereBetween('date', [$monthStart, $monthEnd]);
-        ActiveEmployeeConstraint::whereHas($monthlyStatusQuery, $companyId);
-        AttendanceLeaveDepartmentScope::whereHas($monthlyStatusQuery, $companyId);
+        self::scopeAttendanceRecords($monthlyStatusQuery, $companyId, $user);
 
         /** @var Collection<int, \stdClass> $monthlyStatusCounts */
         $monthlyStatusCounts = $monthlyStatusQuery
@@ -70,8 +72,7 @@ final class AttendanceOverviewSummary
         $thisMonthAggregatesQuery = AttendanceRecord::query()
             ->where('company_id', $companyId)
             ->whereBetween('date', [$monthStart, $monthEnd]);
-        ActiveEmployeeConstraint::whereHas($thisMonthAggregatesQuery, $companyId);
-        AttendanceLeaveDepartmentScope::whereHas($thisMonthAggregatesQuery, $companyId);
+        self::scopeAttendanceRecords($thisMonthAggregatesQuery, $companyId, $user);
 
         $thisMonthAggregates = $thisMonthAggregatesQuery
             ->selectRaw('AVG(hours_worked) as avg_hours, SUM(overtime_hours) as total_overtime, SUM(late_minutes) as total_late_minutes')
@@ -88,8 +89,7 @@ final class AttendanceOverviewSummary
         $ytdAggregatesQuery = AttendanceRecord::query()
             ->where('company_id', $companyId)
             ->whereBetween('date', [$yearStart, $now->toDateString()]);
-        ActiveEmployeeConstraint::whereHas($ytdAggregatesQuery, $companyId);
-        AttendanceLeaveDepartmentScope::whereHas($ytdAggregatesQuery, $companyId);
+        self::scopeAttendanceRecords($ytdAggregatesQuery, $companyId, $user);
 
         $ytdAggregates = $ytdAggregatesQuery
             ->selectRaw('COUNT(*) as total, SUM(overtime_hours) as total_overtime, SUM(late_minutes) as total_late_minutes')
@@ -104,8 +104,7 @@ final class AttendanceOverviewSummary
         $sourceQuery = AttendanceRecord::query()
             ->where('company_id', $companyId)
             ->whereBetween('date', [$monthStart, $monthEnd]);
-        ActiveEmployeeConstraint::whereHas($sourceQuery, $companyId);
-        AttendanceLeaveDepartmentScope::whereHas($sourceQuery, $companyId);
+        self::scopeAttendanceRecords($sourceQuery, $companyId, $user);
 
         /** @var Collection<int, \stdClass> $sourceCounts */
         $sourceCounts = $sourceQuery
@@ -133,15 +132,14 @@ final class AttendanceOverviewSummary
 
         $months = collect(range(5, 0))->map(fn (int $i) => $now->copy()->subMonths($i));
 
-        $monthlyTrend = $months->map(function (Carbon $month) use ($companyId): array {
+        $monthlyTrend = $months->map(function (Carbon $month) use ($companyId, $user): array {
             $start = $month->copy()->startOfMonth()->toDateString();
             $end = $month->copy()->endOfMonth()->toDateString();
 
             $statusRowsQuery = AttendanceRecord::query()
                 ->where('company_id', $companyId)
                 ->whereBetween('date', [$start, $end]);
-            ActiveEmployeeConstraint::whereHas($statusRowsQuery, $companyId);
-            AttendanceLeaveDepartmentScope::whereHas($statusRowsQuery, $companyId);
+            self::scopeAttendanceRecords($statusRowsQuery, $companyId, $user);
 
             $statusRows = $statusRowsQuery
                 ->selectRaw('status, COUNT(*) as count')
@@ -151,8 +149,7 @@ final class AttendanceOverviewSummary
             $aggsQuery = AttendanceRecord::query()
                 ->where('company_id', $companyId)
                 ->whereBetween('date', [$start, $end]);
-            ActiveEmployeeConstraint::whereHas($aggsQuery, $companyId);
-            AttendanceLeaveDepartmentScope::whereHas($aggsQuery, $companyId);
+            self::scopeAttendanceRecords($aggsQuery, $companyId, $user);
 
             $aggs = $aggsQuery
                 ->selectRaw('COUNT(*) as total, AVG(hours_worked) as avg_hours, SUM(overtime_hours) as total_overtime, SUM(late_minutes) as late_minutes')
@@ -174,7 +171,7 @@ final class AttendanceOverviewSummary
 
         /** @var Collection<int, \stdClass> $leaveStatusCounts */
         $leaveStatusQuery = LeaveRequest::query()->where('company_id', $companyId);
-        AttendanceLeaveDepartmentScope::whereHas($leaveStatusQuery, $companyId);
+        self::scopeLeaveRequests($leaveStatusQuery, $companyId, $user);
         $leaveStatusCounts = $leaveStatusQuery
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
@@ -192,7 +189,7 @@ final class AttendanceOverviewSummary
                 $q->whereBetween('start_date', [$monthStart, $monthEnd])
                     ->orWhereBetween('end_date', [$monthStart, $monthEnd]);
             });
-        AttendanceLeaveDepartmentScope::whereHas($leaveApprovedDaysThisMonthQuery, $companyId);
+        self::scopeLeaveRequests($leaveApprovedDaysThisMonthQuery, $companyId, $user);
         $leaveApprovedDaysThisMonth = (float) $leaveApprovedDaysThisMonthQuery->sum('total_days');
 
         $leaveApprovedDaysYtdQuery = LeaveRequest::query()
@@ -202,19 +199,19 @@ final class AttendanceOverviewSummary
                 $q->whereBetween('start_date', [$yearStart, $now->toDateString()])
                     ->orWhereBetween('end_date', [$yearStart, $now->toDateString()]);
             });
-        AttendanceLeaveDepartmentScope::whereHas($leaveApprovedDaysYtdQuery, $companyId);
+        self::scopeLeaveRequests($leaveApprovedDaysYtdQuery, $companyId, $user);
         $leaveApprovedDaysYtd = (float) $leaveApprovedDaysYtdQuery->sum('total_days');
 
         // ── Leave monthly trend – last 6 months ───────────────────────────────
 
-        $leaveMonthlyTrend = $months->map(function (Carbon $month) use ($companyId): array {
+        $leaveMonthlyTrend = $months->map(function (Carbon $month) use ($companyId, $user): array {
             $start = $month->copy()->startOfMonth()->toDateString();
             $end = $month->copy()->endOfMonth()->toDateString();
 
             $rowsQuery = LeaveRequest::query()
                 ->where('company_id', $companyId)
                 ->whereBetween('start_date', [$start, $end]);
-            AttendanceLeaveDepartmentScope::whereHas($rowsQuery, $companyId);
+            self::scopeLeaveRequests($rowsQuery, $companyId, $user);
 
             $rows = $rowsQuery
                 ->selectRaw('status, COUNT(*) as count, SUM(total_days) as total_days')
@@ -236,7 +233,7 @@ final class AttendanceOverviewSummary
             ->with(['employee:id,name,employee_no', 'leaveType:id,name'])
             ->where('company_id', $companyId)
             ->where('status', 'pending');
-        AttendanceLeaveDepartmentScope::whereHas($recentPendingQuery, $companyId);
+        self::scopeLeaveRequests($recentPendingQuery, $companyId, $user);
 
         $recentPendingLeaves = $recentPendingQuery
             ->latest('id')
@@ -280,5 +277,24 @@ final class AttendanceOverviewSummary
             'leave_monthly_trend' => $leaveMonthlyTrend,
             'recent_pending_leaves' => $recentPendingLeaves,
         ];
+    }
+
+    /**
+     * @param  Builder<AttendanceRecord>  $query
+     */
+    private static function scopeAttendanceRecords(Builder $query, int $companyId, User $user): void
+    {
+        ActiveEmployeeConstraint::whereHas($query, $companyId);
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId);
+        EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+    }
+
+    /**
+     * @param  Builder<LeaveRequest>  $query
+     */
+    private static function scopeLeaveRequests(Builder $query, int $companyId, User $user): void
+    {
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId);
+        EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
     }
 }

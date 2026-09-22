@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PayrollPeriodStatus;
+use App\Models\AttendanceRecord;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -296,4 +297,52 @@ test('dashboard does not serve stale authorization-derived leave totals after sa
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('leave_summary.on_leave_today', 1));
+});
+
+test('dashboard attendance and leave exclude departments not in Attendance & Leave', function () {
+    DashboardAnalytics::$forceCacheInTests = true;
+
+    $fixtures = makeDashboardLeaveVisibilityFixtures();
+    extract($fixtures);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.overview.view',
+        'employees.view',
+    ]);
+
+    AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $marineEmployee->id,
+        'date' => now('Asia/Dubai')->toDateString(),
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
+        'hours_worked' => 8,
+        'overtime_hours' => 0,
+        'late_minutes' => 0,
+        'clock_in' => now('Asia/Dubai')->setTime(9, 0),
+    ]);
+    AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $officeEmployee->id,
+        'date' => now('Asia/Dubai')->toDateString(),
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
+        'hours_worked' => 8,
+        'overtime_hours' => 0,
+        'late_minutes' => 0,
+        'clock_in' => now('Asia/Dubai')->setTime(9, 5),
+    ]);
+
+    $marineDept->update(['include_in_attendance_leave' => false]);
+    DashboardAnalytics::forgetCompany($company->id);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_summary.on_leave_today', 1)
+            ->where('attendance_analytics.present_today', 1)
+            ->where('attendance_analytics.active_employees', 1)
+            ->where('employee_analytics.active', 2));
 });

@@ -5,8 +5,7 @@ namespace App\Http\Requests\Organization\Department;
 use App\Http\Requests\Organization\Department\Concerns\ValidatesDepartmentHierarchy;
 use App\Http\Requests\Organization\Department\Concerns\ValidatesDepartmentManager;
 use App\Models\Department;
-use App\Models\Employee;
-use App\Models\LeaveRequest;
+use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -80,26 +79,10 @@ class UpdateDepartmentRequest extends FormRequest
                 return;
             }
 
-            // Disabling Attendance & Leave while pending leave exists would strand the queue.
-            $pendingCount = LeaveRequest::query()
-                ->where('company_id', $companyId)
-                ->where('status', 'pending')
-                ->whereIn(
-                    'employee_id',
-                    Employee::query()
-                        ->where('company_id', $companyId)
-                        ->where('department_id', $department->id)
-                        ->select('id'),
-                )
-                ->count();
+            $message = DepartmentAttendanceLeaveGuard::cannotExcludeDepartment($companyId, $department);
 
-            if ($pendingCount > 0) {
-                $label = $pendingCount === 1 ? '1 pending leave request' : "{$pendingCount} pending leave requests";
-
-                $validator->errors()->add(
-                    'include_in_attendance_leave',
-                    "This department has {$label}. Approve, reject, cancel, or administratively resolve them before excluding the department from Attendance & Leave.",
-                );
+            if ($message !== null) {
+                $validator->errors()->add('include_in_attendance_leave', $message);
             }
         });
     }

@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
 use App\Support\Attendance\LeaveRequestVisibility;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('department include_in_attendance_leave persists and new creates default excluded', function () {
@@ -312,4 +313,118 @@ test('leave report ignores corrupt cross-company approval children and soft-dele
         ->not->toContain('Foreign Approver Leak')
         ->not->toContain('Foreign From')
         ->not->toContain('FOREIGN-REASON');
+});
+
+test('department delete is blocked while pending leave exists and allowed after resolve', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType, 'department' => $department] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, [
+        'departments.view',
+        'departments.delete',
+    ]);
+
+    $pending = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($user)
+        ->from('/organization/departments')
+        ->delete("/organization/departments/{$department->id}")
+        ->assertRedirect('/organization/departments')
+        ->assertSessionHasErrors('department');
+
+    expect(Department::query()->whereKey($department->id)->exists())->toBeTrue();
+
+    $pending->forceFill(['status' => 'approved'])->save();
+
+    $this->actingAs($user)
+        ->delete("/organization/departments/{$department->id}")
+        ->assertRedirect('/organization/departments')
+        ->assertSessionHasNoErrors();
+
+    expect(Department::withTrashed()->find($department->id)?->trashed())->toBeTrue();
+});
+
+test('employee cannot move to excluded or null department while pending leave exists', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+    $user->update(['current_company_id' => $company->id]);
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.update',
+    ]);
+
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $office->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($user)
+        ->from("/organization/employees/{$office->id}")
+        ->put("/organization/employees/{$office->id}", [
+            'name' => $office->name,
+            'department_id' => $marineDept->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('department_id');
+
+    expect((int) $office->fresh()->department_id)->toBe((int) $officeDept->id);
+
+    $this->actingAs($user)
+        ->from("/organization/employees/{$office->id}")
+        ->put("/organization/employees/{$office->id}", [
+            'name' => $office->name,
+            'department_id' => null,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('department_id');
+
+    $includedSibling = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Twin',
+        'code' => 'OFT',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->put("/organization/employees/{$office->id}", [
+            'name' => $office->name,
+            'department_id' => $includedSibling->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect((int) $office->fresh()->department_id)->toBe((int) $includedSibling->id);
+});
+
+test('new department database default is excluded while migration backfill stays included', function () {
+    ['user' => $user, 'company' => $company] = authorizeLeaveReport();
+
+    $existing = Department::query()->where('company_id', $company->id)->firstOrFail();
+    expect((bool) $existing->include_in_attendance_leave)->toBeTrue();
+
+    $id = DB::table('departments')->insertGetId([
+        'company_id' => $company->id,
+        'name' => 'Raw Default Dept',
+        'code' => 'RDD',
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    expect((bool) DB::table('departments')->where('id', $id)->value('include_in_attendance_leave'))->toBeFalse();
 });

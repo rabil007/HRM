@@ -15,6 +15,7 @@ use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use App\Support\Departments\DepartmentHierarchyContext;
 use App\Support\Departments\PresentDepartmentEffectiveFields;
 use App\Support\Employees\EmployeeFormOptions;
@@ -360,7 +361,14 @@ class DepartmentController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
+        $participationChanged = array_key_exists('include_in_attendance_leave', $data)
+            && (bool) $data['include_in_attendance_leave'] !== (bool) $department->include_in_attendance_leave;
+
         $department->update($data);
+
+        if ($participationChanged) {
+            DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
+        }
 
         return redirect()
             ->route('organization.departments')
@@ -372,7 +380,16 @@ class DepartmentController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $department->company_id === $companyId, 404);
 
+        $message = DepartmentAttendanceLeaveGuard::cannotDeleteDepartment($companyId, $department);
+
+        if ($message !== null) {
+            return redirect()
+                ->route('organization.departments')
+                ->withErrors(['department' => $message]);
+        }
+
         $department->delete();
+        DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
 
         return redirect()
             ->route('organization.departments')

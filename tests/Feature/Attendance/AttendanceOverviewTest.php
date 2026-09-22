@@ -4,6 +4,7 @@ use App\Models\AttendanceRecord;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\LeaveType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -170,4 +171,71 @@ test('attendance overview summary contains correct structure', function () {
             ->has('summary.status_breakdown')
             ->has('summary.source_breakdown')
         );
+});
+
+test('attendance overview respects employee visibility and department participation', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+    $user->update(['current_company_id' => $company->id]);
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => true]);
+    restrictUserToDepartments($user, $company, [$officeDept->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.overview.view',
+        'attendance.records.view',
+        'attendance.leave-requests.view',
+    ]);
+
+    $hiddenOffice = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Dubai',
+        'code' => 'DXB',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+    $dubai = createAttendanceLeaveEmployee($company, [
+        'department_id' => $hiddenOffice->id,
+        'name' => 'Dubai Hidden Staff',
+        'status' => 'active',
+    ]);
+
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
+
+    foreach ([$office, $marine, $dubai] as $employee) {
+        AttendanceRecord::query()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'date' => now()->toDateString(),
+            'status' => AttendanceRecord::STATUS_PRESENT,
+            'source' => AttendanceRecord::SOURCE_MANUAL,
+            'hours_worked' => 8,
+            'overtime_hours' => 0,
+            'late_minutes' => 0,
+        ]);
+
+        createLeaveRequestRecord([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->toDateString(),
+            'total_days' => 1,
+            'status' => 'pending',
+        ]);
+    }
+
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/overview')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.this_month_present', 1)
+            ->where('summary.leave_pending', 1)
+            ->where('summary.recent_pending_leaves', fn ($rows) => collect($rows)->pluck('employee_name')->all() === [$office->name]));
+
+    expect($this->actingAs($user)->get('/attendance/overview')->getContent())
+        ->not->toContain('Dubai Hidden Staff')
+        ->not->toContain('Marine Crew');
 });

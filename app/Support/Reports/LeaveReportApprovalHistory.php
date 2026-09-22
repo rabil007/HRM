@@ -7,6 +7,7 @@ use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveRequestApprovalReassignment;
 use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -222,18 +223,18 @@ final class LeaveReportApprovalHistory
 
         $employee = $step->relationLoaded('approverEmployee') ? $step->approverEmployee : null;
 
-        if ($employee !== null) {
-            if ((int) $employee->company_id === $requestCompanyId && filled($employee->name)) {
-                return (string) $employee->name;
-            }
-
-            return self::UNAVAILABLE_APPROVER;
+        if ($employee !== null
+            && (int) $employee->company_id === $requestCompanyId
+            && filled($employee->name)) {
+            return (string) $employee->name;
         }
 
         $user = $step->relationLoaded('approverUser') ? $step->approverUser : null;
 
         if ($user !== null && filled($user->name)) {
-            return (string) $user->name;
+            if (app(ResolveCompanyAccess::class)->canAccess($user, $requestCompanyId)) {
+                return (string) $user->name;
+            }
         }
 
         return self::UNAVAILABLE_APPROVER;
