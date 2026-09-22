@@ -52,41 +52,48 @@ final class DashboardAnalytics
         private LeaveRequestVisibility $leaveRequestVisibility,
     ) {}
 
+    public static function cacheGenerationKey(int $companyId): string
+    {
+        return self::CACHE_KEY_PREFIX.$companyId.'.generation';
+    }
+
+    /**
+     * Company-scoped generation token. Bumped by forgetCompany() so both
+     * company-scoped and user-scoped dashboard keys stop being read without
+     * enumerating every user id (driver-agnostic; no cache tags required).
+     */
+    public static function cacheGeneration(int $companyId): int
+    {
+        try {
+            return (int) Cache::get(self::cacheGenerationKey($companyId), 0);
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
     public static function cacheKey(int $companyId, string $part = 'primary'): string
     {
-        return self::CACHE_KEY_PREFIX.$companyId.'.'.$part;
+        return self::CACHE_KEY_PREFIX.$companyId.'.g'.self::cacheGeneration($companyId).'.'.$part;
     }
 
     public static function userCacheKey(int $companyId, int $userId, string $part): string
     {
-        return self::CACHE_KEY_PREFIX.$companyId.'.user.'.$userId.'.'.$part;
+        return self::CACHE_KEY_PREFIX.$companyId.'.g'.self::cacheGeneration($companyId).'.user.'.$userId.'.'.$part;
     }
 
     public static function forgetCompany(int $companyId): void
     {
-        $parts = [
-            'primary',
-            'workforce',
-            'organization',
-            'documents',
-            'attendance',
-            'leave',
-            'attention',
-            'contracts',
-            'training',
-            'bank_accounts',
-            'payroll',
-            'crew',
-            'announcements',
-            'audit',
-            'workforce_trends',
-            'employees_by_department',
-            'employees_by_branch',
-            'recent_hires',
-        ];
+        if ($companyId <= 0) {
+            return;
+        }
 
-        foreach ($parts as $part) {
-            Cache::forget(self::cacheKey($companyId, $part));
+        $generationKey = self::cacheGenerationKey($companyId);
+
+        try {
+            $current = (int) Cache::get($generationKey, 0);
+            Cache::forever($generationKey, $current + 1);
+        } catch (\Throwable) {
+            // Cache store unavailable — callers still proceed; next reads rebuild.
         }
     }
 
@@ -871,6 +878,7 @@ final class DashboardAnalytics
                 return [
                     'has_linked_employee' => false,
                     'is_active_workforce' => false,
+                    'attendance_leave_enabled' => false,
                     'employee' => null,
                     'attendance_today' => null,
                     'recent_attendance' => [],
@@ -882,53 +890,63 @@ final class DashboardAnalytics
                 ];
             }
 
-            $attendanceTodayRecord = AttendanceRecord::query()
-                ->where('company_id', $companyId)
-                ->where('employee_id', $employee->id)
-                ->where('date', $today)
-                ->first();
+            $attendanceLeaveEnabled = AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId);
 
-            $attendanceToday = $attendanceTodayRecord !== null ? [
-                'status' => $attendanceTodayRecord->status,
-                'clock_in' => $attendanceTodayRecord->clock_in?->toIso8601String(),
-                'clock_out' => $attendanceTodayRecord->clock_out?->toIso8601String(),
-                'hours_worked' => $attendanceTodayRecord->hours_worked,
-            ] : null;
+            $attendanceToday = null;
+            $recentAttendance = [];
+            $myLeaveRequests = [];
+            $myLeaveBalances = [];
 
-            $recentAttendance = AttendanceRecord::query()
-                ->where('company_id', $companyId)
-                ->where('employee_id', $employee->id)
-                ->orderByDesc('date')
-                ->limit(5)
-                ->get()
-                ->map(fn (AttendanceRecord $r): array => [
-                    'id' => $r->id,
-                    'date' => $r->date?->toDateString(),
-                    'clock_in' => $r->clock_in?->toIso8601String(),
-                    'clock_out' => $r->clock_out?->toIso8601String(),
-                    'status' => $r->status,
-                ])
-                ->all();
+            if ($attendanceLeaveEnabled) {
+                $attendanceTodayRecord = AttendanceRecord::query()
+                    ->where('company_id', $companyId)
+                    ->where('employee_id', $employee->id)
+                    ->whereDate('date', $today)
+                    ->first();
 
-            $myLeaveRequests = LeaveRequest::query()
-                ->where('company_id', $companyId)
-                ->where('employee_id', $employee->id)
-                ->with('leaveType:id,name')
-                ->latest('id')
-                ->limit(5)
-                ->get()
-                ->map(fn (LeaveRequest $lr): array => [
-                    'id' => $lr->id,
-                    'leave_type' => $lr->leaveType?->name ?? 'Leave',
-                    'start_date' => $lr->start_date?->toDateString(),
-                    'end_date' => $lr->end_date?->toDateString(),
-                    'total_days' => $lr->total_days,
-                    'status' => $lr->status,
-                ])
-                ->all();
+                $attendanceToday = $attendanceTodayRecord !== null ? [
+                    'status' => $attendanceTodayRecord->status,
+                    'clock_in' => $attendanceTodayRecord->clock_in?->toIso8601String(),
+                    'clock_out' => $attendanceTodayRecord->clock_out?->toIso8601String(),
+                    'hours_worked' => $attendanceTodayRecord->hours_worked,
+                ] : null;
 
-            $myLeaveBalances = app(LeaveTypeYearBalance::class)
-                ->forEmployee($companyId, $employee->id, now($timezone)->year);
+                $recentAttendance = AttendanceRecord::query()
+                    ->where('company_id', $companyId)
+                    ->where('employee_id', $employee->id)
+                    ->orderByDesc('date')
+                    ->limit(5)
+                    ->get()
+                    ->map(fn (AttendanceRecord $r): array => [
+                        'id' => $r->id,
+                        'date' => $r->date?->toDateString(),
+                        'clock_in' => $r->clock_in?->toIso8601String(),
+                        'clock_out' => $r->clock_out?->toIso8601String(),
+                        'status' => $r->status,
+                    ])
+                    ->all();
+
+                $myLeaveRequests = LeaveRequest::query()
+                    ->where('company_id', $companyId)
+                    ->where('employee_id', $employee->id)
+                    ->with('leaveType:id,name')
+                    ->latest('id')
+                    ->limit(5)
+                    ->get()
+                    ->map(fn (LeaveRequest $lr): array => [
+                        'id' => $lr->id,
+                        'leave_type' => $lr->leaveType?->name ?? 'Leave',
+                        'start_date' => $lr->start_date?->toDateString(),
+                        'end_date' => $lr->end_date?->toDateString(),
+                        'total_days' => $lr->total_days,
+                        'status' => $lr->status,
+                    ])
+                    ->all();
+
+                // Only provision Leave balances for departments that participate.
+                $myLeaveBalances = app(LeaveTypeYearBalance::class)
+                    ->forEmployee($companyId, $employee->id, now($timezone)->year);
+            }
 
             $myExpiringDocuments = EmployeeDocument::query()
                 ->where('company_id', $companyId)
@@ -965,6 +983,7 @@ final class DashboardAnalytics
             return [
                 'has_linked_employee' => true,
                 'is_active_workforce' => $employee->status === 'active',
+                'attendance_leave_enabled' => $attendanceLeaveEnabled,
                 'employee' => [
                     'id' => $employee->id,
                     'name' => $employee->name,

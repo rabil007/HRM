@@ -15,7 +15,7 @@ use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
-use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
+use App\Support\Attendance\Actions\MutateDepartmentAttendanceLeaveParticipation;
 use App\Support\Departments\DepartmentHierarchyContext;
 use App\Support\Departments\PresentDepartmentEffectiveFields;
 use App\Support\Employees\EmployeeFormOptions;
@@ -24,6 +24,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -361,14 +362,8 @@ class DepartmentController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
-        $participationChanged = array_key_exists('include_in_attendance_leave', $data)
-            && (bool) $data['include_in_attendance_leave'] !== (bool) $department->include_in_attendance_leave;
-
-        $department->update($data);
-
-        if ($participationChanged) {
-            DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
-        }
+        app(MutateDepartmentAttendanceLeaveParticipation::class)
+            ->update($department, $companyId, $data);
 
         return redirect()
             ->route('organization.departments')
@@ -380,16 +375,14 @@ class DepartmentController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $department->company_id === $companyId, 404);
 
-        $message = DepartmentAttendanceLeaveGuard::cannotDeleteDepartment($companyId, $department);
-
-        if ($message !== null) {
+        try {
+            app(MutateDepartmentAttendanceLeaveParticipation::class)
+                ->delete($department, $companyId);
+        } catch (ValidationException $exception) {
             return redirect()
                 ->route('organization.departments')
-                ->withErrors(['department' => $message]);
+                ->withErrors($exception->errors());
         }
-
-        $department->delete();
-        DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
 
         return redirect()
             ->route('organization.departments')

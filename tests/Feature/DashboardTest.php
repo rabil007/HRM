@@ -325,6 +325,7 @@ test('personal dashboard returns linked employee info and isolates cross user or
         ->assertInertia(fn ($page) => $page
             ->where('personal_dashboard.has_linked_employee', true)
             ->where('personal_dashboard.is_active_workforce', true)
+            ->where('personal_dashboard.attendance_leave_enabled', true)
             ->where('personal_dashboard.employee.id', $employee->id)
             ->where('personal_dashboard.employee.position', 'Senior Developer')
         );

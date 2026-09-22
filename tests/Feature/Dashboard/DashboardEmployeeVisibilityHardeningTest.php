@@ -7,6 +7,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
@@ -345,4 +346,244 @@ test('dashboard attendance and leave exclude departments not in Attendance & Lea
             ->where('attendance_analytics.present_today', 1)
             ->where('attendance_analytics.active_employees', 1)
             ->where('employee_analytics.active', 2));
+});
+
+test('personal dashboard respects Attendance & Leave department participation', function () {
+    ['company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marineEmployee, 'officeEmployee' => $officeEmployee] = makeEmployeeVisibilityFixtures();
+
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    $officeUser = User::factory()->create();
+    $marineUser = User::factory()->create();
+    $officeEmployee->update(['user_id' => $officeUser->id]);
+    $marineEmployee->update(['user_id' => $marineUser->id]);
+
+    LeaveType::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Annual Leave',
+        'code' => 'AL-PERS',
+        'color' => '#10b981',
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $officeEmployee->id,
+        'date' => now('Asia/Dubai')->toDateString(),
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
+        'hours_worked' => 8,
+        'overtime_hours' => 0,
+        'late_minutes' => 0,
+        'clock_in' => now('Asia/Dubai')->setTime(9, 0),
+    ]);
+    AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $marineEmployee->id,
+        'date' => now('Asia/Dubai')->toDateString(),
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
+        'hours_worked' => 8,
+        'overtime_hours' => 0,
+        'late_minutes' => 0,
+        'clock_in' => now('Asia/Dubai')->setTime(8, 0),
+    ]);
+
+    grantCompanyPermissions($officeUser, $company, [], 'office-linked-role');
+    grantCompanyPermissions($marineUser, $company, [], 'marine-linked-role');
+
+    $balancesBefore = LeaveBalance::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $marineEmployee->id)
+        ->count();
+
+    $this->actingAs($officeUser)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('personal_dashboard.attendance_leave_enabled', true)
+            ->where('personal_dashboard.employee.id', $officeEmployee->id)
+            ->where('personal_dashboard.attendance_today.status', AttendanceRecord::STATUS_PRESENT)
+            ->where('personal_dashboard.my_leave_balances', fn ($balances) => count($balances) >= 1));
+
+    $this->actingAs($marineUser)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('personal_dashboard.has_linked_employee', true)
+            ->where('personal_dashboard.attendance_leave_enabled', false)
+            ->where('personal_dashboard.employee.id', $marineEmployee->id)
+            ->where('personal_dashboard.attendance_today', null)
+            ->where('personal_dashboard.recent_attendance', [])
+            ->where('personal_dashboard.my_leave_requests', [])
+            ->where('personal_dashboard.my_leave_balances', [])
+            ->has('personal_dashboard.my_announcements')
+            ->has('personal_dashboard.my_expiring_documents')
+            ->has('personal_dashboard.my_payslips'));
+
+    expect(LeaveBalance::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $marineEmployee->id)
+        ->count())->toBe($balancesBefore);
+});
+
+test('department participation mutation invalidates warm user-scoped dashboard cache', function () {
+    DashboardAnalytics::$forceCacheInTests = true;
+
+    ['user' => $admin, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marineEmployee] = makeEmployeeVisibilityFixtures();
+
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => true]);
+
+    $linkedUser = User::factory()->create();
+    $marineEmployee->update(['user_id' => $linkedUser->id]);
+
+    grantCompanyPermissions($admin, $company, [
+        'departments.view',
+        'departments.update',
+        'attendance.overview.view',
+        'attendance.leave-requests.view',
+        'employees.view',
+    ]);
+    grantCompanyPermissions($linkedUser, $company, [], 'linked-employee-role');
+
+    LeaveRequest::forceCreate([
+        'company_id' => $company->id,
+        'employee_id' => $marineEmployee->id,
+        'leave_type_id' => LeaveType::query()->create([
+            'company_id' => $company->id,
+            'name' => 'Annual Leave',
+            'code' => 'AL-CACHE',
+            'color' => '#10b981',
+            'status' => 'active',
+            'days_per_year' => 30,
+        ])->id,
+        'start_date' => now('Asia/Dubai')->toDateString(),
+        'end_date' => now('Asia/Dubai')->toDateString(),
+        'total_days' => 1,
+        'status' => 'approved',
+    ]);
+
+    AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $marineEmployee->id,
+        'date' => now('Asia/Dubai')->toDateString(),
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
+        'hours_worked' => 8,
+        'overtime_hours' => 0,
+        'late_minutes' => 0,
+        'clock_in' => now('Asia/Dubai')->setTime(9, 0),
+    ]);
+
+    // Warm personal + leave caches while Marine is still included.
+    $this->actingAs($linkedUser)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('personal_dashboard.attendance_leave_enabled', true)
+            ->where('personal_dashboard.attendance_today.status', AttendanceRecord::STATUS_PRESENT));
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_summary.on_leave_today', 1)
+            ->where('attendance_analytics.present_today', 1));
+
+    // Real mutation must invalidate without a manual forgetCompany() call.
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->put("/organization/departments/{$marineDept->id}", [
+            'name' => $marineDept->name,
+            'code' => $marineDept->code,
+            'status' => 'active',
+            'include_in_attendance_leave' => false,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect((bool) $marineDept->fresh()->include_in_attendance_leave)->toBeFalse();
+
+    $this->actingAs($linkedUser)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('personal_dashboard.attendance_leave_enabled', false)
+            ->where('personal_dashboard.attendance_today', null)
+            ->where('personal_dashboard.my_leave_balances', []));
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_summary.on_leave_today', 0)
+            ->where('attendance_analytics.present_today', 0));
+});
+
+test('employee department move mutation invalidates warm personal dashboard cache', function () {
+    DashboardAnalytics::$forceCacheInTests = true;
+
+    ['user' => $admin, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'officeEmployee' => $officeEmployee] = makeEmployeeVisibilityFixtures();
+
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    $linkedUser = User::factory()->create();
+    $officeEmployee->update(['user_id' => $linkedUser->id]);
+
+    grantCompanyPermissions($admin, $company, [
+        'employees.view',
+        'employees.update',
+    ]);
+    grantCompanyPermissions($linkedUser, $company, [], 'linked-employee-role');
+
+    AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $officeEmployee->id,
+        'date' => now('Asia/Dubai')->toDateString(),
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
+        'hours_worked' => 8,
+        'overtime_hours' => 0,
+        'late_minutes' => 0,
+        'clock_in' => now('Asia/Dubai')->setTime(9, 0),
+    ]);
+
+    $this->actingAs($linkedUser)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('personal_dashboard.attendance_leave_enabled', true)
+            ->where('personal_dashboard.attendance_today.status', AttendanceRecord::STATUS_PRESENT));
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->from("/organization/employees/{$officeEmployee->id}")
+        ->put("/organization/employees/{$officeEmployee->id}", [
+            'name' => $officeEmployee->name,
+            'department_id' => $marineDept->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect((int) $officeEmployee->fresh()->department_id)->toBe((int) $marineDept->id);
+
+    $this->actingAs($linkedUser)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('personal_dashboard.attendance_leave_enabled', false)
+            ->where('personal_dashboard.attendance_today', null)
+            ->where('personal_dashboard.my_leave_balances', []));
 });

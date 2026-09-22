@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\LeaveApprovalApproverType;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Company;
 use App\Models\Department;
@@ -9,10 +10,14 @@ use App\Models\LeaveRequestApproval;
 use App\Models\LeaveRequestApprovalReassignment;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\Actions\MutateDepartmentAttendanceLeaveParticipation;
+use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
 use App\Support\Attendance\LeaveRequestVisibility;
+use App\Support\Employees\Actions\ApplyEmployeeUpdateWithDepartmentGuard;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('department include_in_attendance_leave persists and new creates default excluded', function () {
@@ -427,4 +432,213 @@ test('new department database default is excluded while migration backfill stays
     ]);
 
     expect((bool) DB::table('departments')->where('id', $id)->value('include_in_attendance_leave'))->toBeFalse();
+});
+
+test('SubmitLeaveRequestWithApprovals rejects excluded department without side effects', function () {
+    ['company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine] = makeEmployeeVisibilityFixtures();
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    ensureDefaultLeaveApprovalPolicy($company);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    $balancesBefore = LeaveBalance::query()->where('company_id', $company->id)->count();
+    $requestsBefore = LeaveRequest::query()->where('company_id', $company->id)->count();
+    $approvalsBefore = LeaveRequestApproval::query()->where('company_id', $company->id)->count();
+
+    expect(fn () => app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $marine->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-09-20',
+            'end_date' => '2026-09-21',
+            'reason' => 'should fail',
+        ],
+        reserveBalance: true,
+        notify: false,
+    ))->toThrow(ValidationException::class);
+
+    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe($requestsBefore)
+        ->and(LeaveRequestApproval::query()->where('company_id', $company->id)->count())->toBe($approvalsBefore)
+        ->and(LeaveBalance::query()->where('company_id', $company->id)->count())->toBe($balancesBefore);
+});
+
+/**
+ * SQLite in-memory tests cannot meaningfully reproduce cross-connection row-lock
+ * races. These cases exercise the transaction-level domain contract deterministically:
+ * either leave submits first (exclusion/move blocked) or exclusion/move commits first
+ * (submit rejected). Production MySQL/MariaDB serialize via lockForUpdate() on the
+ * employee then department (submit) vs department (exclude) / employee (move).
+ */
+test('leave submit then department exclusion cannot strand pending leave', function () {
+    $company = authorizeLeaveReport()['company'];
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ]);
+
+    $employee = createAttendanceLeaveEmployee($company, [
+        'department_id' => $managed['department']->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-10-01',
+            'end_date' => '2026-10-02',
+            'reason' => 'submit first',
+        ],
+        reserveBalance: false,
+        notify: false,
+    );
+
+    expect($leaveRequest->status)->toBe('pending');
+
+    expect(fn () => app(MutateDepartmentAttendanceLeaveParticipation::class)->update(
+        $managed['department']->fresh(),
+        (int) $company->id,
+        [
+            'name' => $managed['department']->name,
+            'code' => $managed['department']->code,
+            'status' => 'active',
+            'include_in_attendance_leave' => false,
+        ],
+    ))->toThrow(ValidationException::class);
+
+    expect((bool) $managed['department']->fresh()->include_in_attendance_leave)->toBeTrue()
+        ->and(LeaveRequest::query()->whereKey($leaveRequest->id)->where('status', 'pending')->exists())->toBeTrue();
+});
+
+test('department exclusion then leave submit cannot strand pending leave', function () {
+    $company = authorizeLeaveReport()['company'];
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ]);
+
+    $employee = createAttendanceLeaveEmployee($company, [
+        'department_id' => $managed['department']->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    app(MutateDepartmentAttendanceLeaveParticipation::class)->update(
+        $managed['department']->fresh(),
+        (int) $company->id,
+        [
+            'name' => $managed['department']->name,
+            'code' => $managed['department']->code,
+            'status' => 'active',
+            'include_in_attendance_leave' => false,
+        ],
+    );
+
+    expect((bool) $managed['department']->fresh()->include_in_attendance_leave)->toBeFalse();
+
+    expect(fn () => app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-10-05',
+            'end_date' => '2026-10-06',
+            'reason' => 'after exclude',
+        ],
+        reserveBalance: false,
+        notify: false,
+    ))->toThrow(ValidationException::class);
+
+    expect(LeaveRequest::query()->where('employee_id', $employee->id)->where('status', 'pending')->count())->toBe(0)
+        ->and(AttendanceLeaveDepartmentScope::canAccessEmployee($employee->fresh(), (int) $company->id))->toBeFalse();
+});
+
+test('leave submit then employee move to excluded cannot strand pending leave', function () {
+    ['company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    ensureDefaultLeaveApprovalPolicy($company);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    // Office employee needs a resolvable approval chain — attach a manager department.
+    $managed = makeManagedDepartment($company);
+    $office->update(['department_id' => $managed['department']->id]);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $office->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-10-10',
+            'end_date' => '2026-10-11',
+            'reason' => 'before move',
+        ],
+        reserveBalance: false,
+        notify: false,
+    );
+
+    expect($leaveRequest->status)->toBe('pending');
+
+    expect(fn () => app(ApplyEmployeeUpdateWithDepartmentGuard::class)->handle(
+        $office->fresh(),
+        (int) $company->id,
+        ['department_id' => $marineDept->id],
+    ))->toThrow(ValidationException::class);
+
+    expect((int) $office->fresh()->department_id)->toBe((int) $managed['department']->id)
+        ->and(LeaveRequest::query()->whereKey($leaveRequest->id)->where('status', 'pending')->exists())->toBeTrue();
+});
+
+test('employee move to excluded then leave submit cannot strand pending leave', function () {
+    ['company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+    $officeDept->update(['include_in_attendance_leave' => true]);
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    ensureDefaultLeaveApprovalPolicy($company);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    $managed = makeManagedDepartment($company);
+    $office->update(['department_id' => $managed['department']->id]);
+
+    app(ApplyEmployeeUpdateWithDepartmentGuard::class)->handle(
+        $office->fresh(),
+        (int) $company->id,
+        ['department_id' => $marineDept->id],
+    );
+
+    expect((int) $office->fresh()->department_id)->toBe((int) $marineDept->id);
+
+    expect(fn () => app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $office->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-10-15',
+            'end_date' => '2026-10-16',
+            'reason' => 'after move',
+        ],
+        reserveBalance: false,
+        notify: false,
+    ))->toThrow(ValidationException::class);
+
+    expect(LeaveRequest::query()->where('employee_id', $office->id)->where('status', 'pending')->count())->toBe(0)
+        ->and(AttendanceLeaveDepartmentScope::canAccessEmployee($office->fresh(), (int) $company->id))->toBeFalse();
 });

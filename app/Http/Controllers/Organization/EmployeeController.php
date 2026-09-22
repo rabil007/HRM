@@ -13,10 +13,10 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
 use App\Services\Settings\AiSettingsService;
-use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
+use App\Support\Employees\Actions\ApplyEmployeeUpdateWithDepartmentGuard;
 use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\Actions\GuardEmployeeStatusTransition;
@@ -327,16 +327,9 @@ class EmployeeController extends Controller
         $sssaOptionIds = $data['sssa_option_ids'] ?? null;
         unset($data['approval_location_ids'], $data['sssa_option_ids']);
 
-        $previousDepartmentId = $employee->department_id !== null ? (int) $employee->department_id : null;
-        $nextDepartmentId = array_key_exists('department_id', $data)
-            ? ($data['department_id'] !== null ? (int) $data['department_id'] : null)
-            : $previousDepartmentId;
-
-        $employee->update($data);
-
-        if ($previousDepartmentId !== $nextDepartmentId) {
-            DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
-        }
+        $result = app(ApplyEmployeeUpdateWithDepartmentGuard::class)
+            ->handle($employee, $companyId, $data);
+        $employee = $result['employee'];
 
         SyncEmployeeWorkAssignments::sync($employee, array_filter([
             'approval_location_ids' => $approvalLocationIds,

@@ -10,7 +10,7 @@ The operational dashboard is the main landing page at `/dashboard`. It provides 
 - **Permission Model:** Accessible to every authenticated user. There is **no** `dashboard.view` permission.
 - **Composition:** Data payload and UI sections are dynamically gated based on existing company-team permissions:
   - `personal_summary` & `can`: Always returned (no permission required).
-  - `personal_dashboard`: Self-service employee portal (attendance, leave balances, expiring docs, recipient announcements, payslips) linked to the user's employee record.
+  - `personal_dashboard`: Self-service employee portal (profile, announcements, documents, payslips; Attendance/Leave only when the linked employee’s department has `include_in_attendance_leave`).
   - `attention_items`: Permission-aware alert items for items needing action.
   - `employee_analytics` & `organization_snapshot`: Requires `employees.view`.
   - `document_compliance` & `document_health`: Requires `documents.view`.
@@ -31,7 +31,8 @@ The operational dashboard is the main landing page at `/dashboard`. It provides 
 - **Composer:** `App\Support\Dashboard\DashboardComposer` — evaluates user permissions and composes Inertia props.
 - **Analytics Service:** `App\Support\Dashboard\DashboardAnalytics`
   - Split into independent, cached methods (`workforceSummary`, `organizationSummary`, `documentSummary`, `attendanceSummary`, `leaveSummary`, `contractsSummary`, `trainingSummary`, `bankAccountsSummary`, `payrollSummary`, `crewSummary`, `announcementsSummary`, `auditSummary`, `attentionCentre`, `personalDashboard`).
-  - Implements company & user cache keys: `dashboard.company.{companyId}.user.{userId}.{part}` with automatic invalidation via `DashboardAnalytics::forgetCompany($companyId)`.
+  - Implements company & user cache keys keyed by a company generation token (`dashboard.company.{companyId}.g{generation}…`). `DashboardAnalytics::forgetCompany($companyId)` bumps that generation so **both** company-scoped and user-scoped dashboard values stop being read without enumerating user IDs (driver-agnostic; no Redis tags required). Stale entries expire via TTL.
+  - **Personal dashboard** respects `Department.include_in_attendance_leave` via `AttendanceLeaveDepartmentScope`. When the linked employee’s current department is excluded (or null), `attendance_leave_enabled` is false: Attendance/Leave widgets are empty, Leave balances are **not** provisioned by a dashboard view, while profile, announcements, documents, and payslips remain available.
 - **Metrics Calculation Rules:**
   - **Hiring Metrics:** Driven by official `hire_date` (not record `created_at`).
   - **Headcount Trends:** Baseline active headcount + cumulative monthly hires (`hire_date`) - monthly terminations (`termination_date`).

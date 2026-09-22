@@ -15,14 +15,15 @@ use App\Models\Project;
 use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\VisaType;
-use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\Actions\ApplyEmployeeUpdateWithDepartmentGuard;
 use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Concerns\ToArray;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -549,33 +550,18 @@ class EmployeesImport
                         }
 
                         if ($payload !== []) {
-                            if (array_key_exists('department_id', $payload)) {
-                                $moveBlocked = DepartmentAttendanceLeaveGuard::cannotMoveEmployeeToDepartment(
-                                    $employee,
-                                    $this->companyId,
-                                    $payload['department_id'],
-                                );
+                            try {
+                                app(ApplyEmployeeUpdateWithDepartmentGuard::class)
+                                    ->handle($employee, $this->companyId, $payload);
+                            } catch (ValidationException $exception) {
+                                $messages = collect($exception->errors())->flatten()->filter()->values();
 
-                                if ($moveBlocked !== null) {
-                                    $failed[] = [
-                                        'row' => $rowNumber,
-                                        'message' => $moveBlocked,
-                                    ];
+                                $failed[] = [
+                                    'row' => $rowNumber,
+                                    'message' => (string) ($messages->first() ?: $exception->getMessage()),
+                                ];
 
-                                    continue;
-                                }
-                            }
-
-                            $previousDepartmentId = $employee->department_id !== null
-                                ? (int) $employee->department_id
-                                : null;
-                            $employee->update($payload);
-                            $nextDepartmentId = array_key_exists('department_id', $payload)
-                                ? ($payload['department_id'] !== null ? (int) $payload['department_id'] : null)
-                                : $previousDepartmentId;
-
-                            if ($previousDepartmentId !== $nextDepartmentId) {
-                                DepartmentAttendanceLeaveGuard::forgetDashboardCache($this->companyId);
+                                continue;
                             }
                         }
 
