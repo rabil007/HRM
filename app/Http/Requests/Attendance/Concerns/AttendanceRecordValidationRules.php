@@ -4,7 +4,8 @@ namespace App\Http\Requests\Attendance\Concerns;
 
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
-use App\Support\Employees\ActiveCompanyEmployeeRule;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
+use App\Support\Employees\AttendanceLeaveEligibleEmployeeRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
@@ -18,8 +19,10 @@ trait AttendanceRecordValidationRules
         $companyId = (int) $this->attributes->get('current_company_id');
 
         $employeeRule = $requireActiveEmployee
-            ? ActiveCompanyEmployeeRule::exists($companyId, $this->user())
-            : Rule::exists(Employee::class, 'id')->where(fn ($query) => $query->where('company_id', $companyId));
+            ? AttendanceLeaveEligibleEmployeeRule::exists($companyId, $this->user())
+            : Rule::exists(Employee::class, 'id')->where(fn ($query) => $query
+                ->where('company_id', $companyId)
+                ->whereIn('department_id', AttendanceLeaveDepartmentScope::includedDepartmentIdsSubquery($companyId)));
 
         return [
             'employee_id' => [
@@ -36,6 +39,16 @@ trait AttendanceRecordValidationRules
             'status' => ['required', Rule::in(AttendanceRecord::statusOptions())],
             'source' => ['sometimes', Rule::in(AttendanceRecord::sourceOptions())],
             'notes' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function attendanceRecordFieldMessages(): array
+    {
+        return [
+            'employee_id.exists' => AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE,
         ];
     }
 }

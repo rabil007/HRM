@@ -1,6 +1,7 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -299,6 +300,50 @@ export function DepartmentFormSheet({
                             {form.errors.leave_approval_policy_id ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.leave_approval_policy_id}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                Attendance &amp; Leave
+                            </Label>
+                            <label className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+                                <Checkbox
+                                    checked={
+                                        form.data.include_in_attendance_leave
+                                    }
+                                    onCheckedChange={(checked) =>
+                                        form.setData(
+                                            'include_in_attendance_leave',
+                                            checked === true,
+                                        )
+                                    }
+                                    className="mt-0.5"
+                                />
+                                <span className="space-y-1">
+                                    <span className="block text-sm font-medium">
+                                        Include employees from this department
+                                    </span>
+                                    <span className="block text-xs text-muted-foreground">
+                                        Employees in this department will be
+                                        available in Attendance and Leave. Turn
+                                        this off for departments such as Marine
+                                        or Offshore that do not use the office
+                                        Attendance/Leave workflow.
+                                    </span>
+                                </span>
+                            </label>
+                            {!form.data.include_in_attendance_leave ? (
+                                <p className="text-xs text-amber-600 dark:text-amber-400">
+                                    Employees in this department will be
+                                    excluded from Attendance, Leave, Leave
+                                    Approvals, and Leave reports.
+                                </p>
+                            ) : null}
+                            {form.errors.include_in_attendance_leave ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.include_in_attendance_leave}
                                 </div>
                             ) : null}
                         </div>

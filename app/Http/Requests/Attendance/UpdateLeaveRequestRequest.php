@@ -51,6 +51,14 @@ class UpdateLeaveRequestRequest extends FormRequest
         return $this->leaveRequestFieldRules();
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->leaveRequestFieldMessages();
+    }
+
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {

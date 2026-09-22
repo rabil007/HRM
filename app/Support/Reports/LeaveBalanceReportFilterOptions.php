@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -51,6 +52,7 @@ final class LeaveBalanceReportFilterOptions
             ->orderBy('employees.name');
 
         EmployeeVisibilityScope::apply($query, $user, $companyId);
+        AttendanceLeaveDepartmentScope::apply($query, $companyId);
 
         return $query
             ->get(['employees.id', 'employees.employee_no', 'employees.name', 'employees.status'])
@@ -77,6 +79,7 @@ final class LeaveBalanceReportFilterOptions
 
         return Department::query()
             ->where('company_id', $companyId)
+            ->where('include_in_attendance_leave', true)
             ->whereIn('id', Employee::query()->whereIn('id', $employeeIds)->select('department_id'))
             ->orderBy('name')
             ->get(['id', 'name'])
@@ -153,6 +156,7 @@ final class LeaveBalanceReportFilterOptions
         $query = LeaveBalance::query()->where('leave_balances.company_id', $companyId);
 
         EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId, 'employee');
 
         return $query;
     }

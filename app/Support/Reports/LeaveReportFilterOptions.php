@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -29,6 +30,7 @@ final class LeaveReportFilterOptions
             ->orderBy('employees.name');
 
         EmployeeVisibilityScope::apply($query, $user, $companyId);
+        AttendanceLeaveDepartmentScope::apply($query, $companyId);
 
         return $query
             ->get(['employees.id', 'employees.employee_no', 'employees.name'])
@@ -52,7 +54,7 @@ final class LeaveReportFilterOptions
             return [];
         }
 
-        return LeaveType::query()
+        return LeaveType::withTrashed()
             ->where('company_id', $companyId)
             ->whereIn('id', $visibleLeaveTypeIds)
             ->orderBy('name')
@@ -83,6 +85,7 @@ final class LeaveReportFilterOptions
                     ->whereNull('leave_requests.deleted_at');
             })
             ->tap(fn (Builder $query) => EmployeeVisibilityScope::apply($query, $user, $companyId))
+            ->tap(fn (Builder $query) => AttendanceLeaveDepartmentScope::apply($query, $companyId))
             ->distinct()
             ->pluck('employees.department_id')
             ->filter()
@@ -95,6 +98,7 @@ final class LeaveReportFilterOptions
 
         return Department::query()
             ->where('company_id', $companyId)
+            ->where('include_in_attendance_leave', true)
             ->whereIn('id', $departmentIds)
             ->orderBy('name')
             ->get(['id', 'name'])
@@ -115,6 +119,7 @@ final class LeaveReportFilterOptions
             ->where('leave_requests.company_id', $companyId);
 
         EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId, 'employee');
 
         return $query
             ->distinct()

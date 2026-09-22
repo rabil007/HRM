@@ -24,6 +24,7 @@ export function MyLeaveContent(props: {
     employees: LeaveRequestEmployeeOption[];
     leave_types: LeaveRequestTypeOption[];
     linkedEmployeeId: number | null;
+    linkedEmployeeAttendanceLeaveEnabled?: boolean;
     can: LeaveRequestPermissions;
     saved_views?: SavedView[];
 }) {

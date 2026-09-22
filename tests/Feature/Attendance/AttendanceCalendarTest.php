@@ -56,7 +56,7 @@ function makeAttendanceCalendarFixtures(): array
  */
 function makeAttendanceCalendarActors(Company $company): array
 {
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
 
     return ['employee' => $employee, 'leaveType' => $leaveType];
@@ -379,8 +379,8 @@ test('users with view_all permission default to their own approved leaves on cal
 test('calendar employee dropdown lists all active employees in current company including those without leave requests', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $employeeWithRequest, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
-    $employeeWithoutRequest = Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'No Requests']);
-    $inactiveEmployee = Employee::factory()->forCompany($company)->create(['status' => 'inactive', 'name' => 'Inactive Employee']);
+    $employeeWithoutRequest = createAttendanceLeaveEmployee($company, ['status' => 'active', 'name' => 'No Requests']);
+    $inactiveEmployee = createAttendanceLeaveEmployee($company, ['status' => 'inactive', 'name' => 'Inactive Employee']);
 
     $otherCompany = makeAttendanceCalendarFixtures()['company'];
     $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'active', 'name' => 'Foreign Employee']);
@@ -453,7 +453,7 @@ test('calendar employee dropdown lists all active employees in current company i
 test('calendar honors employee_id for inactive employees without leave requests', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $linkedEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
-    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+    $inactiveEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'inactive',
         'name' => 'Alice Tech',
     ]);
@@ -616,7 +616,7 @@ test('attendance calendar hides create form props without create permission', fu
 test('attendance calendar form employees are limited to linked employee without view_all', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $employee] = makeAttendanceCalendarActors($company);
-    Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    createAttendanceLeaveEmployee($company);
 
     $employee->update(['user_id' => $user->id]);
     $this->actingAs($user);

@@ -125,6 +125,7 @@ class DepartmentController extends Controller
                 'name' => $department->name,
                 'code' => $department->code,
                 'status' => $department->status,
+                'include_in_attendance_leave' => (bool) $department->include_in_attendance_leave,
                 'created_at' => $department->created_at,
             ];
         });
@@ -163,6 +164,7 @@ class DepartmentController extends Controller
                     'name' => $department->name,
                     'code' => $department->code,
                     'status' => $department->status,
+                    'include_in_attendance_leave' => (bool) $department->include_in_attendance_leave,
                     'manager' => $effective['manager'],
                     'manager_assignment' => $effective['manager_assignment'],
                     'leave_approval_policy' => $effective['leave_approval_policy'],
@@ -291,6 +293,7 @@ class DepartmentController extends Controller
                 'name' => $department->name,
                 'code' => $department->code,
                 'status' => $department->status,
+                'include_in_attendance_leave' => (bool) $department->include_in_attendance_leave,
                 'positions_count' => $positionsCount,
                 'users_count' => $usersCount,
                 'branches_count' => $branches->count(),
@@ -325,6 +328,9 @@ class DepartmentController extends Controller
         }
 
         $data['status'] = $data['status'] ?? 'active';
+        $data['include_in_attendance_leave'] = array_key_exists('include_in_attendance_leave', $data)
+            ? (bool) $data['include_in_attendance_leave']
+            : false;
 
         return $this->createOrReturnExistingQuickCreate(
             $request,

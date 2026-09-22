@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -66,6 +67,7 @@ final class LeaveBalanceReportQuery
         $query = LeaveBalance::query()->where('leave_balances.company_id', $this->companyId);
 
         EmployeeVisibilityScope::whereHas($query, $this->user, $this->companyId, 'employee');
+        AttendanceLeaveDepartmentScope::whereHas($query, $this->companyId, 'employee');
 
         if ($withRelations) {
             $query->with([

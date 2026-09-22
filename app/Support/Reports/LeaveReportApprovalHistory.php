@@ -32,22 +32,31 @@ final class LeaveReportApprovalHistory
     public static function forRequest(LeaveRequest $leaveRequest, string $timezone, ?User $user = null): array
     {
         $includeReason = $user?->can('audit.view') ?? false;
+        $requestCompanyId = (int) $leaveRequest->company_id;
         $steps = $leaveRequest->relationLoaded('approvals')
             ? $leaveRequest->approvals
-            : $leaveRequest->approvals()->where('is_required', true)->orderBy('sequence')->get();
+            : $leaveRequest->approvals()
+                ->where('company_id', $requestCompanyId)
+                ->where('is_required', true)
+                ->orderBy('sequence')
+                ->get();
 
         $required = $steps
-            ->filter(fn (LeaveRequestApproval $step): bool => (bool) $step->is_required)
+            ->filter(function (LeaveRequestApproval $step) use ($requestCompanyId): bool {
+                return (bool) $step->is_required
+                    && (int) $step->company_id === $requestCompanyId;
+            })
             ->sortBy('sequence')
             ->values();
 
         $chain = $required
-            ->map(fn (LeaveRequestApproval $step): array => self::stepPayload($step, $timezone))
+            ->map(fn (LeaveRequestApproval $step): array => self::stepPayload($step, $timezone, $requestCompanyId))
             ->all();
 
         $reassignments = ($leaveRequest->relationLoaded('approvalReassignments')
             ? $leaveRequest->approvalReassignments
-            : $leaveRequest->approvalReassignments()->orderBy('id')->get())
+            : $leaveRequest->approvalReassignments()->where('company_id', $requestCompanyId)->orderBy('id')->get())
+            ->filter(fn (LeaveRequestApprovalReassignment $reassignment): bool => (int) $reassignment->company_id === $requestCompanyId)
             ->map(fn (LeaveRequestApprovalReassignment $reassignment): array => self::reassignmentPayload(
                 $reassignment,
                 $timezone,
@@ -124,7 +133,7 @@ final class LeaveReportApprovalHistory
         );
 
         $waitingFor = $pending instanceof LeaveRequestApproval
-            ? self::approverName($pending)
+            ? self::approverName($pending, (int) $leaveRequest->company_id)
             : null;
         $currentSequence = $pending instanceof LeaveRequestApproval
             ? (int) $pending->sequence
@@ -140,7 +149,7 @@ final class LeaveReportApprovalHistory
 
         $label = match (true) {
             $requiredCount === 0 => 'No approval required',
-            $rejected instanceof LeaveRequestApproval => 'Rejected by '.self::approverName($rejected),
+            $rejected instanceof LeaveRequestApproval => 'Rejected by '.self::approverName($rejected, (int) $leaveRequest->company_id),
             $leaveRequest->status === 'cancelled' => 'Cancelled',
             $approvedCount === $requiredCount => $requiredCount.' / '.$requiredCount.' approved',
             $approvedCount === 0 && $waitingFor !== null => 'Pending — waiting for '.$waitingFor,
@@ -160,7 +169,7 @@ final class LeaveReportApprovalHistory
     /**
      * @return array<string, mixed>
      */
-    private static function stepPayload(LeaveRequestApproval $step, string $timezone): array
+    private static function stepPayload(LeaveRequestApproval $step, string $timezone, int $requestCompanyId): array
     {
         $status = self::statusOf($step);
         $actedAt = in_array($status, [LeaveRequestApprovalStatus::Pending, LeaveRequestApprovalStatus::Waiting], true)
@@ -171,7 +180,7 @@ final class LeaveReportApprovalHistory
             'sequence' => (int) $step->sequence,
             'policy_step_label' => $step->policy_step_label !== null ? (string) $step->policy_step_label : null,
             'approver_employee_id' => $step->approver_employee_id !== null ? (int) $step->approver_employee_id : null,
-            'approver_name' => self::approverName($step),
+            'approver_name' => self::approverName($step, $requestCompanyId),
             'status' => $status->value,
             'status_label' => $status->label(),
             'acted_at' => $actedAt,
@@ -205,12 +214,20 @@ final class LeaveReportApprovalHistory
         return $payload;
     }
 
-    private static function approverName(LeaveRequestApproval $step): string
+    private static function approverName(LeaveRequestApproval $step, int $requestCompanyId): string
     {
+        if ((int) $step->company_id !== $requestCompanyId) {
+            return self::UNAVAILABLE_APPROVER;
+        }
+
         $employee = $step->relationLoaded('approverEmployee') ? $step->approverEmployee : null;
 
-        if ($employee !== null && (int) $employee->company_id === (int) $step->company_id && filled($employee->name)) {
-            return (string) $employee->name;
+        if ($employee !== null) {
+            if ((int) $employee->company_id === $requestCompanyId && filled($employee->name)) {
+                return (string) $employee->name;
+            }
+
+            return self::UNAVAILABLE_APPROVER;
         }
 
         $user = $step->relationLoaded('approverUser') ? $step->approverUser : null;

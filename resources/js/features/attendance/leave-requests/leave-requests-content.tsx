@@ -77,6 +77,7 @@ export function LeaveRequestsContent({
     employees,
     leave_types,
     linkedEmployeeId,
+    linkedEmployeeAttendanceLeaveEnabled = true,
     can,
     saved_views = [],
 }: {
@@ -95,6 +96,7 @@ export function LeaveRequestsContent({
     employees: LeaveRequestEmployeeOption[];
     leave_types: LeaveRequestTypeOption[];
     linkedEmployeeId: number | null;
+    linkedEmployeeAttendanceLeaveEnabled?: boolean;
     can: LeaveRequestPermissions;
     saved_views?: SavedView[];
 }) {
@@ -246,8 +248,16 @@ export function LeaveRequestsContent({
     };
 
     const emptyTitle = isMine
-        ? 'You have no leave requests yet.'
+        ? linkedEmployeeAttendanceLeaveEnabled
+            ? 'You have no leave requests yet.'
+            : 'Attendance & Leave is not enabled for your department.'
         : 'No leave requests need your approval.';
+
+    const emptyDescription = isMine
+        ? linkedEmployeeAttendanceLeaveEnabled
+            ? undefined
+            : 'Your current department is excluded from Attendance and Leave. Contact HR if this should be enabled.'
+        : undefined;
 
     return (
         <Main>
@@ -333,6 +343,7 @@ export function LeaveRequestsContent({
             {leave_requests.length === 0 ? (
                 <EmptyState
                     title={emptyTitle}
+                    description={emptyDescription}
                     action={
                         isMine && can.create ? (
                             <Button

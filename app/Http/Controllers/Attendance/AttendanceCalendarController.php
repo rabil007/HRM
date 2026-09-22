@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\Attendance\TodayAttendanceTimeline;
@@ -135,6 +136,8 @@ class AttendanceCalendarController extends Controller
             EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
         }
 
+        AttendanceLeaveDepartmentScope::apply($employeesQuery, $companyId);
+
         return $employeesQuery
             ->get(['id', 'employee_no', 'name'])
             ->map(fn (Employee $employee) => [
@@ -160,6 +163,7 @@ class AttendanceCalendarController extends Controller
             ->orderBy('name');
 
         EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+        AttendanceLeaveDepartmentScope::apply($employeesQuery, $companyId);
 
         $employees = $employeesQuery->get(['id', 'employee_no', 'name']);
 
@@ -169,6 +173,7 @@ class AttendanceCalendarController extends Controller
                 ->whereKey($selectedEmployeeId);
 
             EmployeeVisibilityScope::apply($selectedQuery, $user, $companyId);
+            AttendanceLeaveDepartmentScope::apply($selectedQuery, $companyId);
 
             $selected = $selectedQuery->first(['id', 'employee_no', 'name']);
 
@@ -201,6 +206,7 @@ class AttendanceCalendarController extends Controller
             ->whereKey($selectedEmployeeId);
 
         EmployeeVisibilityScope::apply($query, $user, $companyId);
+        AttendanceLeaveDepartmentScope::apply($query, $companyId);
 
         $employee = $query->first(['id', 'employee_no', 'name']);
 

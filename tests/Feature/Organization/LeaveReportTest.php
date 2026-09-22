@@ -106,7 +106,7 @@ test('leave period overlap includes cross-month leave and excludes non-overlappi
 test('leave report filters by search status employee leave type department and decision dates', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
 
-    $otherEmployee = Employee::factory()->forCompany($company)->create([
+    $otherEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Other Person',
         'employee_no' => 'LR-002',
@@ -296,7 +296,7 @@ test('soft deleted leave requests are excluded from leave report', function () {
 test('leave report employee filter includes inactive employees with leave history', function () {
     ['user' => $user, 'company' => $company, 'employee' => $activeEmployee, 'leaveType' => $leaveType] = authorizeLeaveReport();
 
-    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+    $inactiveEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'inactive',
         'name' => 'Former Employee',
         'employee_no' => 'LR-OLD',
@@ -468,7 +468,7 @@ test('leave report department tree hides unauthorized departments', function () 
 test('leave report department tree counts include inactive and terminated employees with leave history', function () {
     ['user' => $user, 'company' => $company, 'employee' => $activeEmployee, 'leaveType' => $leaveType] = authorizeLeaveReport();
 
-    $terminatedEmployee = Employee::factory()->forCompany($company)->create([
+    $terminatedEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'terminated',
         'department_id' => $activeEmployee->department_id,
         'name' => 'Former Crew',
@@ -526,7 +526,7 @@ test('leave report filter options exclude employees with only soft deleted leave
 
     $employeeWithValidLeave->update(['department_id' => $validDepartment->id]);
 
-    $deletedOnlyEmployee = Employee::factory()->forCompany($company)->create([
+    $deletedOnlyEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Deleted History Only',
         'employee_no' => 'LR-DEL',

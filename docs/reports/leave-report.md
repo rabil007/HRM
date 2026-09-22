@@ -31,7 +31,7 @@ Both routes enforce their permission independently. Company scoping is always ap
 
 ## Employee visibility
 
-The report query, summary cards, filter employee/department/leave-type options, department tree counts, and export all use the same employee visibility rules as the rest of OMS-HRM (`EmployeeVisibilityScope`). Users restricted to selected departments cannot discover employees outside that scope through rows, counts, filters, or exports.
+The report query, summary cards, filter employee/department/leave-type options, department tree counts, and export all use `EmployeeVisibilityScope` and `AttendanceLeaveDepartmentScope` (`Department.include_in_attendance_leave`). Users restricted to selected departments cannot discover employees outside that scope through rows, counts, filters, or exports. Departments excluded from Attendance & Leave never appear. Soft-deleted leave types remain filterable when visible historical rows reference them.
 
 The department tree only includes departments the user is allowed to access. Unauthorized department names are not shown with zero counts — those nodes are omitted entirely. Allowed child departments may appear as root nodes when their parent department is not visible.
 

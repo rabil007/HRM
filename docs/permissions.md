@@ -76,6 +76,8 @@ Each tenant role stores `employee_visibility_scope`:
 
 Canonical enforcement: `App\Support\Employees\EmployeeVisibilityScope` (`apply`, `canAccess`, `whereHas`). Operational employee pickers also use `ActiveCompanyEmployeeRule::exists($companyId, $user)`.
 
+**Attendance & Leave department participation:** `Department.include_in_attendance_leave` decides whether employees currently assigned to that department participate in Attendance and Leave (Overview, Calendar, Records, Leave requests, Approvals, Leave Report, Leave Balance Report). Enforcement is `App\Support\Attendance\AttendanceLeaveDepartmentScope`, combined with `EmployeeVisibilityScope` for normal manager/report access. Leave Approvals always require the department gate; actors with `attendance.leave-requests.view_all` also get `EmployeeVisibilityScope`, while an ordinary assigned approver may still act on an enabled-department request outside directory visibility. Employees with `department_id = null` are excluded. Existing departments remain included after migration; newly created departments default to excluded until an administrator enables them. This setting does not delete historical data, change Crew Operations, general employee directory visibility, Hikvision ingestion, or replace Spatie permissions.
+
 **Exceptions (intentional):**
 
 - **Self-service** — only where a workflow explicitly allows `allowSelf: true` (for example payslip self-view), not for administrative profile mutations.

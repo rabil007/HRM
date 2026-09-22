@@ -28,7 +28,7 @@ These permissions are not copied onto existing roles. Routes enforce them indepe
 
 ## Employee visibility
 
-Rows, filter options, summary counts, and export all require `company_id` of the active company and `EmployeeVisibilityScope`. A user restricted to one department cannot discover employees outside that scope.
+Rows, filter options, summary counts, and export all require `company_id` of the active company, `EmployeeVisibilityScope`, and `AttendanceLeaveDepartmentScope` (`Department.include_in_attendance_leave`). A user restricted to one department cannot discover employees outside that scope, and excluded Attendance/Leave departments never appear.
 
 ## Filters
 

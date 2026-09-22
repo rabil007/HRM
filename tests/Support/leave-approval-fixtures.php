@@ -127,6 +127,7 @@ function makeManagedDepartment(Company $company, bool $withParent = false): arra
             'code' => 'PAR',
             'manager_id' => $parentManager->id,
             'status' => 'active',
+            'include_in_attendance_leave' => true,
         ]);
     }
 
@@ -137,6 +138,7 @@ function makeManagedDepartment(Company $company, bool $withParent = false): arra
         'parent_id' => $parent?->id,
         'manager_id' => $manager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     return array_filter([

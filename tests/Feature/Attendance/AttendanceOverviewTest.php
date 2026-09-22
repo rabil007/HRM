@@ -4,7 +4,6 @@ use App\Models\AttendanceRecord;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -107,7 +106,7 @@ test('users with attendance.overview.view can access the overview', function () 
 
 test('attendance overview summary contains correct structure', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceOverviewFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
 
     grantCompanyPermissions($user, $company, [
         'attendance.overview.view',

@@ -26,6 +26,7 @@ use App\Support\Attendance\Actions\ReassignLeaveRequestApproval;
 use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveApprovalApproverDuplicates;
 use App\Support\Attendance\LeaveRequestAttachments;
@@ -159,14 +160,27 @@ class LeaveRequestController extends Controller
             ->where('status', 'active')
             ->orderBy('name');
 
-        if (! $canViewAll) {
+        if ($listMode === 'approvals') {
+            $queueEmployeeIds = LeaveRequest::query()
+                ->tap(fn ($query) => $this->visibility->applyAwaitingMyApprovalScope($query, $user, $companyId))
+                ->distinct()
+                ->pluck('employee_id')
+                ->filter()
+                ->map(fn ($id): int => (int) $id)
+                ->values()
+                ->all();
+
+            $employeesQuery->whereIn('id', $queueEmployeeIds === [] ? [0] : $queueEmployeeIds);
+        } elseif (! $canViewAll) {
             $employeesQuery->when(
                 $linkedEmployeeId !== null,
                 fn ($query) => $query->whereKey($linkedEmployeeId),
                 fn ($query) => $query->whereRaw('1 = 0'),
             );
+            AttendanceLeaveDepartmentScope::apply($employeesQuery, $companyId);
         } else {
             EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+            AttendanceLeaveDepartmentScope::apply($employeesQuery, $companyId);
         }
 
         $countsQuery = LeaveRequest::query()
@@ -189,6 +203,12 @@ class LeaveRequestController extends Controller
 
         $totalCount = array_sum($statusCounts);
 
+        $linkedEmployeeEligible = $linkedEmployeeId !== null
+            && AttendanceLeaveDepartmentScope::canAccessEmployeeId($linkedEmployeeId, $companyId);
+
+        $canCreate = ($user?->can('attendance.leave-requests.create') ?? false)
+            && ($canViewAll || $linkedEmployeeEligible);
+
         return Inertia::render($inertiaPage, [
             'list_mode' => $listMode,
             'leave_requests' => $leaveRequests->items(),
@@ -209,13 +229,14 @@ class LeaveRequestController extends Controller
             ],
             'employees' => $employeesQuery->get(['id', 'employee_no', 'name']),
             'linked_employee_id' => $linkedEmployeeId,
+            'linked_employee_attendance_leave_enabled' => $linkedEmployeeEligible,
             'leave_types' => LeaveType::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'name', 'code', 'color']),
             'can' => [
-                'create' => $user?->can('attendance.leave-requests.create') ?? false,
+                'create' => $canCreate,
                 'update' => $user?->can('attendance.leave-requests.update') ?? false,
                 'delete' => $user?->can('attendance.leave-requests.delete') ?? false,
                 'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
@@ -259,8 +280,10 @@ class LeaveRequestController extends Controller
                 fn ($query) => $query->whereKey($linkedEmployeeId),
                 fn ($query) => $query->whereRaw('1 = 0'),
             );
+            AttendanceLeaveDepartmentScope::apply($employeesQuery, $companyId);
         } else {
             EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+            AttendanceLeaveDepartmentScope::apply($employeesQuery, $companyId);
         }
 
         return Inertia::render('attendance/leave-request', [
@@ -729,5 +752,6 @@ class LeaveRequestController extends Controller
         }
 
         $query->where('employee_id', $linkedEmployeeId);
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId, 'employee');
     }
 }

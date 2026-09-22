@@ -51,6 +51,14 @@ class UpdateAttendanceRecordRequest extends FormRequest
         );
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->attendanceRecordFieldMessages();
+    }
+
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {

@@ -40,6 +40,14 @@ class StoreAttendanceRecordRequest extends FormRequest
         return $this->attendanceRecordFieldRules();
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->attendanceRecordFieldMessages();
+    }
+
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {

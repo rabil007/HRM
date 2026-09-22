@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -80,6 +81,7 @@ final class LeaveReportQuery
             ->where('leave_requests.company_id', $this->companyId);
 
         EmployeeVisibilityScope::whereHas($query, $this->user, $this->companyId, 'employee');
+        AttendanceLeaveDepartmentScope::whereHas($query, $this->companyId, 'employee');
 
         if ($withRelations) {
             $query->with([
@@ -95,6 +97,7 @@ final class LeaveReportQuery
                 ]),
                 'approver:id,name',
                 'approvals' => fn ($approvals) => $approvals
+                    ->where('company_id', $this->companyId)
                     ->where('is_required', true)
                     ->orderBy('sequence')
                     ->with([
@@ -103,7 +106,9 @@ final class LeaveReportQuery
                             ->select(['id', 'company_id', 'name']),
                         'approverUser:id,name',
                     ]),
-                'approvalReassignments' => fn ($reassignments) => $reassignments->orderBy('id'),
+                'approvalReassignments' => fn ($reassignments) => $reassignments
+                    ->where('company_id', $this->companyId)
+                    ->orderBy('id'),
             ]);
         }
 
@@ -161,7 +166,7 @@ final class LeaveReportQuery
                 $direction,
             ),
             'leave_type' => $query->orderBy(
-                LeaveType::query()->select('name')->whereColumn('leave_types.id', 'leave_requests.leave_type_id'),
+                LeaveType::withTrashed()->select('name')->whereColumn('leave_types.id', 'leave_requests.leave_type_id'),
                 $direction,
             ),
             'start_date' => $query->orderBy('leave_requests.start_date', $direction),
