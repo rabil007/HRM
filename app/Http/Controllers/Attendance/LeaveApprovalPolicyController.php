@@ -14,7 +14,10 @@ use App\Models\LeaveRequestApproval;
 use App\Support\Attendance\Actions\SyncLeaveApprovalPolicySteps;
 use App\Support\Attendance\Actions\UpdateLeaveApprovalPolicyState;
 use App\Support\Attendance\PresentLeaveApproverOption;
+use App\Support\Attendance\PreviewLeaveApprovalPolicySync;
+use App\Support\Attendance\SyncLeaveApprovalPolicyToPendingRequests;
 use App\Support\Pagination\ResolvesPerPage;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +33,8 @@ class LeaveApprovalPolicyController extends Controller
         private PresentLeaveApproverOption $presentApproverOption,
         private UpdateLeaveApprovalPolicyState $policyState,
         private SyncLeaveApprovalPolicySteps $syncSteps,
+        private PreviewLeaveApprovalPolicySync $previewPendingSync,
+        private SyncLeaveApprovalPolicyToPendingRequests $syncPendingRequests,
     ) {}
 
     public function index(Request $request): Response
@@ -263,6 +268,32 @@ class LeaveApprovalPolicyController extends Controller
         return redirect()
             ->route('attendance.leave-approval-policies.index')
             ->with('success', 'Leave approval policy deleted successfully.');
+    }
+
+    public function syncPreview(Request $request, LeaveApprovalPolicy $leaveApprovalPolicy): JsonResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $leaveApprovalPolicy->company_id === $companyId, 404);
+
+        $preview = $this->previewPendingSync->handle($leaveApprovalPolicy, $companyId);
+
+        return response()->json($preview->toArray());
+    }
+
+    public function syncPending(Request $request, LeaveApprovalPolicy $leaveApprovalPolicy): RedirectResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $leaveApprovalPolicy->company_id === $companyId, 404);
+
+        $result = $this->syncPendingRequests->handle(
+            policy: $leaveApprovalPolicy,
+            companyId: $companyId,
+            actor: $request->user(),
+        );
+
+        return redirect()
+            ->route('attendance.leave-approval-policies.index')
+            ->with('success', $result->flashMessage());
     }
 
     /**

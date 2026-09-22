@@ -1,5 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,8 @@ export function LeaveApprovalPolicyFormSheet({
     employees,
     onSubmit,
     onMoveStep,
+    onSyncPending,
+    canSyncPending = false,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -49,6 +51,8 @@ export function LeaveApprovalPolicyFormSheet({
     employees: LeaveApprovalPolicyEmployeeOption[];
     onSubmit: () => void;
     onMoveStep: (index: number, direction: 'up' | 'down') => void;
+    onSyncPending?: () => void;
+    canSyncPending?: boolean;
 }) {
     const updateStep = (
         index: number,
@@ -486,23 +490,50 @@ export function LeaveApprovalPolicyFormSheet({
                     </div>
                 </div>
 
-                <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
-                        onClick={() => onOpenChange(false)}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        className="h-11 flex-1 rounded-xl px-6 font-semibold"
-                        type="button"
-                        onClick={onSubmit}
-                        disabled={form.processing}
-                    >
-                        {policy ? 'Save' : 'Create'}
-                    </Button>
+                <div className="flex flex-col gap-3 border-t border-border/60 bg-background/40 p-6">
+                    {policy && canSyncPending && onSyncPending ? (
+                        <div className="space-y-2">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-11 w-full rounded-xl px-6"
+                                onClick={onSyncPending}
+                                disabled={form.processing || form.isDirty}
+                                title={
+                                    form.isDirty
+                                        ? 'Save the policy before syncing pending requests.'
+                                        : 'Apply the saved policy to eligible pending leave requests'
+                                }
+                            >
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Sync Pending Requests
+                            </Button>
+                            {form.isDirty ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Save the policy before syncing. Unsaved
+                                    changes are not applied to pending requests.
+                                </p>
+                            ) : null}
+                        </div>
+                    ) : null}
+                    <div className="flex gap-3">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
+                            onClick={() => onOpenChange(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            className="h-11 flex-1 rounded-xl px-6 font-semibold"
+                            type="button"
+                            onClick={onSubmit}
+                            disabled={form.processing}
+                        >
+                            {policy ? 'Save' : 'Create'}
+                        </Button>
+                    </div>
                 </div>
             </SheetContent>
         </Sheet>
