@@ -246,6 +246,7 @@ test('creating leave type provisions balances for active employees', function ()
         'color' => '#3b82f6',
         'status' => 'active',
         'payroll_treatment' => 'paid',
+        'category' => 'annual',
     ])->assertRedirect();
 
     $leaveType = LeaveType::query()->where('company_id', $company->id)->where('code', 'AL')->first();

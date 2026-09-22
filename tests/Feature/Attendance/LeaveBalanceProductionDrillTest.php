@@ -89,6 +89,7 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         'color' => '#3b82f6',
         'status' => 'active',
         'payroll_treatment' => 'paid',
+        'category' => 'annual',
     ])->assertRedirect();
 
     $annualLeave = LeaveType::query()
