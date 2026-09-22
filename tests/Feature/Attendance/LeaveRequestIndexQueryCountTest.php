@@ -119,7 +119,12 @@ test('leave request index keeps total and approval query counts bounded as page 
         'attendance.leave-requests.approve',
     ]);
 
-    $this->actingAs($user)->withSession(['current_company_id' => $company->id]);
+    $manager = Employee::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'Dept Manager')
+        ->firstOrFail();
+
+    $this->actingAs($manager->user)->withSession(['current_company_id' => $company->id]);
 
     DB::flushQueryLog();
     DB::enableQueryLog();

@@ -2,8 +2,9 @@
 
 Leave Report is a read-only **historical** HR reporting view for company leave request history.
 
-- **My Leave** and **Leave Approvals** remain the operational workflows for submitting and deciding leave.
-- Leave Report reports and exports historical leave requests without changing balances, approval logic, or notifications.
+- **My Leave** remains the operational workflow for submitting and tracking your own leave.
+- **Leave Approvals** is an action queue for the current required pending step assigned to you. It is not a historical browser, and `view_all` does not turn it into an everyone list.
+- Leave Report reports and exports historical leave requests, approval progress, and reassignment history without changing balances, approval logic, or notifications.
 
 ## Source of truth
 
@@ -55,13 +56,30 @@ Default sort: `start_date desc`.
 
 ## Summary cards
 
-Summary counts are calculated from the same filtered, visibility-scoped query as the table:
+Summary day totals use the same filtered, visibility-scoped request set as the table. Rejected and cancelled requests do not contribute.
 
-- **Total Requests** — matching leave requests
-- **Approved** — matching requests with status `approved`
-- **Pending** — matching requests with status `pending`
-- **Approved Leave Days** — sum of `total_days` for approved matching requests
-- **Employees Taking Leave** — distinct employees with approved matching requests
+- **Total Leave Days** — approved leave days plus pending leave days
+- **Approved Leave Days** — days on approved requests
+- **Pending Leave Days** — days on pending requests
+- **Annual Leave Days** — approved, pending, and total days for leave types whose reporting category is `annual`
+- **Sick Leave Days** — approved, pending, and total days for leave types whose reporting category is `sick`
+
+Annual and Sick totals use `LeaveType.category`. They do not use the editable leave type name, code, or `payroll_treatment`.
+
+The leave-period filter selects overlapping requests and **clips** counted days to the dates inside that period, using the same inclusive day calculation as leave requests. Submitted and decided date filters select requests and do not clip their duration. When no leave period is set, the stored request day total is used.
+
+## Approval history
+
+Leave Approvals is only the current action queue. Leave Report is the historical source for approval progress.
+
+Each row includes structured `approval_progress`, the required approval chain, and reassignment history. FYI / non-required steps are excluded from progress. Pending and waiting steps do not receive an invented action time. Dates use the company timezone.
+
+The Approval column opens the chain:
+
+- step label, approver, status, and action time when the step was acted
+- reassignment from/to names, who reassigned, and when
+
+The internal reassignment reason is included only when the viewer has `audit.view`. It is never sent to other viewers. Private approval comments, the leave request reason, and attachments are not part of this report.
 
 ## Privacy
 
@@ -73,6 +91,8 @@ Excel (`.xlsx`) and CSV exports use the same query, filters, employee visibility
 
 Export columns:
 
-- Employee No, Employee Name, Department, Leave Type, Leave From, Leave To, Total Days, Status, Submitted At, Decided At, Decided By
+- Employee No, Employee Name, Department, Leave Type, Leave Category, Leave From, Leave To, Total Days, Status, Submitted At, Decided At, Decided By, Approval Progress, Current / Waiting Approver, Approval Chain, Reassignment Summary
+
+The approval chain is flattened in sequence, for example `1. Department Manager — Mohamed — Approved — 20 Sep 2026 10:30`. The reassignment summary uses snapshot names, for example `Step 2: Rima → Sara on 21 Sep 2026`. Export does not include private approval comments, the leave reason, attachments, or the internal reassignment reason.
 
 Filenames: `leave-report-YYYY-MM-DD.xlsx` and `leave-report-YYYY-MM-DD.csv`.

@@ -2,6 +2,7 @@
 
 namespace App\Support\Reports;
 
+use App\Enums\LeaveTypeCategory;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -19,6 +20,8 @@ final class LeaveReportPresenter
         $canViewEmployee = $employee !== null
             && ($user?->can('employees.view') ?? false)
             && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
+
+        $history = LeaveReportApprovalHistory::forRequest($leaveRequest, $timezone, $user);
 
         return [
             'id' => $leaveRequest->id,
@@ -39,6 +42,9 @@ final class LeaveReportPresenter
             'submitted_at' => self::datetime($leaveRequest->created_at, $timezone),
             'decided_at' => self::datetime($leaveRequest->decided_at, $timezone),
             'decided_by' => $leaveRequest->approver?->name,
+            'approval_progress' => $history['approval_progress'],
+            'approval_chain' => $history['approval_chain'],
+            'reassignments' => $history['reassignments'],
         ];
     }
 
@@ -66,7 +72,7 @@ final class LeaveReportPresenter
     }
 
     /**
-     * @return array{id: int, name: string, code: string, color: string|null}|null
+     * @return array{id: int, name: string, code: string, color: string|null, category: string, category_label: string}|null
      */
     private static function leaveTypeOption(?object $model): ?array
     {
@@ -74,11 +80,17 @@ final class LeaveReportPresenter
             return null;
         }
 
+        $category = $model->category instanceof LeaveTypeCategory
+            ? $model->category
+            : LeaveTypeCategory::tryFrom((string) ($model->category ?? '')) ?? LeaveTypeCategory::Other;
+
         return [
             'id' => (int) $model->id,
             'name' => (string) $model->name,
             'code' => (string) ($model->code ?? ''),
             'color' => $model->color !== null ? (string) $model->color : null,
+            'category' => $category->value,
+            'category_label' => $category->label(),
         ];
     }
 

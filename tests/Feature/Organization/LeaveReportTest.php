@@ -64,7 +64,8 @@ test('leave report is company scoped', function () {
             ->component('organization/reports/leave/index')
             ->has('leave_requests', 1)
             ->where('leave_requests.0.id', $visible->id)
-            ->where('summary.total', 1)
+            ->where('summary.total_leave_days', 5)
+            ->where('summary.approved_leave_days', 5)
             ->where('can.export', true));
 });
 
@@ -99,7 +100,7 @@ test('leave period overlap includes cross-month leave and excludes non-overlappi
         ->assertInertia(fn (Assert $page) => $page
             ->has('leave_requests', 1)
             ->where('leave_requests.0.id', $overlapping->id)
-            ->where('summary.total', 1));
+            ->where('summary.approved_leave_days', 5));
 });
 
 test('leave report filters by search status employee leave type department and decision dates', function () {
@@ -207,11 +208,11 @@ test('leave report summary counts respect filters and visibility scope', functio
         ->get(route('organization.reports.leave.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('leave_requests', 2)
-            ->where('summary.total', 2)
-            ->where('summary.approved', 1)
-            ->where('summary.pending', 1)
+            ->where('summary.total_leave_days', 5)
             ->where('summary.approved_leave_days', 3)
-            ->where('summary.employees_taking_leave', 1)
+            ->where('summary.pending_leave_days', 2)
+            ->where('summary.annual.total', 0)
+            ->where('summary.sick.total', 0)
             ->where('filter_options.employees', fn ($options) => collect($options)->pluck('id')->sort()->values()->all() === collect([$marine->id])->sort()->values()->all())
             ->where('filter_options.departments', fn ($options) => collect($options)->pluck('id')->all() === [$marineDept->id]));
 });
@@ -250,7 +251,7 @@ test('foreign company filter ids cannot expose leave requests', function () {
         ]))
         ->assertInertia(fn (Assert $page) => $page
             ->has('leave_requests', 0)
-            ->where('summary.total', 0));
+            ->where('summary.total_leave_days', 0));
 });
 
 test('soft deleted leave requests are excluded from leave report', function () {
@@ -281,7 +282,8 @@ test('soft deleted leave requests are excluded from leave report', function () {
         ->get(route('organization.reports.leave.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('leave_requests', 1)
-            ->where('summary.total', 1));
+            ->where('summary.total_leave_days', 5)
+            ->where('summary.approved_leave_days', 5));
 
     expect((new LeaveReportQuery(
         $company->id,

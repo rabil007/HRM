@@ -240,6 +240,11 @@ const baseSidebarData: SidebarData = {
                     icon: CalendarRange,
                 },
                 {
+                    title: 'Leave Balance Report',
+                    url: '/organization/reports/leave-balances',
+                    icon: Wallet,
+                },
+                {
                     title: 'Crew Movement History',
                     url: crewMovementHistory.url(),
                     icon: BarChart3,

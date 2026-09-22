@@ -1,3 +1,5 @@
+export type LeaveTypeCategory = 'annual' | 'sick' | 'other';
+
 export type LeaveTypePayrollTreatment = 'paid' | 'unpaid';
 
 export type LeaveType = {
@@ -10,6 +12,7 @@ export type LeaveType = {
     color: string | null;
     status: 'active' | 'inactive';
     payroll_treatment: LeaveTypePayrollTreatment;
+    category: LeaveTypeCategory;
 };
 
 export type LeaveTypeFormData = {
@@ -21,6 +24,7 @@ export type LeaveTypeFormData = {
     color: string;
     status: 'active' | 'inactive';
     payroll_treatment: LeaveTypePayrollTreatment;
+    category: LeaveTypeCategory;
 };
 
 export const defaultLeaveTypeFormData = (): LeaveTypeFormData => ({
@@ -32,6 +36,7 @@ export const defaultLeaveTypeFormData = (): LeaveTypeFormData => ({
     color: '#3b82f6',
     status: 'active',
     payroll_treatment: 'paid',
+    category: 'other',
 });
 
 export function leaveTypeToFormData(leaveType: LeaveType): LeaveTypeFormData {
@@ -44,5 +49,6 @@ export function leaveTypeToFormData(leaveType: LeaveType): LeaveTypeFormData {
         color: leaveType.color ?? '#3b82f6',
         status: leaveType.status,
         payroll_treatment: leaveType.payroll_treatment ?? 'paid',
+        category: leaveType.category ?? 'other',
     };
 }

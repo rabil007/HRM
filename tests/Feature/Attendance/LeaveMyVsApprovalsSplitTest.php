@@ -154,7 +154,7 @@ test('leave approvals requires approve permission and defaults to needs action s
         ->assertInertia(fn (Assert $page) => $page
             ->component('attendance/leave-approvals')
             ->where('list_mode', 'approvals')
-            ->where('filters.scope', 'awaiting_my_approval')
+            ->missing('filters.scope')
             ->has('leave_requests', 1)
             ->where('leave_requests.0.id', $awaiting->id));
 });

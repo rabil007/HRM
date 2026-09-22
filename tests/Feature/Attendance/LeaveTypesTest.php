@@ -63,6 +63,7 @@ function validLeaveTypePayload(array $overrides = []): array
         'color' => '#3b82f6',
         'status' => 'active',
         'payroll_treatment' => 'paid',
+        'category' => 'other',
     ], $overrides);
 }
 
@@ -342,4 +343,86 @@ test('corrective migration backfills soft-deleted legacy unpaid leave types only
         ->and(LeaveType::withTrashed()->findOrFail($softDeletedLop->id)->payroll_treatment->value)->toBe('unpaid')
         ->and(LeaveType::withTrashed()->findOrFail($unrelatedSoftDeleted->id)->payroll_treatment->value)->toBe('paid')
         ->and($activeUl->fresh()->payroll_treatment->value)->toBe('paid');
+});
+
+test('leave type reporting category persists independently of name code and payroll treatment', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.types.view',
+        'attendance.types.create',
+        'attendance.types.update',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/types', validLeaveTypePayload([
+            'name' => 'Medical',
+            'code' => 'MED',
+            'category' => 'sick',
+            'payroll_treatment' => 'unpaid',
+        ]))
+        ->assertRedirect();
+
+    $leaveType = LeaveType::query()->where('code', 'MED')->firstOrFail();
+    expect($leaveType->category->value)->toBe('sick')
+        ->and($leaveType->payroll_treatment->value)->toBe('unpaid');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/attendance/types/{$leaveType->id}", validLeaveTypePayload([
+            'name' => 'Renamed Medical',
+            'code' => 'MED2',
+            'category' => 'sick',
+            'payroll_treatment' => 'paid',
+        ]))
+        ->assertRedirect();
+
+    expect($leaveType->fresh()->category->value)->toBe('sick')
+        ->and($leaveType->fresh()->name)->toBe('Renamed Medical')
+        ->and($leaveType->fresh()->code)->toBe('MED2')
+        ->and($leaveType->fresh()->payroll_treatment->value)->toBe('paid');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/attendance/types/{$leaveType->id}", validLeaveTypePayload([
+            'name' => 'Renamed Medical',
+            'code' => 'MED2',
+            'category' => 'annual',
+            'payroll_treatment' => 'paid',
+        ]))
+        ->assertRedirect();
+
+    expect($leaveType->fresh()->category->value)->toBe('annual')
+        ->and($leaveType->fresh()->payroll_treatment->value)->toBe('paid');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/types', validLeaveTypePayload([
+            'code' => 'BAD',
+            'category' => 'vacation',
+        ]))
+        ->assertSessionHasErrors('category');
+});
+
+test('leave type category cannot be updated across companies', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.types.update']);
+
+    $other = Company::query()->create([
+        'name' => 'Other Types Co',
+        'slug' => 'other-types-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+    $foreign = LeaveType::factory()->for($other)->create(['category' => 'annual']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/attendance/types/{$foreign->id}", validLeaveTypePayload([
+            'category' => 'sick',
+        ]))
+        ->assertNotFound();
+
+    expect($foreign->fresh()->category->value)->toBe('annual');
 });

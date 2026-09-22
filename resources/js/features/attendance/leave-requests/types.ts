@@ -107,7 +107,7 @@ export type LeaveRequestFilters = {
     status: '' | LeaveRequestStatus;
     employee_id: string;
     leave_type_id: string;
-    scope: LeaveRequestScope;
+    scope?: LeaveRequestScope;
 };
 
 export type LeaveRequestPermissions = {

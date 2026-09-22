@@ -172,6 +172,7 @@ use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\HistoricalCrewAssignmentController;
+use App\Http\Controllers\Organization\LeaveBalanceReportController;
 use App\Http\Controllers\Organization\LeaveReportController;
 use App\Http\Controllers\Organization\OrganizationBulkRecordController;
 use App\Http\Controllers\Organization\PositionAttachmentController;
@@ -534,6 +535,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/reports/leave/export', [LeaveReportController::class, 'export'])
         ->middleware('can:reports.leave.export')
         ->name('organization.reports.leave.export');
+
+    Route::get('organization/reports/leave-balances', [LeaveBalanceReportController::class, 'index'])
+        ->middleware('can:reports.leave_balance.view')
+        ->name('organization.reports.leave-balances.index');
+    Route::get('organization/reports/leave-balances/export', [LeaveBalanceReportController::class, 'export'])
+        ->middleware('can:reports.leave_balance.export')
+        ->name('organization.reports.leave-balances.export');
 
     Route::get('organization/vessels/export', [VesselController::class, 'export'])
         ->middleware('can:crew_operations.vessels.view')

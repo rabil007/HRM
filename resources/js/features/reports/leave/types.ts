@@ -14,6 +14,44 @@ export type EmployeeOption = ReportOption & {
 export type LeaveTypeOption = ReportOption & {
     code: string;
     color: string | null;
+    category?: string;
+    category_label?: string;
+};
+
+export type LeaveReportApprovalStep = {
+    sequence: number;
+    policy_step_label: string | null;
+    approver_employee_id: number | null;
+    approver_name: string;
+    status: string;
+    status_label: string;
+    acted_at: string | null;
+    is_current_action_step: boolean;
+};
+
+export type LeaveReportReassignment = {
+    sequence: number;
+    policy_step_label: string | null;
+    from_name: string;
+    to_name: string;
+    reassigned_by: string | null;
+    reassigned_at: string | null;
+    reason?: string | null;
+};
+
+export type LeaveReportApprovalProgress = {
+    required_steps: number;
+    approved_steps: number;
+    current_status: string;
+    waiting_for: string | null;
+    current_sequence: number | null;
+    label: string;
+};
+
+export type LeaveReportDayBucket = {
+    approved: number;
+    pending: number;
+    total: number;
 };
 
 export type SelectOption = {
@@ -40,6 +78,9 @@ export type LeaveReportRow = {
     submitted_at: string | null;
     decided_at: string | null;
     decided_by: string | null;
+    approval_progress: LeaveReportApprovalProgress;
+    approval_chain: LeaveReportApprovalStep[];
+    reassignments: LeaveReportReassignment[];
 };
 
 export type LeaveReportFilters = {
@@ -62,11 +103,11 @@ export type LeaveReportProps = {
     leave_requests: LeaveReportRow[];
     pagination: PaginationMeta;
     summary: {
-        total: number;
-        approved: number;
-        pending: number;
+        total_leave_days: number;
         approved_leave_days: number;
-        employees_taking_leave: number;
+        pending_leave_days: number;
+        annual: LeaveReportDayBucket;
+        sick: LeaveReportDayBucket;
     };
     filters: LeaveReportFilters;
     filter_options: {

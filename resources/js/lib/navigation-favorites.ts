@@ -185,6 +185,12 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Reports',
     },
     {
+        key: 'reports.leave_balance',
+        label: 'Leave Balance Report',
+        href: '/organization/reports/leave-balances',
+        group: 'Reports',
+    },
+    {
         key: 'reports.crew-movement-history',
         label: 'Crew Movement History',
         href: '/organization/reports/crew-movement-history',

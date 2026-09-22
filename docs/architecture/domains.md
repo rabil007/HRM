@@ -829,6 +829,10 @@ Leave type presentation (`LeaveTypeYearBalance`) exposes `base_entitlement_days`
 
 Leave types store a stable `payroll_treatment` (`paid` / `unpaid`) used by Office Payroll. Renaming code or display name does not change salary calculation. Legacy codes `UL`, `UNPAID`, and `LOP` were backfilled to unpaid on migration for non-deleted types; soft-deleted legacy unpaid codes are corrected by a later additive data migration so historical Office Payroll still treats them as unpaid.
 
+Leave types also store a stable reporting `category` (`annual`, `sick`, `other`). Leave Report Annual and Sick day totals use that category. It is independent of `payroll_treatment` and of the editable name or code. Existing rows default to `other` until HR classifies them. The category does not change how `days_per_year` becomes `LeaveBalance.entitled_days`.
+
+Leave Approvals lists only the current required pending step for the signed-in approver. Historical requests, earlier steps, waiting steps, and FYI steps are read from Leave Report. Leave Balance Report reads persisted balance snapshots and does not provision missing years.
+
 Backfill (`leave-approvals:backfill`) is non-destructive: existing approval rows are never deleted or replaced (`--force` only warns and skips). Dry-run performs no writes (settings resolution is read-only) and reports **Would create** separately from **Created**. Approver emails require explicit `--notify`, are never sent in dry-run, and increment **Notifications scheduled** only when scheduling is actually attempted for an actionable pending approver.
 
 Assigned approvers may view a request and act on their current pending step only. Edit, cancel, and ordinary delete require ownership (linked employee) or `view_all` plus the matching mutation permission. Direct deletion is rejected once any **required** approval step has been decided; cancel preserves completed approval history.

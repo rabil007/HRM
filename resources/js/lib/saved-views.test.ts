@@ -83,15 +83,17 @@ describe('saved view catalog', () => {
             captureCurrentFilters('leave_approvals', {
                 status: 'pending',
                 scope: 'awaiting_my_approval',
+                search: 'Rima',
             }),
-            { status: 'pending' },
+            { search: 'Rima' },
         );
         assert.deepEqual(
             captureCurrentFilters('leave_approvals', {
-                status: 'pending',
+                status: 'approved',
                 scope: 'assigned_to_me',
+                employee_id: '4',
             }),
-            { status: 'pending', scope: 'assigned_to_me' },
+            { employee_id: '4' },
         );
         assert.deepEqual(
             captureCurrentFilters('crew', {
