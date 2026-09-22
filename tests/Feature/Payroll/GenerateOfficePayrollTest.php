@@ -613,3 +613,57 @@ test('office payroll includes inactive unpaid leave types for historical approve
         ->and((float) (collect($record->calculation_breakdown['leave_usage'] ?? [])->firstWhere('code', 'EMGUL')['days'] ?? 0))->toBe(2.0)
         ->and(collect($record->calculation_breakdown['leave_usage'] ?? [])->firstWhere('code', 'EMGUL')['payroll_treatment'] ?? null)->toBe('unpaid');
 });
+
+test('office payroll applies unpaid deduction for soft-deleted legacy UL after corrective migration', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.periods.update',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-08-22',
+    ]);
+
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-UL-SD-01', 11000, 2200, 1100, 550);
+    $legacyUl = LeaveType::factory()->for($company)->create([
+        'name' => 'Soft Deleted Unpaid',
+        'code' => 'ul',
+        'payroll_treatment' => 'paid',
+        'status' => 'inactive',
+    ]);
+    $legacyUl->delete();
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $legacyUl->id,
+        'start_date' => '2026-08-03',
+        'end_date' => '2026-08-04',
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    $migration = require base_path('database/migrations/2026_09_21_171639_correct_soft_deleted_legacy_unpaid_leave_types_payroll_treatment.php');
+    $migration->up();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertSessionHas('success');
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->firstOrFail();
+
+    $dailyRate = 14850 / 22;
+    $expectedDeduction = round($dailyRate * 2.0, 2);
+
+    expect((float) $record->leave_days)->toBe(2.0)
+        ->and($record->unpaid_leave_deduction)->toBe(number_format($expectedDeduction, 2, '.', ''))
+        ->and(collect($record->calculation_breakdown['leave_usage'] ?? [])->firstWhere('code', 'ul')['payroll_treatment'] ?? null)->toBe('unpaid');
+});

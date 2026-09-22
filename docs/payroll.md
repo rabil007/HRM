@@ -102,6 +102,7 @@ Calculation inputs include:
 - approved leave requests overlapping the period;
 - leave types referenced by those approved requests (including types that are inactive or soft-deleted today) plus currently active types for zero-value presentation;
 - unpaid leave identified by the leave type's stable `payroll_treatment = unpaid` field (not by editable codes such as `UL` / `UNPAID` / `LOP`);
+- soft-deleted leave types with those legacy unpaid codes are corrected to `unpaid` by an additive data migration so historical Office Payroll remains accurate;
 - optional per-employee start and end dates supplied during generation;
 - excluded employee IDs;
 - period salary inputs added after the base calculation.

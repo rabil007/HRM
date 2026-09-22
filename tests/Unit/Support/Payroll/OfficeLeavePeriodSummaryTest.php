@@ -102,3 +102,40 @@ test('inactive leave type with approved historical leave still appears in office
         ->and(collect($summary->leaveUsage)->firstWhere('code', 'EL')['days'])->toBe(5.0)
         ->and(collect($summary->leaveUsage)->firstWhere('code', 'EL')['payroll_treatment'])->toBe('paid');
 });
+
+test('soft-deleted legacy unpaid leave type is treated as unpaid after corrective backfill', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $legacyUl = LeaveType::factory()->for($company)->create([
+        'name' => 'Legacy Unpaid',
+        'code' => 'UL',
+        'payroll_treatment' => 'paid',
+        'status' => 'inactive',
+    ]);
+    $legacyUl->delete();
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $legacyUl->id,
+        'start_date' => '2026-08-03',
+        'end_date' => '2026-08-04',
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    $migration = require base_path('database/migrations/2026_09_21_171639_correct_soft_deleted_legacy_unpaid_leave_types_payroll_treatment.php');
+    $migration->up();
+
+    $summary = app(OfficeLeavePeriodSummary::class)->forEmployees(
+        $company->id,
+        '2026-08-01',
+        '2026-08-31',
+        [$employee->id],
+    )->get($employee->id);
+
+    expect($summary)->not->toBeNull()
+        ->and($summary->totalLeaveDays)->toBe(2.0)
+        ->and(collect($summary->leaveUsage)->firstWhere('code', 'UL')['days'])->toBe(2.0)
+        ->and(collect($summary->leaveUsage)->firstWhere('code', 'UL')['payroll_treatment'])->toBe('unpaid');
+});
