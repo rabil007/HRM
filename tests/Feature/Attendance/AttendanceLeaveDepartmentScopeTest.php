@@ -642,3 +642,93 @@ test('employee move to excluded then leave submit cannot strand pending leave', 
     expect(LeaveRequest::query()->where('employee_id', $office->id)->where('status', 'pending')->count())->toBe(0)
         ->and(AttendanceLeaveDepartmentScope::canAccessEmployee($office->fresh(), (int) $company->id))->toBeFalse();
 });
+
+test('department exclusion uses locked current participation not stale route model', function () {
+    $company = authorizeLeaveReport()['company'];
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ]);
+
+    $employee = createAttendanceLeaveEmployee($company, [
+        'department_id' => $managed['department']->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-02',
+            'reason' => 'pending for stale model',
+        ],
+        reserveBalance: false,
+        notify: false,
+    );
+
+    // Stale in-memory model claims the department is already excluded.
+    $stale = $managed['department']->fresh();
+    $stale->include_in_attendance_leave = false;
+    expect((bool) $stale->include_in_attendance_leave)->toBeFalse()
+        ->and((bool) $managed['department']->fresh()->include_in_attendance_leave)->toBeTrue();
+
+    expect(fn () => app(MutateDepartmentAttendanceLeaveParticipation::class)->update(
+        $stale,
+        (int) $company->id,
+        [
+            'name' => $stale->name,
+            'code' => $stale->code,
+            'status' => 'active',
+            'include_in_attendance_leave' => false,
+        ],
+    ))->toThrow(ValidationException::class);
+
+    expect((bool) $managed['department']->fresh()->include_in_attendance_leave)->toBeTrue()
+        ->and(LeaveRequest::query()->where('employee_id', $employee->id)->where('status', 'pending')->exists())->toBeTrue();
+});
+
+test('employee move re-reads locked destination participation before allowing pending Leave exit', function () {
+    ['company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+    $marineDept->update(['include_in_attendance_leave' => true]);
+
+    ensureDefaultLeaveApprovalPolicy($company);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    $managed = makeManagedDepartment($company);
+    $office->update(['department_id' => $managed['department']->id]);
+
+    app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $office->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-11-10',
+            'end_date' => '2026-11-11',
+            'reason' => 'before destination flip',
+        ],
+        reserveBalance: false,
+        notify: false,
+    );
+
+    // Destination looks included to a stale caller, then flips excluded under the lock path.
+    expect((bool) $marineDept->fresh()->include_in_attendance_leave)->toBeTrue();
+    $marineDept->update(['include_in_attendance_leave' => false]);
+
+    expect(fn () => app(ApplyEmployeeUpdateWithDepartmentGuard::class)->handle(
+        $office->fresh(),
+        (int) $company->id,
+        ['department_id' => $marineDept->id],
+    ))->toThrow(ValidationException::class);
+
+    expect((int) $office->fresh()->department_id)->toBe((int) $managed['department']->id)
+        ->and(LeaveRequest::query()->where('employee_id', $office->id)->where('status', 'pending')->exists())->toBeTrue()
+        ->and(AttendanceLeaveDepartmentScope::canAccessEmployee($office->fresh(), (int) $company->id))->toBeTrue();
+});

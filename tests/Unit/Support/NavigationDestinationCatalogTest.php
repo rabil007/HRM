@@ -101,3 +101,85 @@ test('settings view unlocks crew operations settings destination', function () {
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.settings'))->toBeTrue()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeFalse();
 });
+
+test('leave and crew report destinations are grouped under Attendance and Crew Operations', function () {
+    $destinations = NavigationDestinationCatalog::all();
+    $byKey = collect($destinations)->keyBy('key');
+
+    expect($byKey->get('reports.leave'))->toMatchArray([
+        'href' => '/organization/reports/leave',
+        'group' => 'Attendance',
+        'permissions' => ['reports.leave.view'],
+    ])
+        ->and($byKey->get('reports.leave_balance'))->toMatchArray([
+            'href' => '/organization/reports/leave-balances',
+            'group' => 'Attendance',
+            'permissions' => ['reports.leave_balance.view'],
+        ])
+        ->and($byKey->get('reports.crew-movement-history'))->toMatchArray([
+            'href' => '/organization/reports/crew-movement-history',
+            'group' => 'Crew Operations',
+            'permissions' => ['reports.crew_movement_history.view'],
+        ])
+        ->and(array_column($destinations, 'group'))->not->toContain('Reports');
+
+    $attendanceLabels = array_column(array_values(array_filter(
+        $destinations,
+        fn (array $destination): bool => $destination['group'] === 'Attendance',
+    )), 'label');
+
+    expect($attendanceLabels)->toBe([
+        'Overview',
+        'Calendar',
+        'My leave',
+        'Approvals',
+        'Attendance records',
+        'Types',
+        'Approval policies',
+        'Leave Report',
+        'Leave Balance Report',
+    ]);
+
+    $crewLabels = array_column(array_values(array_filter(
+        $destinations,
+        fn (array $destination): bool => $destination['group'] === 'Crew Operations',
+    )), 'label');
+
+    expect($crewLabels)->toBe([
+        'Overview',
+        'Crew Assignments',
+        'Planning',
+        'Vessels',
+        'Movement Corrections',
+        'Crew Movement History',
+        'Settings',
+    ]);
+});
+
+test('report destination keys remain gated by report permissions not module permissions', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.overview.view',
+        'crew_operations.overview.view',
+    ]);
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.leave'))->toBeFalse()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.leave_balance'))->toBeFalse()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.crew-movement-history'))->toBeFalse();
+
+    grantCompanyPermissions($user, $company, ['reports.leave.view'], 'leave-report-role');
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.leave'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.leave_balance'))->toBeFalse();
+
+    grantCompanyPermissions($user, $company, ['reports.leave_balance.view'], 'leave-balance-role');
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.leave_balance'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.crew-movement-history'))->toBeFalse();
+
+    grantCompanyPermissions($user, $company, ['reports.crew_movement_history.view'], 'crew-history-role');
+
+    expect(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.crew-movement-history'))->toBeTrue();
+});

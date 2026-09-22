@@ -2,6 +2,7 @@
 
 namespace App\Support\Employees\Actions;
 
+use App\Models\Department;
 use App\Models\Employee;
 use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use Illuminate\Support\Facades\DB;
@@ -11,8 +12,10 @@ use Illuminate\Validation\ValidationException;
  * Applies employee attribute updates with a transaction-time department move guard.
  *
  * When department_id is unchanged (or omitted), performs a normal update.
- * When it changes, locks the employee row, re-checks pending-leave eligibility,
- * then updates — so concurrent leave submission cannot strand a pending request.
+ * When it changes, locks the employee row, locks a non-null destination
+ * Department, re-checks pending-leave eligibility against that locked state,
+ * then updates — so concurrent leave submission / department exclusion cannot
+ * strand a pending request.
  */
 final class ApplyEmployeeUpdateWithDepartmentGuard
 {
@@ -59,10 +62,29 @@ final class ApplyEmployeeUpdateWithDepartmentGuard
                 ? (int) $attributes['department_id']
                 : null;
 
+            // Lock destination so concurrent exclude/delete cannot race past the
+            // pending-leave move check. Lock order: employee → destination dept.
+            $destination = null;
+
+            if ($nextDepartmentId !== null) {
+                $destination = Department::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey($nextDepartmentId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($destination === null) {
+                    throw ValidationException::withMessages([
+                        'department_id' => 'The selected department is not available.',
+                    ]);
+                }
+            }
+
             $message = DepartmentAttendanceLeaveGuard::cannotMoveEmployeeToDepartment(
                 $locked,
                 $companyId,
                 $nextDepartmentId,
+                $destination,
             );
 
             if ($message !== null) {

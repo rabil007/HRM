@@ -111,12 +111,16 @@ final class DepartmentAttendanceLeaveGuard
     /**
      * Block moving an employee from an included department to null/excluded while pending leave exists.
      *
+     * When $lockedDestination is provided (same company + destination id), its
+     * include_in_attendance_leave value is authoritative for the destination check.
+     *
      * @param  int|null|string  $destinationDepartmentId
      */
     public static function cannotMoveEmployeeToDepartment(
         Employee $employee,
         int $companyId,
         mixed $destinationDepartmentId,
+        ?Department $lockedDestination = null,
     ): ?string {
         if ((int) $employee->company_id !== $companyId) {
             return null;
@@ -135,13 +139,39 @@ final class DepartmentAttendanceLeaveGuard
             return null;
         }
 
-        if (! self::departmentExcludesAttendanceLeave($companyId, $nextDepartmentId)) {
+        $destinationExcludes = self::destinationExcludesAttendanceLeave(
+            $companyId,
+            $nextDepartmentId,
+            $lockedDestination,
+        );
+
+        if (! $destinationExcludes) {
             return null;
         }
 
         $pendingCount = self::pendingLeaveCountForEmployee($companyId, (int) $employee->id);
 
         return $pendingCount > 0 ? self::employeeMoveBlockedMessage() : null;
+    }
+
+    private static function destinationExcludesAttendanceLeave(
+        int $companyId,
+        ?int $destinationDepartmentId,
+        ?Department $lockedDestination,
+    ): bool {
+        if ($destinationDepartmentId === null || $destinationDepartmentId <= 0) {
+            return true;
+        }
+
+        if (
+            $lockedDestination !== null
+            && (int) $lockedDestination->company_id === $companyId
+            && (int) $lockedDestination->id === $destinationDepartmentId
+        ) {
+            return ! (bool) $lockedDestination->include_in_attendance_leave;
+        }
+
+        return self::departmentExcludesAttendanceLeave($companyId, $destinationDepartmentId);
     }
 
     public static function forgetDashboardCache(int $companyId): void

@@ -173,28 +173,16 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Crew Operations',
     },
     {
+        key: 'reports.crew-movement-history',
+        label: 'Crew Movement History',
+        href: '/organization/reports/crew-movement-history',
+        group: 'Crew Operations',
+    },
+    {
         key: 'crew.settings',
         label: 'Settings',
         href: '/organization/crew-operations/settings',
         group: 'Crew Operations',
-    },
-    {
-        key: 'reports.leave',
-        label: 'Leave Report',
-        href: '/organization/reports/leave',
-        group: 'Reports',
-    },
-    {
-        key: 'reports.leave_balance',
-        label: 'Leave Balance Report',
-        href: '/organization/reports/leave-balances',
-        group: 'Reports',
-    },
-    {
-        key: 'reports.crew-movement-history',
-        label: 'Crew Movement History',
-        href: '/organization/reports/crew-movement-history',
-        group: 'Reports',
     },
     {
         key: 'hikvision.persons',
@@ -248,6 +236,18 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         key: 'attendance.approval-policies',
         label: 'Approval policies',
         href: '/attendance/leave-approval-policies',
+        group: 'Attendance',
+    },
+    {
+        key: 'reports.leave',
+        label: 'Leave Report',
+        href: '/organization/reports/leave',
+        group: 'Attendance',
+    },
+    {
+        key: 'reports.leave_balance',
+        label: 'Leave Balance Report',
+        href: '/organization/reports/leave-balances',
         group: 'Attendance',
     },
     {

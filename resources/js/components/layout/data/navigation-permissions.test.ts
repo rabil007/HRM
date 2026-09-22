@@ -445,6 +445,53 @@ describe('Parent groups', () => {
     });
 });
 
+describe('Report navigation permissions', () => {
+    it('gates Leave Report by reports.leave.view, not attendance permissions', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/leave', [
+                'attendance.overview.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/leave', [
+                'reports.leave.view',
+            ]),
+            true,
+        );
+    });
+
+    it('gates Leave Balance Report by reports.leave_balance.view', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/leave-balances', [
+                'attendance.leave-requests.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/leave-balances', [
+                'reports.leave_balance.view',
+            ]),
+            true,
+        );
+    });
+
+    it('gates Crew Movement History by reports.crew_movement_history.view', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/crew-movement-history', [
+                'crew_operations.overview.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/crew-movement-history', [
+                'reports.crew_movement_history.view',
+            ]),
+            true,
+        );
+    });
+});
+
 describe('Command palette and company switch', () => {
     it('uses the same destination visibility as the sidebar', () => {
         const permissions = ['users.view', 'employees.view'];

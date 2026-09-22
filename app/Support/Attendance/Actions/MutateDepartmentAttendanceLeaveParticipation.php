@@ -16,8 +16,9 @@ use Illuminate\Validation\ValidationException;
 final class MutateDepartmentAttendanceLeaveParticipation
 {
     /**
-     * Apply a department update. When excluding from Attendance & Leave
-     * (true → false), locks the department and re-checks pending leave.
+     * Apply a department update. When include_in_attendance_leave is present,
+     * locks the trusted row and decides exclusion protection from the LOCKED
+     * current value (not a stale route-model snapshot).
      *
      * @param  array<string, mixed>  $attributes
      */
@@ -27,46 +28,47 @@ final class MutateDepartmentAttendanceLeaveParticipation
             abort(404);
         }
 
-        $wantExclude = array_key_exists('include_in_attendance_leave', $attributes)
-            && (bool) $attributes['include_in_attendance_leave'] === false
-            && (bool) $department->include_in_attendance_leave === true;
-
-        $participationChanged = array_key_exists('include_in_attendance_leave', $attributes)
-            && (bool) $attributes['include_in_attendance_leave'] !== (bool) $department->include_in_attendance_leave;
-
-        if (! $wantExclude) {
+        if (! array_key_exists('include_in_attendance_leave', $attributes)) {
             $department->update($attributes);
-
-            if ($participationChanged) {
-                DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
-            }
 
             return $department->fresh() ?? $department;
         }
 
-        $updated = DB::transaction(function () use ($department, $companyId, $attributes): Department {
+        $requestedParticipation = (bool) $attributes['include_in_attendance_leave'];
+
+        $result = DB::transaction(function () use ($department, $companyId, $attributes, $requestedParticipation): array {
             $locked = Department::query()
                 ->where('company_id', $companyId)
                 ->whereKey($department->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $message = DepartmentAttendanceLeaveGuard::cannotExcludeDepartment($companyId, $locked);
+            $currentParticipation = (bool) $locked->include_in_attendance_leave;
+            $participationChanged = $currentParticipation !== $requestedParticipation;
 
-            if ($message !== null) {
-                throw ValidationException::withMessages([
-                    'include_in_attendance_leave' => $message,
-                ]);
+            if ($currentParticipation && ! $requestedParticipation) {
+                $message = DepartmentAttendanceLeaveGuard::cannotExcludeDepartment($companyId, $locked);
+
+                if ($message !== null) {
+                    throw ValidationException::withMessages([
+                        'include_in_attendance_leave' => $message,
+                    ]);
+                }
             }
 
             $locked->update($attributes);
 
-            return $locked->fresh() ?? $locked;
+            return [
+                'department' => $locked->fresh() ?? $locked,
+                'participation_changed' => $participationChanged,
+            ];
         });
 
-        DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
+        if ($result['participation_changed']) {
+            DepartmentAttendanceLeaveGuard::forgetDashboardCache($companyId);
+        }
 
-        return $updated;
+        return $result['department'];
     }
 
     /**
