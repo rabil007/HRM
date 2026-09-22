@@ -24,6 +24,10 @@ return new class extends Migration
 
     /**
      * Run the migrations.
+     *
+     * MySQL may use uq_user_email_company as the supporting index for the
+     * users.company_id foreign key. Add the non-unique replacement first so
+     * the FK keeps an eligible index, then drop the legacy unique.
      */
     public function up(): void
     {
@@ -33,15 +37,15 @@ return new class extends Migration
 
         $this->assertLiveLoginUniquenessMechanismExists();
 
-        if ($this->hasIndexNamed('users', self::LEGACY_UNIQUE)) {
-            Schema::table('users', function (Blueprint $table): void {
-                $table->dropUnique(self::LEGACY_UNIQUE);
-            });
-        }
-
         if (! $this->hasIndexNamed('users', self::LOOKUP_INDEX)) {
             Schema::table('users', function (Blueprint $table): void {
                 $table->index(['company_id', 'email'], self::LOOKUP_INDEX);
+            });
+        }
+
+        if ($this->hasIndexNamed('users', self::LEGACY_UNIQUE)) {
+            Schema::table('users', function (Blueprint $table): void {
+                $table->dropUnique(self::LEGACY_UNIQUE);
             });
         }
     }
@@ -51,6 +55,9 @@ return new class extends Migration
      *
      * Aborts rather than rewriting User rows when (company_id, email)
      * duplicates now exist (including soft-deleted historical rows).
+     *
+     * Recreate the unique index before dropping the lookup index so the
+     * company_id foreign key never loses its supporting index on MySQL.
      */
     public function down(): void
     {
@@ -60,15 +67,15 @@ return new class extends Migration
 
         $this->abortIfLegacyCompanyEmailDuplicatesExist();
 
-        if ($this->hasIndexNamed('users', self::LOOKUP_INDEX)) {
-            Schema::table('users', function (Blueprint $table): void {
-                $table->dropIndex(self::LOOKUP_INDEX);
-            });
-        }
-
         if (! $this->hasIndexNamed('users', self::LEGACY_UNIQUE)) {
             Schema::table('users', function (Blueprint $table): void {
                 $table->unique(['company_id', 'email'], self::LEGACY_UNIQUE);
+            });
+        }
+
+        if ($this->hasIndexNamed('users', self::LOOKUP_INDEX)) {
+            Schema::table('users', function (Blueprint $table): void {
+                $table->dropIndex(self::LOOKUP_INDEX);
             });
         }
     }

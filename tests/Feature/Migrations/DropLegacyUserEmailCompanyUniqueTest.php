@@ -44,6 +44,33 @@ test('migration is idempotent when legacy unique is already gone', function () {
         ->and(usersTableIndexNames()->contains('uq_users_active_login_email'))->toBeTrue();
 });
 
+test('migration adds the lookup index before dropping the legacy unique', function () {
+    $migration = dropLegacyUserEmailCompanyUniqueMigration();
+
+    Artisan::call('migrate:rollback', [
+        '--path' => 'database/migrations/2026_09_22_125318_drop_legacy_user_email_company_unique_from_users_table.php',
+        '--force' => true,
+    ]);
+
+    expect(usersTableIndexNames()->contains('uq_user_email_company'))->toBeTrue()
+        ->and(usersTableIndexNames()->contains('idx_users_company_email'))->toBeFalse();
+
+    // Simulate the production-safe mid-state: lookup exists while unique still
+    // remains, so MySQL can move the company_id FK onto the non-unique index.
+    Schema::table('users', function ($table): void {
+        $table->index(['company_id', 'email'], 'idx_users_company_email');
+    });
+
+    expect(usersTableIndexNames()->contains('idx_users_company_email'))->toBeTrue()
+        ->and(usersTableIndexNames()->contains('uq_user_email_company'))->toBeTrue();
+
+    $migration->up();
+
+    expect(usersTableIndexNames()->contains('uq_user_email_company'))->toBeFalse()
+        ->and(usersTableIndexNames()->contains('idx_users_company_email'))->toBeTrue()
+        ->and(usersTableIndexNames()->contains('uq_users_active_login_email'))->toBeTrue();
+});
+
 test('migration aborts when live login uniqueness mechanism is missing', function () {
     $migration = dropLegacyUserEmailCompanyUniqueMigration();
 
