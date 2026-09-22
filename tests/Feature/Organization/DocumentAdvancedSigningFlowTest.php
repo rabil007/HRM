@@ -134,6 +134,7 @@ function attachTwoLevelManagementChain(Employee $subject, User $manager1User, Us
         'code' => 'OPS'.fake()->unique()->numerify('##'),
         'manager_id' => $manager2Employee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDept = Department::query()->create([
@@ -143,6 +144,7 @@ function attachTwoLevelManagementChain(Employee $subject, User $manager1User, Us
         'parent_id' => $parentDept->id,
         'manager_id' => $manager1Employee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $subject->update(['department_id' => $childDept->id]);
@@ -511,6 +513,7 @@ test('insufficient management hierarchy blocks flow start before creating flow',
         'code' => 'SOLO'.fake()->unique()->numerify('##'),
         'manager_id' => $managerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $fixtures['employee']->update(['department_id' => $department->id]);
 
@@ -712,6 +715,7 @@ test('schema v1 routing snapshot still advances with default slots', function ()
         'code' => 'LEG'.fake()->unique()->numerify('##'),
         'manager_id' => $managerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $fixtures['employee']->update(['department_id' => $department->id]);
 

@@ -2,11 +2,13 @@
 
 namespace App\Support\Attendance\Actions;
 
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\AssertLeaveRequestOverlap;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
@@ -116,6 +118,30 @@ final class SubmitLeaveRequestWithApprovals
                 if ($employee === null) {
                     throw ValidationException::withMessages([
                         'employee_id' => 'The selected employee is invalid or inactive for this company.',
+                    ]);
+                }
+
+                // Serialize against department exclusion / employee moves: lock the
+                // CURRENT department row and re-check participation before any
+                // balance reservation or LeaveRequest / approval writes.
+                if ($employee->department_id === null) {
+                    throw ValidationException::withMessages([
+                        'employee_id' => AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE,
+                    ]);
+                }
+
+                $department = Department::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey((int) $employee->department_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (
+                    $department === null
+                    || ! (bool) $department->include_in_attendance_leave
+                ) {
+                    throw ValidationException::withMessages([
+                        'employee_id' => AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE,
                     ]);
                 }
 

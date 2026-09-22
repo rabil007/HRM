@@ -93,6 +93,7 @@ function attachFlowDepartmentManager(Employee $subject, User $managerUser): Empl
         'code' => 'CREW'.fake()->unique()->numerify('##'),
         'manager_id' => $managerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $subject->update(['department_id' => $department->id]);

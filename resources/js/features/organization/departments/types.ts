@@ -58,6 +58,7 @@ export type Department = {
     name: string;
     code: string | null;
     status: 'active' | 'inactive';
+    include_in_attendance_leave: boolean;
     created_at?: string;
 };
 
@@ -69,4 +70,5 @@ export type DepartmentFormData = {
     name: string;
     code: string;
     status: 'active' | 'inactive';
+    include_in_attendance_leave: boolean;
 };

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LeaveTypeCategory;
 use App\Enums\LeaveTypePayrollTreatment;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\LeaveTypeFactory;
@@ -31,6 +32,7 @@ class LeaveType extends Model
             'days_per_year' => 'decimal:2',
             'carry_forward' => 'boolean',
             'payroll_treatment' => LeaveTypePayrollTreatment::class,
+            'category' => LeaveTypeCategory::class,
         ];
     }
 
@@ -47,6 +49,7 @@ class LeaveType extends Model
                 'color',
                 'status',
                 'payroll_treatment',
+                'category',
             ])
             ->logOnlyDirty();
     }

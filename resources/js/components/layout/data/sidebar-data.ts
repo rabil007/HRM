@@ -225,24 +225,14 @@ const baseSidebarData: SidebarData = {
                     icon: FilePenLine,
                 },
                 {
-                    title: 'Settings',
-                    url: '/organization/crew-operations/settings',
-                    icon: Settings,
-                },
-            ],
-        },
-        {
-            title: 'Reports',
-            items: [
-                {
-                    title: 'Leave Report',
-                    url: leaveReport.url(),
-                    icon: CalendarRange,
-                },
-                {
                     title: 'Crew Movement History',
                     url: crewMovementHistory.url(),
                     icon: BarChart3,
+                },
+                {
+                    title: 'Settings',
+                    url: '/organization/crew-operations/settings',
+                    icon: Settings,
                 },
             ],
         },
@@ -290,6 +280,16 @@ const baseSidebarData: SidebarData = {
                     title: 'Approval policies',
                     url: '/attendance/leave-approval-policies',
                     icon: ShieldCheck,
+                },
+                {
+                    title: 'Leave Report',
+                    url: leaveReport.url(),
+                    icon: CalendarRange,
+                },
+                {
+                    title: 'Leave Balance Report',
+                    url: '/organization/reports/leave-balances',
+                    icon: Wallet,
                 },
             ],
         },

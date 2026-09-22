@@ -35,6 +35,7 @@ test('parent department scope includes active descendants', function () {
         'name' => 'Offshore',
         'code' => 'OFFSH',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $childEmployee = Employee::factory()->create([
@@ -147,6 +148,7 @@ test('cross-company departments cannot affect scope', function () {
         'name' => 'Foreign',
         'code' => 'FOR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     restrictUserToDepartments($user, $company, [$marineDept->id, $foreignDept->id]);

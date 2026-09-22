@@ -18,14 +18,16 @@ class AttendanceOverviewController extends Controller
         );
 
         $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
+        abort_unless($user !== null, 403);
 
         return Inertia::render('attendance/overview', [
-            'summary' => AttendanceOverviewSummary::forCompany($companyId),
+            'summary' => AttendanceOverviewSummary::forCompany($companyId, $user),
             'can' => [
-                'view_records' => $request->user()?->can('attendance.records.view') ?? false,
-                'view_leave_requests' => $request->user()?->can('attendance.leave-requests.view') ?? false,
-                'approve_leave_requests' => $request->user()?->can('attendance.leave-requests.approve') ?? false,
-                'view_calendar' => $request->user()?->can('attendance.leave-requests.view') ?? false,
+                'view_records' => $user->can('attendance.records.view'),
+                'view_leave_requests' => $user->can('attendance.leave-requests.view'),
+                'approve_leave_requests' => $user->can('attendance.leave-requests.approve'),
+                'view_calendar' => $user->can('attendance.leave-requests.view'),
             ],
         ]);
     }

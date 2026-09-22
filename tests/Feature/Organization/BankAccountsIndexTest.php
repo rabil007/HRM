@@ -232,12 +232,14 @@ test('bank accounts index department tree counts only employees with bank accoun
         'company_id' => $company->id,
         'name' => 'Office',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $offshoreDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployee = Employee::query()->create([

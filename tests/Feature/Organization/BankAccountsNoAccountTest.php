@@ -154,12 +154,14 @@ test('no-account index department tree counts only employees without bank accoun
         'company_id' => $company->id,
         'name' => 'Office',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $offshoreDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::query()->create([

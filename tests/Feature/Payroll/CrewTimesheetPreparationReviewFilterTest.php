@@ -38,18 +38,21 @@ function makeFilteredCrewTimelineReview(array $fixtures): array
         'company_id' => $fixtures['company']->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $operationsDepartment = Department::query()->create([
         'company_id' => $fixtures['company']->id,
         'name' => 'Deck',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     $hrDepartment = Department::query()->create([
         'company_id' => $fixtures['company']->id,
         'name' => 'Human Resources',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $operationsPosition = Position::query()->create([
@@ -292,6 +295,7 @@ test('crew timeline review department filter stays isolated to the current compa
         'company_id' => $foreign['company']->id,
         'name' => 'Foreign Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $this->actingAs($fixtures['user'])

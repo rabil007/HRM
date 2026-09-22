@@ -359,12 +359,14 @@ it('keeps relief visibility authorization bounded for restricted authenticated v
         'name' => 'Marine Relief QC',
         'code' => 'MRQC',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $officeDept = Department::query()->create([
         'company_id' => $fixtures['company']->id,
         'name' => 'Office Relief QC',
         'code' => 'ORQC',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     restrictTestRoleEmployeeVisibility($user, $fixtures['company'], [$marineDept->id]);

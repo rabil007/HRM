@@ -32,8 +32,19 @@ class Department extends Model
                 'manager_id',
                 'leave_approval_policy_id',
                 'status',
+                'include_in_attendance_leave',
             ])
             ->logOnlyDirty();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'include_in_attendance_leave' => 'boolean',
+        ];
     }
 
     public function company(): BelongsTo

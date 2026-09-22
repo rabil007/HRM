@@ -43,18 +43,21 @@ test('employee export query uses the same directory filters as the index', funct
         'company_id' => $company->id,
         'name' => 'Operations',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Deck',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     $otherDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Administration',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $parentEmployee = Employee::factory()->forCompany($company)->create([

@@ -54,6 +54,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | Reports (general) | [architecture/context-map.md](./architecture/context-map.md), then the current report route/query/export; use a report-specific guide when one exists |
 | Crew Movement History report | [reports/crew-movement-history.md](./reports/crew-movement-history.md) |
 | Leave Report | [reports/leave-report.md](./reports/leave-report.md) |
+| Leave Balance Report | [reports/leave-balance-report.md](./reports/leave-balance-report.md) |
 | Users / roles / permissions / tenant authorization | [permissions.md](./permissions.md) and `.cursor/rules/permissions.mdc` |
 | Activity logs / audit trail | [permissions.md](./permissions.md#audit) and current activity-log implementation |
 | User account status / login eligibility | [permissions.md](./permissions.md#global-user-account-status) |

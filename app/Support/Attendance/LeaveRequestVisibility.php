@@ -37,6 +37,8 @@ final class LeaveRequestVisibility
      */
     public function applyIndexScope(Builder $query, ?User $user, int $companyId): void
     {
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId, 'employee');
+
         if ($this->canViewAll($user)) {
             // Managers may see all leave requests, but only for employees
             // within their Role Employee Access Scope.
@@ -74,6 +76,13 @@ final class LeaveRequestVisibility
     }
 
     /**
+     * Canonical Leave Approvals action queue.
+     *
+     * Always requires an Attendance & Leave–included department.
+     * view_all actors are additionally limited by EmployeeVisibilityScope.
+     * Ordinary assigned approvers may see enabled-department requests outside
+     * their directory visibility when they are the current required approver.
+     *
      * @param  Builder<LeaveRequest>  $query
      */
     public function applyAwaitingMyApprovalScope(Builder $query, User $user, int $companyId): void
@@ -88,6 +97,12 @@ final class LeaveRequestVisibility
                     ->where('status', LeaveRequestApprovalStatus::Pending)
                     ->where('is_required', true);
             });
+
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId, 'employee');
+
+        if ($this->canViewAll($user)) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId, 'employee');
+        }
     }
 
     /**
@@ -104,6 +119,8 @@ final class LeaveRequestVisibility
                     ->where('company_id', $companyId)
                     ->where('approver_user_id', $user->id);
             });
+
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId, 'employee');
     }
 
     public function canAccess(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
@@ -112,11 +129,17 @@ final class LeaveRequestVisibility
             return false;
         }
 
+        $employee = $leaveRequest->relationLoaded('employee')
+            ? $leaveRequest->employee
+            : Employee::query()->find($leaveRequest->employee_id);
+
+        if ($employee === null || ! AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)) {
+            return false;
+        }
+
         if ($this->canViewAll($user)) {
             // Managers are still limited to employees within their visibility scope.
-            $employee = $leaveRequest->employee ?? Employee::query()->find($leaveRequest->employee_id);
-
-            return $employee !== null && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
+            return EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
         }
 
         if ($user === null) {
@@ -150,6 +173,18 @@ final class LeaveRequestVisibility
             return false;
         }
 
+        $employee = $leaveRequest->relationLoaded('employee')
+            ? $leaveRequest->employee
+            : Employee::query()->find($leaveRequest->employee_id);
+
+        if ($employee === null || ! AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)) {
+            return false;
+        }
+
+        if ($this->canViewAll($user) && ! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
+            return false;
+        }
+
         return LeaveRequestApproval::query()
             ->where('company_id', $companyId)
             ->where('leave_request_id', $leaveRequest->id)
@@ -170,16 +205,20 @@ final class LeaveRequestVisibility
         $requestedEmployeeId = trim((string) $request->query('employee_id', ''));
 
         if (! $this->canViewAll($user)) {
-            return $linkedEmployeeId;
+            return $this->eligibleEmployeeIdOrNull($linkedEmployeeId, $companyId);
         }
 
         if ($requestedEmployeeId === '' || ! ctype_digit($requestedEmployeeId)) {
-            return $linkedEmployeeId;
+            return $this->eligibleEmployeeIdOrNull($linkedEmployeeId, $companyId);
         }
 
         $employeeId = (int) $requestedEmployeeId;
         if (! EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId)) {
-            return $linkedEmployeeId;
+            return $this->eligibleEmployeeIdOrNull($linkedEmployeeId, $companyId);
+        }
+
+        if (! AttendanceLeaveDepartmentScope::canAccessEmployeeId($employeeId, $companyId)) {
+            return $this->eligibleEmployeeIdOrNull($linkedEmployeeId, $companyId);
         }
 
         $exists = Employee::query()
@@ -187,6 +226,17 @@ final class LeaveRequestVisibility
             ->whereKey($employeeId)
             ->exists();
 
-        return $exists ? $employeeId : $linkedEmployeeId;
+        return $exists ? $employeeId : $this->eligibleEmployeeIdOrNull($linkedEmployeeId, $companyId);
+    }
+
+    private function eligibleEmployeeIdOrNull(?int $employeeId, int $companyId): ?int
+    {
+        if ($employeeId === null) {
+            return null;
+        }
+
+        return AttendanceLeaveDepartmentScope::canAccessEmployeeId($employeeId, $companyId)
+            ? $employeeId
+            : null;
     }
 }

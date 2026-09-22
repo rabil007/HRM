@@ -53,6 +53,7 @@ test('management chain walks parent departments and skips duplicate managers', f
         'code' => 'TOP',
         'manager_id' => $topManager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $mid = Department::query()->create([
@@ -62,6 +63,7 @@ test('management chain walks parent departments and skips duplicate managers', f
         'parent_id' => $top->id,
         'manager_id' => $midManager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $leaf = Department::query()->create([
@@ -71,6 +73,7 @@ test('management chain walks parent departments and skips duplicate managers', f
         'parent_id' => $mid->id,
         'manager_id' => $midManager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([
@@ -97,6 +100,7 @@ test('effective manager detail reports inherited managers from ancestors', funct
         'code' => 'P',
         'manager_id' => $parentManager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $child = Department::query()->create([
@@ -106,6 +110,7 @@ test('effective manager detail reports inherited managers from ancestors', funct
         'parent_id' => $parent->id,
         'manager_id' => null,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $detail = ResolveDepartmentManagementChain::effectiveManagerDetail((int) $company->id, (int) $child->id);

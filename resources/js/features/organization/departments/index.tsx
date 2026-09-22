@@ -107,6 +107,7 @@ export function DepartmentsContent({
         name: '',
         code: '',
         status: 'active',
+        include_in_attendance_leave: false,
     });
 
     const handleAdd = () => {
@@ -121,6 +122,7 @@ export function DepartmentsContent({
                 name: '',
                 code: '',
                 status: 'active',
+                include_in_attendance_leave: false,
             });
         });
     };
@@ -141,6 +143,8 @@ export function DepartmentsContent({
                 name: department.name ?? '',
                 code: department.code ?? '',
                 status: department.status ?? 'active',
+                include_in_attendance_leave:
+                    department.include_in_attendance_leave ?? false,
             });
         });
     };

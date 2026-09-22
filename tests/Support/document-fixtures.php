@@ -64,9 +64,12 @@ function makeDocumentFixtures(): array
         'is_headquarters' => true,
     ]);
 
+    $department = ensureIncludedAttendanceLeaveDepartment($company);
+
     $employee = Employee::query()->create([
         'company_id' => $company->id,
         'branch_id' => $branch->id,
+        'department_id' => $department->id,
         'employee_no' => 'DOC001',
         'name' => 'Test Employee',
         'status' => 'active',
@@ -137,12 +140,14 @@ function makeDocumentRequirementMatchScopes(int $companyId): array
         'name' => 'Crew',
         'code' => 'CRW-'.$suffix,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $marine = Department::query()->create([
         'company_id' => $companyId,
         'name' => 'Marine',
         'code' => 'MAR-'.$suffix,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $seafarer = Position::query()->create([
         'company_id' => $companyId,

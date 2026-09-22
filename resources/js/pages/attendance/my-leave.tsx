@@ -19,6 +19,7 @@ export default function MyLeave({
     employees,
     leave_types,
     linked_employee_id,
+    linked_employee_attendance_leave_enabled = true,
     can,
     saved_views = [],
 }: {
@@ -36,6 +37,7 @@ export default function MyLeave({
     employees: LeaveRequestEmployeeOption[];
     leave_types: LeaveRequestTypeOption[];
     linked_employee_id: number | null;
+    linked_employee_attendance_leave_enabled?: boolean;
     can: LeaveRequestPermissions;
     saved_views?: SavedView[];
 }) {
@@ -51,6 +53,9 @@ export default function MyLeave({
                 employees={employees}
                 leave_types={leave_types}
                 linkedEmployeeId={linked_employee_id}
+                linkedEmployeeAttendanceLeaveEnabled={
+                    linked_employee_attendance_leave_enabled
+                }
                 can={can}
                 saved_views={saved_views}
             />

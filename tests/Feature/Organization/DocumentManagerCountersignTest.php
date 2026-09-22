@@ -118,6 +118,7 @@ function attachEligibleDepartmentManager(Employee $subject, User $managerUser, s
         'code' => strtoupper(substr($deptName, 0, 4)).fake()->unique()->numerify('##'),
         'manager_id' => $managerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $subject->update(['department_id' => $department->id]);
@@ -219,6 +220,7 @@ test('parent management-chain manager resolves when direct manager is not action
         'code' => 'OPS'.fake()->unique()->numerify('##'),
         'manager_id' => $parentManagerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDept = Department::query()->create([
@@ -228,6 +230,7 @@ test('parent management-chain manager resolves when direct manager is not action
         'parent_id' => $parentDept->id,
         'manager_id' => $inactiveDirectEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $fixtures['employee']->update(['department_id' => $childDept->id]);

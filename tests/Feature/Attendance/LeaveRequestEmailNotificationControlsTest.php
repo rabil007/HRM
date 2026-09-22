@@ -70,7 +70,7 @@ function makeLeaveEmailNotificationControlFixtures(): array
 
     $managed = makeManagedDepartment($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
         'user_id' => $user->id,

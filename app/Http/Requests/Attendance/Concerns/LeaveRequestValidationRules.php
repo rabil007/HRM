@@ -2,7 +2,8 @@
 
 namespace App\Http\Requests\Attendance\Concerns;
 
-use App\Support\Employees\ActiveCompanyEmployeeRule;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
+use App\Support\Employees\AttendanceLeaveEligibleEmployeeRule;
 use Illuminate\Validation\Rule;
 
 trait LeaveRequestValidationRules
@@ -18,7 +19,7 @@ trait LeaveRequestValidationRules
             'employee_id' => [
                 'required',
                 'integer',
-                ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
+                AttendanceLeaveEligibleEmployeeRule::exists($companyId, $this->user()),
             ],
             'leave_type_id' => [
                 'required',
@@ -36,6 +37,16 @@ trait LeaveRequestValidationRules
                 'mimetypes:application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             ],
             'remove_attachment' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function leaveRequestFieldMessages(): array
+    {
+        return [
+            'employee_id.exists' => AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE,
         ];
     }
 }

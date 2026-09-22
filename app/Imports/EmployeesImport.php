@@ -16,12 +16,14 @@ use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\Actions\ApplyEmployeeUpdateWithDepartmentGuard;
 use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Concerns\ToArray;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -548,7 +550,19 @@ class EmployeesImport
                         }
 
                         if ($payload !== []) {
-                            $employee->update($payload);
+                            try {
+                                app(ApplyEmployeeUpdateWithDepartmentGuard::class)
+                                    ->handle($employee, $this->companyId, $payload);
+                            } catch (ValidationException $exception) {
+                                $messages = collect($exception->errors())->flatten()->filter()->values();
+
+                                $failed[] = [
+                                    'row' => $rowNumber,
+                                    'message' => (string) ($messages->first() ?: $exception->getMessage()),
+                                ];
+
+                                continue;
+                            }
                         }
 
                         $updated++;

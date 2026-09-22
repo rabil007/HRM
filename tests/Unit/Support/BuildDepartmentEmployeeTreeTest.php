@@ -54,12 +54,14 @@ test('build department employee tree rolls up counts to ancestors', function () 
         'company_id' => $company->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Junior Officers',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::factory()->forCompany($company)->count(2)->create([
@@ -111,12 +113,14 @@ test('build department employee tree can restrict visible department nodes', fun
         'company_id' => $company->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Office',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::factory()->forCompany($company)->create([

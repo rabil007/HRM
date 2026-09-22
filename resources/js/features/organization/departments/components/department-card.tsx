@@ -85,6 +85,19 @@ export function DepartmentCard({
                                     {department.leave_approval_policy.name}
                                 </Badge>
                             ) : null}
+                            <Badge
+                                variant="secondary"
+                                className={
+                                    department.include_in_attendance_leave
+                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-emerald-200'
+                                        : 'border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5'
+                                }
+                            >
+                                Attendance &amp; Leave:{' '}
+                                {department.include_in_attendance_leave
+                                    ? 'Included'
+                                    : 'Excluded'}
+                            </Badge>
                         </div>
                     </div>
                     <Badge

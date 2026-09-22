@@ -48,6 +48,7 @@ function makeEmployeeVisibilityFixtures(): array
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeDept = Department::query()->create([
@@ -55,6 +56,7 @@ function makeEmployeeVisibilityFixtures(): array
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $marineEmployee = Employee::factory()->create([

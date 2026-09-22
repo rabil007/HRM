@@ -76,7 +76,7 @@ test('guests cannot access attendance records page', function () {
 
 test('authorized users can view create update and delete attendance records', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $employee->update(['user_id' => $user->id]);
     $this->actingAs($user);
 
@@ -131,11 +131,11 @@ test('authorized users can view create update and delete attendance records', fu
 
 test('users without manage permission only see their own records', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $ownEmployee = Employee::factory()->forCompany($company)->create([
+    $ownEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $user->id,
     ]);
-    $otherEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $otherEmployee = createAttendanceLeaveEmployee($company);
 
     AttendanceRecord::factory()->forEmployee($ownEmployee)->create(['date' => '2026-06-10']);
     AttendanceRecord::factory()->forEmployee($otherEmployee)->create(['date' => '2026-06-10']);
@@ -154,11 +154,11 @@ test('users without manage permission only see their own records', function () {
 
 test('users cannot update another employees record without manage permission', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $ownEmployee = Employee::factory()->forCompany($company)->create([
+    $ownEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $user->id,
     ]);
-    $otherEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $otherEmployee = createAttendanceLeaveEmployee($company);
     $otherRecord = AttendanceRecord::factory()->forEmployee($otherEmployee)->create(['date' => '2026-06-10']);
 
     $this->actingAs($user);
@@ -174,7 +174,7 @@ test('users cannot update another employees record without manage permission', f
 
 test('hikvision sync creates attendance records from access events', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Synced Employee',
     ]);
@@ -235,7 +235,7 @@ test('hikvision sync creates attendance records from access events', function ()
 
 test('hikvision sync does not overwrite manual records', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Manual Employee',
     ]);
@@ -288,7 +288,7 @@ test('hikvision sync does not overwrite manual records', function () {
 
 test('hikvision sync creates absent records when no punches on a working day', function () {
     ['company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Absent Employee',
     ]);
@@ -320,7 +320,7 @@ test('hikvision sync creates absent records when no punches on a working day', f
 
 test('hikvision sync marks non working days as weekend when no punches', function () {
     ['company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Weekend Employee',
     ]);
@@ -359,7 +359,7 @@ test('hikvision sync matches events using linked hikvision full name when employ
         'full_name' => 'Mohammed Rabil',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
         'hikvision_person_id' => $person->id,
@@ -417,7 +417,7 @@ test('hikvision sync matches events when access event name omits trailing initia
         'full_name' => 'Mohammed Rabil T',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'rabil',
         'hikvision_person_id' => $person->id,
@@ -480,12 +480,12 @@ test('hikvision sync does not guess an ambiguous unlinked Mohammed Rabil alias',
         'full_name' => 'Mohammed Rabil K',
     ]);
 
-    $employeeA = Employee::factory()->forCompany($company)->create([
+    $employeeA = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
         'hikvision_person_id' => $personA->id,
     ]);
-    $employeeB = Employee::factory()->forCompany($company)->create([
+    $employeeB = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil K',
         'hikvision_person_id' => $personB->id,
@@ -543,12 +543,12 @@ test('hikvision sync linked person id remains authoritative when another employe
         'full_name' => 'Mohammed Rabil K',
     ]);
 
-    $employeeA = Employee::factory()->forCompany($company)->create([
+    $employeeA = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
         'hikvision_person_id' => $personA->id,
     ]);
-    $employeeB = Employee::factory()->forCompany($company)->create([
+    $employeeB = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil K',
         'hikvision_person_id' => $personB->id,
@@ -601,7 +601,7 @@ test('hikvision sync creates mobile attendance records from mobile app access ev
         'full_name' => 'MOHAMED ABDALLA JAMAL',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohamed Abdalla',
         'hikvision_person_id' => $person->id,
@@ -673,7 +673,7 @@ test('hikvision sync matches mobile access events by person code when names diff
         'full_name' => 'Mathew Dominic',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mathew D.',
         'hikvision_person_id' => $person->id,
@@ -724,7 +724,7 @@ test('attendance sync updates stale biometric record when mobile events were bac
         'full_name' => 'Adham Bassiony',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Adham Bassiony',
         'hikvision_person_id' => $person->id,
@@ -817,7 +817,7 @@ test('hikvision sync uses last check-in as clock-out when no checkout and multip
         'full_name' => 'Maher H Jundi',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Maher H Jundi',
         'hikvision_person_id' => $person->id,
@@ -877,7 +877,7 @@ test('hikvision sync leaves clock-out null when only one check-in and no checkou
         'full_name' => 'Single Checkin Employee',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Single Checkin Employee',
         'hikvision_person_id' => $person->id,
@@ -916,7 +916,7 @@ test('hikvision sync leaves clock-out null when only one check-in and no checkou
 
 test('cannot create duplicate attendance record for same employee and date', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
 
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, [
@@ -942,7 +942,7 @@ test('cannot create duplicate attendance record for same employee and date', fun
 
 test('cannot update attendance record to duplicate another day for the same employee', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
 
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, [
@@ -977,7 +977,7 @@ test('users without manage permission cannot export attendance records', functio
 
 test('users with manage permission can export filtered attendance records', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Export Employee',
         'employee_no' => 'EXP001',

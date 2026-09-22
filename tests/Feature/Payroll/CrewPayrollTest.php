@@ -166,12 +166,14 @@ test('payroll show can filter board rows by department', function () {
         'company_id' => $company->id,
         'name' => 'Operations',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $hrDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Human Resources',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $operationsEmployee = Employee::factory()->forCompany($company)->create([
@@ -384,12 +386,14 @@ test('payroll show includes employee department parent and position on board row
         'company_id' => $company->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Deck',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([

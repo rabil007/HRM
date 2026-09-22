@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Attendance;
 
+use App\Enums\LeaveTypeCategory;
 use App\Enums\LeaveTypePayrollTreatment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreLeaveTypeRequest;
@@ -54,6 +55,8 @@ class LeaveTypeController extends Controller
             'status' => $leaveType->status,
             'payroll_treatment' => $leaveType->payroll_treatment?->value
                 ?? LeaveTypePayrollTreatment::Paid->value,
+            'category' => $leaveType->category?->value
+                ?? LeaveTypeCategory::Other->value,
         ]);
 
         return Inertia::render('attendance/types', [
@@ -84,6 +87,8 @@ class LeaveTypeController extends Controller
                 'status' => $leaveType->status,
                 'payroll_treatment' => $leaveType->payroll_treatment?->value
                     ?? LeaveTypePayrollTreatment::Paid->value,
+                'category' => $leaveType->category?->value
+                    ?? LeaveTypeCategory::Other->value,
                 'leave_requests_count' => $leaveType->leave_requests_count,
                 'created_at' => $leaveType->created_at?->toIso8601String(),
                 'updated_at' => $leaveType->updated_at?->toIso8601String(),

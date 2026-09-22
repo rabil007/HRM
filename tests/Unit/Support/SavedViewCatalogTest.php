@@ -108,7 +108,8 @@ test('empty and default values are omitted', function () {
         ->and(SavedViewCatalog::forApply(SavedViewPage::LeaveApprovals, [
             'status' => 'pending',
             'scope' => 'awaiting_my_approval',
-        ]))->toBe(['status' => 'pending']);
+            'search' => 'Rima',
+        ]))->toBe(['search' => 'Rima']);
 });
 
 test('accessibility follows list view permissions rather than platform access', function () {

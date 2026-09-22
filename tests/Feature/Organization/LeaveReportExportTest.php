@@ -159,7 +159,7 @@ test('leave report export includes historical inactive employee records', functi
     Excel::fake();
     ['user' => $user, 'company' => $company, 'leaveType' => $leaveType] = makeLeaveReportExportFixture();
 
-    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+    $inactiveEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'terminated',
         'name' => 'Former Crew',
         'employee_no' => 'LR-TERM',

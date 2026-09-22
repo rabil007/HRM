@@ -103,11 +103,7 @@ export function LeaveReportContent(props: LeaveReportProps) {
                 }
             />
 
-            <LeaveReportSummaryCards
-                summary={summary}
-                filters={filters}
-                onSelect={controls.apply}
-            />
+            <LeaveReportSummaryCards summary={summary} />
 
             <div className="mt-6 space-y-3">
                 <SearchBar

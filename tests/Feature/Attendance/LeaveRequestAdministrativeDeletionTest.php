@@ -65,7 +65,7 @@ function makeAdministrativeDeletionContext(int $daysPerYear = 40): array
         ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
         'work_email' => 'employee-ad@example.com',

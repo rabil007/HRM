@@ -227,11 +227,49 @@ export function LeaveTypeFormSheet({
                             </AppSelect>
                             <p className="text-xs text-muted-foreground">
                                 Controls salary deduction for office payroll.
-                                Renaming the code later does not change this.
+                                This is separate from the reporting category.
                             </p>
                             {form.errors.payroll_treatment ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.payroll_treatment}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="category"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Reporting category
+                            </Label>
+                            <AppSelect
+                                value={form.data.category}
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'category',
+                                        v as 'annual' | 'sick' | 'other',
+                                    )
+                                }
+                                variant="card"
+                            >
+                                <AppSelectItem value="annual">
+                                    Annual
+                                </AppSelectItem>
+                                <AppSelectItem value="sick">Sick</AppSelectItem>
+                                <AppSelectItem value="other">
+                                    Other
+                                </AppSelectItem>
+                            </AppSelect>
+                            <p className="text-xs text-muted-foreground">
+                                Used for Leave Report analytics, such as Annual
+                                and Sick day totals. Payroll treatment
+                                separately controls paid or unpaid payroll
+                                behavior.
+                            </p>
+                            {form.errors.category ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.category}
                                 </div>
                             ) : null}
                         </div>

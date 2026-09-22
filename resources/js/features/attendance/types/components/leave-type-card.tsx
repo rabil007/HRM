@@ -53,6 +53,22 @@ export function LeaveTypeCard({
                                     Carry forward
                                 </Badge>
                             ) : null}
+                            {leaveType.category === 'annual' ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                                >
+                                    Annual
+                                </Badge>
+                            ) : null}
+                            {leaveType.category === 'sick' ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                                >
+                                    Sick
+                                </Badge>
+                            ) : null}
                             {leaveType.payroll_treatment === 'unpaid' ? (
                                 <Badge
                                     variant="secondary"

@@ -44,7 +44,6 @@ import {
 } from '@/lib/mobile-operational-list';
 import type { SavedView, SavedViewPageKey } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { LeaveRequestAdministrativeDeleteDialog } from './components/leave-request-administrative-delete-dialog';
 import { LeaveRequestCancelDialog } from './components/leave-request-cancel-dialog';
@@ -64,7 +63,6 @@ import type {
     LeaveRequestFilters,
     LeaveRequestListMode,
     LeaveRequestPermissions,
-    LeaveRequestScope,
     LeaveRequestStatus,
     LeaveRequestTypeOption,
 } from './types';
@@ -79,6 +77,7 @@ export function LeaveRequestsContent({
     employees,
     leave_types,
     linkedEmployeeId,
+    linkedEmployeeAttendanceLeaveEnabled = true,
     can,
     saved_views = [],
 }: {
@@ -97,6 +96,7 @@ export function LeaveRequestsContent({
     employees: LeaveRequestEmployeeOption[];
     leave_types: LeaveRequestTypeOption[];
     linkedEmployeeId: number | null;
+    linkedEmployeeAttendanceLeaveEnabled?: boolean;
     can: LeaveRequestPermissions;
     saved_views?: SavedView[];
 }) {
@@ -127,29 +127,16 @@ export function LeaveRequestsContent({
         useState<LeaveRequest | null>(null);
 
     const filters: LeaveRequestFilters = {
-        status: initialFilters.status,
+        status: isMine ? initialFilters.status : '',
         employee_id: initialFilters.employee_id,
         leave_type_id: initialFilters.leave_type_id,
-        scope: initialFilters.scope ?? (isMine ? 'my' : 'awaiting_my_approval'),
+        ...(isMine ? { scope: 'my' as const } : {}),
     };
 
     const activeFiltersCount = [
         !isMine ? initialFilters.employee_id : '',
         initialFilters.leave_type_id,
     ].filter(Boolean).length;
-
-    const scopeOptions: Array<{
-        value: LeaveRequestScope;
-        label: string;
-    }> = isMine
-        ? []
-        : [
-              { value: 'awaiting_my_approval', label: 'Needs action' },
-              { value: 'assigned_to_me', label: 'Assigned to me' },
-              ...(can.view_all
-                  ? ([{ value: 'all', label: 'Everyone' }] as const)
-                  : []),
-          ];
 
     const form = useForm(defaultLeaveRequestFormData());
 
@@ -261,10 +248,16 @@ export function LeaveRequestsContent({
     };
 
     const emptyTitle = isMine
-        ? 'You have no leave requests yet.'
-        : filters.scope === 'awaiting_my_approval'
-          ? 'Nothing waiting for you.'
-          : 'No leave requests found.';
+        ? linkedEmployeeAttendanceLeaveEnabled
+            ? 'You have no leave requests yet.'
+            : 'Attendance & Leave is not enabled for your department.'
+        : 'No leave requests need your approval.';
+
+    const emptyDescription = isMine
+        ? linkedEmployeeAttendanceLeaveEnabled
+            ? undefined
+            : 'Your current department is excluded from Attendance and Leave. Contact HR if this should be enabled.'
+        : undefined;
 
     return (
         <Main>
@@ -288,49 +281,19 @@ export function LeaveRequestsContent({
                 }
             />
 
-            <LeaveRequestSummaryCards
-                counts={status_counts}
-                activeStatus={filters.status}
-                onSelect={(status: '' | LeaveRequestStatus) =>
-                    list.applyFilters({ status })
-                }
-            />
-
-            {!isMine && scopeOptions.length > 0 ? (
-                <div className="mb-4 overflow-hidden rounded-2xl border glass-card border-border/60">
-                    <div className="flex items-center gap-0 px-1 py-1">
-                        <span className="shrink-0 px-3 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/50 uppercase">
-                            Queue
-                        </span>
-                        <div className="mx-1 h-4 w-px shrink-0 bg-border/50" />
-                        <div className="flex flex-wrap gap-1">
-                            {scopeOptions.map((opt) => {
-                                const isActive = filters.scope === opt.value;
-
-                                return (
-                                    <button
-                                        key={opt.value}
-                                        type="button"
-                                        onClick={() =>
-                                            list.applyFilters({
-                                                scope: opt.value,
-                                            })
-                                        }
-                                        className={cn(
-                                            'rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150',
-                                            isActive
-                                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                                        )}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            {isMine ? (
+                <LeaveRequestSummaryCards
+                    counts={status_counts}
+                    activeStatus={filters.status}
+                    onSelect={(status: '' | LeaveRequestStatus) =>
+                        list.applyFilters({ status })
+                    }
+                />
+            ) : (
+                <p className="mb-4 text-sm font-medium text-muted-foreground">
+                    Needs my approval: {status_counts.pending.toLocaleString()}
+                </p>
+            )}
 
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                 <div className="relative min-w-0 flex-1">
@@ -380,6 +343,7 @@ export function LeaveRequestsContent({
             {leave_requests.length === 0 ? (
                 <EmptyState
                     title={emptyTitle}
+                    description={emptyDescription}
                     action={
                         isMine && can.create ? (
                             <Button

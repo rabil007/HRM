@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization\Employee;
 use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Models\Employee;
+use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
@@ -116,8 +117,30 @@ class UpdateEmployeeRequest extends FormRequest
 
             if ($this->has('department_id')) {
                 $this->assertDepartmentIsAllowed($validator);
+                $this->assertPendingLeaveAllowsDepartmentMove($validator);
             }
         });
+    }
+
+    private function assertPendingLeaveAllowsDepartmentMove(Validator $validator): void
+    {
+        /** @var Employee|null $employee */
+        $employee = $this->route('employee');
+
+        if (! $employee instanceof Employee) {
+            return;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $message = DepartmentAttendanceLeaveGuard::cannotMoveEmployeeToDepartment(
+            $employee,
+            $companyId,
+            $this->input('department_id'),
+        );
+
+        if ($message !== null) {
+            $validator->errors()->add('department_id', $message);
+        }
     }
 
     private function assertDepartmentIsAllowed(Validator $validator): void

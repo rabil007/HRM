@@ -3,7 +3,6 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\User;
@@ -52,7 +51,7 @@ function makeLeaveBalanceFixtures(): array
 
 test('leave balance rollover carries unused days up to max carry days', function () {
     ['company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'carry_forward' => true,
@@ -87,7 +86,7 @@ test('leave balance rollover carries unused days up to max carry days', function
 
 test('leave balance rollover ignores carry forward when disabled on leave type', function () {
     ['company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 15,
         'carry_forward' => false,
@@ -121,7 +120,7 @@ test('leave balance rollover ignores carry forward when disabled on leave type',
 
 test('sync command rebuilds used and pending days from leave requests', function () {
     ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'status' => 'active',
@@ -165,7 +164,7 @@ test('sync command rebuilds used and pending days from leave requests', function
 
 test('first leave request succeeds when employee has no pre-provisioned balance', function () {
     ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $user->id,
     ]);
@@ -205,7 +204,7 @@ test('first leave request succeeds when employee has no pre-provisioned balance'
 
 test('leave requests cannot exceed available balance', function () {
     ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $user->id,
     ]);
@@ -231,8 +230,8 @@ test('leave requests cannot exceed available balance', function () {
 
 test('creating leave type provisions balances for active employees', function () {
     ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
-    Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    createAttendanceLeaveEmployee($company);
+    createAttendanceLeaveEmployee($company);
 
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, ['attendance.types.create']);
@@ -246,6 +245,7 @@ test('creating leave type provisions balances for active employees', function ()
         'color' => '#3b82f6',
         'status' => 'active',
         'payroll_treatment' => 'paid',
+        'category' => 'annual',
     ])->assertRedirect();
 
     $leaveType = LeaveType::query()->where('company_id', $company->id)->where('code', 'AL')->first();
@@ -262,7 +262,7 @@ test('creating leave type provisions balances for active employees', function ()
 
 test('future-year provisional balance receives carry on rollover without losing pending', function () {
     ['company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'carry_forward' => true,
@@ -331,7 +331,7 @@ test('future-year provisional balance receives carry on rollover without losing 
 
 test('rollover respects max carry cap and disabled carry forward', function () {
     ['company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $capped = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'carry_forward' => true,
@@ -378,7 +378,7 @@ test('rollover respects max carry cap and disabled carry forward', function () {
 
 test('sync repairs multi-year leave allocation and inactive leave type balances', function () {
     ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $activeType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'status' => 'active',
@@ -455,8 +455,8 @@ test('sync repairs multi-year leave allocation and inactive leave type balances'
 test('rollover remains company scoped', function () {
     ['company' => $companyA] = makeLeaveBalanceFixtures();
     ['company' => $companyB] = makeLeaveBalanceFixtures();
-    $employeeA = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
-    $employeeB = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+    $employeeA = createAttendanceLeaveEmployee($companyA);
+    $employeeB = createAttendanceLeaveEmployee($companyB, ['status' => 'active']);
     $typeA = LeaveType::factory()->for($companyA)->create([
         'days_per_year' => 30,
         'carry_forward' => true,
@@ -533,7 +533,7 @@ test('automatic rollover uses each company business year near the UTC boundary',
     ]);
 
     foreach ([$dubai, $newYork] as $company) {
-        $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+        $employee = createAttendanceLeaveEmployee($company);
         $leaveType = LeaveType::factory()->for($company)->create([
             'days_per_year' => 30,
             'carry_forward' => true,
@@ -575,7 +575,7 @@ test('automatic rollover uses each company business year near the UTC boundary',
 test('corrective rollover backfill marks current company year as opened without changing carry', function () {
     $company = makeLeaveBalanceFixtures()['company'];
     $company->forceFill(['timezone' => 'Asia/Dubai'])->save();
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'status' => 'active',
@@ -616,9 +616,9 @@ test('corrective rollover backfill marks current company year as opened without 
 
 test('sync repairs inactive employee historical balances without inventing missing historical entitlement', function () {
     ['company' => $company] = makeLeaveBalanceFixtures();
-    $active = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    $inactive = Employee::factory()->forCompany($company)->create(['status' => 'inactive']);
-    $irrelevant = Employee::factory()->forCompany($company)->create(['status' => 'terminated']);
+    $active = createAttendanceLeaveEmployee($company);
+    $inactive = createAttendanceLeaveEmployee($company, ['status' => 'inactive']);
+    $irrelevant = createAttendanceLeaveEmployee($company, ['status' => 'terminated']);
     $leaveType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'status' => 'active',
@@ -711,9 +711,9 @@ test('leave-balances sync command reports historical anomalies and still succeed
         'status' => 'active',
     ]);
 
-    $active = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    $inactive = Employee::factory()->forCompany($company)->create(['status' => 'inactive']);
-    $otherEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'inactive']);
+    $active = createAttendanceLeaveEmployee($company);
+    $inactive = createAttendanceLeaveEmployee($company, ['status' => 'inactive']);
+    $otherEmployee = createAttendanceLeaveEmployee($otherCompany, ['status' => 'inactive']);
     $leaveType = LeaveType::factory()->for($company)->create([
         'days_per_year' => 30,
         'status' => 'active',

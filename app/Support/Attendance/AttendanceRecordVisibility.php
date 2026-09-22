@@ -34,6 +34,8 @@ final class AttendanceRecordVisibility
      */
     public function applyIndexScope($query, ?User $user, int $companyId): void
     {
+        AttendanceLeaveDepartmentScope::whereHas($query, $companyId, 'employee');
+
         if ($this->canManageAll($user)) {
             // Managers may view all attendance records, but still restricted
             // to employees within their Role Employee Access Scope.
@@ -44,7 +46,7 @@ final class AttendanceRecordVisibility
 
         $employeeId = $this->linkedEmployeeId($user, $companyId);
 
-        if ($employeeId === null) {
+        if ($employeeId === null || ! AttendanceLeaveDepartmentScope::canAccessEmployeeId($employeeId, $companyId)) {
             $query->whereRaw('1 = 0');
 
             return;
@@ -59,11 +61,15 @@ final class AttendanceRecordVisibility
             return false;
         }
 
+        $employee = $record->employee ?? Employee::query()->find($record->employee_id);
+
+        if ($employee === null || ! AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)) {
+            return false;
+        }
+
         if ($this->canManageAll($user)) {
             // Still restricted to the manager's Role Employee Access Scope.
-            $employee = $record->employee ?? Employee::query()->find($record->employee_id);
-
-            return $employee !== null && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
+            return EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
         }
 
         $employeeId = $this->linkedEmployeeId($user, $companyId);
@@ -90,7 +96,7 @@ final class AttendanceRecordVisibility
             ->where('company_id', $companyId)
             ->find($employeeId);
 
-        if ($employee === null) {
+        if ($employee === null || ! AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)) {
             return false;
         }
 

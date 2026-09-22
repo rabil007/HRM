@@ -15,6 +15,7 @@ use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Attendance\Actions\MutateDepartmentAttendanceLeaveParticipation;
 use App\Support\Departments\DepartmentHierarchyContext;
 use App\Support\Departments\PresentDepartmentEffectiveFields;
 use App\Support\Employees\EmployeeFormOptions;
@@ -23,6 +24,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -125,6 +127,7 @@ class DepartmentController extends Controller
                 'name' => $department->name,
                 'code' => $department->code,
                 'status' => $department->status,
+                'include_in_attendance_leave' => (bool) $department->include_in_attendance_leave,
                 'created_at' => $department->created_at,
             ];
         });
@@ -163,6 +166,7 @@ class DepartmentController extends Controller
                     'name' => $department->name,
                     'code' => $department->code,
                     'status' => $department->status,
+                    'include_in_attendance_leave' => (bool) $department->include_in_attendance_leave,
                     'manager' => $effective['manager'],
                     'manager_assignment' => $effective['manager_assignment'],
                     'leave_approval_policy' => $effective['leave_approval_policy'],
@@ -291,6 +295,7 @@ class DepartmentController extends Controller
                 'name' => $department->name,
                 'code' => $department->code,
                 'status' => $department->status,
+                'include_in_attendance_leave' => (bool) $department->include_in_attendance_leave,
                 'positions_count' => $positionsCount,
                 'users_count' => $usersCount,
                 'branches_count' => $branches->count(),
@@ -325,6 +330,9 @@ class DepartmentController extends Controller
         }
 
         $data['status'] = $data['status'] ?? 'active';
+        $data['include_in_attendance_leave'] = array_key_exists('include_in_attendance_leave', $data)
+            ? (bool) $data['include_in_attendance_leave']
+            : false;
 
         return $this->createOrReturnExistingQuickCreate(
             $request,
@@ -354,7 +362,8 @@ class DepartmentController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
-        $department->update($data);
+        app(MutateDepartmentAttendanceLeaveParticipation::class)
+            ->update($department, $companyId, $data);
 
         return redirect()
             ->route('organization.departments')
@@ -366,7 +375,14 @@ class DepartmentController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $department->company_id === $companyId, 404);
 
-        $department->delete();
+        try {
+            app(MutateDepartmentAttendanceLeaveParticipation::class)
+                ->delete($department, $companyId);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('organization.departments')
+                ->withErrors($exception->errors());
+        }
 
         return redirect()
             ->route('organization.departments')

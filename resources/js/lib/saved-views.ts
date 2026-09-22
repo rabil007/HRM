@@ -66,13 +66,7 @@ const FILTER_KEYS: Record<SavedViewPageKey, readonly string[]> = {
         'view',
     ],
     leave: ['search', 'status', 'leave_type_id'],
-    leave_approvals: [
-        'search',
-        'status',
-        'employee_id',
-        'leave_type_id',
-        'scope',
-    ],
+    leave_approvals: ['search', 'employee_id', 'leave_type_id'],
     payroll: ['search', 'category', 'status', 'date_from', 'date_to'],
 };
 
@@ -80,7 +74,6 @@ const OMITTED_VALUES: Partial<
     Record<SavedViewPageKey, Record<string, readonly string[]>>
 > = {
     documents: { expiry: ['all'] },
-    leave_approvals: { scope: ['awaiting_my_approval'] },
     crew: { view: ['crew'] },
 };
 

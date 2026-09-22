@@ -41,12 +41,14 @@ test('contract department tree limits roots and counts to selected payroll categ
         'company_id' => $company->id,
         'name' => 'Office',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $offshoreRoot = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployee = Employee::factory()->forCompany($company)->create([
@@ -134,12 +136,14 @@ test('contract no-contract department tree scopes employees by payroll category 
         'company_id' => $company->id,
         'name' => 'Office',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $offshoreRoot = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::query()->create([

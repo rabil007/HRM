@@ -50,6 +50,7 @@ export function PersonalSection({ data }: PersonalSectionProps) {
     const {
         employee,
         is_active_workforce = true,
+        attendance_leave_enabled = true,
         attendance_today,
         my_leave_balances = [],
         my_leave_requests = [],
@@ -57,6 +58,12 @@ export function PersonalSection({ data }: PersonalSectionProps) {
         my_announcements = [],
         my_payslips = [],
     } = data;
+
+    const leaveBalanceCount = my_leave_balances.length;
+    const leaveBalanceSummary =
+        leaveBalanceCount === 1
+            ? '1 leave balance'
+            : `${leaveBalanceCount} leave balances`;
 
     return (
         <DashboardSection
@@ -72,7 +79,14 @@ export function PersonalSection({ data }: PersonalSectionProps) {
                         attendance and leave requests are disabled.
                     </div>
                 )}
-                <div className="grid gap-4 md:grid-cols-3">
+                {is_active_workforce && !attendance_leave_enabled && (
+                    <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
+                        Attendance & Leave is not enabled for your department.
+                    </div>
+                )}
+                <div
+                    className={`grid gap-4 ${attendance_leave_enabled ? 'md:grid-cols-3' : 'md:grid-cols-1'}`}
+                >
                     <div className="flex items-center gap-3 rounded-2xl border border-primary/15 bg-linear-to-br from-primary/8 via-card to-card p-4 shadow-sm">
                         <div className="shrink-0 rounded-2xl bg-primary/10 p-3 text-primary">
                             <User className="h-6 w-6" />
@@ -91,138 +105,140 @@ export function PersonalSection({ data }: PersonalSectionProps) {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
-                        <div className="space-y-1">
-                            <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                Attendance Today
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <span
-                                    className={`inline-block h-2.5 w-2.5 rounded-full ${attendance_today ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                                />
-                                <span className="text-sm font-semibold capitalize">
-                                    {attendance_today
-                                        ? attendance_today.status || 'Present'
-                                        : 'Not Clocked In'}
-                                </span>
+                    {attendance_leave_enabled && (
+                        <>
+                            <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+                                <div className="space-y-1">
+                                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                        Attendance Today
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className={`inline-block h-2.5 w-2.5 rounded-full ${attendance_today ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                        />
+                                        <span className="text-sm font-semibold capitalize">
+                                            {attendance_today
+                                                ? attendance_today.status ||
+                                                  'Present'
+                                                : 'Not Clocked In'}
+                                        </span>
+                                    </div>
+                                    {attendance_today?.clock_in && (
+                                        <p className="font-mono text-xs text-muted-foreground">
+                                            In:{' '}
+                                            {new Date(
+                                                attendance_today.clock_in,
+                                            ).toLocaleTimeString([], {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
+                                        </p>
+                                    )}
+                                </div>
+                                <Link
+                                    href={attendanceRecordsIndex.url()}
+                                    className="text-xs font-semibold text-primary hover:underline"
+                                >
+                                    View Record →
+                                </Link>
                             </div>
-                            {attendance_today?.clock_in && (
-                                <p className="font-mono text-xs text-muted-foreground">
-                                    In:{' '}
-                                    {new Date(
-                                        attendance_today.clock_in,
-                                    ).toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                </p>
-                            )}
-                        </div>
-                        <Link
-                            href={attendanceRecordsIndex.url()}
-                            className="text-xs font-semibold text-primary hover:underline"
-                        >
-                            View Record →
-                        </Link>
-                    </div>
 
-                    <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
-                        <div className="space-y-1">
-                            <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                Leave Entitlement
-                            </span>
-                            <p className="text-xl font-bold tracking-tight text-foreground">
-                                {my_leave_balances.reduce(
-                                    (acc, b) => acc + (b.remaining_days || 0),
-                                    0,
-                                )}{' '}
-                                <span className="text-xs font-normal text-muted-foreground">
-                                    days remaining
-                                </span>
-                            </p>
-                        </div>
-                        {is_active_workforce ? (
-                            <Link
-                                href={myLeaveIndex.url()}
-                                className="text-xs font-semibold text-primary hover:underline"
-                            >
-                                Request Leave →
-                            </Link>
-                        ) : (
-                            <span className="text-xs text-muted-foreground">
-                                Leave requests disabled
-                            </span>
-                        )}
-                    </div>
+                            <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+                                <div className="space-y-1">
+                                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                        Leave Entitlement
+                                    </span>
+                                    <p className="text-xl font-bold tracking-tight text-foreground">
+                                        {leaveBalanceSummary}
+                                    </p>
+                                </div>
+                                {is_active_workforce ? (
+                                    <Link
+                                        href={myLeaveIndex.url()}
+                                        className="text-xs font-semibold text-primary hover:underline"
+                                    >
+                                        Request Leave →
+                                    </Link>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                        Leave requests disabled
+                                    </span>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Sub-grid: Leave Balances & Announcements */}
                 <div className="grid gap-4 md:grid-cols-2">
-                    {/* Leave Balances List */}
-                    <div className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
-                        <div className="flex items-center justify-between border-b pb-2">
-                            <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-foreground uppercase">
-                                <Calendar className="h-4 w-4 text-primary" />
-                                My Leave Balances
-                            </span>
-                            <Link
-                                href={myLeaveIndex.url()}
-                                className="text-xs font-medium text-primary hover:underline"
-                            >
-                                View all
-                            </Link>
-                        </div>
-
-                        {my_leave_balances.length === 0 ? (
-                            <p className="py-2 text-xs text-muted-foreground">
-                                No leave balances assigned.
-                            </p>
-                        ) : (
-                            <div className="space-y-2">
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                    {my_leave_balances.map((b) => (
-                                        <div
-                                            key={b.id}
-                                            className="flex items-center justify-between rounded-lg bg-muted/40 p-2.5 text-xs"
-                                        >
-                                            <span className="truncate font-medium text-foreground">
-                                                {b.name}
-                                            </span>
-                                            <span className="ml-2 shrink-0 font-bold text-primary">
-                                                {b.remaining_days} days
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                                {my_leave_requests.length > 0 && (
-                                    <div className="space-y-1 border-t border-border/30 pt-2">
-                                        <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-                                            Recent Requests
-                                        </span>
-                                        {my_leave_requests
-                                            .slice(0, 2)
-                                            .map((lr) => (
-                                                <div
-                                                    key={lr.id}
-                                                    className="flex items-center justify-between text-[11px] text-muted-foreground"
-                                                >
-                                                    <span className="truncate">
-                                                        {lr.leave_type} (
-                                                        {lr.total_days}d)
-                                                    </span>
-                                                    <span className="font-medium capitalize">
-                                                        {lr.status}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                    </div>
-                                )}
+                    {attendance_leave_enabled && (
+                        <div className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+                            <div className="flex items-center justify-between border-b pb-2">
+                                <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-foreground uppercase">
+                                    <Calendar className="h-4 w-4 text-primary" />
+                                    My Leave Balances
+                                </span>
+                                <Link
+                                    href={myLeaveIndex.url()}
+                                    className="text-xs font-medium text-primary hover:underline"
+                                >
+                                    View all
+                                </Link>
                             </div>
-                        )}
-                    </div>
+
+                            {my_leave_balances.length === 0 ? (
+                                <p className="py-2 text-xs text-muted-foreground">
+                                    No leave balances assigned.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        {my_leave_balances.map((b) => (
+                                            <div
+                                                key={b.id}
+                                                className="flex items-center justify-between rounded-lg bg-muted/40 p-2.5 text-xs"
+                                            >
+                                                <span className="truncate font-medium text-foreground">
+                                                    {b.name}
+                                                </span>
+                                                <span className="ml-2 shrink-0 font-bold text-primary">
+                                                    {b.remaining_days} days
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {my_leave_requests.length > 0 && (
+                                        <div className="space-y-1 border-t border-border/30 pt-2">
+                                            <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                                                Recent Requests
+                                            </span>
+                                            {my_leave_requests
+                                                .slice(0, 2)
+                                                .map((lr) => (
+                                                    <div
+                                                        key={lr.id}
+                                                        className="flex items-center justify-between text-[11px] text-muted-foreground"
+                                                    >
+                                                        <span className="truncate">
+                                                            {lr.leave_type} (
+                                                            {lr.total_days}d)
+                                                        </span>
+                                                        <span className="font-medium capitalize">
+                                                            {lr.status}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Personal Announcements Inbox */}
-                    <div className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+                    <div
+                        className={`space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm ${!attendance_leave_enabled ? 'md:col-span-2' : ''}`}
+                    >
                         <div className="flex items-center justify-between border-b pb-2">
                             <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-foreground uppercase">
                                 <Bell className="h-4 w-4 text-amber-500" />

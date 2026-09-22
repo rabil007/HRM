@@ -49,6 +49,7 @@ class StoreDepartmentRequest extends FormRequest
             'name' => ['required', 'string', 'max:200'],
             'code' => ['nullable', 'string', 'max:50'],
             'status' => ['nullable', 'in:active,inactive'],
+            'include_in_attendance_leave' => ['sometimes', 'boolean'],
         ];
     }
 

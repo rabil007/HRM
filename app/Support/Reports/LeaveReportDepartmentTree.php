@@ -3,6 +3,7 @@
 namespace App\Support\Reports;
 
 use App\Models\User;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -42,6 +43,7 @@ final class LeaveReportDepartmentTree
                 });
 
                 EmployeeVisibilityScope::apply($query, $user, $companyId);
+                AttendanceLeaveDepartmentScope::apply($query, $companyId);
             },
             allowedDepartmentIds: EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId),
         );

@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\LeaveRequest;
+use App\Support\Reports\LeaveReportApprovalHistory;
 use App\Support\Reports\LeaveReportPresenter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +45,7 @@ final class LeaveReportExport implements FromQuery, WithHeadings, WithMapping, W
             'Employee Name',
             'Department',
             'Leave Type',
+            'Leave Category',
             'Leave From',
             'Leave To',
             'Total Days',
@@ -51,6 +53,10 @@ final class LeaveReportExport implements FromQuery, WithHeadings, WithMapping, W
             'Submitted At',
             'Decided At',
             'Decided By',
+            'Approval Progress',
+            'Current / Waiting Approver',
+            'Approval Chain',
+            'Reassignment Summary',
         ];
     }
 
@@ -67,6 +73,7 @@ final class LeaveReportExport implements FromQuery, WithHeadings, WithMapping, W
             $row['employee']['name'],
             $row['department']['name'] ?? null,
             $row['leave_type']['name'] ?? null,
+            $row['leave_type']['category_label'] ?? null,
             $this->date($row['start_date']),
             $this->date($row['end_date']),
             $row['total_days'],
@@ -74,6 +81,10 @@ final class LeaveReportExport implements FromQuery, WithHeadings, WithMapping, W
             $this->datetime($row['submitted_at']),
             $this->datetime($row['decided_at']),
             $row['decided_by'],
+            $row['approval_progress']['label'] ?? null,
+            $row['approval_progress']['waiting_for'] ?? null,
+            LeaveReportApprovalHistory::chainText($row['approval_chain'] ?? []),
+            LeaveReportApprovalHistory::reassignmentSummary($row['reassignments'] ?? []),
         ];
     }
 

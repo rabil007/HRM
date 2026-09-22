@@ -8,7 +8,7 @@ use App\Support\Attendance\LeaveBalanceManager;
 
 test('replace pending reservation locks balance keys in deterministic order across employee type and year changes', function () {
     $context = makeFinalCorrectionContext(daysPerYear: 40);
-    $otherEmployee = Employee::factory()->forCompany($context['company'])->create([
+    $otherEmployee = createAttendanceLeaveEmployee($context['company'], [
         'status' => 'active',
         'department_id' => $context['employee']->department_id,
     ]);

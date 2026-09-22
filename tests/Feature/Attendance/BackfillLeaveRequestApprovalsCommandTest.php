@@ -8,7 +8,6 @@ use App\Models\CompanyLeaveApprovalSetting;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\EmailTemplate;
-use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
@@ -52,7 +51,7 @@ test('backfill command creates approval snapshots for pending requests', functio
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -88,7 +87,7 @@ test('backfill dry-run performs no database writes', function () {
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -134,7 +133,7 @@ test('backfill never deletes existing approvals even with force', function () {
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -181,7 +180,7 @@ test('failed chain resolution leaves the database unchanged', function () {
     ['company' => $company] = makeBackfillCompany();
 
     // No default policy / department manager — resolution must fail.
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
 
     $leaveRequest = createLeaveRequestRecord([
@@ -212,7 +211,7 @@ test('backfill is idempotent and notify is explicit', function () {
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -268,7 +267,7 @@ test('dry-run output includes Would create and leaves Created at zero', function
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -301,7 +300,7 @@ test('notify without usable template does not inflate notifications scheduled co
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
         'work_email' => 'backfill-employee@example.com',
@@ -339,7 +338,7 @@ test('notify with usable template increments notifications scheduled', function 
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
         'work_email' => 'backfill-notify@example.com',
@@ -387,11 +386,11 @@ test('metadata fill failure on one request does not block backfill on another el
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $eligibleEmployee = Employee::factory()->forCompany($company)->create([
+    $eligibleEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
-    $blockedEmployee = Employee::factory()->forCompany($company)->create([
+    $blockedEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);

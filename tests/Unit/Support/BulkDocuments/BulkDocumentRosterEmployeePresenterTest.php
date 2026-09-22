@@ -16,7 +16,9 @@ test('identity uses image not avatar_url and prefers work email', function () {
     $this->actingAs($user);
     $company = setupBulkDocumentsCompany($user);
 
-    $department = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck']);
+    $department = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck',
+        'include_in_attendance_leave' => true,
+    ]);
     $position = Position::query()->create(['company_id' => $company->id, 'title' => 'Able Seaman']);
 
     $employee = Employee::factory()->forCompany($company)->create([

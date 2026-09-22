@@ -150,6 +150,7 @@ test('employee export manager resolution does not query per employee', function 
         'company_id' => $company->id,
         'name' => 'Operations',
         'manager_id' => $manager->id,
+        'include_in_attendance_leave' => true,
     ]);
     $employees = Employee::factory()
         ->count(5)

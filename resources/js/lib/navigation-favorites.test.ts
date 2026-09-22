@@ -117,6 +117,65 @@ describe('unified Documents destinations', () => {
     });
 });
 
+describe('Attendance and Crew Operations report destinations', () => {
+    it('places Leave reports last under Attendance and Crew Movement History before Settings', () => {
+        const attendance = NAVIGATION_DESTINATIONS.filter(
+            (destination) => destination.group === 'Attendance',
+        ).map((destination) => destination.label);
+
+        assert.deepEqual(attendance, [
+            'Overview',
+            'Calendar',
+            'My leave',
+            'Approvals',
+            'Attendance records',
+            'Types',
+            'Approval policies',
+            'Leave Report',
+            'Leave Balance Report',
+        ]);
+
+        const crew = NAVIGATION_DESTINATIONS.filter(
+            (destination) => destination.group === 'Crew Operations',
+        ).map((destination) => destination.label);
+
+        assert.deepEqual(crew, [
+            'Overview',
+            'Crew Assignments',
+            'Planning',
+            'Vessels',
+            'Movement Corrections',
+            'Crew Movement History',
+            'Settings',
+        ]);
+
+        assert.equal(
+            NAVIGATION_DESTINATIONS.some(
+                (destination) => destination.group === 'Reports',
+            ),
+            false,
+        );
+
+        const leave = NAVIGATION_DESTINATIONS.find(
+            (destination) => destination.key === 'reports.leave',
+        );
+        const balance = NAVIGATION_DESTINATIONS.find(
+            (destination) => destination.key === 'reports.leave_balance',
+        );
+        const history = NAVIGATION_DESTINATIONS.find(
+            (destination) =>
+                destination.key === 'reports.crew-movement-history',
+        );
+
+        assert.equal(leave?.href, '/organization/reports/leave');
+        assert.equal(balance?.href, '/organization/reports/leave-balances');
+        assert.equal(
+            history?.href,
+            '/organization/reports/crew-movement-history',
+        );
+    });
+});
+
 describe('accessible favorite rendering', () => {
     it('shows the favorites list only when at least one key is currently visible', () => {
         const keys = ['employees', 'documents', 'legacy.removed'];

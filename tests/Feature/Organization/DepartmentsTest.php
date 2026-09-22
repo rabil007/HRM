@@ -81,6 +81,7 @@ test('authenticated users can view a department details page', function () {
         'name' => 'HR',
         'code' => 'HR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['departments.view']);
@@ -137,6 +138,7 @@ test('authenticated users can create, update, and delete a department', function
         'name' => 'Operations',
         'code' => 'OPS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['departments.create', 'departments.update', 'departments.delete', 'departments.view']);
@@ -217,6 +219,7 @@ test('authenticated users can export departments as csv, excel, and pdf', functi
         'name' => 'HR Export',
         'code' => 'HRX',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['departments.view', 'departments.export']);
@@ -324,6 +327,7 @@ test('child departments may have a direct manager assignment', function () {
         'name' => 'Operations',
         'code' => 'OPS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['departments.create', 'departments.update']);
@@ -355,6 +359,7 @@ test('child departments may have a direct manager assignment', function () {
         'code' => 'FIN',
         'manager_id' => $parentManager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $this->put("/organization/departments/{$parentWithManager->id}", [
@@ -406,6 +411,7 @@ test('department cannot be its own parent or create a circular hierarchy', funct
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $accounts = Department::query()->create([
@@ -414,6 +420,7 @@ test('department cannot be its own parent or create a circular hierarchy', funct
         'name' => 'Accounts',
         'code' => 'ACC',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['departments.update']);
@@ -519,6 +526,7 @@ test('authenticated users can toggle department status', function () {
         'name' => 'HR',
         'code' => 'HR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['departments.update']);

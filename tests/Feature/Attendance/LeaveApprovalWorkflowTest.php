@@ -66,7 +66,7 @@ function makeLeaveApprovalWorkflowFixtures(): array
  */
 function makeWorkflowActors(Company $company, ?Department $department = null): array
 {
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $department?->id,
     ]);
@@ -270,9 +270,10 @@ test('self-approval is prevented when requester is the department manager', func
         'name' => 'Self Dept',
         'code' => 'SELF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $user->id,
         'department_id' => $department->id,
@@ -295,7 +296,7 @@ test('self-approval is prevented when requester is the department manager', func
         ->assertSessionHasErrors('leave_request');
 });
 
-test('view_all can list all leave requests while approve alone cannot', function () {
+test('view_all does not turn leave approvals into a company-wide queue', function () {
     ['user' => $viewer, 'company' => $company] = makeLeaveApprovalWorkflowFixtures();
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
@@ -342,7 +343,7 @@ test('view_all can list all leave requests while approve alone cannot', function
     $this->withSession(['current_company_id' => $company->id])
         ->get('/attendance/leave-approvals?scope=all')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('leave_requests', 1));
+        ->assertInertia(fn ($page) => $page->has('leave_requests', 0));
 });
 
 test('approve permission alone cannot approve an unrelated leave request', function () {
@@ -486,7 +487,7 @@ test('awaiting_my_approval scope lists only pending steps for the actor', functi
             ->where('leave_requests.0.id', $mine->id));
 });
 
-test('assigned_to_me includes historical approvals without granting action rights', function () {
+test('legacy assigned_to_me scope cannot show historical approvals in the action queue', function () {
     ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
     $managed = makeManagedDepartment($company);
     ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
@@ -538,10 +539,7 @@ test('assigned_to_me includes historical approvals without granting action right
     $this->withSession(['current_company_id' => $company->id])
         ->get('/attendance/leave-approvals?scope=assigned_to_me')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->has('leave_requests', 1)
-            ->where('leave_requests.0.id', $historical->id)
-            ->where('leave_requests.0.can_approve_current_step', false));
+        ->assertInertia(fn ($page) => $page->has('leave_requests', 0));
 
     $this->withSession(['current_company_id' => $company->id])
         ->get('/attendance/leave-approvals')

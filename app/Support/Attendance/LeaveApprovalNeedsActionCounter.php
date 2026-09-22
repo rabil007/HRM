@@ -8,8 +8,7 @@ use App\Models\User;
 /**
  * Counts leave requests that currently need the actor's approval decision.
  *
- * Matches Attendance → Approvals → "Needs action" (`awaiting_my_approval`).
- * Does not include historical `assigned_to_me` assignments.
+ * Matches the Leave Approvals action queue: the current required pending step.
  */
 final class LeaveApprovalNeedsActionCounter
 {

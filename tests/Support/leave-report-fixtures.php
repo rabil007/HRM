@@ -3,6 +3,7 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\User;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\DB;
  *     user: User,
  *     company: Company,
  *     employee: Employee,
- *     leaveType: LeaveType
+ *     leaveType: LeaveType,
+ *     department: Department
  * }
  */
 function authorizeLeaveReport(): array
@@ -57,10 +59,19 @@ function authorizeLeaveReport(): array
         'employees.view',
     ]);
 
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Leave Report Office',
+        'code' => 'LRO',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
     $employee = Employee::factory()->forCompany($company)->create([
         'status' => 'active',
         'name' => 'Report Employee',
         'employee_no' => 'LR-001',
+        'department_id' => $department->id,
     ]);
 
     $leaveType = LeaveType::factory()->for($company)->create([
@@ -68,5 +79,5 @@ function authorizeLeaveReport(): array
         'status' => 'active',
     ]);
 
-    return compact('user', 'company', 'employee', 'leaveType');
+    return compact('user', 'company', 'employee', 'leaveType', 'department');
 }

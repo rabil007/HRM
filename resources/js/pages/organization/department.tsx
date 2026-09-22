@@ -38,6 +38,7 @@ type Department = {
     name: string;
     code: string | null;
     status: 'active' | 'inactive';
+    include_in_attendance_leave: boolean;
     positions_count: number;
     users_count: number;
     branches_count: number;
@@ -147,6 +148,8 @@ export default function DepartmentDetails({
         name: department.name ?? '',
         code: department.code ?? '',
         status: department.status ?? 'active',
+        include_in_attendance_leave:
+            department.include_in_attendance_leave ?? false,
     });
 
     const sheetDepartment: SheetDepartment = useMemo(() => {
@@ -182,6 +185,7 @@ export default function DepartmentDetails({
             name: department.name,
             code: department.code,
             status: department.status,
+            include_in_attendance_leave: department.include_in_attendance_leave,
         };
     }, [department]);
 
@@ -235,6 +239,14 @@ export default function DepartmentDetails({
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="divide-y divide-border dark:divide-white/5">
+                            <Field
+                                label="Attendance & Leave"
+                                value={
+                                    department.include_in_attendance_leave
+                                        ? 'Included'
+                                        : 'Excluded'
+                                }
+                            />
                             <Field
                                 label="Company"
                                 value={department.company.name ?? '—'}

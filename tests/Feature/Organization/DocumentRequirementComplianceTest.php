@@ -124,12 +124,14 @@ test('department scoped requirement does not affect employees in another departm
         'name' => 'Crew Scope',
         'code' => 'CRS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $accounts = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Accounts Scope',
         'code' => 'ACS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $accountsEmployee->update(['department_id' => $accounts->id]);
@@ -355,6 +357,7 @@ test('same document type matched by department and rank appears once', function 
         'name' => 'Crew Once',
         'code' => 'CRO',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $captain = Rank::query()->create(['name' => 'Captain Once '.uniqid(), 'is_active' => true]);
     $employee->update(['department_id' => $crew->id, 'rank_id' => $captain->id]);

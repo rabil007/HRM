@@ -174,6 +174,7 @@ function makeBankAccountsImportFixtures(): array
         'name' => 'Finance',
         'code' => 'FIN',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([

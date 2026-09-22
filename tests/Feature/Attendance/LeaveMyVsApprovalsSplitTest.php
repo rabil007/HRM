@@ -57,7 +57,7 @@ function makeLeaveSplitFixtures(): array
  */
 function makeLeaveSplitActors(Company $company, int $year = 2026): array
 {
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'status' => 'active',
         'days_per_year' => 30,
@@ -154,7 +154,7 @@ test('leave approvals requires approve permission and defaults to needs action s
         ->assertInertia(fn (Assert $page) => $page
             ->component('attendance/leave-approvals')
             ->where('list_mode', 'approvals')
-            ->where('filters.scope', 'awaiting_my_approval')
+            ->missing('filters.scope')
             ->has('leave_requests', 1)
             ->where('leave_requests.0.id', $awaiting->id));
 });

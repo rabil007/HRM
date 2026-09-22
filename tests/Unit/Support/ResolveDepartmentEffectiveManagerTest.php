@@ -52,6 +52,7 @@ test('effective manager resolves from parent department when child has no manage
         'code' => 'OPS',
         'manager_id' => $manager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $child = Department::query()->create([
@@ -60,6 +61,7 @@ test('effective manager resolves from parent department when child has no manage
         'name' => 'IT',
         'code' => 'IT',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->inDepartment($child)->create([
@@ -90,6 +92,7 @@ test('employee in department without manager chain has no resolved manager', fun
         'name' => 'Unmanaged',
         'code' => 'UNM',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->inDepartment($department)->create();

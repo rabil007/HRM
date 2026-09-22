@@ -3,7 +3,6 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\User;
 use App\Support\Attendance\PresentLeaveApproverOption;
 use Illuminate\Support\Facades\DB;
@@ -61,7 +60,7 @@ test('presenter marks employees without approve permission as not actionable', f
         'updated_at' => now(),
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $linkedUser->id,
         'name' => 'No Approve',
@@ -108,7 +107,7 @@ test('policy index employee options include actionable warnings and stay company
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
-    Employee::factory()->forCompany($otherCompany)->create([
+    createAttendanceLeaveEmployee($otherCompany, [
         'status' => 'active',
         'name' => 'Other Company Employee',
     ]);
@@ -154,7 +153,7 @@ test('inactive company membership makes approver non-actionable', function () {
 test('selected inactive employee remains visible via forCompany includeEmployeeIds', function () {
     ['company' => $company] = makeApproverOptionFixtures();
 
-    $inactive = Employee::factory()->forCompany($company)->create([
+    $inactive = createAttendanceLeaveEmployee($company, [
         'status' => 'inactive',
         'name' => 'Inactive Selected',
         'user_id' => null,
@@ -199,7 +198,7 @@ test('foreign company employees never appear in forCompany approver options', fu
         'status' => 'active',
     ]);
 
-    Employee::factory()->forCompany($otherCompany)->create([
+    createAttendanceLeaveEmployee($otherCompany, [
         'status' => 'active',
         'name' => 'Foreign Only Employee',
     ]);

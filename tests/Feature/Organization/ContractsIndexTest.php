@@ -39,6 +39,7 @@ test('contracts index returns paginated contracts with summary', function () {
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $marineDepartment = Department::query()->create([
@@ -46,6 +47,7 @@ test('contracts index returns paginated contracts with summary', function () {
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $officeDepartment->id]);
@@ -110,6 +112,7 @@ test('contracts index returns employee image with each contract row', function (
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update([
@@ -147,6 +150,7 @@ test('contracts index filters by lifecycle and workforce department scope', func
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $marineDepartment = Department::query()->create([
@@ -154,6 +158,7 @@ test('contracts index filters by lifecycle and workforce department scope', func
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployee = Employee::query()->create([
@@ -235,6 +240,7 @@ test('contracts index filters by salary structure', function () {
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployee = Employee::query()->create([
@@ -251,6 +257,7 @@ test('contracts index filters by salary structure', function () {
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $dailyCrewEmployee = Employee::query()->create([
@@ -346,6 +353,7 @@ test('contracts index supports search by employee name and labor contract id', f
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $officeDepartment->id]);
@@ -418,6 +426,7 @@ test('contracts index scopes data to current company', function () {
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $officeDepartment->id]);
@@ -454,6 +463,7 @@ test('users can view employees without contracts on no-contract page with positi
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $department = Department::query()->create([
@@ -463,6 +473,7 @@ test('users can view employees without contracts on no-contract page with positi
         'name' => 'Engineering',
         'code' => 'ENG',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([

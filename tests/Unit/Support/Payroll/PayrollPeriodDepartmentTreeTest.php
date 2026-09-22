@@ -43,12 +43,14 @@ test('payroll period department tree counts only employees matching board filter
         'company_id' => $company->id,
         'name' => 'Operations',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $marineDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->create([

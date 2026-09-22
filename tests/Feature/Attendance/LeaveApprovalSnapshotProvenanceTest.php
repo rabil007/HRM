@@ -4,7 +4,6 @@ use App\Enums\LeaveApprovalApproverType;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Models\User;
@@ -51,7 +50,7 @@ test('approval snapshot stores policy provenance and survives policy step recrea
     ]);
     $policy->update(['name' => 'Original Policy Name']);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -126,7 +125,7 @@ test('optional snapshot metadata backfill never overwrites existing provenance',
     $managed = makeManagedDepartment($company);
     $policy = ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);

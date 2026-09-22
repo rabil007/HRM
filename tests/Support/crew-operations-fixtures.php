@@ -62,6 +62,7 @@ function makeCrewOperationsFixtures(): array
         'company_id' => $company->id,
         'parent_id' => null,
         'name' => 'Crew Ops Dept',
+        'include_in_attendance_leave' => true,
     ]);
 
     $rank = Rank::query()->create([

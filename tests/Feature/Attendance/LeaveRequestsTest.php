@@ -66,7 +66,7 @@ function makeLeaveRequestsFixtures(): array
  */
 function makeLeaveRequestActors(Company $company, int $year = 2026): array
 {
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'status' => 'active',
         'days_per_year' => 30,
@@ -411,7 +411,7 @@ test('users without approve permission only see their own leave requests', funct
             ->where('linked_employee_id', $ownEmployee->id));
 });
 
-test('users with view_all permission see all leave requests', function () {
+test('view_all cannot broaden the leave approvals action queue', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     ['employee' => $otherEmployee] = makeLeaveRequestActors($company);
@@ -450,7 +450,7 @@ test('users with view_all permission see all leave requests', function () {
         ->assertInertia(fn ($page) => $page
             ->component('attendance/leave-approvals')
             ->where('list_mode', 'approvals')
-            ->has('leave_requests', 2));
+            ->has('leave_requests', 0));
 });
 
 test('authorized users can view leave request detail page', function () {

@@ -170,6 +170,8 @@ export type AuditDashboardSummary = {
 export type PersonalDashboard = {
     has_linked_employee: boolean;
     is_active_workforce: boolean;
+    /** False when the linked employee's current department is excluded from Attendance & Leave. */
+    attendance_leave_enabled: boolean;
     employee: {
         id: number;
         name: string;

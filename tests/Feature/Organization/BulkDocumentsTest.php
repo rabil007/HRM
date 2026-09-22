@@ -293,6 +293,7 @@ test('bulk documents roster includes employee department and position', function
         'name' => 'Operations',
         'code' => 'OPS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([
@@ -489,6 +490,7 @@ test('bulk document counts respect department and emailed filters', function () 
         'name' => 'Operations',
         'code' => 'OPS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $hrDepartment = Department::query()->create([
@@ -496,6 +498,7 @@ test('bulk document counts respect department and emailed filters', function () 
         'name' => 'Human Resources',
         'code' => 'HR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $emailedInOps = Employee::factory()->forCompany($company)->create([
@@ -607,6 +610,7 @@ test('bulk documents history view respects employee filters for email batches', 
         'name' => 'Operations',
         'code' => 'OPS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $hrDepartment = Department::query()->create([
@@ -614,6 +618,7 @@ test('bulk documents history view respects employee filters for email batches', 
         'name' => 'Human Resources',
         'code' => 'HR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $operationsEmployee = Employee::factory()->forCompany($company)->create([

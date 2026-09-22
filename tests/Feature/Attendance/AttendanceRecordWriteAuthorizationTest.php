@@ -84,7 +84,7 @@ function attendanceWritePayload(Employee $employee, array $overrides = []): arra
 
 test('self-service user can create attendance for their linked employee', function () {
     ['actor' => $actor, 'companyA' => $companyA, 'companyB' => $companyB] = makeAttendanceWriteAuthCompanies();
-    $own = Employee::factory()->forCompany($companyA)->create(['status' => 'active', 'user_id' => $actor->id]);
+    $own = createAttendanceLeaveEmployee($companyA, ['status' => 'active', 'user_id' => $actor->id]);
     grantCompanyPermissions($actor, $companyA, ['attendance.records.view', 'attendance.records.create']);
 
     $this->actingAs($actor)
@@ -102,8 +102,8 @@ test('self-service user can create attendance for their linked employee', functi
 
 test('self-service user cannot create attendance for a same-company coworker', function () {
     ['actor' => $actor, 'companyA' => $companyA] = makeAttendanceWriteAuthCompanies();
-    Employee::factory()->forCompany($companyA)->create(['status' => 'active', 'user_id' => $actor->id]);
-    $coworker = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    createAttendanceLeaveEmployee($companyA, ['status' => 'active', 'user_id' => $actor->id]);
+    $coworker = createAttendanceLeaveEmployee($companyA);
     grantCompanyPermissions($actor, $companyA, ['attendance.records.view', 'attendance.records.create']);
 
     $this->actingAs($actor)
@@ -124,8 +124,8 @@ test('self-service user cannot create attendance for a same-company coworker', f
 
 test('self-service user cannot create attendance for a cross-company employee', function () {
     ['actor' => $actor, 'companyA' => $companyA, 'companyB' => $companyB] = makeAttendanceWriteAuthCompanies();
-    Employee::factory()->forCompany($companyA)->create(['status' => 'active', 'user_id' => $actor->id]);
-    $foreign = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+    createAttendanceLeaveEmployee($companyA, ['status' => 'active', 'user_id' => $actor->id]);
+    $foreign = createAttendanceLeaveEmployee($companyB, ['status' => 'active']);
     grantCompanyPermissions($actor, $companyA, ['attendance.records.view', 'attendance.records.create']);
 
     $this->actingAs($actor)
@@ -136,7 +136,7 @@ test('self-service user cannot create attendance for a cross-company employee', 
 
 test('self-service user without a linked active-company employee cannot create attendance', function () {
     ['actor' => $actor, 'companyA' => $companyA] = makeAttendanceWriteAuthCompanies();
-    $unlinked = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    $unlinked = createAttendanceLeaveEmployee($companyA);
     grantCompanyPermissions($actor, $companyA, ['attendance.records.view', 'attendance.records.create']);
 
     $this->actingAs($actor)
@@ -147,8 +147,8 @@ test('self-service user without a linked active-company employee cannot create a
 
 test('manager can create attendance for another same-company employee but not another company', function () {
     ['actor' => $actor, 'companyA' => $companyA, 'companyB' => $companyB] = makeAttendanceWriteAuthCompanies();
-    $coworker = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
-    $foreign = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+    $coworker = createAttendanceLeaveEmployee($companyA);
+    $foreign = createAttendanceLeaveEmployee($companyB, ['status' => 'active']);
     grantCompanyPermissions($actor, $companyA, [
         'attendance.records.view',
         'attendance.records.create',
@@ -170,11 +170,11 @@ test('manager can create attendance for another same-company employee but not an
 
 test('self-service user can update own record but cannot reassign it or edit a coworker record', function () {
     ['actor' => $actor, 'companyA' => $companyA, 'companyB' => $companyB] = makeAttendanceWriteAuthCompanies();
-    $own = Employee::factory()->forCompany($companyA)->create(['status' => 'active', 'user_id' => $actor->id]);
-    $coworker = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    $own = createAttendanceLeaveEmployee($companyA, ['status' => 'active', 'user_id' => $actor->id]);
+    $coworker = createAttendanceLeaveEmployee($companyA);
     $ownRecord = AttendanceRecord::factory()->forEmployee($own)->create(['date' => '2026-06-10']);
     $coworkerRecord = AttendanceRecord::factory()->forEmployee($coworker)->create(['date' => '2026-06-10']);
-    $foreign = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+    $foreign = createAttendanceLeaveEmployee($companyB, ['status' => 'active']);
     $foreignRecord = AttendanceRecord::factory()->forEmployee($foreign)->create(['date' => '2026-06-10']);
 
     grantCompanyPermissions($actor, $companyA, [
@@ -214,9 +214,9 @@ test('self-service user can update own record but cannot reassign it or edit a c
 
 test('manager can update a same-company record and cannot retarget it to another company', function () {
     ['actor' => $actor, 'companyA' => $companyA, 'companyB' => $companyB] = makeAttendanceWriteAuthCompanies();
-    $employee = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
-    $other = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
-    $foreign = Employee::factory()->forCompany($companyB)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($companyA);
+    $other = createAttendanceLeaveEmployee($companyA);
+    $foreign = createAttendanceLeaveEmployee($companyB, ['status' => 'active']);
     $record = AttendanceRecord::factory()->forEmployee($employee)->create(['date' => '2026-06-10']);
 
     grantCompanyPermissions($actor, $companyA, [
@@ -244,8 +244,8 @@ test('manager can update a same-company record and cannot retarget it to another
 
 test('self-service destroy is limited to the linked employee record', function () {
     ['actor' => $actor, 'companyA' => $companyA] = makeAttendanceWriteAuthCompanies();
-    $own = Employee::factory()->forCompany($companyA)->create(['status' => 'active', 'user_id' => $actor->id]);
-    $coworker = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    $own = createAttendanceLeaveEmployee($companyA, ['status' => 'active', 'user_id' => $actor->id]);
+    $coworker = createAttendanceLeaveEmployee($companyA);
     $ownRecord = AttendanceRecord::factory()->forEmployee($own)->create(['date' => '2026-06-10']);
     $coworkerRecord = AttendanceRecord::factory()->forEmployee($coworker)->create(['date' => '2026-06-10']);
 
@@ -271,8 +271,8 @@ test('self-service destroy is limited to the linked employee record', function (
 
 test('dual-company user cannot write attendance for company B while active in A', function () {
     ['actor' => $actor, 'companyA' => $companyA, 'companyB' => $companyB] = makeAttendanceWriteAuthCompanies();
-    $employeeA = Employee::factory()->forCompany($companyA)->create(['status' => 'active', 'user_id' => $actor->id]);
-    $employeeB = Employee::factory()->forCompany($companyB)->create(['status' => 'active', 'user_id' => $actor->id]);
+    $employeeA = createAttendanceLeaveEmployee($companyA, ['status' => 'active', 'user_id' => $actor->id]);
+    $employeeB = createAttendanceLeaveEmployee($companyB, ['status' => 'active', 'user_id' => $actor->id]);
 
     grantCompanyPermissions($actor, $companyA, ['attendance.records.view', 'attendance.records.create']);
     grantCompanyPermissions($actor, $companyB, ['attendance.records.view', 'attendance.records.create']);
@@ -298,7 +298,7 @@ test('dual-company user cannot write attendance for company B while active in A'
 
 test('platform access without attendance permission cannot create records', function () {
     ['companyA' => $companyA] = makeAttendanceWriteAuthCompanies();
-    $employee = Employee::factory()->forCompany($companyA)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($companyA);
     $platformUser = User::factory()->create(['company_id' => null]);
     $platformUser->forceFill(['platform_access' => PlatformAccess::Manage])->save();
 

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization\Department;
 use App\Http\Requests\Organization\Department\Concerns\ValidatesDepartmentHierarchy;
 use App\Http\Requests\Organization\Department\Concerns\ValidatesDepartmentManager;
 use App\Models\Department;
+use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -50,6 +51,7 @@ class UpdateDepartmentRequest extends FormRequest
             'name' => ['required', 'string', 'max:200'],
             'code' => ['nullable', 'string', 'max:50'],
             'status' => ['nullable', 'in:active,inactive'],
+            'include_in_attendance_leave' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -61,5 +63,27 @@ class UpdateDepartmentRequest extends FormRequest
         $departmentId = $department instanceof Department ? (int) $department->id : null;
 
         $this->withHierarchyValidator($validator, $companyId, $departmentId);
+
+        $validator->after(function (Validator $validator) use ($companyId, $department): void {
+            if ($validator->errors()->isNotEmpty() || ! $department instanceof Department) {
+                return;
+            }
+
+            if ((int) $department->company_id !== $companyId) {
+                return;
+            }
+
+            $include = $this->boolean('include_in_attendance_leave');
+
+            if (! $this->has('include_in_attendance_leave') || $include || ! (bool) $department->include_in_attendance_leave) {
+                return;
+            }
+
+            $message = DepartmentAttendanceLeaveGuard::cannotExcludeDepartment($companyId, $department);
+
+            if ($message !== null) {
+                $validator->errors()->add('include_in_attendance_leave', $message);
+            }
+        });
     }
 }

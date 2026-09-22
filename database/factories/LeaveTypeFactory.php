@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\LeaveTypeCategory;
 use App\Enums\LeaveTypePayrollTreatment;
 use App\Models\LeaveType;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -30,6 +31,7 @@ class LeaveTypeFactory extends Factory
             'color' => '#3b82f6',
             'status' => 'active',
             'payroll_treatment' => LeaveTypePayrollTreatment::Paid,
+            'category' => LeaveTypeCategory::Other,
         ];
     }
 

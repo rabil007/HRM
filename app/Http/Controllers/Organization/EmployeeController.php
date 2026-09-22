@@ -16,6 +16,7 @@ use App\Services\Settings\AiSettingsService;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
+use App\Support\Employees\Actions\ApplyEmployeeUpdateWithDepartmentGuard;
 use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\Actions\GuardEmployeeStatusTransition;
@@ -326,7 +327,9 @@ class EmployeeController extends Controller
         $sssaOptionIds = $data['sssa_option_ids'] ?? null;
         unset($data['approval_location_ids'], $data['sssa_option_ids']);
 
-        $employee->update($data);
+        $result = app(ApplyEmployeeUpdateWithDepartmentGuard::class)
+            ->handle($employee, $companyId, $data);
+        $employee = $result['employee'];
 
         SyncEmployeeWorkAssignments::sync($employee, array_filter([
             'approval_location_ids' => $approvalLocationIds,

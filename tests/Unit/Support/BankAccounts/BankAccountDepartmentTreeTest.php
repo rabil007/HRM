@@ -41,12 +41,14 @@ test('bank account index department tree counts only employees with bank account
         'company_id' => $company->id,
         'name' => 'Office',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $offshoreDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployees = Employee::factory()->forCompany($company)->count(2)->create([
@@ -122,12 +124,14 @@ test('bank account no-account department tree counts only employees without bank
         'company_id' => $company->id,
         'name' => 'Office',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $offshoreDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployees = Employee::factory()->forCompany($company)->count(2)->create([

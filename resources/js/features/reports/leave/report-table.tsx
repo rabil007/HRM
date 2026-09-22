@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
+import { useState } from 'react';
 import {
     DataTableHead,
     OrganizationDataTable,
@@ -18,9 +19,10 @@ import { EmployeeAvatar } from '@/features/organization/employees/components/emp
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { LeaveReportApprovalHistoryDialog } from './approval-history-dialog';
 import type { LeaveReportFilters, LeaveReportRow } from './types';
 
-const COLUMN_COUNT = 10;
+const COLUMN_COUNT = 11;
 
 function SortHead({
     column,
@@ -151,128 +153,164 @@ export function LeaveReportTable({
     filters: LeaveReportFilters;
     onSort: (column: string) => void;
 }) {
+    const [historyRow, setHistoryRow] = useState<LeaveReportRow | null>(null);
+
     return (
-        <OrganizationDataTable minWidth="min-w-[1200px]" compact>
-            <TableHeader>
-                <TableRow>
-                    <SortHead
-                        column="employee_name"
-                        label="Employee"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        label="Department"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="leave_type"
-                        label="Leave Type"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="start_date"
-                        label="Start Date"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="end_date"
-                        label="End Date"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="total_days"
-                        label="Total Days"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="status"
-                        label="Status"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="created_at"
-                        label="Submitted At"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        column="decided_at"
-                        label="Decided At"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                    <SortHead
-                        label="Decided By"
-                        filters={filters}
-                        onSort={onSort}
-                    />
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {rows.map((row) => (
-                    <TableRow
-                        key={row.id}
-                        className={dataTableBodyRowClass(false)}
-                    >
-                        <TableCell
-                            className={cn(
-                                dataTableCellClass(),
-                                dataTableCellPrimaryClass(),
-                                'min-w-[220px]',
-                            )}
-                        >
-                            <EmployeeCell row={row} />
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {row.department?.name ?? '—'}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            <LeaveTypeCell row={row} />
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {formatDisplayDate(row.start_date)}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {formatDisplayDate(row.end_date)}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {row.total_days ?? '—'}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            <LeaveRequestStatusBadge status={row.status} />
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {formatDisplayDateTime(row.submitted_at)}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {row.decided_at
-                                ? formatDisplayDateTime(row.decided_at)
-                                : '—'}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {row.decided_by ?? '—'}
-                        </TableCell>
+        <>
+            <OrganizationDataTable minWidth="min-w-[1320px]" compact>
+                <TableHeader>
+                    <TableRow>
+                        <SortHead
+                            column="employee_name"
+                            label="Employee"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            label="Department"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            column="leave_type"
+                            label="Leave Type"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            column="start_date"
+                            label="Start Date"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            column="end_date"
+                            label="End Date"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            column="total_days"
+                            label="Total Days"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            column="status"
+                            label="Status"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            label="Approval"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            column="created_at"
+                            label="Submitted At"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            column="decided_at"
+                            label="Decided At"
+                            filters={filters}
+                            onSort={onSort}
+                        />
+                        <SortHead
+                            label="Decided By"
+                            filters={filters}
+                            onSort={onSort}
+                        />
                     </TableRow>
-                ))}
-            </TableBody>
-            <tfoot>
-                <tr>
-                    <td
-                        colSpan={COLUMN_COUNT}
-                        className="px-4 py-3 text-xs text-muted-foreground"
-                    >
-                        Showing {rows.length.toLocaleString()} of{' '}
-                        {total.toLocaleString()} leave requests
-                    </td>
-                </tr>
-            </tfoot>
-        </OrganizationDataTable>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((row) => (
+                        <TableRow
+                            key={row.id}
+                            className={dataTableBodyRowClass(false)}
+                        >
+                            <TableCell
+                                className={cn(
+                                    dataTableCellClass(),
+                                    dataTableCellPrimaryClass(),
+                                    'min-w-[220px]',
+                                )}
+                            >
+                                <EmployeeCell row={row} />
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {row.department?.name ?? '—'}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <LeaveTypeCell row={row} />
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {formatDisplayDate(row.start_date)}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {formatDisplayDate(row.end_date)}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {row.total_days ?? '—'}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <LeaveRequestStatusBadge status={row.status} />
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <button
+                                    type="button"
+                                    className="text-left text-sm font-medium text-primary underline-offset-2 hover:underline"
+                                    onClick={() => setHistoryRow(row)}
+                                >
+                                    <span className="block">
+                                        {row.approval_progress.label}
+                                    </span>
+                                    {row.approval_progress.waiting_for &&
+                                    row.approval_progress.approved_steps > 0 ? (
+                                        <span className="block text-xs font-normal text-muted-foreground">
+                                            Waiting for{' '}
+                                            {row.approval_progress.waiting_for}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {formatDisplayDateTime(row.submitted_at)}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {row.decided_at
+                                    ? formatDisplayDateTime(row.decided_at)
+                                    : '—'}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {row.decided_by ?? '—'}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+                <tfoot>
+                    <tr>
+                        <td
+                            colSpan={COLUMN_COUNT}
+                            className="px-4 py-3 text-xs text-muted-foreground"
+                        >
+                            Showing {rows.length.toLocaleString()} of{' '}
+                            {total.toLocaleString()} leave requests
+                        </td>
+                    </tr>
+                </tfoot>
+            </OrganizationDataTable>
+            <LeaveReportApprovalHistoryDialog
+                row={historyRow}
+                open={historyRow !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setHistoryRow(null);
+                    }
+                }}
+            />
+        </>
     );
 }

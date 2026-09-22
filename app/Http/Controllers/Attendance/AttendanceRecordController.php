@@ -8,6 +8,7 @@ use App\Http\Requests\Attendance\StoreAttendanceRecordRequest;
 use App\Http\Requests\Attendance\UpdateAttendanceRecordRequest;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\AttendanceRecordVisibility;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
@@ -59,6 +60,8 @@ class AttendanceRecordController extends Controller
         } else {
             EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
         }
+
+        AttendanceLeaveDepartmentScope::apply($employeesQuery, $companyId);
 
         return Inertia::render('attendance/records', [
             'records' => $paginator->getCollection()

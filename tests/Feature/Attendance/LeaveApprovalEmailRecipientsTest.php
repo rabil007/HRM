@@ -6,7 +6,6 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\EmailTemplate;
-use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
@@ -60,7 +59,7 @@ test('workflow submission puts template to and cc presets into deduplicated FYI 
         ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
         'user_id' => $user->id,
@@ -115,7 +114,7 @@ test('normal leave submission still notifies the first pending approver', functi
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
         'user_id' => $user->id,
