@@ -181,6 +181,34 @@ test('a soft-deleted users email can receive a new invitation in another company
         ->and(User::withTrashed()->whereRaw('LOWER(email) = ?', ['reusable@example.com'])->count())->toBe(1);
 });
 
+test('a soft-deleted users email can receive a new invitation in the same home company', function () {
+    Mail::fake();
+
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    ['companyA' => $companyA] = makeTwoCompaniesForUserEmailIdentity('same-home-invite');
+    grantCompanyPermissions($auth, $companyA, ['users.create', 'users.view']);
+
+    $deleted = User::factory()->create([
+        'company_id' => $companyA->id,
+        'email' => 'same-home-invite@example.com',
+    ]);
+    $deleted->delete();
+
+    $this->withSession(['current_company_id' => $companyA->id])
+        ->from('/organization/users')
+        ->post('/organization/users', [
+            'name' => 'Same Home Replacement',
+            'email' => 'same-home-invite@example.com',
+        ])->assertRedirect('/organization/users')
+        ->assertSessionHasNoErrors();
+
+    expect(UserInvitation::query()->where('email', 'same-home-invite@example.com')->exists())->toBeTrue()
+        ->and(User::query()->where('email', 'same-home-invite@example.com')->exists())->toBeFalse()
+        ->and(User::withTrashed()->find($deleted->id)?->trashed())->toBeTrue();
+});
+
 test('creating a user invitation for an employee can use an email owned by another company', function () {
     Mail::fake();
 

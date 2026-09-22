@@ -380,11 +380,11 @@ The historical unique index `uq_user_email_company` on `(company_id, email)` all
 
 Authentication and password reset consider only non-deleted rows. A soft-deleted User cannot log in and cannot hijack a remaining live identity that shares the email.
 
-The generated live-email key is **NULL** while `deleted_at` is set, so a soft-deleted User does not occupy the global live identity. A new live User may reuse that email in **another** home company.
+The generated live-email key is **NULL** while `deleted_at` is set, so a soft-deleted User does not occupy the global live identity. A new live User may reuse that email in **any** home company, including the same company the historical row belonged to. Soft-deleted rows are preserved; re-inviting creates a **new** User rather than restoring the deleted identity.
 
 Restoring a soft-deleted User is rejected by the database if another live User now owns that email (`QueryException` / unique violation).
 
-The legacy unique index `uq_user_email_company` on `(company_id, email)` is **retained**. It still occupies that pair even after soft-delete, so recreating the same email in the **same** home company can still fail at the database. That limitation is unchanged.
+The legacy unique index `uq_user_email_company` on `(company_id, email)` is **removed** (replaced by a non-unique lookup index `idx_users_company_email`). Live uniqueness continues to be enforced only by `uq_users_active_login_email`.
 
 ### Existing duplicates
 
@@ -406,7 +406,10 @@ Production was confirmed clean with the audit command before this database const
 - `tests/Feature/Auth/UniqueUserEmailIdentityTest.php`
 - `tests/Feature/Auth/UniqueUserEmailPasswordResetTest.php`
 - `tests/Feature/Organization/UniqueUserEmailWritesTest.php`
+- `tests/Feature/Organization/SoftDeletedUserInvitationReuseTest.php`
 - `tests/Feature/Auth/AuditDuplicateUserEmailsCommandTest.php`
+- `tests/Feature/Migrations/AddUsersActiveLoginEmailUniquenessTest.php`
+- `tests/Feature/Migrations/DropLegacyUserEmailCompanyUniqueTest.php`
 - `tests/Unit/Support/Auth/UserEmailIdentityTest.php`
 - `tests/Feature/Migrations/AddUsersActiveLoginEmailUniquenessTest.php`
 

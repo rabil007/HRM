@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserInvitation;
 use App\Support\Auth\UserEmailIdentity;
 use App\Support\Users\UserMembershipAccess;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -112,18 +113,30 @@ class AcceptUserInvitationController extends Controller
                 if ($userExists) {
                     $targetUser = Auth::user();
                 } else {
-                    $existing = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->lockForUpdate()->first();
-                    if ($existing) {
+                    $existing = User::query()
+                        ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($existing !== null) {
                         throw new \DomainException('An account with this email was just created. Please sign in to accept the invitation.');
                     }
 
-                    $targetUser = User::create([
-                        'name' => (string) $request->input('name', $lockedInvitation->name ?? 'User'),
-                        'email' => $lockedInvitation->email,
-                        'password' => Hash::make((string) $request->input('password')),
-                        'company_id' => $lockedInvitation->company_id,
-                        'status' => 'active',
-                    ]);
+                    try {
+                        $targetUser = User::create([
+                            'name' => (string) $request->input('name', $lockedInvitation->name ?? 'User'),
+                            'email' => $lockedInvitation->email,
+                            'password' => Hash::make((string) $request->input('password')),
+                            'company_id' => $lockedInvitation->company_id,
+                            'status' => 'active',
+                        ]);
+                    } catch (UniqueConstraintViolationException $exception) {
+                        if (! $this->isActiveLoginEmailConflict($exception)) {
+                            throw $exception;
+                        }
+
+                        throw new \DomainException('An account with this email was just created. Please sign in to accept the invitation.');
+                    }
                 }
 
                 // Link user to company
@@ -190,5 +203,20 @@ class AcceptUserInvitationController extends Controller
         }
 
         return redirect()->route('dashboard')->with('success', 'Invitation accepted successfully.');
+    }
+
+    /**
+     * Detect a concurrent live-login email uniqueness conflict only.
+     *
+     * Soft-deleted historical rows do not occupy active_login_email; a race
+     * between two new-account invitation accepts can still hit
+     * uq_users_active_login_email. Unrelated unique violations must bubble.
+     */
+    private function isActiveLoginEmailConflict(UniqueConstraintViolationException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'uq_users_active_login_email')
+            || str_contains($message, 'active_login_email');
     }
 }
