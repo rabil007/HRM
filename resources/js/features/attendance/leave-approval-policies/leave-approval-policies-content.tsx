@@ -42,6 +42,7 @@ import type { PaginationMeta } from '@/types/pagination';
 import { LeaveApprovalPolicyCard } from './components/leave-approval-policy-card';
 import { LeaveApprovalPolicyDeleteDialog } from './components/leave-approval-policy-delete-dialog';
 import { LeaveApprovalPolicyFormSheet } from './components/leave-approval-policy-form-sheet';
+import { LeaveApprovalPolicySyncDialog } from './components/leave-approval-policy-sync-dialog';
 import {
     defaultLeaveApprovalPolicyFormData,
     leaveApprovalPolicyToFormData,
@@ -80,8 +81,12 @@ export function LeaveApprovalPoliciesContent({
     );
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isSyncOpen, setIsSyncOpen] = useState(false);
     const [currentPolicy, setCurrentPolicy] =
         useState<LeaveApprovalPolicy | null>(null);
+    const [syncPolicy, setSyncPolicy] = useState<LeaveApprovalPolicy | null>(
+        null,
+    );
 
     const form = useForm(defaultLeaveApprovalPolicyFormData());
 
@@ -104,6 +109,11 @@ export function LeaveApprovalPoliciesContent({
     const handleDelete = (policy: LeaveApprovalPolicy) => {
         setCurrentPolicy(policy);
         setIsDeleteOpen(true);
+    };
+
+    const handleSyncPending = (policy: LeaveApprovalPolicy) => {
+        setSyncPolicy(policy);
+        setIsSyncOpen(true);
     };
 
     const confirmDelete = () => {
@@ -379,6 +389,12 @@ export function LeaveApprovalPoliciesContent({
                 employees={employees}
                 onSubmit={submit}
                 onMoveStep={moveStep}
+                canSyncPending={can.update}
+                onSyncPending={
+                    currentPolicy
+                        ? () => handleSyncPending(currentPolicy)
+                        : undefined
+                }
             />
 
             <LeaveApprovalPolicyDeleteDialog
@@ -386,6 +402,18 @@ export function LeaveApprovalPoliciesContent({
                 onOpenChange={setIsDeleteOpen}
                 policy={currentPolicy}
                 onConfirm={confirmDelete}
+            />
+
+            <LeaveApprovalPolicySyncDialog
+                open={isSyncOpen}
+                onOpenChange={(open) => {
+                    setIsSyncOpen(open);
+
+                    if (!open) {
+                        setSyncPolicy(null);
+                    }
+                }}
+                policy={syncPolicy}
             />
         </Main>
     );
