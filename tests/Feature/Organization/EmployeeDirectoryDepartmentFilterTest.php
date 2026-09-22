@@ -42,18 +42,21 @@ test('employees index filters by department subtree', function () {
         'company_id' => $company->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Junior Officers',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     $otherDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Shore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $parentEmployee = Employee::factory()->forCompany($company)->create([
@@ -122,12 +125,14 @@ test('employees index department tree rolls up employee counts', function () {
         'company_id' => $company->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Junior Officers',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::factory()->forCompany($company)->count(2)->create([
@@ -190,6 +195,7 @@ test('employees index department tree includes positions under departments', fun
         'company_id' => $company->id,
         'name' => 'Engineering',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([

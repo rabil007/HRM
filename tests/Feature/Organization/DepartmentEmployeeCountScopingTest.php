@@ -48,6 +48,7 @@ test('department show employee count excludes soft-deleted and other-company emp
         'name' => 'Finance',
         'code' => 'FIN',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::factory()->forCompany($company)->create([

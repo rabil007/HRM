@@ -56,6 +56,7 @@ function makeEmployeeTrashFixtures(): array
         'name' => 'Operations',
         'code' => 'OPS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([
@@ -380,6 +381,7 @@ test('deleted employees directory respects role employee visibility scope', func
         'name' => 'Crew Department',
         'code' => 'CREW',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeDepartment = Department::query()->create([
@@ -388,6 +390,7 @@ test('deleted employees directory respects role employee visibility scope', func
         'name' => 'Office Department',
         'code' => 'OFFICE',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $deletedCrewEmployee = Employee::factory()

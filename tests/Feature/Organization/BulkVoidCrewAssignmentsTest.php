@@ -468,12 +468,14 @@ test('employee visibility restricts void preview and hides non-permitted assignm
         'name' => 'Allowed Department A',
         'code' => 'DEPTA',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $deptB = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Hidden Department B',
         'code' => 'DEPTB',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'rank_id' => $rank->id]);
@@ -515,12 +517,14 @@ test('employee visibility restricts bulk void mutation and enforces all-or-nothi
         'name' => 'Dept A',
         'code' => 'DEPTA2',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $deptB = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Dept B',
         'code' => 'DEPTB2',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'rank_id' => $rank->id]);

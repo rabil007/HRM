@@ -17,6 +17,7 @@ function makeDirectoryCompletenessFixtures(): array
         'name' => 'Crewing',
         'code' => 'CRW',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $country = Country::query()->create([

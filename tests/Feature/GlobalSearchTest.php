@@ -212,12 +212,14 @@ test('vessels, departments, and positions respect tenant scope and permissions',
         'name' => 'Marine Search Dept',
         'code' => 'MSD',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     Department::query()->create([
         'company_id' => $companyB->id,
         'name' => 'Marine Search Dept',
         'code' => 'MSX',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $position = Position::query()->create([
         'company_id' => $companyA->id,
@@ -333,6 +335,7 @@ test('mixed queries return grouped results capped per category', function () {
         'name' => 'Alpha Mixed Dept',
         'code' => 'AMD',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $employee->update(['name' => 'Alpha Mixed Person']);
 

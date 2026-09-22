@@ -77,12 +77,14 @@ test('requirement can persist multiple selected departments', function () {
         'name' => 'Crew',
         'code' => 'CRW',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $accounts = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Accounts',
         'code' => 'ACC',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $this->put("/settings/master-data/document-types/{$passportType->id}", [
@@ -142,6 +144,7 @@ test('switching a document type to optional keeps the previous scope selection',
         'name' => 'Crew Optional Keep',
         'code' => 'COK',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $this->put("/settings/master-data/document-types/{$passportType->id}", [
@@ -243,6 +246,7 @@ test('requirement metadata and scopes persist when the document type is deactiva
         'name' => 'Crew Persist',
         'code' => 'CRP',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $this->put("/settings/master-data/document-types/{$passportType->id}", [
@@ -287,6 +291,7 @@ test('quick active toggle does not erase requirement configuration', function ()
         'name' => 'Crew Toggle',
         'code' => 'CRT',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     makeDocumentRequirement($company->id, $passportType->id, departmentIds: [$crew->id]);
@@ -342,6 +347,7 @@ test('company a cannot attach company b department or position ids', function ()
         'name' => 'Foreign Crew',
         'code' => 'FCR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $foreignPosition = Position::query()->create([
         'company_id' => $companyB->id,
@@ -439,7 +445,9 @@ test('users without update permission cannot mutate requirement configuration', 
     $this->actingAs($user);
 
     ['company' => $company, 'passportType' => $passportType] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['settings.master-data.document-types.view']);
+    grantCompanyPermissions($user, $company, ['settings.master-data.document-types.view',
+        'include_in_attendance_leave' => true,
+    ]);
 
     $this->get('/organization/documents/configuration')->assertOk();
     $this->get('/settings/master-data/document-types')

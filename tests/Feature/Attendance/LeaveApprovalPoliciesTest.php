@@ -217,6 +217,7 @@ test('policy assigned to a department cannot be deleted', function () {
         'code' => 'OPS',
         'leave_approval_policy_id' => $policy->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $this->delete("/attendance/leave-approval-policies/{$policy->id}")

@@ -325,6 +325,7 @@ test('creates workflow from preset resolving department manager for subject empl
         'code' => 'CREW',
         'manager_id' => $deptManagerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $department->id]);
@@ -401,6 +402,7 @@ test('resolves parent manager as next distinct actionable manager', function () 
         'code' => 'OPS',
         'manager_id' => $parentManagerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $crew = Department::query()->create([
@@ -410,6 +412,7 @@ test('resolves parent manager as next distinct actionable manager', function () 
         'parent_id' => $operations->id,
         'manager_id' => $crewManagerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $crew->id]);
@@ -474,6 +477,7 @@ test('blocks preset workflow when department manager cannot be resolved', functi
         'name' => 'No Manager Dept',
         'code' => 'NMD',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $department->id]);
@@ -657,6 +661,7 @@ test('manager changes after request creation do not alter existing tasks', funct
         'code' => 'OPS',
         'manager_id' => $originalManagerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $department->id]);
@@ -1137,6 +1142,7 @@ test('legacy manager-linked user resolves for department manager target', functi
         'code' => 'LD',
         'manager_id' => $managerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $employee->update(['department_id' => $department->id]);
 

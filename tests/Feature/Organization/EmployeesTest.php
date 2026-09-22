@@ -1092,6 +1092,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'name' => 'Engineering',
         'code' => 'ENG',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([
@@ -3579,6 +3580,7 @@ test('employee profile save keeps directory filters on navigation', function () 
         'name' => 'Offshore',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $otherDepartment = Department::query()->create([
@@ -3586,6 +3588,7 @@ test('employee profile save keeps directory filters on navigation', function () 
         'name' => 'Office',
         'code' => 'OFC',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::factory()->forCompany($company)->inDepartment($department)->create([
@@ -3722,6 +3725,7 @@ test('employee directory index can be filtered by manager and gender', function 
         'code' => 'OPS',
         'manager_id' => $manager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $maleGender = Gender::query()->create([
@@ -3797,6 +3801,7 @@ test('employee profile exposes manager derived from department hierarchy', funct
         'code' => 'OPS',
         'manager_id' => $manager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $child = Department::query()->create([
@@ -3805,6 +3810,7 @@ test('employee profile exposes manager derived from department hierarchy', funct
         'name' => 'IT',
         'code' => 'IT',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->inDepartment($child)->create([
@@ -3865,6 +3871,7 @@ test('employee update ignores manager_id because manager is department derived',
         'code' => 'FIN',
         'manager_id' => $departmentManager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->inDepartment($department)->create([

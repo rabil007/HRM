@@ -185,7 +185,7 @@ test('dashboard attendance analytics only includes linked company employees', fu
 
     grantCompanyPermissions($user, $company, ['attendance.overview.view']);
 
-    Employee::factory()->forCompany($company)->create([
+    createAttendanceLeaveEmployee($company, [
         'employee_no' => 'EMP0099',
         'name' => 'Other Employee',
         'status' => 'active',
@@ -266,7 +266,7 @@ test('distinct attendance counts for present and check-in metrics', function () 
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
     grantCompanyPermissions($user, $company, ['attendance.overview.view']);
 
-    $employee2 = Employee::factory()->forCompany($company)->create([
+    $employee2 = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
     ]);
 

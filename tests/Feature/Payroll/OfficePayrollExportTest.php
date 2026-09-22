@@ -110,6 +110,7 @@ test('office payroll salary sheet export highlights missing department and posit
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([

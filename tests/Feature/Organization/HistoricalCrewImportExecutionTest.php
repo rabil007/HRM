@@ -328,12 +328,14 @@ test('hidden employee cannot be imported and remains indistinguishable from miss
         'name' => 'Visible Office',
         'code' => 'HV'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $hiddenDept = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Hidden Marine',
         'code' => 'HH'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     Employee::factory()->forCompany($company)->create([
         'employee_no' => 'HID-55',

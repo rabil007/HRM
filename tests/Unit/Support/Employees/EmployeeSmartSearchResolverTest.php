@@ -21,6 +21,7 @@ function makeResolverFixtures(): array
         'name' => 'Crewing',
         'code' => 'CRW',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $otherDepartment = Department::query()->create([
@@ -28,6 +29,7 @@ function makeResolverFixtures(): array
         'name' => 'Crewing',
         'code' => 'CRW',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([
@@ -288,6 +290,7 @@ test('single-valued concepts still reject conflicting equals values', function (
         'name' => 'HR',
         'code' => 'HR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     Rank::query()->create(['name' => 'Captain Conflict', 'is_active' => true]);
     Rank::query()->create(['name' => 'AB Conflict', 'is_active' => true]);

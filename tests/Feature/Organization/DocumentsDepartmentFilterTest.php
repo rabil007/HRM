@@ -16,11 +16,13 @@ test('documents folder index filters employees by department using shared tree',
         'company_id' => $company->id,
         'name' => 'Deck',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $departmentB = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Engine',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employeeA->update(['department_id' => $departmentA->id]);
@@ -80,11 +82,13 @@ test('documents compliance view respects department filter', function () {
         'company_id' => $company->id,
         'name' => 'Compliance Deck',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $departmentB = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Compliance Engine',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employeeA->update(['department_id' => $departmentA->id]);

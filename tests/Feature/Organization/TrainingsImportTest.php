@@ -180,6 +180,7 @@ function makeTrainingsImportFixtures(): array
         'name' => 'Operations',
         'code' => 'OPS',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([

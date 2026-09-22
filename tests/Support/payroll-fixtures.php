@@ -175,12 +175,14 @@ function createApprovedOfficeExportFixture(Company $company, bool $withOrgData =
         'company_id' => $company->id,
         'name' => 'Operations',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $department = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Offshore',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([

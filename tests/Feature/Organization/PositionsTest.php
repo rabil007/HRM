@@ -111,6 +111,7 @@ test('authenticated users can view a position details page', function () {
         'name' => 'Engineering',
         'code' => 'ENG',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([
@@ -162,6 +163,7 @@ test('authenticated users can create, update, and delete a position', function (
         'name' => 'Engineering',
         'code' => 'ENG',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['positions.create', 'positions.update', 'positions.delete', 'positions.view']);
@@ -296,6 +298,7 @@ test('authenticated users can toggle position status', function () {
         'name' => 'Engineering',
         'code' => 'ENG',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([
@@ -331,6 +334,7 @@ test('authorized users can save a position description and private photo attachm
         'name' => 'Marine Operations',
         'code' => 'MOP',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['positions.create', 'positions.view']);
@@ -429,6 +433,7 @@ test('position writes reject departments from another company', function () {
         'name' => 'Other Department',
         'code' => 'OTH',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['positions.create']);

@@ -514,6 +514,7 @@ test('leave report filter options exclude employees with only soft deleted leave
         'name' => 'Valid History Dept',
         'code' => 'VHD',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $isolatedDepartment = Department::query()->create([
@@ -521,6 +522,7 @@ test('leave report filter options exclude employees with only soft deleted leave
         'name' => 'Deleted Only Dept',
         'code' => 'DOD',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employeeWithValidLeave->update(['department_id' => $validDepartment->id]);
@@ -609,6 +611,7 @@ test('leave report department tree shows departments for unrestricted users', fu
         'name' => 'Unrestricted Dept',
         'code' => 'UND',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee->update(['department_id' => $department->id]);

@@ -22,6 +22,7 @@ function seedDashboardAnalyticsFixtures(int $employeeCount = 8, int $attendanceD
         'company_id' => $company->id,
         'name' => 'Operations',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     Branch::query()->create([

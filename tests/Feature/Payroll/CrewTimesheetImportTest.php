@@ -31,12 +31,14 @@ test('crew timesheet template download includes roster with department and posit
         'company_id' => $company->id,
         'name' => 'Marine',
         'parent_id' => null,
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDepartment = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Deck',
         'parent_id' => $parentDepartment->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([

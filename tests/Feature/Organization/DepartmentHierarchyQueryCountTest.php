@@ -58,6 +58,7 @@ function makeDepartmentHierarchyFixtures(int $childCount): array
         'parent_id' => null,
         'manager_id' => $manager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $parentId = $root->id;
@@ -69,6 +70,7 @@ function makeDepartmentHierarchyFixtures(int $childCount): array
             'parent_id' => $parentId,
             'manager_id' => null,
             'status' => 'active',
+            'include_in_attendance_leave' => true,
         ]);
         $parentId = $department->id;
     }

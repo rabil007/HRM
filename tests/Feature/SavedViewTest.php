@@ -271,6 +271,7 @@ test('foreign company department and vessel ids are rejected', function () {
         'name' => 'Foreign Marine',
         'code' => 'FM1',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $foreignVessel = makeCrewMovementVessel('Foreign Horizon', $companyB);
 
@@ -305,6 +306,7 @@ test('employee saved views apply through the existing index filters', function (
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     saveView($user, $company->id, [
@@ -348,6 +350,7 @@ test('document crew leave and payroll pages save and list supported filters', fu
         'name' => 'Docs',
         'code' => 'DOC',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $vessel = makeCrewMovementVessel('Horizon', $company);
     $leaveType = LeaveType::factory()->create(['company_id' => $company->id]);

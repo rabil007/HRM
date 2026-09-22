@@ -114,6 +114,7 @@ function attachMultiPlacementDepartmentManager(Employee $subject, User $managerU
         'code' => 'CRW'.fake()->unique()->numerify('##'),
         'manager_id' => $managerEmployee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $subject->update(['department_id' => $department->id]);
@@ -141,6 +142,7 @@ function attachMultiPlacementTwoLevelChain(Employee $subject, User $manager1User
         'code' => 'OPS'.fake()->unique()->numerify('##'),
         'manager_id' => $manager2Employee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDept = Department::query()->create([
@@ -150,6 +152,7 @@ function attachMultiPlacementTwoLevelChain(Employee $subject, User $manager1User
         'parent_id' => $parentDept->id,
         'manager_id' => $manager1Employee->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $subject->update(['department_id' => $childDept->id]);

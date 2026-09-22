@@ -78,6 +78,7 @@ test('employee form options exposes department managers for directory filters', 
         'code' => 'OPS',
         'manager_id' => $manager->id,
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $options = EmployeeFormOptions::departmentManagersForFilter($company->id);

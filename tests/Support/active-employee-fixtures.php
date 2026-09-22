@@ -54,6 +54,7 @@ function makeActiveOnlyScopeFixtures(): array
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $activeEmployee = Employee::query()->create([

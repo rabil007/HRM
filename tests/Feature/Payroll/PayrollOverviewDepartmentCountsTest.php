@@ -14,6 +14,7 @@ test('payroll department employee counts exclude soft-deleted employees contract
         'company_id' => $company->id,
         'name' => 'Operations',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $counted = Employee::factory()->forCompany($company)->create([

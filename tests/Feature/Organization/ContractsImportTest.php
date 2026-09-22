@@ -426,6 +426,7 @@ function makeContractsImportFixtures(): array
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $marineDepartment = Department::query()->create([
@@ -433,6 +434,7 @@ function makeContractsImportFixtures(): array
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployee = Employee::factory()->forCompany($company)->create([

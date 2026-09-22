@@ -101,7 +101,9 @@ test('sample values maps valid keys to sample strings', function () {
 
 test('values for employee maps employee attributes to placeholders', function () {
     $company = createMergeFieldsTestCompany('Atlantic Shipping');
-    $department = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck']);
+    $department = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck',
+        'include_in_attendance_leave' => true,
+    ]);
     $position = Position::query()->create(['company_id' => $company->id, 'title' => 'First Officer']);
     $rank = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
     $nationality = Country::query()->firstOrCreate(
@@ -149,6 +151,7 @@ test('values for employee maps department effective manager name', function () {
         'company_id' => $company->id,
         'name' => 'Deck',
         'manager_id' => $manager->id,
+        'include_in_attendance_leave' => true,
     ]);
     $employee = Employee::factory()->forCompany($company)->inDepartment($department)->create([
         'name' => 'Alex Seafarer',

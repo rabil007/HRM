@@ -127,6 +127,7 @@ test('status transition rejects leaving active while the employee manages a depa
         'name' => 'Managed Dept',
         'status' => 'active',
         'manager_id' => $employee->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     expect(fn () => GuardEmployeeStatusTransition::assertCanLeaveActive($employee, 'terminated'))
@@ -144,6 +145,7 @@ test('status transition does not treat another company department manager as a b
         'name' => 'Foreign Dept',
         'status' => 'active',
         'manager_id' => $foreignManager->id,
+        'include_in_attendance_leave' => true,
     ]);
 
     GuardEmployeeStatusTransition::assertCanLeaveActive($employee, 'inactive');

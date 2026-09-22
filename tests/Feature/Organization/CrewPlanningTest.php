@@ -193,6 +193,7 @@ test('planning index employees list respects role employee visibility scope', fu
         'name' => 'Deck Crew',
         'code' => 'DECK',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeDept = Department::query()->create([
@@ -200,6 +201,7 @@ test('planning index employees list respects role employee visibility scope', fu
         'name' => 'Office Staff',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $crewMember = Employee::factory()->create([
@@ -267,6 +269,7 @@ test('role employee visibility includes employees from child departments when pa
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $childDept = Department::query()->create([
@@ -275,6 +278,7 @@ test('role employee visibility includes employees from child departments when pa
         'name' => 'Marine Officers',
         'code' => 'MAR-OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $parentEmployee = Employee::factory()->create([
@@ -1117,12 +1121,14 @@ test('planning gantt bars do not expose hidden employee', function () {
         'name' => 'Deck Crew',
         'code' => 'DECK',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $officeDept = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Office Staff',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $visible = Employee::factory()->create([
@@ -1180,6 +1186,7 @@ test('vacant planning position remains visible under restricted scope', function
         'name' => 'Deck Crew',
         'code' => 'DECK',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $from = now()->startOfMonth()->toDateString();
@@ -1215,12 +1222,14 @@ test('store planning assignment with hidden employee is rejected', function () {
         'name' => 'Deck Crew',
         'code' => 'DECK',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $officeDept = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Office Staff',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $hidden = Employee::factory()->create([

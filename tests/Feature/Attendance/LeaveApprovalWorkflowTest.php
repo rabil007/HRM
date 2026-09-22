@@ -270,6 +270,7 @@ test('self-approval is prevented when requester is the department manager', func
         'name' => 'Self Dept',
         'code' => 'SELF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = createAttendanceLeaveEmployee($company, [

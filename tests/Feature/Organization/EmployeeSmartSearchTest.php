@@ -36,6 +36,7 @@ function makeEmployeeSmartSearchFixtures(): array
         'name' => 'Crewing',
         'code' => 'CRW',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $otherDepartment = Department::query()->create([
@@ -43,6 +44,7 @@ function makeEmployeeSmartSearchFixtures(): array
         'name' => 'Crewing',
         'code' => 'CRW',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $position = Position::query()->create([
@@ -351,6 +353,7 @@ test('ambiguous values are not guessed', function () {
         'name' => 'Deck',
         'code' => 'DECK',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     Position::query()->create([

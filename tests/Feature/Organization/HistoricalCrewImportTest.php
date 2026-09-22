@@ -140,12 +140,14 @@ test('template reference data excludes employees hidden by visibility scope', fu
         'name' => 'Hidden Marine',
         'code' => 'HID'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $visibleDept = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Visible Office',
         'code' => 'VIS'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $visibleEmployee->update(['department_id' => $visibleDept->id]);
 
@@ -396,12 +398,14 @@ test('cross company vessel and hidden employee are blocked', function () {
         'name' => 'Visible Office',
         'code' => 'VO'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $hiddenDept = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Hidden Marine',
         'code' => 'HM'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $visible->update(['employee_no' => 'VIS-1', 'department_id' => $visibleDept->id]);
 
@@ -459,12 +463,14 @@ test('hidden and nonexistent employee numbers receive indistinguishable validati
         'name' => 'Visible Office',
         'code' => 'VX'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
     $hiddenDept = Department::query()->create([
         'company_id' => $company->id,
         'name' => 'Hidden Marine',
         'code' => 'HX'.Str::upper(Str::random(3)),
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     Employee::factory()->forCompany($company)->create([

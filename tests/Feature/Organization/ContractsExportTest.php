@@ -47,6 +47,7 @@ function makeContractExportFixtures(): array
         'name' => 'Office',
         'code' => 'OFF',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::query()->create([
@@ -184,6 +185,7 @@ test('export respects payroll category, department, and lifecycle filters for cs
         'name' => 'Office',
         'code' => 'OFF-2',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $marineDepartment = Department::query()->create([
@@ -191,6 +193,7 @@ test('export respects payroll category, department, and lifecycle filters for cs
         'name' => 'Marine',
         'code' => 'MAR',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $officeEmployee = Employee::query()->create([
@@ -335,6 +338,7 @@ test('crew export calculates usd from basic supplementary and site allowances on
         'name' => 'Marine',
         'code' => 'MAR-USD',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $crewEmployee = Employee::query()->create([
@@ -419,6 +423,7 @@ test('export shows zero totals when contract has no salary components', function
         'name' => 'Offshore',
         'code' => 'OFF-USD',
         'status' => 'active',
+        'include_in_attendance_leave' => true,
     ]);
 
     $employee = Employee::query()->create([
