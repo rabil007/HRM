@@ -3,7 +3,6 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -250,7 +249,7 @@ test('delete is blocked when leave type is used in leave requests', function () 
     grantCompanyPermissions($user, $company, ['attendance.types.delete']);
 
     $leaveType = LeaveType::factory()->for($company)->create();
-    $employee = Employee::factory()->create(['company_id' => $company->id]);
+    $employee = createAttendanceLeaveEmployee($company);
 
     DB::table('leave_requests')->insert([
         'company_id' => $company->id,

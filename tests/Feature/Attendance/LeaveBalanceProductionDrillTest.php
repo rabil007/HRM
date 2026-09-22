@@ -61,7 +61,7 @@ function makeDrillFixtures(): array
 test('production mock drill: full leave balance lifecycle with carry forward', function () {
     ['user' => $hrUser, 'company' => $company] = makeDrillFixtures();
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Drill Employee',
         'user_id' => $hrUser->id,

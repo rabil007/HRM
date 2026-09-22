@@ -72,7 +72,7 @@ function makeLeaveEditActors(Company $company): array
         ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);

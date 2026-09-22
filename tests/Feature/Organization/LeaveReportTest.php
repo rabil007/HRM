@@ -3,7 +3,6 @@
 use App\Exports\LeaveReportExport;
 use App\Models\Company;
 use App\Models\Department;
-use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Support\Reports\LeaveReportFilters;
 use App\Support\Reports\LeaveReportQuery;
@@ -44,7 +43,7 @@ test('leave report is company scoped', function () {
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
-    $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'active']);
+    $foreignEmployee = createAttendanceLeaveEmployee($otherCompany, ['status' => 'active']);
     $foreignType = LeaveType::factory()->for($otherCompany)->create(['status' => 'active']);
 
     createLeaveRequestRecord([
@@ -240,7 +239,7 @@ test('foreign company filter ids cannot expose leave requests', function () {
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
-    $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'active']);
+    $foreignEmployee = createAttendanceLeaveEmployee($otherCompany, ['status' => 'active']);
     $foreignType = LeaveType::factory()->for($otherCompany)->create(['status' => 'active']);
 
     $this->actingAs($user)

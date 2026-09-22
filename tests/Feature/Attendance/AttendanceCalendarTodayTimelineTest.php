@@ -61,7 +61,7 @@ function makeTodayTimelineFixtures(?string $timezone = 'Asia/Dubai'): array
 
 function makeTodayTimelineEmployee(Company $company): Employee
 {
-    return Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    return createAttendanceLeaveEmployee($company);
 }
 
 function grantCalendarAccess(User $user, Company $company): void
@@ -415,7 +415,7 @@ test('today_timeline shows production-style unlinked acs check-in for Mohammed R
     Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
 
     ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
         'employee_no' => '1034',
@@ -519,11 +519,11 @@ test('today_timeline does not guess an ambiguous unlinked Mohammed Rabil alias',
     ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
     grantCalendarAccess($user, $company);
 
-    $employeeA = Employee::factory()->forCompany($company)->create([
+    $employeeA = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
     ]);
-    $employeeB = Employee::factory()->forCompany($company)->create([
+    $employeeB = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil K',
     ]);
@@ -599,11 +599,11 @@ test('today_timeline linked person id remains authoritative when another employe
     ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
     grantCalendarAccess($user, $company);
 
-    $employeeA = Employee::factory()->forCompany($company)->create([
+    $employeeA = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
     ]);
-    $employeeB = Employee::factory()->forCompany($company)->create([
+    $employeeB = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil K',
     ]);
@@ -677,7 +677,7 @@ test('today_timeline never includes cross-company unlinked name matches', functi
     Carbon::setTestNow(Carbon::parse('2026-09-14 10:00:00', 'Asia/Dubai'));
 
     ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
         'user_id' => $user->id,
@@ -735,11 +735,11 @@ test('today_timeline unique unlinked alias is not poisoned by another company', 
     ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
     grantCalendarAccess($user, $company);
 
-    $employeeT = Employee::factory()->forCompany($company)->create([
+    $employeeT = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
     ]);
-    $employeeK = Employee::factory()->forCompany($company)->create([
+    $employeeK = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil K',
     ]);
@@ -768,7 +768,7 @@ test('today_timeline unique unlinked alias is not poisoned by another company', 
     ]);
     grantCalendarAccess($otherUser, $otherCompany);
 
-    $otherEmployee = Employee::factory()->forCompany($otherCompany)->create([
+    $otherEmployee = createAttendanceLeaveEmployee($otherCompany, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
     ]);
@@ -843,13 +843,13 @@ test('today_timeline hydrates only the selected employee punches including uniqu
     ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
     grantCalendarAccess($user, $company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Mohammed Rabil T',
         'employee_no' => '1034',
         'user_id' => $user->id,
     ]);
-    $unrelatedEmployee = Employee::factory()->forCompany($company)->create([
+    $unrelatedEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'name' => 'Unrelated Colleague',
     ]);

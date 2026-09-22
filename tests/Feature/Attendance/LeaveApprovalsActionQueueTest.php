@@ -4,7 +4,6 @@ use App\Enums\LeaveApprovalApproverType;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Enums\SavedViewPage;
 use App\Models\Company;
-use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
@@ -128,7 +127,7 @@ test('approving advances the action queue to the next required approver only', f
         ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $gm['employee']->id, 'required' => true],
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -212,7 +211,7 @@ test('leave approvals stay inside the active company', function () {
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
-    $foreignEmployee = Employee::factory()->forCompany($other)->create(['status' => 'active']);
+    $foreignEmployee = createAttendanceLeaveEmployee($other, ['status' => 'active']);
     $foreignType = LeaveType::factory()->for($other)->create(['status' => 'active']);
     $foreign = createLeaveRequestRecord([
         'company_id' => $other->id,

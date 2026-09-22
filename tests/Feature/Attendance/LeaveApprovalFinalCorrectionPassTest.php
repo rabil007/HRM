@@ -218,7 +218,7 @@ test('legacy no-pivot home user is actionable while inactive pivot is not', func
         'attendance.leave-requests.view',
         'attendance.leave-requests.approve',
     ]);
-    $legacyEmployee = Employee::factory()->forCompany($company)->create([
+    $legacyEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $legacyUser->id,
     ]);
@@ -232,7 +232,7 @@ test('legacy no-pivot home user is actionable while inactive pivot is not', func
         ->where('company_id', $company->id)
         ->where('user_id', $inactiveUser->id)
         ->update(['status' => 'inactive']);
-    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+    $inactiveEmployee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $inactiveUser->id,
     ]);
@@ -627,7 +627,7 @@ test('decided email uses snapshot approver email not live manager', function () 
         (int) $context['company']->id,
     );
 
-    $replacementManager = Employee::factory()->forCompany($context['company'])->create([
+    $replacementManager = createAttendanceLeaveEmployee($context['company'], [
         'status' => 'active',
         'work_email' => 'changed-live-manager@example.com',
     ]);
@@ -730,7 +730,7 @@ test('overlap uses direct date comparisons with correct boundaries', function ()
         '2026-09-07',
     );
 
-    $otherEmployee = Employee::factory()->forCompany($context['company'])->create([
+    $otherEmployee = createAttendanceLeaveEmployee($context['company'], [
         'status' => 'active',
         'department_id' => $context['employee']->department_id,
     ]);
@@ -829,7 +829,11 @@ test('policy listing and approver eligibility query counts stay bounded', functi
 
     expect($largePolicyQueries)->toBeLessThan($smallPolicyQueries + 20);
 
-    $employees = Employee::factory()->forCompany($context['company'])->count(100)->create(['status' => 'active']);
+    $department = ensureIncludedAttendanceLeaveDepartment($context['company']);
+    $employees = Employee::factory()->forCompany($context['company'])->count(100)->create([
+        'status' => 'active',
+        'department_id' => $department->id,
+    ]);
     foreach ($employees as $employee) {
         $user = User::factory()->create(['status' => 'active']);
         DB::table('company_user')->insert([

@@ -66,7 +66,7 @@ function makeLeaveApprovalWorkflowFixtures(): array
  */
 function makeWorkflowActors(Company $company, ?Department $department = null): array
 {
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $department?->id,
     ]);
@@ -272,7 +272,7 @@ test('self-approval is prevented when requester is the department manager', func
         'status' => 'active',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'user_id' => $user->id,
         'department_id' => $department->id,

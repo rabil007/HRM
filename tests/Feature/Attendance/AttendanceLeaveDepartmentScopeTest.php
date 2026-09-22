@@ -3,7 +3,6 @@
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Company;
 use App\Models\Department;
-use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
@@ -247,7 +246,7 @@ test('leave report ignores corrupt cross-company approval children and soft-dele
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
-    $foreignEmployee = Employee::factory()->forCompany($other)->create(['name' => 'Foreign Approver Leak']);
+    $foreignEmployee = createAttendanceLeaveEmployee($other, ['name' => 'Foreign Approver Leak']);
 
     $request = createLeaveRequestRecord([
         'company_id' => $company->id,

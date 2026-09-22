@@ -383,7 +383,7 @@ test('calendar employee dropdown lists all active employees in current company i
     $inactiveEmployee = createAttendanceLeaveEmployee($company, ['status' => 'inactive', 'name' => 'Inactive Employee']);
 
     $otherCompany = makeAttendanceCalendarFixtures()['company'];
-    $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'active', 'name' => 'Foreign Employee']);
+    $foreignEmployee = createAttendanceLeaveEmployee($otherCompany, ['status' => 'active', 'name' => 'Foreign Employee']);
 
     $employeeWithRequest->update(['user_id' => $user->id]);
     $this->actingAs($user);

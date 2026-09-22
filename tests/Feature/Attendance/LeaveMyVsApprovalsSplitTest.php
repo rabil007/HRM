@@ -57,7 +57,7 @@ function makeLeaveSplitFixtures(): array
  */
 function makeLeaveSplitActors(Company $company, int $year = 2026): array
 {
-    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $employee = createAttendanceLeaveEmployee($company);
     $leaveType = LeaveType::factory()->for($company)->create([
         'status' => 'active',
         'days_per_year' => 30,

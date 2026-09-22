@@ -75,7 +75,7 @@ function makeLeaveReassignmentContext(): array
         ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $step3['employee']->id, 'required' => true],
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'work_email' => "requester-ra-{$suffix}@example.com",
     ]);
@@ -281,7 +281,7 @@ test('reason required current-approver no-op and ineligible replacements are rej
     $inactiveEmployee['employee']->forceFill(['status' => 'inactive'])->save();
     expectReassignmentFails($context, $leaveRequest, (int) $inactiveEmployee['employee']->id, 'Inactive employee');
 
-    $noUser = Employee::factory()->forCompany($context['company'])->create(['status' => 'active', 'user_id' => null, 'name' => 'No User']);
+    $noUser = createAttendanceLeaveEmployee($context['company'], ['status' => 'active', 'user_id' => null, 'name' => 'No User']);
     expectReassignmentFails($context, $leaveRequest, (int) $noUser->id, 'No linked user');
 
     $inactiveUserPair = makeActionableApprover($context['company'], ['name' => 'Inactive User Emp']);

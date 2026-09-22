@@ -4,7 +4,6 @@ use App\Enums\LeaveApprovalApproverType;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveApprovalPolicyStep;
 use App\Models\LeaveRequestApproval;
@@ -155,7 +154,7 @@ test('policy step reorder preserves conceptual step ids and provenance', functio
         ->and($after[2]->approver_type->value)->toBe(LeaveApprovalApproverType::SpecificEmployee->value);
 
     $managed = makeManagedDepartment($company);
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);

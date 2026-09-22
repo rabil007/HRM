@@ -71,13 +71,13 @@ test('leave balance report reads persisted snapshots with filters visibility and
         'category' => LeaveTypeCategory::Other,
     ]);
 
-    $inactive = Employee::factory()->forCompany($company)->create([
+    $inactive = createAttendanceLeaveEmployee($company, [
         'status' => 'inactive',
         'name' => 'Inactive Person',
         'employee_no' => 'BAL-OFF',
         'department_id' => $active->department_id,
     ]);
-    $terminated = Employee::factory()->forCompany($company)->create([
+    $terminated = createAttendanceLeaveEmployee($company, [
         'status' => 'terminated',
         'name' => 'Former Person',
         'employee_no' => 'BAL-END',
@@ -102,7 +102,7 @@ test('leave balance report reads persisted snapshots with filters visibility and
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
-    $foreignEmployee = Employee::factory()->forCompany($other)->create(['status' => 'active', 'name' => 'Foreign Balance']);
+    $foreignEmployee = createAttendanceLeaveEmployee($other, ['status' => 'active', 'name' => 'Foreign Balance']);
     $foreignType = LeaveType::factory()->for($other)->create();
     makeBalance($foreignEmployee, $foreignType, 2026, []);
 

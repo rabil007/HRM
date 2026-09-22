@@ -4,7 +4,6 @@ use App\Models\Company;
 use App\Models\CompanyLeaveApprovalSetting;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\User;
 use App\Support\Attendance\LeaveNotificationSettings;
 use Illuminate\Support\Facades\Artisan;
@@ -238,7 +237,7 @@ test('cross-company employee and settings ids cannot change another company', fu
         'status' => 'active',
     ]);
 
-    $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create(['status' => 'active']);
+    $foreignEmployee = createAttendanceLeaveEmployee($otherCompany, ['status' => 'active']);
     $foreignSettings = CompanyLeaveApprovalSetting::forCompany($otherCompany->id);
     $foreignSettings->update(leaveNotificationPayload([
         'email_notifications_enabled' => true,

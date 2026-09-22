@@ -66,7 +66,7 @@ function makeAttachmentConcurrencyContext(): array
         ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
         'user_id' => $owner->id,

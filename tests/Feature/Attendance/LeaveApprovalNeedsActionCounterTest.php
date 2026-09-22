@@ -54,7 +54,7 @@ function makeNeedsActionCounterFixtures(): array
     $managed = makeManagedDepartment($company);
     ensureDefaultLeaveApprovalPolicy($company);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -232,7 +232,7 @@ test('another company pending approval does not count', function () {
     ]);
 
     $otherManaged = makeManagedDepartment($otherCompany);
-    $otherEmployee = Employee::factory()->forCompany($otherCompany)->create([
+    $otherEmployee = createAttendanceLeaveEmployee($otherCompany, [
         'status' => 'active',
         'department_id' => $otherManaged['department']->id,
     ]);

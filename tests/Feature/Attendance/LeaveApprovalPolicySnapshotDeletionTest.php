@@ -4,7 +4,6 @@ use App\Enums\LeaveApprovalApproverType;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveType;
 use App\Models\User;
@@ -58,7 +57,7 @@ test('policy referenced by leave_request_approvals policy_id cannot be deleted e
         ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
         'department_id' => $managed['department']->id,
     ]);
@@ -152,11 +151,11 @@ test('cross-company approval snapshot does not block deletion in another company
         ->withDepartmentManagerStep()
         ->create(['is_default' => false, 'name' => 'Company B disposable']);
 
-    $employeeA = Employee::factory()->forCompany($companyA)->create([
+    $employeeA = createAttendanceLeaveEmployee($companyA, [
         'status' => 'active',
         'department_id' => $managedA['department']->id,
     ]);
-    $employeeB = Employee::factory()->forCompany($companyB)->create([
+    $employeeB = createAttendanceLeaveEmployee($companyB, [
         'status' => 'active',
         'department_id' => $managedB['department']->id,
     ]);

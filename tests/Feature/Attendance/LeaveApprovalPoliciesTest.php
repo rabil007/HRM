@@ -5,7 +5,6 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
-use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -305,7 +304,7 @@ test('immediate move step endpoint is removed and save persists step order', fun
 
 test('leave approval settings reject an inactive default hr approver', function () {
     ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
-    $inactive = Employee::factory()->forCompany($company)->create(['status' => 'inactive', 'user_id' => null]);
+    $inactive = createAttendanceLeaveEmployee($company, ['status' => 'inactive', 'user_id' => null]);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
