@@ -1096,3 +1096,106 @@ test('parent recruitment route requires authentication', function () {
     $this->get('/organization/recruitment')
         ->assertRedirect(route('login'));
 });
+
+test('adding headcount to an OnHold requirement keeps existing and newly created lines OnHold until resumed', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-000001',
+        'client_id' => $this->client->id,
+        'request_received_date' => now(),
+        'required_by_date' => now()->addDays(15),
+        'priority' => 'normal',
+        'status' => RequirementStatus::OnHold,
+        'created_by' => $this->adminUserA->id,
+    ]);
+
+    $existingLine = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 2,
+        'status' => RequirementLineStatus::OnHold,
+    ]);
+
+    // 1. Headcount can be added to an OnHold requirement
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/add-headcount", [
+            'positions' => [
+                [
+                    'position_id' => $this->positionChiefEng->id,
+                    'added_headcount' => 3,
+                ],
+                [
+                    'position_id' => $this->positionCaptain->id,
+                    'added_headcount' => 1,
+                ],
+            ],
+            'reason' => 'Client added positions while requisition is on hold.',
+        ])
+        ->assertRedirect(route('organization.recruitment.requirements.show', $req));
+
+    // 2. Existing and newly created lines remain OnHold
+    $existingLine->refresh();
+    expect($existingLine->required_headcount)->toBe(5)
+        ->and($existingLine->status)->toBe(RequirementLineStatus::OnHold);
+
+    $newLine = $req->lines()->where('position_id', $this->positionCaptain->id)->firstOrFail();
+    expect($newLine->required_headcount)->toBe(1)
+        ->and($newLine->status)->toBe(RequirementLineStatus::OnHold);
+
+    // 3. Resuming the requirement changes those OnHold lines to Open
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/resume")
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open)
+        ->and($existingLine->fresh()->status)->toBe(RequirementLineStatus::Open)
+        ->and($newLine->fresh()->status)->toBe(RequirementLineStatus::Open);
+});
+
+test('adding headcount to Draft and Open requirements sets lines to Open status', function () {
+    $draftReq = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-000002',
+        'client_id' => $this->client->id,
+        'request_received_date' => now(),
+        'required_by_date' => now()->addDays(15),
+        'priority' => 'normal',
+        'status' => RequirementStatus::Draft,
+        'created_by' => $this->adminUserA->id,
+    ]);
+
+    $draftLine = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $draftReq->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$draftReq->id}/add-headcount", [
+            'positions' => [
+                [
+                    'position_id' => $this->positionChiefEng->id,
+                    'added_headcount' => 2,
+                ],
+                [
+                    'position_id' => $this->positionCaptain->id,
+                    'added_headcount' => 1,
+                ],
+            ],
+            'reason' => 'Draft requisition additions.',
+        ])
+        ->assertRedirect();
+
+    expect($draftLine->fresh()->required_headcount)->toBe(3)
+        ->and($draftLine->fresh()->status)->toBe(RequirementLineStatus::Open);
+
+    $draftNewLine = $draftReq->lines()->where('position_id', $this->positionCaptain->id)->firstOrFail();
+    expect($draftNewLine->required_headcount)->toBe(1)
+        ->and($draftNewLine->status)->toBe(RequirementLineStatus::Open);
+});

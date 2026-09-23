@@ -41,6 +41,10 @@ final class AddHeadcountToRequirementAction
                 ]);
             }
 
+            $targetLineStatus = $requirement->status === RequirementStatus::OnHold
+                ? RequirementLineStatus::OnHold
+                : RequirementLineStatus::Open;
+
             $changes = [];
 
             foreach ($lines as $lineInput) {
@@ -58,7 +62,7 @@ final class AddHeadcountToRequirementAction
                     $newHeadcount = $oldHeadcount + $additional;
                     $existingLine->update([
                         'required_headcount' => $newHeadcount,
-                        'status' => RequirementLineStatus::Open, // Reopen line if was filled/on_hold
+                        'status' => $targetLineStatus,
                     ]);
 
                     $changes[] = [
@@ -74,7 +78,7 @@ final class AddHeadcountToRequirementAction
                         'position_id' => $positionId,
                         'required_headcount' => $additional,
                         'line_notes' => $lineInput['line_notes'] ?? null,
-                        'status' => RequirementLineStatus::Open,
+                        'status' => $targetLineStatus,
                     ]);
 
                     $changes[] = [
