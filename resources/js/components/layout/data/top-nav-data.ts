@@ -2,9 +2,11 @@ import {
     attendanceHref,
     canViewCrewOperations,
     canViewPayroll,
+    canViewRecruitment,
     crewOperationsHref,
     has,
     payrollHref,
+    recruitmentHref,
 } from '@/lib/nav-visibility';
 import { dashboard } from '@/routes';
 import { employees } from '@/routes/organization';
@@ -35,6 +37,18 @@ export function getTopNavLinks(
             title: 'Employees',
             href: employees.url(),
             isActive: url.startsWith('/organization/employees'),
+        });
+    }
+
+    if (canViewRecruitment(permissions)) {
+        const href =
+            recruitmentHref(permissions) ??
+            '/organization/recruitment/requirements';
+
+        links.push({
+            title: 'Recruitment',
+            href,
+            isActive: url.startsWith('/organization/recruitment'),
         });
     }
 
