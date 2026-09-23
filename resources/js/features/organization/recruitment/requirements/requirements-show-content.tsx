@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Flame } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import RequirementFillController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementFillController';
 import RequirementHoldController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementHoldController';
@@ -34,7 +34,18 @@ export function RequirementsShowContent({
     can,
     recent_activity,
 }: RequirementShowProps) {
-    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(() => {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+
+        return (
+            params.get('edit') === '1' &&
+            Boolean(requirement.can_edit && can.update)
+        );
+    });
     const [isExtendOpen, setIsExtendOpen] = useState(false);
     const [isChangeHeadcountOpen, setIsChangeHeadcountOpen] = useState(false);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -42,6 +53,21 @@ export function RequirementsShowContent({
     const [isRepeatOpen, setIsRepeatOpen] = useState(false);
     const [targetLineForHeadcount, setTargetLineForHeadcount] =
         useState<RequirementLine | null>(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+
+        if (params.get('edit') === '1') {
+            const newUrl = new URL(window.location.href);
+
+            newUrl.searchParams.delete('edit');
+            window.history.replaceState({}, '', newUrl.toString());
+        }
+    }, []);
 
     const handleOpen = () => {
         router.post(

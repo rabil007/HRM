@@ -11,13 +11,15 @@ use App\Models\Client;
 use App\Models\Position;
 use App\Models\Project;
 use App\Models\RecruitmentRequirement;
-use App\Models\User;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Recruitment\DuplicateRequirementDetector;
+use App\Support\Recruitment\DuplicateRequirementDto;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementBrowseQuery;
 use App\Support\Recruitment\RequirementPagePermissions;
 use App\Support\Recruitment\RequirementPresenter;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,9 +32,10 @@ class RequirementController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $browse = RequirementBrowseQuery::get($request, $companyId);
         $today = Carbon::today();
+        $user = $request->user();
 
-        $items = collect($browse['paginator']->items())->map(function (RecruitmentRequirement $requirement) use ($today): array {
-            return RequirementPresenter::toIndexRow($requirement, $today);
+        $items = collect($browse['paginator']->items())->map(function (RecruitmentRequirement $requirement) use ($today, $user): array {
+            return RequirementPresenter::toIndexRow($requirement, $today, $user);
         })->all();
 
         $pagination = [
@@ -78,21 +81,13 @@ class RequirementController extends Controller
             ])
             ->all();
 
-        $users = User::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'email'])
-            ->map(fn (User $u): array => [
-                'id' => (int) $u->id,
-                'name' => (string) $u->name,
-                'email' => (string) $u->email,
-            ])
-            ->all();
+        $recruiters = RecruiterOptionsQuery::forCompany($companyId);
 
         $options = [
             'clients' => $clients,
             'projects' => $projects,
             'positions' => $positions,
-            'recruiters' => $users,
+            'recruiters' => $recruiters,
         ];
 
         return Inertia::render('organization/recruitment/requirements/index', [
@@ -118,7 +113,7 @@ class RequirementController extends Controller
             'clients' => $clients,
             'projects' => $projects,
             'positions' => $positions,
-            'users' => $users,
+            'users' => $recruiters,
         ]);
     }
 
@@ -180,30 +175,22 @@ class RequirementController extends Controller
             ])
             ->all();
 
-        $users = User::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'email'])
-            ->map(fn (User $u): array => [
-                'id' => (int) $u->id,
-                'name' => (string) $u->name,
-                'email' => (string) $u->email,
-            ])
-            ->all();
+        $recruiters = RecruiterOptionsQuery::forCompany($companyId);
 
         $options = [
             'clients' => $clients,
             'projects' => $projects,
             'positions' => $positions,
-            'recruiters' => $users,
+            'recruiters' => $recruiters,
         ];
 
         return Inertia::render('organization/recruitment/requirements/show', [
-            'requirement' => RequirementPresenter::toShow($requirement),
+            'requirement' => RequirementPresenter::toShow($requirement, null, $request->user()),
             'options' => $options,
             'clients' => $clients,
             'projects' => $projects,
             'positions' => $positions,
-            'users' => $users,
+            'users' => $recruiters,
             'can' => RequirementPagePermissions::for($request->user()),
             'can_view_audit' => $canViewAudit,
             'recent_activity' => $recentActivity,
@@ -213,7 +200,7 @@ class RequirementController extends Controller
     public function store(
         StoreRequirementRequest $request,
         CreateRequirementAction $action,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $userId = (int) $request->user()->id;
 
@@ -230,9 +217,22 @@ class RequirementController extends Controller
             );
 
             if ($similar->isNotEmpty()) {
+                $duplicates = $similar->map(fn (RecruitmentRequirement $r): array => DuplicateRequirementDto::fromRequirement($r, $positionIds))->all();
+
+                if ($request->wantsJson()) {
+                    return response()->json([
+                        'message' => 'Similar active requirements were detected.',
+                        'has_duplicates' => true,
+                        'duplicates' => $duplicates,
+                        'similar' => $duplicates,
+                    ], 422);
+                }
+
                 return redirect()->back()
                     ->withInput()
-                    ->with('similar_requirements', $similar->map(fn (RecruitmentRequirement $r): array => RequirementPresenter::toIndexRow($r))->all());
+                    ->withErrors(['duplicate' => 'Similar active requirements were detected. Please consolidate headcount or explicitly confirm a separate batch.'])
+                    ->with('duplicates', $duplicates)
+                    ->with('similar_requirements', $duplicates);
             }
         }
 

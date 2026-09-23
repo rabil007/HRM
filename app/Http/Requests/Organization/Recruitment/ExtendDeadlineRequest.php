@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization\Recruitment;
 
+use App\Models\RecruitmentRequirement;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ExtendDeadlineRequest extends FormRequest
@@ -23,9 +24,27 @@ class ExtendDeadlineRequest extends FormRequest
      */
     public function rules(): array
     {
+        $requirement = $this->route('requirement');
+        if (! ($requirement instanceof RecruitmentRequirement)) {
+            $requirement = RecruitmentRequirement::query()->find($requirement);
+        }
+
+        $minDate = $requirement?->required_by_date?->format('Y-m-d');
+        $afterRule = $minDate !== null ? 'after:'.$minDate : 'date';
+
         return [
-            'new_date' => ['required', 'date'],
+            'new_date' => ['required', 'date', $afterRule],
             'reason' => ['required', 'string', 'min:3', 'max:1000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'new_date.after' => 'The new deadline must be strictly after the current deadline.',
         ];
     }
 }

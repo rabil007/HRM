@@ -54,4 +54,20 @@ final class DuplicateRequirementDetector
 
         return $query->latest('id')->get();
     }
+
+    /**
+     * @param  list<int>  $positionIds
+     * @return list<array<string, mixed>>
+     */
+    public static function findSimilarDtos(
+        int $companyId,
+        int $clientId,
+        ?int $projectId,
+        array $positionIds,
+        ?int $excludeRequirementId = null,
+    ): array {
+        $collection = self::findSimilar($companyId, $clientId, $projectId, $positionIds, $excludeRequirementId);
+
+        return $collection->map(fn (RecruitmentRequirement $r): array => DuplicateRequirementDto::fromRequirement($r, $positionIds))->values()->all();
+    }
 }

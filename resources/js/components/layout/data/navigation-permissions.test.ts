@@ -519,17 +519,20 @@ describe('Recruitment navigation', () => {
 
     it('shows Recruitment requirements when user has recruitment.requirements.view', () => {
         assert.equal(
-            isSidebarUrlVisible(RECRUITMENT_URL, ['recruitment.requirements.view']),
+            isSidebarUrlVisible(RECRUITMENT_URL, [
+                'recruitment.requirements.view',
+            ]),
             true,
         );
     });
 
     it('hides Recruitment requirements when user does not have recruitment.requirements.view', () => {
         assert.equal(
-            isSidebarUrlVisible(RECRUITMENT_URL, ['recruitment.requirements.create']),
+            isSidebarUrlVisible(RECRUITMENT_URL, [
+                'recruitment.requirements.create',
+            ]),
             false,
         );
         assert.equal(isSidebarUrlVisible(RECRUITMENT_URL, []), false);
     });
 });
-

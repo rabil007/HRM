@@ -7,6 +7,7 @@ use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
 use App\Models\RecruitmentRequirementLine;
+use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -15,8 +16,11 @@ final class RequirementPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function toIndexRow(RecruitmentRequirement $requirement, ?CarbonInterface $today = null): array
-    {
+    public static function toIndexRow(
+        RecruitmentRequirement $requirement,
+        ?CarbonInterface $today = null,
+        ?User $user = null,
+    ): array {
         $today ??= Carbon::today();
         $totalHeadcount = (int) $requirement->lines->sum('required_headcount');
         $deadlineHealth = self::computeDeadlineHealth($requirement, $today);
@@ -30,6 +34,16 @@ final class RequirementPresenter
             'required_headcount' => (int) $line->required_headcount,
             'status' => $line->status->value,
         ])->all();
+
+        $canUpdate = $user ? (bool) $user->can('recruitment.requirements.update') : true;
+        $canClose = $user ? (bool) $user->can('recruitment.requirements.close') : true;
+        $canCancelPerm = $user ? (bool) $user->can('recruitment.requirements.cancel') : true;
+        $canReopenPerm = $user ? (bool) $user->can('recruitment.requirements.reopen') : true;
+        $canCreate = $user ? (bool) $user->can('recruitment.requirements.create') : true;
+        $canView = $user ? (bool) $user->can('recruitment.requirements.view') : true;
+
+        $isEditable = $requirement->status->isEditable();
+        $isHistory = in_array($requirement->status, [RequirementStatus::Completed, RequirementStatus::Cancelled], true);
 
         return [
             'id' => (int) $requirement->id,
@@ -63,26 +77,30 @@ final class RequirementPresenter
             'repeated_from_id' => $requirement->repeated_from_id !== null ? (int) $requirement->repeated_from_id : null,
             'repeated_from_number' => $requirement->repeatedFrom?->requirement_number,
             'next_action' => self::computeNextAction($requirement, $deadlineHealth),
-            'can_edit' => $requirement->status->isEditable(),
-            'can_open' => $requirement->status === RequirementStatus::Draft,
-            'can_hold' => $requirement->status === RequirementStatus::Open,
-            'can_resume' => $requirement->status === RequirementStatus::OnHold,
-            'can_extend' => in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_change_headcount' => in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_fill' => in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_cancel' => in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_reopen' => $requirement->status === RequirementStatus::Completed,
-            'can_repeat' => true,
+            'can_edit' => $canUpdate && $isEditable,
+            'can_open' => $canUpdate && $requirement->status === RequirementStatus::Draft,
+            'can_hold' => $canUpdate && $requirement->status === RequirementStatus::Open,
+            'can_resume' => $canUpdate && $requirement->status === RequirementStatus::OnHold,
+            'can_extend' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_extend_deadline' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_change_headcount' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_fill' => $canClose && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_cancel' => $canCancelPerm && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_reopen' => $canReopenPerm && $isHistory,
+            'can_repeat' => $canView && $canCreate && $isHistory,
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    public static function toShow(RecruitmentRequirement $requirement, ?CarbonInterface $today = null): array
-    {
+    public static function toShow(
+        RecruitmentRequirement $requirement,
+        ?CarbonInterface $today = null,
+        ?User $user = null,
+    ): array {
         $today ??= Carbon::today();
-        $base = self::toIndexRow($requirement, $today);
+        $base = self::toIndexRow($requirement, $today, $user);
 
         $lines = $requirement->lines->map(function (RecruitmentRequirementLine $line): array {
             return [

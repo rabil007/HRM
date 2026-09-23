@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\Recruitment;
 
 use App\Enums\Recruitment\RequirementPriority;
 use App\Models\RecruitmentRequirement;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,7 +48,15 @@ class RepeatRequirementRequest extends FormRequest
             'required_by_date' => ['required', 'date', 'after_or_equal:request_received_date'],
             'location' => ['nullable', 'string', 'max:200'],
             'priority' => ['required', Rule::enum(RequirementPriority::class)],
-            'assigned_to' => ['nullable', 'integer', Rule::exists('users', 'id')],
+            'assigned_to' => [
+                'nullable',
+                'integer',
+                function (string $attribute, mixed $value, \Closure $fail) use ($companyId): void {
+                    if ($value !== null && ! RecruiterOptionsQuery::isValidForCompany((int) $value, $companyId)) {
+                        $fail('The selected recruiter is invalid or does not belong to this company.');
+                    }
+                },
+            ],
             'notes' => ['nullable', 'string'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.position_id' => [

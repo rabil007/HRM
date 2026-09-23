@@ -18,18 +18,24 @@ final class ChangeHeadcountAction
         array $lines,
         string $reason,
     ): RecruitmentRequirement {
-        if (! $requirement->status->isEditable()) {
-            throw ValidationException::withMessages([
-                'status' => "Headcount cannot be updated for {$requirement->status->label()} requirement.",
-            ]);
-        }
-
         return DB::transaction(function () use ($requirement, $userId, $lines, $reason): RecruitmentRequirement {
+            /** @var RecruitmentRequirement $locked */
+            $locked = RecruitmentRequirement::query()
+                ->where('id', $requirement->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! $locked->status->isEditable()) {
+                throw ValidationException::withMessages([
+                    'status' => "Headcount cannot be updated for {$locked->status->label()} requirement.",
+                ]);
+            }
+
             $changes = [];
 
             foreach ($lines as $lineInput) {
                 /** @var RecruitmentRequirementLine|null $line */
-                $line = $requirement->lines()->find($lineInput['id']);
+                $line = $locked->lines()->lockForUpdate()->find($lineInput['id']);
                 if ($line === null) {
                     continue;
                 }
@@ -48,21 +54,21 @@ final class ChangeHeadcountAction
             }
 
             if ($changes !== []) {
-                $requirement->update(['updated_by' => $userId]);
+                $locked->update(['updated_by' => $userId]);
 
                 activity('recruitment')
                     ->causedBy($userId)
-                    ->performedOn($requirement)
+                    ->performedOn($locked)
                     ->withProperties([
-                        'company_id' => $requirement->company_id,
-                        'requirement_number' => $requirement->requirement_number,
+                        'company_id' => $locked->company_id,
+                        'requirement_number' => $locked->requirement_number,
                         'changes' => $changes,
                         'reason' => $reason,
                     ])
                     ->log("Headcount updated. Reason: {$reason}");
             }
 
-            return $requirement->load('lines.position');
+            return $locked->load('lines.position');
         });
     }
 }

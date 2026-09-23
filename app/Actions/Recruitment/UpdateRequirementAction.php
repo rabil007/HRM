@@ -2,14 +2,14 @@
 
 namespace App\Actions\Recruitment;
 
-use App\Enums\Recruitment\RequirementLineStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
-use App\Models\RecruitmentRequirementLine;
 use App\Support\Recruitment\RequirementAttachmentStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class UpdateRequirementAction
 {
@@ -22,99 +22,79 @@ final class UpdateRequirementAction
         array $data,
         ?UploadedFile $attachment = null,
     ): RecruitmentRequirement {
-        if (! $requirement->status->isEditable()) {
-            throw ValidationException::withMessages([
-                'status' => "Cannot edit a {$requirement->status->label()} requirement.",
-            ]);
-        }
+        $storedFilePath = null;
 
-        return DB::transaction(function () use ($requirement, $userId, $data, $attachment): RecruitmentRequirement {
-            $companyId = (int) $requirement->company_id;
+        try {
+            return DB::transaction(function () use ($requirement, $userId, $data, $attachment, &$storedFilePath): RecruitmentRequirement {
+                /** @var RecruitmentRequirement $locked */
+                $locked = RecruitmentRequirement::query()
+                    ->where('id', $requirement->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            $requirement->update([
-                'client_id' => $data['client_id'],
-                'project_id' => $data['project_id'] ?? null,
-                'client_reference_number' => $data['client_reference_number'] ?? null,
-                'request_received_date' => $data['request_received_date'],
-                'required_by_date' => $data['required_by_date'],
-                'location' => $data['location'] ?? null,
-                'priority' => $data['priority'],
-                'assigned_to' => $data['assigned_to'] ?? null,
-                'notes' => $data['notes'] ?? null,
-                'updated_by' => $userId,
-            ]);
-
-            // Sync lines: match by position_id or line id
-            $submittedLineIds = [];
-            foreach ($data['lines'] as $lineInput) {
-                /** @var RecruitmentRequirementLine|null $line */
-                $line = null;
-                if (! empty($lineInput['id'])) {
-                    $line = $requirement->lines()->find($lineInput['id']);
-                }
-
-                if ($line === null) {
-                    $line = $requirement->lines()->where('position_id', $lineInput['position_id'])->first();
-                }
-
-                if ($line !== null) {
-                    $line->update([
-                        'position_id' => $lineInput['position_id'],
-                        'required_headcount' => $lineInput['required_headcount'],
-                        'line_notes' => $lineInput['line_notes'] ?? null,
+                if (! $locked->status->isEditable()) {
+                    throw ValidationException::withMessages([
+                        'status' => "Cannot edit a {$locked->status->label()} requirement.",
                     ]);
-                    $submittedLineIds[] = $line->id;
-                } else {
-                    $newLine = RecruitmentRequirementLine::create([
-                        'company_id' => $companyId,
-                        'recruitment_requirement_id' => $requirement->id,
-                        'position_id' => $lineInput['position_id'],
-                        'required_headcount' => $lineInput['required_headcount'],
-                        'line_notes' => $lineInput['line_notes'] ?? null,
-                        'status' => RequirementLineStatus::Open,
-                    ]);
-                    $submittedLineIds[] = $newLine->id;
                 }
-            }
 
-            // Remove lines that were deleted in the UI
-            $requirement->lines()->whereNotIn('id', $submittedLineIds)->delete();
+                $companyId = (int) $locked->company_id;
 
-            if ($attachment instanceof UploadedFile) {
-                $storage = new RequirementAttachmentStorage;
-                $fileMeta = $storage->store($requirement, $attachment);
-
-                RecruitmentRequirementAttachment::create([
-                    'company_id' => $companyId,
-                    'recruitment_requirement_id' => $requirement->id,
-                    'file_path' => $fileMeta['file_path'],
-                    'original_file_name' => $fileMeta['original_file_name'],
-                    'mime_type' => $fileMeta['mime_type'],
-                    'file_size_bytes' => $fileMeta['file_size_bytes'],
-                    'file_checksum' => $fileMeta['file_checksum'],
-                    'uploaded_by' => $userId,
+                $locked->update([
+                    'client_id' => $data['client_id'],
+                    'project_id' => $data['project_id'] ?? null,
+                    'client_reference_number' => $data['client_reference_number'] ?? null,
+                    'request_received_date' => $data['request_received_date'],
+                    'location' => $data['location'] ?? null,
+                    'priority' => $data['priority'],
+                    'assigned_to' => $data['assigned_to'] ?? null,
+                    'notes' => $data['notes'] ?? null,
+                    'updated_by' => $userId,
                 ]);
+
+                if ($attachment instanceof UploadedFile) {
+                    $storage = new RequirementAttachmentStorage;
+                    $fileMeta = $storage->store($locked, $attachment);
+                    $storedFilePath = $fileMeta['file_path'];
+
+                    RecruitmentRequirementAttachment::create([
+                        'company_id' => $companyId,
+                        'recruitment_requirement_id' => $locked->id,
+                        'file_path' => $fileMeta['file_path'],
+                        'original_file_name' => $fileMeta['original_file_name'],
+                        'mime_type' => $fileMeta['mime_type'],
+                        'file_size_bytes' => $fileMeta['file_size_bytes'],
+                        'file_checksum' => $fileMeta['file_checksum'],
+                        'uploaded_by' => $userId,
+                    ]);
+
+                    activity('recruitment')
+                        ->causedBy($userId)
+                        ->performedOn($locked)
+                        ->withProperties([
+                            'company_id' => $companyId,
+                            'file_name' => $fileMeta['original_file_name'],
+                        ])
+                        ->log('Original client request attachment uploaded.');
+                }
 
                 activity('recruitment')
                     ->causedBy($userId)
-                    ->performedOn($requirement)
+                    ->performedOn($locked)
                     ->withProperties([
                         'company_id' => $companyId,
-                        'file_name' => $fileMeta['original_file_name'],
+                        'requirement_number' => $locked->requirement_number,
                     ])
-                    ->log('Original client request attachment uploaded.');
+                    ->log("Requirement {$locked->requirement_number} updated.");
+
+                return $locked->load(['lines.position', 'client', 'project', 'attachments']);
+            });
+        } catch (Throwable $exception) {
+            if ($storedFilePath !== null) {
+                Storage::disk(RequirementAttachmentStorage::DISK)->delete($storedFilePath);
             }
 
-            activity('recruitment')
-                ->causedBy($userId)
-                ->performedOn($requirement)
-                ->withProperties([
-                    'company_id' => $companyId,
-                    'requirement_number' => $requirement->requirement_number,
-                ])
-                ->log("Requirement {$requirement->requirement_number} updated.");
-
-            return $requirement->load(['lines.position', 'client', 'project', 'attachments']);
-        });
+            throw $exception;
+        }
     }
 }

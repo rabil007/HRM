@@ -163,6 +163,9 @@ final class RequirementBrowseQuery
             'summary_cards' => $summaryCards,
             'current_tab' => $currentTab,
             'filters' => [
+                'tab' => $currentTab,
+                'search' => $search,
+                'per_page' => $perPage,
                 'client_id' => $clientId,
                 'project_id' => $projectId,
                 'position_id' => $positionId,

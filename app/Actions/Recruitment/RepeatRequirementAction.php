@@ -8,6 +8,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Support\Recruitment\GenerateRequirementNumber;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class RepeatRequirementAction
 {
@@ -20,23 +21,35 @@ final class RepeatRequirementAction
         array $data,
     ): RecruitmentRequirement {
         return DB::transaction(function () use ($sourceRequirement, $userId, $data): RecruitmentRequirement {
-            $companyId = (int) $sourceRequirement->company_id;
+            /** @var RecruitmentRequirement $source */
+            $source = RecruitmentRequirement::query()
+                ->where('id', $sourceRequirement->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! in_array($source->status, [RequirementStatus::Completed, RequirementStatus::Cancelled], true)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only completed or cancelled requirements can be repeated.',
+                ]);
+            }
+
+            $companyId = (int) $source->company_id;
             $newNumber = GenerateRequirementNumber::next($companyId);
 
             $newRequirement = RecruitmentRequirement::create([
                 'company_id' => $companyId,
                 'requirement_number' => $newNumber,
-                'client_id' => $sourceRequirement->client_id,
-                'project_id' => $sourceRequirement->project_id,
-                'client_reference_number' => $sourceRequirement->client_reference_number,
+                'client_id' => $source->client_id,
+                'project_id' => $source->project_id,
+                'client_reference_number' => $source->client_reference_number,
                 'request_received_date' => $data['request_received_date'],
                 'required_by_date' => $data['required_by_date'],
-                'location' => $data['location'] ?? $sourceRequirement->location,
-                'priority' => $data['priority'] ?? $sourceRequirement->priority,
-                'assigned_to' => $data['assigned_to'] ?? $sourceRequirement->assigned_to,
+                'location' => $data['location'] ?? $source->location,
+                'priority' => $data['priority'] ?? $source->priority,
+                'assigned_to' => $data['assigned_to'] ?? $source->assigned_to,
                 'notes' => $data['notes'] ?? null,
                 'status' => RequirementStatus::Draft,
-                'repeated_from_id' => $sourceRequirement->id,
+                'repeated_from_id' => $source->id,
                 'opened_at' => null,
                 'created_by' => $userId,
                 'updated_by' => $userId,

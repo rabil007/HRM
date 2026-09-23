@@ -215,7 +215,16 @@ export function RequirementFormSheet({
             router.post(
                 RequirementController.update.url(initialRequirement.id),
                 {
-                    ...data,
+                    client_id: data.client_id,
+                    project_id: data.project_id || null,
+                    client_reference_number:
+                        data.client_reference_number || null,
+                    location: data.location || null,
+                    assigned_to: data.assigned_to || null,
+                    request_received_date: data.request_received_date,
+                    priority: data.priority,
+                    notes: data.notes || null,
+                    attachment: data.attachment,
                     _method: 'PUT',
                 },
                 {
@@ -225,9 +234,10 @@ export function RequirementFormSheet({
                         onOpenChange(false);
                         onSuccess?.();
                     },
-                    onError: () => {
+                    onError: (errs) => {
                         toast.error(
-                            'Please resolve the errors highlighted below.',
+                            errs.request_received_date ||
+                                'Please resolve the errors highlighted below.',
                         );
                     },
                 },
@@ -240,6 +250,7 @@ export function RequirementFormSheet({
             RequirementController.store.url(),
             {
                 ...data,
+                ignore_duplicate_warning: force,
                 force_create: force,
             },
             {
@@ -251,8 +262,14 @@ export function RequirementFormSheet({
                     reset();
                     onSuccess?.();
                 },
-                onError: () => {
-                    toast.error('Please resolve the errors highlighted below.');
+                onError: (errs) => {
+                    if (errs.duplicate) {
+                        toast.error(errs.duplicate);
+                    } else {
+                        toast.error(
+                            'Please resolve the errors highlighted below.',
+                        );
+                    }
                 },
             },
         );
@@ -328,7 +345,10 @@ export function RequirementFormSheet({
         submitRequisition(false);
     };
 
-    const handleAddHeadcountToMatch = (targetRequirementId: number) => {
+    const handleAddHeadcountToMatch = (
+        targetRequirementId: number,
+        reason: string,
+    ) => {
         router.post(
             RequirementAddHeadcountController.url(targetRequirementId),
             {
@@ -337,7 +357,10 @@ export function RequirementFormSheet({
                     added_headcount: p.required_headcount,
                     line_notes: p.line_notes || '',
                 })),
-                reason: data.notes || 'Added headcount from requisition form.',
+                reason:
+                    reason ||
+                    data.notes ||
+                    'Consolidated headcount from duplicate creation.',
             },
             {
                 preserveScroll: true,
@@ -550,6 +573,10 @@ export function RequirementFormSheet({
                                                 value={
                                                     data.request_received_date
                                                 }
+                                                max={
+                                                    data.required_by_date ||
+                                                    undefined
+                                                }
                                                 onChange={(e) =>
                                                     setData(
                                                         'request_received_date',
@@ -583,6 +610,7 @@ export function RequirementFormSheet({
                                                 id="required_by_date"
                                                 type="date"
                                                 value={data.required_by_date}
+                                                disabled={isEditing}
                                                 onChange={(e) =>
                                                     setData(
                                                         'required_by_date',
@@ -594,6 +622,14 @@ export function RequirementFormSheet({
                                             />
                                             <Calendar className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         </div>
+                                        {isEditing && (
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Deadline is locked. Use{' '}
+                                                <strong>Extend Deadline</strong>{' '}
+                                                from requirement actions to
+                                                update it with an audit reason.
+                                            </p>
+                                        )}
                                         {errors.required_by_date && (
                                             <p className="text-xs text-rose-500">
                                                 {errors.required_by_date}
@@ -680,6 +716,15 @@ export function RequirementFormSheet({
                                     </div>
                                 </div>
 
+                                {isEditing && (
+                                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+                                        Position lines and headcounts are locked
+                                        in generic edit. To adjust headcounts,
+                                        use <strong>Change Headcount</strong> on
+                                        the requirement details page.
+                                    </div>
+                                )}
+
                                 {errors.positions && (
                                     <div className="flex items-center gap-2 rounded-lg border border-rose-500/20 bg-rose-500/[0.05] p-3 text-xs text-rose-600">
                                         <AlertCircle className="h-4 w-4 shrink-0" />
@@ -709,6 +754,7 @@ export function RequirementFormSheet({
                                                                   )
                                                                 : 'none'
                                                         }
+                                                        disabled={isEditing}
                                                         onValueChange={(val) =>
                                                             handlePositionChange(
                                                                 index,
@@ -751,6 +797,7 @@ export function RequirementFormSheet({
                                                         type="number"
                                                         min={1}
                                                         max={500}
+                                                        disabled={isEditing}
                                                         value={
                                                             line.required_headcount
                                                         }
@@ -768,26 +815,28 @@ export function RequirementFormSheet({
                                                     />
                                                 </div>
 
-                                                <div className="col-span-4 flex items-end justify-end pt-5 sm:col-span-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        disabled={
-                                                            data.positions
-                                                                .length <= 1
-                                                        }
-                                                        onClick={() =>
-                                                            handleRemovePositionLine(
-                                                                index,
-                                                            )
-                                                        }
-                                                        className="text-muted-foreground hover:text-rose-500"
-                                                        title="Remove position line"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
+                                                {!isEditing && (
+                                                    <div className="col-span-4 flex items-end justify-end pt-5 sm:col-span-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={
+                                                                data.positions
+                                                                    .length <= 1
+                                                            }
+                                                            onClick={() =>
+                                                                handleRemovePositionLine(
+                                                                    index,
+                                                                )
+                                                            }
+                                                            className="text-muted-foreground hover:text-rose-500"
+                                                            title="Remove position line"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                )}
 
                                                 <div className="col-span-12 space-y-1.5">
                                                     <Label className="text-[11px] font-semibold text-muted-foreground">
@@ -797,6 +846,7 @@ export function RequirementFormSheet({
                                                     </Label>
                                                     <Input
                                                         placeholder="e.g. Valid BOSIET required, min 3 years offshore experience"
+                                                        disabled={isEditing}
                                                         value={
                                                             line.line_notes ||
                                                             ''
@@ -814,16 +864,18 @@ export function RequirementFormSheet({
                                         </div>
                                     ))}
 
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleAddPositionLine}
-                                        className="w-full gap-2 border-dashed border-primary/30 text-primary hover:border-primary hover:bg-primary/5"
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        Add Another Position
-                                    </Button>
+                                    {!isEditing && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleAddPositionLine}
+                                            className="w-full gap-2 border-dashed border-primary/30 text-primary hover:border-primary hover:bg-primary/5"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            Add Another Position
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
 
@@ -876,14 +928,14 @@ export function RequirementFormSheet({
                                             <span>
                                                 {data.attachment
                                                     ? data.attachment.name
-                                                    : 'Select file (PDF, Word, Excel, Images up to 10MB)'}
+                                                    : 'Select file (PDF, Word, Excel, Images up to 20MB)'}
                                             </span>
                                         </label>
                                         <input
                                             id="attachment"
                                             type="file"
                                             className="hidden"
-                                            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg"
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.jpg,.jpeg,.png,.webp"
                                             onChange={(e) => {
                                                 const file =
                                                     e.target.files?.[0] || null;

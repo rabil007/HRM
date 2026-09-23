@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\Recruitment;
 
 use App\Enums\Recruitment\RequirementPriority;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -43,7 +44,15 @@ class StoreRequirementRequest extends FormRequest
             'required_by_date' => ['required', 'date', 'after_or_equal:request_received_date'],
             'location' => ['nullable', 'string', 'max:200'],
             'priority' => ['required', Rule::enum(RequirementPriority::class)],
-            'assigned_to' => ['nullable', 'integer', Rule::exists('users', 'id')],
+            'assigned_to' => [
+                'nullable',
+                'integer',
+                function (string $attribute, mixed $value, \Closure $fail) use ($companyId): void {
+                    if ($value !== null && ! RecruiterOptionsQuery::isValidForCompany((int) $value, $companyId)) {
+                        $fail('The selected recruiter is not eligible for this company.');
+                    }
+                },
+            ],
             'notes' => ['nullable', 'string'],
             'as_open' => ['nullable', 'boolean'],
             'ignore_duplicate_warning' => ['nullable', 'boolean'],

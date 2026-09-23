@@ -37,10 +37,23 @@ export type {
 export type SimilarRequirementMatch = {
     id: number;
     requirement_number: string;
+    client_id?: number;
     client_name: string;
+    project_id?: number | null;
+    project_title?: string | null;
     status: string;
+    status_label?: string;
     required_by_date: string;
+    required_by_date_formatted?: string;
+    total_headcount?: number;
     matching_positions: string[];
+    positions?: Array<{
+        position_id: number;
+        position_title: string;
+        required_headcount: number;
+        status: string;
+        status_label: string;
+    }>;
 };
 
 export type FormPositionLineInput = {

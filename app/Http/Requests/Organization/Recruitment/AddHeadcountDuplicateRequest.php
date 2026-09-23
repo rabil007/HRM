@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\Recruitment;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class AddHeadcountDuplicateRequest extends FormRequest
 {
@@ -32,9 +33,16 @@ class AddHeadcountDuplicateRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
             'lines' => ['required', 'array', 'min:1'],
-            'lines.*.position_id' => ['required', 'integer'],
+            'lines.*.position_id' => [
+                'required',
+                'integer',
+                'distinct',
+                Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
+            ],
             'lines.*.additional_headcount' => ['required', 'integer', 'min:1'],
             'lines.*.line_notes' => ['nullable', 'string', 'max:1000'],
             'reason' => ['required', 'string', 'min:3', 'max:1000'],

@@ -271,22 +271,7 @@ export function RequirementsContent({
     };
 
     const handleEditRequirement = (row: RequirementIndexRow) => {
-        // Fetch show details or construct temporary Detail for editing
-        router.get(
-            RequirementController.show.url(row.id),
-            {},
-            {
-                onSuccess: (page) => {
-                    const req = (
-                        page.props as unknown as {
-                            requirement: RequirementDetail;
-                        }
-                    ).requirement;
-                    setEditingRequirement(req);
-                    setIsFormSheetOpen(true);
-                },
-            },
-        );
+        router.get(RequirementController.show.url(row.id), { edit: '1' });
     };
 
     return (
