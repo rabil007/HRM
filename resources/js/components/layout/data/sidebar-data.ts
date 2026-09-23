@@ -118,8 +118,14 @@ const baseSidebarData: SidebarData = {
                 },
                 {
                     title: 'Recruitment',
-                    url: '/organization/recruitment/requirements',
                     icon: Briefcase,
+                    items: [
+                        {
+                            title: 'Requirements',
+                            url: '/organization/recruitment/requirements',
+                            icon: ClipboardList,
+                        },
+                    ],
                 },
                 {
                     title: 'Activity logs',

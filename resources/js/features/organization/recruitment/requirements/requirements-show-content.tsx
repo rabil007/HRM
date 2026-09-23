@@ -17,6 +17,7 @@ import type {
     RequirementLine,
     RequirementShowProps,
 } from '@/types/recruitment';
+import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { RequirementFormSheet } from './components/requirement-form-sheet';
 import { RequirementAttachmentsCard } from './components/show/requirement-attachments-card';
 import { RequirementDetailsCard } from './components/show/requirement-details-card';
@@ -122,8 +123,18 @@ export function RequirementsShowContent({
 
     return (
         <Main>
+            <RecruitmentBreadcrumbs
+                items={[
+                    {
+                        title: 'Requirements',
+                        href: RequirementController.index.url(),
+                    },
+                    { title: requirement.requirement_number },
+                ]}
+            />
+
             <DetailsHeader
-                kicker="Recruitment Requisition"
+                kicker="Recruitment / Requirements"
                 title={requirement.requirement_number}
                 description={`${requirement.client_name}${requirement.project_title ? ` • ${requirement.project_title}` : ''}`}
                 backHref={RequirementController.index.url()}

@@ -5,7 +5,7 @@ import type { RequirementIndexProps } from '@/types/recruitment';
 export default function RequirementsIndex(props: RequirementIndexProps) {
     return (
         <>
-            <Head title="Recruitment Requirements" />
+            <Head title="Requirements" />
             <RequirementsContent {...props} />
         </>
     );

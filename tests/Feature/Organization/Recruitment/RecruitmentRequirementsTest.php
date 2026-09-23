@@ -1075,3 +1075,24 @@ test('attachment file is deleted from disk if transaction fails during creation'
 
     expect(Storage::disk('local')->allFiles())->toBeEmpty();
 });
+
+test('parent recruitment route redirects authorized user to requirements', function () {
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment')
+        ->assertRedirect(route('organization.recruitment.requirements.index'));
+});
+
+test('parent recruitment route denies unauthorized user', function () {
+    $unauthorizedUser = createRecruitmentTestUser($this->companyA, []);
+
+    $this->actingAs($unauthorizedUser)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment')
+        ->assertForbidden();
+});
+
+test('parent recruitment route requires authentication', function () {
+    $this->get('/organization/recruitment')
+        ->assertRedirect(route('login'));
+});

@@ -22,6 +22,7 @@ import type {
     RequirementIndexRow,
     RequirementTab,
 } from '@/types/recruitment';
+import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { RequirementFiltersSheet } from './components/requirement-filters-sheet';
 import { RequirementFormSheet } from './components/requirement-form-sheet';
 import { RequirementSummaryCards } from './components/requirement-summary-cards';
@@ -276,9 +277,11 @@ export function RequirementsContent({
 
     return (
         <Main>
+            <RecruitmentBreadcrumbs items={[{ title: 'Requirements' }]} />
+
             <PageHeader
-                kicker="Recruitment Module"
-                title="Recruitment Requirements"
+                kicker="Recruitment"
+                title="Requirements"
                 description="Monitor client staffing demands, headcount targets, deadlines, and requisition lifecycles."
                 right={
                     can.create ? (

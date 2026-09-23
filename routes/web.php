@@ -178,6 +178,7 @@ use App\Http\Controllers\Organization\OrganizationBulkRecordController;
 use App\Http\Controllers\Organization\PositionAttachmentController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\PreviewVoidCrewAssignmentsController;
+use App\Http\Controllers\Organization\Recruitment\RecruitmentController;
 use App\Http\Controllers\Organization\Recruitment\RequirementAddHeadcountController;
 use App\Http\Controllers\Organization\Recruitment\RequirementAttachmentController;
 use App\Http\Controllers\Organization\Recruitment\RequirementCancelController;
@@ -507,6 +508,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/positions/{position}', [PositionController::class, 'update'])->middleware('can:positions.update')->name('organization.positions.update');
     Route::put('organization/positions/{position}/status', [PositionController::class, 'updateStatus'])->middleware('can:positions.update')->name('organization.positions.status');
     Route::delete('organization/positions/{position}', [PositionController::class, 'destroy'])->middleware('can:positions.delete')->name('organization.positions.destroy');
+
+    Route::get('organization/recruitment', [RecruitmentController::class, 'index'])
+        ->name('organization.recruitment.index');
 
     Route::get('organization/recruitment/requirements', [RequirementController::class, 'index'])
         ->middleware('can:recruitment.requirements.view')
