@@ -100,9 +100,9 @@ final class RequirementBrowseQuery
                 $query->where('required_by_date', '<', $today->toDateString());
             } elseif ($deadlineHealth === 'due_soon') {
                 $query->where('required_by_date', '>=', $today->toDateString())
-                    ->where('required_by_date', '<=', $today->copy()->addDays(7)->toDateString());
+                    ->where('required_by_date', '<', $today->copy()->addDays(8)->toDateString());
             } elseif ($deadlineHealth === 'on_track') {
-                $query->where('required_by_date', '>', $today->copy()->addDays(7)->toDateString());
+                $query->where('required_by_date', '>=', $today->copy()->addDays(8)->toDateString());
             }
         }
 
@@ -129,17 +129,17 @@ final class RequirementBrowseQuery
                 ->count(),
         ];
 
-        // Summary cards (calculated on active & on_hold records for company)
+        // Company-wide active overview, matching the unfiltered active tab.
         $openHeadcount = (int) RecruitmentRequirementLine::query()
             ->where('company_id', $companyId)
             ->whereHas('requirement', function (Builder $r): void {
-                $r->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold]);
+                $r->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open]);
             })
             ->sum('required_headcount');
 
         $activeQuery = RecruitmentRequirement::query()
             ->where('company_id', $companyId)
-            ->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold]);
+            ->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open]);
 
         $overdueCount = (clone $activeQuery)
             ->where('required_by_date', '<', $today->toDateString())
@@ -147,7 +147,7 @@ final class RequirementBrowseQuery
 
         $dueThisWeekCount = (clone $activeQuery)
             ->where('required_by_date', '>=', $today->toDateString())
-            ->where('required_by_date', '<=', $today->copy()->addDays(7)->toDateString())
+            ->where('required_by_date', '<', $today->copy()->addDays(8)->toDateString())
             ->count();
 
         $summaryCards = [

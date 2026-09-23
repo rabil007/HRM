@@ -154,6 +154,64 @@ test('authorized users can view requirements index with inertia props', function
         );
 });
 
+test('active recruitment overview matches deadline shortcuts and excludes other companies and inactive requirements', function () {
+    $this->travelTo(now()->setDate(2026, 9, 23)->startOfDay());
+
+    $fixtures = [
+        [$this->companyA, RequirementStatus::Open, -1, 3],
+        [$this->companyA, RequirementStatus::Draft, 0, 4],
+        [$this->companyA, RequirementStatus::Open, 7, 5],
+        [$this->companyA, RequirementStatus::Open, 8, 6],
+        [$this->companyA, RequirementStatus::OnHold, -1, 20],
+        [$this->companyA, RequirementStatus::OnHold, 2, 30],
+        [$this->companyA, RequirementStatus::Completed, -1, 40],
+        [$this->companyA, RequirementStatus::Cancelled, 2, 50],
+        [$this->companyB, RequirementStatus::Open, -1, 60],
+        [$this->companyB, RequirementStatus::Open, 2, 70],
+    ];
+
+    foreach ($fixtures as $index => [$company, $status, $days, $headcount]) {
+        $requirement = RecruitmentRequirement::query()->create([
+            'company_id' => $company->id,
+            'client_id' => $this->client->id,
+            'requirement_number' => 'OVERVIEW-'.($index + 1),
+            'request_received_date' => today()->subDays(5)->toDateString(),
+            'status' => $status,
+            'priority' => 'normal',
+            'required_by_date' => today()->addDays($days)->toDateString(),
+            'created_by' => $company->id === $this->companyA->id ? $this->adminUserA->id : $this->adminUserB->id,
+        ]);
+
+        RecruitmentRequirementLine::query()->create([
+            'company_id' => $company->id,
+            'recruitment_requirement_id' => $requirement->id,
+            'position_id' => $company->id === $this->companyA->id ? $this->positionChiefEng->id : $this->positionCraneOpB->id,
+            'required_headcount' => $headcount,
+            'status' => RequirementLineStatus::Open,
+        ]);
+    }
+
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    foreach (['' => 4, 'overdue' => 1, 'due_soon' => 2, 'on_track' => 1] as $health => $total) {
+        $this->get('/organization/recruitment/requirements?'.http_build_query([
+            'tab' => 'active',
+            'deadline_health' => $health,
+        ]))
+            ->assertSuccessful()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('requirements.total', $total)
+                ->where('summary.open_headcount', 18)
+                ->where('summary.overdue', 1)
+                ->where('summary.due_this_week', 2)
+                ->where('tab_counts.active', 4)
+                ->where('tab_counts.on_hold', 2)
+                ->where('tab_counts.history', 2)
+            );
+    }
+});
+
 test('can create a multi-line recruitment requirement with automatic sequence generation and attachment', function () {
     $file = UploadedFile::fake()->create('client_specification.pdf', 500, 'application/pdf');
 

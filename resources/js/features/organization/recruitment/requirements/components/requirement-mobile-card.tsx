@@ -45,17 +45,17 @@ function StatusBadge({ row }: { row: RequirementIndexRow }) {
         <Badge
             variant="outline"
             className={cn(
-                'px-2 py-0 text-[10px] font-semibold',
+                'px-2 py-0 text-xs font-semibold',
                 row.status === 'open' &&
-                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
+                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
                 row.status === 'draft' &&
-                    'border-zinc-500/30 bg-zinc-500/10 text-zinc-400',
+                    'border-zinc-500/30 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
                 row.status === 'on_hold' &&
-                    'border-amber-500/30 bg-amber-500/10 text-amber-500',
+                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
                 row.status === 'completed' &&
-                    'border-sky-500/30 bg-sky-500/10 text-sky-500',
+                    'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400',
                 row.status === 'cancelled' &&
-                    'border-rose-500/30 bg-rose-500/10 text-rose-500',
+                    'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
             )}
         >
             {row.status_label}
@@ -72,13 +72,13 @@ function DeadlineHealthBadge({ row }: { row: RequirementIndexRow }) {
         <Badge
             variant="outline"
             className={cn(
-                'gap-1 px-1.5 py-0 text-[10px] font-medium',
+                'gap-1 px-1.5 py-0 text-xs font-medium',
                 row.deadline_health === 'overdue' &&
-                    'border-rose-500/30 bg-rose-500/10 text-rose-500',
+                    'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
                 row.deadline_health === 'due_soon' &&
-                    'border-amber-500/30 bg-amber-500/10 text-amber-500',
+                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
                 row.deadline_health === 'on_track' &&
-                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
+                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
             )}
         >
             {row.deadline_health === 'overdue' && (
@@ -115,7 +115,7 @@ export function RequirementMobileCard({
                     size="sm"
                     variant="outline"
                     onClick={() => onOpen(row)}
-                    className="h-7 gap-1 border-emerald-500/40 text-xs text-emerald-500 hover:bg-emerald-500/10"
+                    className="h-10 gap-1.5 border-emerald-500/40 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
                 >
                     <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
                     Open
@@ -129,7 +129,7 @@ export function RequirementMobileCard({
                     size="sm"
                     variant="outline"
                     onClick={() => onResume(row)}
-                    className="h-7 gap-1 border-emerald-500/40 text-xs text-emerald-500 hover:bg-emerald-500/10"
+                    className="h-10 gap-1.5 border-emerald-500/40 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
                 >
                     <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
                     Resume
@@ -143,7 +143,7 @@ export function RequirementMobileCard({
                     size="sm"
                     variant="outline"
                     onClick={() => onFill(row)}
-                    className="h-7 gap-1 border-sky-500/40 text-xs text-sky-500 hover:bg-sky-500/10"
+                    className="h-10 gap-1.5 border-sky-500/40 text-xs text-sky-700 hover:bg-sky-500/10 dark:text-sky-400"
                 >
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                     Mark Filled
@@ -157,7 +157,7 @@ export function RequirementMobileCard({
                     size="sm"
                     variant="outline"
                     onClick={() => onExtend(row)}
-                    className="h-7 gap-1 border-amber-500/40 text-xs text-amber-500 hover:bg-amber-500/10"
+                    className="h-10 gap-1.5 border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
                 >
                     <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                     Extend
@@ -171,7 +171,7 @@ export function RequirementMobileCard({
                     size="sm"
                     variant="outline"
                     onClick={() => onRepeat(row)}
-                    className="h-7 gap-1 border-primary/40 text-xs text-primary hover:bg-primary/10"
+                    className="h-10 gap-1.5 border-primary/40 text-xs text-primary hover:bg-primary/10"
                 >
                     <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                     Repeat
@@ -200,13 +200,18 @@ export function RequirementMobileCard({
     })();
 
     return (
-        <div className="rounded-xl border border-border/70 bg-card p-3 shadow-xs transition-colors hover:border-border dark:bg-card/60">
+        <div
+            className={cn(
+                'rounded-xl border bg-card p-4 shadow-xs',
+                row.deadline_health === 'overdue' && 'border-rose-500/30',
+            )}
+        >
             {/* Row 1: req number + priority | status badge */}
             <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     {row.priority === 'urgent' && (
                         <Flame
-                            className="h-3.5 w-3.5 fill-rose-500 text-rose-500"
+                            className="h-3.5 w-3.5 fill-rose-500 text-rose-700 dark:text-rose-400"
                             aria-label="Urgent priority"
                         />
                     )}
@@ -217,7 +222,7 @@ export function RequirementMobileCard({
                         {row.requirement_number}
                     </Link>
                     {row.repeated_from_number && (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                             <Copy
                                 className="inline h-2.5 w-2.5"
                                 aria-hidden="true"
@@ -230,15 +235,15 @@ export function RequirementMobileCard({
             </div>
 
             {/* Row 2: Client / Project */}
-            <div className="mt-1.5">
+            <div className="mt-3">
                 <span
-                    className="block truncate text-xs font-semibold text-foreground"
+                    className="block truncate text-base font-semibold text-foreground"
                     title={row.client_name}
                 >
                     {row.client_name}
                 </span>
                 {(row.project_title || row.location) && (
-                    <span className="block truncate text-[11px] text-muted-foreground">
+                    <span className="block truncate text-xs text-muted-foreground">
                         {row.project_title || ''}
                         {row.location ? ` • ${row.location}` : ''}
                     </span>
@@ -251,7 +256,7 @@ export function RequirementMobileCard({
                     {row.positions_summary.slice(0, 2).map((p) => (
                         <span
                             key={p.id}
-                            className="inline-flex max-w-[140px] items-center truncate rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground/80"
+                            className="inline-flex max-w-full items-center truncate rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs font-medium text-foreground/80"
                             title={`${p.position_title} — ${p.required_headcount} headcount`}
                         >
                             {p.position_title}
@@ -261,49 +266,55 @@ export function RequirementMobileCard({
                         </span>
                     ))}
                     {row.positions_summary.length > 2 && (
-                        <span className="inline-flex items-center rounded border border-border/40 bg-muted/20 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <span className="inline-flex items-center rounded border border-border/40 bg-muted/20 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                             +{row.positions_summary.length - 2} more
                         </span>
                     )}
                 </div>
             )}
 
-            {/* Row 4: Headcount | Deadline health */}
-            <div className="mt-2 flex items-center gap-2">
-                <span className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
-                    <Users
-                        className="h-3 w-3 text-muted-foreground"
-                        aria-hidden="true"
-                    />
-                    {row.total_headcount}{' '}
-                    <span className="font-normal text-muted-foreground">
-                        {row.total_headcount === 1 ? 'headcount' : 'headcounts'}
-                    </span>
-                </span>
-                <DeadlineHealthBadge row={row} />
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-muted/40 p-3">
+                <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                        Staffing target
+                    </p>
+                    <p className="text-sm font-semibold">
+                        <span className="text-xl tabular-nums">
+                            {row.total_headcount}
+                        </span>{' '}
+                        {row.total_headcount === 1 ? 'person' : 'people'}
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Required by</p>
+                    <p className="text-sm font-medium">
+                        {row.required_by_date_formatted || 'No deadline'}
+                    </p>
+                    <DeadlineHealthBadge row={row} />
+                </div>
             </div>
 
-            {/* Row 5: Recruiter | Required By | Actions */}
-            <div className="mt-2.5 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                    {recruiterInitials ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                <div className="flex min-w-0 items-center gap-2">
+                    {recruiterInitials && (
                         <span
-                            className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary"
-                            title={row.assigned_recruiter_name ?? undefined}
-                            aria-label={`Assigned to ${row.assigned_recruiter_name}`}
+                            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+                            aria-hidden="true"
                         >
                             {recruiterInitials}
                         </span>
-                    ) : (
-                        <span className="text-[10px] text-muted-foreground/60">
-                            Unassigned
-                        </span>
                     )}
-                    {row.required_by_date_formatted && (
-                        <span className="text-[11px] text-muted-foreground">
-                            Due {row.required_by_date_formatted}
-                        </span>
-                    )}
+                    <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">
+                            Recruiter
+                        </p>
+                        <p
+                            className="max-w-[180px] truncate text-xs font-medium"
+                            title={row.assigned_recruiter_name ?? undefined}
+                        >
+                            {row.assigned_recruiter_name || 'Unassigned'}
+                        </p>
+                    </div>
                 </div>
 
                 {/* Actions */}
@@ -318,7 +329,7 @@ export function RequirementMobileCard({
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                className="h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
                                 aria-label={`More actions for ${row.requirement_number}`}
                             >
                                 <MoreHorizontal
@@ -350,7 +361,7 @@ export function RequirementMobileCard({
                                         className="h-4 w-4 text-muted-foreground"
                                         aria-hidden="true"
                                     />
-                                    <span>Edit Requisition</span>
+                                    <span>Edit Requirement</span>
                                 </DropdownMenuItem>
                             )}
 
@@ -386,7 +397,7 @@ export function RequirementMobileCard({
                                     className="cursor-pointer gap-2"
                                 >
                                     <PauseCircle
-                                        className="h-4 w-4 text-amber-500"
+                                        className="h-4 w-4 text-amber-700 dark:text-amber-400"
                                         aria-hidden="true"
                                     />
                                     <span>Put On Hold</span>
@@ -399,7 +410,7 @@ export function RequirementMobileCard({
                                     className="cursor-pointer gap-2"
                                 >
                                     <PlayCircle
-                                        className="h-4 w-4 text-emerald-500"
+                                        className="h-4 w-4 text-emerald-700 dark:text-emerald-400"
                                         aria-hidden="true"
                                     />
                                     <span>Resume Requirement</span>
@@ -412,7 +423,7 @@ export function RequirementMobileCard({
                                     className="cursor-pointer gap-2"
                                 >
                                     <CheckCircle2
-                                        className="h-4 w-4 text-sky-500"
+                                        className="h-4 w-4 text-sky-700 dark:text-sky-400"
                                         aria-hidden="true"
                                     />
                                     <span>Mark as Filled</span>
@@ -450,7 +461,7 @@ export function RequirementMobileCard({
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                         onClick={() => onCancel(row)}
-                                        className="cursor-pointer gap-2 text-rose-500 focus:text-rose-500"
+                                        className="cursor-pointer gap-2 text-rose-700 focus:text-rose-700 dark:text-rose-400 dark:focus:text-rose-400"
                                     >
                                         <Ban
                                             className="h-4 w-4"

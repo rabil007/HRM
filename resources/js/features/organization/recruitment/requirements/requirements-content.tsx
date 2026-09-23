@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Filter, Plus, Search, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import RequirementFillController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementFillController';
@@ -9,29 +9,30 @@ import RequirementResumeController from '@/actions/App/Http/Controllers/Organiza
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 import type {
     RequirementDetail,
     RequirementFilters,
     RequirementIndexProps,
     RequirementIndexRow,
-    RequirementTab,
 } from '@/types/recruitment';
 import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { RequirementFiltersSheet } from './components/requirement-filters-sheet';
 import { RequirementFormSheet } from './components/requirement-form-sheet';
 import { RequirementSummaryCards } from './components/requirement-summary-cards';
 import { RequirementTable } from './components/requirement-table';
+import { RequirementToolbar } from './components/requirement-toolbar';
 import { CancelRequirementDialog } from './components/workflow/cancel-requirement-dialog';
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
+import {
+    buildRequirementQuery,
+    clearedRequirementFilters,
+} from './lib/requirement-filters';
 
 export function RequirementsContent({
     requirements,
@@ -41,6 +42,8 @@ export function RequirementsContent({
     options,
     can,
 }: RequirementIndexProps) {
+    const [isLoading, setIsLoading] = useState(false);
+
     // Sheet / dialog open state
     const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
     const [isFormSheetOpen, setIsFormSheetOpen] = useState(false);
@@ -63,107 +66,43 @@ export function RequirementsContent({
 
     const navigate = useCallback(
         (newFilters: Partial<RequirementFilters>, page?: number) => {
-            const query: Record<string, string | number> = {
-                tab: newFilters.tab ?? filters.tab,
-            };
-
-            const searchVal =
-                newFilters.search !== undefined
-                    ? newFilters.search
-                    : filters.search;
-
-            if (searchVal) {
-                query.search = searchVal;
-            }
-
-            const clientVal =
-                newFilters.client_id !== undefined
-                    ? newFilters.client_id
-                    : filters.client_id;
-
-            if (clientVal) {
-                query.client_id = clientVal;
-            }
-
-            const projectVal =
-                newFilters.project_id !== undefined
-                    ? newFilters.project_id
-                    : filters.project_id;
-
-            if (projectVal) {
-                query.project_id = projectVal;
-            }
-
-            const posVal =
-                newFilters.position_id !== undefined
-                    ? newFilters.position_id
-                    : filters.position_id;
-
-            if (posVal) {
-                query.position_id = posVal;
-            }
-
-            const assignedVal =
-                newFilters.assigned_to !== undefined
-                    ? newFilters.assigned_to
-                    : filters.assigned_to;
-
-            if (assignedVal) {
-                query.assigned_to = assignedVal;
-            }
-
-            const priorityVal =
-                newFilters.priority !== undefined
-                    ? newFilters.priority
-                    : filters.priority;
-
-            if (priorityVal) {
-                query.priority = priorityVal;
-            }
-
-            const deadlineVal =
-                newFilters.deadline_health !== undefined
-                    ? newFilters.deadline_health
-                    : filters.deadline_health;
-
-            if (deadlineVal) {
-                query.deadline_health = deadlineVal;
-            }
-
-            if (page && page > 1) {
-                query.page = page;
-            }
-
-            if (filters.per_page) {
-                query.per_page = filters.per_page;
-            }
+            const query = buildRequirementQuery(filters, newFilters, page);
 
             router.get(baseUrl, query, {
                 preserveState: true,
                 preserveScroll: true,
                 replace: true,
+                onStart: () => setIsLoading(true),
+                onFinish: () => setIsLoading(false),
             });
         },
         [baseUrl, filters],
     );
 
-    const { searchInput, onSearchChange } = useDebouncedSearchInput(
-        filters.search || '',
-        (val: string) => {
+    const { searchInput, onSearchChange, resetSearchInput } =
+        useDebouncedSearchInput(filters.search || '', (val: string) => {
             navigate({ search: val });
-        },
-    );
+        });
 
-    const handleTabChange = (newTab: RequirementTab) => {
-        if (newTab === filters.tab) {
-            return;
-        }
+    const handleFilterChange = (changes: Partial<RequirementFilters>) => {
+        resetSearchInput(searchInput);
+        navigate({ search: searchInput, ...changes });
+    };
 
-        navigate({ tab: newTab });
+    const handleSummarySelect = (
+        deadlineHealth: 'overdue' | 'due_soon' | null,
+    ) => {
+        resetSearchInput('');
+        navigate({
+            ...clearedRequirementFilters,
+            search: '',
+            tab: 'active',
+            deadline_health: deadlineHealth,
+        });
     };
 
     const handleApplyFilters = (draft: RequirementFilters) => {
-        navigate({
+        handleFilterChange({
             client_id: draft.client_id,
             project_id: draft.project_id,
             position_id: draft.position_id,
@@ -174,14 +113,12 @@ export function RequirementsContent({
     };
 
     const handleResetFilters = () => {
-        navigate({
-            client_id: null,
-            project_id: null,
-            position_id: null,
-            assigned_to: null,
-            priority: null,
-            deadline_health: null,
-        });
+        handleFilterChange(clearedRequirementFilters);
+    };
+
+    const handleClearAll = () => {
+        resetSearchInput('');
+        navigate({ ...clearedRequirementFilters, search: '' });
     };
 
     const activeFilterCount = useMemo(() => {
@@ -285,7 +222,7 @@ export function RequirementsContent({
             <PageHeader
                 kicker="Recruitment"
                 title="Requirements"
-                description="Track client staffing demands, headcount targets, deadlines, and requisition lifecycles."
+                description="Manage staffing requests, keep deadlines in sight, and move recruitment forward."
                 right={
                     can.create ? (
                         <Button
@@ -293,7 +230,7 @@ export function RequirementsContent({
                                 setEditingRequirement(null);
                                 setIsFormSheetOpen(true);
                             }}
-                            className="gap-2 shadow-xs"
+                            className="h-10 gap-2 rounded-lg shadow-xs"
                         >
                             <Plus className="h-4 w-4" />
                             Add Requirement
@@ -302,280 +239,48 @@ export function RequirementsContent({
                 }
             />
 
-            {/* Summary Metrics Cards */}
-            <div className="mb-6">
-                <RequirementSummaryCards
-                    summary={summary}
-                    activeTab={filters.tab}
-                    activeDeadlineHealth={
-                        filters.deadline_health as string | null | undefined
-                    }
-                    onSelectTab={handleTabChange}
-                    onSelectFilter={(deadlineHealth) => {
-                        navigate({
-                            tab: 'active',
-                            deadline_health: deadlineHealth,
-                        });
+            <RequirementSummaryCards
+                summary={summary}
+                activeCount={tab_counts.active}
+                selectedView={
+                    filters.tab === 'active' &&
+                    !filters.search &&
+                    activeFilterCount === (filters.deadline_health ? 1 : 0)
+                        ? filters.deadline_health === 'overdue' ||
+                          filters.deadline_health === 'due_soon'
+                            ? filters.deadline_health
+                            : !filters.deadline_health
+                              ? 'all'
+                              : null
+                        : null
+                }
+                onSelect={handleSummarySelect}
+            />
+
+            <div className="mb-4">
+                <RequirementToolbar
+                    filters={filters}
+                    options={options}
+                    tab_counts={tab_counts}
+                    searchInput={searchInput}
+                    total={requirements.total}
+                    isLoading={isLoading}
+                    onSearchChange={onSearchChange}
+                    onClearSearch={() => {
+                        resetSearchInput('');
+                        navigate({ search: '' });
                     }}
+                    onChange={handleFilterChange}
+                    onOpenFilters={() => setIsFilterSheetOpen(true)}
+                    onReset={handleClearAll}
                 />
             </div>
 
-            {/* Unified control row: Tabs | Search | Filters */}
-            <div className="mb-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-                    {/* Primary Status Tabs */}
-                    <div className="flex shrink-0 items-center rounded-xl border border-border/60 bg-muted/30 p-1 backdrop-blur-sm">
-                        {(
-                            [
-                                {
-                                    key: 'active',
-                                    label: 'Active',
-                                    count: tab_counts.active,
-                                },
-                                {
-                                    key: 'on_hold',
-                                    label: 'On Hold',
-                                    count: tab_counts.on_hold,
-                                },
-                                {
-                                    key: 'history',
-                                    label: 'History',
-                                    count: tab_counts.history,
-                                },
-                            ] as const
-                        ).map(({ key, label, count }) => (
-                            <Button
-                                key={key}
-                                type="button"
-                                variant={
-                                    filters.tab === key ? 'default' : 'ghost'
-                                }
-                                size="sm"
-                                className={cn(
-                                    'h-8 gap-2 rounded-lg px-3 text-xs font-semibold transition-all',
-                                    filters.tab !== key &&
-                                        'text-muted-foreground hover:bg-accent hover:text-foreground',
-                                )}
-                                onClick={() => handleTabChange(key)}
-                            >
-                                <span>{label}</span>
-                                <Badge
-                                    variant={
-                                        filters.tab === key
-                                            ? 'secondary'
-                                            : 'outline'
-                                    }
-                                    className="px-1.5 py-0 text-[10px] font-bold tabular-nums"
-                                >
-                                    {count}
-                                </Badge>
-                            </Button>
-                        ))}
-                    </div>
-
-                    {/* Search — grows to fill available space */}
-                    <div className="relative min-w-0 flex-1">
-                        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Search requirement #, client, project or position…"
-                            value={searchInput}
-                            onChange={(e) => onSearchChange(e.target.value)}
-                            className="h-9 pr-3 pl-9 text-sm"
-                            aria-label="Search requirements"
-                        />
-                    </div>
-
-                    {/* Filters trigger */}
-                    <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                            type="button"
-                            variant={
-                                activeFilterCount > 0 ? 'secondary' : 'outline'
-                            }
-                            size="sm"
-                            onClick={() => setIsFilterSheetOpen(true)}
-                            className="h-9 gap-2 text-xs"
-                            aria-label={
-                                activeFilterCount > 0
-                                    ? `Filters active (${activeFilterCount})`
-                                    : 'Open filters'
-                            }
-                        >
-                            <Filter className="h-3.5 w-3.5" />
-                            <span>Filters</span>
-                            {activeFilterCount > 0 && (
-                                <Badge
-                                    variant="default"
-                                    className="px-1.5 py-0 text-[10px] tabular-nums"
-                                >
-                                    {activeFilterCount}
-                                </Badge>
-                            )}
-                        </Button>
-
-                        {hasActiveFilters && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleResetFilters}
-                                className="h-9 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                aria-label="Clear all filters"
-                            >
-                                <X className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Clear</span>
-                            </Button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Active Filter Chips */}
-                {hasActiveFilters && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                            Filters:
-                        </span>
-
-                        {filters.client_id && (
-                            <Badge
-                                variant="secondary"
-                                className="gap-1.5 py-0.5 text-xs"
-                            >
-                                Client:{' '}
-                                {options.clients.find(
-                                    (c) =>
-                                        String(c.id) ===
-                                        String(filters.client_id),
-                                )?.name || filters.client_id}
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        navigate({ client_id: null })
-                                    }
-                                    className="rounded-full hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                                    aria-label="Remove client filter"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-
-                        {filters.project_id && (
-                            <Badge
-                                variant="secondary"
-                                className="gap-1.5 py-0.5 text-xs"
-                            >
-                                Project:{' '}
-                                {options.projects.find(
-                                    (p) =>
-                                        String(p.id) ===
-                                        String(filters.project_id),
-                                )?.title || filters.project_id}
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        navigate({ project_id: null })
-                                    }
-                                    className="rounded-full hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                                    aria-label="Remove project filter"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-
-                        {filters.position_id && (
-                            <Badge
-                                variant="secondary"
-                                className="gap-1.5 py-0.5 text-xs"
-                            >
-                                Position:{' '}
-                                {options.positions.find(
-                                    (p) =>
-                                        String(p.id) ===
-                                        String(filters.position_id),
-                                )?.title || filters.position_id}
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        navigate({ position_id: null })
-                                    }
-                                    className="rounded-full hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                                    aria-label="Remove position filter"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-
-                        {filters.assigned_to && (
-                            <Badge
-                                variant="secondary"
-                                className="gap-1.5 py-0.5 text-xs"
-                            >
-                                Recruiter:{' '}
-                                {options.recruiters.find(
-                                    (r) =>
-                                        String(r.id) ===
-                                        String(filters.assigned_to),
-                                )?.name || filters.assigned_to}
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        navigate({ assigned_to: null })
-                                    }
-                                    className="rounded-full hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                                    aria-label="Remove recruiter filter"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-
-                        {filters.priority && (
-                            <Badge
-                                variant="secondary"
-                                className="gap-1.5 py-0.5 text-xs capitalize"
-                            >
-                                Priority: {filters.priority}
-                                <button
-                                    type="button"
-                                    onClick={() => navigate({ priority: null })}
-                                    className="rounded-full hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                                    aria-label="Remove priority filter"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-
-                        {filters.deadline_health && (
-                            <Badge
-                                variant="secondary"
-                                className="gap-1.5 py-0.5 text-xs capitalize"
-                            >
-                                Health:{' '}
-                                {filters.deadline_health.replace('_', ' ')}
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        navigate({ deadline_health: null })
-                                    }
-                                    className="rounded-full hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                                    aria-label="Remove deadline health filter"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-                    </div>
-                )}
-            </div>
-
             {/* Requirements Data Table */}
-            <div className="space-y-4">
+            <div className="space-y-4" aria-busy={isLoading}>
                 <RequirementTable
                     rows={requirements.data}
+                    activeTab={filters.tab}
                     hasSearch={hasSearch}
                     hasActiveFilters={hasActiveFilters}
                     canCreate={can.create}
@@ -583,7 +288,7 @@ export function RequirementsContent({
                         setEditingRequirement(null);
                         setIsFormSheetOpen(true);
                     }}
-                    onClearFilters={handleResetFilters}
+                    onClearFilters={handleClearAll}
                     onEdit={handleEditRequirement}
                     onOpen={handleOpenRequirement}
                     onHold={handleHoldRequirement}
@@ -596,7 +301,7 @@ export function RequirementsContent({
                     onRepeat={(row) => setRepeatDialogTarget(row)}
                 />
 
-                {requirements.last_page > 1 && (
+                {requirements.total > 0 && (
                     <Pagination
                         currentPage={requirements.current_page}
                         lastPage={requirements.last_page}
@@ -604,6 +309,11 @@ export function RequirementsContent({
                         to={requirements.to ?? 0}
                         total={requirements.total}
                         perPage={requirements.per_page}
+                        label="requirements"
+                        perPageOptions={[15, 30, 50, 100]}
+                        onPerPageChange={(perPage) =>
+                            handleFilterChange({ per_page: perPage })
+                        }
                         onPageChange={(page) => navigate({}, page)}
                     />
                 )}

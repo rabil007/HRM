@@ -31,9 +31,18 @@ Do not introduce a generic rendering DSL. Keep identity, status, and action deci
 | Attendance records                        | `AttendanceRecordMobileCard`   | Self-service omits employee identity; `attendance.records.manage` shows it               |
 | Documents (index/compliance/search table) | `DocumentComplianceMobileCard` | Expiry/compliance from existing presenters; no file contents                             |
 | Payroll periods (pay runs hub)            | `PayrollPeriodMobileCard`      | Status and workflow only; no salary figures                                              |
+| Recruitment requirements                  | `RequirementMobileCard`        | Staffing target, roles, deadline, named recruiter, and permission-aware actions             |
 
 Master-data, configuration, and dense payroll matrices (records, timesheets, salary inputs) stay as tables.
 
 ## Data, filters, and actions
 
 Both views consume the same Inertia props, `useServerPaginationFilters` (or domain equivalent), permissions/`can` flags, and mutation handlers. Pagination stays server-side. Destructive actions still use the existing AlertDialog confirmations. Employees, Documents, Crew Assignments, Leave requests, and Payroll periods also share the same [Saved views](./saved-views.md) control on this list.
+
+## Recruitment requirements
+
+The active overview covers company-wide draft and open requirements, independently of list filters. Staffing target is the sum of requested headcount, not remaining vacancies or candidate progress. On-hold and historical requirements are excluded from this overview. The placeholder ready-to-close metric is not displayed.
+
+Overview shortcuts clear search and filters and open the matching active list. Overdue means before today; due in 7 days includes today through the entire seventh day. Quick filters refine the current active or on-hold list and preserve search. Clear search & filters resets both together. Tabs retain the current criteria, and empty states distinguish active, on-hold, historical, and filtered results. Page size and pagination remain in the URL, with 15, 30, 50, and 100 row choices.
+
+Desktop rows group the client and requirement reference, then roles and requested headcount. Mobile cards expose the same data with a named recruiter, a separate deadline block, and larger action controls. Existing backend authorization and workflow dialogs remain the source of action availability.

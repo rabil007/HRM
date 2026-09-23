@@ -74,96 +74,92 @@ export function RequirementTableRow({
     const showUrl = RequirementController.show.url(row.id);
 
     return (
-        <TableRow className={cn(dataTableBodyRowClass(), 'group')}>
-            {/* Requirement Number — priority indicator shown inline */}
-            <TableCell
-                className={cn(dataTableCellPrimaryClass(), 'whitespace-nowrap')}
-            >
-                <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5">
-                        {row.priority === 'urgent' && (
-                            <Flame
-                                className="h-3.5 w-3.5 shrink-0 fill-rose-500 text-rose-500"
-                                aria-label="Urgent priority"
-                            />
-                        )}
+        <TableRow
+            className={cn(
+                dataTableBodyRowClass(),
+                'group',
+                row.deadline_health === 'overdue' && 'bg-rose-500/[0.025]',
+            )}
+        >
+            <TableCell className={cn(dataTableCellPrimaryClass(), 'py-4')}>
+                <div className="flex max-w-[280px] flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Link
                             href={showUrl}
-                            className="font-mono text-sm font-bold text-foreground transition-colors group-hover:text-primary hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                            className="font-mono text-xs font-semibold text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
                             {row.requirement_number}
                         </Link>
+                        {row.priority === 'urgent' && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-1.5 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-400">
+                                <Flame className="size-3" aria-hidden="true" />
+                                Urgent
+                            </span>
+                        )}
                     </div>
-                    {row.repeated_from_number && (
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Copy
-                                className="h-3 w-3 text-muted-foreground/70"
-                                aria-hidden="true"
-                            />
-                            <span>From {row.repeated_from_number}</span>
-                        </div>
-                    )}
-                </div>
-            </TableCell>
-
-            {/* Client & Project */}
-            <TableCell className={dataTableCellClass()}>
-                <div className="flex max-w-[200px] flex-col gap-0.5">
-                    <span
-                        className="truncate font-semibold text-foreground"
+                    <Link
+                        href={showUrl}
+                        className="truncate text-sm font-semibold hover:underline"
                         title={row.client_name}
                     >
                         {row.client_name}
-                    </span>
+                    </Link>
                     {(row.project_title || row.location) && (
                         <span
-                            className="truncate text-xs text-muted-foreground"
-                            title={`${row.project_title || ''} ${row.location ? `(${row.location})` : ''}`}
+                            className="truncate text-xs font-normal text-muted-foreground"
+                            title={[row.project_title, row.location]
+                                .filter(Boolean)
+                                .join(' · ')}
                         >
-                            {row.project_title || ''}
-                            {row.location ? ` • ${row.location}` : ''}
+                            {[row.project_title, row.location]
+                                .filter(Boolean)
+                                .join(' · ')}
+                        </span>
+                    )}
+                    {row.repeated_from_number && (
+                        <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                            <Copy className="size-3" aria-hidden="true" />
+                            From {row.repeated_from_number}
                         </span>
                     )}
                 </div>
             </TableCell>
-
-            {/* Positions — compact pill list */}
             <TableCell className={dataTableCellClass()}>
-                <div className="flex max-w-[200px] flex-wrap gap-1">
-                    {row.positions_summary.slice(0, 2).map((p) => (
-                        <span
-                            key={p.id}
-                            className="inline-flex max-w-[120px] items-center truncate rounded border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground/90"
-                            title={`${p.position_title} (req: ${p.required_headcount})`}
-                        >
-                            {p.position_title}
+                <div className="flex max-w-[260px] flex-col gap-2">
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-lg font-semibold tabular-nums">
+                            {row.total_headcount}
                         </span>
-                    ))}
-                    {row.positions_summary.length > 2 && (
-                        <span className="inline-flex items-center rounded border border-border/50 bg-muted/20 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            +{row.positions_summary.length - 2} more
+                        <span className="text-xs text-muted-foreground">
+                            {row.total_headcount === 1 ? 'person' : 'people'} ·{' '}
+                            {row.positions_count}{' '}
+                            {row.positions_count === 1 ? 'role' : 'roles'}
                         </span>
-                    )}
-                </div>
-            </TableCell>
-
-            {/* Headcount — prominent number */}
-            <TableCell
-                className={cn(dataTableCellClass(), 'whitespace-nowrap')}
-            >
-                <div className="flex items-center gap-1.5">
-                    <Users
-                        className="h-3.5 w-3.5 text-muted-foreground/60"
-                        aria-hidden="true"
-                    />
-                    <span className="font-bold text-foreground tabular-nums">
-                        {row.total_headcount}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                        {row.positions_count === 1
-                            ? `(${row.positions_count} role)`
-                            : `(${row.positions_count} roles)`}
-                    </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {row.positions_summary.slice(0, 2).map((position) => (
+                            <span
+                                key={position.id}
+                                className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs"
+                                title={`${position.position_title}: ${position.required_headcount} requested`}
+                            >
+                                <span className="truncate">
+                                    {position.position_title}
+                                </span>
+                                <span className="shrink-0 font-medium tabular-nums">
+                                    ×{position.required_headcount}
+                                </span>
+                            </span>
+                        ))}
+                        {row.positions_summary.length > 2 && (
+                            <Link
+                                href={showUrl}
+                                className="rounded-md px-1 py-1 text-xs text-primary hover:underline"
+                            >
+                                +{row.positions_summary.length - 2} more
+                            </Link>
+                        )}
+                    </div>
                 </div>
             </TableCell>
 
@@ -173,19 +169,19 @@ export function RequirementTableRow({
             >
                 <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold text-foreground">
-                        {row.required_by_date_formatted || '—'}
+                        {row.required_by_date_formatted || 'No deadline'}
                     </span>
                     {row.deadline_health && (
                         <Badge
                             variant="outline"
                             className={cn(
-                                'w-fit gap-1 px-1.5 py-0 text-[10px] font-medium',
+                                'w-fit gap-1 px-1.5 py-0 text-xs font-medium',
                                 row.deadline_health === 'overdue' &&
-                                    'border-rose-500/30 bg-rose-500/10 text-rose-500',
+                                    'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
                                 row.deadline_health === 'due_soon' &&
-                                    'border-amber-500/30 bg-amber-500/10 text-amber-500',
+                                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
                                 row.deadline_health === 'on_track' &&
-                                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
+                                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
                             )}
                         >
                             {row.deadline_health === 'overdue' && (
@@ -213,7 +209,7 @@ export function RequirementTableRow({
                 {row.assigned_recruiter_name ? (
                     <div className="flex items-center gap-1.5">
                         <div
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
                             aria-hidden="true"
                         >
                             {getInitials(row.assigned_recruiter_name)}
@@ -226,7 +222,7 @@ export function RequirementTableRow({
                         </span>
                     </div>
                 ) : (
-                    <span className="text-xs text-muted-foreground/60">
+                    <span className="text-xs text-muted-foreground">
                         Unassigned
                     </span>
                 )}
@@ -241,15 +237,15 @@ export function RequirementTableRow({
                     className={cn(
                         'px-2 py-0.5 text-xs font-semibold',
                         row.status === 'open' &&
-                            'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
+                            'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
                         row.status === 'draft' &&
-                            'border-zinc-500/30 bg-zinc-500/10 text-zinc-400',
+                            'border-zinc-500/30 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
                         row.status === 'on_hold' &&
-                            'border-amber-500/30 bg-amber-500/10 text-amber-500',
+                            'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
                         row.status === 'completed' &&
-                            'border-sky-500/30 bg-sky-500/10 text-sky-500',
+                            'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400',
                         row.status === 'cancelled' &&
-                            'border-rose-500/30 bg-rose-500/10 text-rose-500',
+                            'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
                     )}
                 >
                     {row.status_label}
@@ -274,7 +270,7 @@ export function RequirementTableRow({
                             size="sm"
                             variant="outline"
                             onClick={() => onOpen(row)}
-                            className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-500 hover:bg-emerald-500/10"
+                            className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
                         >
                             <PlayCircle
                                 className="h-3.5 w-3.5"
@@ -288,7 +284,7 @@ export function RequirementTableRow({
                             size="sm"
                             variant="outline"
                             onClick={() => onResume(row)}
-                            className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-500 hover:bg-emerald-500/10"
+                            className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
                         >
                             <PlayCircle
                                 className="h-3.5 w-3.5"
@@ -302,7 +298,7 @@ export function RequirementTableRow({
                             size="sm"
                             variant="outline"
                             onClick={() => onFill(row)}
-                            className="h-8 gap-1 border-sky-500/40 text-xs text-sky-500 hover:bg-sky-500/10"
+                            className="h-8 gap-1 border-sky-500/40 text-xs text-sky-700 hover:bg-sky-500/10 dark:text-sky-400"
                         >
                             <CheckCircle2
                                 className="h-3.5 w-3.5"
@@ -316,7 +312,7 @@ export function RequirementTableRow({
                             size="sm"
                             variant="outline"
                             onClick={() => onExtend(row)}
-                            className="h-8 gap-1 border-amber-500/40 text-xs text-amber-500 hover:bg-amber-500/10"
+                            className="h-8 gap-1 border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
                         >
                             <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                             Extend
@@ -372,7 +368,7 @@ export function RequirementTableRow({
                                         className="h-4 w-4 text-muted-foreground"
                                         aria-hidden="true"
                                     />
-                                    <span>Edit Requisition</span>
+                                    <span>Edit Requirement</span>
                                 </DropdownMenuItem>
                             )}
 
@@ -408,7 +404,7 @@ export function RequirementTableRow({
                                     className="cursor-pointer gap-2"
                                 >
                                     <PauseCircle
-                                        className="h-4 w-4 text-amber-500"
+                                        className="h-4 w-4 text-amber-700 dark:text-amber-400"
                                         aria-hidden="true"
                                     />
                                     <span>Put On Hold</span>
@@ -421,7 +417,7 @@ export function RequirementTableRow({
                                     className="cursor-pointer gap-2"
                                 >
                                     <PlayCircle
-                                        className="h-4 w-4 text-emerald-500"
+                                        className="h-4 w-4 text-emerald-700 dark:text-emerald-400"
                                         aria-hidden="true"
                                     />
                                     <span>Resume Requirement</span>
@@ -434,7 +430,7 @@ export function RequirementTableRow({
                                     className="cursor-pointer gap-2"
                                 >
                                     <CheckCircle2
-                                        className="h-4 w-4 text-sky-500"
+                                        className="h-4 w-4 text-sky-700 dark:text-sky-400"
                                         aria-hidden="true"
                                     />
                                     <span>Mark as Filled</span>
@@ -472,7 +468,7 @@ export function RequirementTableRow({
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                         onClick={() => onCancel(row)}
-                                        className="cursor-pointer gap-2 text-rose-500 focus:text-rose-500"
+                                        className="cursor-pointer gap-2 text-rose-700 focus:text-rose-700 dark:text-rose-400 dark:focus:text-rose-400"
                                     >
                                         <Ban
                                             className="h-4 w-4"

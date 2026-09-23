@@ -292,7 +292,7 @@ export function RequirementFiltersSheet({
                                 On Track
                             </AppSelectItem>
                             <AppSelectItem value="due_soon">
-                                Due Soon (≤ 7 days)
+                                Due in 7 days
                             </AppSelectItem>
                             <AppSelectItem value="overdue">
                                 Overdue

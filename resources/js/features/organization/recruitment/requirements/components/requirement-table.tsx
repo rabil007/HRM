@@ -7,7 +7,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
-import type { RequirementIndexRow } from '@/types/recruitment';
+import type { RequirementIndexRow, RequirementTab } from '@/types/recruitment';
 import { RequirementMobileCard } from './requirement-mobile-card';
 import { RequirementTableRow } from './requirement-table-row';
 
@@ -26,6 +26,7 @@ type ActionHandlers = {
 
 type Props = ActionHandlers & {
     rows: RequirementIndexRow[];
+    activeTab: RequirementTab;
     /** True when a search term is active */
     hasSearch?: boolean;
     /** True when any filter (besides tab) is active */
@@ -40,6 +41,7 @@ type Props = ActionHandlers & {
 
 export function RequirementTable({
     rows,
+    activeTab,
     hasSearch = false,
     hasActiveFilters = false,
     canCreate = false,
@@ -97,10 +99,22 @@ export function RequirementTable({
                         aria-hidden="true"
                     />
                 }
-                title="No requirements yet"
-                description="Requirements track client staffing demands, headcount targets, and deadlines. Create the first one to get started."
+                title={
+                    activeTab === 'history'
+                        ? 'No completed or cancelled requirements'
+                        : activeTab === 'on_hold'
+                          ? 'No requirements on hold'
+                          : 'Start your next hire here'
+                }
+                description={
+                    activeTab === 'history'
+                        ? 'Completed and cancelled requests will appear here for reference.'
+                        : activeTab === 'on_hold'
+                          ? 'Paused requests appear here. Resume them when recruitment is ready to continue.'
+                          : 'Create a staffing request, add the roles and headcount you need, and assign a recruiter to keep things moving.'
+                }
                 action={
-                    canCreate && onAddRequirement ? (
+                    activeTab === 'active' && canCreate && onAddRequirement ? (
                         <Button
                             type="button"
                             size="sm"
@@ -132,7 +146,7 @@ export function RequirementTable({
         <>
             {/* Mobile list — visible below md breakpoint */}
             <div
-                className="space-y-2 md:hidden"
+                className="space-y-3 md:hidden"
                 role="list"
                 aria-label="Requirements"
             >
@@ -145,26 +159,20 @@ export function RequirementTable({
 
             {/* Desktop table — visible at md and above */}
             <div className="hidden md:block">
-                <OrganizationDataTable minWidth="min-w-[1080px]" compact>
+                <OrganizationDataTable minWidth="min-w-[960px]" compact>
                     <TableHeader>
                         <DataTableHeaderRow>
-                            <DataTableHead className="w-[150px]">
-                                Requirement
+                            <DataTableHead className="min-w-[240px]">
+                                Requirement / Client
                             </DataTableHead>
-                            <DataTableHead className="min-w-[170px]">
-                                Client / Project
-                            </DataTableHead>
-                            <DataTableHead className="min-w-[180px]">
-                                Positions
-                            </DataTableHead>
-                            <DataTableHead className="w-[110px]">
-                                Headcount
+                            <DataTableHead className="min-w-[220px]">
+                                Roles & staffing target
                             </DataTableHead>
                             <DataTableHead className="min-w-[130px]">
                                 Required By
                             </DataTableHead>
                             <DataTableHead className="min-w-[120px]">
-                                Owner
+                                Recruiter
                             </DataTableHead>
                             <DataTableHead className="w-[100px]">
                                 Status
