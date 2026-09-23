@@ -513,3 +513,23 @@ describe('Command palette and company switch', () => {
         assert.equal(payrollHref(companyB), '/payroll/overview');
     });
 });
+
+describe('Recruitment navigation', () => {
+    const RECRUITMENT_URL = '/organization/recruitment/requirements';
+
+    it('shows Recruitment requirements when user has recruitment.requirements.view', () => {
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_URL, ['recruitment.requirements.view']),
+            true,
+        );
+    });
+
+    it('hides Recruitment requirements when user does not have recruitment.requirements.view', () => {
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_URL, ['recruitment.requirements.create']),
+            false,
+        );
+        assert.equal(isSidebarUrlVisible(RECRUITMENT_URL, []), false);
+    });
+});
+

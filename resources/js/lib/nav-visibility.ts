@@ -201,6 +201,8 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'departments.view'),
     '/organization/positions': (permissions) =>
         has(permissions, 'positions.view'),
+    '/organization/recruitment/requirements': (permissions) =>
+        has(permissions, 'recruitment.requirements.view'),
     '/organization/employees': (permissions) =>
         has(permissions, 'employees.view'),
     '/organization/crew-operations': (permissions) =>

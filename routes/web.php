@@ -178,6 +178,19 @@ use App\Http\Controllers\Organization\OrganizationBulkRecordController;
 use App\Http\Controllers\Organization\PositionAttachmentController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\PreviewVoidCrewAssignmentsController;
+use App\Http\Controllers\Organization\Recruitment\RequirementAddHeadcountController;
+use App\Http\Controllers\Organization\Recruitment\RequirementAttachmentController;
+use App\Http\Controllers\Organization\Recruitment\RequirementCancelController;
+use App\Http\Controllers\Organization\Recruitment\RequirementChangeHeadcountController;
+use App\Http\Controllers\Organization\Recruitment\RequirementCheckSimilarController;
+use App\Http\Controllers\Organization\Recruitment\RequirementController;
+use App\Http\Controllers\Organization\Recruitment\RequirementExtendDeadlineController;
+use App\Http\Controllers\Organization\Recruitment\RequirementFillController;
+use App\Http\Controllers\Organization\Recruitment\RequirementHoldController;
+use App\Http\Controllers\Organization\Recruitment\RequirementOpenController;
+use App\Http\Controllers\Organization\Recruitment\RequirementReopenController;
+use App\Http\Controllers\Organization\Recruitment\RequirementRepeatController;
+use App\Http\Controllers\Organization\Recruitment\RequirementResumeController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SeaServicesExportController;
 use App\Http\Controllers\Organization\SeaServiceShowController;
@@ -494,6 +507,58 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/positions/{position}', [PositionController::class, 'update'])->middleware('can:positions.update')->name('organization.positions.update');
     Route::put('organization/positions/{position}/status', [PositionController::class, 'updateStatus'])->middleware('can:positions.update')->name('organization.positions.status');
     Route::delete('organization/positions/{position}', [PositionController::class, 'destroy'])->middleware('can:positions.delete')->name('organization.positions.destroy');
+
+    Route::get('organization/recruitment/requirements', [RequirementController::class, 'index'])
+        ->middleware('can:recruitment.requirements.view')
+        ->name('organization.recruitment.requirements.index');
+    Route::post('organization/recruitment/requirements', [RequirementController::class, 'store'])
+        ->middleware('can:recruitment.requirements.create')
+        ->name('organization.recruitment.requirements.store');
+    Route::post('organization/recruitment/requirements/check-similar', RequirementCheckSimilarController::class)
+        ->middleware('can:recruitment.requirements.view')
+        ->name('organization.recruitment.requirements.check-similar');
+    Route::get('organization/recruitment/requirements/{requirement}', [RequirementController::class, 'show'])
+        ->middleware('can:recruitment.requirements.view')
+        ->name('organization.recruitment.requirements.show');
+    Route::put('organization/recruitment/requirements/{requirement}', [RequirementController::class, 'update'])
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.update');
+    Route::post('organization/recruitment/requirements/{requirement}/open', RequirementOpenController::class)
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.open');
+    Route::post('organization/recruitment/requirements/{requirement}/hold', RequirementHoldController::class)
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.hold');
+    Route::post('organization/recruitment/requirements/{requirement}/resume', RequirementResumeController::class)
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.resume');
+    Route::post('organization/recruitment/requirements/{requirement}/extend-deadline', RequirementExtendDeadlineController::class)
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.extend-deadline');
+    Route::post('organization/recruitment/requirements/{requirement}/change-headcount', RequirementChangeHeadcountController::class)
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.change-headcount');
+    Route::post('organization/recruitment/requirements/{requirement}/fill', RequirementFillController::class)
+        ->middleware('can:recruitment.requirements.close')
+        ->name('organization.recruitment.requirements.fill');
+    Route::post('organization/recruitment/requirements/{requirement}/cancel', RequirementCancelController::class)
+        ->middleware('can:recruitment.requirements.cancel')
+        ->name('organization.recruitment.requirements.cancel');
+    Route::post('organization/recruitment/requirements/{requirement}/reopen', RequirementReopenController::class)
+        ->middleware('can:recruitment.requirements.reopen')
+        ->name('organization.recruitment.requirements.reopen');
+    Route::post('organization/recruitment/requirements/{requirement}/repeat', RequirementRepeatController::class)
+        ->middleware('can:recruitment.requirements.create')
+        ->name('organization.recruitment.requirements.repeat');
+    Route::post('organization/recruitment/requirements/{requirement}/add-headcount', RequirementAddHeadcountController::class)
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.add-headcount');
+    Route::get('organization/recruitment/requirements/{requirement}/attachments/{attachment}/download', [RequirementAttachmentController::class, 'download'])
+        ->middleware('can:recruitment.requirements.attachments.download')
+        ->name('organization.recruitment.requirements.attachments.download');
+    Route::delete('organization/recruitment/requirements/{requirement}/attachments/{attachment}', [RequirementAttachmentController::class, 'destroy'])
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.attachments.destroy');
 
     Route::get('organization/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('organization.roles');
     Route::get('organization/roles/export', [RoleController::class, 'export'])->middleware('can:roles.export')->name('organization.roles.export');

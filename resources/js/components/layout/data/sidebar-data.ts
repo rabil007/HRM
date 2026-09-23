@@ -36,6 +36,7 @@ import {
     Database,
     ListTodo,
     ScrollText,
+    Briefcase,
 } from 'lucide-react';
 import { isSidebarUrlVisible, NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
 import type { NavPlatformAccess } from '@/lib/nav-visibility';
@@ -114,6 +115,11 @@ const baseSidebarData: SidebarData = {
                     title: 'Positions',
                     url: '/organization/positions',
                     icon: Landmark,
+                },
+                {
+                    title: 'Recruitment',
+                    url: '/organization/recruitment/requirements',
+                    icon: Briefcase,
                 },
                 {
                     title: 'Activity logs',
