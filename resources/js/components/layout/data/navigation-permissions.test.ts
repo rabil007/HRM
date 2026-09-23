@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { getActiveRecruitmentSubmodules } from '../../../features/organization/recruitment/recruitment-nav.ts';
 import {
     attendanceHref,
     canOpenApplicationSettings,
     canViewCrewOperations,
     canViewPayroll,
+    canViewRecruitment,
     crewOperationsHref,
     hasSettingsAccess,
     isSidebarUrlVisible,
     NO_PLATFORM_ACCESS,
     payrollHref,
+    recruitmentHref,
     visibleGroupUrls,
 } from '../../../lib/nav-visibility.ts';
 
@@ -511,5 +514,93 @@ describe('Command palette and company switch', () => {
         assert.equal(isSidebarUrlVisible(USERS_URL, companyB), false);
         assert.equal(isSidebarUrlVisible('/payroll/overview', companyB), true);
         assert.equal(payrollHref(companyB), '/payroll/overview');
+    });
+});
+
+describe('Recruitment navigation', () => {
+    const RECRUITMENT_PARENT_URL = '/organization/recruitment';
+    const RECRUITMENT_REQUIREMENTS_URL =
+        '/organization/recruitment/requirements';
+
+    it('shows Recruitment parent and requirements when user has recruitment.requirements.view', () => {
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_REQUIREMENTS_URL, [
+                'recruitment.requirements.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_PARENT_URL, [
+                'recruitment.requirements.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            canViewRecruitment(['recruitment.requirements.view']),
+            true,
+        );
+        assert.equal(
+            recruitmentHref(['recruitment.requirements.view']),
+            RECRUITMENT_REQUIREMENTS_URL,
+        );
+    });
+
+    it('hides Recruitment parent and requirements when user lacks recruitment.requirements.view', () => {
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_REQUIREMENTS_URL, [
+                'recruitment.requirements.create',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_REQUIREMENTS_URL, []),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_PARENT_URL, [
+                'recruitment.requirements.create',
+            ]),
+            false,
+        );
+        assert.equal(isSidebarUrlVisible(RECRUITMENT_PARENT_URL, []), false);
+        assert.equal(
+            canViewRecruitment(['recruitment.requirements.create']),
+            false,
+        );
+        assert.equal(canViewRecruitment([]), false);
+        assert.equal(
+            recruitmentHref(['recruitment.requirements.create']),
+            null,
+        );
+        assert.equal(recruitmentHref([]), null);
+    });
+
+    it('filters group URLs retaining requirements only when permitted', () => {
+        assert.deepEqual(
+            visibleGroupUrls(
+                [RECRUITMENT_REQUIREMENTS_URL],
+                ['recruitment.requirements.view'],
+            ),
+            [RECRUITMENT_REQUIREMENTS_URL],
+        );
+        assert.deepEqual(
+            visibleGroupUrls(
+                [RECRUITMENT_REQUIREMENTS_URL],
+                ['recruitment.requirements.create'],
+            ),
+            [],
+        );
+    });
+
+    it('exposes only active recruitment submodules in the module catalog', () => {
+        const activeSubmodules = getActiveRecruitmentSubmodules();
+
+        assert.equal(activeSubmodules.length, 1);
+        assert.equal(activeSubmodules[0].key, 'requirements');
+        assert.equal(activeSubmodules[0].href, RECRUITMENT_REQUIREMENTS_URL);
+        assert.equal(
+            activeSubmodules.some((sub) => !sub.available),
+            false,
+        );
     });
 });

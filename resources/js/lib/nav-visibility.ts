@@ -185,6 +185,18 @@ export function attendanceHref(permissions: string[]): string | null {
     return null;
 }
 
+export function canViewRecruitment(permissions: string[]): boolean {
+    return has(permissions, 'recruitment.requirements.view');
+}
+
+export function recruitmentHref(permissions: string[]): string | null {
+    if (has(permissions, 'recruitment.requirements.view')) {
+        return '/organization/recruitment/requirements';
+    }
+
+    return null;
+}
+
 type DestinationRule = (
     permissions: string[],
     platform: NavPlatformAccess,
@@ -201,6 +213,10 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'departments.view'),
     '/organization/positions': (permissions) =>
         has(permissions, 'positions.view'),
+    '/organization/recruitment': (permissions) =>
+        canViewRecruitment(permissions),
+    '/organization/recruitment/requirements': (permissions) =>
+        has(permissions, 'recruitment.requirements.view'),
     '/organization/employees': (permissions) =>
         has(permissions, 'employees.view'),
     '/organization/crew-operations': (permissions) =>

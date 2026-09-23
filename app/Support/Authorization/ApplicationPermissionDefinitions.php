@@ -1905,6 +1905,48 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to record completed past crew movements without affecting current operations.',
                 'group' => 'Crew Operations',
             ],
+            315 => [
+                'name' => 'recruitment.requirements.view',
+                'label' => 'View Recruitment Requirements',
+                'description' => 'Allows the user to view recruitment requirements and position lines for the active company.',
+                'group' => 'Recruitment',
+            ],
+            316 => [
+                'name' => 'recruitment.requirements.create',
+                'label' => 'Create Recruitment Requirements',
+                'description' => 'Allows the user to create new recruitment requirements for the active company.',
+                'group' => 'Recruitment',
+            ],
+            317 => [
+                'name' => 'recruitment.requirements.update',
+                'label' => 'Update Recruitment Requirements',
+                'description' => 'Allows the user to update requirement details, put requirements on hold, resume them, extend deadlines, and adjust headcounts.',
+                'group' => 'Recruitment',
+            ],
+            318 => [
+                'name' => 'recruitment.requirements.close',
+                'label' => 'Close Recruitment Requirements',
+                'description' => 'Allows the user to mark recruitment requirements as filled/completed for the active company.',
+                'group' => 'Recruitment',
+            ],
+            319 => [
+                'name' => 'recruitment.requirements.cancel',
+                'label' => 'Cancel Recruitment Requirements',
+                'description' => 'Allows the user to cancel recruitment requirements with a required reason.',
+                'group' => 'Recruitment',
+            ],
+            320 => [
+                'name' => 'recruitment.requirements.reopen',
+                'label' => 'Reopen Recruitment Requirements',
+                'description' => 'Allows the user to reopen completed recruitment requirements with a required reason.',
+                'group' => 'Recruitment',
+            ],
+            321 => [
+                'name' => 'recruitment.requirements.attachments.download',
+                'label' => 'Download Requirement Attachments',
+                'description' => 'Allows the user to download original client request attachments from recruitment requirements.',
+                'group' => 'Recruitment',
+            ],
         ];
     }
 }
