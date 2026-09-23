@@ -89,9 +89,12 @@ export function CancelRequirementDialog({
 
                     <div className="my-5 space-y-4">
                         <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.04] p-3 text-xs text-rose-800 dark:text-rose-200">
-                            Cancelling this requirement will mark all open
-                            position lines as cancelled. This action moves the
-                            requirement to the History tab.
+                            <strong className="font-bold">
+                                {requirement.requirement_number}
+                            </strong>{' '}
+                            will be cancelled. All open position lines will be
+                            marked as cancelled and the requirement will move to
+                            the History tab. This action cannot be undone.
                         </div>
 
                         <div className="space-y-2">
@@ -141,7 +144,7 @@ export function CancelRequirementDialog({
                             {processing && (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             )}
-                            Confirm Cancellation
+                            Cancel Requirement
                         </Button>
                     </DialogFooter>
                 </form>

@@ -47,6 +47,17 @@ type Props = {
     onRepeat: (row: RequirementIndexRow) => void;
 };
 
+/** Two-letter initials helper — first initial + last initial */
+function getInitials(name: string): string {
+    const parts = name.trim().split(/\s+/);
+
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    return parts[0].slice(0, 2).toUpperCase();
+}
+
 export function RequirementTableRow({
     row,
     onEdit,
@@ -64,20 +75,31 @@ export function RequirementTableRow({
 
     return (
         <TableRow className={cn(dataTableBodyRowClass(), 'group')}>
-            {/* Requirement Number & Tag */}
+            {/* Requirement Number — priority indicator shown inline */}
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'whitespace-nowrap')}
             >
-                <div className="flex flex-col gap-1">
-                    <Link
-                        href={showUrl}
-                        className="font-mono text-sm font-bold text-foreground transition-colors group-hover:text-primary hover:underline"
-                    >
-                        {row.requirement_number}
-                    </Link>
+                <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5">
+                        {row.priority === 'urgent' && (
+                            <Flame
+                                className="h-3.5 w-3.5 shrink-0 fill-rose-500 text-rose-500"
+                                aria-label="Urgent priority"
+                            />
+                        )}
+                        <Link
+                            href={showUrl}
+                            className="font-mono text-sm font-bold text-foreground transition-colors group-hover:text-primary hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                        >
+                            {row.requirement_number}
+                        </Link>
+                    </div>
                     {row.repeated_from_number && (
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Copy className="h-3 w-3 text-muted-foreground/70" />
+                            <Copy
+                                className="h-3 w-3 text-muted-foreground/70"
+                                aria-hidden="true"
+                            />
                             <span>From {row.repeated_from_number}</span>
                         </div>
                     )}
@@ -86,7 +108,7 @@ export function RequirementTableRow({
 
             {/* Client & Project */}
             <TableCell className={dataTableCellClass()}>
-                <div className="flex max-w-[220px] flex-col gap-0.5">
+                <div className="flex max-w-[200px] flex-col gap-0.5">
                     <span
                         className="truncate font-semibold text-foreground"
                         title={row.client_name}
@@ -105,67 +127,44 @@ export function RequirementTableRow({
                 </div>
             </TableCell>
 
-            {/* Positions & Headcount */}
+            {/* Positions — compact pill list */}
             <TableCell className={dataTableCellClass()}>
-                <div className="flex max-w-[240px] flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                        <Badge
-                            variant="secondary"
-                            className="px-2 py-0 text-[11px] font-bold"
+                <div className="flex max-w-[200px] flex-wrap gap-1">
+                    {row.positions_summary.slice(0, 2).map((p) => (
+                        <span
+                            key={p.id}
+                            className="inline-flex max-w-[120px] items-center truncate rounded border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground/90"
+                            title={`${p.position_title} (req: ${p.required_headcount})`}
                         >
-                            {row.total_headcount}{' '}
-                            {row.total_headcount === 1
-                                ? 'Headcount'
-                                : 'Headcounts'}
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground">
-                            ({row.positions_count}{' '}
-                            {row.positions_count === 1 ? 'role' : 'roles'})
+                            {p.position_title}
                         </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1">
-                        {row.positions_summary.slice(0, 2).map((p) => (
-                            <span
-                                key={p.id}
-                                className="inline-flex max-w-[130px] items-center truncate rounded-md border border-border/80 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground/90"
-                                title={`${p.position_title} (req: ${p.required_headcount})`}
-                            >
-                                {p.position_title}
-                                <span className="ml-1 font-semibold text-muted-foreground">
-                                    ×{p.required_headcount}
-                                </span>
-                            </span>
-                        ))}
-                        {row.positions_summary.length > 2 && (
-                            <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/20 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                +{row.positions_summary.length - 2} more
-                            </span>
-                        )}
-                    </div>
+                    ))}
+                    {row.positions_summary.length > 2 && (
+                        <span className="inline-flex items-center rounded border border-border/50 bg-muted/20 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            +{row.positions_summary.length - 2} more
+                        </span>
+                    )}
                 </div>
             </TableCell>
 
-            {/* Priority */}
+            {/* Headcount — prominent number */}
             <TableCell
                 className={cn(dataTableCellClass(), 'whitespace-nowrap')}
             >
-                {row.priority === 'urgent' ? (
-                    <Badge
-                        variant="outline"
-                        className="gap-1 border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-bold text-rose-500"
-                    >
-                        <Flame className="h-3 w-3 animate-pulse fill-rose-500 text-rose-500" />
-                        Urgent
-                    </Badge>
-                ) : (
-                    <Badge
-                        variant="outline"
-                        className="border-border/60 px-2 py-0.5 font-medium text-muted-foreground"
-                    >
-                        Normal
-                    </Badge>
-                )}
+                <div className="flex items-center gap-1.5">
+                    <Users
+                        className="h-3.5 w-3.5 text-muted-foreground/60"
+                        aria-hidden="true"
+                    />
+                    <span className="font-bold text-foreground tabular-nums">
+                        {row.total_headcount}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                        {row.positions_count === 1
+                            ? `(${row.positions_count} role)`
+                            : `(${row.positions_count} roles)`}
+                    </span>
+                </div>
             </TableCell>
 
             {/* Required By & Deadline Health */}
@@ -190,15 +189,47 @@ export function RequirementTableRow({
                             )}
                         >
                             {row.deadline_health === 'overdue' && (
-                                <AlertTriangle className="h-2.5 w-2.5" />
+                                <AlertTriangle
+                                    className="h-2.5 w-2.5"
+                                    aria-hidden="true"
+                                />
                             )}
                             {row.deadline_health === 'due_soon' && (
-                                <Clock className="h-2.5 w-2.5" />
+                                <Clock
+                                    className="h-2.5 w-2.5"
+                                    aria-hidden="true"
+                                />
                             )}
                             {row.days_label}
                         </Badge>
                     )}
                 </div>
+            </TableCell>
+
+            {/* Owner (Recruiter) */}
+            <TableCell
+                className={cn(dataTableCellClass(), 'whitespace-nowrap')}
+            >
+                {row.assigned_recruiter_name ? (
+                    <div className="flex items-center gap-1.5">
+                        <div
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary"
+                            aria-hidden="true"
+                        >
+                            {getInitials(row.assigned_recruiter_name)}
+                        </div>
+                        <span
+                            className="max-w-[110px] truncate text-xs font-medium text-foreground"
+                            title={row.assigned_recruiter_name}
+                        >
+                            {row.assigned_recruiter_name}
+                        </span>
+                    </div>
+                ) : (
+                    <span className="text-xs text-muted-foreground/60">
+                        Unassigned
+                    </span>
+                )}
             </TableCell>
 
             {/* Status */}
@@ -225,28 +256,6 @@ export function RequirementTableRow({
                 </Badge>
             </TableCell>
 
-            {/* Assigned Recruiter */}
-            <TableCell
-                className={cn(dataTableCellClass(), 'whitespace-nowrap')}
-            >
-                {row.assigned_recruiter_name ? (
-                    <div className="flex items-center gap-1.5">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-                            {row.assigned_recruiter_name
-                                .charAt(0)
-                                .toUpperCase()}
-                        </div>
-                        <span className="max-w-[120px] truncate text-xs font-medium text-foreground">
-                            {row.assigned_recruiter_name}
-                        </span>
-                    </div>
-                ) : (
-                    <span className="text-xs text-muted-foreground/70">
-                        Unassigned
-                    </span>
-                )}
-            </TableCell>
-
             {/* Actions: Contextual Primary + Overflow */}
             <TableCell
                 className={cn(
@@ -254,7 +263,11 @@ export function RequirementTableRow({
                     'text-right whitespace-nowrap',
                 )}
             >
-                <div className="flex items-center justify-end gap-1.5">
+                {/* Prevent row-click accidentally triggering on action area */}
+                <div
+                    className="flex items-center justify-end gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     {/* Contextual primary button */}
                     {row.next_action === 'open' && row.can_open && (
                         <Button
@@ -263,7 +276,10 @@ export function RequirementTableRow({
                             onClick={() => onOpen(row)}
                             className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-500 hover:bg-emerald-500/10"
                         >
-                            <PlayCircle className="h-3.5 w-3.5" />
+                            <PlayCircle
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                            />
                             Open
                         </Button>
                     )}
@@ -274,7 +290,10 @@ export function RequirementTableRow({
                             onClick={() => onResume(row)}
                             className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-500 hover:bg-emerald-500/10"
                         >
-                            <PlayCircle className="h-3.5 w-3.5" />
+                            <PlayCircle
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                            />
                             Resume
                         </Button>
                     )}
@@ -285,7 +304,10 @@ export function RequirementTableRow({
                             onClick={() => onFill(row)}
                             className="h-8 gap-1 border-sky-500/40 text-xs text-sky-500 hover:bg-sky-500/10"
                         >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <CheckCircle2
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                            />
                             Mark Filled
                         </Button>
                     )}
@@ -296,7 +318,7 @@ export function RequirementTableRow({
                             onClick={() => onExtend(row)}
                             className="h-8 gap-1 border-amber-500/40 text-xs text-amber-500 hover:bg-amber-500/10"
                         >
-                            <Clock className="h-3.5 w-3.5" />
+                            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                             Extend
                         </Button>
                     )}
@@ -307,7 +329,7 @@ export function RequirementTableRow({
                             onClick={() => onRepeat(row)}
                             className="h-8 gap-1 border-primary/40 text-xs text-primary hover:bg-primary/10"
                         >
-                            <Copy className="h-3.5 w-3.5" />
+                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                             Repeat
                         </Button>
                     )}
@@ -319,9 +341,12 @@ export function RequirementTableRow({
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                aria-label={`More actions for ${row.requirement_number}`}
                             >
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreHorizontal
+                                    className="h-4 w-4"
+                                    aria-hidden="true"
+                                />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
@@ -330,7 +355,10 @@ export function RequirementTableRow({
                                     href={showUrl}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <Eye className="h-4 w-4 text-muted-foreground" />
+                                    <Eye
+                                        className="h-4 w-4 text-muted-foreground"
+                                        aria-hidden="true"
+                                    />
                                     <span>View Details</span>
                                 </Link>
                             </DropdownMenuItem>
@@ -340,7 +368,10 @@ export function RequirementTableRow({
                                     onClick={() => onEdit(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <Edit3 className="h-4 w-4 text-muted-foreground" />
+                                    <Edit3
+                                        className="h-4 w-4 text-muted-foreground"
+                                        aria-hidden="true"
+                                    />
                                     <span>Edit Requisition</span>
                                 </DropdownMenuItem>
                             )}
@@ -350,7 +381,10 @@ export function RequirementTableRow({
                                     onClick={() => onChangeHeadcount(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <Users
+                                        className="h-4 w-4 text-muted-foreground"
+                                        aria-hidden="true"
+                                    />
                                     <span>Revise Headcount</span>
                                 </DropdownMenuItem>
                             )}
@@ -360,7 +394,10 @@ export function RequirementTableRow({
                                     onClick={() => onExtend(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <Clock
+                                        className="h-4 w-4 text-muted-foreground"
+                                        aria-hidden="true"
+                                    />
                                     <span>Extend Deadline</span>
                                 </DropdownMenuItem>
                             )}
@@ -370,8 +407,11 @@ export function RequirementTableRow({
                                     onClick={() => onHold(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <PauseCircle className="h-4 w-4 text-amber-500" />
-                                    <span>Hold Requirement</span>
+                                    <PauseCircle
+                                        className="h-4 w-4 text-amber-500"
+                                        aria-hidden="true"
+                                    />
+                                    <span>Put On Hold</span>
                                 </DropdownMenuItem>
                             )}
 
@@ -380,7 +420,10 @@ export function RequirementTableRow({
                                     onClick={() => onResume(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <PlayCircle className="h-4 w-4 text-emerald-500" />
+                                    <PlayCircle
+                                        className="h-4 w-4 text-emerald-500"
+                                        aria-hidden="true"
+                                    />
                                     <span>Resume Requirement</span>
                                 </DropdownMenuItem>
                             )}
@@ -390,7 +433,10 @@ export function RequirementTableRow({
                                     onClick={() => onFill(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <CheckCircle2 className="h-4 w-4 text-sky-500" />
+                                    <CheckCircle2
+                                        className="h-4 w-4 text-sky-500"
+                                        aria-hidden="true"
+                                    />
                                     <span>Mark as Filled</span>
                                 </DropdownMenuItem>
                             )}
@@ -400,7 +446,10 @@ export function RequirementTableRow({
                                     onClick={() => onReopen(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <RotateCcw className="h-4 w-4 text-primary" />
+                                    <RotateCcw
+                                        className="h-4 w-4 text-primary"
+                                        aria-hidden="true"
+                                    />
                                     <span>Reopen Requirement</span>
                                 </DropdownMenuItem>
                             )}
@@ -410,7 +459,10 @@ export function RequirementTableRow({
                                     onClick={() => onRepeat(row)}
                                     className="cursor-pointer gap-2"
                                 >
-                                    <Copy className="h-4 w-4 text-primary" />
+                                    <Copy
+                                        className="h-4 w-4 text-primary"
+                                        aria-hidden="true"
+                                    />
                                     <span>Repeat Requirement</span>
                                 </DropdownMenuItem>
                             )}
@@ -422,7 +474,10 @@ export function RequirementTableRow({
                                         onClick={() => onCancel(row)}
                                         className="cursor-pointer gap-2 text-rose-500 focus:text-rose-500"
                                     >
-                                        <Ban className="h-4 w-4" />
+                                        <Ban
+                                            className="h-4 w-4"
+                                            aria-hidden="true"
+                                        />
                                         <span>Cancel Requirement</span>
                                     </DropdownMenuItem>
                                 </>

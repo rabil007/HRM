@@ -1,5 +1,4 @@
 import { router } from '@inertiajs/react';
-import { Flame } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import RequirementFillController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementFillController';
@@ -164,7 +163,6 @@ export function RequirementsShowContent({
                                 variant="outline"
                                 className="gap-1 border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 font-bold text-rose-500"
                             >
-                                <Flame className="h-3 w-3 fill-rose-500" />
                                 Urgent
                             </Badge>
                         )}
@@ -172,52 +170,66 @@ export function RequirementsShowContent({
                 }
             />
 
-            <div className="space-y-6">
-                {/* Overview Card with Progress & Actions */}
-                <RequirementOverviewCard
-                    requirement={requirement}
-                    onEdit={() => setIsEditOpen(true)}
-                    onOpen={handleOpen}
-                    onHold={handleHold}
-                    onResume={handleResume}
-                    onExtend={() => setIsExtendOpen(true)}
-                    onChangeHeadcount={() => {
-                        setTargetLineForHeadcount(null);
-                        setIsChangeHeadcountOpen(true);
-                    }}
-                    onFill={handleFill}
-                    onCancel={() => setIsCancelOpen(true)}
-                    onReopen={() => setIsReopenOpen(true)}
-                    onRepeat={() => setIsRepeatOpen(true)}
-                />
-
-                {/* Position Lines Table */}
-                <RequirementPositionLinesCard
-                    requirement={requirement}
-                    onChangeLineHeadcount={(line) => {
-                        setTargetLineForHeadcount(line);
-                        setIsChangeHeadcountOpen(true);
-                    }}
-                />
-
-                {/* Requirement Specifications & Details */}
-                <RequirementDetailsCard requirement={requirement} />
-
-                {/* Attachments Card */}
-                <RequirementAttachmentsCard
-                    requirement={requirement}
-                    canDownload={can.download_attachments}
-                />
-
-                {/* Recent Activity / Audit Log */}
-                {recent_activity && recent_activity.length > 0 && (
-                    <RecentActivityCard
-                        items={
-                            recent_activity as unknown as RecentActivityItem[]
-                        }
-                        description="Audit log of requisition modifications and status changes."
+            {/*
+             * Two-column layout:
+             * – Mobile/sm: single column, operational priority order
+             *   (Overview → Positions → Details → Attachments → Activity)
+             * – lg+: main (2/3) + sidebar (1/3)
+             *   Sidebar: Overview card + Activity
+             *   Main: Positions, Details, Attachments
+             */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* ── Sidebar (renders first on mobile for operational priority) ── */}
+                <div className="order-1 space-y-6 lg:order-2 lg:col-span-1">
+                    {/* Overview: status + progress + actions */}
+                    <RequirementOverviewCard
+                        requirement={requirement}
+                        onEdit={() => setIsEditOpen(true)}
+                        onOpen={handleOpen}
+                        onHold={handleHold}
+                        onResume={handleResume}
+                        onExtend={() => setIsExtendOpen(true)}
+                        onChangeHeadcount={() => {
+                            setTargetLineForHeadcount(null);
+                            setIsChangeHeadcountOpen(true);
+                        }}
+                        onFill={handleFill}
+                        onCancel={() => setIsCancelOpen(true)}
+                        onReopen={() => setIsReopenOpen(true)}
+                        onRepeat={() => setIsRepeatOpen(true)}
                     />
-                )}
+
+                    {/* Activity timeline */}
+                    {recent_activity && recent_activity.length > 0 && (
+                        <RecentActivityCard
+                            items={
+                                recent_activity as unknown as RecentActivityItem[]
+                            }
+                            description="Audit log of requisition modifications and status changes."
+                        />
+                    )}
+                </div>
+
+                {/* ── Main content column ── */}
+                <div className="order-2 space-y-6 lg:order-1 lg:col-span-2">
+                    {/* Position Lines */}
+                    <RequirementPositionLinesCard
+                        requirement={requirement}
+                        onChangeLineHeadcount={(line) => {
+                            setTargetLineForHeadcount(line);
+                            setIsChangeHeadcountOpen(true);
+                        }}
+                    />
+
+                    {/* Requirement Specifications & Details */}
+                    <RequirementDetailsCard requirement={requirement} />
+
+                    {/* Attachments */}
+                    <RequirementAttachmentsCard
+                        requirement={requirement}
+                        canDownload={can.download_attachments}
+                    />
+                </div>
             </div>
 
             {/* Edit Form Sheet */}

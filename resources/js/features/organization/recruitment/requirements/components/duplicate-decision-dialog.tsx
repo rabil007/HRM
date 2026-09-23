@@ -1,4 +1,11 @@
-import { AlertTriangle, ArrowLeft, Layers, Plus } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import {
+    AlertTriangle,
+    ArrowLeft,
+    ExternalLink,
+    Layers,
+    Plus,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -188,40 +195,58 @@ export function DuplicateDecisionDialog({
                     </div>
                 </div>
 
-                <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onReturnAndReview}
-                        disabled={isSubmitting}
-                        className="gap-1.5"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Return & Review
-                    </Button>
-
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={onCreateSeparateBatch}
-                        disabled={isSubmitting}
-                        className="gap-1.5"
-                    >
-                        <Layers className="h-4 w-4" />
-                        Create Separate Batch
-                    </Button>
-
-                    {selectedMatch && (
+                <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    {/* Left — low-commitment escape actions */}
+                    <div className="flex flex-col gap-2 sm:flex-row">
                         <Button
                             type="button"
-                            onClick={handleConfirmAddHeadcount}
+                            variant="outline"
+                            onClick={onReturnAndReview}
                             disabled={isSubmitting}
-                            className="gap-1.5 bg-primary text-primary-foreground"
+                            className="gap-1.5 text-xs"
                         >
-                            <Plus className="h-4 w-4" />
-                            Add Headcount to {selectedMatch.requirement_number}
+                            <ArrowLeft className="h-3.5 w-3.5" />
+                            Return &amp; Edit
                         </Button>
-                    )}
+
+                        {selectedMatch && (
+                            <Link
+                                href={`/recruitment/requirements/${selectedMatch.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                            >
+                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                Review {selectedMatch.requirement_number}
+                            </Link>
+                        )}
+                    </div>
+
+                    {/* Right — decisive commit actions */}
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={onCreateSeparateBatch}
+                            disabled={isSubmitting}
+                            className="gap-1.5 text-xs"
+                        >
+                            <Layers className="h-3.5 w-3.5" />
+                            Create Separate Batch
+                        </Button>
+
+                        {selectedMatch && (
+                            <Button
+                                type="button"
+                                onClick={handleConfirmAddHeadcount}
+                                disabled={isSubmitting}
+                                className="gap-1.5 bg-primary text-xs text-primary-foreground"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Add to {selectedMatch.requirement_number}
+                            </Button>
+                        )}
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
