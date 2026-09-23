@@ -1364,6 +1364,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:attendance.leave-approval-policies.delete')
         ->name('attendance.leave-approval-policies.destroy');
 
+    Route::post('attendance/leave-approval-policies/{leave_approval_policy}/sync-preview', [LeaveApprovalPolicyController::class, 'syncPreview'])
+        ->middleware('can:attendance.leave-approval-policies.update')
+        ->name('attendance.leave-approval-policies.sync-preview');
+
+    Route::post('attendance/leave-approval-policies/{leave_approval_policy}/sync-pending', [LeaveApprovalPolicyController::class, 'syncPending'])
+        ->middleware('can:attendance.leave-approval-policies.update')
+        ->name('attendance.leave-approval-policies.sync-pending');
+
     Route::get('attendance/leave-approval-settings', [LeaveApprovalSettingController::class, 'edit'])
         ->middleware('can:attendance.leave-approval-settings.view')
         ->name('attendance.leave-approval-settings.edit');
