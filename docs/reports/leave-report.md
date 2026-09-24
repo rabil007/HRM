@@ -24,14 +24,14 @@ The department filter is **department-only** (positions are not selectable in th
 
 ## Permissions
 
-- `reports.leave.view` — view the report, filters, summary cards, and paginated table within the user's employee visibility scope.
+- `reports.leave.view` — view the report, leave-type filter cards, and paginated table within the user's employee visibility scope.
 - `reports.leave.export` — export the same filtered dataset to Excel or CSV.
 
 Both routes enforce their permission independently. Company scoping is always applied.
 
 ## Employee visibility
 
-The report query, summary cards, filter employee/department/leave-type options, department tree counts, and export all use `EmployeeVisibilityScope` and `AttendanceLeaveDepartmentScope` (`Department.include_in_attendance_leave`). Users restricted to selected departments cannot discover employees outside that scope through rows, counts, filters, or exports. Departments excluded from Attendance & Leave never appear. Soft-deleted leave types remain filterable when visible historical rows reference them.
+The report query, leave-type cards, filter employee/department/leave-type options, department tree counts, and export all use `EmployeeVisibilityScope` and `AttendanceLeaveDepartmentScope` (`Department.include_in_attendance_leave`). Users restricted to selected departments cannot discover employees outside that scope through rows, counts, filters, or exports. Departments excluded from Attendance & Leave never appear. Soft-deleted leave types remain filterable when visible historical rows reference them.
 
 The department tree only includes departments the user is allowed to access. Unauthorized department names are not shown with zero counts — those nodes are omitted entirely. Allowed child departments may appear as root nodes when their parent department is not visible.
 
@@ -44,29 +44,30 @@ The authenticated user is always required for report queries; there is no unscop
 | Filter | Behavior |
 | --- | --- |
 | Search | Employee name or employee number |
+| Status | Toolbar toggles: `approved`, `pending`, `rejected` (click again to clear). `cancelled` remains filterable via query string when needed. |
 | Leave period | **Date overlap** — `start_date <= leave_to` and `end_date >= leave_from` |
-| Department | Employee's current department (department tree only) |
-| Leave type | Exact leave type (includes historically used inactive types) |
+| Department | Employee's current department (shared `DepartmentFilterControls` tree; positions not selectable) |
+| Leave type | Filterable cards (All + each type). Exact leave type, including historically used inactive types |
 | Employee | Exact employee (includes employees with leave history, regardless of current active status) |
-| Status | `pending`, `approved`, `rejected`, `cancelled` |
 | Submitted | `created_at` date range |
 | Decided | `decided_at` date range |
 
 Default sort: `start_date desc`.
 
-## Summary cards
+## Leave type cards
 
-Summary day totals use the same filtered, visibility-scoped request set as the table. Rejected and cancelled requests do not contribute.
+The top of the page shows filterable leave-type cards instead of day-total metric cards.
 
-- **Total Leave Days** — approved leave days plus pending leave days
-- **Approved Leave Days** — days on approved requests
-- **Pending Leave Days** — days on pending requests
-- **Annual Leave Days** — approved, pending, and total days for leave types whose reporting category is `annual`
-- **Sick Leave Days** — approved, pending, and total days for leave types whose reporting category is `sick`
+- **All leave types** — total request count for the current filters (ignoring leave-type selection so every type card stays populated)
+- **Each leave type** — request count for that type under the same filters
 
-Annual and Sick totals use `LeaveType.category`. They do not use the editable leave type name, code, or `payroll_treatment`.
+Selecting a card applies `leave_type_id`. Day totals for approved/pending/annual/sick categories may still be computed for the payload, but they are not shown as summary cards.
 
-The leave-period filter selects overlapping requests and **clips** counted days to the dates inside that period, using the same inclusive day calculation as leave requests. Submitted and decided date filters select requests and do not clip their duration. When no leave period is set, the stored request day total is used.
+The leave-period filter selects overlapping requests and **clips** counted days when day totals are computed, using the same inclusive day calculation as leave requests. Submitted and decided date filters select requests and do not clip their duration. When no leave period is set, the stored request day total is used.
+
+## Table
+
+The **Decided** column merges decided date/time and decided-by name. Export still keeps Decided At and Decided By as separate columns.
 
 ## Approval history
 

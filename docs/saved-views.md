@@ -13,12 +13,13 @@ This phase does **not** store arbitrary URLs, add Saved Views to Cmd/Ctrl+K, or 
 | `employees` | Employees | `employees.view` | `search`, `status` (including `all`), `branch_id`, `department_id`, `position_id`, `manager_id`, `gender_id`, `nationality_id`, `visa_type_id`, `company_visa_type_id`, `rank_id`, `approval_location_id`, `sssa_option_id`, `crew_status`, `role_id`, `missing_fields`, `present_fields` |
 | `documents` | Documents Library (`/organization/documents/library`) | `documents.view` | `search`, `expiry`, `requirement_status`, `department_id` |
 | `crew` | Crew Assignments | `crew_operations.assignments.view` | `search`, `phase`, `status`, `vessel_id`, `rank_id`, `client_id`, `employee_id`, date ranges, tour/relief flags, optional `view` |
-| `leave` | Leave requests | `attendance.leave-requests.view` | `search`, `status`, `employee_id`, `leave_type_id`, `scope` |
+| `leave` | My Leave (`/attendance/my-leave`) | `attendance.leave-requests.view` | `search`, `status`, `leave_type_id` |
+| `leave_approvals` | Leave Approvals (`/attendance/leave-approvals`) | `attendance.leave-requests.view` | `search`, `employee_id`, `leave_type_id` |
 | `payroll` | Payroll periods hub | `payroll.periods.view` **or** `payroll.crew_timesheets.view` | `search`, `category`, `status`, `date_from`, `date_to` |
 
 Keys come from the current index query parameters. Branch is a first-class Employee Directory filter and may be saved. Generic completeness uses canonical `missing_fields` / `present_fields` semantic keys from the Employee Smart Search registry (for example `email`, `date_of_birth`, `emirates_id`). Unknown completeness keys, raw identifier values, and the Smart Search natural-language prompt are rejected and never saved. Legacy `emirates_id_presence=missing|present` is migrated onto those completeness keys. Crew `sort` / `direction` / `per_page` / `page` are not saved.
 
-Empty values and page defaults are omitted (`documents` `expiry=all`, `leave` `scope=my`, `crew` `view=crew`, false booleans).
+Empty values and page defaults are omitted (`documents` `expiry=all`, `crew` `view=crew`, false booleans).
 
 ## Persistence
 
@@ -46,7 +47,7 @@ Tenant-owned filter IDs (`department_id`, `position_id`, `employee_id`, `manager
 
 ## UI
 
-A compact **Views** control sits next to Filters on the five pages (desktop SearchBar and the same Phase 3C mobile lists). Choosing a view name applies it immediately. Rename, default, and delete live under **Manage views**. There is no Saved Views navigation page and no sidebar list.
+A compact **Views** control sits next to Filters on the six pages (desktop SearchBar and the same Phase 3C mobile lists). Choosing a view name applies it immediately. Rename, default, and delete live under **Manage views**. There is no Saved Views navigation page and no sidebar list.
 
 ## Routes
 
