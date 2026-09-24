@@ -32,11 +32,23 @@ class LeaveReportController extends Controller
         $timezone = $this->companyTimezone($companyId);
         $query = new LeaveReportQuery($companyId, $filters, $timezone, $user);
         $paginator = $query->paginate($this->resolvePerPage($request, default: 25, allowed: [25, 50, 100]));
+        $leaveTypes = LeaveReportFilterOptions::leaveTypes($user, $companyId);
+        $leaveTypeCounts = $query->leaveTypeRequestCounts();
 
         return Inertia::render('organization/reports/leave/index', [
             'leave_requests' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
-            'summary' => $query->summary(),
+            'summary' => [
+                ...$query->summary(),
+                'total_requests' => (int) array_sum($leaveTypeCounts),
+                'leave_types' => array_map(
+                    fn (array $type): array => [
+                        ...$type,
+                        'request_count' => (int) ($leaveTypeCounts[$type['id']] ?? 0),
+                    ],
+                    $leaveTypes,
+                ),
+            ],
             'filters' => $filters->toArray(),
             'filter_options' => [
                 'statuses' => collect(['pending', 'approved', 'rejected', 'cancelled'])
@@ -46,7 +58,7 @@ class LeaveReportController extends Controller
                     ])
                     ->all(),
                 'employees' => LeaveReportFilterOptions::employees($user, $companyId),
-                'leave_types' => LeaveReportFilterOptions::leaveTypes($user, $companyId),
+                'leave_types' => $leaveTypes,
                 'departments' => LeaveReportFilterOptions::departments($user, $companyId),
             ],
             'department_tree' => LeaveReportDepartmentTree::for(

@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { LeaveReportApprovalHistoryDialog } from './approval-history-dialog';
 import type { LeaveReportFilters, LeaveReportRow } from './types';
 
-const COLUMN_COUNT = 11;
+const COLUMN_COUNT = 10;
 
 function SortHead({
     column,
@@ -157,7 +157,7 @@ export function LeaveReportTable({
 
     return (
         <>
-            <OrganizationDataTable minWidth="min-w-[1320px]" compact>
+            <OrganizationDataTable minWidth="min-w-[1200px]" compact>
                 <TableHeader>
                     <TableRow>
                         <SortHead
@@ -214,12 +214,7 @@ export function LeaveReportTable({
                         />
                         <SortHead
                             column="decided_at"
-                            label="Decided At"
-                            filters={filters}
-                            onSort={onSort}
-                        />
-                        <SortHead
-                            label="Decided By"
+                            label="Decided"
                             filters={filters}
                             onSort={onSort}
                         />
@@ -280,12 +275,24 @@ export function LeaveReportTable({
                                 {formatDisplayDateTime(row.submitted_at)}
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
-                                {row.decided_at
-                                    ? formatDisplayDateTime(row.decided_at)
-                                    : '—'}
-                            </TableCell>
-                            <TableCell className={dataTableCellClass()}>
-                                {row.decided_by ?? '—'}
+                                {row.decided_at || row.decided_by ? (
+                                    <div className="min-w-0 space-y-0.5">
+                                        <span className="block truncate">
+                                            {row.decided_at
+                                                ? formatDisplayDateTime(
+                                                      row.decided_at,
+                                                  )
+                                                : '—'}
+                                        </span>
+                                        {row.decided_by ? (
+                                            <span className="block truncate text-xs text-muted-foreground">
+                                                {row.decided_by}
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                ) : (
+                                    '—'
+                                )}
                             </TableCell>
                         </TableRow>
                     ))}

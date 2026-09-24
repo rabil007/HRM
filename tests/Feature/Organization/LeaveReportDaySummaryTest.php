@@ -76,7 +76,16 @@ test('leave report day summary uses category and clips only the leave period', f
             ->where('summary.annual.approved', 2)
             ->where('summary.annual.total', 2)
             ->where('summary.sick.pending', 2)
-            ->where('summary.sick.total', 2));
+            ->where('summary.sick.total', 2)
+            ->where('summary.total_requests', 4)
+            ->where(
+                'summary.leave_types',
+                fn ($types) => collect($types)->pluck('request_count', 'code')->all() === [
+                    'AL' => 2,
+                    'MED' => 1,
+                    'VAC' => 1,
+                ],
+            ));
 
     $annual->update(['name' => 'Time off', 'code' => 'TO', 'payroll_treatment' => LeaveTypePayrollTreatment::Paid]);
 
@@ -133,5 +142,10 @@ test('leave report summaries follow employee visibility and request filters', fu
             ->has('leave_requests', 1)
             ->where('summary.approved_leave_days', 3)
             ->where('summary.total_leave_days', 3)
-            ->where('summary.annual.approved', 3));
+            ->where('summary.annual.approved', 3)
+            ->where('summary.total_requests', 1)
+            ->where(
+                'summary.leave_types',
+                fn ($types) => collect($types)->sum('request_count') === 1,
+            ));
 });

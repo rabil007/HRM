@@ -108,6 +108,12 @@ export type LeaveReportProps = {
         pending_leave_days: number;
         annual: LeaveReportDayBucket;
         sick: LeaveReportDayBucket;
+        total_requests: number;
+        leave_types: Array<
+            LeaveTypeOption & {
+                request_count: number;
+            }
+        >;
     };
     filters: LeaveReportFilters;
     filter_options: {

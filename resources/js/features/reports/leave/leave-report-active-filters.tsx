@@ -51,13 +51,6 @@ function resolveLabel(
             : employee.name;
     }
 
-    if (key === 'leave_type_id') {
-        return (
-            options.leave_types.find((option) => String(option.id) === value)
-                ?.name ?? value
-        );
-    }
-
     if (key === 'department_id') {
         return (
             options.departments.find((option) => String(option.id) === value)
@@ -108,14 +101,6 @@ function buildActiveFilterChips({
             key: 'department_id',
             label: `Department: ${resolveLabel('department_id', filters.department_id, options)}`,
             onClear: () => onApply({ department_id: '' }),
-        });
-    }
-
-    if (filters.leave_type_id !== '') {
-        chips.push({
-            key: 'leave_type_id',
-            label: `Leave type: ${resolveLabel('leave_type_id', filters.leave_type_id, options)}`,
-            onClear: () => onApply({ leave_type_id: '' }),
         });
     }
 

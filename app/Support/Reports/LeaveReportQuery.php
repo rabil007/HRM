@@ -73,9 +73,27 @@ final class LeaveReportQuery
     }
 
     /**
+     * Request counts by leave type for the current filters, ignoring leave_type_id
+     * so every type card stays populated while one type is selected.
+     *
+     * @return array<int, int>
+     */
+    public function leaveTypeRequestCounts(): array
+    {
+        return $this->filteredQuery(withRelations: false, ignoreLeaveType: true)
+            ->reorder()
+            ->selectRaw('leave_requests.leave_type_id as leave_type_id')
+            ->selectRaw('COUNT(*) as request_count')
+            ->groupBy('leave_requests.leave_type_id')
+            ->pluck('request_count', 'leave_type_id')
+            ->mapWithKeys(fn ($count, $id): array => [(int) $id => (int) $count])
+            ->all();
+    }
+
+    /**
      * @return Builder<LeaveRequest>
      */
-    private function filteredQuery(bool $withRelations = true): Builder
+    private function filteredQuery(bool $withRelations = true, bool $ignoreLeaveType = false): Builder
     {
         $query = LeaveRequest::query()
             ->where('leave_requests.company_id', $this->companyId);
@@ -121,7 +139,10 @@ final class LeaveReportQuery
                     ->orWhere('employee_no', 'like', $like));
             })
             ->when($this->filters->employeeId !== '', fn (Builder $inner) => $inner->where('leave_requests.employee_id', $this->filters->employeeId))
-            ->when($this->filters->leaveTypeId !== '', fn (Builder $inner) => $inner->where('leave_requests.leave_type_id', $this->filters->leaveTypeId))
+            ->when(
+                ! $ignoreLeaveType && $this->filters->leaveTypeId !== '',
+                fn (Builder $inner) => $inner->where('leave_requests.leave_type_id', $this->filters->leaveTypeId),
+            )
             ->when($this->filters->status !== '', fn (Builder $inner) => $inner->where('leave_requests.status', $this->filters->status))
             ->when($this->filters->departmentId !== '', fn (Builder $inner) => $inner->whereHas(
                 'employee',

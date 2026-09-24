@@ -5,7 +5,6 @@ import {
     FileText,
     Loader2,
 } from 'lucide-react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { DateRangeFilter } from '@/components/date-range-filter';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
@@ -95,7 +94,13 @@ export function LeaveReportContent(props: LeaveReportProps) {
                 }
             />
 
-            <LeaveReportSummaryCards summary={summary} />
+            <LeaveReportSummaryCards
+                summary={summary}
+                selectedLeaveTypeId={filters.leave_type_id}
+                onSelectLeaveType={(leave_type_id) =>
+                    controls.apply({ leave_type_id })
+                }
+            />
 
             <div className="mt-6 space-y-3">
                 <SearchBar
@@ -133,28 +138,6 @@ export function LeaveReportContent(props: LeaveReportProps) {
                                     buttonClassName="h-11"
                                 />
                             ) : null}
-                            <AppSelect
-                                value={filters.leave_type_id}
-                                onValueChange={(value) =>
-                                    controls.apply({ leave_type_id: value })
-                                }
-                                variant="dark"
-                                placeholder="All leave types"
-                                className="h-11 w-[11rem]"
-                                searchPlaceholder="Search leave types..."
-                            >
-                                <AppSelectItem value="">
-                                    All leave types
-                                </AppSelectItem>
-                                {options.leave_types.map((leaveType) => (
-                                    <AppSelectItem
-                                        key={leaveType.id}
-                                        value={String(leaveType.id)}
-                                    >
-                                        {leaveType.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
                             {controls.isLoading ? (
                                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
                             ) : null}
