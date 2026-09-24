@@ -647,7 +647,9 @@ export function EmployeeSeaServiceTab({
                                             'whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
-                                        {formatIsoDateDisplay(row.end_date)}
+                                        {row.end_date
+                                            ? formatIsoDateDisplay(row.end_date)
+                                            : 'Ongoing'}
                                     </td>
                                 ) : null}
                                 <td

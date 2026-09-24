@@ -104,11 +104,15 @@ export function SeaServicesTableRow({
                 {formatDisplayDate(seaService.start_date)}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                {formatDisplayDate(seaService.end_date)}
+                {seaService.end_date
+                    ? formatDisplayDate(seaService.end_date)
+                    : 'Ongoing'}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                    {seaService.total_months}m {seaService.total_days}d
+                    {seaService.end_date
+                        ? `${seaService.total_months}m ${seaService.total_days}d`
+                        : 'Ongoing'}
                 </span>
             </TableCell>
             <TableCell

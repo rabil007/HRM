@@ -75,13 +75,15 @@ final class ApplyCrewMovementCorrectionPipeline
         $this->invariantGuard->assertValid($assignment);
         $this->planningSync->sync($assignment);
 
-        if ($phase->phase_code === CrewPhaseCode::OnVessel
-            && $phase->status === CrewPhaseStatus::Completed) {
+        if ($phase->phase_code === CrewPhaseCode::OnVessel) {
             $synced = $this->seaServiceSync->syncFromPhase($phase->fresh(['assignment.employee', 'assignment.vessel']));
 
-            if ($synced === null && $this->seaServiceSync->isEnabled($companyId)) {
+            if ($synced === null
+                && $this->seaServiceSync->isEnabled($companyId)
+                && $phase->status !== CrewPhaseStatus::Cancelled
+                && $phase->status !== CrewPhaseStatus::Corrected) {
                 throw CrewMovementException::make(
-                    'Approved correction would leave completed on-vessel sea service unsyncable.',
+                    'Approved correction would leave on-vessel sea service unsyncable.',
                     'correction_sea_service_unsyncable',
                 );
             }

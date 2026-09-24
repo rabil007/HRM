@@ -185,11 +185,21 @@ export default function SeaServiceShow({
                             />
                             <MetadataField
                                 label="End date"
-                                value={formatDisplayDate(sea_service.end_date)}
+                                value={
+                                    sea_service.end_date
+                                        ? formatDisplayDate(
+                                              sea_service.end_date,
+                                          )
+                                        : 'Ongoing'
+                                }
                             />
                             <MetadataField
                                 label="Duration"
-                                value={`${sea_service.total_months} months · ${sea_service.total_days} days`}
+                                value={
+                                    sea_service.end_date
+                                        ? `${sea_service.total_months} months · ${sea_service.total_days} days`
+                                        : 'Ongoing'
+                                }
                             />
                             <MetadataField
                                 label="Linked deployment"

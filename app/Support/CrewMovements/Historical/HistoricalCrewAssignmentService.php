@@ -162,6 +162,17 @@ final class HistoricalCrewAssignmentService
                         $this->seaServiceSync->syncFromPhase($p4Phase);
                     }
                 }
+            } elseif ($data->joinedVesselAt !== null && $data->disembarkedAt === null && $this->seaServiceSync->isEnabled($data->companyId)) {
+                $openP4Phase = collect($createdPhases)->first(
+                    fn (CrewAssignmentPhase $p): bool => $p->phase_code === CrewPhaseCode::OnVessel
+                        && $p->status === CrewPhaseStatus::Active
+                        && $p->actual_start_at !== null
+                        && $p->actual_end_at === null
+                );
+
+                if ($openP4Phase !== null) {
+                    $this->seaServiceSync->syncFromPhase($openP4Phase);
+                }
             }
 
             activity()
