@@ -372,3 +372,115 @@ test('report filters by accommodation hotel and planned arrival range', function
             ->has('filter_options.hotels')
             ->has('filter_options.tour_statuses'));
 });
+
+test('actual arrival filter uses p2a with completed p1 fallback and modern precedence', function () {
+    ['user' => $user, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+
+    $modern = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARRIVAL-P2A',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($modern)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-09-10 09:00:00',
+        'actual_end_at' => null,
+    ]);
+
+    $legacy = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARRIVAL-P1',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($legacy)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-03 08:00:00',
+        'actual_end_at' => '2026-01-04 11:00:00',
+    ]);
+
+    $both = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARRIVAL-BOTH',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($both)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-03 08:00:00',
+        'actual_end_at' => '2026-01-04 11:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($both)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-08 09:00:00',
+        'actual_end_at' => '2026-01-09 09:00:00',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'actual_arrival_from' => '2026-09-10',
+            'actual_arrival_to' => '2026-09-10',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.assignment_no', 'CA-ARRIVAL-P2A')
+            ->where('assignments.0.actual_arrival', '2026-09-10'));
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'actual_arrival_from' => '2026-01-04',
+            'actual_arrival_to' => '2026-01-04',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.assignment_no', 'CA-ARRIVAL-P1')
+            ->where('assignments.0.actual_arrival', '2026-01-04'));
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'actual_arrival_from' => '2026-01-08',
+            'actual_arrival_to' => '2026-01-08',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.assignment_no', 'CA-ARRIVAL-BOTH')
+            ->where('assignments.0.actual_arrival', '2026-01-08'));
+});
+
+test('report query count stays constant when page size increases', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = authorizeCrewMovementHistoryReport();
+
+    CrewAssignment::factory()
+        ->count(25)
+        ->forEmployee($employee)
+        ->create([
+            'rank_id' => $rank->id,
+            'client_id' => null,
+            'vessel_id' => null,
+        ]);
+
+    $measure = function (int $perPage) use ($company): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $paginator = (new CrewMovementHistoryQuery(
+            $company->id,
+            new CrewMovementHistoryFilters,
+            $company->timezone,
+        ))->paginate($perPage);
+
+        expect($paginator->items())->toHaveCount($perPage);
+
+        return count(DB::getQueryLog());
+    };
+
+    $queriesForFive = $measure(5);
+    $queriesForTwentyFive = $measure(25);
+
+    expect($queriesForFive)->toBeLessThanOrEqual(30)
+        ->and($queriesForTwentyFive)->toBeLessThanOrEqual(30)
+        ->and(abs($queriesForTwentyFive - $queriesForFive))->toBeLessThanOrEqual(2);
+});

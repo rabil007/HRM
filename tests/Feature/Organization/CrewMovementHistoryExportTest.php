@@ -1,11 +1,19 @@
 <?php
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Exports\CrewMovementHistoryExport;
+use App\Models\Course;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\EmployeeTraining;
+use App\Models\Hotel;
+use App\Models\RoomType;
+use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryQuery;
 use Maatwebsite\Excel\Facades\Excel;
@@ -151,4 +159,120 @@ test('export adds legacy columns only when the filtered result set contains lega
     $mapped = $export->map($assignment);
     expect($mapped[0])->toBe('CA-EXPORT-LEGACY')
         ->and($mapped)->toContain('03 Jan 2026', '04 Jan 2026');
+});
+
+test('export maps rich training phase timeline accommodation and redeployment values', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementHistoryExportFixture();
+
+    $sourceVessel = Vessel::factory()->create(['company_id' => $company->id, 'name' => 'Vessel A']);
+    $destinationVessel = Vessel::factory()->create(['company_id' => $company->id, 'name' => 'Vessel B']);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Harbor Inn']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Standard',
+    ]);
+    $course = Course::factory()->create(['name' => 'BOSIET']);
+
+    $source = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-EXPORT-SOURCE',
+            'rank_id' => $rank->id,
+            'vessel_id' => $sourceVessel->id,
+        ]);
+
+    $destination = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-EXPORT-RICH',
+            'rank_id' => $rank->id,
+            'vessel_id' => $destinationVessel->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $source->id,
+            'tour_of_duty_days' => 60,
+            'planned_signoff_at' => '2026-11-15',
+            'started_at' => '2026-09-10 08:00:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'planned_start_at' => '2026-09-10 08:00:00',
+        'planned_end_at' => '2026-09-12 08:00:00',
+        'actual_start_at' => '2026-09-10 09:15:00',
+        'actual_end_at' => '2026-09-12 07:30:00',
+        'remarks' => 'Client requested additional standby',
+    ]);
+
+    $training = CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'planned_start_at' => '2026-09-10 09:00:00',
+        'planned_end_at' => '2026-09-12 17:00:00',
+        'actual_start_at' => '2026-09-10 09:30:00',
+        'actual_end_at' => '2026-09-12 16:00:00',
+        'details' => ['provider' => 'ABC Training Centre', 'course' => 'BOSIET'],
+        'remarks' => 'Refresher required by client',
+    ]);
+
+    $onVessel = CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-09-13 08:00:00',
+        'actual_end_at' => null,
+    ]);
+    $destination->update(['current_phase_id' => $onVessel->id]);
+
+    EmployeeTraining::factory()
+        ->forEmployee($employee)
+        ->create([
+            'course_id' => $course->id,
+            'source_crew_assignment_phase_id' => $training->id,
+        ]);
+
+    CrewAccommodationStay::factory()->create([
+        'crew_assignment_id' => $destination->id,
+        'company_id' => $company->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $roomType->id,
+        'check_in_date' => '2026-09-10',
+        'check_out_date' => '2026-09-12',
+    ]);
+
+    $query = new CrewMovementHistoryQuery(
+        $company->id,
+        new CrewMovementHistoryFilters(search: 'CA-EXPORT-RICH'),
+        $company->timezone,
+    );
+    $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
+    $assignment = $query->exportQuery()->whereKey($destination->id)->firstOrFail();
+
+    $headings = $export->headings();
+    $mapped = $export->map($assignment);
+    $byHeading = array_combine($headings, $mapped);
+
+    expect($byHeading['Assignment No'])->toBe('CA-EXPORT-RICH')
+        ->and($byHeading['Training History'])->toContain('Training #1')
+        ->and($byHeading['Training History'])->toContain('Provider: ABC Training Centre')
+        ->and($byHeading['Training History'])->toContain('Course: BOSIET')
+        ->and($byHeading['Training History'])->toContain('Remarks: Refresher required by client')
+        ->and($byHeading['Training History'])->toContain('Employee Training: Linked')
+        ->and($byHeading['Training History'])->toContain('BOSIET')
+        ->and($byHeading['Phase Timeline'])->toContain('P2A #1 [seq 1] Completed')
+        ->and($byHeading['Phase Timeline'])->toContain('Planned:')
+        ->and($byHeading['Phase Timeline'])->toContain('Remarks: Client requested additional standby')
+        ->and($byHeading['Phase Timeline'])->toContain('P2B #1 [seq 2] Completed')
+        ->and($byHeading['Starting Checkpoint'])->toBe('P2A · Join Standby')
+        ->and($byHeading['Previous Assignment'])->toBe('CA-EXPORT-SOURCE')
+        ->and($byHeading['Movement Relationship'])->toBe('Redeployment')
+        ->and($byHeading['Accommodation History'])->toContain('Harbor Inn')
+        ->and($byHeading['Tour of Duty Days'])->toBe(60);
 });

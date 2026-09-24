@@ -102,7 +102,11 @@ export type LinkedAssignmentSummary = {
     client: ReportOption | null;
     started_at: string | null;
     closed_at: string | null;
+    starting_phase_code: string | null;
+    starting_phase_label: string | null;
+    starting_phase_started_at?: string | null;
     current_phase_code: string | null;
+    current_phase_label?: string | null;
 };
 
 export type TourSummary = {
@@ -175,6 +179,11 @@ export type CrewMovementHistoryRow = {
     planned_travel_home_origin_label?: string | null;
     has_legacy_phases: boolean;
     phase_timeline?: PhaseTimelineEntry[];
+    modern_phase_timeline?: PhaseTimelineEntry[];
+    legacy_phase_timeline?: PhaseTimelineEntry[];
+    starting_phase_code?: string | null;
+    starting_phase_label?: string | null;
+    starting_phase_started_at?: string | null;
     pre_mobilisation: FlattenedPhaseSummary;
     travel_in: FlattenedPhaseSummary;
     join_standby: PhaseSummary;

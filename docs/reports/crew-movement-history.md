@@ -14,7 +14,7 @@ The report excludes soft-deleted phases through the standard `phases` relationsh
 
 ## Modern and legacy phases
 
-The normal report timeline shows only modern product-facing phases:
+The normal report timeline (**Complete phase timeline**) shows only modern product-facing phases:
 
 - P0 Pre-Mobilisation
 - P2A Join Standby
@@ -23,7 +23,7 @@ The normal report timeline shows only modern product-facing phases:
 - P5 Demobilisation Standby
 - P6 Home / Redeployment
 
-Legacy phases P1 Travel In and P3 Ready to Join are not rendered as permanent empty placeholders. When an assignment actually recorded legacy movement, the UI shows a separate **Legacy recorded phases** section (and optional export columns) containing only the recorded P1/P3 periods.
+Legacy phases P1 Travel In and P3 Ready to Join are never mixed into the modern lifecycle visually. When an assignment actually recorded legacy movement, the UI shows a separate **Legacy recorded phases** section containing only the recorded P1/P3 periods (sequence, planned/actual timestamps, status, days, and remarks preserved). The presenter still exposes the full chronological `phase_timeline` plus derived `modern_phase_timeline` / `legacy_phase_timeline` without duplicating queries.
 
 Current Phase filters offer the same modern phase list. Bookmarked legacy `current_phase=p1` or `current_phase=p3` query values remain supported by the backend filter when present.
 
@@ -44,6 +44,15 @@ Expanded detail includes assignment number and record ID, employee identity, ran
 | Actual Disembarkation | Completed P4 `actual_end_at` |
 | Actual Return Home | First P6 `actual_start_at` |
 | Assignment Started / Closed | Assignment `started_at` / `closed_at` |
+
+### Actual Arrival precedence
+
+`CrewArrivalResolver` is authoritative for UI display, export, and Actual Arrival From/To filters:
+
+1. Prefer the first P2A `actual_start_at`.
+2. Only when no P2A arrival exists, fall back to completed P1 `actual_end_at`.
+
+If both P1 and P2A exist, P2A wins. Filtering on the legacy P1 end date must not match an assignment that already has a P2A arrival.
 
 Planned values remain date-oriented. **Actual operational events preserve company-local date and time** (`Y-m-d H:i:s` wall clock in the company timezone). Expanded UI and exports use those timestamps; compact table cells may stay concise.
 
@@ -68,7 +77,14 @@ Tour progress reuses `CrewTourProgress` (days onboard, remaining days, status). 
 
 ## Linked assignment journey
 
-Vessel transfer and redeployment create linked assignments (`previous_assignment_id`, `source`). The report keeps **one row per CrewAssignment** and exposes previous/next summaries (assignment no, vessel/rank/client, status, timestamps) with links to assignment show pages. Cross-company linked records are rejected.
+Vessel transfer and redeployment create linked assignments (`previous_assignment_id`, `source`). The report keeps **one row per CrewAssignment** and exposes previous/next summaries with links to assignment show pages. Cross-company linked records are rejected.
+
+Starting checkpoint and current phase are separate concepts on each linked summary:
+
+- **Starting checkpoint** — first persisted `CrewAssignmentPhase` ordered by `sequence` on the linked assignment (for example Redeployment destination that began at P2A).
+- **Current phase** — the assignment’s `currentPhase` (which may later be P4 even though the destination originally started at P2A).
+
+Export includes Starting Checkpoint for the current row and serializes next-assignment starting/current checkpoints when present.
 
 ## Corrections
 
@@ -93,10 +109,18 @@ Search may match assignment no, employee no/name, vessel, client, rank, previous
 - `reports.crew_movement_history.view`
 - `reports.crew_movement_history.export`
 
-Every query is scoped to `current_company_id`. Soft-deleted/voided assignments are not automatically exposed via `withTrashed()`.
+Every query is scoped to `current_company_id`. Soft-deleted/voided assignments are not automatically exposed via `withTrashed()`. Linked assignment previous/next/first-phase/current-phase/vessel/rank/client data never bypass company boundaries.
 
 ## Export
 
-Excel/CSV: one row per assignment. Repeated phases, training, accommodation, and linked assignments use semicolon-separated plain text. Actual timestamps export with time. Filenames use `crew-movement-history-YYYY-MM-DD`. Legacy columns append only when the filtered set contains P1/P3 movement.
+Excel/CSV: one row per assignment. Repeated phases, training, accommodation, and linked assignments use semicolon-separated (or multi-line) plain text. Actual timestamps export with time. Filenames use `crew-movement-history-YYYY-MM-DD`.
+
+Rich export columns include:
+
+- **Phase Timeline** — each occurrence with code, occurrence, sequence, status, planned/actual windows, days, remarks, and details; legacy entries are labeled `Legacy`.
+- **Training History** — each P2B occurrence with provider, course, planned/actual windows, status, employee-training link, and remarks.
+- **Starting Checkpoint** — first persisted phase of the assignment row.
+
+Legacy columns (`Legacy Planned Travel In`, `Legacy Travel In …`, `Legacy Ready To Join …`) append only when the filtered set contains P1/P3 movement. They are not permanent normal columns for every dataset.
 
 See also [Crew Movement Corrections](../architecture/crew-movement-corrections.md), [Crew Movement Phases](../architecture/crew-movement-phases.md), and [Crew Payroll Timeline Preparation](../architecture/crew-payroll-timeline-preparation.md).

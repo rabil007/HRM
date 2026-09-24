@@ -9,6 +9,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Support\CrewAccommodation\CrewAccommodationService;
+use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewDateProvenance;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourProgress;
@@ -77,8 +78,17 @@ final class CrewMovementHistoryPresenter
         $homeRedeploy = self::flatten($summaries[CrewPhaseCode::HomeRedeploy->value]);
         $trainingHistory = self::trainingHistory($phases, $timezone);
         $phaseTimeline = self::phaseTimeline($phases, $timezone, $today);
+        $modernTimeline = array_values(array_filter(
+            $phaseTimeline,
+            fn (array $entry): bool => ! ($entry['is_legacy'] ?? false),
+        ));
+        $legacyTimeline = array_values(array_filter(
+            $phaseTimeline,
+            fn (array $entry): bool => (bool) ($entry['is_legacy'] ?? false),
+        ));
         $accommodation = self::accommodationHistory($assignment, $timezone);
         $linked = self::linkedAssignments($assignment, $timezone);
+        $startingCheckpoint = self::startingCheckpoint($phases, $timezone);
 
         $actualJoinAt = self::firstPeriodDateTime($onVessel, 'start_at');
         $actualDisembarkationAt = self::lastCompletedEndAt($onVessel);
@@ -102,6 +112,9 @@ final class CrewMovementHistoryPresenter
                 'label' => $assignment->currentPhase->phase_code->label(),
                 'status' => $assignment->currentPhase->status->value,
             ] : null,
+            'starting_phase_code' => $startingCheckpoint['code'],
+            'starting_phase_label' => $startingCheckpoint['label'],
+            'starting_phase_started_at' => $startingCheckpoint['started_at'],
             'source' => $assignment->source,
             'source_label' => self::sourceLabel($assignment->source),
             'remarks' => $assignment->remarks,
@@ -115,7 +128,7 @@ final class CrewMovementHistoryPresenter
             'planned_arrival_origin_label' => $plannedArrival['origin_label'],
             'actual_arrival' => $actualArrival['value'],
             'actual_arrival_at' => self::dateTime(
-                self::actualArrivalTimestamp($assignment),
+                CrewArrivalResolver::timestamp($assignment),
                 $timezone,
             ),
             'actual_arrival_origin' => $actualArrival['origin'],
@@ -131,6 +144,8 @@ final class CrewMovementHistoryPresenter
             'planned_travel_home_origin_label' => $plannedTravelHome['origin_label'],
             'phases' => $summaries,
             'phase_timeline' => $phaseTimeline,
+            'modern_phase_timeline' => $modernTimeline,
+            'legacy_phase_timeline' => $legacyTimeline,
             'has_legacy_phases' => $travelIn['periods'] !== [] || $readyToJoin['periods'] !== [],
             'pre_mobilisation' => self::flatten($summaries[CrewPhaseCode::PreMobilisation->value]),
             'travel_in' => $travelIn,
@@ -494,6 +509,11 @@ final class CrewMovementHistoryPresenter
         string $timezone,
         string $direction,
     ): array {
+        $starting = self::startingCheckpoint(
+            $assignment->relationLoaded('phases') ? $assignment->phases : collect(),
+            $timezone,
+        );
+
         return [
             'id' => $assignment->id,
             'assignment_no' => $assignment->assignment_no,
@@ -507,34 +527,39 @@ final class CrewMovementHistoryPresenter
             'client' => self::option($assignment->relationLoaded('client') ? $assignment->client : null),
             'started_at' => self::dateTime($assignment->started_at, $timezone),
             'closed_at' => self::dateTime($assignment->closed_at, $timezone),
+            'starting_phase_code' => $starting['code'],
+            'starting_phase_label' => $starting['label'],
+            'starting_phase_started_at' => $starting['started_at'],
             'current_phase_code' => $assignment->relationLoaded('currentPhase') && $assignment->currentPhase
                 ? $assignment->currentPhase->phase_code->value
+                : null,
+            'current_phase_label' => $assignment->relationLoaded('currentPhase') && $assignment->currentPhase
+                ? $assignment->currentPhase->phase_code->label()
                 : null,
         ];
     }
 
-    private static function actualArrivalTimestamp(CrewAssignment $assignment): ?CarbonInterface
+    /**
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @return array{code: string|null, label: string|null, started_at: string|null}
+     */
+    private static function startingCheckpoint(Collection $phases, string $timezone): array
     {
-        if (! $assignment->relationLoaded('phases')) {
-            return null;
+        $first = $phases->sortBy('sequence')->first();
+
+        if ($first === null) {
+            return [
+                'code' => null,
+                'label' => null,
+                'started_at' => null,
+            ];
         }
 
-        $joinStandby = $assignment->phases
-            ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::JoinStandby)
-            ->sortBy('sequence')
-            ->first();
-
-        if ($joinStandby?->actual_start_at !== null) {
-            return $joinStandby->actual_start_at;
-        }
-
-        $travelIn = $assignment->phases
-            ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::TravelIn
-                && $phase->status === CrewPhaseStatus::Completed)
-            ->sortBy('sequence')
-            ->first();
-
-        return $travelIn?->actual_end_at;
+        return [
+            'code' => $first->phase_code->value,
+            'label' => $first->phase_code->label(),
+            'started_at' => self::dateTime($first->actual_start_at, $timezone),
+        ];
     }
 
     private static function sourceLabel(?string $source): string
