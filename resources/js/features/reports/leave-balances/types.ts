@@ -43,9 +43,13 @@ export type LeaveBalanceReportRow = {
     base_entitlement: number;
     carried_days: number;
     total_available: number;
+    opening_used_days: number;
+    opening_balance_as_of: string | null;
     used_days: number;
+    total_used_days: number;
     pending_days: number;
     remaining_days: number;
+    can_edit_opening: boolean;
 };
 
 export type LeaveBalanceReportFilters = {
@@ -78,7 +82,10 @@ export type LeaveBalanceReportProps = {
     };
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
+    business_year: number;
+    company_today: string;
     can: {
         export: boolean;
+        update_opening: boolean;
     };
 };

@@ -15,12 +15,16 @@ final class LeaveTypeYearBalance
     /**
      * Canonical balance presentation for one employee/year.
      *
-     * Database: entitled_days = base entitlement, carried_days = carry.
+     * Database: entitled_days = base entitlement, carried_days = carry,
+     * used_days = OMS-HRM approved requests, opening_used_days = pre-OMS usage.
      * Response:
      * - base_entitlement_days — base only
      * - carried_days — carry only
      * - total_available_days — base + carry
      * - entitled_days — compatibility alias for total_available_days (not base alone)
+     * - used_days — OMS-HRM approved request usage only
+     * - opening_used_days — previous/opening usage
+     * - total_used_days — opening + HRM usage (employee-facing "Used")
      *
      * Historical years (before the company business year) are read-only: never
      * provision balances and never invent entitlement from today's LeaveType rules.
@@ -34,7 +38,9 @@ final class LeaveTypeYearBalance
      *     carried_days: float,
      *     total_available_days: float,
      *     entitled_days: float,
+     *     opening_used_days: float,
      *     used_days: float,
+     *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
      * }>
@@ -60,7 +66,9 @@ final class LeaveTypeYearBalance
      *     carried_days: float,
      *     total_available_days: float,
      *     entitled_days: float,
+     *     opening_used_days: float,
      *     used_days: float,
+     *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
      * }>
@@ -94,6 +102,7 @@ final class LeaveTypeYearBalance
                         leaveType: $leaveType,
                         baseEntitlementDays: $base,
                         carriedDays: 0.0,
+                        openingUsedDays: 0.0,
                         usedDays: 0.0,
                         pendingDays: 0.0,
                         remainingDays: $base,
@@ -107,6 +116,7 @@ final class LeaveTypeYearBalance
                     leaveType: $leaveType,
                     baseEntitlementDays: $base,
                     carriedDays: $carried,
+                    openingUsedDays: (float) $balance->opening_used_days,
                     usedDays: (float) $balance->used_days,
                     pendingDays: (float) $balance->pending_days,
                     remainingDays: max(0, (float) $balance->remaining_days),
@@ -126,7 +136,9 @@ final class LeaveTypeYearBalance
      *     carried_days: float,
      *     total_available_days: float,
      *     entitled_days: float,
+     *     opening_used_days: float,
      *     used_days: float,
+     *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
      * }>
@@ -154,6 +166,7 @@ final class LeaveTypeYearBalance
                     leaveType: $leaveType,
                     baseEntitlementDays: $base,
                     carriedDays: $carried,
+                    openingUsedDays: (float) $balance->opening_used_days,
                     usedDays: (float) $balance->used_days,
                     pendingDays: (float) $balance->pending_days,
                     remainingDays: max(0, (float) $balance->remaining_days),
@@ -173,7 +186,9 @@ final class LeaveTypeYearBalance
      *     carried_days: float,
      *     total_available_days: float,
      *     entitled_days: float,
+     *     opening_used_days: float,
      *     used_days: float,
+     *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
      * }
@@ -182,6 +197,7 @@ final class LeaveTypeYearBalance
         LeaveType $leaveType,
         float $baseEntitlementDays,
         float $carriedDays,
+        float $openingUsedDays,
         float $usedDays,
         float $pendingDays,
         float $remainingDays,
@@ -198,7 +214,9 @@ final class LeaveTypeYearBalance
             'total_available_days' => $totalAvailable,
             // Compatibility: historical consumers treated entitled_days as the full pool.
             'entitled_days' => $totalAvailable,
+            'opening_used_days' => $openingUsedDays,
             'used_days' => $usedDays,
+            'total_used_days' => $openingUsedDays + $usedDays,
             'pending_days' => $pendingDays,
             'remaining_days' => $remainingDays,
         ];

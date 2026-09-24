@@ -888,7 +888,7 @@ final class LeaveBalanceManager
 
     /**
      * Recalculate used/pending for one balance key under a short per-key transaction lock.
-     * Does not overwrite entitled_days or carried_days (policy / HR entitlement fields).
+     * Does not overwrite entitled_days, carried_days, or opening_* (policy / HR entitlement fields).
      * Creates a balance only when $createIfMissing is true (normal provisioning).
      */
     public function synchronizeBalanceKey(

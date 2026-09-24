@@ -1,10 +1,14 @@
+import { Pencil } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
     DataTableHead,
     OrganizationDataTable,
+    dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { TableRowActions } from '@/components/table-row-actions';
 import { Badge } from '@/components/ui/badge';
 import {
     TableBody,
@@ -15,6 +19,7 @@ import {
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { cn } from '@/lib/utils';
+import { EditOpeningBalanceDialog } from './edit-opening-balance-dialog';
 import type { LeaveBalanceReportRow } from './types';
 
 function days(value: number): string {
@@ -146,76 +151,144 @@ function LeaveTypeCell({ row }: { row: LeaveBalanceReportRow }) {
 
 export function LeaveBalanceReportTable({
     rows,
+    showActions,
+    companyToday,
 }: {
     rows: LeaveBalanceReportRow[];
+    showActions: boolean;
+    companyToday: string;
 }) {
+    const [editing, setEditing] = useState<LeaveBalanceReportRow | null>(null);
+    const hasAnyRowAction = useMemo(
+        () => showActions && rows.some((row) => row.can_edit_opening),
+        [rows, showActions],
+    );
+
     return (
-        <OrganizationDataTable minWidth="min-w-[1000px]" compact>
-            <TableHeader>
-                <TableRow>
-                    <DataTableHead>Employee</DataTableHead>
-                    <DataTableHead>Leave Type</DataTableHead>
-                    <DataTableHead className="text-center">Year</DataTableHead>
-                    <DataTableHead className="text-right">Base</DataTableHead>
-                    <DataTableHead className="text-right">Carry</DataTableHead>
-                    <DataTableHead className="text-right">
-                        Available
-                    </DataTableHead>
-                    <DataTableHead className="text-right">Used</DataTableHead>
-                    <DataTableHead className="text-right">
-                        Pending
-                    </DataTableHead>
-                    <DataTableHead className="text-right">
-                        Remaining
-                    </DataTableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {rows.map((row) => (
-                    <TableRow
-                        key={row.id}
-                        className={dataTableBodyRowClass(false)}
-                    >
-                        <TableCell
-                            className={`${dataTableCellClass()} ${dataTableCellPrimaryClass()}`}
-                        >
-                            <EmployeeCell row={row} />
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            <LeaveTypeCell row={row} />
-                        </TableCell>
-                        <TableCell
-                            className={cn(dataTableCellClass(), 'text-center')}
-                        >
-                            <Badge variant="secondary" className="tabular-nums">
-                                {row.year}
-                            </Badge>
-                        </TableCell>
-                        <DaysCell value={row.base_entitlement} />
-                        <DaysCell value={row.carried_days} />
-                        <DaysCell
-                            value={row.total_available}
-                            className="font-medium"
-                        />
-                        <DaysCell value={row.used_days} />
-                        <DaysCell
-                            value={row.pending_days}
-                            className={
-                                row.pending_days > 0
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : undefined
-                            }
-                        />
-                        <DaysCell
-                            value={row.remaining_days}
-                            className={remainingClass(
-                                row.remaining_days,
-                                row.total_available,
-                            )}
-                        />
+        <>
+            <OrganizationDataTable
+                minWidth={hasAnyRowAction ? 'min-w-[1180px]' : 'min-w-[1100px]'}
+                compact
+            >
+                <TableHeader>
+                    <TableRow>
+                        <DataTableHead>Employee</DataTableHead>
+                        <DataTableHead>Leave Type</DataTableHead>
+                        <DataTableHead className="text-center">
+                            Year
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            Base
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            Carry
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            Available
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            Previous Used
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            HRM Used
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            Pending
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            Remaining
+                        </DataTableHead>
+                        {hasAnyRowAction ? (
+                            <DataTableHead className="w-[1%] text-right">
+                                Actions
+                            </DataTableHead>
+                        ) : null}
                     </TableRow>
-                ))}
-            </TableBody>
-        </OrganizationDataTable>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((row) => (
+                        <TableRow
+                            key={row.id}
+                            className={dataTableBodyRowClass(false)}
+                        >
+                            <TableCell
+                                className={`${dataTableCellClass()} ${dataTableCellPrimaryClass()}`}
+                            >
+                                <EmployeeCell row={row} />
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                <LeaveTypeCell row={row} />
+                            </TableCell>
+                            <TableCell
+                                className={cn(
+                                    dataTableCellClass(),
+                                    'text-center',
+                                )}
+                            >
+                                <Badge
+                                    variant="secondary"
+                                    className="tabular-nums"
+                                >
+                                    {row.year}
+                                </Badge>
+                            </TableCell>
+                            <DaysCell value={row.base_entitlement} />
+                            <DaysCell value={row.carried_days} />
+                            <DaysCell
+                                value={row.total_available}
+                                className="font-medium"
+                            />
+                            <DaysCell value={row.opening_used_days} />
+                            <DaysCell value={row.used_days} />
+                            <DaysCell
+                                value={row.pending_days}
+                                className={
+                                    row.pending_days > 0
+                                        ? 'text-amber-600 dark:text-amber-400'
+                                        : undefined
+                                }
+                            />
+                            <DaysCell
+                                value={row.remaining_days}
+                                className={remainingClass(
+                                    row.remaining_days,
+                                    row.total_available,
+                                )}
+                            />
+                            {hasAnyRowAction ? (
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                    onClick={(event) => event.stopPropagation()}
+                                >
+                                    {row.can_edit_opening ? (
+                                        <TableRowActions
+                                            actions={[
+                                                {
+                                                    label: 'Edit Opening Balance',
+                                                    icon: Pencil,
+                                                    onClick: () =>
+                                                        setEditing(row),
+                                                },
+                                            ]}
+                                        />
+                                    ) : null}
+                                </TableCell>
+                            ) : null}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </OrganizationDataTable>
+
+            <EditOpeningBalanceDialog
+                open={editing !== null}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        setEditing(null);
+                    }
+                }}
+                balance={editing}
+                companyToday={companyToday}
+            />
+        </>
     );
 }

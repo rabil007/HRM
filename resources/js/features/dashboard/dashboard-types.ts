@@ -211,6 +211,7 @@ export type PersonalDashboard = {
         /** Compatibility alias for total_available_days (base + carry). */
         entitled_days: number;
         used_days: number;
+        total_used_days?: number;
         pending_days: number;
         remaining_days: number;
     }>;

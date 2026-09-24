@@ -610,6 +610,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/reports/leave-balances/export', [LeaveBalanceReportController::class, 'export'])
         ->middleware('can:reports.leave_balance.export')
         ->name('organization.reports.leave-balances.export');
+    Route::patch('organization/reports/leave-balances/{leaveBalance}/opening-balance', [LeaveBalanceReportController::class, 'updateOpening'])
+        ->middleware(['can:reports.leave_balance.view', 'can:reports.leave_balance.update_opening'])
+        ->name('organization.reports.leave-balances.update-opening');
 
     Route::get('organization/vessels/export', [VesselController::class, 'export'])
         ->middleware('can:crew_operations.vessels.view')

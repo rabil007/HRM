@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\LeaveBalanceReportExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\UpdateLeaveBalanceOpeningRequest;
+use App\Models\LeaveBalance;
 use App\Models\User;
+use App\Support\Attendance\Actions\UpdateLeaveBalanceOpening;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Reports\LeaveBalanceReportDepartmentTree;
@@ -13,6 +16,7 @@ use App\Support\Reports\LeaveBalanceReportFilters;
 use App\Support\Reports\LeaveBalanceReportPagePermissions;
 use App\Support\Reports\LeaveBalanceReportQuery;
 use App\Support\Settings\CompanyTimezone;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -51,6 +55,8 @@ class LeaveBalanceReportController extends Controller
                 $user,
             ),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
+            'business_year' => $businessYear,
+            'company_today' => now(CompanyTimezone::forCompanyId($companyId))->toDateString(),
             'can' => LeaveBalanceReportPagePermissions::for($user),
         ]);
     }
@@ -74,5 +80,31 @@ class LeaveBalanceReportController extends Controller
         }
 
         return Excel::download($export, "{$filename}.xlsx", ExcelWriter::XLSX);
+    }
+
+    public function updateOpening(
+        UpdateLeaveBalanceOpeningRequest $request,
+        LeaveBalance $leaveBalance,
+        UpdateLeaveBalanceOpening $updateOpening,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        /** @var User $user */
+        $user = $request->user();
+
+        $updated = $updateOpening->handle(
+            $leaveBalance,
+            $user,
+            $companyId,
+            $request->openingAttributes(),
+        );
+
+        $updated->loadMissing(['employee:id,name', 'leaveType:id,name']);
+        $employeeName = (string) ($updated->employee?->name ?? 'Employee');
+        $leaveTypeName = (string) ($updated->leaveType?->name ?? 'Leave type');
+
+        return back()->with(
+            'success',
+            "Opening balance updated for {$employeeName} — {$leaveTypeName}.",
+        );
     }
 }

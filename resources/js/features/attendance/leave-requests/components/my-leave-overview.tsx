@@ -172,7 +172,7 @@ export function MyLeaveOverview({
                             <p className="mt-1.5 pl-1 text-[11px] text-muted-foreground tabular-nums">
                                 {formatDays(balance.total_available_days)} avail
                                 <span className="mx-1 opacity-40">·</span>
-                                {formatDays(balance.used_days)} used
+                                {formatDays(balance.total_used_days)} used
                                 <span className="mx-1 opacity-40">·</span>
                                 {formatDays(balance.pending_days)} pend
                                 {balance.carried_days > 0 ? (

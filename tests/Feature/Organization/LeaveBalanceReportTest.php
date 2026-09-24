@@ -43,7 +43,8 @@ test('leave balance report requires view permission and does not provision balan
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/reports/leave-balances/index')
             ->has('balances', 0)
-            ->where('can.export', false));
+            ->where('can.export', false)
+            ->where('can.update_opening', false));
 
     expect(LeaveBalance::query()->count())->toBe($before);
 
@@ -121,6 +122,7 @@ test('leave balance report reads persisted snapshots with filters visibility and
                     && (float) $row['base_entitlement'] === 30.0
                     && (float) $row['carried_days'] === 2.0
                     && (float) $row['total_available'] === 32.0
+                    && (float) $row['opening_used_days'] === 0.0
                     && (float) $row['used_days'] === 4.0
                     && (float) $row['pending_days'] === 1.0
                     && (float) $row['remaining_days'] === 27.0;

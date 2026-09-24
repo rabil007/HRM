@@ -32,6 +32,9 @@ class LeaveBalance extends Model
                 'used_days',
                 'pending_days',
                 'carried_days',
+                'opening_used_days',
+                'opening_balance_as_of',
+                'opening_balance_note',
                 'rollover_applied_at',
                 'remaining_days',
             ])
@@ -49,6 +52,8 @@ class LeaveBalance extends Model
             'used_days' => 'decimal:2',
             'pending_days' => 'decimal:2',
             'carried_days' => 'decimal:2',
+            'opening_used_days' => 'decimal:2',
+            'opening_balance_as_of' => 'date',
             'remaining_days' => 'decimal:2',
             'rollover_applied_at' => 'datetime',
         ];
@@ -72,5 +77,10 @@ class LeaveBalance extends Model
     public function totalPoolDays(): float
     {
         return (float) $this->entitled_days + (float) $this->carried_days;
+    }
+
+    public function totalUsedDays(): float
+    {
+        return (float) $this->opening_used_days + (float) $this->used_days;
     }
 }

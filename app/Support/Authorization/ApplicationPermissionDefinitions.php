@@ -1947,6 +1947,12 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to download original client request attachments from recruitment requirements.',
                 'group' => 'Recruitment',
             ],
+            322 => [
+                'name' => 'reports.leave_balance.update_opening',
+                'label' => 'Edit Leave Opening Balances',
+                'description' => 'Allows the user to record or update previous leave days already used for visible employees in the active company.',
+                'group' => 'Reports',
+            ],
         ];
     }
 }

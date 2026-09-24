@@ -25,6 +25,7 @@ class LeaveBalanceFactory extends Factory
             'used_days' => 0,
             'pending_days' => 0,
             'carried_days' => 0,
+            'opening_used_days' => 0,
         ];
     }
 

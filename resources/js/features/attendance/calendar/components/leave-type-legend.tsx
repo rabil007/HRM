@@ -42,10 +42,13 @@ function LeaveTypeBalance({
                     {formatDays(leaveType.carried_days ?? 0)} carried
                 </div>
             ) : null}
-            {(leaveType.used_days ?? 0) > 0 ||
+            {(leaveType.total_used_days ?? leaveType.used_days ?? 0) > 0 ||
             (leaveType.pending_days ?? 0) > 0 ? (
                 <div className="tabular-nums">
-                    {formatDays(leaveType.used_days ?? 0)} used
+                    {formatDays(
+                        leaveType.total_used_days ?? leaveType.used_days ?? 0,
+                    )}{' '}
+                    used
                     {(leaveType.pending_days ?? 0) > 0
                         ? ` · ${formatDays(leaveType.pending_days ?? 0)} pending`
                         : ''}

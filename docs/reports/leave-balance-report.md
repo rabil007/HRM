@@ -1,8 +1,10 @@
 # Leave Balance Report
 
-Leave Balance Report is a read-only ledger of persisted `LeaveBalance` rows. It is separate from Leave Report, which shows leave requests and approval history.
+Leave Balance Report is a ledger of persisted `LeaveBalance` rows. It is separate from Leave Report, which shows leave requests and approval history.
 
 Opening the report does not call `ensureEmployeeYear()` and does not create or repair missing balances. Current provisioning and sync workflows remain responsible for those rows. If a balance does not exist, the report does not invent entitlement from `LeaveType.days_per_year`.
+
+Authorized users with `reports.leave_balance.update_opening` can record **Previous Used** (opening/current-year migration usage) for the company's current business year. That value is stored independently of OMS-HRM leave requests and is never rebuilt by `leave-balances:sync`.
 
 ## Source of truth
 
@@ -13,9 +15,10 @@ One row is one persisted balance for an employee, leave type, and year in the ac
 | Base Entitlement | `entitled_days` |
 | Carried | `carried_days` |
 | Total Available | base + carry |
-| Used | `used_days` |
+| Previous Used | `opening_used_days` (pre-OMS / opening usage for the year) |
+| HRM Used | `used_days` (approved Leave Requests tracked in OMS-HRM) |
 | Pending | `pending_days` |
-| Remaining | stored `remaining_days` |
+| Remaining | stored generated `remaining_days` = base + carry − previous used − HRM used − pending |
 
 Inactive employees, terminated employees, inactive leave types, and soft-deleted leave types remain visible when a historical balance references them. Those rows are not editable from the report.
 
@@ -23,8 +26,22 @@ Inactive employees, terminated employees, inactive leave types, and soft-deleted
 
 - `reports.leave_balance.view` — view the report within the user's employee visibility scope.
 - `reports.leave_balance.export` — export that same dataset.
+- `reports.leave_balance.update_opening` — record or update previous used days for editable current-year balances the user can see.
 
-These permissions are not copied onto existing roles. Routes enforce them independently of navigation.
+These permissions are not copied onto existing roles. Routes enforce them independently of navigation. A user may view and export without being able to edit opening balances.
+
+## Opening balance edits
+
+Editable only when all of the following hold:
+
+- balance `company_id` is the active company
+- balance year equals the company business year (`CompanyTimezone`)
+- employee is `active` or `on_leave` and visible via `EmployeeVisibilityScope` + `AttendanceLeaveDepartmentScope`
+- leave type is active and not soft-deleted
+
+Saving updates only `opening_used_days`, `opening_balance_as_of`, and `opening_balance_note`. Activity log description: `Updated leave opening balance`.
+
+`php artisan leave-balances:sync` (and `LeaveBalanceManager::synchronizeBalanceKey`) recalculates only request-derived `used_days` and `pending_days`. Opening fields are preserved.
 
 ## Employee visibility
 
@@ -54,10 +71,12 @@ The top of the page shows filterable leave-type cards. Selecting a card applies 
 
 The **Employee** column shows name, employee number, status, and department together. Export still keeps Employee and Department as separate columns.
 
+When the user can edit opening balances, an Actions column shows **Edit Opening Balance** on editable rows only.
+
 ## Export
 
 Excel and CSV use the same filters and visibility as the web report.
 
-Columns: Employee No, Employee, Department, Employee Status, Leave Type, Leave Category, Year, Base Entitlement, Carried Days, Total Available, Used Days, Pending Days, Remaining Days.
+Columns: Employee No, Employee, Department, Employee Status, Leave Type, Leave Category, Year, Base Entitlement, Carried Days, Total Available, Previous Used Days, HRM Used Days, Pending Days, Remaining Days.
 
 Filenames: `leave-balance-report-YYYY-MM-DD.xlsx` and `leave-balance-report-YYYY-MM-DD.csv`.

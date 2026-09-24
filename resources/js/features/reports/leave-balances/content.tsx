@@ -137,7 +137,11 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
                         description="Try another year or clear filters. This report only lists balances that already exist."
                     />
                 ) : (
-                    <LeaveBalanceReportTable rows={balances} />
+                    <LeaveBalanceReportTable
+                        rows={balances}
+                        showActions={can.update_opening}
+                        companyToday={props.company_today}
+                    />
                 )}
             </div>
 

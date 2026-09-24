@@ -34,7 +34,9 @@ export type LeaveTypeYearBalance = {
     carried_days: number;
     total_available_days: number;
     entitled_days: number;
+    opening_used_days: number;
     used_days: number;
+    total_used_days: number;
     pending_days: number;
     remaining_days: number;
 };

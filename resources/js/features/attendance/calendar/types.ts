@@ -8,7 +8,9 @@ export type CalendarLeaveType = {
     total_available_days?: number | null;
     /** Compatibility alias for total_available_days (base + carry). */
     entitled_days: number | null;
+    opening_used_days?: number | null;
     used_days: number | null;
+    total_used_days?: number | null;
     pending_days: number | null;
     remaining_days: number | null;
 };
