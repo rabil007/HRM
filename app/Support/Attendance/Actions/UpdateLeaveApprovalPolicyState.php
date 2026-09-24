@@ -19,7 +19,7 @@ final class UpdateLeaveApprovalPolicyState
     /**
      * Apply intended is_default / status changes under a company row lock.
      *
-     * @param  array{is_default?: bool, status?: string|null, name?: string|null, description?: string|null, updated_by?: int|null}  $attributes
+     * @param  array{is_default?: bool, status?: string|null, name?: string|null, description?: string|null, approval_mode?: string|null, updated_by?: int|null}  $attributes
      */
     public function handle(LeaveApprovalPolicy $policy, int $companyId, array $attributes): LeaveApprovalPolicy
     {
@@ -69,6 +69,10 @@ final class UpdateLeaveApprovalPolicyState
 
             if (array_key_exists('description', $attributes)) {
                 $fill['description'] = $attributes['description'];
+            }
+
+            if (array_key_exists('approval_mode', $attributes)) {
+                $fill['approval_mode'] = $attributes['approval_mode'];
             }
 
             if (array_key_exists('status', $attributes)) {

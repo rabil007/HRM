@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Attendance\Concerns;
 
 use App\Enums\LeaveApprovalApproverType;
+use App\Enums\LeaveApprovalMode;
 use App\Models\LeaveApprovalPolicy;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use Illuminate\Validation\Rule;
@@ -10,6 +11,15 @@ use Illuminate\Validation\Validator;
 
 trait LeaveApprovalPolicyValidationRules
 {
+    protected function prepareForValidation(): void
+    {
+        if (! $this->exists('approval_mode') || blank($this->input('approval_mode'))) {
+            $this->merge([
+                'approval_mode' => LeaveApprovalMode::AllRequired->value,
+            ]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -20,6 +30,7 @@ trait LeaveApprovalPolicyValidationRules
             'description' => ['nullable', 'string', 'max:5000'],
             'is_default' => ['sometimes', 'boolean'],
             'status' => ['nullable', 'in:active,inactive'],
+            'approval_mode' => ['required', 'string', Rule::in(LeaveApprovalMode::values())],
             'steps' => ['required', 'array', 'min:1'],
             'steps.*.approver_type' => ['required', 'string', Rule::in(LeaveApprovalApproverType::values())],
             'steps.*.approver_employee_id' => [

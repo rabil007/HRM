@@ -634,6 +634,8 @@ class LeaveRequestController extends Controller
             'total_days' => $leaveRequest->total_days,
             'reason' => $leaveRequest->reason,
             'status' => $leaveRequest->status,
+            'approval_mode' => $leaveRequest->approvalMode()->value,
+            'approval_mode_label' => $leaveRequest->approvalMode()->label(),
             'rejection_reason' => $leaveRequest->rejection_reason,
             'cancellation_reason' => $leaveRequest->cancellation_reason,
             'decided_at' => $leaveRequest->decided_at?->toIso8601String(),

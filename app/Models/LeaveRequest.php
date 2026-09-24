@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LeaveApprovalMode;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\LeaveRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -45,6 +46,7 @@ class LeaveRequest extends Model
             'leave_type_id' => 'integer',
             'approved_by' => 'integer',
             'administratively_deleted_by' => 'integer',
+            'approval_mode' => LeaveApprovalMode::class,
             'start_date' => 'date',
             'end_date' => 'date',
             'decided_at' => 'datetime',
@@ -66,6 +68,7 @@ class LeaveRequest extends Model
                 'total_days',
                 'reason',
                 'status',
+                'approval_mode',
                 'rejection_reason',
                 'cancellation_reason',
                 'status_before_administrative_deletion',
@@ -74,6 +77,15 @@ class LeaveRequest extends Model
                 'decided_at',
             ])
             ->logOnlyDirty();
+    }
+
+    /**
+     * Snapshotted required-approver decision mode for this request's workflow.
+     * Never resolve from the live policy after submission.
+     */
+    public function approvalMode(): LeaveApprovalMode
+    {
+        return LeaveApprovalMode::fromStored($this->approval_mode);
     }
 
     public function company(): BelongsTo

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LeaveApprovalMode;
 use App\Models\Concerns\LogsActivityWithCompany;
 use App\Support\Attendance\Actions\UpdateLeaveApprovalPolicyState;
 use Database\Factories\LeaveApprovalPolicyFactory;
@@ -26,6 +27,7 @@ class LeaveApprovalPolicy extends Model
         'description',
         'is_default',
         'status',
+        'approval_mode',
         'created_by',
         'updated_by',
     ];
@@ -38,6 +40,7 @@ class LeaveApprovalPolicy extends Model
         return [
             'company_id' => 'integer',
             'is_default' => 'boolean',
+            'approval_mode' => LeaveApprovalMode::class,
             'created_by' => 'integer',
             'updated_by' => 'integer',
         ];
@@ -52,10 +55,16 @@ class LeaveApprovalPolicy extends Model
                 'description',
                 'is_default',
                 'status',
+                'approval_mode',
                 'created_by',
                 'updated_by',
             ])
             ->logOnlyDirty();
+    }
+
+    public function approvalMode(): LeaveApprovalMode
+    {
+        return LeaveApprovalMode::fromStored($this->approval_mode);
     }
 
     public function company(): BelongsTo

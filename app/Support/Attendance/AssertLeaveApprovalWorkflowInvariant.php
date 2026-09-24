@@ -2,6 +2,7 @@
 
 namespace App\Support\Attendance;
 
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
@@ -13,6 +14,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Enforces leave-approval snapshot sequence integrity under row locks.
+ *
+ * Structure depends on the leave request's snapshotted approval_mode, never
+ * the live policy configuration.
  */
 final class AssertLeaveApprovalWorkflowInvariant
 {
@@ -30,11 +34,19 @@ final class AssertLeaveApprovalWorkflowInvariant
         Collection $approvals,
         ?User $actor = null,
     ): LeaveRequestApproval {
-        $pendingStep = $this->assertPendingWorkflowStructure(
-            leaveRequest: $leaveRequest,
-            approvals: $approvals,
-            allowUnavailableCurrentApprover: false,
-        );
+        $mode = $leaveRequest->approvalMode();
+
+        $pendingStep = $mode === LeaveApprovalMode::AnyRequired
+            ? $this->assertAnyRequiredPendingStructure(
+                leaveRequest: $leaveRequest,
+                approvals: $approvals,
+                actor: $actor,
+            )
+            : $this->assertAllRequiredPendingStructure(
+                leaveRequest: $leaveRequest,
+                approvals: $approvals,
+                allowUnavailableCurrentApprover: false,
+            );
 
         $this->assertPendingApproverIntegrity($leaveRequest, $pendingStep);
 
@@ -50,8 +62,7 @@ final class AssertLeaveApprovalWorkflowInvariant
     /**
      * Structural pending-workflow checks for administrative reassignment.
      *
-     * Skips current-approver membership/eligibility integrity so a stuck
-     * unavailable approver can be recovered without rebuilding the snapshot.
+     * Available only for all_required sequences (exactly one current pending step).
      *
      * @param  Collection<int, LeaveRequestApproval>  $approvals  Locked, ordered by sequence
      *
@@ -61,7 +72,13 @@ final class AssertLeaveApprovalWorkflowInvariant
         LeaveRequest $leaveRequest,
         Collection $approvals,
     ): LeaveRequestApproval {
-        return $this->assertPendingWorkflowStructure(
+        if ($leaveRequest->approvalMode() === LeaveApprovalMode::AnyRequired) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'Approval reassignment is not available when the leave request uses the any one required approver mode.',
+            ]);
+        }
+
+        return $this->assertAllRequiredPendingStructure(
             leaveRequest: $leaveRequest,
             approvals: $approvals,
             allowUnavailableCurrentApprover: true,
@@ -73,7 +90,7 @@ final class AssertLeaveApprovalWorkflowInvariant
      *
      * @throws ValidationException
      */
-    private function assertPendingWorkflowStructure(
+    private function assertAllRequiredPendingStructure(
         LeaveRequest $leaveRequest,
         Collection $approvals,
         bool $allowUnavailableCurrentApprover,
@@ -114,35 +131,12 @@ final class AssertLeaveApprovalWorkflowInvariant
             ]);
         }
 
+        $this->assertSharedApproverIdentityIntegrity($leaveRequest, $ordered);
+
         $seenPending = false;
-        $seenApproverEmployeeIds = [];
-        $requesterEmployeeId = (int) $leaveRequest->employee_id;
-        $companyId = (int) $leaveRequest->company_id;
 
         foreach ($ordered as $step) {
             $status = $this->statusOf($step);
-
-            if ((int) $step->company_id !== $companyId) {
-                throw ValidationException::withMessages([
-                    'leave_request' => 'This leave request has a corrupted approval workflow (approval company mismatch).',
-                ]);
-            }
-
-            if ($step->approver_employee_id !== null && (int) $step->approver_employee_id === $requesterEmployeeId) {
-                throw ValidationException::withMessages([
-                    'leave_request' => 'This leave request has a corrupted approval workflow (requester cannot be an approver).',
-                ]);
-            }
-
-            if ($step->approver_employee_id !== null) {
-                $employeeId = (int) $step->approver_employee_id;
-                if (isset($seenApproverEmployeeIds[$employeeId])) {
-                    throw ValidationException::withMessages([
-                        'leave_request' => 'This leave request has a corrupted approval workflow (duplicate approvers).',
-                    ]);
-                }
-                $seenApproverEmployeeIds[$employeeId] = true;
-            }
 
             if ($status === LeaveRequestApprovalStatus::Pending) {
                 $seenPending = true;
@@ -184,6 +178,129 @@ final class AssertLeaveApprovalWorkflowInvariant
         }
 
         return $pendingStep;
+    }
+
+    /**
+     * @param  Collection<int, LeaveRequestApproval>  $approvals
+     *
+     * @throws ValidationException
+     */
+    private function assertAnyRequiredPendingStructure(
+        LeaveRequest $leaveRequest,
+        Collection $approvals,
+        ?User $actor,
+    ): LeaveRequestApproval {
+        if ($leaveRequest->status !== 'pending') {
+            throw ValidationException::withMessages([
+                'leave_request' => 'Leave approval workflow invariant requires a pending leave request.',
+            ]);
+        }
+
+        if ($approvals->isEmpty()) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has no approval snapshot.',
+            ]);
+        }
+
+        $ordered = $approvals->sortBy('sequence')->values();
+        $this->assertSharedApproverIdentityIntegrity($leaveRequest, $ordered);
+
+        $pendingRequired = $ordered
+            ->filter(function (LeaveRequestApproval $step): bool {
+                return (bool) $step->is_required
+                    && $this->statusOf($step) === LeaveRequestApprovalStatus::Pending;
+            })
+            ->values();
+
+        if ($pendingRequired->isEmpty()) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (expected one or more pending required steps).',
+            ]);
+        }
+
+        foreach ($ordered as $step) {
+            $status = $this->statusOf($step);
+
+            if (! $step->is_required) {
+                if ($status !== LeaveRequestApprovalStatus::Skipped) {
+                    throw ValidationException::withMessages([
+                        'leave_request' => 'This leave request has a corrupted approval workflow (notify-only steps must be skipped).',
+                    ]);
+                }
+
+                continue;
+            }
+
+            if ($status === LeaveRequestApprovalStatus::Waiting) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'This leave request has a corrupted approval workflow (any-required mode must not leave required steps waiting).',
+                ]);
+            }
+
+            if (! in_array($status, [
+                LeaveRequestApprovalStatus::Pending,
+                LeaveRequestApprovalStatus::Approved,
+                LeaveRequestApprovalStatus::Rejected,
+                LeaveRequestApprovalStatus::Cancelled,
+            ], true)) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'This leave request has a corrupted approval workflow (unexpected required step status).',
+                ]);
+            }
+        }
+
+        if ($actor === null) {
+            /** @var LeaveRequestApproval */
+            return $pendingRequired->first();
+        }
+
+        $actorStep = $pendingRequired->first(
+            fn (LeaveRequestApproval $step): bool => (int) $step->approver_user_id === (int) $actor->id,
+        );
+
+        if ($actorStep === null) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'There is no pending approval step assigned to you for this leave request.',
+            ]);
+        }
+
+        return $actorStep;
+    }
+
+    /**
+     * @param  Collection<int, LeaveRequestApproval>  $ordered
+     *
+     * @throws ValidationException
+     */
+    private function assertSharedApproverIdentityIntegrity(LeaveRequest $leaveRequest, Collection $ordered): void
+    {
+        $seenApproverEmployeeIds = [];
+        $requesterEmployeeId = (int) $leaveRequest->employee_id;
+        $companyId = (int) $leaveRequest->company_id;
+
+        foreach ($ordered as $step) {
+            if ((int) $step->company_id !== $companyId) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'This leave request has a corrupted approval workflow (approval company mismatch).',
+                ]);
+            }
+
+            if ($step->approver_employee_id !== null && (int) $step->approver_employee_id === $requesterEmployeeId) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'This leave request has a corrupted approval workflow (requester cannot be an approver).',
+                ]);
+            }
+
+            if ($step->approver_employee_id !== null) {
+                $employeeId = (int) $step->approver_employee_id;
+                if (isset($seenApproverEmployeeIds[$employeeId])) {
+                    throw ValidationException::withMessages([
+                        'leave_request' => 'This leave request has a corrupted approval workflow (duplicate approvers).',
+                    ]);
+                }
+                $seenApproverEmployeeIds[$employeeId] = true;
+            }
+        }
     }
 
     /**

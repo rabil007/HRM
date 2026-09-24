@@ -100,6 +100,8 @@ export type LeaveRequest = {
     total_days: string | number;
     reason: string | null;
     status: LeaveRequestStatus;
+    approval_mode?: 'all_required' | 'any_required';
+    approval_mode_label?: string;
     rejection_reason: string | null;
     cancellation_reason: string | null;
     decided_at: string | null;

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\LeaveApprovalApproverType;
+use App\Enums\LeaveApprovalMode;
 use App\Models\Company;
 use App\Models\CompanyLeaveApprovalSetting;
 use App\Models\Country;
@@ -36,17 +37,27 @@ function createLeaveRequestRecord(array $attributes): LeaveRequest
  *
  * @param  list<array{type: LeaveApprovalApproverType|string, employee_id?: int|null, required?: bool}>|null  $steps
  */
-function ensureDefaultLeaveApprovalPolicy(Company $company, ?array $steps = null): LeaveApprovalPolicy
-{
+function ensureDefaultLeaveApprovalPolicy(
+    Company $company,
+    ?array $steps = null,
+    ?LeaveApprovalMode $approvalMode = null,
+): LeaveApprovalPolicy {
     $steps ??= [
         ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
     ];
 
-    $policy = LeaveApprovalPolicy::factory()
+    $factory = LeaveApprovalPolicy::factory()
         ->forCompany($company)
         ->default()
-        ->withSteps($steps)
-        ->create();
+        ->withSteps($steps);
+
+    if ($approvalMode === LeaveApprovalMode::AnyRequired) {
+        $factory = $factory->anyRequired();
+    } elseif ($approvalMode === LeaveApprovalMode::AllRequired) {
+        $factory = $factory->allRequired();
+    }
+
+    $policy = $factory->create();
 
     return $policy;
 }

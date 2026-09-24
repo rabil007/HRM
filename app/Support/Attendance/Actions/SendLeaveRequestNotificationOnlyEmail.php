@@ -44,7 +44,7 @@ final class SendLeaveRequestNotificationOnlyEmail
             'approvals.approverEmployee.user:id,email',
         ]);
 
-        $pendingApproverEmail = $this->resolveFirstPendingApproverEmail($leaveRequest);
+        $pendingApproverEmails = $this->resolvePendingRequiredApproverEmails($leaveRequest);
         $subject = $this->renderTemplate($template->subject, $leaveRequest);
         $introMessage = trim($this->renderTemplate($template->body_html, $leaveRequest));
         $payload = $this->buildMailPayload($leaveRequest, $introMessage);
@@ -56,7 +56,7 @@ final class SendLeaveRequestNotificationOnlyEmail
                 continue;
             }
 
-            if ($pendingApproverEmail !== '' && strcasecmp($email, $pendingApproverEmail) === 0) {
+            if ($this->emailIsPendingRequiredApprover($email, $pendingApproverEmails)) {
                 continue;
             }
 
@@ -128,13 +128,17 @@ final class SendLeaveRequestNotificationOnlyEmail
         return $emails;
     }
 
-    private function resolveFirstPendingApproverEmail(LeaveRequest $leaveRequest): string
+    /**
+     * @return list<string>
+     */
+    private function resolvePendingRequiredApproverEmails(LeaveRequest $leaveRequest): array
     {
         $pending = $leaveRequest->relationLoaded('approvals')
             ? $leaveRequest->approvals
                 ->sortBy('sequence')
-                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending
+                ->filter(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending
                     && $approval->is_required)
+                ->values()
             : LeaveRequestApproval::query()
                 ->where('company_id', $leaveRequest->company_id)
                 ->where('leave_request_id', $leaveRequest->id)
@@ -142,15 +146,44 @@ final class SendLeaveRequestNotificationOnlyEmail
                 ->where('is_required', true)
                 ->orderBy('sequence')
                 ->with('approverEmployee.user:id,email')
-                ->first();
+                ->get();
 
-        if ($pending === null) {
-            return '';
+        $emails = [];
+        $seen = [];
+
+        foreach ($pending as $approval) {
+            $approval->loadMissing('approverEmployee.user:id,email');
+            $email = $this->employeeEmail($approval->approverEmployee);
+
+            if ($email === '') {
+                continue;
+            }
+
+            $normalized = strtolower($email);
+
+            if (isset($seen[$normalized])) {
+                continue;
+            }
+
+            $seen[$normalized] = true;
+            $emails[] = $email;
         }
 
-        $pending->loadMissing('approverEmployee.user:id,email');
+        return $emails;
+    }
 
-        return $this->employeeEmail($pending->approverEmployee);
+    /**
+     * @param  list<string>  $pendingApproverEmails
+     */
+    private function emailIsPendingRequiredApprover(string $email, array $pendingApproverEmails): bool
+    {
+        foreach ($pendingApproverEmails as $pendingEmail) {
+            if (strcasecmp($email, $pendingEmail) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function employeeEmail(?Employee $employee): string

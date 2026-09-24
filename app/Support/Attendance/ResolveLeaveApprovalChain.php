@@ -3,6 +3,7 @@
 namespace App\Support\Attendance;
 
 use App\Enums\LeaveApprovalApproverType;
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\CompanyLeaveApprovalSetting;
 use App\Models\Department;
@@ -167,17 +168,26 @@ final class ResolveLeaveApprovalChain
     /**
      * Persist a resolved approval snapshot onto a leave request.
      *
-     * Required steps remain sequential: the first becomes Pending, later ones Waiting.
-     * Non-required (notify-only) steps are always Skipped and never become actionable.
+     * Snapshots the policy's approval mode onto the leave request so later
+     * policy edits cannot silently change an in-flight workflow.
+     *
+     * All required: first required step becomes Pending, later ones Waiting.
+     * Any required: every required step becomes Pending immediately.
+     * Non-required (notify-only) steps are always Skipped and never actionable.
      *
      * @return list<LeaveRequestApproval>
      */
     public function persistSnapshot(LeaveRequest $leaveRequest, ResolvedLeaveApprovalChain $chain): array
     {
         $companyId = (int) $leaveRequest->company_id;
+        $mode = $chain->policy->approvalMode();
         $created = [];
         $pendingAssigned = false;
         $actedAt = now();
+
+        $leaveRequest->forceFill([
+            'approval_mode' => $mode,
+        ])->save();
 
         foreach ($chain->steps as $resolvedStep) {
             if (! $resolvedStep->isRequired) {
@@ -196,12 +206,18 @@ final class ResolveLeaveApprovalChain
                 continue;
             }
 
-            $status = LeaveRequestApprovalStatus::Waiting;
-            $stepActedAt = null;
-
-            if (! $pendingAssigned) {
+            if ($mode === LeaveApprovalMode::AnyRequired) {
                 $status = LeaveRequestApprovalStatus::Pending;
                 $pendingAssigned = true;
+                $stepActedAt = null;
+            } else {
+                $status = LeaveRequestApprovalStatus::Waiting;
+                $stepActedAt = null;
+
+                if (! $pendingAssigned) {
+                    $status = LeaveRequestApprovalStatus::Pending;
+                    $pendingAssigned = true;
+                }
             }
 
             $created[] = LeaveRequestApproval::query()->create([

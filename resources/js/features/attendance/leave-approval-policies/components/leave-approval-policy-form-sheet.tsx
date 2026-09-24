@@ -1,4 +1,8 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import {
+    Root as RadioGroup,
+    Item as RadioItem,
+} from '@radix-ui/react-radio-group';
 import { ArrowDown, ArrowUp, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -13,9 +17,14 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { defaultLeaveApprovalPolicyStepFormData } from '../types';
+import { cn } from '@/lib/utils';
+import {
+    defaultLeaveApprovalPolicyStepFormData,
+    requiredStepHelperForMode,
+} from '../types';
 import type {
     LeaveApprovalApproverTypeOption,
+    LeaveApprovalModeValue,
     LeaveApprovalPolicy,
     LeaveApprovalPolicyEmployeeOption,
     LeaveApprovalPolicyFormData,
@@ -199,6 +208,73 @@ export function LeaveApprovalPolicyFormSheet({
                             {form.errors.description ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.description}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-3">
+                            <div>
+                                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                                    Required approval mode
+                                </h3>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Choose how required approvers decide leave
+                                    requests under this policy.
+                                </p>
+                            </div>
+                            <RadioGroup
+                                value={form.data.approval_mode}
+                                onValueChange={(value) =>
+                                    form.setData(
+                                        'approval_mode',
+                                        value as LeaveApprovalModeValue,
+                                    )
+                                }
+                                className="grid gap-2"
+                            >
+                                <RadioItem
+                                    value="all_required"
+                                    className={cn(
+                                        'cursor-pointer rounded-xl border bg-card/70 p-3.5 text-left transition-all outline-none',
+                                        form.data.approval_mode ===
+                                            'all_required'
+                                            ? 'border-primary shadow-xs ring-1 ring-primary'
+                                            : 'border-border/80 hover:border-border hover:bg-card',
+                                    )}
+                                >
+                                    <div className="text-sm font-semibold text-foreground">
+                                        All required approvers
+                                    </div>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Required approvers act in order. Every
+                                        required approver must approve before
+                                        the leave request is approved.
+                                    </p>
+                                </RadioItem>
+                                <RadioItem
+                                    value="any_required"
+                                    className={cn(
+                                        'cursor-pointer rounded-xl border bg-card/70 p-3.5 text-left transition-all outline-none',
+                                        form.data.approval_mode ===
+                                            'any_required'
+                                            ? 'border-primary shadow-xs ring-1 ring-primary'
+                                            : 'border-border/80 hover:border-border hover:bg-card',
+                                    )}
+                                >
+                                    <div className="text-sm font-semibold text-foreground">
+                                        Any one required approver
+                                    </div>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        All required approvers can act
+                                        immediately. The first approval approves
+                                        the leave request; the first rejection
+                                        rejects it.
+                                    </p>
+                                </RadioItem>
+                            </RadioGroup>
+                            {form.errors.approval_mode ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.approval_mode}
                                 </div>
                             ) : null}
                         </div>
@@ -469,7 +545,10 @@ export function LeaveApprovalPolicyFormSheet({
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
                                                         {step.is_required
-                                                            ? 'Must approve before the next step'
+                                                            ? requiredStepHelperForMode(
+                                                                  form.data
+                                                                      .approval_mode,
+                                                              )
                                                             : 'This person will be informed but does not need to approve.'}
                                                     </p>
                                                 </div>

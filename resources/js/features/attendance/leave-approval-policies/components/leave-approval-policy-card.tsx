@@ -60,6 +60,15 @@ export function LeaveApprovalPolicyCard({
                                 variant="secondary"
                                 className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
                             >
+                                {policy.approval_mode_label ??
+                                    (policy.approval_mode === 'any_required'
+                                        ? 'Any one required'
+                                        : 'All required')}
+                            </Badge>
+                            <Badge
+                                variant="secondary"
+                                className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                            >
                                 {policy.steps.length} step
                                 {policy.steps.length === 1 ? '' : 's'}
                             </Badge>

@@ -2,6 +2,7 @@
 
 namespace App\Support\Attendance\Actions;
 
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
@@ -69,6 +70,12 @@ final class ReassignLeaveRequestApproval
             if ($locked->status !== 'pending') {
                 throw ValidationException::withMessages([
                     'leave_request' => 'Only pending leave requests can have their current approval reassigned.',
+                ]);
+            }
+
+            if ($locked->approvalMode() === LeaveApprovalMode::AnyRequired) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'Approval reassignment is not available when the leave request uses the any one required approver mode.',
                 ]);
             }
 

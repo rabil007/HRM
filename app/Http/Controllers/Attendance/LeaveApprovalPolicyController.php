@@ -149,6 +149,7 @@ class LeaveApprovalPolicyController extends Controller
                 'description' => $data['description'] ?? null,
                 'is_default' => false,
                 'status' => $data['status'] ?? 'active',
+                'approval_mode' => $data['approval_mode'],
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ])->save();
@@ -177,6 +178,7 @@ class LeaveApprovalPolicyController extends Controller
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
             'status' => $data['status'] ?? $leaveApprovalPolicy->status,
+            'approval_mode' => $data['approval_mode'],
             'updated_by' => $userId,
         ];
 
@@ -316,12 +318,17 @@ class LeaveApprovalPolicyController extends Controller
             $deleteBlockedReason = 'This leave approval policy cannot be deleted because it is used by leave request approvals.';
         }
 
+        $approvalMode = $policy->approvalMode();
+
         return [
             'id' => $policy->id,
             'name' => $policy->name,
             'description' => $policy->description,
             'is_default' => (bool) $policy->is_default,
             'status' => $policy->status,
+            'approval_mode' => $approvalMode->value,
+            'approval_mode_label' => $approvalMode->label(),
+            'approval_mode_helper' => $approvalMode->shortHelper(),
             'departments_count' => $departmentsCount,
             'steps' => $policy->steps
                 ->map(fn (LeaveApprovalPolicyStep $step) => [

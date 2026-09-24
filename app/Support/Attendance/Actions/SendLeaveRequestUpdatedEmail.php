@@ -11,10 +11,11 @@ use App\Models\LeaveRequestApproval;
 use App\Support\Attendance\LeaveNotificationSettings;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use App\Support\Email\CommaSeparatedEmailList;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * Notifies the current pending approver after a pre-action leave-request edit.
+ * Notifies currently pending required approvers after a pre-action leave-request edit.
  */
 final class SendLeaveRequestUpdatedEmail
 {
@@ -43,9 +44,9 @@ final class SendLeaveRequestUpdatedEmail
             'approvals.approverEmployee.user:id,email',
         ]);
 
-        $recipients = $this->resolveRecipients($template, $leaveRequest);
+        $pendingApproverEmails = $this->resolvePendingRequiredApproverEmails($leaveRequest);
 
-        if ($recipients['to'] === '') {
+        if ($pendingApproverEmails === []) {
             return;
         }
 
@@ -53,87 +54,100 @@ final class SendLeaveRequestUpdatedEmail
         $introMessage = trim($this->renderTemplate($template->body_html, $leaveRequest));
         $payload = $this->buildMailPayload($leaveRequest, $introMessage);
 
-        $mail = Mail::to($recipients['to']);
+        $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
+        $ccPreset = CommaSeparatedEmailList::parse($template->cc_preset);
+        $presetsApplied = false;
 
-        if ($recipients['cc'] !== []) {
-            $mail->cc($recipients['cc']);
+        foreach ($pendingApproverEmails as $approverEmail) {
+            $cc = [];
+
+            if (! $presetsApplied) {
+                $cc = collect([...$toPreset, ...$ccPreset])
+                    ->filter(fn (string $email) => $email !== '')
+                    ->filter(fn (string $email) => strcasecmp($email, $approverEmail) !== 0)
+                    ->unique(fn (string $email) => strtolower($email))
+                    ->values()
+                    ->all();
+                $presetsApplied = true;
+            }
+
+            $mail = Mail::to($approverEmail);
+
+            if ($cc !== []) {
+                $mail->cc($cc);
+            }
+
+            $mail->queue(new LeaveRequestSubmittedMail(
+                subjectLine: $subject,
+                organizationName: $payload['organizationName'],
+                introMessage: $payload['introMessage'],
+                employeeName: $payload['employeeName'],
+                employeeNo: $payload['employeeNo'],
+                departmentName: $payload['departmentName'],
+                managerName: $payload['managerName'],
+                leaveType: $payload['leaveType'],
+                leaveTypeColor: $payload['leaveTypeColor'],
+                startDate: $payload['startDate'],
+                endDate: $payload['endDate'],
+                totalDays: $payload['totalDays'],
+                reason: $payload['reason'],
+                requestUrl: $payload['requestUrl'],
+                includeCompanyFooter: $template->include_company_footer,
+            ));
         }
-
-        $mail->queue(new LeaveRequestSubmittedMail(
-            subjectLine: $subject,
-            organizationName: $payload['organizationName'],
-            introMessage: $payload['introMessage'],
-            employeeName: $payload['employeeName'],
-            employeeNo: $payload['employeeNo'],
-            departmentName: $payload['departmentName'],
-            managerName: $payload['managerName'],
-            leaveType: $payload['leaveType'],
-            leaveTypeColor: $payload['leaveTypeColor'],
-            startDate: $payload['startDate'],
-            endDate: $payload['endDate'],
-            totalDays: $payload['totalDays'],
-            reason: $payload['reason'],
-            requestUrl: $payload['requestUrl'],
-            includeCompanyFooter: $template->include_company_footer,
-        ));
     }
 
     /**
-     * @return array{to: string, cc: list<string>}
+     * @return list<string>
      */
-    private function resolveRecipients(EmailTemplate $template, LeaveRequest $leaveRequest): array
+    private function resolvePendingRequiredApproverEmails(LeaveRequest $leaveRequest): array
     {
-        $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
-        $ccPreset = CommaSeparatedEmailList::parse($template->cc_preset);
-        $pendingApproverEmail = $this->resolveFirstPendingApproverEmail($leaveRequest);
-
-        if ($pendingApproverEmail === '') {
-            return ['to' => '', 'cc' => []];
-        }
-
-        $cc = collect([...$toPreset, ...$ccPreset])
-            ->filter(fn (string $email) => $email !== '')
-            ->filter(fn (string $email) => strcasecmp($email, $pendingApproverEmail) !== 0)
-            ->unique(fn (string $email) => strtolower($email))
-            ->values()
-            ->all();
-
-        return [
-            'to' => $pendingApproverEmail,
-            'cc' => $cc,
-        ];
-    }
-
-    private function resolveFirstPendingApproverEmail(LeaveRequest $leaveRequest): string
-    {
+        /** @var Collection<int, LeaveRequestApproval> $pending */
         $pending = $leaveRequest->relationLoaded('approvals')
             ? $leaveRequest->approvals
                 ->sortBy('sequence')
-                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending)
+                ->filter(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending
+                    && (bool) $approval->is_required)
+                ->values()
             : LeaveRequestApproval::query()
                 ->where('company_id', $leaveRequest->company_id)
                 ->where('leave_request_id', $leaveRequest->id)
                 ->where('status', LeaveRequestApprovalStatus::Pending)
+                ->where('is_required', true)
                 ->orderBy('sequence')
                 ->with('approverEmployee.user:id,email')
-                ->first();
+                ->get();
 
-        if ($pending === null) {
-            return '';
+        $emails = [];
+        $seen = [];
+
+        foreach ($pending as $approval) {
+            $approval->loadMissing('approverEmployee.user:id,email');
+            $email = $this->employeeEmail($approval->approverEmployee);
+
+            if ($email === '') {
+                continue;
+            }
+
+            $normalized = strtolower($email);
+
+            if (isset($seen[$normalized])) {
+                continue;
+            }
+
+            $seen[$normalized] = true;
+            $emails[] = $email;
         }
 
-        $pending->loadMissing('approverEmployee.user:id,email');
-        $approver = $pending->approverEmployee;
-
-        if ($approver === null) {
-            return '';
-        }
-
-        return $this->employeeEmail($approver);
+        return $emails;
     }
 
-    private function employeeEmail(Employee $employee): string
+    private function employeeEmail(?Employee $employee): string
     {
+        if ($employee === null) {
+            return '';
+        }
+
         if (filled($employee->work_email)) {
             return (string) $employee->work_email;
         }
@@ -211,7 +225,8 @@ final class SendLeaveRequestUpdatedEmail
         $pending = $leaveRequest->relationLoaded('approvals')
             ? $leaveRequest->approvals
                 ->sortBy('sequence')
-                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending)
+                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending
+                    && (bool) $approval->is_required)
             : null;
 
         if ($pending?->approverEmployee !== null) {

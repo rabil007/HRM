@@ -177,6 +177,7 @@ export function LeaveApprovalPoliciesContent({
             description: form.data.description,
             is_default: form.data.is_default,
             status: form.data.status,
+            approval_mode: form.data.approval_mode,
             steps: form.data.steps.map(
                 ({ id, approver_type, approver_employee_id, is_required }) => {
                     const step: {
@@ -280,6 +281,7 @@ export function LeaveApprovalPoliciesContent({
                         <DataTableHeaderRow>
                             <DataTableHead className="pl-5">Name</DataTableHead>
                             <DataTableHead>Steps</DataTableHead>
+                            <DataTableHead>Mode</DataTableHead>
                             <DataTableHead>Departments</DataTableHead>
                             <DataTableHead>Default</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
@@ -308,6 +310,22 @@ export function LeaveApprovalPoliciesContent({
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {policy.steps.length}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div className="space-y-0.5">
+                                        <div className="text-sm font-medium">
+                                            {policy.approval_mode_label ??
+                                                (policy.approval_mode ===
+                                                'any_required'
+                                                    ? 'Any one required'
+                                                    : 'All required')}
+                                        </div>
+                                        {policy.approval_mode_helper ? (
+                                            <div className="line-clamp-2 text-xs text-muted-foreground">
+                                                {policy.approval_mode_helper}
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {policy.departments_count}

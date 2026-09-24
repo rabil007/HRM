@@ -4,6 +4,8 @@ export type LeaveApprovalApproverTypeValue =
     | 'hr_approver'
     | 'specific_employee';
 
+export type LeaveApprovalModeValue = 'all_required' | 'any_required';
+
 export type LeaveApprovalApproverTypeOption = {
     value: LeaveApprovalApproverTypeValue | string;
     label: string;
@@ -40,6 +42,9 @@ export type LeaveApprovalPolicy = {
     description: string | null;
     is_default: boolean;
     status: 'active' | 'inactive';
+    approval_mode: LeaveApprovalModeValue;
+    approval_mode_label?: string;
+    approval_mode_helper?: string;
     departments_count: number;
     steps: LeaveApprovalPolicyStep[];
     can_edit?: boolean;
@@ -63,6 +68,7 @@ export type LeaveApprovalPolicyFormData = {
     description: string;
     is_default: boolean;
     status: 'active' | 'inactive';
+    approval_mode: LeaveApprovalModeValue;
     steps: LeaveApprovalPolicyStepFormData[];
 };
 
@@ -86,6 +92,7 @@ export const defaultLeaveApprovalPolicyFormData =
         description: '',
         is_default: false,
         status: 'active',
+        approval_mode: 'all_required',
         steps: [defaultLeaveApprovalPolicyStepFormData()],
     });
 
@@ -97,6 +104,7 @@ export function leaveApprovalPolicyToFormData(
         description: policy.description ?? '',
         is_default: policy.is_default,
         status: policy.status,
+        approval_mode: policy.approval_mode ?? 'all_required',
         steps:
             policy.steps.length > 0
                 ? policy.steps.map((step) => ({
@@ -107,4 +115,12 @@ export function leaveApprovalPolicyToFormData(
                   }))
                 : [defaultLeaveApprovalPolicyStepFormData()],
     };
+}
+
+export function requiredStepHelperForMode(
+    mode: LeaveApprovalModeValue,
+): string {
+    return mode === 'any_required'
+        ? 'Can approve or reject immediately. Only one required approver needs to make the decision.'
+        : 'Must approve before the next required approver can act.';
 }

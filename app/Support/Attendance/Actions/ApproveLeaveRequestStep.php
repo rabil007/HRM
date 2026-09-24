@@ -2,6 +2,7 @@
 
 namespace App\Support\Attendance\Actions;
 
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
@@ -65,26 +66,16 @@ final class ApproveLeaveRequestStep
                 'comments' => filled($comments) ? trim($comments) : null,
             ])->save();
 
+            if ($leaveRequest->approvalMode() === LeaveApprovalMode::AnyRequired) {
+                $this->cancelOtherOpenRequiredSteps($leaveRequest, $companyId, (int) $pendingStep->id);
+
+                return $this->finalizeApproved($leaveRequest, $actor);
+            }
+
             $nextPending = $this->activateNextRequiredWaitingStep($leaveRequest, $companyId);
 
             if ($nextPending === null) {
-                $this->leaveBalances->approveLeaveRequest($leaveRequest);
-
-                $leaveRequest->forceFill([
-                    'status' => 'approved',
-                    'approved_by' => $actor->id,
-                    'decided_at' => now(),
-                    'rejection_reason' => null,
-                    'cancellation_reason' => null,
-                ])->save();
-
-                $fresh = $leaveRequest->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $leaveRequest;
-                $this->assertInvariant->forTerminalRequest($fresh, $fresh->approvals);
-
-                return [
-                    'leave_request' => $fresh,
-                    'notify' => 'decided',
-                ];
+                return $this->finalizeApproved($leaveRequest, $actor);
             }
 
             $fresh = $leaveRequest->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $leaveRequest;
@@ -114,6 +105,51 @@ final class ApproveLeaveRequestStep
         });
 
         return $fresh;
+    }
+
+    /**
+     * @return array{leave_request: LeaveRequest, notify: string}
+     */
+    private function finalizeApproved(LeaveRequest $leaveRequest, User $actor): array
+    {
+        $this->leaveBalances->approveLeaveRequest($leaveRequest);
+
+        $leaveRequest->forceFill([
+            'status' => 'approved',
+            'approved_by' => $actor->id,
+            'decided_at' => now(),
+            'rejection_reason' => null,
+            'cancellation_reason' => null,
+        ])->save();
+
+        $fresh = $leaveRequest->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $leaveRequest;
+        $this->assertInvariant->forTerminalRequest($fresh, $fresh->approvals);
+
+        return [
+            'leave_request' => $fresh,
+            'notify' => 'decided',
+        ];
+    }
+
+    private function cancelOtherOpenRequiredSteps(LeaveRequest $leaveRequest, int $companyId, int $excludeApprovalId): void
+    {
+        LeaveRequestApproval::query()
+            ->where('company_id', $companyId)
+            ->where('leave_request_id', $leaveRequest->id)
+            ->whereKeyNot($excludeApprovalId)
+            ->where('is_required', true)
+            ->whereIn('status', [
+                LeaveRequestApprovalStatus::Waiting->value,
+                LeaveRequestApprovalStatus::Pending->value,
+            ])
+            ->lockForUpdate()
+            ->get()
+            ->each(function (LeaveRequestApproval $step): void {
+                $step->forceFill([
+                    'status' => LeaveRequestApprovalStatus::Cancelled,
+                    'acted_at' => now(),
+                ])->save();
+            });
     }
 
     private function activateNextRequiredWaitingStep(LeaveRequest $leaveRequest, int $companyId): ?LeaveRequestApproval

@@ -2,6 +2,7 @@
 
 namespace App\Support\Attendance;
 
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
@@ -130,7 +131,8 @@ final class LeaveRequestAuthorization
                         ? $approval->status
                         : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
 
-                    return $status === LeaveRequestApprovalStatus::Pending
+                    return (bool) $approval->is_required
+                        && $status === LeaveRequestApprovalStatus::Pending
                         && (int) $approval->approver_user_id === (int) $user->id;
                 },
             );
@@ -189,6 +191,10 @@ final class LeaveRequestAuthorization
             return false;
         }
 
+        if ($leaveRequest->approvalMode() === LeaveApprovalMode::AnyRequired) {
+            return false;
+        }
+
         if (
             ! $user->can('attendance.leave-requests.view')
             || ! $user->can('attendance.leave-requests.view_all')
@@ -198,7 +204,7 @@ final class LeaveRequestAuthorization
         }
 
         $approvals = $this->approvalsFor($leaveRequest, $companyId);
-        $pendingRequired = $approvals->first(function (LeaveRequestApproval $approval): bool {
+        $pendingRequired = $approvals->filter(function (LeaveRequestApproval $approval): bool {
             if (! (bool) $approval->is_required) {
                 return false;
             }
@@ -210,7 +216,7 @@ final class LeaveRequestAuthorization
             return $status === LeaveRequestApprovalStatus::Pending;
         });
 
-        return $pendingRequired !== null;
+        return $pendingRequired->count() === 1;
     }
 
     public function assertCanReassignCurrentApproval(LeaveRequest $leaveRequest, ?User $user, int $companyId): void

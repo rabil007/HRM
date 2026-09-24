@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\LeaveApprovalApproverType;
+use App\Enums\LeaveApprovalMode;
 use App\Models\Company;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveApprovalPolicyStep;
@@ -27,9 +28,24 @@ class LeaveApprovalPolicyFactory extends Factory
             'description' => fake()->optional()->sentence(),
             'is_default' => false,
             'status' => 'active',
+            'approval_mode' => LeaveApprovalMode::AllRequired,
             'created_by' => null,
             'updated_by' => null,
         ];
+    }
+
+    public function anyRequired(): static
+    {
+        return $this->state(fn (): array => [
+            'approval_mode' => LeaveApprovalMode::AnyRequired,
+        ]);
+    }
+
+    public function allRequired(): static
+    {
+        return $this->state(fn (): array => [
+            'approval_mode' => LeaveApprovalMode::AllRequired,
+        ]);
     }
 
     public function default(): static
