@@ -6,6 +6,7 @@ import type {
     LeaveRequestFilters,
     LeaveRequestPermissions,
     LeaveRequestTypeOption,
+    LeaveTypeYearBalance,
 } from '@/features/attendance/leave-requests/types';
 import type { SavedView } from '@/lib/saved-views';
 import type { PaginationMeta } from '@/types/pagination';
@@ -20,6 +21,8 @@ export default function MyLeave({
     leave_types,
     linked_employee_id,
     linked_employee_attendance_leave_enabled = true,
+    leave_balances = [],
+    leave_balance_year = null,
     can,
     saved_views = [],
 }: {
@@ -38,6 +41,8 @@ export default function MyLeave({
     leave_types: LeaveRequestTypeOption[];
     linked_employee_id: number | null;
     linked_employee_attendance_leave_enabled?: boolean;
+    leave_balances?: LeaveTypeYearBalance[];
+    leave_balance_year?: number | null;
     can: LeaveRequestPermissions;
     saved_views?: SavedView[];
 }) {
@@ -56,6 +61,8 @@ export default function MyLeave({
                 linkedEmployeeAttendanceLeaveEnabled={
                     linked_employee_attendance_leave_enabled
                 }
+                leaveBalances={leave_balances}
+                leaveBalanceYear={leave_balance_year}
                 can={can}
                 saved_views={saved_views}
             />

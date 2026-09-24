@@ -32,11 +32,13 @@ use App\Support\Attendance\LeaveApprovalApproverDuplicates;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
+use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\Attendance\PresentLeaveApproverOption;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,6 +57,7 @@ class LeaveRequestController extends Controller
         private LeaveRequestVisibility $visibility,
         private LeaveRequestAuthorization $authorization,
         private PresentLeaveApproverOption $presentApproverOption,
+        private LeaveTypeYearBalance $leaveTypeYearBalance,
     ) {}
 
     public function index(): RedirectResponse
@@ -209,6 +212,18 @@ class LeaveRequestController extends Controller
         $canCreate = ($user?->can('attendance.leave-requests.create') ?? false)
             && ($canViewAll || $linkedEmployeeEligible);
 
+        $leaveBalanceYear = null;
+        $leaveBalances = [];
+
+        if ($listMode === 'mine' && $linkedEmployeeEligible && $linkedEmployeeId !== null) {
+            $leaveBalanceYear = (int) now(CompanyTimezone::forCompanyId($companyId))->year;
+            $leaveBalances = $this->leaveTypeYearBalance->forEmployee(
+                $companyId,
+                $linkedEmployeeId,
+                $leaveBalanceYear,
+            );
+        }
+
         return Inertia::render($inertiaPage, [
             'list_mode' => $listMode,
             'leave_requests' => $leaveRequests->items(),
@@ -243,6 +258,10 @@ class LeaveRequestController extends Controller
                 'view_all' => $canViewAll,
             ],
             'saved_views' => SavedViewsForPage::props($user, $companyId, $savedViewPage),
+            ...($listMode === 'mine' ? [
+                'leave_balances' => $leaveBalances,
+                'leave_balance_year' => $leaveBalanceYear,
+            ] : []),
         ]);
     }
 

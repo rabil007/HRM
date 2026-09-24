@@ -1,7 +1,8 @@
-import { Ban, CheckCircle2, Clock, ListChecks, XCircle } from 'lucide-react';
+import { Ban, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { LEAVE_REQUEST_STATUS_SUMMARY_LABELS } from '../lib/leave-request-status-summary';
 import type { LeaveRequestStatus } from '../types';
 
 export type LeaveRequestStatusCounts = {
@@ -12,30 +13,20 @@ export type LeaveRequestStatusCounts = {
     cancelled: number;
 };
 
+export { LEAVE_REQUEST_STATUS_SUMMARY_LABELS };
+
 type StatusFilterValue = '' | LeaveRequestStatus;
 
 const SUMMARY_ITEMS: {
-    value: StatusFilterValue;
-    label: string;
-    countKey: keyof LeaveRequestStatusCounts;
+    value: Exclude<StatusFilterValue, ''>;
+    label: (typeof LEAVE_REQUEST_STATUS_SUMMARY_LABELS)[number];
+    countKey: Exclude<keyof LeaveRequestStatusCounts, 'all'>;
     icon: LucideIcon;
     cardClass: string;
     activeClass: string;
     valueClass: string;
     iconClass: string;
 }[] = [
-    {
-        value: '',
-        label: 'All',
-        countKey: 'all',
-        icon: ListChecks,
-        cardClass:
-            'border-border hover:border-border dark:border-white/5 dark:hover:border-white/10',
-        activeClass:
-            'border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10',
-        valueClass: 'text-foreground',
-        iconClass: 'text-muted-foreground',
-    },
     {
         value: 'pending',
         label: 'Pending',
@@ -93,7 +84,7 @@ export function LeaveRequestSummaryCards({
     onSelect: (status: StatusFilterValue) => void;
 }) {
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = activeStatus === item.value;
                 const Icon = item.icon;
@@ -103,9 +94,13 @@ export function LeaveRequestSummaryCards({
                     <button
                         key={item.countKey}
                         type="button"
-                        onClick={() => onSelect(item.value)}
+                        onClick={() => onSelect(isActive ? '' : item.value)}
                         aria-pressed={isActive}
-                        aria-label={`Show ${item.label.toLowerCase()} leave requests`}
+                        aria-label={
+                            isActive
+                                ? `Clear ${item.label.toLowerCase()} filter and show all leave requests`
+                                : `Show ${item.label.toLowerCase()} leave requests`
+                        }
                         className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                     >
                         <Card
