@@ -513,6 +513,23 @@ describe('Report navigation permissions', () => {
             true,
         );
     });
+
+    it('gates Hotel Stays by reports.hotel_checkin_checkout.view', () => {
+        assert.equal(
+            isSidebarUrlVisible(
+                '/organization/reports/hotel-checkin-checkout',
+                ['crew_operations.overview.view'],
+            ),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible(
+                '/organization/reports/hotel-checkin-checkout',
+                ['reports.hotel_checkin_checkout.view'],
+            ),
+            true,
+        );
+    });
 });
 
 describe('Command palette and company switch', () => {

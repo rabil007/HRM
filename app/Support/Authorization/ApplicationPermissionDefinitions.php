@@ -1953,6 +1953,18 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to record or update previous leave days already used for visible employees in the active company.',
                 'group' => 'Reports',
             ],
+            323 => [
+                'name' => 'reports.hotel_checkin_checkout.export',
+                'label' => 'Export Hotel Check-In & Check-Out Report',
+                'description' => 'Allows the user to export crew hotel accommodation and stay history data for the active company.',
+                'group' => 'Reports',
+            ],
+            324 => [
+                'name' => 'reports.hotel_checkin_checkout.view',
+                'label' => 'View Hotel Check-In & Check-Out Report',
+                'description' => 'Allows the user to view the crew hotel check-in and check-out report for the active company.',
+                'group' => 'Reports',
+            ],
         ];
     }
 }

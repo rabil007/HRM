@@ -171,6 +171,7 @@ use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\HistoricalCrewAssignmentController;
+use App\Http\Controllers\Organization\HotelCheckInCheckoutReportController;
 use App\Http\Controllers\Organization\LeaveBalanceReportController;
 use App\Http\Controllers\Organization\LeaveReportController;
 use App\Http\Controllers\Organization\OrganizationBulkRecordController;
@@ -596,6 +597,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/reports/crew-movement-history/export', [CrewMovementHistoryController::class, 'export'])
         ->middleware('can:reports.crew_movement_history.export')
         ->name('organization.reports.crew-movement-history.export');
+
+    Route::get('organization/reports/hotel-checkin-checkout', [HotelCheckInCheckoutReportController::class, 'index'])
+        ->middleware('can:reports.hotel_checkin_checkout.view')
+        ->name('organization.reports.hotel-checkin-checkout.index');
+    Route::get('organization/reports/hotel-checkin-checkout/export', [HotelCheckInCheckoutReportController::class, 'export'])
+        ->middleware('can:reports.hotel_checkin_checkout.export')
+        ->name('organization.reports.hotel-checkin-checkout.export');
 
     Route::get('organization/reports/leave', [LeaveReportController::class, 'index'])
         ->middleware('can:reports.leave.view')

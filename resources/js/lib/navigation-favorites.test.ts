@@ -145,6 +145,7 @@ describe('Attendance and Crew Operations report destinations', () => {
             'Vessels',
             'Movement Corrections',
             'Crew Movement History',
+            'Hotel Stays',
             'Settings',
         ]);
 
@@ -165,12 +166,20 @@ describe('Attendance and Crew Operations report destinations', () => {
             (destination) =>
                 destination.key === 'reports.crew-movement-history',
         );
+        const hotel = NAVIGATION_DESTINATIONS.find(
+            (destination) =>
+                destination.key === 'reports.hotel-checkin-checkout',
+        );
 
         assert.equal(leave?.href, '/organization/reports/leave');
         assert.equal(balance?.href, '/organization/reports/leave-balances');
         assert.equal(
             history?.href,
             '/organization/reports/crew-movement-history',
+        );
+        assert.equal(
+            hotel?.href,
+            '/organization/reports/hotel-checkin-checkout',
         );
     });
 });

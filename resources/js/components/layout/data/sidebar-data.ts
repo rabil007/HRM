@@ -34,6 +34,7 @@ import {
     Folder,
     ShieldCheck,
     Database,
+    Hotel,
     ListTodo,
     ScrollText,
 } from 'lucide-react';
@@ -60,6 +61,7 @@ import {
     configuration as documentsConfiguration,
 } from '@/routes/organization/documents';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
+import { index as hotelCheckInCheckout } from '@/routes/organization/reports/hotel-checkin-checkout';
 import { index as leaveReport } from '@/routes/organization/reports/leave';
 import type { SidebarData } from '../types';
 
@@ -238,6 +240,11 @@ const baseSidebarData: SidebarData = {
                     title: 'Crew Movement History',
                     url: crewMovementHistory.url(),
                     icon: BarChart3,
+                },
+                {
+                    title: 'Hotel Stays',
+                    url: hotelCheckInCheckout.url(),
+                    icon: Hotel,
                 },
                 {
                     title: 'Settings',
