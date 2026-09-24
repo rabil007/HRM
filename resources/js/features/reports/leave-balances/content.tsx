@@ -13,7 +13,7 @@ import {
     countSheetFilters,
 } from './leave-balance-active-filters';
 import { LeaveBalanceReportTable } from './report-table';
-import { LeaveBalanceReportSummaryCards } from './summary-cards';
+import { LeaveBalanceLeaveTypeFilterCards } from './summary-cards';
 import type { LeaveBalanceReportProps } from './types';
 import { useLeaveBalanceReportFilters } from './use-leave-balance-report-filters';
 import { LeaveBalanceYearFilter } from './year-filter';
@@ -22,7 +22,6 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
     const {
         balances,
         pagination,
-        summary,
         filters,
         filter_options: options,
         can,
@@ -68,7 +67,11 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
                 }
             />
 
-            <LeaveBalanceReportSummaryCards summary={summary} />
+            <LeaveBalanceLeaveTypeFilterCards
+                leaveTypes={options.leave_types}
+                selectedId={filters.leave_type_id}
+                onSelect={(leave_type_id) => controls.apply({ leave_type_id })}
+            />
 
             <div className="mt-6 space-y-3">
                 <SearchBar
@@ -101,28 +104,6 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
                                         value={String(department.id)}
                                     >
                                         {department.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                            <AppSelect
-                                value={filters.leave_type_id}
-                                onValueChange={(value) =>
-                                    controls.apply({ leave_type_id: value })
-                                }
-                                variant="dark"
-                                placeholder="All leave types"
-                                className="h-11 w-[12rem]"
-                                searchPlaceholder="Search leave types..."
-                            >
-                                <AppSelectItem value="">
-                                    All leave types
-                                </AppSelectItem>
-                                {options.leave_types.map((leaveType) => (
-                                    <AppSelectItem
-                                        key={leaveType.id}
-                                        value={String(leaveType.id)}
-                                    >
-                                        {leaveType.name}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>

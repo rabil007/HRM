@@ -41,13 +41,6 @@ function resolveLabel(
         );
     }
 
-    if (key === 'leave_type_id') {
-        return (
-            options.leave_types.find((option) => String(option.id) === value)
-                ?.name ?? value
-        );
-    }
-
     if (key === 'category') {
         return (
             options.categories.find((option) => option.value === value)
@@ -93,14 +86,6 @@ function buildActiveFilterChips({
             key: 'department_id',
             label: `Department: ${resolveLabel('department_id', filters.department_id, options)}`,
             onClear: () => onApply({ department_id: '' }),
-        });
-    }
-
-    if (filters.leave_type_id !== '') {
-        chips.push({
-            key: 'leave_type_id',
-            label: `Leave type: ${resolveLabel('leave_type_id', filters.leave_type_id, options)}`,
-            onClear: () => onApply({ leave_type_id: '' }),
         });
     }
 

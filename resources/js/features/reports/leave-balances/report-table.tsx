@@ -63,6 +63,7 @@ function categoryBadgeClass(category: string | null): string {
 
 function EmployeeCell({ row }: { row: LeaveBalanceReportRow }) {
     const name = row.employee.name;
+    const departmentName = row.department?.name ?? null;
 
     const profileContent = (
         <>
@@ -91,6 +92,9 @@ function EmployeeCell({ row }: { row: LeaveBalanceReportRow }) {
                         </Badge>
                     ) : null}
                 </div>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                    {departmentName ?? '—'}
+                </span>
             </div>
         </>
     );
@@ -146,11 +150,10 @@ export function LeaveBalanceReportTable({
     rows: LeaveBalanceReportRow[];
 }) {
     return (
-        <OrganizationDataTable minWidth="min-w-[1120px]" compact>
+        <OrganizationDataTable minWidth="min-w-[1000px]" compact>
             <TableHeader>
                 <TableRow>
                     <DataTableHead>Employee</DataTableHead>
-                    <DataTableHead>Department</DataTableHead>
                     <DataTableHead>Leave Type</DataTableHead>
                     <DataTableHead className="text-center">Year</DataTableHead>
                     <DataTableHead className="text-right">Base</DataTableHead>
@@ -177,11 +180,6 @@ export function LeaveBalanceReportTable({
                             className={`${dataTableCellClass()} ${dataTableCellPrimaryClass()}`}
                         >
                             <EmployeeCell row={row} />
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            <span className="text-muted-foreground">
-                                {row.department?.name ?? '—'}
-                            </span>
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
                             <LeaveTypeCell row={row} />
