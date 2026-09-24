@@ -7,6 +7,7 @@ use App\Models\CrewAssignment;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -59,11 +60,15 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             'Status',
             'Current Phase',
             'Source',
+            'Remarks',
             'Planned Arrival',
             'Planned Join',
             'Planned Sign-Off',
+            'Planned Sign-Off Source',
+            'Tour of Duty Days',
+            'Planned Sign-Off Override Reason',
             'Planned Travel Home',
-            'Actual Arrival',
+            'Actual Arrival Date/Time',
         ];
 
         if ($this->includesLegacyColumns) {
@@ -79,27 +84,55 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             'Training Periods',
             'Training Days',
             'Training Details',
+            'Training Provider',
+            'Training Course',
+            'Training Employee Linked',
             'On-Vessel Periods',
-            'Actual Join',
-            'Actual Disembarkation',
+            'Actual Join Date/Time',
+            'Actual Disembarkation Date/Time',
             'Vessel Days',
             'Demob Standby Periods',
             'Demob Standby From',
             'Demob Standby To',
             'Demob Standby Days',
             'Home / Redeploy Periods',
+            'Actual Return Home Date/Time',
             'Home / Redeploy From',
             'Home / Redeploy To',
             'Home / Redeploy Days',
-            'Assignment Started',
-            'Assignment Closed',
+            'Phase Timeline',
+            'Pre-Join Accommodation',
+            'Pre-Join Hotel',
+            'Pre-Join Room Type',
+            'Pre-Join Check-In',
+            'Pre-Join Check-Out',
+            'Post-Sign-Off Accommodation',
+            'Post-Sign-Off Hotel',
+            'Post-Sign-Off Room Type',
+            'Post-Sign-Off Check-In',
+            'Post-Sign-Off Check-Out',
+            'Accommodation History',
+            'Previous Assignment',
+            'Previous Vessel',
+            'Movement Relationship',
+            'Next Assignment(s)',
+            'Next Vessel(s)',
+            'Days Onboard',
+            'Remaining Tour Days',
+            'Tour Status',
+            'Assignment Started Date/Time',
+            'Assignment Closed Date/Time',
             'Total Assignment Days',
-            'Remarks',
+            'Sign-On Standby Days',
+            'On Vessel Days',
+            'Sign-Off Standby Days',
+            'Total Movement Calendar Days',
             'Needs Attention',
             'Warnings',
             'Has Corrections',
             'Correction Count',
             'Last Corrected At',
+            'Pending Correction',
         ]);
     }
 
@@ -110,6 +143,12 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
     public function map($assignment): array
     {
         $row = CrewMovementHistoryPresenter::toArray($assignment);
+        $tour = $row['tour'] ?? [];
+        $linked = $row['linked_assignments'] ?? ['previous' => null, 'next' => []];
+        $stays = collect($row['accommodation_stays'] ?? []);
+        $preJoin = $stays->where('stay_type', 'pre_join')->values();
+        $postSignoff = $stays->where('stay_type', 'post_signoff')->values();
+        $trainingHistory = $row['training']['history'] ?? [];
 
         $mapped = [
             $row['assignment_no'],
@@ -121,11 +160,15 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             $row['status_label'],
             $row['current_phase']['label'] ?? null,
             $row['source_label'],
+            $row['remarks'],
             $this->date($row['planned_arrival']),
             $this->date($row['planned_join']),
             $this->date($row['planned_signoff']),
+            $tour['planned_signoff_source_label'] ?? $row['planned_signoff_origin_label'] ?? null,
+            $tour['tour_of_duty_days'] ?? null,
+            $tour['planned_signoff_override_reason'] ?? null,
             $this->date($row['planned_travel_home']),
-            $this->date($row['actual_arrival']),
+            $this->dateTime($row['actual_arrival_at'] ?? null),
         ];
 
         if ($this->includesLegacyColumns) {
@@ -141,27 +184,57 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             $this->periods($row['training']['periods']),
             $row['training']['total_days'],
             implode('; ', $row['training']['details']),
+            collect($trainingHistory)->pluck('provider')->filter()->implode('; '),
+            collect($trainingHistory)->pluck('course')->filter()->implode('; '),
+            collect($trainingHistory)
+                ->map(fn (array $item): string => ($item['employee_training_linked'] ?? false) ? 'Yes' : 'No')
+                ->implode('; '),
             $this->periods($row['on_vessel']['periods']),
-            $this->date($row['on_vessel']['actual_join']),
-            $this->end($row['on_vessel']),
+            $this->dateTime($row['on_vessel']['actual_join_at'] ?? null),
+            $this->dateTime($row['on_vessel']['actual_disembarkation_at'] ?? null),
             $row['on_vessel']['total_days'],
             $this->periods($row['demob_standby']['periods']),
             $this->date($row['demob_standby']['from']),
             $this->end($row['demob_standby']),
             $row['demob_standby']['total_days'],
             $this->periods($row['home_redeploy']['periods']),
+            $this->dateTime($row['home_redeploy']['actual_return_home_at'] ?? null),
             $this->date($row['home_redeploy']['from']),
             $this->end($row['home_redeploy']),
             $row['home_redeploy']['total_days'],
-            $this->date($row['assignment_started']),
-            $this->date($row['assignment_closed']),
+            $this->phaseTimeline($row['phase_timeline'] ?? []),
+            $this->stayStatuses($preJoin),
+            $this->stayField($preJoin, 'hotel_name'),
+            $this->stayField($preJoin, 'room_type_name'),
+            $this->stayField($preJoin, 'check_in_date', date: true),
+            $this->stayField($preJoin, 'check_out_date', date: true),
+            $this->stayStatuses($postSignoff),
+            $this->stayField($postSignoff, 'hotel_name'),
+            $this->stayField($postSignoff, 'room_type_name'),
+            $this->stayField($postSignoff, 'check_in_date', date: true),
+            $this->stayField($postSignoff, 'check_out_date', date: true),
+            $this->accommodationHistory($stays->all()),
+            $linked['previous']['assignment_no'] ?? null,
+            $linked['previous']['vessel']['name'] ?? null,
+            $linked['relationship_label'] ?? null,
+            collect($linked['next'] ?? [])->pluck('assignment_no')->implode('; '),
+            collect($linked['next'] ?? [])->pluck('vessel')->pluck('name')->filter()->implode('; '),
+            $tour['days_onboard'] ?? null,
+            $tour['remaining_tour_days'] ?? null,
+            $tour['tour_status_label'] ?? null,
+            $this->dateTime($row['assignment_started_at'] ?? null),
+            $this->dateTime($row['assignment_closed_at'] ?? null),
             $row['total_assignment_days'],
-            $row['remarks'],
+            $row['payroll_days']['sign_on_standby']['total_days'] ?? 0,
+            $row['payroll_days']['onsite']['total_days'] ?? 0,
+            $row['payroll_days']['sign_off_standby']['total_days'] ?? 0,
+            $row['payroll_days']['total_days'] ?? 0,
             $row['needs_attention'] ? 'Yes' : 'No',
             implode('; ', $row['warnings']),
             ($row['has_corrections'] ?? false) ? 'Yes' : 'No',
             $row['correction_count'] ?? 0,
             $this->date($row['last_corrected_at'] ?? null),
+            ($row['has_pending_corrections'] ?? false) ? 'Yes' : 'No',
         ]);
     }
 
@@ -203,14 +276,95 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
     }
 
     /**
-     * @param  list<array{start: string|null, end: string|null, status: string}>  $periods
+     * @param  list<array{start?: string|null, start_at?: string|null, end?: string|null, end_at?: string|null, status: string}>  $periods
      */
     private function periods(array $periods): string
     {
         return collect($periods)
-            ->map(fn (array $period): string => $this->date($period['start']).' → '.(
-                $period['status'] === 'active' ? 'Ongoing' : $this->date($period['end'])
-            ))
+            ->map(function (array $period): string {
+                $start = $this->dateTime($period['start_at'] ?? null);
+                if ($start === 'Not recorded') {
+                    $start = $this->date($period['start'] ?? null);
+                }
+
+                $end = $period['status'] === 'active'
+                    ? 'Ongoing'
+                    : $this->dateTime($period['end_at'] ?? null);
+
+                if ($end === 'Not recorded') {
+                    $end = $this->date($period['end'] ?? null);
+                }
+
+                return $start.' → '.$end;
+            })
+            ->implode('; ');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $timeline
+     */
+    private function phaseTimeline(array $timeline): string
+    {
+        return collect($timeline)
+            ->map(function (array $phase): string {
+                $label = strtoupper((string) ($phase['phase_code'] ?? '')).' #'.($phase['occurrence'] ?? '');
+                $start = $this->dateTime($phase['actual_start_at'] ?? null);
+                $end = ($phase['status'] ?? null) === 'active'
+                    ? 'Ongoing'
+                    : $this->dateTime($phase['actual_end_at'] ?? null);
+
+                return $label.' '.$start.' → '.$end;
+            })
+            ->implode('; ');
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $stays
+     */
+    private function stayStatuses($stays): string
+    {
+        return $stays
+            ->map(fn (array $stay): string => (string) ($stay['accommodation_status_label'] ?? $stay['accommodation_status'] ?? ''))
+            ->filter()
+            ->implode('; ');
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $stays
+     */
+    private function stayField($stays, string $key, bool $date = false): string
+    {
+        return $stays
+            ->map(function (array $stay) use ($key, $date): string {
+                $value = $stay[$key] ?? null;
+
+                if ($value === null || $value === '') {
+                    return '';
+                }
+
+                return $date ? $this->date((string) $value) : (string) $value;
+            })
+            ->filter()
+            ->implode('; ');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $stays
+     */
+    private function accommodationHistory(array $stays): string
+    {
+        return collect($stays)
+            ->map(function (array $stay): string {
+                $parts = array_filter([
+                    $stay['stay_type_label'] ?? null,
+                    $stay['accommodation_status_label'] ?? null,
+                    $stay['hotel_name'] ?? null,
+                    isset($stay['check_in_date']) ? 'in '.$this->date($stay['check_in_date']) : null,
+                    isset($stay['check_out_date']) ? 'out '.$this->date($stay['check_out_date']) : null,
+                ]);
+
+                return implode(' · ', $parts);
+            })
             ->implode('; ');
     }
 
@@ -226,6 +380,21 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
 
     private function date(?string $date): string
     {
-        return $date === null ? 'Not recorded' : CarbonImmutable::parse($date)->format('d M Y');
+        return $date === null || $date === '' ? 'Not recorded' : CarbonImmutable::parse($date)->format('d M Y');
+    }
+
+    private function dateTime(?string $dateTime): string
+    {
+        if ($dateTime === null || $dateTime === '') {
+            return 'Not recorded';
+        }
+
+        $parsed = CarbonImmutable::parse($dateTime);
+
+        if ($parsed->format('H:i:s') === '00:00:00' && ! str_contains($dateTime, ' ')) {
+            return $parsed->format('d M Y');
+        }
+
+        return $parsed->format('d M Y h:i A');
     }
 }

@@ -1,11 +1,19 @@
 <?php
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewPlannedSignoffSource;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
+use App\Models\EmployeeTraining;
+use App\Models\Hotel;
+use App\Models\RoomType;
+use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use Carbon\CarbonImmutable;
 
@@ -308,4 +316,158 @@ test('modern assignments without legacy phases do not expose legacy placeholders
         ->and($row['ready_to_join']['periods'])->toBe([])
         ->and($row['planned_arrival'])->toBe('2026-08-20')
         ->and($row['actual_arrival'])->toBe('2026-08-12');
+});
+
+test('it exposes tour sign-off override exact timestamps accommodation and linked transfer', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-24 12:00:00', 'Asia/Dubai'));
+
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'Asia/Dubai']);
+    $previousVessel = Vessel::factory()->create(['company_id' => $company->id, 'name' => 'Vessel A']);
+    $nextVessel = Vessel::factory()->create(['company_id' => $company->id, 'name' => 'Vessel B']);
+
+    $source = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-2026-000041',
+            'rank_id' => $rank->id,
+            'vessel_id' => $previousVessel->id,
+            'source' => 'manual',
+            'started_at' => '2026-08-01 06:00:00',
+            'closed_at' => '2026-09-24 06:30:00',
+        ]);
+
+    $destination = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-2026-000042',
+            'rank_id' => $rank->id,
+            'vessel_id' => $nextVessel->id,
+            'source' => 'vessel_transfer',
+            'previous_assignment_id' => $source->id,
+            'tour_of_duty_days' => 60,
+            'planned_signoff_at' => '2026-11-15',
+            'planned_signoff_source' => CrewPlannedSignoffSource::ManualOverride,
+            'planned_signoff_override_reason' => 'Client requested two-week extension',
+            'started_at' => '2026-09-24 06:30:00',
+        ]);
+
+    $p4 = CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-09-24 07:30:00',
+        'actual_end_at' => null,
+    ]);
+    $destination->update(['current_phase_id' => $p4->id]);
+
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Royal Rose']);
+    $roomType = RoomType::factory()->create(['company_id' => $company->id, 'hotel_id' => $hotel->id, 'name' => 'Deluxe']);
+
+    CrewAccommodationStay::factory()->create([
+        'crew_assignment_id' => $destination->id,
+        'company_id' => $company->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'hotel_id' => $hotel->id,
+        'room_type_id' => $roomType->id,
+        'check_in_date' => '2026-09-10',
+        'check_out_date' => '2026-09-14',
+    ]);
+
+    CrewAccommodationStay::factory()->create([
+        'crew_assignment_id' => $destination->id,
+        'company_id' => $company->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::NoAccommodation,
+    ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $destination->fresh([
+            'company',
+            'employee',
+            'rank',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+            'accommodationStays.hotel',
+            'accommodationStays.roomType',
+            'accommodationStays.startedFromPhase',
+            'previousAssignment.vessel',
+            'previousAssignment.rank',
+            'previousAssignment.client',
+            'previousAssignment.currentPhase',
+            'nextAssignments',
+        ]),
+    );
+
+    expect($row['on_vessel']['actual_join_at'])->toBe('2026-09-24 07:30:00')
+        ->and($row['tour']['tour_of_duty_days'])->toBe(60)
+        ->and($row['tour']['planned_signoff_source'])->toBe('manual_override')
+        ->and($row['tour']['planned_signoff_override_reason'])->toBe('Client requested two-week extension')
+        ->and($row['accommodation_stays'])->toHaveCount(2)
+        ->and(collect($row['accommodation_stays'])->pluck('accommodation_status')->all())->toContain('hotel', 'no_accommodation')
+        ->and($row['linked_assignments']['previous']['assignment_no'])->toBe('CA-2026-000041')
+        ->and($row['linked_assignments']['previous']['vessel']['name'])->toBe('Vessel A')
+        ->and($row['source'])->toBe('vessel_transfer')
+        ->and($row['company_timezone'])->toBe($company->timezone);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('it reports repeated training history with employee training link status', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
+
+    $first = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'planned_start_at' => '2026-09-14 08:00:00',
+        'planned_end_at' => '2026-09-16 17:00:00',
+        'actual_start_at' => '2026-09-14 08:00:00',
+        'actual_end_at' => '2026-09-16 16:30:00',
+        'details' => ['provider' => 'ABC Training Centre', 'course' => 'BOSIET'],
+        'remarks' => 'Refresher required by client',
+    ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-20 08:00:00',
+        'actual_end_at' => '2026-09-21 17:00:00',
+        'details' => ['provider' => 'XYZ Academy', 'course' => 'HUET'],
+    ]);
+
+    EmployeeTraining::factory()
+        ->forEmployee($employee)
+        ->create([
+            'source_crew_assignment_phase_id' => $first->id,
+        ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh([
+            'company',
+            'employee',
+            'rank',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases.employeeTraining.course',
+        ]),
+    );
+
+    expect($row['training']['history'])->toHaveCount(2)
+        ->and($row['training']['history'][0]['provider'])->toBe('ABC Training Centre')
+        ->and($row['training']['history'][0]['course'])->toBe('BOSIET')
+        ->and($row['training']['history'][0]['remarks'])->toBe('Refresher required by client')
+        ->and($row['training']['history'][0]['employee_training_linked'])->toBeTrue()
+        ->and($row['training']['history'][1]['employee_training_linked'])->toBeFalse()
+        ->and($row['phase_timeline'])->toHaveCount(2)
+        ->and($row['phase_timeline'][0]['occurrence'])->toBe(1)
+        ->and($row['phase_timeline'][1]['occurrence'])->toBe(2);
 });

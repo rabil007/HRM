@@ -2,7 +2,6 @@
 
 namespace App\Support\Reports;
 
-use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
 use App\Models\Client;
@@ -11,8 +10,9 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
+use App\Support\CrewMovements\CrewMovementAttentionQuery;
+use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
-use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -81,7 +81,11 @@ final class CrewMovementHistoryQuery
             'on_vessel' => (clone $query)
                 ->whereHas('currentPhase', fn (Builder $phaseQuery) => $phaseQuery->where('phase_code', CrewPhaseCode::OnVessel))
                 ->count(),
-            'needs_attention' => $this->applyNeedsAttention((clone $query))->count(),
+            // Authoritative CrewMovementAttentionQuery — same rules as row warnings.
+            'needs_attention' => CrewMovementAttentionQuery::applyFilter(
+                (clone $query),
+                $this->companyId,
+            )->count(),
         ];
     }
 
@@ -106,6 +110,8 @@ final class CrewMovementHistoryQuery
                 'client:id,name',
                 'currentPhase:id,crew_assignment_id,phase_code,status,actual_start_at,actual_end_at',
                 'phases:id,company_id,crew_assignment_id,phase_code,sequence,status,planned_start_at,planned_end_at,actual_start_at,actual_end_at,details,remarks',
+                'phases.employeeTraining:id,company_id,source_crew_assignment_phase_id,course_id',
+                'phases.employeeTraining.course:id,name',
                 'corrections' => fn ($query) => $query
                     ->select([
                         'id',
@@ -119,6 +125,33 @@ final class CrewMovementHistoryQuery
                         CrewMovementCorrectionStatus::Approved,
                         CrewMovementCorrectionStatus::Pending,
                     ]),
+                'accommodationStays' => fn ($query) => $query
+                    ->select([
+                        'id',
+                        'company_id',
+                        'crew_assignment_id',
+                        'hotel_id',
+                        'room_type_id',
+                        'stay_type',
+                        'accommodation_status',
+                        'check_in_date',
+                        'check_out_date',
+                        'started_from_phase_id',
+                    ])
+                    ->orderBy('id'),
+                'accommodationStays.hotel:id,name',
+                'accommodationStays.roomType:id,name',
+                'accommodationStays.startedFromPhase:id,phase_code',
+                'previousAssignment:id,company_id,assignment_no,source,status,vessel_id,rank_id,client_id,started_at,closed_at,current_phase_id',
+                'previousAssignment.vessel:id,name',
+                'previousAssignment.rank:id,name',
+                'previousAssignment.client:id,name',
+                'previousAssignment.currentPhase:id,phase_code',
+                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,source,status,vessel_id,rank_id,client_id,started_at,closed_at,current_phase_id',
+                'nextAssignments.vessel:id,name',
+                'nextAssignments.rank:id,name',
+                'nextAssignments.client:id,name',
+                'nextAssignments.currentPhase:id,phase_code',
             ]);
         }
 
@@ -133,7 +166,28 @@ final class CrewMovementHistoryQuery
                         ->orWhereHas('employee', fn (Builder $employee) => $employee
                             ->where('name', 'like', $like)
                             ->orWhere('employee_no', 'like', $like))
-                        ->orWhereHas('vessel', fn (Builder $vessel) => $vessel->where('name', 'like', $like));
+                        ->orWhereHas('vessel', fn (Builder $vessel) => $vessel->where('name', 'like', $like))
+                        ->orWhereHas('client', fn (Builder $client) => $client->where('name', 'like', $like))
+                        ->orWhereHas('rank', fn (Builder $rank) => $rank->where('name', 'like', $like))
+                        ->orWhereHas('previousAssignment', fn (Builder $previous) => $previous
+                            ->where('company_id', $this->companyId)
+                            ->where('assignment_no', 'like', $like))
+                        ->orWhereHas('nextAssignments', fn (Builder $next) => $next
+                            ->where('company_id', $this->companyId)
+                            ->where('assignment_no', 'like', $like))
+                        ->orWhereHas('accommodationStays.hotel', fn (Builder $hotel) => $hotel
+                            ->where('company_id', $this->companyId)
+                            ->where('name', 'like', $like))
+                        ->orWhereHas('accommodationStays.roomType', fn (Builder $roomType) => $roomType
+                            ->where('name', 'like', $like))
+                        ->orWhereHas('phases', function (Builder $phase) use ($like): void {
+                            $phase->where('phase_code', CrewPhaseCode::Training)
+                                ->where(function (Builder $training) use ($like): void {
+                                    $training
+                                        ->where('details->provider', 'like', $like)
+                                        ->orWhere('details->course', 'like', $like);
+                                });
+                        });
                 });
             })
             ->when($this->filters->status !== '', fn (Builder $inner) => $inner->where('crew_assignments.status', $this->filters->status))
@@ -145,8 +199,12 @@ final class CrewMovementHistoryQuery
             ->when($this->filters->rankId !== '', fn (Builder $inner) => $inner->where('crew_assignments.rank_id', $this->filters->rankId))
             ->when($this->filters->clientId !== '', fn (Builder $inner) => $inner->where('crew_assignments.client_id', $this->filters->clientId))
             ->when($this->filters->source !== '', fn (Builder $inner) => $inner->where('crew_assignments.source', $this->filters->source))
+            ->when($this->filters->plannedArrivalFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_arrival_at', '>=', $this->filters->plannedArrivalFrom))
+            ->when($this->filters->plannedArrivalTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_arrival_at', '<=', $this->filters->plannedArrivalTo))
             ->when($this->filters->plannedJoinFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_join_at', '>=', $this->filters->plannedJoinFrom))
             ->when($this->filters->plannedJoinTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_join_at', '<=', $this->filters->plannedJoinTo))
+            ->when($this->filters->plannedSignoffFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_signoff_at', '>=', $this->filters->plannedSignoffFrom))
+            ->when($this->filters->plannedSignoffTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_signoff_at', '<=', $this->filters->plannedSignoffTo))
             ->when($this->filters->assignmentStartedFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.started_at', '>=', $this->filters->assignmentStartedFrom))
             ->when($this->filters->assignmentStartedTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.started_at', '<=', $this->filters->assignmentStartedTo))
             ->when($this->filters->assignmentClosedFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.closed_at', '>=', $this->filters->assignmentClosedFrom))
@@ -160,10 +218,15 @@ final class CrewMovementHistoryQuery
                 fn (Builder $correction) => $correction->where('status', CrewMovementCorrectionStatus::Pending),
             ));
 
-        $this->applyOnVesselDateFilters($query);
+        $this->applyMovementDateFilters($query);
+        $this->applyAccommodationFilters($query);
+
+        if ($this->filters->tourStatus !== '') {
+            (new CrewTourStatusQuery)->applyFilter($query, $this->filters->tourStatus, $this->companyId);
+        }
 
         if ($this->filters->needsAttention === '1') {
-            $this->applyNeedsAttention($query);
+            CrewMovementAttentionQuery::applyFilter($query, $this->companyId);
         }
 
         return $query;
@@ -172,9 +235,21 @@ final class CrewMovementHistoryQuery
     /**
      * @param  Builder<CrewAssignment>  $query
      */
-    private function applyOnVesselDateFilters(Builder $query): void
+    private function applyMovementDateFilters(Builder $query): void
     {
         $query
+            ->when($this->filters->actualArrivalFrom !== '', fn (Builder $inner) => $inner->whereHas(
+                'phases',
+                fn (Builder $phase) => $phase
+                    ->where('phase_code', CrewPhaseCode::JoinStandby)
+                    ->whereDate('actual_start_at', '>=', $this->filters->actualArrivalFrom),
+            ))
+            ->when($this->filters->actualArrivalTo !== '', fn (Builder $inner) => $inner->whereHas(
+                'phases',
+                fn (Builder $phase) => $phase
+                    ->where('phase_code', CrewPhaseCode::JoinStandby)
+                    ->whereDate('actual_start_at', '<=', $this->filters->actualArrivalTo),
+            ))
             ->when($this->filters->actualJoinFrom !== '', fn (Builder $inner) => $inner->whereHas(
                 'phases',
                 fn (Builder $phase) => $phase
@@ -203,51 +278,28 @@ final class CrewMovementHistoryQuery
 
     /**
      * @param  Builder<CrewAssignment>  $query
-     * @return Builder<CrewAssignment>
      */
-    private function applyNeedsAttention(Builder $query): Builder
+    private function applyAccommodationFilters(Builder $query): void
     {
-        $today = CarbonImmutable::today($this->timezone);
-        $draftStale = $today->subDays(7)->endOfDay()->utc();
-        $phaseStale = $today->subDays(14)->endOfDay()->utc();
-
-        return $query->where(function (Builder $attention) use ($today, $draftStale, $phaseStale): void {
-            $attention
-                ->where(function (Builder $draft) use ($draftStale): void {
-                    $draft->where('crew_assignments.status', CrewAssignmentStatus::Draft)
-                        ->where('crew_assignments.created_at', '<=', $draftStale);
-                })
-                ->orWhere(function (Builder $missingPhase): void {
-                    $missingPhase->where('crew_assignments.status', CrewAssignmentStatus::Active)
-                        ->whereNull('crew_assignments.current_phase_id');
-                })
-                ->orWhereHas('currentPhase', fn (Builder $phase) => $phase
-                    ->whereNotNull('actual_start_at')
-                    ->where('actual_start_at', '<', $phaseStale))
-                ->orWhere(function (Builder $joinOverdue) use ($today): void {
-                    $joinOverdue
-                        ->where('crew_assignments.status', CrewAssignmentStatus::Active)
-                        ->whereDate('crew_assignments.planned_join_at', '<', $today->toDateString())
-                        ->whereDoesntHave('currentPhase', fn (Builder $phase) => $phase->where('phase_code', CrewPhaseCode::OnVessel));
-                })
-                ->orWhere(function (Builder $signoffOverdue) use ($today): void {
-                    $signoffOverdue
-                        ->whereDate('crew_assignments.planned_signoff_at', '<', $today->toDateString())
-                        ->whereHas('currentPhase', fn (Builder $phase) => $phase->where('phase_code', CrewPhaseCode::OnVessel));
-                })
-                ->orWhere(function (Builder $missingPlacement): void {
-                    $missingPlacement
-                        ->where('crew_assignments.status', CrewAssignmentStatus::Active)
-                        ->where(function (Builder $missing): void {
-                            $missing->whereNull('crew_assignments.vessel_id')
-                                ->orWhereNull('crew_assignments.rank_id');
-                        })
-                        ->whereHas('currentPhase', fn (Builder $phase) => $phase->whereIn('phase_code', [
-                            CrewPhaseCode::ReadyToJoin,
-                            CrewPhaseCode::OnVessel,
-                        ]));
-                });
-        });
+        $query
+            ->when($this->filters->hotelId !== '', fn (Builder $inner) => $inner->whereHas(
+                'accommodationStays',
+                fn (Builder $stay) => $stay
+                    ->where('company_id', $this->companyId)
+                    ->where('hotel_id', $this->filters->hotelId),
+            ))
+            ->when($this->filters->accommodationStatus !== '', fn (Builder $inner) => $inner->whereHas(
+                'accommodationStays',
+                fn (Builder $stay) => $stay
+                    ->where('company_id', $this->companyId)
+                    ->where('accommodation_status', $this->filters->accommodationStatus),
+            ))
+            ->when($this->filters->stayType !== '', fn (Builder $inner) => $inner->whereHas(
+                'accommodationStays',
+                fn (Builder $stay) => $stay
+                    ->where('company_id', $this->companyId)
+                    ->where('stay_type', $this->filters->stayType),
+            ));
     }
 
     /**

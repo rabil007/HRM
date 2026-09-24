@@ -1,10 +1,16 @@
 <?php
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewPlannedSignoffSource;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\Hotel;
+use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryQuery;
 use Carbon\CarbonImmutable;
@@ -271,5 +277,98 @@ test('report paginates one thousand assignments without per row queries', functi
 
     expect($paginator->total())->toBe(1000)
         ->and($paginator->items())->toHaveCount(25)
-        ->and(count(DB::getQueryLog()))->toBeLessThanOrEqual(10);
+        // Count includes pagination + constant eager loads for phases, stays,
+        // linked assignments, training, and corrections (no per-row queries).
+        ->and(count(DB::getQueryLog()))->toBeLessThanOrEqual(30);
+});
+
+test('needs attention uses authoritative attention query not stale p4 threshold', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-24 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = authorizeCrewMovementHistoryReport();
+
+    $staleP4 = CrewAssignment::factory()->forEmployee($employee)->active()->create([
+        'assignment_no' => 'CA-STALE-P4',
+        'rank_id' => $rank->id,
+        'vessel_id' => Vessel::factory()->create(['company_id' => $company->id])->id,
+        'tour_of_duty_days' => 90,
+        'planned_signoff_at' => now($company->timezone)->addDays(45)->toDateString(),
+        'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty,
+    ]);
+    $phase = CrewAssignmentPhase::factory()->forAssignment($staleP4)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now()->subDays(20),
+        'actual_end_at' => null,
+    ]);
+    $staleP4->update(['current_phase_id' => $phase->id]);
+
+    $tourDue = CrewAssignment::factory()->forEmployee($employee)->active()->create([
+        'assignment_no' => 'CA-TOUR-DUE',
+        'rank_id' => $rank->id,
+        'vessel_id' => Vessel::factory()->create(['company_id' => $company->id])->id,
+        'tour_of_duty_days' => 60,
+        'planned_signoff_at' => now($company->timezone)->addDays(5)->toDateString(),
+        'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty,
+    ]);
+    $tourPhase = CrewAssignmentPhase::factory()->forAssignment($tourDue)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now()->subDays(55),
+        'actual_end_at' => null,
+    ]);
+    $tourDue->update(['current_phase_id' => $tourPhase->id]);
+
+    $query = new CrewMovementHistoryQuery(
+        $company->id,
+        new CrewMovementHistoryFilters(needsAttention: '1'),
+        $company->timezone,
+        $user,
+    );
+    $summary = $query->summary();
+    $rows = collect($query->paginate(25)->items());
+
+    expect($rows->pluck('assignment_no')->all())->toContain('CA-TOUR-DUE')
+        ->and($rows->pluck('assignment_no')->all())->not->toContain('CA-STALE-P4')
+        ->and($rows->firstWhere('assignment_no', 'CA-TOUR-DUE')['needs_attention'])->toBeTrue()
+        ->and($summary['needs_attention'])->toBe($rows->count());
+
+    CarbonImmutable::setTestNow();
+});
+
+test('report filters by accommodation hotel and planned arrival range', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+
+    $matched = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-HOTEL-MATCH',
+        'planned_arrival_at' => '2026-09-12',
+    ]);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+    CrewAccommodationStay::factory()->create([
+        'crew_assignment_id' => $matched->id,
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-09-10',
+        'check_out_date' => '2026-09-14',
+    ]);
+
+    CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-HOTEL-MISS',
+        'planned_arrival_at' => '2026-08-01',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'hotel_id' => $hotel->id,
+            'planned_arrival_from' => '2026-09-01',
+            'planned_arrival_to' => '2026-09-30',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.assignment_no', 'CA-HOTEL-MATCH')
+            ->has('filter_options.hotels')
+            ->has('filter_options.tour_statuses'));
 });

@@ -171,6 +171,30 @@ export function CrewMovementHistoryFiltersSheet({
                 onChange={(value) => set('source', value)}
             />
             <SelectFilter
+                label="Tour status"
+                value={draft.tour_status}
+                options={options.tour_statuses ?? []}
+                onChange={(value) => set('tour_status', value)}
+            />
+            <SelectFilter
+                label="Hotel"
+                value={draft.hotel_id}
+                options={options.hotels ?? []}
+                onChange={(value) => set('hotel_id', value)}
+            />
+            <SelectFilter
+                label="Accommodation status"
+                value={draft.accommodation_status}
+                options={options.accommodation_statuses ?? []}
+                onChange={(value) => set('accommodation_status', value)}
+            />
+            <SelectFilter
+                label="Stay type"
+                value={draft.stay_type}
+                options={options.stay_types ?? []}
+                onChange={(value) => set('stay_type', value)}
+            />
+            <SelectFilter
                 label="Needs attention"
                 value={draft.needs_attention}
                 options={[{ value: '1', label: 'Needs attention' }]}
@@ -189,11 +213,32 @@ export function CrewMovementHistoryFiltersSheet({
                 onChange={(value) => set('has_pending_corrections', value)}
             />
             <DateRange
+                label="Planned arrival"
+                from={draft.planned_arrival_from}
+                to={draft.planned_arrival_to}
+                onFromChange={(value) => set('planned_arrival_from', value)}
+                onToChange={(value) => set('planned_arrival_to', value)}
+            />
+            <DateRange
                 label="Planned join"
                 from={draft.planned_join_from}
                 to={draft.planned_join_to}
                 onFromChange={(value) => set('planned_join_from', value)}
                 onToChange={(value) => set('planned_join_to', value)}
+            />
+            <DateRange
+                label="Planned sign-off"
+                from={draft.planned_signoff_from}
+                to={draft.planned_signoff_to}
+                onFromChange={(value) => set('planned_signoff_from', value)}
+                onToChange={(value) => set('planned_signoff_to', value)}
+            />
+            <DateRange
+                label="Actual arrival"
+                from={draft.actual_arrival_from}
+                to={draft.actual_arrival_to}
+                onFromChange={(value) => set('actual_arrival_from', value)}
+                onToChange={(value) => set('actual_arrival_to', value)}
             />
             <DateRange
                 label="Actual join"

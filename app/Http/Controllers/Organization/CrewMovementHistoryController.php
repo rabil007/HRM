@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewTourStatus;
 use App\Exports\CrewMovementHistoryExport;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\CrewAssignment;
+use App\Models\Hotel;
 use App\Models\Rank;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Reports\CrewMovementHistoryFilters;
@@ -60,6 +64,32 @@ class CrewMovementHistoryController extends Controller
                         'label' => str($source)->replace('_', ' ')->title()->toString(),
                     ])
                     ->values()
+                    ->all(),
+                'hotels' => Hotel::query()
+                    ->forCompany($companyId)
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Hotel $hotel) => ['id' => (int) $hotel->id, 'name' => (string) $hotel->name])
+                    ->values()
+                    ->all(),
+                'accommodation_statuses' => collect(CrewAccommodationStatus::cases())
+                    ->map(fn (CrewAccommodationStatus $status) => [
+                        'value' => $status->value,
+                        'label' => $status->label(),
+                    ])
+                    ->all(),
+                'stay_types' => collect(CrewAccommodationStayType::cases())
+                    ->map(fn (CrewAccommodationStayType $type) => [
+                        'value' => $type->value,
+                        'label' => $type->label(),
+                    ])
+                    ->all(),
+                'tour_statuses' => collect(CrewTourStatus::filterable())
+                    ->map(fn (CrewTourStatus $status) => [
+                        'value' => $status->value,
+                        'label' => $status->label(),
+                    ])
                     ->all(),
             ],
             'can' => CrewMovementHistoryPagePermissions::for($request->user()),
