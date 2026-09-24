@@ -298,9 +298,11 @@ final class DocumentComplianceQuery
                 'employee_documents.document_number',
                 'employee_documents.issue_date',
                 'employee_documents.expiry_date',
-                'employee_documents.created_at as uploaded_at',
                 'uploaders.name as uploaded_by_name',
             ])
+            ->selectRaw(
+                'COALESCE(employee_documents.replaced_at, employee_documents.created_at) as uploaded_at',
+            )
             ->selectRaw(
                 "CASE
                     WHEN employee_documents.id IS NULL THEN 'missing'

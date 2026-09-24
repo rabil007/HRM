@@ -41,6 +41,7 @@ class EmployeeDocumentShowController extends Controller
         $document->load([
             'documentType:id,title',
             'uploader:id,name',
+            'versions.uploader:id,name',
             'versions.replacer:id,name',
             'documentInstance.currentVersion',
             'documentInstance.generatedBy:id,name',

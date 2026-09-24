@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\LogsActivityWithCompany;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -127,6 +128,69 @@ class EmployeeDocument extends Model
     }
 
     /**
+     * Timestamp when the CURRENT active file became current.
+     * V1: document creation time. V2+: most recent replacement time.
+     */
+    public function currentUploadedAt(): ?CarbonInterface
+    {
+        return $this->replaced_at ?? $this->created_at;
+    }
+
+    /**
+     * Current file + archived versions, newest first. Includes an explicit is_current flag.
+     *
+     * @return list<array{
+     *     key: string,
+     *     id: int,
+     *     version: int,
+     *     file_url: string,
+     *     original_filename: string|null,
+     *     mime_type: string|null,
+     *     size_bytes: int|null,
+     *     uploaded_by: string|null,
+     *     uploaded_at: string|null,
+     *     replaced_by: string|null,
+     *     is_current: bool
+     * }>
+     */
+    public function toVersionHistoryArray(): array
+    {
+        $current = [
+            'key' => 'current-'.$this->id,
+            'id' => (int) $this->id,
+            'version' => (int) $this->current_version,
+            'file_url' => $this->file_url,
+            'original_filename' => $this->original_filename,
+            'mime_type' => $this->mime_type,
+            'size_bytes' => $this->size_bytes !== null ? (int) $this->size_bytes : null,
+            'uploaded_by' => $this->relationLoaded('uploader') ? $this->uploader?->name : null,
+            'uploaded_at' => $this->currentUploadedAt()?->toIso8601String(),
+            'replaced_by' => null,
+            'is_current' => true,
+        ];
+
+        $archived = $this->versions
+            ->sortByDesc('version')
+            ->values()
+            ->map(fn (EmployeeDocumentVersion $version) => [
+                'key' => 'version-'.$version->id,
+                'id' => (int) $version->id,
+                'version' => (int) $version->version,
+                'file_url' => $version->file_url,
+                'original_filename' => $version->original_filename,
+                'mime_type' => $version->mime_type,
+                'size_bytes' => $version->size_bytes !== null ? (int) $version->size_bytes : null,
+                'uploaded_by' => $version->relationLoaded('uploader') ? $version->uploader?->name : null,
+                'uploaded_at' => $version->uploaded_at?->toIso8601String(),
+                'replaced_by' => $version->relationLoaded('replacer') ? $version->replacer?->name : null,
+                'is_current' => false,
+            ])
+            ->all();
+
+        return [$current, ...$archived];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toProfileArray(): array
@@ -159,16 +223,7 @@ class EmployeeDocument extends Model
 
         return [
             ...$this->toProfileArray(),
-            'versions' => $this->versions->map(fn (EmployeeDocumentVersion $version) => [
-                'id' => $version->id,
-                'version' => $version->version,
-                'file_url' => $version->file_url,
-                'original_filename' => $version->original_filename,
-                'mime_type' => $version->mime_type,
-                'size_bytes' => $version->size_bytes,
-                'replaced_by' => $version->relationLoaded('replacer') ? $version->replacer?->name : null,
-                'created_at' => $version->created_at?->toDateTimeString(),
-            ])->values()->all(),
+            'versions' => $this->toVersionHistoryArray(),
             'provenance' => $instance !== null ? [
                 'source' => 'Generated from company template',
                 'template_name' => $instance->template_name_snapshot,
@@ -234,7 +289,7 @@ class EmployeeDocument extends Model
                 ?? $this->document_type_label,
             'document_type' => $this->document_type_label,
             'file_url' => $this->file_url,
-            'uploaded_at' => $this->created_at?->toIso8601String(),
+            'uploaded_at' => $this->currentUploadedAt()?->toIso8601String(),
             'uploaded_by' => $this->relationLoaded('uploader') ? $this->uploader?->name : null,
             'mime_type' => $this->mime_type,
             'can_preview' => $this->can_preview,

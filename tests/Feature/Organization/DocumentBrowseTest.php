@@ -451,6 +451,7 @@ test('authorized user can load document show page with metadata and versions', f
         'current_version' => 2,
         'status' => 'valid',
         'uploaded_by' => $user->id,
+        'replaced_at' => now(),
     ]);
 
     $document->versions()->create([
@@ -460,6 +461,8 @@ test('authorized user can load document show page with metadata and versions', f
         'file_path' => 'employee-documents/test/passport-v1.pdf',
         'original_filename' => 'Passport-v1.pdf',
         'mime_type' => 'application/pdf',
+        'uploaded_by' => $user->id,
+        'uploaded_at' => now()->subDay(),
         'replaced_by' => $user->id,
     ]);
 
@@ -473,9 +476,15 @@ test('authorized user can load document show page with metadata and versions', f
             ->where('document.document_type_label', 'Passport Copy')
             ->where('document.can_preview', true)
             ->where('document.current_version', 2)
-            ->has('document.versions', 1)
-            ->where('document.versions.0.version', 1)
-            ->where('document.versions.0.replaced_by', $user->name)
+            ->where('document.uploaded_by', $user->name)
+            ->has('document.versions', 2)
+            ->where('document.versions.0.version', 2)
+            ->where('document.versions.0.is_current', true)
+            ->where('document.versions.0.uploaded_by', $user->name)
+            ->where('document.versions.1.version', 1)
+            ->where('document.versions.1.is_current', false)
+            ->where('document.versions.1.uploaded_by', $user->name)
+            ->where('document.versions.1.replaced_by', $user->name)
             ->where('employee.id', $employee->id)
             ->where('employee.name', $employee->name)
             ->where('back.label', 'Back to files')
