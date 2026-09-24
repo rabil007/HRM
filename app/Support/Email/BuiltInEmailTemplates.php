@@ -160,6 +160,8 @@ final class BuiltInEmailTemplates
             '{{total_days}}',
             '{{reason}}',
             '{{manager_name}}',
+            '{{approver_name}}',
+            '{{approver_names}}',
             '{{company_name}}',
             '{{request_url}}',
         ];

@@ -5,15 +5,9 @@ use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Mail\LeaveRequestDecidedMail;
 use App\Mail\LeaveRequestSubmittedMail;
-use App\Models\Company;
-use App\Models\Country;
-use App\Models\Currency;
 use App\Models\EmailTemplate;
-use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveBalance;
-use App\Models\LeaveRequest;
-use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\ReassignLeaveRequestApproval;
@@ -22,7 +16,6 @@ use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
 use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
-use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\SyncLeaveApprovalPolicyToPendingRequests;
@@ -33,99 +26,9 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
-/**
- * @return array{
- *     company: Company,
- *     employee: Employee,
- *     leaveType: LeaveType,
- *     rima: array{employee: Employee, user: User},
- *     maher: array{employee: Employee, user: User},
- *     adam: array{employee: Employee, user: User},
- *     policy: LeaveApprovalPolicy,
- *     admin: User
- * }
- */
-function makeAnyRequiredModeContext(LeaveApprovalMode $mode = LeaveApprovalMode::AnyRequired): array
-{
-    $suffix = fake()->unique()->numerify('##');
-    $country = Country::query()->create([
-        'code' => 'AR'.$suffix,
-        'name' => 'Any Requiredland '.$suffix,
-        'dial_code' => '+971',
-        'is_active' => true,
-    ]);
-    $currency = Currency::query()->create([
-        'code' => 'AR'.$suffix,
-        'name' => 'Any Required Currency '.$suffix,
-        'symbol' => 'A$',
-        'is_active' => true,
-    ]);
-    $company = Company::query()->create([
-        'name' => 'Any Required Co '.$suffix,
-        'slug' => 'ar-'.$suffix,
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    $rima = makeActionableApprover($company, [
-        'name' => 'Rima',
-        'work_email' => "rima-ar-{$suffix}@example.com",
-    ]);
-    $maher = makeActionableApprover($company, [
-        'name' => 'Maher',
-        'work_email' => "maher-ar-{$suffix}@example.com",
-    ]);
-    $adam = makeActionableApprover($company, [
-        'name' => 'Adam',
-        'work_email' => "adam-ar-{$suffix}@example.com",
-    ]);
-
-    $policy = ensureDefaultLeaveApprovalPolicy($company, [
-        ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $rima['employee']->id, 'required' => true],
-        ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $maher['employee']->id, 'required' => true],
-        ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $adam['employee']->id, 'required' => false],
-    ], $mode);
-
-    $employee = createAttendanceLeaveEmployee($company, [
-        'status' => 'active',
-        'work_email' => "requester-ar-{$suffix}@example.com",
-    ]);
-    $leaveType = LeaveType::factory()->for($company)->create([
-        'status' => 'active',
-        'days_per_year' => 40,
-    ]);
-    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $employee->id, 2026);
-
-    $admin = User::factory()->create(['status' => 'active', 'name' => 'AR Admin']);
-    DB::table('company_user')->insert([
-        'company_id' => $company->id,
-        'user_id' => $admin->id,
-        'status' => 'active',
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-
-    return compact('company', 'employee', 'leaveType', 'rima', 'maher', 'adam', 'policy', 'admin');
-}
-
-function submitAnyRequiredLeave(array $context, bool $notify = false): LeaveRequest
-{
-    return app(SubmitLeaveRequestWithApprovals::class)->handle(
-        companyId: (int) $context['company']->id,
-        attributes: [
-            'employee_id' => $context['employee']->id,
-            'leave_type_id' => $context['leaveType']->id,
-            'start_date' => '2026-10-01',
-            'end_date' => '2026-10-02',
-            'reason' => 'Any required flow',
-        ],
-        notify: $notify,
-    );
-}
+beforeEach(function () {
+    (new EmailTemplatesSeeder)->run();
+});
 
 test('policy create and update accept approval modes and reject invalid values', function () {
     $context = makeAnyRequiredModeContext(LeaveApprovalMode::AllRequired);

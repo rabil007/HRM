@@ -3,13 +3,12 @@
 namespace App\Support\Attendance\Actions;
 
 use App\Enums\LeaveRequestApprovalStatus;
-use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
+use App\Support\Attendance\ComposeLeaveRequestSubmittedMail;
 use App\Support\Attendance\LeaveNotificationSettings;
-use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use App\Support\Email\CommaSeparatedEmailList;
 use Illuminate\Support\Facades\Mail;
 
@@ -19,6 +18,10 @@ use Illuminate\Support\Facades\Mail;
 final class SendLeaveRequestApproverActionRequiredEmail
 {
     private const TEMPLATE_SLUG = 'leave_request_approver_action_required';
+
+    public function __construct(
+        private ComposeLeaveRequestSubmittedMail $composeMail,
+    ) {}
 
     public function handle(LeaveRequest $leaveRequest): void
     {
@@ -49,9 +52,9 @@ final class SendLeaveRequestApproverActionRequiredEmail
             return;
         }
 
-        $subject = $this->renderTemplate($template->subject, $leaveRequest);
-        $introMessage = trim($this->renderTemplate($template->body_html, $leaveRequest));
-        $payload = $this->buildMailPayload($leaveRequest, $introMessage);
+        $subject = $this->composeMail->renderTemplate($template->subject, $leaveRequest);
+        $introMessage = trim($this->composeMail->renderTemplate($template->body_html, $leaveRequest));
+        $payload = $this->composeMail->payload($leaveRequest, $introMessage);
 
         $mail = Mail::to($recipients['to']);
 
@@ -59,22 +62,10 @@ final class SendLeaveRequestApproverActionRequiredEmail
             $mail->cc($recipients['cc']);
         }
 
-        $mail->queue(new LeaveRequestSubmittedMail(
-            subjectLine: $subject,
-            organizationName: $payload['organizationName'],
-            introMessage: $payload['introMessage'],
-            employeeName: $payload['employeeName'],
-            employeeNo: $payload['employeeNo'],
-            departmentName: $payload['departmentName'],
-            managerName: $payload['managerName'],
-            leaveType: $payload['leaveType'],
-            leaveTypeColor: $payload['leaveTypeColor'],
-            startDate: $payload['startDate'],
-            endDate: $payload['endDate'],
-            totalDays: $payload['totalDays'],
-            reason: $payload['reason'],
-            requestUrl: $payload['requestUrl'],
-            includeCompanyFooter: $template->include_company_footer,
+        $mail->queue($this->composeMail->mailable(
+            $subject,
+            $payload,
+            (bool) $template->include_company_footer,
         ));
     }
 
@@ -109,11 +100,13 @@ final class SendLeaveRequestApproverActionRequiredEmail
         $pending = $leaveRequest->relationLoaded('approvals')
             ? $leaveRequest->approvals
                 ->sortBy('sequence')
-                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending)
+                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending
+                    && (bool) $approval->is_required)
             : LeaveRequestApproval::query()
                 ->where('company_id', $leaveRequest->company_id)
                 ->where('leave_request_id', $leaveRequest->id)
                 ->where('status', LeaveRequestApprovalStatus::Pending)
+                ->where('is_required', true)
                 ->orderBy('sequence')
                 ->with('approverEmployee.user:id,email')
                 ->first();
@@ -143,87 +136,5 @@ final class SendLeaveRequestApproverActionRequiredEmail
         }
 
         return (string) ($employee->user?->email ?? '');
-    }
-
-    /**
-     * @return array{
-     *     organizationName: string,
-     *     introMessage: string|null,
-     *     employeeName: string,
-     *     employeeNo: string,
-     *     departmentName: string,
-     *     managerName: string,
-     *     leaveType: string,
-     *     leaveTypeColor: string|null,
-     *     startDate: string,
-     *     endDate: string,
-     *     totalDays: string,
-     *     reason: string,
-     *     requestUrl: string,
-     * }
-     */
-    private function buildMailPayload(LeaveRequest $leaveRequest, string $introMessage): array
-    {
-        $employee = $leaveRequest->employee;
-        $managerName = $this->resolveDisplayApproverName($leaveRequest, $employee);
-
-        return [
-            'organizationName' => (string) ($leaveRequest->company?->name ?? config('app.name')),
-            'introMessage' => $introMessage !== '' ? $introMessage : null,
-            'employeeName' => (string) ($employee?->name ?? '—'),
-            'employeeNo' => (string) ($employee?->employee_no ?? ''),
-            'departmentName' => (string) ($employee?->department?->name ?? '—'),
-            'managerName' => $managerName,
-            'leaveType' => (string) ($leaveRequest->leaveType?->name ?? '—'),
-            'leaveTypeColor' => $leaveRequest->leaveType?->color,
-            'startDate' => $leaveRequest->start_date?->format('d M Y') ?? '—',
-            'endDate' => $leaveRequest->end_date?->format('d M Y') ?? '—',
-            'totalDays' => number_format((float) $leaveRequest->total_days, 1, '.', ''),
-            'reason' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
-            'requestUrl' => route('attendance.leave-requests.show', $leaveRequest),
-        ];
-    }
-
-    private function renderTemplate(string $template, LeaveRequest $leaveRequest): string
-    {
-        $employee = $leaveRequest->employee;
-        $managerName = $this->resolveDisplayApproverName($leaveRequest, $employee);
-
-        $replacements = [
-            '{{employee_name}}' => (string) ($employee?->name ?? ''),
-            '{{employee_no}}' => (string) ($employee?->employee_no ?? ''),
-            '{{department_name}}' => (string) ($employee?->department?->name ?? '—'),
-            '{{leave_type}}' => (string) ($leaveRequest->leaveType?->name ?? ''),
-            '{{start_date}}' => $leaveRequest->start_date?->format('d M Y') ?? '',
-            '{{end_date}}' => $leaveRequest->end_date?->format('d M Y') ?? '',
-            '{{total_days}}' => number_format((float) $leaveRequest->total_days, 1, '.', ''),
-            '{{reason}}' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
-            '{{manager_name}}' => $managerName,
-            '{{company_name}}' => (string) ($leaveRequest->company?->name ?? ''),
-            '{{request_url}}' => route('attendance.leave-requests.show', $leaveRequest),
-        ];
-
-        return strtr($template, $replacements);
-    }
-
-    private function resolveDisplayApproverName(LeaveRequest $leaveRequest, ?Employee $employee): string
-    {
-        $pending = $leaveRequest->relationLoaded('approvals')
-            ? $leaveRequest->approvals
-                ->sortBy('sequence')
-                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending)
-            : null;
-
-        if ($pending?->approverEmployee !== null) {
-            return (string) $pending->approverEmployee->name;
-        }
-
-        if ($employee === null) {
-            return '—';
-        }
-
-        $manager = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
-
-        return (string) ($manager?->name ?? '—');
     }
 }

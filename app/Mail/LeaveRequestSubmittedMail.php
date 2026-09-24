@@ -13,6 +13,9 @@ class LeaveRequestSubmittedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
+    /**
+     * @param  list<string>  $approvalNames
+     */
     public function __construct(
         public string $subjectLine,
         public string $organizationName,
@@ -20,7 +23,9 @@ class LeaveRequestSubmittedMail extends Mailable implements ShouldQueue
         public string $employeeName,
         public string $employeeNo,
         public string $departmentName,
-        public string $managerName,
+        public ?string $approvalLabel,
+        public array $approvalNames,
+        public ?string $approvalHelpText,
         public string $leaveType,
         public ?string $leaveTypeColor,
         public string $startDate,

@@ -44,13 +44,20 @@
                             {{ $departmentName }}
                         </td>
                     </tr>
-                    @if (filled($managerName) && $managerName !== '—')
+                    @if (filled($approvalLabel) && ! empty($approvalNames))
                         <tr>
-                            <td class="email-border" style="padding:12px 16px;font-size:13px;font-weight:600;color:#71717a;background-color:#fafafa;border-bottom:1px solid #e4e4e7;">
-                                Manager
+                            <td class="email-border" style="padding:12px 16px;font-size:13px;font-weight:600;color:#71717a;background-color:#fafafa;border-bottom:1px solid #e4e4e7;vertical-align:top;">
+                                {{ $approvalLabel }}
                             </td>
                             <td class="email-border email-text" style="padding:12px 16px;font-size:14px;color:#18181b;border-bottom:1px solid #e4e4e7;">
-                                {{ $managerName }}
+                                @foreach ($approvalNames as $approvalName)
+                                    <div @if (! $loop->first) style="margin-top:4px;" @endif>{{ $approvalName }}</div>
+                                @endforeach
+                                @if (filled($approvalHelpText))
+                                    <div class="email-muted" style="margin-top:8px;font-size:12px;line-height:1.5;color:#71717a;">
+                                        {{ $approvalHelpText }}
+                                    </div>
+                                @endif
                             </td>
                         </tr>
                     @endif
