@@ -123,7 +123,7 @@ export function MyLeaveOverview({
 
     return (
         <section className="mb-6" aria-label="Leave balances">
-            <div className="mb-2 flex items-baseline gap-2">
+            <div className="mb-3 flex items-baseline gap-2">
                 <h2 className="text-sm font-semibold tracking-tight text-foreground">
                     Leave balances
                 </h2>
@@ -134,61 +134,86 @@ export function MyLeaveOverview({
                 ) : null}
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50 dark:border-white/8 dark:bg-white/[0.03]">
-                <ul className="divide-y divide-border/50 dark:divide-white/6">
-                    {balances.map((balance) => {
-                        const accent = balance.color ?? FALLBACK_COLOR;
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {balances.map((balance) => {
+                    const accent = balance.color ?? FALLBACK_COLOR;
 
-                        return (
-                            <li
-                                key={balance.id}
-                                className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:flex-nowrap"
-                            >
-                                <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                                    <span
-                                        className="size-2.5 shrink-0 rounded-full"
-                                        style={{ backgroundColor: accent }}
-                                        aria-hidden
-                                    />
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium text-foreground">
-                                            {balance.name}
-                                        </p>
-                                        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                                            {balance.code}
-                                            {balance.carried_days > 0
-                                                ? ` · ${formatDays(balance.base_entitlement_days)}+${formatDays(balance.carried_days)} carried`
-                                                : ''}
-                                        </p>
-                                    </div>
+                    return (
+                        <div
+                            key={balance.id}
+                            className="relative overflow-hidden rounded-2xl border glass-card border-border/60 bg-card/80 p-4 dark:border-white/8"
+                        >
+                            <div
+                                className="pointer-events-none absolute inset-x-0 top-0 h-1"
+                                style={{ backgroundColor: accent }}
+                                aria-hidden
+                            />
+
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-foreground">
+                                        {balance.name}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                        {balance.code}
+                                    </p>
                                 </div>
+                                <span
+                                    className="mt-1 size-2.5 shrink-0 rounded-full"
+                                    style={{ backgroundColor: accent }}
+                                    aria-hidden
+                                />
+                            </div>
 
-                                <p
-                                    className="shrink-0 text-lg font-bold tabular-nums sm:w-24 sm:text-right"
-                                    style={{ color: accent }}
-                                >
-                                    {formatDays(balance.remaining_days)}
-                                    <span className="ml-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                                        left
-                                    </span>
-                                </p>
+                            <p
+                                className="mt-4 text-3xl font-bold tracking-tight tabular-nums"
+                                style={{ color: accent }}
+                            >
+                                {formatDays(balance.remaining_days)}
+                                <span className="ml-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                    remaining
+                                </span>
+                            </p>
 
-                                <p className="w-full text-[11px] text-muted-foreground tabular-nums sm:w-auto sm:min-w-[11rem] sm:text-right">
-                                    {formatDays(balance.total_available_days)}{' '}
-                                    available
-                                    <span className="mx-1.5 text-border">
-                                        ·
-                                    </span>
-                                    {formatDays(balance.used_days)} used
-                                    <span className="mx-1.5 text-border">
-                                        ·
-                                    </span>
-                                    {formatDays(balance.pending_days)} pending
+                            <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-border/50 pt-3 dark:border-white/8">
+                                <div>
+                                    <dt className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                                        Available
+                                    </dt>
+                                    <dd className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">
+                                        {formatDays(
+                                            balance.total_available_days,
+                                        )}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                                        Used
+                                    </dt>
+                                    <dd className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">
+                                        {formatDays(balance.used_days)}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                                        Pending
+                                    </dt>
+                                    <dd className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">
+                                        {formatDays(balance.pending_days)}
+                                    </dd>
+                                </div>
+                            </dl>
+
+                            {balance.carried_days > 0 ? (
+                                <p className="mt-2 text-[11px] text-muted-foreground tabular-nums">
+                                    {formatDays(balance.base_entitlement_days)}{' '}
+                                    entitlement +{' '}
+                                    {formatDays(balance.carried_days)} carried
                                 </p>
-                            </li>
-                        );
-                    })}
-                </ul>
+                            ) : null}
+                        </div>
+                    );
+                })}
             </div>
         </section>
     );
