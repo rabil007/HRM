@@ -49,7 +49,6 @@ final class NavigationDestinationCatalog
             ['key' => 'crew.settings', 'label' => 'Settings', 'href' => '/organization/crew-operations/settings', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.settings.view'], 'platform' => null],
             ['key' => 'hikvision.persons', 'label' => 'Persons', 'href' => '/hikvision/persons', 'group' => 'Hikvision', 'permissions' => ['hikvision.persons.view'], 'platform' => null],
             ['key' => 'hikvision.access-events', 'label' => 'Access Events', 'href' => '/hikvision/access-events', 'group' => 'Hikvision', 'permissions' => ['hikvision.events.view'], 'platform' => null],
-            ['key' => 'attendance.overview', 'label' => 'Overview', 'href' => '/attendance/overview', 'group' => 'Attendance', 'permissions' => ['attendance.overview.view'], 'platform' => null],
             ['key' => 'attendance.calendar', 'label' => 'Calendar', 'href' => '/attendance/calendar', 'group' => 'Attendance', 'permissions' => ['attendance.leave-requests.view'], 'platform' => null],
             ['key' => 'leave.my', 'label' => 'My leave', 'href' => '/attendance/my-leave', 'group' => 'Attendance', 'permissions' => ['attendance.leave-requests.view'], 'platform' => null],
             ['key' => 'leave.approvals', 'label' => 'Approvals', 'href' => '/attendance/leave-approvals', 'group' => 'Attendance', 'permissions' => ['attendance.leave-requests.approve'], 'platform' => null],

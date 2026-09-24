@@ -5,7 +5,6 @@ import {
     CalendarX,
     UserCheck,
 } from 'lucide-react';
-import { overview as attendanceOverview } from '@/routes/attendance';
 import { index as attendanceRecordsIndex } from '@/routes/attendance/records';
 import { DashboardMetricCard } from '../components/dashboard-metric-card';
 import { DashboardSection } from '../components/dashboard-section';
@@ -26,7 +25,7 @@ export function AttendanceSection({ analytics }: AttendanceSectionProps) {
             description="Real-time attendance & check-in activity for active workforce"
             icon={Clock}
             actionLabel="View Attendance Log"
-            actionHref={attendanceOverview.url()}
+            actionHref={attendanceRecordsIndex.url()}
         >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <DashboardMetricCard

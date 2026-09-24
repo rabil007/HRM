@@ -252,7 +252,7 @@ The base required columns are `employee_no` and `name`. A selected employee prof
 | `/organization/roles` | Roles & permissions |
 | `/organization/activity-logs` | Audit log |
 | `/organization/templates/employee-profile` | Employee profile template builder |
-| `/attendance/overview` | Attendance, calendar, and leave overview |
+| `/attendance/records` | Attendance records |
 | `/payroll` | Payroll periods and processing |
 | `/organization/crew-operations` | Crew Operations overview |
 | `/organization/crew` | Crew Assignments (current board) |

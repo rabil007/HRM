@@ -178,8 +178,12 @@ export function attendanceHref(permissions: string[]): string | null {
         return '/attendance/records';
     }
 
-    if (has(permissions, 'attendance.overview.view')) {
-        return '/attendance/overview';
+    if (has(permissions, 'attendance.leave-requests.view')) {
+        return '/attendance/calendar';
+    }
+
+    if (has(permissions, 'attendance.types.view')) {
+        return '/attendance/types';
     }
 
     return null;
@@ -289,8 +293,6 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'attendance.leave-requests.view'),
     '/attendance/records': (permissions) =>
         has(permissions, 'attendance.records.view'),
-    '/attendance/overview': (permissions) =>
-        has(permissions, 'attendance.overview.view'),
     '/payroll/overview': (permissions) =>
         has(permissions, 'payroll.overview.view'),
     '/payroll': (permissions) =>

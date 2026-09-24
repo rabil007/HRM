@@ -251,7 +251,7 @@ EmployeeDocumentController.destroy.url({ employee, document });
 
 ### Verify authorization per endpoint
 
-Not every route uses `can:` middleware. Platform utilities use `platform:view` / `platform:manage` / `platform:database` plus privileged 2FA. Some payroll hub actions authorize inside the controller. Crew movement actions use `CrewAssignmentPolicy` rather than a route `can:` string. Attendance overview and Crew Operations landing/planning routes use `can:` middleware.
+Not every route uses `can:` middleware. Platform utilities use `platform:view` / `platform:manage` / `platform:database` plus privileged 2FA. Some payroll hub actions authorize inside the controller. Crew movement actions use `CrewAssignmentPolicy` rather than a route `can:` string. Crew Operations landing/planning routes use `can:` middleware.
 
 These mixed patterns are not permission to skip a backend check. For new or changed privileged endpoints:
 

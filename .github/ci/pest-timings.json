@@ -7,7 +7,7 @@
         "tests/Feature/ApplicationLogViewerTest.php": 0.543,
         "tests/Feature/Attendance/AttendanceCalendarTest.php": 1.094,
         "tests/Feature/Attendance/AttendanceCalendarTodayTimelineTest.php": 0.749,
-        "tests/Feature/Attendance/AttendanceOverviewTest.php": 0.308,
+        "tests/Feature/Attendance/AttendanceOverviewRemovalTest.php": 0.308,
         "tests/Feature/Attendance/AttendanceRecordWriteAuthorizationTest.php": 0.591,
         "tests/Feature/Attendance/AttendanceRecordsTest.php": 0.968,
         "tests/Feature/Attendance/BackfillLeaveRequestApprovalsCommandTest.php": 0.594,

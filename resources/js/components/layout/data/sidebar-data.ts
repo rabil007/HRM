@@ -261,11 +261,6 @@ const baseSidebarData: SidebarData = {
             title: 'Attendance',
             items: [
                 {
-                    title: 'Overview',
-                    url: '/attendance/overview',
-                    icon: LayoutDashboard,
-                },
-                {
                     title: 'Calendar',
                     url: '/attendance/calendar',
                     icon: CalendarDays,
