@@ -111,12 +111,16 @@ final class RegenerateSignedBulkDocumentPdf
             true,
         );
 
+        $reviewedBy = $request->reviewed_by !== null
+            ? (int) $request->reviewed_by
+            : null;
+
         $this->store->replace(
             $document,
             $uploadedFile,
             $request->company_id,
             $request->employee_id,
-            (int) ($request->reviewed_by ?? 0),
+            $reviewedBy,
         );
     }
 }

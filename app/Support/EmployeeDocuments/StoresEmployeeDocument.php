@@ -57,10 +57,15 @@ class StoresEmployeeDocument
 
     public function replace(EmployeeDocument $document, UploadedFile $file, int $companyId, int $employeeId, ?int $userId, array $data = []): EmployeeDocument
     {
+        // Provenance columns are nullable; never persist invalid user id 0.
+        $actorUserId = $userId !== null && $userId > 0
+            ? $userId
+            : null;
+
         $prepared = $this->optimizer->prepare($file);
 
         try {
-            return DB::transaction(function () use ($document, $prepared, $file, $companyId, $employeeId, $userId, $data) {
+            return DB::transaction(function () use ($document, $prepared, $file, $companyId, $employeeId, $actorUserId, $data) {
                 EmployeeDocumentVersion::query()->create([
                     'employee_document_id' => $document->id,
                     'company_id' => $document->company_id,
@@ -73,7 +78,7 @@ class StoresEmployeeDocument
                     'checksum' => $document->checksum,
                     'uploaded_by' => $document->uploaded_by,
                     'uploaded_at' => $document->replaced_at ?? $document->created_at,
-                    'replaced_by' => $userId,
+                    'replaced_by' => $actorUserId,
                 ]);
 
                 $document->loadMissing('documentType');
@@ -95,7 +100,7 @@ class StoresEmployeeDocument
                     'size_bytes' => $prepared->file->getSize(),
                     'checksum' => hash_file('sha256', $prepared->file->getRealPath() ?: ''),
                     'current_version' => ((int) $document->current_version) + 1,
-                    'uploaded_by' => $userId,
+                    'uploaded_by' => $actorUserId,
                     'replaced_at' => now(),
                     'document_number' => array_key_exists('document_number', $data)
                         ? ($data['document_number'] ?? null)

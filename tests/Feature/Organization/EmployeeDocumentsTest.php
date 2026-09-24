@@ -2,6 +2,7 @@
 
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -455,6 +456,95 @@ test('version history for v1-only documents marks the current file without fabri
         ->and($history[0]['version'])->toBe(1)
         ->and($history[0]['uploaded_by'])->toBe($user->name)
         ->and($history[0]['replaced_by'])->toBeNull();
+});
+
+test('document replacement with user id zero stores null provenance actors', function () {
+    fakeEmployeeFileDisks();
+
+    $uploader = User::factory()->create();
+    $this->actingAs($uploader);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($uploader, $company, ['documents.upload']);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/old.pdf',
+        'original_filename' => 'old.pdf',
+        'mime_type' => 'application/pdf',
+        'current_version' => 1,
+        'status' => 'valid',
+        'uploaded_by' => $uploader->id,
+    ]);
+
+    $replaced = app(StoresEmployeeDocument::class)->replace(
+        $document,
+        UploadedFile::fake()->create('new.pdf', 100, 'application/pdf'),
+        $company->id,
+        $employee->id,
+        0,
+    );
+
+    expect($replaced->current_version)->toBe(2)
+        ->and($replaced->uploaded_by)->toBeNull();
+
+    $archived = $replaced->versions()->where('version', 1)->firstOrFail();
+
+    expect($archived->uploaded_by)->toBe($uploader->id)
+        ->and($archived->replaced_by)->toBeNull();
+
+    expect(
+        EmployeeDocument::query()->whereKey($replaced->id)->where('uploaded_by', 0)->exists()
+        || $replaced->versions()->where(function ($query): void {
+            $query->where('uploaded_by', 0)->orWhere('replaced_by', 0);
+        })->exists()
+    )->toBeFalse();
+});
+
+test('document replacement with positive user id keeps actor provenance', function () {
+    fakeEmployeeFileDisks();
+
+    $uploader = User::factory()->create();
+    $replacer = User::factory()->create();
+    $this->actingAs($replacer);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($replacer, $company, ['documents.upload']);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/old.pdf',
+        'original_filename' => 'old.pdf',
+        'mime_type' => 'application/pdf',
+        'current_version' => 1,
+        'status' => 'valid',
+        'uploaded_by' => $uploader->id,
+    ]);
+
+    $replaced = app(StoresEmployeeDocument::class)->replace(
+        $document,
+        UploadedFile::fake()->create('new.pdf', 100, 'application/pdf'),
+        $company->id,
+        $employee->id,
+        $replacer->id,
+    );
+
+    expect($replaced->uploaded_by)->toBe($replacer->id);
+
+    $archived = $replaced->versions()->where('version', 1)->firstOrFail();
+
+    expect($archived->uploaded_by)->toBe($uploader->id)
+        ->and($archived->replaced_by)->toBe($replacer->id);
 });
 
 test('nullable historical uploader data does not break version history serialization', function () {
