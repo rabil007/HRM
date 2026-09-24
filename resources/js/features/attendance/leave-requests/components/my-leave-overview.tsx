@@ -122,8 +122,8 @@ export function MyLeaveOverview({
     }
 
     return (
-        <section className="mb-6" aria-label="Leave balances">
-            <div className="mb-3 flex items-baseline gap-2">
+        <section className="mb-5" aria-label="Leave balances">
+            <div className="mb-2 flex items-baseline gap-2">
                 <h2 className="text-sm font-semibold tracking-tight text-foreground">
                     Leave balances
                 </h2>
@@ -134,83 +134,60 @@ export function MyLeaveOverview({
                 ) : null}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {balances.map((balance) => {
                     const accent = balance.color ?? FALLBACK_COLOR;
 
                     return (
                         <div
                             key={balance.id}
-                            className="relative overflow-hidden rounded-2xl border glass-card border-border/60 bg-card/80 p-4 dark:border-white/8"
+                            className="relative overflow-hidden rounded-xl border glass-card border-border/60 bg-card/80 px-3 py-2.5 dark:border-white/8"
                         >
                             <div
-                                className="pointer-events-none absolute inset-x-0 top-0 h-1"
+                                className="pointer-events-none absolute inset-y-0 left-0 w-0.5"
                                 style={{ backgroundColor: accent }}
                                 aria-hidden
                             />
 
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center justify-between gap-2 pl-1">
                                 <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold text-foreground">
+                                    <p className="truncate text-xs font-semibold text-foreground">
                                         {balance.name}
                                     </p>
-                                    <p className="mt-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                                    <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                                         {balance.code}
                                     </p>
                                 </div>
-                                <span
-                                    className="mt-1 size-2.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: accent }}
-                                    aria-hidden
-                                />
+                                <p
+                                    className="shrink-0 text-xl font-bold tracking-tight tabular-nums"
+                                    style={{ color: accent }}
+                                >
+                                    {formatDays(balance.remaining_days)}
+                                    <span className="ml-1 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                        left
+                                    </span>
+                                </p>
                             </div>
 
-                            <p
-                                className="mt-4 text-3xl font-bold tracking-tight tabular-nums"
-                                style={{ color: accent }}
-                            >
-                                {formatDays(balance.remaining_days)}
-                                <span className="ml-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                    remaining
-                                </span>
-                            </p>
-
-                            <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-border/50 pt-3 dark:border-white/8">
-                                <div>
-                                    <dt className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                        Available
-                                    </dt>
-                                    <dd className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">
+                            <p className="mt-1.5 pl-1 text-[11px] text-muted-foreground tabular-nums">
+                                {formatDays(balance.total_available_days)} avail
+                                <span className="mx-1 opacity-40">·</span>
+                                {formatDays(balance.used_days)} used
+                                <span className="mx-1 opacity-40">·</span>
+                                {formatDays(balance.pending_days)} pend
+                                {balance.carried_days > 0 ? (
+                                    <>
+                                        <span className="mx-1 opacity-40">
+                                            ·
+                                        </span>
                                         {formatDays(
-                                            balance.total_available_days,
+                                            balance.base_entitlement_days,
                                         )}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                        Used
-                                    </dt>
-                                    <dd className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">
-                                        {formatDays(balance.used_days)}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                        Pending
-                                    </dt>
-                                    <dd className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">
-                                        {formatDays(balance.pending_days)}
-                                    </dd>
-                                </div>
-                            </dl>
-
-                            {balance.carried_days > 0 ? (
-                                <p className="mt-2 text-[11px] text-muted-foreground tabular-nums">
-                                    {formatDays(balance.base_entitlement_days)}{' '}
-                                    entitlement +{' '}
-                                    {formatDays(balance.carried_days)} carried
-                                </p>
-                            ) : null}
+                                        +{formatDays(balance.carried_days)}{' '}
+                                        carry
+                                    </>
+                                ) : null}
+                            </p>
                         </div>
                     );
                 })}
