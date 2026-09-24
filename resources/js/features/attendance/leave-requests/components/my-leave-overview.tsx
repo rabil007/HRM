@@ -134,19 +134,14 @@ export function MyLeaveOverview({
                 ) : null}
             </div>
 
-            <div
-                className="grid gap-2"
-                style={{
-                    gridTemplateColumns: `repeat(${Math.min(balances.length, 4)}, minmax(0, 1fr))`,
-                }}
-            >
+            <div className="flex flex-col gap-2 sm:flex-row">
                 {balances.map((balance) => {
                     const accent = balance.color ?? FALLBACK_COLOR;
 
                     return (
                         <div
                             key={balance.id}
-                            className="relative overflow-hidden rounded-xl border glass-card border-border/60 bg-card/80 px-3 py-2.5 dark:border-white/8"
+                            className="relative min-w-0 flex-1 overflow-hidden rounded-xl border glass-card border-border/60 bg-card/80 px-3 py-2.5 dark:border-white/8"
                         >
                             <div
                                 className="pointer-events-none absolute inset-y-0 left-0 w-0.5"
