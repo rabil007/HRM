@@ -471,3 +471,163 @@ test('it reports repeated training history with employee training link status', 
         ->and($row['phase_timeline'][0]['occurrence'])->toBe(1)
         ->and($row['phase_timeline'][1]['occurrence'])->toBe(2);
 });
+
+test('it exposes linked redeployment starting checkpoint separately from current phase', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $sourceVessel = Vessel::factory()->create(['company_id' => $company->id, 'name' => 'Vessel A']);
+    $destinationVessel = Vessel::factory()->create(['company_id' => $company->id, 'name' => 'Vessel B']);
+
+    $source = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-2026-000041',
+            'rank_id' => $rank->id,
+            'vessel_id' => $sourceVessel->id,
+            'source' => 'manual',
+        ]);
+    $sourceP5 = CrewAssignmentPhase::factory()->forAssignment($source)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-20 08:00:00',
+        'actual_end_at' => '2026-09-24 06:00:00',
+    ]);
+    $source->update(['current_phase_id' => $sourceP5->id]);
+
+    $destination = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-2026-000042',
+            'rank_id' => $rank->id,
+            'vessel_id' => $destinationVessel->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $source->id,
+            'started_at' => '2026-09-24 06:30:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-24 07:00:00',
+        'actual_end_at' => '2026-09-25 07:00:00',
+    ]);
+    $current = CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-09-25 08:00:00',
+        'actual_end_at' => null,
+    ]);
+    $destination->update(['current_phase_id' => $current->id]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $destination->fresh([
+            'company',
+            'employee',
+            'rank',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+            'previousAssignment.vessel',
+            'previousAssignment.rank',
+            'previousAssignment.client',
+            'previousAssignment.currentPhase',
+            'previousAssignment.phases',
+            'nextAssignments.phases',
+            'nextAssignments.currentPhase',
+        ]),
+    );
+
+    expect($row['starting_phase_code'])->toBe('p2a')
+        ->and($row['starting_phase_label'])->toBe('Join Standby')
+        ->and($row['current_phase']['code'])->toBe('p4')
+        ->and($row['linked_assignments']['previous']['assignment_no'])->toBe('CA-2026-000041')
+        ->and($row['linked_assignments']['relationship'])->toBe('redeployment')
+        ->and($row['linked_assignments']['previous']['starting_phase_code'])->toBe('p5')
+        ->and($row['linked_assignments']['previous']['starting_phase_label'])->toBe('Demobilisation Standby')
+        ->and($row['modern_phase_timeline'])->toHaveCount(2)
+        ->and($row['legacy_phase_timeline'])->toBe([]);
+
+    $directP4 = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-2026-000043',
+            'rank_id' => $rank->id,
+            'vessel_id' => $destinationVessel->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $source->id,
+        ]);
+    $p4 = CrewAssignmentPhase::factory()->forAssignment($directP4)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-09-26 08:00:00',
+        'actual_end_at' => null,
+    ]);
+    $directP4->update(['current_phase_id' => $p4->id]);
+
+    $directRow = CrewMovementHistoryPresenter::toArray(
+        $directP4->fresh([
+            'company',
+            'employee',
+            'rank',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+            'previousAssignment.phases',
+            'previousAssignment.currentPhase',
+            'previousAssignment.vessel',
+            'previousAssignment.rank',
+            'previousAssignment.client',
+            'nextAssignments',
+        ]),
+    );
+
+    expect($directRow['starting_phase_code'])->toBe('p4')
+        ->and($directRow['starting_phase_label'])->toBe('On Vessel')
+        ->and($directRow['current_phase']['code'])->toBe('p4');
+});
+
+test('it separates legacy p1 p3 timeline entries from modern lifecycle', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-03 08:00:00',
+        'actual_end_at' => '2026-01-04 11:00:00',
+        'remarks' => 'Legacy travel',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-04 12:00:00',
+        'actual_end_at' => '2026-01-05 12:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-05 12:00:00',
+        'actual_end_at' => '2026-01-06 08:00:00',
+    ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    expect($row['has_legacy_phases'])->toBeTrue()
+        ->and($row['phase_timeline'])->toHaveCount(3)
+        ->and(collect($row['modern_phase_timeline'])->pluck('phase_code')->all())->toBe(['p2a'])
+        ->and(collect($row['legacy_phase_timeline'])->pluck('phase_code')->all())->toBe(['p1', 'p3'])
+        ->and($row['legacy_phase_timeline'][0]['remarks'])->toBe('Legacy travel');
+});

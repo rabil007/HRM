@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
+use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -147,11 +148,13 @@ final class CrewMovementHistoryQuery
                 'previousAssignment.rank:id,name',
                 'previousAssignment.client:id,name',
                 'previousAssignment.currentPhase:id,phase_code',
+                'previousAssignment.phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
                 'nextAssignments:id,company_id,previous_assignment_id,assignment_no,source,status,vessel_id,rank_id,client_id,started_at,closed_at,current_phase_id',
                 'nextAssignments.vessel:id,name',
                 'nextAssignments.rank:id,name',
                 'nextAssignments.client:id,name',
                 'nextAssignments.currentPhase:id,phase_code',
+                'nextAssignments.phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
             ]);
         }
 
@@ -238,18 +241,22 @@ final class CrewMovementHistoryQuery
     private function applyMovementDateFilters(Builder $query): void
     {
         $query
-            ->when($this->filters->actualArrivalFrom !== '', fn (Builder $inner) => $inner->whereHas(
-                'phases',
-                fn (Builder $phase) => $phase
-                    ->where('phase_code', CrewPhaseCode::JoinStandby)
-                    ->whereDate('actual_start_at', '>=', $this->filters->actualArrivalFrom),
-            ))
-            ->when($this->filters->actualArrivalTo !== '', fn (Builder $inner) => $inner->whereHas(
-                'phases',
-                fn (Builder $phase) => $phase
-                    ->where('phase_code', CrewPhaseCode::JoinStandby)
-                    ->whereDate('actual_start_at', '<=', $this->filters->actualArrivalTo),
-            ))
+            ->when(
+                $this->filters->actualArrivalFrom !== '',
+                fn (Builder $inner) => CrewArrivalResolver::applyDateFilter(
+                    $inner,
+                    '>=',
+                    $this->filters->actualArrivalFrom,
+                ),
+            )
+            ->when(
+                $this->filters->actualArrivalTo !== '',
+                fn (Builder $inner) => CrewArrivalResolver::applyDateFilter(
+                    $inner,
+                    '<=',
+                    $this->filters->actualArrivalTo,
+                ),
+            )
             ->when($this->filters->actualJoinFrom !== '', fn (Builder $inner) => $inner->whereHas(
                 'phases',
                 fn (Builder $phase) => $phase

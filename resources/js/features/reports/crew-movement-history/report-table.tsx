@@ -543,6 +543,15 @@ function LinkedAssignmentCard({
     linked: LinkedAssignmentSummary;
     timezone: string;
 }) {
+    const startingCheckpoint =
+        linked.starting_phase_code || linked.starting_phase_label
+            ? `${(linked.starting_phase_code ?? '').toUpperCase()}${linked.starting_phase_label ? ` · ${linked.starting_phase_label}` : ''}`
+            : null;
+    const currentPhase =
+        linked.current_phase_code || linked.current_phase_label
+            ? `${(linked.current_phase_code ?? '').toUpperCase()}${linked.current_phase_label ? ` · ${linked.current_phase_label}` : ''}`
+            : null;
+
     return (
         <div className="rounded-xl border border-border/70 bg-background/75 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -562,6 +571,18 @@ function LinkedAssignmentCard({
                 </Button>
             </div>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <DetailField
+                    label="Relationship"
+                    value={linked.source_label || '—'}
+                />
+                <DetailField
+                    label="Starting checkpoint"
+                    value={startingCheckpoint ?? '—'}
+                />
+                <DetailField
+                    label="Current phase"
+                    value={currentPhase ?? '—'}
+                />
                 <DetailField
                     label="Vessel"
                     value={linked.vessel?.name ?? '—'}
@@ -591,6 +612,12 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
     const linked = row.linked_assignments;
     const trainingHistory = row.training.history ?? [];
     const timeline = row.phase_timeline ?? [];
+    const modernTimeline =
+        row.modern_phase_timeline ??
+        timeline.filter((entry) => !entry.is_legacy);
+    const legacyTimeline =
+        row.legacy_phase_timeline ??
+        timeline.filter((entry) => entry.is_legacy);
 
     const normalPhases: PhaseRecord[] = [
         {
@@ -899,13 +926,13 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         Complete phase timeline
                     </h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Every persisted phase occurrence with company-local
-                        timestamps. Legacy P1/P3 appear only when recorded.
+                        Modern lifecycle phases with company-local timestamps.
+                        Legacy P1/P3 are listed separately when recorded.
                     </p>
                 </div>
-                {timeline.length > 0 ? (
+                {modernTimeline.length > 0 ? (
                     <div className="space-y-3">
-                        {timeline.map((entry) => (
+                        {modernTimeline.map((entry) => (
                             <TimelineEntry
                                 key={`${entry.id}-${entry.sequence}`}
                                 entry={entry}
@@ -913,7 +940,7 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                             />
                         ))}
                     </div>
-                ) : (
+                ) : timeline.length === 0 ? (
                     <div className="space-y-3">
                         {normalPhases.map((phase) => (
                             <PhaseDetail
@@ -923,8 +950,43 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                             />
                         ))}
                     </div>
+                ) : (
+                    <p className="rounded-xl border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
+                        No modern lifecycle phases recorded for this assignment.
+                    </p>
                 )}
-                {legacyPhases.length > 0 && timeline.length === 0 ? (
+                {legacyTimeline.length > 0 ? (
+                    <section className="mt-5 space-y-3">
+                        <div>
+                            <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                                Legacy recorded phases
+                            </h4>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Historical Travel In or Ready to Join movement
+                                recorded before the modern workflow. Sequence
+                                and timestamps are preserved.
+                            </p>
+                        </div>
+                        {legacyTimeline.map((entry) => (
+                            <TimelineEntry
+                                key={`legacy-${entry.id}-${entry.sequence}`}
+                                entry={entry}
+                                timezone={timezone}
+                            />
+                        ))}
+                        {row.planned_travel_in ? (
+                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
+                                <DetailField
+                                    label="Legacy planned travel in"
+                                    value={formatDisplayDate(
+                                        row.planned_travel_in,
+                                    )}
+                                    hint={row.planned_travel_in_origin_label}
+                                />
+                            </div>
+                        ) : null}
+                    </section>
+                ) : legacyPhases.length > 0 && modernTimeline.length === 0 ? (
                     <section className="mt-5 space-y-3">
                         <div>
                             <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-200">

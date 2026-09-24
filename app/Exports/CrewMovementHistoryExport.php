@@ -83,6 +83,7 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             'Join Standby Days',
             'Training Periods',
             'Training Days',
+            'Training History',
             'Training Details',
             'Training Provider',
             'Training Course',
@@ -115,6 +116,7 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             'Previous Assignment',
             'Previous Vessel',
             'Movement Relationship',
+            'Starting Checkpoint',
             'Next Assignment(s)',
             'Next Vessel(s)',
             'Days Onboard',
@@ -183,6 +185,7 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             $row['join_standby']['total_days'],
             $this->periods($row['training']['periods']),
             $row['training']['total_days'],
+            $this->trainingHistory($trainingHistory),
             implode('; ', $row['training']['details']),
             collect($trainingHistory)->pluck('provider')->filter()->implode('; '),
             collect($trainingHistory)->pluck('course')->filter()->implode('; '),
@@ -217,7 +220,8 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             $linked['previous']['assignment_no'] ?? null,
             $linked['previous']['vessel']['name'] ?? null,
             $linked['relationship_label'] ?? null,
-            collect($linked['next'] ?? [])->pluck('assignment_no')->implode('; '),
+            $this->startingCheckpointLabel($row),
+            $this->nextAssignments($linked['next'] ?? []),
             collect($linked['next'] ?? [])->pluck('vessel')->pluck('name')->filter()->implode('; '),
             $tour['days_onboard'] ?? null,
             $tour['remaining_tour_days'] ?? null,
@@ -307,15 +311,146 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
     {
         return collect($timeline)
             ->map(function (array $phase): string {
-                $label = strtoupper((string) ($phase['phase_code'] ?? '')).' #'.($phase['occurrence'] ?? '');
-                $start = $this->dateTime($phase['actual_start_at'] ?? null);
-                $end = ($phase['status'] ?? null) === 'active'
+                $code = strtoupper((string) ($phase['phase_code'] ?? ''));
+                $legacyPrefix = ($phase['is_legacy'] ?? false) ? 'Legacy ' : '';
+                $header = sprintf(
+                    '%s%s #%s [seq %s] %s',
+                    $legacyPrefix,
+                    $code,
+                    $phase['occurrence'] ?? '',
+                    $phase['sequence'] ?? '',
+                    $this->statusLabel((string) ($phase['status'] ?? '')),
+                );
+
+                $lines = [$header];
+
+                $plannedStart = $this->dateTime($phase['planned_start_at'] ?? null);
+                $plannedEnd = $this->dateTime($phase['planned_end_at'] ?? null);
+                if ($plannedStart !== 'Not recorded' || $plannedEnd !== 'Not recorded') {
+                    $lines[] = 'Planned: '.$plannedStart.' → '.$plannedEnd;
+                }
+
+                $actualStart = $this->dateTime($phase['actual_start_at'] ?? null);
+                $actualEnd = ($phase['status'] ?? null) === 'active'
                     ? 'Ongoing'
                     : $this->dateTime($phase['actual_end_at'] ?? null);
+                $lines[] = 'Actual: '.$actualStart.' → '.$actualEnd;
 
-                return $label.' '.$start.' → '.$end;
+                if (($phase['days'] ?? null) !== null) {
+                    $lines[] = 'Days: '.$phase['days'];
+                }
+
+                if (! empty($phase['remarks'])) {
+                    $lines[] = 'Remarks: '.$phase['remarks'];
+                }
+
+                if (is_array($phase['details'] ?? null) && $phase['details'] !== []) {
+                    $detailParts = [];
+                    foreach ($phase['details'] as $key => $value) {
+                        if ($value === null || $value === '') {
+                            continue;
+                        }
+                        $detailParts[] = $key.': '.(is_scalar($value) ? (string) $value : json_encode($value));
+                    }
+                    if ($detailParts !== []) {
+                        $lines[] = 'Details: '.implode(', ', $detailParts);
+                    }
+                }
+
+                return implode("\n", $lines);
+            })
+            ->implode("\n\n");
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $history
+     */
+    private function trainingHistory(array $history): string
+    {
+        return collect($history)
+            ->map(function (array $entry): string {
+                $lines = [
+                    'Training #'.($entry['occurrence'] ?? ''),
+                ];
+
+                if (! empty($entry['provider'])) {
+                    $lines[] = 'Provider: '.$entry['provider'];
+                }
+                if (! empty($entry['course'])) {
+                    $lines[] = 'Course: '.$entry['course'];
+                }
+
+                $lines[] = 'Planned: '.$this->dateTime($entry['planned_start_at'] ?? null)
+                    .' → '.$this->dateTime($entry['planned_end_at'] ?? null);
+                $lines[] = 'Actual: '.$this->dateTime($entry['actual_start_at'] ?? null)
+                    .' → '.(($entry['status'] ?? null) === 'active'
+                        ? 'Ongoing'
+                        : $this->dateTime($entry['actual_end_at'] ?? null));
+                $lines[] = 'Status: '.$this->statusLabel((string) ($entry['status'] ?? ''));
+
+                $linked = ($entry['employee_training_linked'] ?? false) ? 'Linked' : 'Not linked';
+                $courseName = $entry['employee_training']['course_name'] ?? null;
+                $lines[] = 'Employee Training: '.$linked.($courseName ? ' · '.$courseName : '');
+
+                if (! empty($entry['remarks'])) {
+                    $lines[] = 'Remarks: '.$entry['remarks'];
+                }
+
+                return implode("\n", $lines);
+            })
+            ->implode("\n\n");
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function startingCheckpointLabel(array $row): string
+    {
+        $code = $row['starting_phase_code'] ?? null;
+        $label = $row['starting_phase_label'] ?? null;
+
+        if ($code === null && $label === null) {
+            return 'Not recorded';
+        }
+
+        return strtoupper((string) $code).($label ? ' · '.$label : '');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $next
+     */
+    private function nextAssignments(array $next): string
+    {
+        return collect($next)
+            ->map(function (array $linked): string {
+                $parts = array_filter([
+                    $linked['assignment_no'] ?? null,
+                    $linked['source_label'] ?? null,
+                    isset($linked['starting_phase_code'], $linked['starting_phase_label'])
+                        ? 'Started at '.strtoupper((string) $linked['starting_phase_code']).' · '.$linked['starting_phase_label']
+                        : null,
+                    isset($linked['current_phase_code'], $linked['current_phase_label'])
+                        ? 'Current '.strtoupper((string) $linked['current_phase_code']).' · '.$linked['current_phase_label']
+                        : (isset($linked['current_phase_code'])
+                            ? 'Current '.strtoupper((string) $linked['current_phase_code'])
+                            : null),
+                ]);
+
+                return implode(' | ', $parts);
             })
             ->implode('; ');
+    }
+
+    private function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'planned' => 'Planned',
+            'active' => 'Active',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            'corrected' => 'Corrected',
+            default => $status === '' ? 'Unknown' : str($status)->replace('_', ' ')->title()->toString(),
+        };
     }
 
     /**
