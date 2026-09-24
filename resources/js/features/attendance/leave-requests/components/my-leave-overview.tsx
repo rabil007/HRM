@@ -134,7 +134,12 @@ export function MyLeaveOverview({
                 ) : null}
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div
+                className="grid gap-2"
+                style={{
+                    gridTemplateColumns: `repeat(${Math.min(balances.length, 4)}, minmax(0, 1fr))`,
+                }}
+            >
                 {balances.map((balance) => {
                     const accent = balance.color ?? FALLBACK_COLOR;
 
