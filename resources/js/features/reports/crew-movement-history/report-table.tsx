@@ -572,7 +572,7 @@ function LinkedAssignmentCard({
             </div>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <DetailField
-                    label="Relationship"
+                    label="Assignment source"
                     value={linked.source_label || '—'}
                 />
                 <DetailField

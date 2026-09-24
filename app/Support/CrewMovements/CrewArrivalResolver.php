@@ -42,41 +42,87 @@ final class CrewArrivalResolver
     }
 
     /**
-     * SQL filter equivalent of timestamp(): P2A actual_start_at first,
-     * else completed P1 actual_end_at only when no P2A arrival exists.
+     * SQL filter equivalent of timestamp(): the first P2A actual_start_at by sequence,
+     * else the first completed P1 actual_end_at by sequence when no P2A arrival exists.
+     *
+     * Applies from/to against that single resolved occurrence (not any matching phase).
      *
      * @param  Builder<Model>  $query
-     * @param  '>='|'<='  $operator
      */
-    public static function applyDateFilter(Builder $query, string $operator, string $date): Builder
-    {
-        return $query->where(function (Builder $outer) use ($operator, $date): void {
-            $outer
-                ->whereHas(
-                    'phases',
-                    fn (Builder $phase) => $phase
-                        ->where('phase_code', CrewPhaseCode::JoinStandby)
-                        ->whereNotNull('actual_start_at')
-                        ->whereDate('actual_start_at', $operator, $date),
-                )
-                ->orWhere(function (Builder $legacy) use ($operator, $date): void {
-                    $legacy
-                        ->whereDoesntHave(
-                            'phases',
-                            fn (Builder $phase) => $phase
-                                ->where('phase_code', CrewPhaseCode::JoinStandby)
-                                ->whereNotNull('actual_start_at'),
-                        )
-                        ->whereHas(
-                            'phases',
-                            fn (Builder $phase) => $phase
-                                ->where('phase_code', CrewPhaseCode::TravelIn)
-                                ->where('status', CrewPhaseStatus::Completed)
-                                ->whereNotNull('actual_end_at')
-                                ->whereDate('actual_end_at', $operator, $date),
-                        );
-                });
+    public static function applyDateFilter(
+        Builder $query,
+        ?string $from = null,
+        ?string $to = null,
+    ): Builder {
+        $from = ($from !== null && $from !== '') ? $from : null;
+        $to = ($to !== null && $to !== '') ? $to : null;
+
+        if ($from === null && $to === null) {
+            return $query;
+        }
+
+        $expression = self::authoritativeArrivalTimestampSql($query);
+
+        return $query->where(function (Builder $inner) use ($expression, $from, $to): void {
+            if ($from !== null) {
+                $inner->whereRaw("date({$expression}) >= ?", [$from]);
+            }
+
+            if ($to !== null) {
+                $inner->whereRaw("date({$expression}) <= ?", [$to]);
+            }
         });
+    }
+
+    /**
+     * @param  Builder<Model>  $query
+     */
+    private static function authoritativeArrivalTimestampSql(Builder $query): string
+    {
+        $grammar = $query->getQuery()->getGrammar();
+        $assignmentTable = $grammar->wrapTable($query->getModel()->getTable());
+        $phasesTable = $grammar->wrapTable((new CrewAssignmentPhase)->getTable());
+        $assignmentId = $grammar->wrap('id');
+        $phaseAssignmentId = $grammar->wrap('crew_assignment_id');
+        $phaseCode = $grammar->wrap('phase_code');
+        $status = $grammar->wrap('status');
+        $sequence = $grammar->wrap('sequence');
+        $actualStart = $grammar->wrap('actual_start_at');
+        $actualEnd = $grammar->wrap('actual_end_at');
+        $deletedAt = $grammar->wrap('deleted_at');
+
+        $p2a = CrewPhaseCode::JoinStandby->value;
+        $p1 = CrewPhaseCode::TravelIn->value;
+        $completed = CrewPhaseStatus::Completed->value;
+
+        $p2aSubquery = <<<SQL
+(
+    select {$actualStart}
+    from {$phasesTable}
+    where {$phaseAssignmentId} = {$assignmentTable}.{$assignmentId}
+      and {$phaseCode} = '{$p2a}'
+      and {$actualStart} is not null
+      and {$deletedAt} is null
+    order by {$sequence} asc
+    limit 1
+)
+SQL;
+
+        $p1Subquery = <<<SQL
+(
+    select {$actualEnd}
+    from {$phasesTable}
+    where {$phaseAssignmentId} = {$assignmentTable}.{$assignmentId}
+      and {$phaseCode} = '{$p1}'
+      and {$status} = '{$completed}'
+      and {$actualEnd} is not null
+      and {$deletedAt} is null
+    order by {$sequence} asc
+    limit 1
+)
+SQL;
+
+        return "coalesce({$p2aSubquery}, {$p1Subquery})";
     }
 
     public static function date(CrewAssignment $assignment, string $timezone): ?string

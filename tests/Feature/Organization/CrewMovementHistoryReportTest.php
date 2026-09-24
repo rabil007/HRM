@@ -416,16 +416,72 @@ test('actual arrival filter uses p2a with completed p1 fallback and modern prece
         'actual_end_at' => '2026-01-09 09:00:00',
     ]);
 
+    $repeatedP2a = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARRIVAL-P2A-REPEAT',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeatedP2a)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-10 08:00:00',
+        'actual_end_at' => '2026-09-12 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeatedP2a)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-13 08:00:00',
+        'actual_end_at' => '2026-09-14 17:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeatedP2a)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-20 08:00:00',
+        'actual_end_at' => '2026-09-21 08:00:00',
+    ]);
+
+    $repeatedP1 = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARRIVAL-P1-REPEAT',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeatedP1)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-03 08:00:00',
+        'actual_end_at' => '2026-01-04 11:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeatedP1)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-01-07 08:00:00',
+        'actual_end_at' => '2026-01-08 11:00:00',
+    ]);
+
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [
             'actual_arrival_from' => '2026-09-10',
             'actual_arrival_to' => '2026-09-10',
+            'search' => 'CA-ARRIVAL-P2A',
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('assignments', 1)
-            ->where('assignments.0.assignment_no', 'CA-ARRIVAL-P2A')
+            ->has('assignments', 2)
+            ->where('assignments', fn ($assignments) => collect($assignments)->pluck('assignment_no')->sort()->values()->all() === [
+                'CA-ARRIVAL-P2A',
+                'CA-ARRIVAL-P2A-REPEAT',
+            ])
             ->where('assignments.0.actual_arrival', '2026-09-10'));
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'actual_arrival_from' => '2026-09-20',
+            'actual_arrival_to' => '2026-09-20',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 0));
 
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [
@@ -434,9 +490,11 @@ test('actual arrival filter uses p2a with completed p1 fallback and modern prece
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('assignments', 1)
-            ->where('assignments.0.assignment_no', 'CA-ARRIVAL-P1')
-            ->where('assignments.0.actual_arrival', '2026-01-04'));
+            ->has('assignments', 2)
+            ->where('assignments', fn ($assignments) => collect($assignments)->pluck('assignment_no')->sort()->values()->all() === [
+                'CA-ARRIVAL-P1',
+                'CA-ARRIVAL-P1-REPEAT',
+            ]));
 
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [

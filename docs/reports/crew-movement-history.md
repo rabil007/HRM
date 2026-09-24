@@ -49,8 +49,10 @@ Expanded detail includes assignment number and record ID, employee identity, ran
 
 `CrewArrivalResolver` is authoritative for UI display, export, and Actual Arrival From/To filters:
 
-1. Prefer the first P2A `actual_start_at`.
-2. Only when no P2A arrival exists, fall back to completed P1 `actual_end_at`.
+1. Prefer the **first** P2A / Join Standby occurrence by `sequence` with `actual_start_at`.
+2. Only when no P2A arrival exists, fall back to the **first** completed P1 / Travel In occurrence by `sequence` with `actual_end_at`.
+
+Later repeated P2A or P1 occurrences never override the authoritative value. Filters apply `from`/`to` against that same resolved occurrence (not against any matching phase via loose `whereHas`).
 
 If both P1 and P2A exist, P2A wins. Filtering on the legacy P1 end date must not match an assignment that already has a P2A arrival.
 
@@ -83,6 +85,8 @@ Starting checkpoint and current phase are separate concepts on each linked summa
 
 - **Starting checkpoint** — first persisted `CrewAssignmentPhase` ordered by `sequence` on the linked assignment (for example Redeployment destination that began at P2A).
 - **Current phase** — the assignment’s `currentPhase` (which may later be P4 even though the destination originally started at P2A).
+
+The journey **Relationship** (Vessel Transfer / Redeployment) is shown at the Linked Assignment Journey section level. Each linked card’s **Assignment source** is that assignment’s own creation `source` (for example Manual on a previous assignment) and must not be labeled as the movement relationship.
 
 Export includes Starting Checkpoint for the current row and serializes next-assignment starting/current checkpoints when present.
 

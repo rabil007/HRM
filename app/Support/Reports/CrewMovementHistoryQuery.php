@@ -240,23 +240,13 @@ final class CrewMovementHistoryQuery
      */
     private function applyMovementDateFilters(Builder $query): void
     {
+        CrewArrivalResolver::applyDateFilter(
+            $query,
+            from: $this->filters->actualArrivalFrom !== '' ? $this->filters->actualArrivalFrom : null,
+            to: $this->filters->actualArrivalTo !== '' ? $this->filters->actualArrivalTo : null,
+        );
+
         $query
-            ->when(
-                $this->filters->actualArrivalFrom !== '',
-                fn (Builder $inner) => CrewArrivalResolver::applyDateFilter(
-                    $inner,
-                    '>=',
-                    $this->filters->actualArrivalFrom,
-                ),
-            )
-            ->when(
-                $this->filters->actualArrivalTo !== '',
-                fn (Builder $inner) => CrewArrivalResolver::applyDateFilter(
-                    $inner,
-                    '<=',
-                    $this->filters->actualArrivalTo,
-                ),
-            )
             ->when($this->filters->actualJoinFrom !== '', fn (Builder $inner) => $inner->whereHas(
                 'phases',
                 fn (Builder $phase) => $phase

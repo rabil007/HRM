@@ -546,9 +546,14 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ->and($row['starting_phase_label'])->toBe('Join Standby')
         ->and($row['current_phase']['code'])->toBe('p4')
         ->and($row['linked_assignments']['previous']['assignment_no'])->toBe('CA-2026-000041')
+        ->and($row['linked_assignments']['previous']['source'])->toBe('manual')
+        ->and($row['linked_assignments']['previous']['source_label'])->toBe('Manual')
         ->and($row['linked_assignments']['relationship'])->toBe('redeployment')
+        ->and($row['linked_assignments']['relationship_label'])->toBe('Redeployment')
         ->and($row['linked_assignments']['previous']['starting_phase_code'])->toBe('p5')
         ->and($row['linked_assignments']['previous']['starting_phase_label'])->toBe('Demobilisation Standby')
+        ->and($row['source'])->toBe('redeployment')
+        ->and($row['source_label'])->toBe('Redeployment')
         ->and($row['modern_phase_timeline'])->toHaveCount(2)
         ->and($row['legacy_phase_timeline'])->toBe([]);
 
