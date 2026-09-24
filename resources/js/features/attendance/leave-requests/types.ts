@@ -25,6 +25,28 @@ export type LeaveRequestTypeOption = {
     color: string | null;
 };
 
+export type LeaveTypeYearBalance = {
+    id: number;
+    name: string;
+    code: string;
+    color: string | null;
+    base_entitlement_days: number;
+    carried_days: number;
+    total_available_days: number;
+    entitled_days: number;
+    used_days: number;
+    pending_days: number;
+    remaining_days: number;
+};
+
+export type LeaveRequestStatusCounts = {
+    all: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    cancelled: number;
+};
+
 export type LeaveRequestAttachment = {
     path: string;
     name: string;

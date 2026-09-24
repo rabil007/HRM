@@ -7,6 +7,7 @@ import type {
     LeaveRequestFilters,
     LeaveRequestPermissions,
     LeaveRequestTypeOption,
+    LeaveTypeYearBalance,
 } from './types';
 
 export function MyLeaveContent(props: {
@@ -25,6 +26,8 @@ export function MyLeaveContent(props: {
     leave_types: LeaveRequestTypeOption[];
     linkedEmployeeId: number | null;
     linkedEmployeeAttendanceLeaveEnabled?: boolean;
+    leaveBalances?: LeaveTypeYearBalance[];
+    leaveBalanceYear?: number | null;
     can: LeaveRequestPermissions;
     saved_views?: SavedView[];
 }) {
