@@ -220,7 +220,14 @@ export function EmployeeSeaServiceTab({
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
     const seaServiceIds = useMemo(
-        () => sea_services.map((row) => row.id),
+        () =>
+            sea_services
+                .filter(
+                    (row) =>
+                        !row.has_assignment_phase &&
+                        !row.crew_assignment_phase_id,
+                )
+                .map((row) => row.id),
         [sea_services],
     );
 
@@ -584,15 +591,18 @@ export function EmployeeSeaServiceTab({
                                             'w-10 px-3',
                                         )}
                                     >
-                                        <Checkbox
-                                            checked={isSeaServiceSelected(
-                                                row.id,
-                                            )}
-                                            onCheckedChange={() =>
-                                                toggleSeaService(row.id)
-                                            }
-                                            aria-label={`Select sea service record ${row.vessel_name ?? row.id}`}
-                                        />
+                                        {row.has_assignment_phase ||
+                                        row.crew_assignment_phase_id ? null : (
+                                            <Checkbox
+                                                checked={isSeaServiceSelected(
+                                                    row.id,
+                                                )}
+                                                onCheckedChange={() =>
+                                                    toggleSeaService(row.id)
+                                                }
+                                                aria-label={`Select sea service record ${row.vessel_name ?? row.id}`}
+                                            />
+                                        )}
                                     </td>
                                 ) : null}
                                 {showField('vessel_type_id') ? (
@@ -701,53 +711,72 @@ export function EmployeeSeaServiceTab({
                                             'min-w-[4.5rem]',
                                         )}
                                     >
-                                        <EmployeeRecordRowActions
-                                            onEdit={
-                                                allowUpdate
-                                                    ? () => {
-                                                          setEditingRow(row);
-                                                          clearMissingRequired();
-                                                          employeeForm.setData({
-                                                              vessel_type_id:
-                                                                  String(
-                                                                      row.vessel_type_id,
-                                                                  ),
-                                                              vessel_id:
-                                                                  row.vessel_id !=
-                                                                  null
-                                                                      ? String(
-                                                                            row.vessel_id,
-                                                                        )
-                                                                      : '',
-                                                              rank_id: String(
-                                                                  row.rank_id,
-                                                              ),
-                                                              start_date:
-                                                                  row.start_date ??
-                                                                  '',
-                                                              end_date:
-                                                                  row.end_date ??
-                                                                  '',
-                                                              client_id:
-                                                                  row.client_id !=
-                                                                  null
-                                                                      ? String(
-                                                                            row.client_id,
-                                                                        )
-                                                                      : '',
-                                                          });
-                                                          employeeForm.clearErrors();
-                                                          setDialogOpen(true);
-                                                      }
-                                                    : undefined
-                                            }
-                                            onDelete={
-                                                allowDelete
-                                                    ? () =>
-                                                          setDeleteRowId(row.id)
-                                                    : undefined
-                                            }
-                                        />
+                                        {row.has_assignment_phase ||
+                                        row.crew_assignment_phase_id ? (
+                                            <span
+                                                className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-muted-foreground"
+                                                title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates."
+                                            >
+                                                Managed by Crew Operations
+                                            </span>
+                                        ) : (
+                                            <EmployeeRecordRowActions
+                                                onEdit={
+                                                    allowUpdate
+                                                        ? () => {
+                                                              setEditingRow(
+                                                                  row,
+                                                              );
+                                                              clearMissingRequired();
+                                                              employeeForm.setData(
+                                                                  {
+                                                                      vessel_type_id:
+                                                                          String(
+                                                                              row.vessel_type_id,
+                                                                          ),
+                                                                      vessel_id:
+                                                                          row.vessel_id !=
+                                                                          null
+                                                                              ? String(
+                                                                                    row.vessel_id,
+                                                                                )
+                                                                              : '',
+                                                                      rank_id:
+                                                                          String(
+                                                                              row.rank_id,
+                                                                          ),
+                                                                      start_date:
+                                                                          row.start_date ??
+                                                                          '',
+                                                                      end_date:
+                                                                          row.end_date ??
+                                                                          '',
+                                                                      client_id:
+                                                                          row.client_id !=
+                                                                          null
+                                                                              ? String(
+                                                                                    row.client_id,
+                                                                                )
+                                                                              : '',
+                                                                  },
+                                                              );
+                                                              employeeForm.clearErrors();
+                                                              setDialogOpen(
+                                                                  true,
+                                                              );
+                                                          }
+                                                        : undefined
+                                                }
+                                                onDelete={
+                                                    allowDelete
+                                                        ? () =>
+                                                              setDeleteRowId(
+                                                                  row.id,
+                                                              )
+                                                        : undefined
+                                                }
+                                            />
+                                        )}
                                     </td>
                                 ) : null}
                             </tr>

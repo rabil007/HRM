@@ -266,6 +266,8 @@ export type SeaServiceItem = {
     bhp: number | null;
     client_id: number | null;
     client_name: string | null;
+    crew_assignment_phase_id?: number | null;
+    has_assignment_phase?: boolean;
     created_at: string;
 };
 

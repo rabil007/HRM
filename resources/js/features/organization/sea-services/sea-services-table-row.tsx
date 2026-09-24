@@ -43,6 +43,7 @@ export function SeaServicesTableRow({
                 checked={selected}
                 onToggle={() => onToggleSelection?.()}
                 label={`Select sea service for ${seaService.employee_name}`}
+                disabled={seaService.has_assignment_phase}
             />
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
@@ -118,13 +119,27 @@ export function SeaServicesTableRow({
             <TableCell
                 className={cn(dataTableActionsCellClass(), 'min-w-[10rem]')}
             >
-                <SeaServiceListRowActions
-                    viewHref={viewHref}
-                    showEdit={canUpdate}
-                    onEdit={onEdit ? () => onEdit(seaService) : undefined}
-                    showDelete={canDelete}
-                    onDelete={onDelete ? () => onDelete(seaService) : undefined}
-                />
+                <div className="flex items-center justify-end gap-2">
+                    {seaService.has_assignment_phase ? (
+                        <span
+                            className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-muted-foreground"
+                            title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates."
+                        >
+                            Managed by Crew Operations
+                        </span>
+                    ) : null}
+                    <SeaServiceListRowActions
+                        viewHref={viewHref}
+                        showEdit={canUpdate && !seaService.has_assignment_phase}
+                        onEdit={onEdit ? () => onEdit(seaService) : undefined}
+                        showDelete={
+                            canDelete && !seaService.has_assignment_phase
+                        }
+                        onDelete={
+                            onDelete ? () => onDelete(seaService) : undefined
+                        }
+                    />
+                </div>
             </TableCell>
         </TableRow>
     );

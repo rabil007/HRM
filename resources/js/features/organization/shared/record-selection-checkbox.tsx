@@ -26,10 +26,12 @@ export function RecordSelectionCell({
     checked,
     onToggle,
     label,
+    disabled = false,
 }: {
     checked: boolean;
     onToggle: () => void;
     label: string;
+    disabled?: boolean;
 }) {
     return (
         <TableCell
@@ -40,6 +42,7 @@ export function RecordSelectionCell({
                 checked={checked}
                 onCheckedChange={onToggle}
                 aria-label={label}
+                disabled={disabled}
             />
         </TableCell>
     );

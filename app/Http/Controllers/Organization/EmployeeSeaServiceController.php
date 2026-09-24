@@ -69,6 +69,12 @@ class EmployeeSeaServiceController extends Controller
             404,
         );
 
+        if ($seaService->isSynchronized()) {
+            throw ValidationException::withMessages([
+                'error' => 'This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates.',
+            ]);
+        }
+
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
             $employee,
@@ -100,6 +106,12 @@ class EmployeeSeaServiceController extends Controller
             404,
         );
 
+        if ($seaService->isSynchronized()) {
+            throw ValidationException::withMessages([
+                'error' => 'This Sea Service record is synchronized from Crew Operations and cannot be deleted directly.',
+            ]);
+        }
+
         $seaService->delete();
 
         return back()->with('success', 'Sea service record removed.');
@@ -113,10 +125,25 @@ class EmployeeSeaServiceController extends Controller
 
         $this->assertEmployeeVisible($request, $employee, $companyId);
 
+        $ids = $request->validated('sea_service_ids');
+
+        $hasSynchronized = EmployeeSeaService::query()
+            ->where('employee_id', $employee->id)
+            ->where('company_id', $companyId)
+            ->whereIn('id', $ids)
+            ->whereNotNull('crew_assignment_phase_id')
+            ->exists();
+
+        if ($hasSynchronized) {
+            throw ValidationException::withMessages([
+                'error' => 'Synchronized Sea Service records cannot be deleted directly. Use Crew Operations correction or voiding workflows.',
+            ]);
+        }
+
         $deleted = EmployeeSeaService::query()
             ->where('employee_id', $employee->id)
             ->where('company_id', $companyId)
-            ->whereIn('id', $request->validated('sea_service_ids'))
+            ->whereIn('id', $ids)
             ->delete();
 
         if ($deleted === 0) {

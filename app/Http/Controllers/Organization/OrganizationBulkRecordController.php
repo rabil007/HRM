@@ -25,6 +25,12 @@ class OrganizationBulkRecordController extends Controller
     {
         $records = $this->companyRecords($request, EmployeeSeaService::class);
 
+        if ($records->contains(fn (EmployeeSeaService $service) => $service->crew_assignment_phase_id !== null)) {
+            return back()->withErrors([
+                'bulk_delete' => 'One or more selected sea service records are synchronized from Crew Operations and cannot be deleted directly.',
+            ]);
+        }
+
         $records->each->delete();
 
         return $this->success($records->count(), 'sea service record');
