@@ -20,6 +20,7 @@ use App\Support\Attendance\Actions\ReassignLeaveRequestApproval;
 use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
+use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAuthorization;
@@ -571,4 +572,147 @@ test('preset recipients are not multiplied across parallel any required submissi
     });
 
     expect($mailsWithPresetCc)->toHaveCount(1);
+});
+
+test('parallel required approver emails exclude all sibling approvers from preset recipients', function () {
+    Mail::fake();
+    (new EmailTemplatesSeeder)->run();
+
+    $context = makeAnyRequiredModeContext();
+    $maherEmail = (string) $context['maher']['employee']->work_email;
+
+    EmailTemplate::query()
+        ->where('slug', 'leave_request_submitted')
+        ->update([
+            'to_preset' => strtoupper($maherEmail),
+            'cc_preset' => 'extra-fyi@example.com',
+        ]);
+
+    submitAnyRequiredLeave($context, notify: true);
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($context): bool {
+        return $mail->hasTo($context['rima']['employee']->work_email)
+            && ! $mail->hasCc($context['maher']['employee']->work_email)
+            && $mail->hasCc('extra-fyi@example.com');
+    });
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($context): bool {
+        return $mail->hasTo($context['maher']['employee']->work_email)
+            && ! $mail->hasCc($context['rima']['employee']->work_email);
+    });
+
+    $maherToCount = collect(Mail::queued(LeaveRequestSubmittedMail::class))
+        ->filter(fn (LeaveRequestSubmittedMail $mail): bool => $mail->hasTo($context['maher']['employee']->work_email))
+        ->count();
+
+    expect($maherToCount)->toBe(1);
+});
+
+test('any required actionable emails include first-decision wording and notify only does not', function () {
+    Mail::fake();
+    (new EmailTemplatesSeeder)->run();
+
+    $context = makeAnyRequiredModeContext();
+    submitAnyRequiredLeave($context, notify: true);
+
+    $note = 'Only one required approver needs to act. The first approval or rejection completes this request.';
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($context, $note): bool {
+        return $mail->hasTo($context['rima']['employee']->work_email)
+            && str_contains((string) $mail->introMessage, $note);
+    });
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($context, $note): bool {
+        return $mail->hasTo($context['maher']['employee']->work_email)
+            && str_contains((string) $mail->introMessage, $note);
+    });
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($context, $note): bool {
+        return $mail->hasTo($context['adam']['employee']->work_email)
+            && ! str_contains((string) ($mail->introMessage ?? ''), $note);
+    });
+});
+
+test('all required actionable emails do not include any required wording', function () {
+    Mail::fake();
+    (new EmailTemplatesSeeder)->run();
+
+    $context = makeAnyRequiredModeContext(LeaveApprovalMode::AllRequired);
+    submitAnyRequiredLeave($context, notify: true);
+
+    $note = 'Only one required approver needs to act. The first approval or rejection completes this request.';
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($note): bool {
+        return ! str_contains((string) ($mail->introMessage ?? ''), $note);
+    });
+});
+
+test('any required pending invariant rejects corrupted mixed required statuses', function () {
+    $context = makeAnyRequiredModeContext();
+    $leaveRequest = submitAnyRequiredLeave($context);
+    $invariant = app(AssertLeaveApprovalWorkflowInvariant::class);
+
+    $approvals = $leaveRequest->approvals()->orderBy('sequence')->get();
+    expect($invariant->forPendingRequest($leaveRequest, $approvals))->not->toBeNull();
+
+    $firstRequired = $leaveRequest->approvals()->where('is_required', true)->orderBy('sequence')->firstOrFail();
+
+    foreach ([
+        LeaveRequestApprovalStatus::Approved,
+        LeaveRequestApprovalStatus::Rejected,
+        LeaveRequestApprovalStatus::Cancelled,
+        LeaveRequestApprovalStatus::Waiting,
+    ] as $corruptStatus) {
+        $firstRequired->forceFill([
+            'status' => $corruptStatus,
+            'acted_at' => now(),
+        ])->save();
+
+        expect(fn () => $invariant->forPendingRequest(
+            $leaveRequest->fresh(),
+            $leaveRequest->fresh()->approvals()->orderBy('sequence')->get(),
+        ))->toThrow(ValidationException::class);
+
+        $firstRequired->forceFill([
+            'status' => LeaveRequestApprovalStatus::Pending,
+            'acted_at' => null,
+        ])->save();
+    }
+});
+
+test('any required terminal snapshots pass the tightened invariant', function () {
+    $context = makeAnyRequiredModeContext();
+    $leaveRequest = submitAnyRequiredLeave($context);
+    $invariant = app(AssertLeaveApprovalWorkflowInvariant::class);
+
+    $approved = app(ApproveLeaveRequestStep::class)->handle(
+        $leaveRequest,
+        $context['rima']['user'],
+        (int) $context['company']->id,
+    );
+
+    expect($approved->status)->toBe('approved');
+    $invariant->forTerminalRequest($approved, $approved->approvals);
+
+    $rejectedRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $context['company']->id,
+        attributes: [
+            'employee_id' => $context['employee']->id,
+            'leave_type_id' => $context['leaveType']->id,
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-02',
+            'reason' => 'Reject flow',
+        ],
+        notify: false,
+    );
+
+    $rejected = app(RejectLeaveRequestStep::class)->handle(
+        $rejectedRequest,
+        $context['maher']['user'],
+        (int) $context['company']->id,
+        'No',
+    );
+
+    expect($rejected->status)->toBe('rejected');
+    $invariant->forTerminalRequest($rejected, $rejected->approvals);
 });

@@ -231,20 +231,9 @@ final class AssertLeaveApprovalWorkflowInvariant
                 continue;
             }
 
-            if ($status === LeaveRequestApprovalStatus::Waiting) {
+            if ($status !== LeaveRequestApprovalStatus::Pending) {
                 throw ValidationException::withMessages([
-                    'leave_request' => 'This leave request has a corrupted approval workflow (any-required mode must not leave required steps waiting).',
-                ]);
-            }
-
-            if (! in_array($status, [
-                LeaveRequestApprovalStatus::Pending,
-                LeaveRequestApprovalStatus::Approved,
-                LeaveRequestApprovalStatus::Rejected,
-                LeaveRequestApprovalStatus::Cancelled,
-            ], true)) {
-                throw ValidationException::withMessages([
-                    'leave_request' => 'This leave request has a corrupted approval workflow (unexpected required step status).',
+                    'leave_request' => 'This leave request has a corrupted approval workflow (any-required pending requests must keep every required step pending).',
                 ]);
             }
         }
@@ -326,6 +315,60 @@ final class AssertLeaveApprovalWorkflowInvariant
         if ($open !== null) {
             throw ValidationException::withMessages([
                 'leave_request' => 'This leave request has a corrupted approval workflow (terminal request still has open steps).',
+            ]);
+        }
+
+        if ($leaveRequest->approvalMode() === LeaveApprovalMode::AnyRequired
+            && in_array($leaveRequest->status, ['approved', 'rejected'], true)) {
+            $this->assertAnyRequiredTerminalShape($leaveRequest, $approvals);
+        }
+    }
+
+    /**
+     * @param  Collection<int, LeaveRequestApproval>  $approvals
+     *
+     * @throws ValidationException
+     */
+    private function assertAnyRequiredTerminalShape(LeaveRequest $leaveRequest, Collection $approvals): void
+    {
+        $ordered = $approvals->sortBy('sequence')->values();
+        $this->assertSharedApproverIdentityIntegrity($leaveRequest, $ordered);
+
+        $decidingStatus = $leaveRequest->status === 'approved'
+            ? LeaveRequestApprovalStatus::Approved
+            : LeaveRequestApprovalStatus::Rejected;
+
+        $deciding = 0;
+
+        foreach ($ordered as $step) {
+            $status = $this->statusOf($step);
+
+            if (! $step->is_required) {
+                if ($status !== LeaveRequestApprovalStatus::Skipped) {
+                    throw ValidationException::withMessages([
+                        'leave_request' => 'This leave request has a corrupted approval workflow (notify-only steps must be skipped).',
+                    ]);
+                }
+
+                continue;
+            }
+
+            if ($status === $decidingStatus) {
+                $deciding++;
+
+                continue;
+            }
+
+            if ($status !== LeaveRequestApprovalStatus::Cancelled) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'This leave request has a corrupted approval workflow (non-deciding required steps must be cancelled).',
+                ]);
+            }
+        }
+
+        if ($deciding !== 1) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (any-required terminal requests need exactly one deciding required step).',
             ]);
         }
     }

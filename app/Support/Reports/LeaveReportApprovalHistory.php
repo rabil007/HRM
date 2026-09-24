@@ -2,6 +2,7 @@
 
 namespace App\Support\Reports;
 
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
@@ -121,6 +122,26 @@ final class LeaveReportApprovalHistory
      */
     private static function progress(LeaveRequest $leaveRequest, $required): array
     {
+        if ($leaveRequest->approvalMode() === LeaveApprovalMode::AnyRequired) {
+            return self::anyRequiredProgress($leaveRequest, $required);
+        }
+
+        return self::allRequiredProgress($leaveRequest, $required);
+    }
+
+    /**
+     * @param  Collection<int, LeaveRequestApproval>  $required
+     * @return array{
+     *     required_steps: int,
+     *     approved_steps: int,
+     *     current_status: string,
+     *     waiting_for: string|null,
+     *     current_sequence: int|null,
+     *     label: string
+     * }
+     */
+    private static function allRequiredProgress(LeaveRequest $leaveRequest, $required): array
+    {
         $requiredCount = $required->count();
         $approvedCount = $required
             ->filter(fn (LeaveRequestApproval $step): bool => self::statusOf($step) === LeaveRequestApprovalStatus::Approved)
@@ -163,6 +184,103 @@ final class LeaveReportApprovalHistory
             'current_status' => $currentStatus,
             'waiting_for' => $waitingFor,
             'current_sequence' => $currentSequence,
+            'label' => $label,
+        ];
+    }
+
+    /**
+     * First-decision-wins progress based on the leave request's snapshotted mode.
+     *
+     * @param  Collection<int, LeaveRequestApproval>  $required
+     * @return array{
+     *     required_steps: int,
+     *     approved_steps: int,
+     *     current_status: string,
+     *     waiting_for: string|null,
+     *     current_sequence: int|null,
+     *     label: string
+     * }
+     */
+    private static function anyRequiredProgress(LeaveRequest $leaveRequest, $required): array
+    {
+        $companyId = (int) $leaveRequest->company_id;
+        $requiredCount = $required->count();
+        $approved = $required->first(
+            fn (LeaveRequestApproval $step): bool => self::statusOf($step) === LeaveRequestApprovalStatus::Approved,
+        );
+        $rejected = $required->first(
+            fn (LeaveRequestApproval $step): bool => self::statusOf($step) === LeaveRequestApprovalStatus::Rejected,
+        );
+        $pendingCount = $required
+            ->filter(fn (LeaveRequestApproval $step): bool => self::statusOf($step) === LeaveRequestApprovalStatus::Pending)
+            ->count();
+
+        if ($requiredCount === 0) {
+            return [
+                'required_steps' => 0,
+                'approved_steps' => 0,
+                'current_status' => 'none',
+                'waiting_for' => null,
+                'current_sequence' => null,
+                'label' => 'No approval required',
+            ];
+        }
+
+        if ($leaveRequest->status === 'cancelled') {
+            return [
+                'required_steps' => $requiredCount,
+                'approved_steps' => 0,
+                'current_status' => 'cancelled',
+                'waiting_for' => null,
+                'current_sequence' => null,
+                'label' => 'Cancelled',
+            ];
+        }
+
+        if ($leaveRequest->status === 'approved' || $approved instanceof LeaveRequestApproval) {
+            $winner = $approved instanceof LeaveRequestApproval
+                ? $approved
+                : null;
+
+            return [
+                'required_steps' => $requiredCount,
+                'approved_steps' => $winner !== null ? 1 : 0,
+                'current_status' => 'approved',
+                'waiting_for' => null,
+                'current_sequence' => null,
+                'label' => $winner !== null
+                    ? 'Approved by '.self::approverName($winner, $companyId)
+                    : 'Approved',
+            ];
+        }
+
+        if ($leaveRequest->status === 'rejected' || $rejected instanceof LeaveRequestApproval) {
+            $decider = $rejected instanceof LeaveRequestApproval
+                ? $rejected
+                : null;
+
+            return [
+                'required_steps' => $requiredCount,
+                'approved_steps' => 0,
+                'current_status' => 'rejected',
+                'waiting_for' => null,
+                'current_sequence' => null,
+                'label' => $decider !== null
+                    ? 'Rejected by '.self::approverName($decider, $companyId)
+                    : 'Rejected',
+            ];
+        }
+
+        $label = $pendingCount > 0
+            ? sprintf('Pending — any 1 of %d approvers can act', $requiredCount)
+            : 'Pending';
+
+        return [
+            'required_steps' => $requiredCount,
+            'approved_steps' => 0,
+            'current_status' => 'pending',
+            'waiting_for' => null,
+            'current_sequence' => null,
             'label' => $label,
         ];
     }

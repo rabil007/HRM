@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Enums\LeaveTypeCategory;
 use App\Exports\LeaveReportExport;
@@ -303,4 +304,159 @@ test('leave report hides foreign-company approver user fallback names', function
     expect($this->actingAs($user)->get(route('organization.reports.leave.index'))->getContent())
         ->not->toContain('Foreign Fallback Approver')
         ->not->toContain('Foreign Emp');
+});
+
+test('leave report any required progress reflects first decision wins', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    $rima = makeActionableApprover($company, ['name' => 'Rima']);
+    $maher = makeActionableApprover($company, ['name' => 'Maher']);
+    $adam = makeActionableApprover($company, ['name' => 'Adam']);
+
+    $pending = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-11-02',
+        'total_days' => 2,
+        'status' => 'pending',
+        'approval_mode' => LeaveApprovalMode::AnyRequired,
+    ]);
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $pending->id,
+        'sequence' => 1,
+        'approver_employee_id' => $rima['employee']->id,
+        'approver_user_id' => $rima['user']->id,
+        'status' => LeaveRequestApprovalStatus::Pending,
+        'is_required' => true,
+        'policy_step_label' => 'Rima',
+    ]);
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $pending->id,
+        'sequence' => 2,
+        'approver_employee_id' => $maher['employee']->id,
+        'approver_user_id' => $maher['user']->id,
+        'status' => LeaveRequestApprovalStatus::Pending,
+        'is_required' => true,
+        'policy_step_label' => 'Maher',
+    ]);
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $pending->id,
+        'sequence' => 3,
+        'approver_employee_id' => $adam['employee']->id,
+        'approver_user_id' => $adam['user']->id,
+        'status' => LeaveRequestApprovalStatus::Skipped,
+        'is_required' => false,
+        'policy_step_label' => 'Adam',
+    ]);
+
+    $approved = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-11-05',
+        'end_date' => '2026-11-06',
+        'total_days' => 2,
+        'status' => 'approved',
+        'approval_mode' => LeaveApprovalMode::AnyRequired,
+    ]);
+    LeaveRequestApproval::factory()->approved()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $approved->id,
+        'sequence' => 1,
+        'approver_employee_id' => $rima['employee']->id,
+        'approver_user_id' => $rima['user']->id,
+        'is_required' => true,
+        'policy_step_label' => 'Rima',
+    ]);
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $approved->id,
+        'sequence' => 2,
+        'approver_employee_id' => $maher['employee']->id,
+        'approver_user_id' => $maher['user']->id,
+        'status' => LeaveRequestApprovalStatus::Cancelled,
+        'is_required' => true,
+        'policy_step_label' => 'Maher',
+        'acted_at' => now(),
+    ]);
+
+    $rejected = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-11-10',
+        'end_date' => '2026-11-11',
+        'total_days' => 2,
+        'status' => 'rejected',
+        'approval_mode' => LeaveApprovalMode::AnyRequired,
+    ]);
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $rejected->id,
+        'sequence' => 1,
+        'approver_employee_id' => $rima['employee']->id,
+        'approver_user_id' => $rima['user']->id,
+        'status' => LeaveRequestApprovalStatus::Cancelled,
+        'is_required' => true,
+        'policy_step_label' => 'Rima',
+        'acted_at' => now(),
+    ]);
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $rejected->id,
+        'sequence' => 2,
+        'approver_employee_id' => $maher['employee']->id,
+        'approver_user_id' => $maher['user']->id,
+        'status' => LeaveRequestApprovalStatus::Rejected,
+        'is_required' => true,
+        'policy_step_label' => 'Maher',
+        'acted_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('leave_requests', 3)
+            ->where('leave_requests', function ($rows) {
+                $byStatus = collect($rows)->keyBy(fn ($row) => $row['status']);
+
+                $pending = $byStatus->get('pending');
+                $approved = $byStatus->get('approved');
+                $rejected = $byStatus->get('rejected');
+
+                return $pending !== null
+                    && $pending['approval_progress']['current_status'] === 'pending'
+                    && $pending['approval_progress']['label'] === 'Pending — any 1 of 2 approvers can act'
+                    && $pending['approval_progress']['waiting_for'] === null
+                    && count($pending['approval_chain']) === 2
+                    && $approved !== null
+                    && $approved['approval_progress']['current_status'] === 'approved'
+                    && $approved['approval_progress']['label'] === 'Approved by Rima'
+                    && $approved['approval_progress']['approved_steps'] === 1
+                    && count($approved['approval_chain']) === 2
+                    && collect($approved['approval_chain'])->pluck('status')->all() === ['approved', 'cancelled']
+                    && $rejected !== null
+                    && $rejected['approval_progress']['current_status'] === 'rejected'
+                    && $rejected['approval_progress']['label'] === 'Rejected by Maher'
+                    && collect($rejected['approval_chain'])->pluck('status')->all() === ['cancelled', 'rejected'];
+            }));
+
+    $export = LeaveReportExport::forQuery(
+        (new LeaveReportQuery($company->id, new LeaveReportFilters, 'Asia/Dubai', $user))->exportQuery(),
+        'Asia/Dubai',
+    );
+    $flat = collect($export->query()->get())
+        ->map(fn ($row) => $export->map($row))
+        ->flatten()
+        ->implode(' | ');
+
+    expect($flat)->toContain('Approved by Rima')
+        ->and($flat)->toContain('Rejected by Maher')
+        ->and($flat)->toContain('Pending — any 1 of 2 approvers can act')
+        ->and($flat)->not->toContain('1 / 2 approved');
 });

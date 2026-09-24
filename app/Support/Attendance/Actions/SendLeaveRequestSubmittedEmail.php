@@ -2,6 +2,7 @@
 
 namespace App\Support\Attendance\Actions;
 
+use App\Enums\LeaveApprovalMode;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\EmailTemplate;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Mail;
 final class SendLeaveRequestSubmittedEmail
 {
     private const TEMPLATE_SLUG = 'leave_request_submitted';
+
+    private const ANY_REQUIRED_ACTIONABLE_NOTE = 'Only one required approver needs to act. The first approval or rejection completes this request.';
 
     public function handle(LeaveRequest $leaveRequest): void
     {
@@ -43,10 +46,13 @@ final class SendLeaveRequestSubmittedEmail
 
         $subject = $this->renderTemplate($template->subject, $leaveRequest);
         $introMessage = trim($this->renderTemplate($template->body_html, $leaveRequest));
-        $payload = $this->buildMailPayload($leaveRequest, $introMessage);
         $pendingApproverEmails = $this->resolvePendingRequiredApproverEmails($leaveRequest);
 
         if ($pendingApproverEmails !== []) {
+            $payload = $this->buildMailPayload(
+                $leaveRequest,
+                $this->withAnyRequiredActionableNote($leaveRequest, $introMessage),
+            );
             $this->queueActionRequiredMails(
                 template: $template,
                 subject: $subject,
@@ -58,6 +64,7 @@ final class SendLeaveRequestSubmittedEmail
         }
 
         // Legacy fallback when no approval snapshot exists yet.
+        $payload = $this->buildMailPayload($leaveRequest, $introMessage);
         $recipients = $this->resolveLegacyRecipients($template, $leaveRequest);
 
         if ($recipients['to'] === '') {
@@ -121,12 +128,11 @@ final class SendLeaveRequestSubmittedEmail
             $cc = [];
 
             if (! $presetsApplied) {
-                $cc = collect([...$toPreset, ...$ccPreset])
-                    ->filter(fn (string $email) => $email !== '')
-                    ->filter(fn (string $email) => strcasecmp($email, $approverEmail) !== 0)
-                    ->unique(fn (string $email) => strtolower($email))
-                    ->values()
-                    ->all();
+                $cc = $this->presetRecipientsExcludingApprovers(
+                    toPreset: $toPreset,
+                    ccPreset: $ccPreset,
+                    pendingApproverEmails: $pendingApproverEmails,
+                );
                 $presetsApplied = true;
             }
 
@@ -154,6 +160,31 @@ final class SendLeaveRequestSubmittedEmail
                 includeCompanyFooter: $template->include_company_footer,
             ));
         }
+    }
+
+    /**
+     * @param  list<string>  $toPreset
+     * @param  list<string>  $ccPreset
+     * @param  list<string>  $pendingApproverEmails
+     * @return list<string>
+     */
+    private function presetRecipientsExcludingApprovers(
+        array $toPreset,
+        array $ccPreset,
+        array $pendingApproverEmails,
+    ): array {
+        $excluded = collect($pendingApproverEmails)
+            ->filter(fn (string $email) => $email !== '')
+            ->map(fn (string $email) => strtolower($email))
+            ->unique()
+            ->all();
+
+        return collect([...$toPreset, ...$ccPreset])
+            ->filter(fn (string $email) => $email !== '')
+            ->reject(fn (string $email) => in_array(strtolower($email), $excluded, true))
+            ->unique(fn (string $email) => strtolower($email))
+            ->values()
+            ->all();
     }
 
     /**
@@ -315,6 +346,25 @@ final class SendLeaveRequestSubmittedEmail
             'reason' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
             'requestUrl' => route('attendance.leave-requests.show', $leaveRequest),
         ];
+    }
+
+    private function withAnyRequiredActionableNote(LeaveRequest $leaveRequest, string $introMessage): string
+    {
+        if ($leaveRequest->approvalMode() !== LeaveApprovalMode::AnyRequired) {
+            return $introMessage;
+        }
+
+        $note = self::ANY_REQUIRED_ACTIONABLE_NOTE;
+
+        if ($introMessage === '') {
+            return $note;
+        }
+
+        if (str_contains($introMessage, $note)) {
+            return $introMessage;
+        }
+
+        return rtrim($introMessage)."\n\n".$note;
     }
 
     private function renderTemplate(string $template, LeaveRequest $leaveRequest): string
