@@ -1,5 +1,4 @@
 import { Loader2 } from 'lucide-react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
@@ -7,6 +6,7 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { exportMethod } from '@/routes/organization/reports/leave-balances';
 import {
     LeaveBalanceReportActiveFilters,
@@ -24,6 +24,8 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
         pagination,
         filters,
         filter_options: options,
+        department_tree: departmentTree,
+        department_tree_selected_id: departmentTreeSelectedId,
         can,
     } = props;
     const controls = useLeaveBalanceReportFilters(filters, pagination.per_page);
@@ -85,28 +87,23 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
                                 years={options.years}
                                 onChange={(year) => controls.apply({ year })}
                             />
-                            <AppSelect
-                                value={filters.department_id}
-                                onValueChange={(value) =>
-                                    controls.apply({ department_id: value })
-                                }
-                                variant="dark"
-                                placeholder="All departments"
-                                className="h-11 w-[12rem]"
-                                searchPlaceholder="Search departments..."
-                            >
-                                <AppSelectItem value="">
-                                    All departments
-                                </AppSelectItem>
-                                {options.departments.map((department) => (
-                                    <AppSelectItem
-                                        key={department.id}
-                                        value={String(department.id)}
-                                    >
-                                        {department.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
+                            {departmentTree.length > 0 ? (
+                                <DepartmentFilterControls
+                                    department_tree={departmentTree}
+                                    department_tree_selected_id={
+                                        departmentTreeSelectedId
+                                    }
+                                    department_tree_selected_position_id={null}
+                                    showPositions={false}
+                                    onSelectDepartment={(id) =>
+                                        controls.apply({
+                                            department_id:
+                                                id != null ? String(id) : '',
+                                        })
+                                    }
+                                    buttonClassName="h-11"
+                                />
+                            ) : null}
                             {controls.isLoading ? (
                                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
                             ) : null}

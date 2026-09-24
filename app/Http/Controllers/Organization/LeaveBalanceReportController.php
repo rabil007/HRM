@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Organization;
 use App\Exports\LeaveBalanceReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Reports\LeaveBalanceReportDepartmentTree;
 use App\Support\Reports\LeaveBalanceReportFilterOptions;
 use App\Support\Reports\LeaveBalanceReportFilters;
 use App\Support\Reports\LeaveBalanceReportPagePermissions;
@@ -43,6 +45,12 @@ class LeaveBalanceReportController extends Controller
                 'categories' => LeaveBalanceReportFilterOptions::categories(),
                 'employee_statuses' => LeaveBalanceReportFilterOptions::employeeStatuses(),
             ],
+            'department_tree' => LeaveBalanceReportDepartmentTree::for(
+                $companyId,
+                new EmployeeDirectoryFilters(departmentId: $filters->departmentId),
+                $user,
+            ),
+            'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'can' => LeaveBalanceReportPagePermissions::for($user),
         ]);
     }

@@ -36,7 +36,13 @@ export function useLeaveBalanceReportFilters(
                     preserveState: true,
                     preserveScroll: true,
                     replace: true,
-                    only: ['balances', 'pagination', 'summary', 'filters'],
+                    only: [
+                        'balances',
+                        'pagination',
+                        'summary',
+                        'filters',
+                        'department_tree_selected_id',
+                    ],
                     onFinish: () => setIsLoading(false),
                 },
             );

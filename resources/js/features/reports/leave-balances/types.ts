@@ -1,3 +1,4 @@
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export type BalanceReportOption = {
@@ -75,6 +76,8 @@ export type LeaveBalanceReportProps = {
         categories: BalanceSelectOption[];
         employee_statuses: BalanceSelectOption[];
     };
+    department_tree: DepartmentTreeNode[];
+    department_tree_selected_id: number | null;
     can: {
         export: boolean;
     };

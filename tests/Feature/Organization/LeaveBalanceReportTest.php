@@ -126,7 +126,9 @@ test('leave balance report reads persisted snapshots with filters visibility and
                     && (float) $row['remaining_days'] === 27.0;
             })
             ->where('summary.balance_rows', 2)
-            ->where('filter_options.years', fn ($years) => collect($years)->contains(2026) && collect($years)->contains(2025)));
+            ->where('filter_options.years', fn ($years) => collect($years)->contains(2026) && collect($years)->contains(2025))
+            ->has('department_tree')
+            ->where('department_tree_selected_id', null));
 
     expect(LeaveBalance::withTrashed()->count())->toBe($before);
 
@@ -149,7 +151,8 @@ test('leave balance report reads persisted snapshots with filters visibility and
         ]))
         ->assertInertia(fn (Assert $page) => $page
             ->has('balances', 1)
-            ->where('balances.0.employee.name', 'Inactive Person'));
+            ->where('balances.0.employee.name', 'Inactive Person')
+            ->where('department_tree_selected_id', $inactive->department_id));
 
     expect($this->actingAs($user)->get(route('organization.reports.leave-balances.index'))->getContent())
         ->not->toContain('Foreign Balance');
