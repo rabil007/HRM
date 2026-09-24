@@ -51,8 +51,17 @@ final class SeaServiceSyncService
         /** @var CrewAssignment $assignment */
         $assignment = $phase->assignment;
         $startDate = $phase->actual_start_at->toDateString();
-        $endDate = $phase->actual_end_at->toDateString();
-        $duration = SeaServiceDuration::fromDates($startDate, $endDate);
+        $endDate = $phase->actual_end_at?->toDateString();
+
+        if ($endDate !== null) {
+            $duration = SeaServiceDuration::fromDates($startDate, $endDate);
+            $totalMonths = $duration['months'];
+            $totalDays = $duration['days'];
+        } else {
+            $totalMonths = 0;
+            $totalDays = 0;
+        }
+
         $vessel = $assignment->vessel ?? Vessel::query()->find($assignment->vessel_id);
         $rankId = $assignment->rank_id ?? $assignment->employee?->rank_id;
 
@@ -65,8 +74,8 @@ final class SeaServiceSyncService
             'rank_id' => $rankId,
             'start_date' => $startDate,
             'end_date' => $endDate,
-            'total_months' => $duration['months'],
-            'total_days' => $duration['days'],
+            'total_months' => $totalMonths,
+            'total_days' => $totalDays,
             'client_id' => $assignment->client_id,
         ];
 
@@ -104,6 +113,19 @@ final class SeaServiceSyncService
             ->each(fn (CrewAssignmentPhase $phase) => $this->syncFromPhase($phase));
     }
 
+    public function syncOnVesselPhases(CrewAssignment $assignment): void
+    {
+        if (! $this->isEnabled((int) $assignment->company_id)) {
+            return;
+        }
+
+        $assignment->phases()
+            ->where('phase_code', CrewPhaseCode::OnVessel)
+            ->whereIn('status', [CrewPhaseStatus::Active, CrewPhaseStatus::Completed])
+            ->get()
+            ->each(fn (CrewAssignmentPhase $phase) => $this->syncFromPhase($phase));
+    }
+
     public function removeLinked(CrewAssignmentPhase $phase): void
     {
         $phase->loadMissing('assignment');
@@ -130,7 +152,7 @@ final class SeaServiceSyncService
             return false;
         }
 
-        if ($phase->actual_start_at === null || $phase->actual_end_at === null) {
+        if ($phase->actual_start_at === null) {
             return false;
         }
 

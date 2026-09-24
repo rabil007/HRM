@@ -107,7 +107,7 @@ export default function SeaServiceShow({
                                         variant="outline"
                                         className="border-violet-500/30 bg-violet-500/10 text-[10px] text-violet-400 uppercase"
                                     >
-                                        From deployment
+                                        Managed by Crew Operations
                                     </Badge>
                                 </>
                             ) : null}
@@ -116,7 +116,14 @@ export default function SeaServiceShow({
                     backHref={back.href}
                     backLabel={back.label}
                     actions={
-                        can.update || can.delete ? (
+                        sea_service.has_assignment_phase ? (
+                            <span
+                                className="inline-flex items-center rounded-lg border border-border/60 bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground"
+                                title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates."
+                            >
+                                Managed by Crew Operations
+                            </span>
+                        ) : can.update || can.delete ? (
                             <div className="flex flex-wrap items-center gap-2">
                                 {can.update ? (
                                     <Button
@@ -153,6 +160,14 @@ export default function SeaServiceShow({
                     }
                 />
 
+                {sea_service.has_assignment_phase ? (
+                    <div className="mt-4 rounded-xl border border-border/80 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+                        This Sea Service record is synchronized from Crew
+                        Operations. Use Crew Movement Correction to change
+                        vessel, rank, or service dates.
+                    </div>
+                ) : null}
+
                 <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <Card className="border-border/80 dark:border-white/10">
                         <CardHeader className="pb-3">
@@ -185,11 +200,21 @@ export default function SeaServiceShow({
                             />
                             <MetadataField
                                 label="End date"
-                                value={formatDisplayDate(sea_service.end_date)}
+                                value={
+                                    sea_service.end_date
+                                        ? formatDisplayDate(
+                                              sea_service.end_date,
+                                          )
+                                        : 'Ongoing'
+                                }
                             />
                             <MetadataField
                                 label="Duration"
-                                value={`${sea_service.total_months} months · ${sea_service.total_days} days`}
+                                value={
+                                    sea_service.end_date
+                                        ? `${sea_service.total_months} months · ${sea_service.total_days} days`
+                                        : 'Ongoing'
+                                }
                             />
                             <MetadataField
                                 label="Linked deployment"

@@ -67,7 +67,14 @@ export function SeaServicesContent({
     >(null);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-    const selection = useBulkSelection(seaServiceRows.map((row) => row.id));
+    const selectableSeaServiceIds = useMemo(
+        () =>
+            seaServiceRows
+                .filter((row) => !row.has_assignment_phase)
+                .map((row) => row.id),
+        [seaServiceRows],
+    );
+    const selection = useBulkSelection(selectableSeaServiceIds);
 
     const sheetFilters: SeaServiceSheetFilters = {
         vessel_id: initialVesselId,

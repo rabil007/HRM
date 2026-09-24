@@ -10,7 +10,7 @@ Crew Planning
 Crew Assignment
     ↓ movement lifecycle
     Crew Assignment Phases
-    ↓ completed P4
+    ↓ P4 On Vessel (synchronized on join, finalized on disembarkation)
 Employee Sea Service
 ```
 
@@ -101,7 +101,7 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 | **CrewAssignment** | One mobilisation cycle (P0–P6). |
 | **CrewAssignmentPhase** | Ordered occurrence of a phase on that cycle. |
 | **CrewAccommodationStay** | Accommodation history for a mobilisation cycle (hotel stay or explicit no-accommodation record). |
-| **EmployeeSeaService** | Historical sea time created from completed P4 phases. |
+| **EmployeeSeaService** | Historical and ongoing sea time synchronized from P4 On Vessel phases. |
 | **EmployeeTraining** | Formal employee qualification record; optionally synced from completed P2B phases. |
 
 ```text
@@ -200,7 +200,7 @@ CrewMovementService::startAssignment()
 Crew Assignment (operational cycle)
     ↓ movement lifecycle
 Crew Assignment Phases
-    ↓ completed P4
+    ↓ P4 On Vessel (synchronized on join, finalized on disembarkation)
 Employee Sea Service
 ```
 

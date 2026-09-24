@@ -578,6 +578,8 @@ final class CrewMovementService
             'remarks' => $payload['remarks'] ?? $assignment->remarks,
         ]);
 
+        $this->seaServiceSync->syncFromPhase($next->fresh());
+
         $this->logTourOfDutyApplied($assignment, $signoff, $occurredAt, $actorId);
 
         return $assignment;
@@ -833,6 +835,9 @@ final class CrewMovementService
         $this->persistTourSnapshot($destination, $signoff, $actorId);
         $destination = $this->reloadLocked($destination->company_id, $destination->id);
         $this->invariants->assertValid($destination);
+        if ($destination->currentPhase !== null) {
+            $this->seaServiceSync->syncFromPhase($destination->currentPhase);
+        }
         $this->logTourOfDutyApplied($destination, $signoff, $occurredAt, $actorId);
         $this->logVesselTransferred(
             $source,
@@ -1018,6 +1023,13 @@ final class CrewMovementService
             $this->persistTourSnapshot($destination, $signoff, $actorId);
             $destination = $this->reloadLocked($destination->company_id, $destination->id);
             $this->logTourOfDutyApplied($destination, $signoff, $occurredAt, $actorId);
+        }
+
+        if ($startingPhase === CrewPhaseCode::OnVessel) {
+            $destination = $this->reloadLocked($destination->company_id, $destination->id);
+            if ($destination->currentPhase !== null) {
+                $this->seaServiceSync->syncFromPhase($destination->currentPhase);
+            }
         }
 
         if ($startingPhase === CrewPhaseCode::JoinStandby) {

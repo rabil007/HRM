@@ -56,13 +56,17 @@ function makeVoidAssignmentFixtures(array $extraPermissions = []): array
     return $fixtures;
 }
 
-function voidAssignmentViaHttp(User $user, CrewAssignment $assignment, string $reason = 'Entered by mistake'): mixed
-{
+function voidAssignmentViaHttp(
+    User $user,
+    CrewAssignment $assignment,
+    string $reason = 'Entered by mistake',
+    array $extra = [],
+): mixed {
     return actingAs($user)
         ->withSession(['current_company_id' => $user->current_company_id])
-        ->post(route('organization.crew-assignments.void', $assignment), [
+        ->post(route('organization.crew-assignments.void', $assignment), array_merge([
             'void_reason' => $reason,
-        ]);
+        ], $extra));
 }
 
 function advanceToPhase(
@@ -191,8 +195,8 @@ test('safe p2 and p3 assignments can be voided', function (CrewPhaseCode $phase)
     CrewPhaseCode::ReadyToJoin,
 ]);
 
-test('safe p4 can be voided when no protected downstream history exists', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+test('active p4 void is blocked without delete_sea_service and allowed with delete_sea_service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures(['sea_services.delete']);
     $vessel = makeCrewMovementVessel('Void P4 Vessel');
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
@@ -201,12 +205,22 @@ test('safe p4 can be voided when no protected downstream history exists', functi
     ], $user->id);
     advanceToPhase($service, $company->id, $assignment->id, $user->id, CrewPhaseCode::OnVessel, $vessel->id, $rank->id);
 
-    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
+    $assignment = $assignment->fresh();
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 
-    voidAssignmentViaHttp($user, $assignment->fresh())->assertRedirect();
+    // A. Active P4 void without Sea Service cleanup is blocked
+    voidAssignmentViaHttp($user, $assignment)->assertSessionHasErrors('void');
+
+    expect(CrewAssignment::query()->whereKey($assignment->id)->exists())->toBeTrue()
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
+
+    // B. Active P4 void with delete generated Sea Service selected is allowed
+    voidAssignmentViaHttp($user, $assignment, 'Entered by mistake', ['delete_sea_service' => true])->assertRedirect();
 
     expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue()
-        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->exists())->toBeFalse()
+        ->and(EmployeeSeaService::withTrashed()->where('employee_id', $employee->id)->first()->trashed())->toBeTrue();
 });
 
 test('safe p5 and p6 can be voided when sea service sync is disabled', function (string $nextPhase) {
@@ -654,7 +668,7 @@ test('concurrent void attempts are safe under lock', function () {
 });
 
 test('phase history is retained under soft-deleted assignment', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures(['sea_services.delete']);
     $vessel = makeCrewMovementVessel('Retain Phases Vessel');
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
@@ -666,7 +680,7 @@ test('phase history is retained under soft-deleted assignment', function () {
     $phaseCount = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->count();
     expect($phaseCount)->toBeGreaterThan(0);
 
-    app(VoidCrewAssignment::class)->handle($company->id, $assignment->id, $user, 'Keep phases');
+    app(VoidCrewAssignment::class)->handle($company->id, $assignment->id, $user, 'Keep phases', deleteSeaService: true);
 
     expect(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->count())->toBe($phaseCount);
 });

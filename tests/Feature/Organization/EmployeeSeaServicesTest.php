@@ -1128,3 +1128,132 @@ test('hidden employee sea service mutations return not found', function () {
 
     expect(EmployeeSeaService::query()->whereKey($seaService->id)->exists())->toBeTrue();
 });
+
+function makeSeaServiceEmployeeFixtures(): array
+{
+    ['company' => $company, 'user' => $user, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'sea_services.view',
+        'sea_services.create',
+        'sea_services.update',
+        'sea_services.delete',
+    ]);
+
+    $vesselType = VesselType::query()->create(['name' => 'Cargo '.Str::random(4), 'is_active' => true]);
+    $vessel = Vessel::query()->create([
+        'company_id' => $company->id,
+        'name' => 'MV Oceanic '.Str::random(4),
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $phase = $assignment->currentPhase;
+
+    return compact('company', 'user', 'employee', 'vesselType', 'rank', 'vessel', 'phase');
+}
+
+test('manual sea service can be edited and deleted via controller', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank, 'vesselType' => $vesselType, 'vessel' => $vessel] = makeSeaServiceEmployeeFixtures();
+
+    $this->actingAs($user);
+
+    $seaService = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'company_id' => $employee->company_id,
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-04-01',
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    // 1. Update succeeds
+    $this->put(route('organization.employees.sea-services.update', [$employee, $seaService]), [
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-05-01',
+    ])->assertRedirect()->assertSessionHas('success');
+
+    expect($seaService->fresh()->end_date->toDateString())->toBe('2024-05-01');
+
+    // 2. Delete succeeds
+    $this->delete(route('organization.employees.sea-services.destroy', [$employee, $seaService]))
+        ->assertRedirect()->assertSessionHas('success');
+
+    expect(EmployeeSeaService::query()->whereKey($seaService->id)->exists())->toBeFalse();
+});
+
+test('synchronized sea service cannot be edited via controller', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank, 'vesselType' => $vesselType, 'vessel' => $vessel, 'phase' => $phase] = makeSeaServiceEmployeeFixtures();
+
+    $this->actingAs($user);
+
+    $syncService = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'company_id' => $employee->company_id,
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2026-09-01',
+        'end_date' => null,
+        'crew_assignment_phase_id' => $phase->id,
+    ]);
+
+    $this->put(route('organization.employees.sea-services.update', [$employee, $syncService]), [
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-01',
+    ])->assertSessionHasErrors('error');
+
+    expect($syncService->fresh()->end_date)->toBeNull();
+});
+
+test('synchronized sea service cannot be deleted via controller', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank, 'vesselType' => $vesselType, 'vessel' => $vessel, 'phase' => $phase] = makeSeaServiceEmployeeFixtures();
+
+    $this->actingAs($user);
+
+    $syncService = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'company_id' => $employee->company_id,
+        'vessel_type_id' => $vesselType->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2026-09-01',
+        'end_date' => null,
+        'crew_assignment_phase_id' => $phase->id,
+    ]);
+
+    $this->delete(route('organization.employees.sea-services.destroy', [$employee, $syncService]))
+        ->assertSessionHasErrors('error');
+
+    expect(EmployeeSeaService::query()->whereKey($syncService->id)->exists())->toBeTrue();
+});
+
+test('bulk destroy rejects synchronized sea service records', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank, 'vesselType' => $vesselType, 'vessel' => $vessel, 'phase' => $phase] = makeSeaServiceEmployeeFixtures();
+
+    $this->actingAs($user);
+
+    $syncService = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'company_id' => $employee->company_id,
+        'crew_assignment_phase_id' => $phase->id,
+    ]);
+
+    $manualService = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'company_id' => $employee->company_id,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    $this->delete(route('organization.employees.sea-services.bulk-destroy', $employee), [
+        'sea_service_ids' => [$syncService->id, $manualService->id],
+    ])->assertSessionHasErrors('error');
+
+    expect(EmployeeSeaService::query()->whereKey($syncService->id)->exists())->toBeTrue()
+        ->and(EmployeeSeaService::query()->whereKey($manualService->id)->exists())->toBeTrue();
+});

@@ -1971,8 +1971,14 @@ test('phase inference: training end plus later on vessel closes P2A at on vessel
         ])
         ->and($phases[1]->actual_end_at->toDateString())->toBe('2024-01-20')
         ->and($phases[2]->status)->toBe(CrewPhaseStatus::Active)
-        ->and($phases[2]->actual_end_at)->toBeNull()
-        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
+
+    $sea = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
+    expect($sea->crew_assignment_phase_id)->toBe($phases[2]->id)
+        ->and($sea->start_date?->toDateString())->toBe('2024-01-20')
+        ->and($sea->end_date)->toBeNull()
+        ->and($sea->total_months)->toBe(0)
+        ->and($sea->total_days)->toBe(0);
 });
 
 test('training start only creates active P2B without inventing a training end', function () {
@@ -2103,8 +2109,14 @@ test('on vessel only creates active P4 without sea service', function () {
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($phases)->toHaveCount(1)
         ->and($phases->first()->phase_code)->toBe(CrewPhaseCode::OnVessel)
-        ->and($phases->first()->status)->toBe(CrewPhaseStatus::Active)
-        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
+
+    $sea = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
+    expect($sea->crew_assignment_phase_id)->toBe($phases->first()->id)
+        ->and($sea->start_date?->toDateString())->toBe('2024-01-15')
+        ->and($sea->end_date)->toBeNull()
+        ->and($sea->total_months)->toBe(0)
+        ->and($sea->total_days)->toBe(0);
 });
 
 test('existing active oms assignment blocks another active historical bootstrap', function () {

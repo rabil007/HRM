@@ -62,7 +62,8 @@ it('uses Rank Master tour suggestion on join vessel', function () {
         ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10')
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
-        ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->exists())->toBeFalse()
+        ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->where('crew_assignment_phase_id', $assignment->current_phase_id)->exists())->toBeTrue()
+        ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->value('end_date'))->toBeNull()
         ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-10');
 });
 
@@ -168,5 +169,6 @@ it('keeps snapshotted tour after later Rank Master changes', function () {
 
     expect($future->fresh()->tour_of_duty_days)->toBe(120)
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue()
-        ->and(EmployeeSeaService::query()->count())->toBe(0);
+        ->and(EmployeeSeaService::query()->count())->toBe(2)
+        ->and(EmployeeSeaService::query()->whereNull('end_date')->count())->toBe(2);
 });

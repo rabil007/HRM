@@ -43,6 +43,7 @@ export function SeaServicesTableRow({
                 checked={selected}
                 onToggle={() => onToggleSelection?.()}
                 label={`Select sea service for ${seaService.employee_name}`}
+                disabled={seaService.has_assignment_phase}
             />
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
@@ -104,23 +105,41 @@ export function SeaServicesTableRow({
                 {formatDisplayDate(seaService.start_date)}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                {formatDisplayDate(seaService.end_date)}
+                {seaService.end_date
+                    ? formatDisplayDate(seaService.end_date)
+                    : 'Ongoing'}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                    {seaService.total_months}m {seaService.total_days}d
+                    {seaService.end_date
+                        ? `${seaService.total_months}m ${seaService.total_days}d`
+                        : 'Ongoing'}
                 </span>
             </TableCell>
             <TableCell
                 className={cn(dataTableActionsCellClass(), 'min-w-[10rem]')}
             >
-                <SeaServiceListRowActions
-                    viewHref={viewHref}
-                    showEdit={canUpdate}
-                    onEdit={onEdit ? () => onEdit(seaService) : undefined}
-                    showDelete={canDelete}
-                    onDelete={onDelete ? () => onDelete(seaService) : undefined}
-                />
+                <div className="flex items-center justify-end gap-2">
+                    {seaService.has_assignment_phase ? (
+                        <span
+                            className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-muted-foreground"
+                            title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates."
+                        >
+                            Managed by Crew Operations
+                        </span>
+                    ) : null}
+                    <SeaServiceListRowActions
+                        viewHref={viewHref}
+                        showEdit={canUpdate && !seaService.has_assignment_phase}
+                        onEdit={onEdit ? () => onEdit(seaService) : undefined}
+                        showDelete={
+                            canDelete && !seaService.has_assignment_phase
+                        }
+                        onDelete={
+                            onDelete ? () => onDelete(seaService) : undefined
+                        }
+                    />
+                </div>
             </TableCell>
         </TableRow>
     );

@@ -20,6 +20,11 @@ class EmployeeSeaService extends Model
 
     protected $guarded = [];
 
+    public function isSynchronized(): bool
+    {
+        return $this->crew_assignment_phase_id !== null;
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

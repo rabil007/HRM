@@ -592,10 +592,11 @@ test('direct transfer applies destination rank tour snapshot without copying sou
     expect(EmployeeSeaService::query()
         ->where('company_id', $company->id)
         ->where('employee_id', $employee->id)
-        ->count())->toBe(1)
+        ->count())->toBe(2)
         ->and(EmployeeSeaService::query()
             ->where('crew_assignment_phase_id', $destination->current_phase_id)
-            ->exists())->toBeFalse();
+            ->whereNull('end_date')
+            ->exists())->toBeTrue();
 });
 
 test('direct transfer applies Rank Master tour suggestion', function () {

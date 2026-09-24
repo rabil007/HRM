@@ -60,7 +60,8 @@ it('stores tour snapshot and suggested planned sign-off on join vessel', functio
         ->and($assignment->currentPhase?->actual_start_at)->not->toBeNull()
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
         ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10')
-        ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->exists())->toBeFalse()
+        ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->where('crew_assignment_phase_id', $assignment->current_phase_id)->exists())->toBeTrue()
+        ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->value('end_date'))->toBeNull()
         ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-10');
 });
 
@@ -194,7 +195,7 @@ it('does not create sea service or complete p4 from generated planned sign-off',
 
     expect($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
-        ->and(EmployeeSeaService::query()->count())->toBe(0)
+        ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(1)
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
 });
 
@@ -246,5 +247,10 @@ it('updates planned sign-off with manual override source and reason during plan_
         ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-25')
         ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-25')
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
-        ->and(EmployeeSeaService::query()->count())->toBe(0);
+        ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(1);
+
+    $sea = EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->first();
+    expect($sea->end_date)->toBeNull()
+        ->and($sea->total_months)->toBe(0)
+        ->and($sea->total_days)->toBe(0);
 });
