@@ -54,14 +54,17 @@ export type DocumentProfileItem = DocumentBrowseItem & {
     uploaded_by: string | null;
     created_at: string | null;
     versions: {
+        key: string;
         id: number;
         version: number;
         file_url: string;
         original_filename: string | null;
         mime_type: string | null;
         size_bytes: number | null;
+        uploaded_by: string | null;
+        uploaded_at: string | null;
         replaced_by: string | null;
-        created_at: string;
+        is_current: boolean;
     }[];
 };
 
@@ -161,14 +164,17 @@ export type PreviewDocument = {
 };
 
 export type DocumentVersionItem = {
+    key: string;
     id: number;
     version: number;
     file_url: string;
     original_filename: string | null;
     mime_type: string | null;
     size_bytes: number | null;
+    uploaded_by: string | null;
+    uploaded_at: string | null;
     replaced_by: string | null;
-    created_at: string | null;
+    is_current: boolean;
 };
 
 export type DocumentShowItem = DocumentProfileItem & {

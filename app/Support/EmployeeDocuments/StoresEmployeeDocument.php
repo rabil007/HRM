@@ -71,6 +71,8 @@ class StoresEmployeeDocument
                     'mime_type' => $document->mime_type,
                     'size_bytes' => $document->size_bytes,
                     'checksum' => $document->checksum,
+                    'uploaded_by' => $document->uploaded_by,
+                    'uploaded_at' => $document->replaced_at ?? $document->created_at,
                     'replaced_by' => $userId,
                 ]);
 
@@ -93,6 +95,7 @@ class StoresEmployeeDocument
                     'size_bytes' => $prepared->file->getSize(),
                     'checksum' => hash_file('sha256', $prepared->file->getRealPath() ?: ''),
                     'current_version' => ((int) $document->current_version) + 1,
+                    'uploaded_by' => $userId,
                     'replaced_at' => now(),
                     'document_number' => array_key_exists('document_number', $data)
                         ? ($data['document_number'] ?? null)

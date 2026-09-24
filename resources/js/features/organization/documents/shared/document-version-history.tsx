@@ -6,14 +6,17 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 
 export type DocumentVersionItem = {
+    key: string;
     id: number;
     version: number;
     file_url: string;
     original_filename: string | null;
     mime_type: string | null;
     size_bytes: number | null;
+    uploaded_by: string | null;
+    uploaded_at: string | null;
     replaced_by: string | null;
-    created_at: string | null;
+    is_current: boolean;
 };
 
 function mimeLabel(mime: string | null): string {
@@ -51,8 +54,8 @@ export function DocumentVersionHistory({
 
     return (
         <ol className="relative ml-3 space-y-0 border-l border-border/50">
-            {versions.map((version, index) => (
-                <li key={version.id} className="relative mb-6 pl-6">
+            {versions.map((version) => (
+                <li key={version.key} className="relative mb-6 pl-6">
                     <span className="absolute top-1.5 -left-[9px] flex h-4 w-4 items-center justify-center rounded-full border-2 border-background bg-border">
                         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                     </span>
@@ -62,13 +65,15 @@ export function DocumentVersionHistory({
                             <div className="flex items-center gap-2">
                                 <Badge
                                     variant={
-                                        index === 0 ? 'default' : 'secondary'
+                                        version.is_current
+                                            ? 'default'
+                                            : 'secondary'
                                     }
                                     className="text-[10px] uppercase"
                                 >
                                     v{version.version}
                                 </Badge>
-                                {index === 0 ? (
+                                {version.is_current ? (
                                     <span className="text-[10px] font-medium text-emerald-400">
                                         Current
                                     </span>
@@ -85,12 +90,14 @@ export function DocumentVersionHistory({
 
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground/60">
                             <span>{mimeLabel(version.mime_type)}</span>
-                            <span>{formatDisplayDate(version.created_at)}</span>
+                            <span>
+                                {formatDisplayDate(version.uploaded_at)}
+                            </span>
                         </div>
 
-                        {version.replaced_by ? (
+                        {version.uploaded_by ? (
                             <p className="mt-1 text-[10px] text-muted-foreground/50">
-                                Uploaded by {version.replaced_by}
+                                Uploaded by {version.uploaded_by}
                             </p>
                         ) : null}
 

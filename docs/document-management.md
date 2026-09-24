@@ -335,6 +335,16 @@ Upload and CRUD on the profile use `organization.employees.documents.*` routes.
 - Document type labels come from `document_types` or legacy `document_type` / `type` fields
 - Company requirement policy: `document_requirements` plus `document_requirement_department` / `_position` / `_rank` / `_project` (see [Document requirement policy](#document-requirement-policy))
 
+### Employee document version provenance
+
+- **`EmployeeDocument`** is the CURRENT active file/version.
+  - `uploaded_by` = user who uploaded the current file
+  - Current upload timestamp = `replaced_at` when the document has been replaced, otherwise `created_at` (logical record creation time stays on `created_at`)
+- **`EmployeeDocumentVersion`** is an archived historical file/version.
+  - `uploaded_by` / `uploaded_at` = who originally supplied that archived version and when it became active
+  - `replaced_by` = who later superseded that archived version (not the original uploader)
+- Version history presents the current document plus archived versions (newest first) with an explicit `is_current` flag. Attribution is preserved per version; activity logs remain a separate audit trail.
+
 ## Library (folders)
 
 **Default view:** grid of employee folders (only employees who have at least one document). Path: `/organization/documents/library`.

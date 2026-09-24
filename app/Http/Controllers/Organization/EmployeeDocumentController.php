@@ -191,19 +191,14 @@ class EmployeeDocumentController extends Controller
 
         DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 403, $request->user(), allowSelf: false);
 
-        $document->load(['versions.replacer:id,name']);
+        $document->load([
+            'uploader:id,name',
+            'versions.uploader:id,name',
+            'versions.replacer:id,name',
+        ]);
 
         return response()->json([
-            'versions' => $document->versions->map(fn ($version) => [
-                'id' => $version->id,
-                'version' => $version->version,
-                'file_url' => $version->file_url,
-                'original_filename' => $version->original_filename,
-                'mime_type' => $version->mime_type,
-                'size_bytes' => $version->size_bytes,
-                'replaced_by' => $version->replacer?->name,
-                'created_at' => $version->created_at?->toDateTimeString(),
-            ])->values()->all(),
+            'versions' => $document->toVersionHistoryArray(),
         ]);
     }
 }

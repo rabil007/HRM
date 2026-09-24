@@ -340,8 +340,8 @@ export default function DocumentShow({
                             <MetadataField
                                 label="Uploaded"
                                 value={
-                                    doc.created_at
-                                        ? formatDisplayDate(doc.created_at)
+                                    doc.uploaded_at
+                                        ? formatDisplayDate(doc.uploaded_at)
                                         : '—'
                                 }
                             />

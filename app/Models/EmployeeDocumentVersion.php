@@ -13,6 +13,12 @@ class EmployeeDocumentVersion extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'uploaded_at' => 'datetime',
+        'size_bytes' => 'integer',
+        'version' => 'integer',
+    ];
+
     public function document(): BelongsTo
     {
         return $this->belongsTo(EmployeeDocument::class, 'employee_document_id');
@@ -26,6 +32,11 @@ class EmployeeDocumentVersion extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function uploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 
     public function replacer(): BelongsTo
