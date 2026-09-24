@@ -36,16 +36,21 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { formatDisplayDateTime12hInTimezone } from '@/lib/company-timezone';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import { show as showEmployee } from '@/routes/organization/employees';
 import type {
+    AccommodationStaySummary,
     CrewMovementHistoryFilters,
     CrewMovementHistoryRow,
+    LinkedAssignmentSummary,
     PayrollDaySummary,
     PhasePeriod,
     PhaseSummary,
+    PhaseTimelineEntry,
+    TrainingHistoryEntry,
 } from './types';
 
 const COLUMN_COUNT = 8;
@@ -276,7 +281,24 @@ function DetailField({
     );
 }
 
-function PeriodLine({ period }: { period: PhasePeriod }) {
+function formatCompanyDateTime(
+    value: string | null | undefined,
+    timezone: string,
+): string {
+    if (!value) {
+        return '—';
+    }
+
+    return formatDisplayDateTime12hInTimezone(value, timezone);
+}
+
+function PeriodLine({
+    period,
+    timezone,
+}: {
+    period: PhasePeriod;
+    timezone: string;
+}) {
     const ongoing = period.status === 'active';
 
     return (
@@ -286,9 +308,17 @@ function PeriodLine({ period }: { period: PhasePeriod }) {
                     #{period.sequence}
                 </span>
                 <span className="text-sm font-medium tabular-nums">
-                    {formatDisplayDate(period.start)}
+                    {formatCompanyDateTime(
+                        period.start_at ?? period.start,
+                        timezone,
+                    )}
                     <span className="px-1.5 text-muted-foreground">→</span>
-                    {ongoing ? 'Ongoing' : formatDisplayDate(period.end)}
+                    {ongoing
+                        ? 'Ongoing'
+                        : formatCompanyDateTime(
+                              period.end_at ?? period.end,
+                              timezone,
+                          )}
                 </span>
                 <Badge variant={phaseStatusVariant(period.status)}>
                     {humanize(period.status)}
@@ -301,7 +331,13 @@ function PeriodLine({ period }: { period: PhasePeriod }) {
     );
 }
 
-function PhaseDetail({ phase }: { phase: PhaseRecord }) {
+function PhaseDetail({
+    phase,
+    timezone,
+}: {
+    phase: PhaseRecord;
+    timezone: string;
+}) {
     return (
         <section
             className="grid gap-3 rounded-xl border border-border/70 bg-muted/15 p-3.5 lg:grid-cols-[180px_minmax(0,1fr)]"
@@ -322,7 +358,11 @@ function PhaseDetail({ phase }: { phase: PhaseRecord }) {
             <div className="space-y-2">
                 {phase.summary.periods.length ? (
                     phase.summary.periods.map((period) => (
-                        <PeriodLine key={period.sequence} period={period} />
+                        <PeriodLine
+                            key={period.sequence}
+                            period={period}
+                            timezone={timezone}
+                        />
                     ))
                 ) : (
                     <div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-xs text-muted-foreground">
@@ -346,7 +386,212 @@ function PhaseDetail({ phase }: { phase: PhaseRecord }) {
     );
 }
 
+function TimelineEntry({
+    entry,
+    timezone,
+}: {
+    entry: PhaseTimelineEntry;
+    timezone: string;
+}) {
+    const ongoing = entry.status === 'active';
+
+    return (
+        <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={entry.is_legacy ? 'warning' : 'outline'}>
+                    {entry.phase_code.toUpperCase()}
+                </Badge>
+                <span className="text-sm font-semibold">
+                    {entry.phase_label} #{entry.occurrence}
+                </span>
+                <Badge variant={phaseStatusVariant(entry.status)}>
+                    {humanize(entry.status)}
+                </Badge>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                    seq {entry.sequence}
+                </span>
+            </div>
+            <p className="mt-2 text-sm tabular-nums">
+                {formatCompanyDateTime(entry.actual_start_at, timezone)}
+                <span className="px-1.5 text-muted-foreground">→</span>
+                {ongoing
+                    ? 'Ongoing'
+                    : formatCompanyDateTime(entry.actual_end_at, timezone)}
+            </p>
+            {(entry.planned_start_at || entry.planned_end_at) && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Planned:{' '}
+                    {formatCompanyDateTime(entry.planned_start_at, timezone)} →{' '}
+                    {formatCompanyDateTime(entry.planned_end_at, timezone)}
+                </p>
+            )}
+            <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                {numericDaysLabel(entry.days)}
+            </p>
+            {entry.remarks ? (
+                <p className="mt-2 text-xs whitespace-pre-wrap text-muted-foreground">
+                    {entry.remarks}
+                </p>
+            ) : null}
+        </div>
+    );
+}
+
+function TrainingCard({
+    entry,
+    timezone,
+}: {
+    entry: TrainingHistoryEntry;
+    timezone: string;
+}) {
+    return (
+        <div className="rounded-xl border border-border/70 bg-background/75 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold">
+                    Training #{entry.occurrence}
+                </h4>
+                <Badge variant={phaseStatusVariant(entry.status)}>
+                    {humanize(entry.status)}
+                </Badge>
+            </div>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                <DetailField label="Provider" value={entry.provider ?? '—'} />
+                <DetailField label="Course" value={entry.course ?? '—'} />
+                <DetailField
+                    label="Planned"
+                    value={`${formatCompanyDateTime(entry.planned_start_at, timezone)} → ${formatCompanyDateTime(entry.planned_end_at, timezone)}`}
+                />
+                <DetailField
+                    label="Actual"
+                    value={`${formatCompanyDateTime(entry.actual_start_at, timezone)} → ${entry.status === 'active' ? 'Ongoing' : formatCompanyDateTime(entry.actual_end_at, timezone)}`}
+                />
+                <DetailField
+                    label="Employee training"
+                    value={
+                        entry.employee_training_linked
+                            ? `Linked${entry.employee_training?.course_name ? ` · ${entry.employee_training.course_name}` : ''}`
+                            : 'Not linked'
+                    }
+                />
+                <DetailField label="Remarks" value={entry.remarks ?? '—'} />
+            </dl>
+        </div>
+    );
+}
+
+function AccommodationCard({ stay }: { stay: AccommodationStaySummary }) {
+    return (
+        <div className="rounded-xl border border-border/70 bg-background/75 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-wide uppercase">
+                    {stay.stay_type_label} accommodation
+                </h4>
+                <Badge variant="outline">
+                    {stay.accommodation_status_label}
+                </Badge>
+                {stay.is_open ? <Badge variant="warning">Open</Badge> : null}
+            </div>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {stay.accommodation_status === 'hotel' ? (
+                    <>
+                        <DetailField
+                            label="Hotel"
+                            value={stay.hotel_name ?? '—'}
+                        />
+                        <DetailField
+                            label="Room type"
+                            value={stay.room_type_name ?? '—'}
+                        />
+                        <DetailField
+                            label="Check-in"
+                            value={formatDisplayDate(stay.check_in_date)}
+                        />
+                        <DetailField
+                            label="Check-out"
+                            value={
+                                stay.check_out_date
+                                    ? formatDisplayDate(stay.check_out_date)
+                                    : 'Open'
+                            }
+                        />
+                        <DetailField
+                            label="Stay days"
+                            value={numericDaysLabel(stay.stay_days)}
+                        />
+                    </>
+                ) : (
+                    <DetailField
+                        label="Record"
+                        value="No Accommodation · Recorded explicitly"
+                    />
+                )}
+                {stay.started_from_phase_label ? (
+                    <DetailField
+                        label="Starting checkpoint"
+                        value={stay.started_from_phase_label}
+                    />
+                ) : null}
+            </dl>
+        </div>
+    );
+}
+
+function LinkedAssignmentCard({
+    linked,
+    timezone,
+}: {
+    linked: LinkedAssignmentSummary;
+    timezone: string;
+}) {
+    return (
+        <div className="rounded-xl border border-border/70 bg-background/75 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <p className="font-mono text-sm font-semibold">
+                        {linked.assignment_no}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                        {linked.source_label} · {linked.status_label}
+                    </p>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href={showAssignment.url(linked.id)}>
+                        Open
+                        <ExternalLink className="ml-2 size-3.5" />
+                    </Link>
+                </Button>
+            </div>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <DetailField
+                    label="Vessel"
+                    value={linked.vessel?.name ?? '—'}
+                />
+                <DetailField label="Rank" value={linked.rank?.name ?? '—'} />
+                <DetailField
+                    label="Client"
+                    value={linked.client?.name ?? '—'}
+                />
+                <DetailField
+                    label="Started"
+                    value={formatCompanyDateTime(linked.started_at, timezone)}
+                />
+                <DetailField
+                    label="Closed"
+                    value={formatCompanyDateTime(linked.closed_at, timezone)}
+                />
+            </dl>
+        </div>
+    );
+}
+
 function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
+    const timezone = row.company_timezone;
+    const tour = row.tour;
+    const stays = row.accommodation_stays ?? [];
+    const linked = row.linked_assignments;
+    const trainingHistory = row.training.history ?? [];
+    const timeline = row.phase_timeline ?? [];
+
     const normalPhases: PhaseRecord[] = [
         {
             code: 'P0',
@@ -436,11 +681,6 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         value={row.employee.employee_no ?? '—'}
                         mono
                     />
-                    <DetailField
-                        label="Employee record ID"
-                        value={row.employee.id ?? '—'}
-                        mono
-                    />
                     <DetailField label="Rank" value={row.rank?.name ?? '—'} />
                     <DetailField
                         label="Vessel"
@@ -475,10 +715,37 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         }
                     />
                     <DetailField
-                        label="Report timezone"
+                        label="Assignment started"
+                        value={formatCompanyDateTime(
+                            row.assignment_started_at,
+                            timezone,
+                        )}
+                    />
+                    <DetailField
+                        label="Assignment closed"
+                        value={
+                            row.status === 'active'
+                                ? 'Ongoing'
+                                : formatCompanyDateTime(
+                                      row.assignment_closed_at,
+                                      timezone,
+                                  )
+                        }
+                    />
+                    <DetailField
+                        label="Created at"
+                        value={formatCompanyDateTime(row.created_at, timezone)}
+                    />
+                    <DetailField
+                        label="Updated at"
+                        value={formatCompanyDateTime(row.updated_at, timezone)}
+                    />
+                    <DetailField
+                        label="Company timezone"
                         value={row.company_timezone}
                         mono
                     />
+                    <DetailField label="Remarks" value={row.remarks ?? '—'} />
                 </dl>
             </section>
 
@@ -497,7 +764,7 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                             />
                         ) : null}
                         <DetailField
-                            label="Planned join"
+                            label="Expected vessel join"
                             value={formatDisplayDate(row.planned_join)}
                             hint={
                                 row.planned_join
@@ -524,43 +791,48 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                 <section className="rounded-xl border border-border/70 bg-background/75 p-4">
                     <h3 className="flex items-center gap-2 text-sm font-semibold">
                         <Clock3 className="size-4 text-primary" />
-                        Actual movement & completion
+                        Actual movement
                     </h3>
                     <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                        {row.actual_arrival ? (
-                            <DetailField
-                                label="Actual arrival"
-                                value={formatDisplayDate(row.actual_arrival)}
-                                hint={row.actual_arrival_origin_label}
-                            />
-                        ) : null}
                         <DetailField
-                            label="Actual vessel join"
-                            value={formatDisplayDate(row.on_vessel.actual_join)}
+                            label="Actual arrival"
+                            value={formatCompanyDateTime(
+                                row.actual_arrival_at ?? row.actual_arrival,
+                                timezone,
+                            )}
+                            hint={row.actual_arrival_origin_label}
                         />
                         <DetailField
-                            label="Actual disembarkation"
+                            label="Joined vessel"
+                            value={formatCompanyDateTime(
+                                row.on_vessel.actual_join_at ??
+                                    row.on_vessel.actual_join,
+                                timezone,
+                            )}
+                        />
+                        <DetailField
+                            label="Disembarked"
                             value={
                                 row.on_vessel.periods.some(
                                     (period) => period.status === 'active',
                                 )
                                     ? 'Ongoing'
-                                    : formatDisplayDate(
-                                          row.on_vessel.actual_disembarkation,
+                                    : formatCompanyDateTime(
+                                          row.on_vessel
+                                              .actual_disembarkation_at ??
+                                              row.on_vessel
+                                                  .actual_disembarkation,
+                                          timezone,
                                       )
                             }
                         />
                         <DetailField
-                            label="Assignment started"
-                            value={formatDisplayDate(row.assignment_started)}
-                        />
-                        <DetailField
-                            label="Assignment closed"
-                            value={
-                                row.status === 'active'
-                                    ? 'Ongoing'
-                                    : formatDisplayDate(row.assignment_closed)
-                            }
+                            label="Returned home / P6 start"
+                            value={formatCompanyDateTime(
+                                row.home_redeploy.actual_return_home_at ??
+                                    row.home_redeploy.from,
+                                timezone,
+                            )}
                         />
                         <DetailField
                             label="On-vessel elapsed days"
@@ -574,6 +846,52 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                 </section>
             </div>
 
+            {tour ? (
+                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                    <h3 className="text-sm font-semibold">
+                        Tour of Duty & sign-off
+                    </h3>
+                    <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <DetailField
+                            label="Tour of Duty days"
+                            value={tour.tour_of_duty_days ?? '—'}
+                        />
+                        <DetailField
+                            label="Planned sign-off"
+                            value={formatDisplayDate(row.planned_signoff)}
+                        />
+                        <DetailField
+                            label="Sign-off source"
+                            value={
+                                tour.planned_signoff_source_label ??
+                                row.planned_signoff_origin_label ??
+                                '—'
+                            }
+                        />
+                        <DetailField
+                            label="Override reason"
+                            value={tour.planned_signoff_override_reason ?? '—'}
+                        />
+                        <DetailField
+                            label="Days onboard"
+                            value={tour.days_onboard ?? '—'}
+                        />
+                        <DetailField
+                            label="Current duty day"
+                            value={tour.current_duty_day ?? '—'}
+                        />
+                        <DetailField
+                            label="Remaining tour days"
+                            value={tour.remaining_tour_days ?? '—'}
+                        />
+                        <DetailField
+                            label="Tour status"
+                            value={tour.tour_status_label ?? '—'}
+                        />
+                    </dl>
+                </section>
+            ) : null}
+
             <section>
                 <div className="mb-3">
                     <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -581,16 +899,32 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         Complete phase timeline
                     </h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Modern phases are always shown. Legacy P1/P3 periods
-                        appear only when they were actually recorded.
+                        Every persisted phase occurrence with company-local
+                        timestamps. Legacy P1/P3 appear only when recorded.
                     </p>
                 </div>
-                <div className="space-y-3">
-                    {normalPhases.map((phase) => (
-                        <PhaseDetail key={phase.code} phase={phase} />
-                    ))}
-                </div>
-                {legacyPhases.length > 0 ? (
+                {timeline.length > 0 ? (
+                    <div className="space-y-3">
+                        {timeline.map((entry) => (
+                            <TimelineEntry
+                                key={`${entry.id}-${entry.sequence}`}
+                                entry={entry}
+                                timezone={timezone}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {normalPhases.map((phase) => (
+                            <PhaseDetail
+                                key={phase.code}
+                                phase={phase}
+                                timezone={timezone}
+                            />
+                        ))}
+                    </div>
+                )}
+                {legacyPhases.length > 0 && timeline.length === 0 ? (
                     <section className="mt-5 space-y-3">
                         <div>
                             <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-200">
@@ -602,7 +936,11 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                             </p>
                         </div>
                         {legacyPhases.map((phase) => (
-                            <PhaseDetail key={phase.code} phase={phase} />
+                            <PhaseDetail
+                                key={phase.code}
+                                phase={phase}
+                                timezone={timezone}
+                            />
                         ))}
                         {row.planned_travel_in ? (
                             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
@@ -617,6 +955,112 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         ) : null}
                     </section>
                 ) : null}
+            </section>
+
+            {trainingHistory.length > 0 ? (
+                <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Training history</h3>
+                    {trainingHistory.map((entry) => (
+                        <TrainingCard
+                            key={`${entry.sequence}-${entry.occurrence}`}
+                            entry={entry}
+                            timezone={timezone}
+                        />
+                    ))}
+                </section>
+            ) : null}
+
+            <section className="space-y-3">
+                <h3 className="text-sm font-semibold">Accommodation history</h3>
+                {stays.length > 0 ? (
+                    stays.map((stay) => (
+                        <AccommodationCard key={stay.id} stay={stay} />
+                    ))
+                ) : (
+                    <p className="rounded-xl border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
+                        No accommodation records for this assignment.
+                    </p>
+                )}
+            </section>
+
+            <section className="space-y-3">
+                <h3 className="text-sm font-semibold">
+                    Linked assignment journey
+                </h3>
+                {linked?.previous || (linked?.next?.length ?? 0) > 0 ? (
+                    <div className="space-y-3">
+                        {linked?.relationship_label ? (
+                            <p className="text-xs text-muted-foreground">
+                                Relationship: {linked.relationship_label}
+                            </p>
+                        ) : null}
+                        {linked?.previous ? (
+                            <div>
+                                <p className="mb-2 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Previous assignment
+                                </p>
+                                <LinkedAssignmentCard
+                                    linked={linked.previous}
+                                    timezone={timezone}
+                                />
+                            </div>
+                        ) : null}
+                        {(linked?.next?.length ?? 0) > 0 ? (
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Next assignment
+                                    {(linked?.next?.length ?? 0) > 1 ? 's' : ''}
+                                </p>
+                                {linked?.next.map((next) => (
+                                    <LinkedAssignmentCard
+                                        key={next.id}
+                                        linked={next}
+                                        timezone={timezone}
+                                    />
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+                ) : (
+                    <p className="rounded-xl border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
+                        No linked transfer or redeployment assignments.
+                    </p>
+                )}
+            </section>
+
+            <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                <h3 className="text-sm font-semibold">
+                    Payroll calendar-day preview
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Inclusive movement calendar days for Sign-On Standby, On
+                    Vessel, and Sign-Off Standby. Not the final payroll
+                    entitlement.
+                </p>
+                <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailField
+                        label="Sign-on standby"
+                        value={numericDaysLabel(
+                            row.payroll_days.sign_on_standby.total_days,
+                        )}
+                    />
+                    <DetailField
+                        label="On vessel"
+                        value={numericDaysLabel(
+                            row.payroll_days.onsite.total_days,
+                        )}
+                    />
+                    <DetailField
+                        label="Sign-off standby"
+                        value={numericDaysLabel(
+                            row.payroll_days.sign_off_standby.total_days,
+                        )}
+                    />
+                    <DetailField
+                        label="Total"
+                        value={numericDaysLabel(row.payroll_days.total_days)}
+                    />
+                </dl>
             </section>
 
             <div className="grid gap-4 xl:grid-cols-2">

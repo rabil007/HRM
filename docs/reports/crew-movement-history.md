@@ -8,9 +8,9 @@ Crew Movement History is the read-only management report for the complete crew m
 
 ## Source of truth
 
-Each row represents one `CrewAssignment`. Planned assignment dates come from the assignment, while actual movement dates come exclusively from ordered `CrewAssignmentPhase` records. Planning rows and `EmployeeSeaService` records are not used to reconstruct actual movement history.
+Each row represents one `CrewAssignment`. Planned assignment dates come from the assignment, while actual movement dates come exclusively from ordered `CrewAssignmentPhase` records. Accommodation history comes from `CrewAccommodationStay`. Planning rows and `EmployeeSeaService` records are not used to reconstruct actual movement history when assignment/phase records already exist.
 
-The report excludes soft-deleted phases through the standard `phases` relationship. It does not create, update, or delete operational data.
+The report excludes soft-deleted phases through the standard `phases` relationship. It does not create, update, or delete operational data. Form-only temporary inputs (`no_hotel_accommodation`, `planned_signoff_choice`, `sync_training_to_employee_training`, travel-home `completion_intent`) are never stored as report columns — only the resulting authoritative domain state is shown.
 
 ## Modern and legacy phases
 
@@ -23,59 +23,80 @@ The normal report timeline shows only modern product-facing phases:
 - P5 Demobilisation Standby
 - P6 Home / Redeployment
 
-Legacy phases P1 Travel In and P3 Ready to Join are not rendered as permanent empty placeholders. When an assignment actually recorded legacy movement, the UI shows a separate **Legacy recorded phases** section containing only the recorded P1/P3 periods.
+Legacy phases P1 Travel In and P3 Ready to Join are not rendered as permanent empty placeholders. When an assignment actually recorded legacy movement, the UI shows a separate **Legacy recorded phases** section (and optional export columns) containing only the recorded P1/P3 periods.
 
 Current Phase filters offer the same modern phase list. Bookmarked legacy `current_phase=p1` or `current_phase=p3` query values remain supported by the backend filter when present.
 
-## Date mapping
+## Assignment master
+
+Expanded detail includes assignment number and record ID, employee identity, rank, client/project, vessel, status, current phase, source label, remarks, started/closed timestamps, created/updated timestamps, and company timezone.
+
+## Date mapping and timezone
 
 | Report value | Source |
 |---|---|
 | Planned Arrival | Assignment `planned_arrival_at` |
 | Planned Join | Assignment `planned_join_at` |
-| Planned Sign-Off | Assignment `planned_signoff_at` |
+| Planned Sign-Off | Assignment `planned_signoff_at` (+ `planned_signoff_source` / override reason) |
 | Planned Travel Home | Assignment `planned_travel_at` |
-| Actual Arrival | `CrewArrivalResolver` — first P2A `actual_start_at`, with legacy fallback to completed P1 `actual_end_at` |
+| Actual Arrival | First P2A `actual_start_at`, with legacy fallback to completed P1 `actual_end_at` |
 | Actual Join | First P4 `actual_start_at` |
 | Actual Disembarkation | Completed P4 `actual_end_at` |
-| Assignment Started | Assignment `started_at` |
-| Assignment Closed | Assignment `closed_at` |
+| Actual Return Home | First P6 `actual_start_at` |
+| Assignment Started / Closed | Assignment `started_at` / `closed_at` |
 
-Planned Travel In is no longer part of the normal modern planned-movement presentation. When legacy P1 data exists, its planned start may appear in the legacy section or export only.
+Planned values remain date-oriented. **Actual operational events preserve company-local date and time** (`Y-m-d H:i:s` wall clock in the company timezone). Expanded UI and exports use those timestamps; compact table cells may stay concise.
 
-Planned Sign-Off is never presented as Actual Disembarkation.
+Provenance labels continue to use `CrewDateProvenance`. Planned Sign-Off is never presented as Actual Disembarkation. Browser/device timezone is never used.
 
-## Repeated phases
+## Repeated phases and training
 
-Phase occurrences are ordered by `sequence`. Repeated P2A Join Standby and P2B Training periods remain visible in one assignment row and are exported as semicolon-separated periods. Training provider and course details are preserved per occurrence. Other repeated phases are summarized with the same period structure.
+Phase occurrences are ordered by `sequence`. Repeated P2A/P2B periods remain separate in the timeline and in exports. Each P2B training occurrence exposes provider, course, planned/actual windows, remarks, and whether an `EmployeeTraining` record is linked via `CrewAssignmentPhase::employeeTraining()`.
 
-## Duration rule
+## Accommodation history
 
-Durations use elapsed company-local calendar days:
+Dedicated Accommodation History uses `CrewAccommodationService::assignmentAccommodationSummary()` / `crew_accommodation_stays`. Show stay type, accommodation status, hotel, room type, check-in/out dates, open/completed, stay days, and starting phase when present.
 
-- Completed phase: `actual_start_at` to `actual_end_at`.
-- Active phase: `actual_start_at` to company-local today.
-- Planned-only phase: no actual duration.
+- Hotel is shown only when a stay exists with `accommodation_status = hotel`.
+- Explicit `no_accommodation` stays display as **No Accommodation**.
+- Phase codes alone never invent hotel occupancy.
+- Multiple stays are serialized; none are silently dropped.
 
-The start day is day zero. A phase started today displays `Started today`; the following day displays `1 day`. All values are whole numbers.
+## Tour of Duty & sign-off
 
-## Filters and summary
+Tour progress reuses `CrewTourProgress` (days onboard, remaining days, status). Report fields include tour of duty days, planned sign-off source/label, and manual override reason. Completed assignments freeze progress at disembarkation and avoid misleading active urgency wording when status is null.
 
-The report supports identity, assignment status, current phase, vessel, rank, client, source, attention, planned/actual date filters, and correction filters (`has_approved_corrections`, `has_pending_corrections`). Pagination and exports preserve all filters. Summary counts use the active company and the active filter set.
+## Linked assignment journey
 
-Approved corrections add report metadata only (`has_corrections`, `correction_count`, `last_corrected_at`). Pending proposals never change official dates in the report.
+Vessel transfer and redeployment create linked assignments (`previous_assignment_id`, `source`). The report keeps **one row per CrewAssignment** and exposes previous/next summaries (assignment no, vessel/rank/client, status, timestamps) with links to assignment show pages. Cross-company linked records are rejected.
 
-## Permissions
+## Corrections
+
+Approved corrections appear as metadata (`has_corrections`, `correction_count`, `last_corrected_at`). Pending proposals never change official report dates. Official values already reflect approved corrections.
+
+## Needs Attention
+
+Filter, summary card count, row badge, and expanded warning list all use authoritative `CrewMovementAttentionQuery` (including Tour of Duty rules). Active P4 is **not** flagged merely for being active longer than 14 days.
+
+## Payroll calendar-day preview
+
+Uses `CrewMovementHistoryPayrollDays` / `CrewPhasePayCategoryResolver` for Sign-On Standby, On Vessel, Sign-Off Standby, and total. This is a movement/calendar-day preview only — final payroll also depends on contracts and payroll-period eligibility.
+
+## Filters and search
+
+Supports identity, status, current phase, vessel, rank, client, source, needs attention, planned arrival/join/sign-off ranges, actual arrival/join/disembarkation ranges, assignment started/closed ranges, hotel, accommodation status, stay type, tour status, and correction flags.
+
+Search may match assignment no, employee no/name, vessel, client, rank, previous/next assignment no, hotel, room type, and training provider/course — always company-scoped with `EmployeeVisibilityScope`.
+
+## Permissions and tenancy
 
 - `reports.crew_movement_history.view`
 - `reports.crew_movement_history.export`
 
-Both report routes enforce their permission independently. Company scoping is always applied by the report query.
+Every query is scoped to `current_company_id`. Soft-deleted/voided assignments are not automatically exposed via `withTrashed()`.
 
 ## Export
 
-Excel and CSV exports contain one row per assignment. Repeated phase periods and training details use semicolon-separated plain text. Correction metadata columns are included for approved corrections. Filenames use `crew-movement-history-YYYY-MM-DD`.
+Excel/CSV: one row per assignment. Repeated phases, training, accommodation, and linked assignments use semicolon-separated plain text. Actual timestamps export with time. Filenames use `crew-movement-history-YYYY-MM-DD`. Legacy columns append only when the filtered set contains P1/P3 movement.
 
-Modern exports omit empty legacy columns such as Planned Travel In, P1 From/To/Days, and Ready From/To/Days. When the filtered export result set contains actual legacy P1 or P3 movement, additional **Legacy …** columns are appended after Actual Arrival so historical data is preserved without misleading empty columns on modern-only exports.
-
-See also [Crew Movement Corrections](../architecture/crew-movement-corrections.md).
+See also [Crew Movement Corrections](../architecture/crew-movement-corrections.md), [Crew Movement Phases](../architecture/crew-movement-phases.md), and [Crew Payroll Timeline Preparation](../architecture/crew-payroll-timeline-preparation.md).

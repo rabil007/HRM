@@ -42,8 +42,14 @@ const FILTER_LABELS: Partial<Record<keyof CrewMovementHistoryFilters, string>> =
         client_id: 'Client',
         source: 'Source',
         needs_attention: 'Needs attention',
+        planned_arrival_from: 'Planned arrival from',
+        planned_arrival_to: 'Planned arrival to',
         planned_join_from: 'Planned join from',
         planned_join_to: 'Planned join to',
+        planned_signoff_from: 'Planned sign-off from',
+        planned_signoff_to: 'Planned sign-off to',
+        actual_arrival_from: 'Actual arrival from',
+        actual_arrival_to: 'Actual arrival to',
         actual_join_from: 'Actual join from',
         actual_join_to: 'Actual join to',
         actual_disembarkation_from: 'Disembarkation from',
@@ -52,6 +58,10 @@ const FILTER_LABELS: Partial<Record<keyof CrewMovementHistoryFilters, string>> =
         assignment_started_to: 'Assignment started to',
         assignment_closed_from: 'Assignment closed from',
         assignment_closed_to: 'Assignment closed to',
+        hotel_id: 'Hotel',
+        accommodation_status: 'Accommodation status',
+        stay_type: 'Stay type',
+        tour_status: 'Tour status',
         has_approved_corrections: 'Approved corrections',
         has_pending_corrections: 'Pending corrections',
     };
@@ -99,6 +109,25 @@ function chipValueLabel(
                 value: String(option.id),
                 label: option.name,
             }));
+        }
+
+        if (key === 'hotel_id') {
+            return (options.hotels ?? []).map((option) => ({
+                value: String(option.id),
+                label: option.name,
+            }));
+        }
+
+        if (key === 'accommodation_status') {
+            return options.accommodation_statuses ?? [];
+        }
+
+        if (key === 'stay_type') {
+            return options.stay_types ?? [];
+        }
+
+        if (key === 'tour_status') {
+            return options.tour_statuses ?? [];
         }
 
         return [];
