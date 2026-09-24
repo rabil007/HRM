@@ -45,7 +45,6 @@ import {
 import type { SavedView, SavedViewPageKey } from '@/lib/saved-views';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
-import { LeaveBalanceCards } from './components/leave-balance-cards';
 import { LeaveRequestAdministrativeDeleteDialog } from './components/leave-request-administrative-delete-dialog';
 import { LeaveRequestCancelDialog } from './components/leave-request-cancel-dialog';
 import { LeaveRequestCard } from './components/leave-request-card';
@@ -56,7 +55,7 @@ import { LeaveRequestMobileCard } from './components/leave-request-mobile-card';
 import { LeaveRequestRejectDialog } from './components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from './components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from './components/leave-request-status-badge';
-import { LeaveRequestSummaryCards } from './components/leave-request-summary-cards';
+import { MyLeaveOverview } from './components/my-leave-overview';
 import { defaultLeaveRequestFormData, leaveRequestToFormData } from './types';
 import type {
     LeaveRequest,
@@ -288,33 +287,16 @@ export function LeaveRequestsContent({
             />
 
             {isMine ? (
-                <section
-                    className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
-                    aria-label="Leave overview"
-                >
-                    {linkedEmployeeAttendanceLeaveEnabled ? (
-                        <LeaveBalanceCards
-                            balances={leaveBalances}
-                            year={leaveBalanceYear}
-                        />
-                    ) : null}
-                    <div
-                        className={
-                            linkedEmployeeAttendanceLeaveEnabled &&
-                            leaveBalances.length > 0
-                                ? 'lg:pb-0.5'
-                                : undefined
-                        }
-                    >
-                        <LeaveRequestSummaryCards
-                            counts={status_counts}
-                            activeStatus={filters.status}
-                            onSelect={(status: '' | LeaveRequestStatus) =>
-                                list.applyFilters({ status })
-                            }
-                        />
-                    </div>
-                </section>
+                <MyLeaveOverview
+                    balances={leaveBalances}
+                    year={leaveBalanceYear}
+                    showBalances={linkedEmployeeAttendanceLeaveEnabled}
+                    counts={status_counts}
+                    activeStatus={filters.status}
+                    onSelectStatus={(status: '' | LeaveRequestStatus) =>
+                        list.applyFilters({ status })
+                    }
+                />
             ) : (
                 <p className="mb-4 text-sm font-medium text-muted-foreground">
                     Needs my approval: {status_counts.pending.toLocaleString()}

@@ -39,6 +39,14 @@ export type LeaveTypeYearBalance = {
     remaining_days: number;
 };
 
+export type LeaveRequestStatusCounts = {
+    all: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    cancelled: number;
+};
+
 export type LeaveRequestAttachment = {
     path: string;
     name: string;
