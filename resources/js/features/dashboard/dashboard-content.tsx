@@ -15,8 +15,9 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useHasPermission } from '@/hooks/use-has-permission';
-import { overview as attendanceOverview } from '@/routes/attendance';
+import { dashboard } from '@/routes';
 import { index as myLeaveIndex } from '@/routes/attendance/my-leave';
+import { index as attendanceRecordsIndex } from '@/routes/attendance/records';
 import {
     bankAccounts,
     contracts,
@@ -222,6 +223,9 @@ function WorkforceTile({
 }
 
 function AttendanceTile({ analytics }: { analytics: AttendanceAnalytics }) {
+    const canViewAttendanceRecords = useHasPermission(
+        'attendance.records.view',
+    );
     const rate =
         analytics.active_employees > 0
             ? Math.round(
@@ -233,7 +237,11 @@ function AttendanceTile({ analytics }: { analytics: AttendanceAnalytics }) {
         <ModuleTile
             icon={Activity}
             name="Attendance"
-            href={attendanceOverview.url()}
+            href={
+                canViewAttendanceRecords
+                    ? attendanceRecordsIndex.url()
+                    : dashboard.url()
+            }
             tone="teal"
             primary={{ value: `${rate}%`, label: 'attendance rate' }}
             stats={[
@@ -281,6 +289,9 @@ function LeaveTile({ summary }: { summary: LeaveDashboardSummary }) {
     const canViewLeaveRequests = useHasPermission(
         'attendance.leave-requests.view',
     );
+    const canViewAttendanceRecords = useHasPermission(
+        'attendance.records.view',
+    );
 
     return (
         <ModuleTile
@@ -289,7 +300,9 @@ function LeaveTile({ summary }: { summary: LeaveDashboardSummary }) {
             href={
                 canViewLeaveRequests
                     ? myLeaveIndex.url()
-                    : attendanceOverview.url()
+                    : canViewAttendanceRecords
+                      ? attendanceRecordsIndex.url()
+                      : dashboard.url()
             }
             tone="emerald"
             primary={{ value: summary.on_leave_today, label: 'on leave today' }}

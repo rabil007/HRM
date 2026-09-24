@@ -144,7 +144,7 @@ final class ApplicationPermissionDefinitions
             21 => [
                 'name' => 'attendance.overview.view',
                 'label' => 'View Attendance Overview',
-                'description' => 'Allows the user to view the attendance overview dashboard for the active company.',
+                'description' => 'Allows the user to view attendance analytics on the company dashboard for the active company.',
                 'group' => 'Attendance',
             ],
             22 => [

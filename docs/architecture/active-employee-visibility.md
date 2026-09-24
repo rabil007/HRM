@@ -29,7 +29,7 @@ Current workforce pickers, create/update mutations, compliance widgets, and live
 | Bank account directory, operational summary (totals, primary/secondary, Ansari, missing) | Active employees |
 | Training directory, compliance summary, dashboard training | Active employees |
 | Attendance create picker and **new** attendance records | Active employees |
-| Attendance overview **this-month** operational counts; dashboard present/late/absent **today** | Active employees |
+| Dashboard present/late/absent **today** | Active employees |
 | Leave **new** requests | Active employees |
 | Leave dashboard on-leave-today / upcoming this week | Active employees |
 | Payroll generation / period employee board | Existing `PayrollEmployeeQuery` active + contract rules (unchanged) |

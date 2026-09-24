@@ -124,7 +124,6 @@ describe('Attendance and Crew Operations report destinations', () => {
         ).map((destination) => destination.label);
 
         assert.deepEqual(attendance, [
-            'Overview',
             'Calendar',
             'My leave',
             'Approvals',

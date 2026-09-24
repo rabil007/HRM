@@ -879,7 +879,7 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 
 ### Permissions involved
 
-- `attendance.overview.view`
+- `attendance.overview.view` (dashboard attendance analytics; dedicated Overview page removed)
 - `attendance.records.view|create|update|delete|manage`
 
 `attendance.records.manage` is same-company HR/admin attendance. Without it, create/update/delete apply only to the user's linked Employee in the **active** company. `employee_id` from the client is not authorization. Cross-company employees are 404. Hikvision sync is separate ingestion.
@@ -1228,7 +1228,7 @@ flowchart TB
 | Crew Assignments | `/organization/crew` | `crew/index`, `show`, `create`, `edit` |
 | Crew operations / planning | `/organization/crew-operations`, `/organization/crew-planning` | `crew-operations/*`, `crew-planning/index` |
 | Vessel / manning | `/organization/vessels` | `vessels/index`, `show` (legacy `/organization/vessel-manning` redirects here) |
-| Attendance / leave | `/attendance/*` | `attendance/overview`, `records`, `calendar`, `types`, `leave-requests`, `leave-approval-policies`, `leave-approval-settings` |
+| Attendance / leave | `/attendance/*` | `records`, `calendar`, `types`, `leave-requests`, `leave-approval-policies`, `leave-approval-settings` |
 | Payroll | `/payroll/*` | `payroll/overview`, `index`, `show`, `records`, `salary-inputs` |
 | Hikvision | `/hikvision/persons`, `/hikvision/access-events` | `hikvision/persons`, `access-events` |
 | Users | `/organization/users` | `users.tsx`, `user.tsx` |

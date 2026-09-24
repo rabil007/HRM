@@ -197,12 +197,6 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Hikvision',
     },
     {
-        key: 'attendance.overview',
-        label: 'Overview',
-        href: '/attendance/overview',
-        group: 'Attendance',
-    },
-    {
         key: 'attendance.calendar',
         label: 'Calendar',
         href: '/attendance/calendar',

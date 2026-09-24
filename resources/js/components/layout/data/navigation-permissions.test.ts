@@ -32,6 +32,14 @@ const PAYROLL_URLS = [
     '/payroll/records',
     '/payroll/salary-inputs',
 ];
+const ATTENDANCE_URLS = [
+    '/attendance/calendar',
+    '/attendance/my-leave',
+    '/attendance/leave-approvals',
+    '/attendance/records',
+    '/attendance/types',
+    '/attendance/leave-approval-policies',
+];
 const PLATFORM_URLS = ['/log', '/jobs', '/mysql'];
 
 describe('Users navigation', () => {
@@ -227,14 +235,26 @@ describe('Attendance top-nav landing', () => {
         );
     });
 
-    it('uses overview when the user can only view overview', () => {
+    it('uses calendar when the user can view leave but not records', () => {
         assert.equal(
-            attendanceHref(['attendance.overview.view']),
-            '/attendance/overview',
+            attendanceHref(['attendance.leave-requests.view']),
+            '/attendance/calendar',
         );
     });
 
-    it('hides attendance when neither overview nor records is granted', () => {
+    it('does not land on the removed overview destination', () => {
+        assert.equal(attendanceHref(['attendance.overview.view']), null);
+        assert.deepEqual(
+            visibleGroupUrls(ATTENDANCE_URLS, ['attendance.overview.view']),
+            [],
+        );
+        assert.deepEqual(
+            visibleGroupUrls(ATTENDANCE_URLS, ['attendance.records.view']),
+            ['/attendance/records'],
+        );
+    });
+
+    it('hides attendance when no attendance child destination is granted', () => {
         assert.equal(attendanceHref([]), null);
     });
 });

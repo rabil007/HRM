@@ -129,7 +129,6 @@ test('leave and crew report destinations are grouped under Attendance and Crew O
     )), 'label');
 
     expect($attendanceLabels)->toBe([
-        'Overview',
         'Calendar',
         'My leave',
         'Approvals',

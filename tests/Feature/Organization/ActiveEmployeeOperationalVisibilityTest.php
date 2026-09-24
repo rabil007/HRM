@@ -335,31 +335,15 @@ test('sea services directory keeps terminated employee history', function () {
             ->where('sea_services.0.employee_name', 'Terminated Employee'));
 });
 
-test('attendance overview this-month operational counts exclude terminated employees', function () {
+test('attendance overview page is removed', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'activeEmployee' => $active, 'terminatedEmployee' => $terminated] = makeActiveOnlyScopeFixtures();
+    ['company' => $company] = makeActiveOnlyScopeFixtures();
 
     grantCompanyPermissions($user, $company, ['attendance.overview.view']);
 
-    foreach ([$active, $terminated] as $employee) {
-        AttendanceRecord::query()->create([
-            'company_id' => $company->id,
-            'employee_id' => $employee->id,
-            'date' => now()->startOfMonth()->toDateString(),
-            'status' => AttendanceRecord::STATUS_PRESENT,
-            'source' => AttendanceRecord::SOURCE_MANUAL,
-            'hours_worked' => 8,
-            'overtime_hours' => 0,
-            'late_minutes' => 0,
-        ]);
-    }
-
     $this->withSession(['current_company_id' => $company->id])
         ->get('/attendance/overview')
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('summary.this_month_total', 1)
-            ->where('summary.this_month_present', 1));
+        ->assertNotFound();
 });
