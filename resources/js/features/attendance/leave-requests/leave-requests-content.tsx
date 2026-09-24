@@ -55,7 +55,10 @@ import { LeaveRequestMobileCard } from './components/leave-request-mobile-card';
 import { LeaveRequestRejectDialog } from './components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from './components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from './components/leave-request-status-badge';
-import { MyLeaveOverview } from './components/my-leave-overview';
+import {
+    MyLeaveOverview,
+    MyLeaveStatusFilters,
+} from './components/my-leave-overview';
 import { defaultLeaveRequestFormData, leaveRequestToFormData } from './types';
 import type {
     LeaveRequest,
@@ -291,11 +294,6 @@ export function LeaveRequestsContent({
                     balances={leaveBalances}
                     year={leaveBalanceYear}
                     showBalances={linkedEmployeeAttendanceLeaveEnabled}
-                    counts={status_counts}
-                    activeStatus={filters.status}
-                    onSelectStatus={(status: '' | LeaveRequestStatus) =>
-                        list.applyFilters({ status })
-                    }
                 />
             ) : (
                 <p className="mb-4 text-sm font-medium text-muted-foreground">
@@ -303,48 +301,62 @@ export function LeaveRequestsContent({
                 </p>
             )}
 
-            <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-                <div className="relative min-w-0 flex-1">
-                    <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        placeholder={
-                            isMine
-                                ? 'Search your leave requests...'
-                                : 'Search by employee...'
+            <div className="mb-8 flex flex-col gap-3">
+                {isMine ? (
+                    <MyLeaveStatusFilters
+                        counts={status_counts}
+                        activeStatus={filters.status}
+                        onSelectStatus={(status: '' | LeaveRequestStatus) =>
+                            list.applyFilters({ status })
                         }
-                        value={list.searchInput}
-                        onChange={(e) => list.onSearchChange(e.target.value)}
-                        className="h-12 w-full rounded-xl border-input bg-background/80 pl-10 text-sm dark:border-white/5 dark:bg-white/5"
                     />
-                </div>
+                ) : null}
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <div className="hidden md:block">
-                        <ViewToggle value={view} onChange={setView} />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+                    <div className="relative min-w-0 flex-1">
+                        <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder={
+                                isMine
+                                    ? 'Search your leave requests...'
+                                    : 'Search by employee...'
+                            }
+                            value={list.searchInput}
+                            onChange={(e) =>
+                                list.onSearchChange(e.target.value)
+                            }
+                            className="h-12 w-full rounded-xl border-input bg-background/80 pl-10 text-sm dark:border-white/5 dark:bg-white/5"
+                        />
                     </div>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                        onClick={() => setIsFiltersOpen(true)}
-                    >
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filters
-                        {activeFiltersCount ? (
-                            <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                {activeFiltersCount}
-                            </span>
-                        ) : null}
-                    </Button>
-                    <SavedViewsControl
-                        pageKey={savedViewPageKey}
-                        indexUrl={indexUrl}
-                        currentFilters={{
-                            search: initialSearch,
-                            ...filters,
-                        }}
-                        views={saved_views}
-                    />
+
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <div className="hidden md:block">
+                            <ViewToggle value={view} onChange={setView} />
+                        </div>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                            onClick={() => setIsFiltersOpen(true)}
+                        >
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filters
+                            {activeFiltersCount ? (
+                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                    {activeFiltersCount}
+                                </span>
+                            ) : null}
+                        </Button>
+                        <SavedViewsControl
+                            pageKey={savedViewPageKey}
+                            indexUrl={indexUrl}
+                            currentFilters={{
+                                search: initialSearch,
+                                ...filters,
+                            }}
+                            views={saved_views}
+                        />
+                    </div>
                 </div>
             </div>
 
