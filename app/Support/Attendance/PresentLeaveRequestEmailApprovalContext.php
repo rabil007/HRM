@@ -7,7 +7,6 @@ use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Support\Attendance\Data\LeaveRequestEmailApprovalContext;
-use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use Illuminate\Support\Collection;
 
 /**
@@ -25,7 +24,7 @@ final class PresentLeaveRequestEmailApprovalContext
 
     public function handle(LeaveRequest $leaveRequest): LeaveRequestEmailApprovalContext
     {
-        $managerName = $this->resolveDepartmentManagerName($leaveRequest);
+        $managerName = ResolveLeaveRequestEmailDepartmentManagerName::handle($leaveRequest);
         $pendingNames = $this->pendingRequiredApproverNames($leaveRequest);
 
         if ($pendingNames === []) {
@@ -106,18 +105,5 @@ final class PresentLeaveRequestEmailApprovalContext
         }
 
         return $names;
-    }
-
-    private function resolveDepartmentManagerName(LeaveRequest $leaveRequest): string
-    {
-        $employee = $leaveRequest->employee;
-
-        if ($employee === null) {
-            return '';
-        }
-
-        $manager = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
-
-        return filled($manager?->name) ? (string) $manager->name : '';
     }
 }

@@ -9,7 +9,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Support\Attendance\LeaveNotificationSettings;
-use App\Support\Departments\ResolveDepartmentEffectiveManager;
+use App\Support\Attendance\ResolveLeaveRequestEmailDepartmentManagerName;
 use App\Support\Email\CommaSeparatedEmailList;
 use Illuminate\Support\Facades\Mail;
 
@@ -40,7 +40,7 @@ final class SendLeaveRequestDecidedEmail
             'employee.user:id,email',
             'leaveType',
             'company',
-            'approvals.approverEmployee:id,name,work_email,personal_email,user_id',
+            'approvals.approverEmployee:id,company_id,name,work_email,personal_email,user_id',
             'approvals.approverEmployee.user:id,email',
             'approver:id,name',
         ]);
@@ -72,7 +72,7 @@ final class SendLeaveRequestDecidedEmail
             employeeName: $payload['employeeName'],
             employeeNo: $payload['employeeNo'],
             departmentName: $payload['departmentName'],
-            managerName: $payload['managerName'],
+            decidedByName: $payload['decidedByName'],
             leaveType: $payload['leaveType'],
             leaveTypeColor: $payload['leaveTypeColor'],
             startDate: $payload['startDate'],
@@ -140,20 +140,7 @@ final class SendLeaveRequestDecidedEmail
 
     private function resolveSnapshotApproverEmail(LeaveRequest $leaveRequest): string
     {
-        $approvals = $leaveRequest->relationLoaded('approvals')
-            ? $leaveRequest->approvals
-            : $leaveRequest->approvals()->with('approverEmployee.user:id,email')->get();
-
-        $acted = $approvals
-            ->sortByDesc('sequence')
-            ->first(function (LeaveRequestApproval $approval): bool {
-                $status = $approval->status instanceof LeaveRequestApprovalStatus
-                    ? $approval->status
-                    : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
-
-                return $status === LeaveRequestApprovalStatus::Approved
-                    || $status === LeaveRequestApprovalStatus::Rejected;
-            });
+        $acted = $this->resolveTerminalRequiredApproval($leaveRequest);
 
         if ($acted === null) {
             return '';
@@ -189,7 +176,7 @@ final class SendLeaveRequestDecidedEmail
      *     employeeName: string,
      *     employeeNo: string,
      *     departmentName: string,
-     *     managerName: string,
+     *     decidedByName: string,
      *     leaveType: string,
      *     leaveTypeColor: string|null,
      *     startDate: string,
@@ -202,6 +189,7 @@ final class SendLeaveRequestDecidedEmail
     private function buildMailPayload(LeaveRequest $leaveRequest, string $introMessage): array
     {
         $employee = $leaveRequest->employee;
+        $decidedByName = $this->resolveDecidingApproverName($leaveRequest);
 
         return [
             'organizationName' => (string) ($leaveRequest->company?->name ?? config('app.name')),
@@ -209,7 +197,7 @@ final class SendLeaveRequestDecidedEmail
             'employeeName' => (string) ($employee?->name ?? '—'),
             'employeeNo' => (string) ($employee?->employee_no ?? ''),
             'departmentName' => (string) ($employee?->department?->name ?? '—'),
-            'managerName' => $this->resolveDecidingApproverName($leaveRequest, $employee),
+            'decidedByName' => $decidedByName !== '' ? $decidedByName : '—',
             'leaveType' => (string) ($leaveRequest->leaveType?->name ?? '—'),
             'leaveTypeColor' => $leaveRequest->leaveType?->color,
             'startDate' => $leaveRequest->start_date?->format('d M Y') ?? '—',
@@ -222,9 +210,18 @@ final class SendLeaveRequestDecidedEmail
 
     private function renderTemplate(string $template, LeaveRequest $leaveRequest): string
     {
-        $employee = $leaveRequest->employee;
+        return strtr($template, $this->placeholders($leaveRequest));
+    }
 
-        $replacements = [
+    /**
+     * @return array<string, string>
+     */
+    public function placeholders(LeaveRequest $leaveRequest): array
+    {
+        $employee = $leaveRequest->employee;
+        $decidingApproverName = $this->resolveDecidingApproverName($leaveRequest);
+
+        return [
             '{{employee_name}}' => (string) ($employee?->name ?? ''),
             '{{employee_no}}' => (string) ($employee?->employee_no ?? ''),
             '{{department_name}}' => (string) ($employee?->department?->name ?? '—'),
@@ -233,42 +230,58 @@ final class SendLeaveRequestDecidedEmail
             '{{end_date}}' => $leaveRequest->end_date?->format('d M Y') ?? '',
             '{{total_days}}' => number_format((float) $leaveRequest->total_days, 1, '.', ''),
             '{{reason}}' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
-            '{{manager_name}}' => $this->resolveDecidingApproverName($leaveRequest, $employee),
+            '{{manager_name}}' => ResolveLeaveRequestEmailDepartmentManagerName::handle($leaveRequest),
+            '{{approver_name}}' => $decidingApproverName,
+            '{{approver_names}}' => $decidingApproverName,
             '{{company_name}}' => (string) ($leaveRequest->company?->name ?? ''),
             '{{request_url}}' => route('attendance.leave-requests.show', $leaveRequest),
             '{{rejection_reason}}' => filled($leaveRequest->rejection_reason) ? (string) $leaveRequest->rejection_reason : '—',
         ];
-
-        return strtr($template, $replacements);
     }
 
-    private function resolveDecidingApproverName(LeaveRequest $leaveRequest, ?Employee $employee): string
+    private function resolveDecidingApproverName(LeaveRequest $leaveRequest): string
     {
-        if ($leaveRequest->approver !== null) {
+        if ($leaveRequest->approver !== null && filled($leaveRequest->approver->name)) {
             return (string) $leaveRequest->approver->name;
         }
 
-        if ($leaveRequest->relationLoaded('approvals')) {
-            $acted = $leaveRequest->approvals
-                ->filter(fn ($approval) => in_array(
-                    $approval->status,
-                    [LeaveRequestApprovalStatus::Approved, LeaveRequestApprovalStatus::Rejected],
-                    true,
-                ))
-                ->sortByDesc('sequence')
-                ->first();
+        $acted = $this->resolveTerminalRequiredApproval($leaveRequest);
 
-            if ($acted?->approverEmployee !== null) {
-                return (string) $acted->approverEmployee->name;
-            }
+        if ($acted?->approverEmployee !== null && filled($acted->approverEmployee->name)) {
+            return (string) $acted->approverEmployee->name;
         }
 
-        if ($employee === null) {
-            return '—';
-        }
+        return '';
+    }
 
-        $manager = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
+    private function resolveTerminalRequiredApproval(LeaveRequest $leaveRequest): ?LeaveRequestApproval
+    {
+        $approvals = $leaveRequest->relationLoaded('approvals')
+            ? $leaveRequest->approvals
+            : LeaveRequestApproval::query()
+                ->where('company_id', $leaveRequest->company_id)
+                ->where('leave_request_id', $leaveRequest->id)
+                ->with('approverEmployee:id,company_id,name,work_email,personal_email,user_id')
+                ->get();
 
-        return (string) ($manager?->name ?? '—');
+        return $approvals
+            ->filter(function (LeaveRequestApproval $approval) use ($leaveRequest): bool {
+                if (! $approval->is_required) {
+                    return false;
+                }
+
+                if ((int) $approval->company_id !== (int) $leaveRequest->company_id) {
+                    return false;
+                }
+
+                $status = $approval->status instanceof LeaveRequestApprovalStatus
+                    ? $approval->status
+                    : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
+
+                return $status === LeaveRequestApprovalStatus::Approved
+                    || $status === LeaveRequestApprovalStatus::Rejected;
+            })
+            ->sortByDesc('sequence')
+            ->first();
     }
 }

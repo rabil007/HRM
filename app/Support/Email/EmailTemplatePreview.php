@@ -151,7 +151,7 @@ final class EmailTemplatePreview
             'employeeName' => $placeholders['{{employee_name}}'],
             'employeeNo' => $placeholders['{{employee_no}}'],
             'departmentName' => $placeholders['{{department_name}}'],
-            'managerName' => $placeholders['{{manager_name}}'],
+            'decidedByName' => (string) ($placeholders['{{approver_name}}'] ?? $placeholders['{{manager_name}}'] ?? ''),
             'leaveType' => $placeholders['{{leave_type}}'],
             'leaveTypeColor' => '#8b5cf6',
             'startDate' => $placeholders['{{start_date}}'],

@@ -20,7 +20,7 @@ class LeaveRequestDecidedMail extends Mailable implements ShouldQueue
         public string $employeeName,
         public string $employeeNo,
         public string $departmentName,
-        public string $managerName,
+        public string $decidedByName,
         public string $leaveType,
         public ?string $leaveTypeColor,
         public string $startDate,

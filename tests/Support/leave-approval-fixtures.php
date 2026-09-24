@@ -69,7 +69,10 @@ function ensureDefaultLeaveApprovalPolicy(
  */
 function makeActionableApprover(Company $company, array $employeeAttributes = []): array
 {
-    $user = User::factory()->create(['status' => 'active']);
+    $user = User::factory()->create(array_filter([
+        'status' => 'active',
+        'name' => $employeeAttributes['name'] ?? null,
+    ], fn ($value) => $value !== null));
 
     DB::table('company_user')->insert([
         'company_id' => $company->id,

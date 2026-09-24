@@ -51,13 +51,13 @@
                             {{ $departmentName }}
                         </td>
                     </tr>
-                    @if (filled($managerName) && $managerName !== '—')
+                    @if (filled($decidedByName) && $decidedByName !== '—')
                         <tr>
                             <td class="email-border" style="padding:12px 16px;font-size:13px;font-weight:600;color:#71717a;background-color:#fafafa;border-bottom:1px solid #e4e4e7;">
                                 Decided by
                             </td>
                             <td class="email-border email-text" style="padding:12px 16px;font-size:14px;color:#18181b;border-bottom:1px solid #e4e4e7;">
-                                {{ $managerName }}
+                                {{ $decidedByName }}
                             </td>
                         </tr>
                     @endif
