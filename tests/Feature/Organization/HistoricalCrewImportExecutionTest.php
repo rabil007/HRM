@@ -205,10 +205,11 @@ test('idempotent double submit returns same batch without duplicating assignment
         'disembark_date' => '2024-08-01',
     ];
     $key = historicalImportIdempotencyKey('idem');
+    $file = makeHistoricalCrewImportFile([$row]);
 
     $first = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
-            'file' => makeHistoricalCrewImportFile([$row]),
+            'file' => $file,
             'idempotency_key' => $key,
             'confirmed' => '1',
         ])
@@ -216,7 +217,7 @@ test('idempotent double submit returns same batch without duplicating assignment
 
     $second = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
-            'file' => makeHistoricalCrewImportFile([$row]),
+            'file' => $file,
             'idempotency_key' => $key,
             'confirmed' => '1',
         ])
