@@ -287,31 +287,33 @@ export function LeaveRequestsContent({
                 }
             />
 
-            {isMine && linkedEmployeeAttendanceLeaveEnabled ? (
-                <LeaveBalanceCards
-                    balances={leaveBalances}
-                    year={leaveBalanceYear}
-                />
-            ) : null}
-
             {isMine ? (
-                <section className="mb-6 space-y-3" aria-label="Request status">
-                    <div>
-                        <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                            Request status
-                        </h2>
-                        <p className="text-xs text-muted-foreground">
-                            Filter your leave requests by status. Click the
-                            active card again to show all.
-                        </p>
-                    </div>
-                    <LeaveRequestSummaryCards
-                        counts={status_counts}
-                        activeStatus={filters.status}
-                        onSelect={(status: '' | LeaveRequestStatus) =>
-                            list.applyFilters({ status })
+                <section
+                    className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+                    aria-label="Leave overview"
+                >
+                    {linkedEmployeeAttendanceLeaveEnabled ? (
+                        <LeaveBalanceCards
+                            balances={leaveBalances}
+                            year={leaveBalanceYear}
+                        />
+                    ) : null}
+                    <div
+                        className={
+                            linkedEmployeeAttendanceLeaveEnabled &&
+                            leaveBalances.length > 0
+                                ? 'lg:pb-0.5'
+                                : undefined
                         }
-                    />
+                    >
+                        <LeaveRequestSummaryCards
+                            counts={status_counts}
+                            activeStatus={filters.status}
+                            onSelect={(status: '' | LeaveRequestStatus) =>
+                                list.applyFilters({ status })
+                            }
+                        />
+                    </div>
                 </section>
             ) : (
                 <p className="mb-4 text-sm font-medium text-muted-foreground">

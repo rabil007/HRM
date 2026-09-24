@@ -1,6 +1,5 @@
 import { Ban, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { LEAVE_REQUEST_STATUS_SUMMARY_LABELS } from '../lib/leave-request-status-summary';
 import type { LeaveRequestStatus } from '../types';
@@ -22,55 +21,48 @@ const SUMMARY_ITEMS: {
     label: (typeof LEAVE_REQUEST_STATUS_SUMMARY_LABELS)[number];
     countKey: Exclude<keyof LeaveRequestStatusCounts, 'all'>;
     icon: LucideIcon;
-    cardClass: string;
+    idleClass: string;
     activeClass: string;
-    valueClass: string;
-    iconClass: string;
 }[] = [
     {
         value: 'pending',
         label: 'Pending',
         countKey: 'pending',
         icon: Clock,
-        cardClass:
-            'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
-        activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
-        valueClass: 'text-amber-600 dark:text-amber-400',
-        iconClass: 'text-amber-500/60',
+        idleClass:
+            'border-amber-500/20 bg-amber-500/5 text-amber-700 hover:border-amber-500/40 dark:text-amber-400',
+        activeClass:
+            'border-amber-500/50 bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-300',
     },
     {
         value: 'approved',
         label: 'Approved',
         countKey: 'approved',
         icon: CheckCircle2,
-        cardClass:
-            'border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30',
-        activeClass: 'border-emerald-500/40 ring-1 ring-emerald-500/25',
-        valueClass: 'text-emerald-600 dark:text-emerald-400',
-        iconClass: 'text-emerald-500/60',
+        idleClass:
+            'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 hover:border-emerald-500/40 dark:text-emerald-400',
+        activeClass:
+            'border-emerald-500/50 bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30 dark:text-emerald-300',
     },
     {
         value: 'rejected',
         label: 'Rejected',
         countKey: 'rejected',
         icon: XCircle,
-        cardClass:
-            'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
-        activeClass: 'border-red-500/40 ring-1 ring-red-500/25',
-        valueClass: 'text-red-600 dark:text-red-400',
-        iconClass: 'text-red-500/60',
+        idleClass:
+            'border-red-500/20 bg-red-500/5 text-red-700 hover:border-red-500/40 dark:text-red-400',
+        activeClass:
+            'border-red-500/50 bg-red-500/15 text-red-700 ring-1 ring-red-500/30 dark:text-red-300',
     },
     {
         value: 'cancelled',
         label: 'Cancelled',
         countKey: 'cancelled',
         icon: Ban,
-        cardClass:
-            'border-muted-foreground/15 bg-muted/30 hover:border-muted-foreground/30 dark:bg-white/[0.03]',
+        idleClass:
+            'border-border bg-muted/40 text-muted-foreground hover:border-muted-foreground/40',
         activeClass:
-            'border-muted-foreground/40 ring-1 ring-muted-foreground/25',
-        valueClass: 'text-muted-foreground',
-        iconClass: 'text-muted-foreground/60',
+            'border-muted-foreground/50 bg-muted text-foreground ring-1 ring-muted-foreground/25',
     },
 ];
 
@@ -84,7 +76,11 @@ export function LeaveRequestSummaryCards({
     onSelect: (status: StatusFilterValue) => void;
 }) {
     return (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+            className="flex shrink-0 flex-wrap items-center gap-1.5"
+            role="group"
+            aria-label="Filter by request status"
+        >
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = activeStatus === item.value;
                 const Icon = item.icon;
@@ -101,39 +97,19 @@ export function LeaveRequestSummaryCards({
                                 ? `Clear ${item.label.toLowerCase()} filter and show all leave requests`
                                 : `Show ${item.label.toLowerCase()} leave requests`
                         }
-                        className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+                        className={cn(
+                            'inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                            isActive ? item.activeClass : item.idleClass,
+                        )}
                     >
-                        <Card
-                            className={cn(
-                                'glass-card transition-all duration-200',
-                                item.cardClass,
-                                isActive && item.activeClass,
-                            )}
-                        >
-                            <CardContent className="p-4">
-                                <div className="flex items-center justify-between gap-2">
-                                    <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
-                                        {item.label}
-                                    </p>
-                                    <Icon
-                                        className={cn(
-                                            'size-4 shrink-0 transition-transform duration-200',
-                                            item.iconClass,
-                                            isActive && 'scale-110',
-                                        )}
-                                        aria-hidden
-                                    />
-                                </div>
-                                <p
-                                    className={cn(
-                                        'mt-2 text-2xl font-bold tracking-tight tabular-nums',
-                                        item.valueClass,
-                                    )}
-                                >
-                                    {value.toLocaleString()}
-                                </p>
-                            </CardContent>
-                        </Card>
+                        <Icon
+                            className="size-3.5 shrink-0 opacity-80"
+                            aria-hidden
+                        />
+                        <span>{item.label}</span>
+                        <span className="tabular-nums opacity-90">
+                            {value.toLocaleString()}
+                        </span>
                     </button>
                 );
             })}
