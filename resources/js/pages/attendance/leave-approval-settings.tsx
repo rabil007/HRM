@@ -1,13 +1,20 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
-import type { FormEvent } from 'react';
+import { ArrowLeft, Info } from 'lucide-react';
+import type { FormEvent, ReactNode } from 'react';
 import { index as leaveApprovalPolicies } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalPolicyController';
 import { update as updateLeaveApprovalSettings } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalSettingController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -95,6 +102,34 @@ function NotificationSwitchRow({
     );
 }
 
+function ApproverFieldHelp({
+    description,
+    example,
+    resolution,
+}: {
+    description: string;
+    example: string;
+    resolution: ReactNode;
+}) {
+    return (
+        <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">{description}</p>
+            <p className="text-xs text-muted-foreground/80">{example}</p>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                {resolution}
+            </div>
+        </div>
+    );
+}
+
+function employeeOptionLabel(employee: EmployeeOption): string {
+    if (employee.employee_no) {
+        return `${employee.employee_no} — ${employee.name}`;
+    }
+
+    return employee.name ?? `Employee #${employee.id}`;
+}
+
 export default function LeaveApprovalSettings({
     settings,
     employees,
@@ -178,15 +213,65 @@ export default function LeaveApprovalSettings({
 
             <form onSubmit={submit} className="mx-auto max-w-2xl space-y-6">
                 <Card className="glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
-                    <CardHeader>
+                    <CardHeader className="space-y-2">
                         <CardTitle className="text-xl font-bold tracking-tight">
                             Approver defaults
                         </CardTitle>
+                        <CardDescription className="space-y-1.5 text-sm text-muted-foreground">
+                            <span className="block">
+                                These settings support your Leave Approval
+                                Policies. The policy defines which approval
+                                steps are required; these defaults are used only
+                                when certain steps need a person to be resolved
+                                automatically.
+                            </span>
+                            <span className="block text-xs text-muted-foreground/80">
+                                Changing these settings does not add or remove
+                                approval steps from a policy.
+                            </span>
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        <Alert className="border-border/60 bg-muted/20 dark:border-white/10 dark:bg-white/5">
+                            <Info className="size-4 text-muted-foreground" />
+                            <AlertTitle className="text-sm font-semibold">
+                                How this works
+                            </AlertTitle>
+                            <AlertDescription className="space-y-3 text-xs text-muted-foreground">
+                                <p>
+                                    Leave Approval Policy defines the workflow.
+                                    Approver defaults help resolve people used
+                                    by that workflow.
+                                </p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="rounded-lg border border-border/50 bg-background/60 px-3 py-2 font-mono leading-relaxed dark:bg-black/20">
+                                        <p className="mb-1 font-sans text-[10px] font-semibold tracking-wide text-foreground uppercase">
+                                            Policy
+                                        </p>
+                                        <p>1. Department Manager</p>
+                                        <p>2. HR Approver</p>
+                                        <p>3. Maher — Notify only</p>
+                                    </div>
+                                    <div className="rounded-lg border border-border/50 bg-background/60 px-3 py-2 font-mono leading-relaxed dark:bg-black/20">
+                                        <p className="mb-1 font-sans text-[10px] font-semibold tracking-wide text-foreground uppercase">
+                                            Approver defaults
+                                        </p>
+                                        <p>Default HR Approver: Rima</p>
+                                        <p>Department Manager Fallback: Sara</p>
+                                    </div>
+                                </div>
+                                <p>
+                                    If the employee&apos;s department manager is
+                                    Adam: Adam → Rima, and Maher receives an FYI
+                                    notification. Sara is not used because the
+                                    department manager resolved successfully.
+                                </p>
+                            </AlertDescription>
+                        </Alert>
+
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Default HR approver
+                                Default HR Approver
                             </Label>
                             <AppSelect
                                 value={String(
@@ -209,13 +294,22 @@ export default function LeaveApprovalSettings({
                                         key={employee.id}
                                         value={String(employee.id)}
                                     >
-                                        {employee.employee_no
-                                            ? `${employee.employee_no} — ${employee.name}`
-                                            : (employee.name ??
-                                              `Employee #${employee.id}`)}
+                                        {employeeOptionLabel(employee)}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
+                            <ApproverFieldHelp
+                                description="Used when a Leave Approval Policy contains an HR Approver step but that policy step does not have a specific employee selected. This is a reusable company-level default — it does not automatically add an HR approval step to every policy."
+                                example='Example: If the policy contains "HR Approver → Required" with no employee selected, this employee becomes the HR approver.'
+                                resolution={
+                                    <>
+                                        <p>Policy: HR Approver</p>
+                                        <p>Specific employee selected?</p>
+                                        <p>Yes → Use that employee</p>
+                                        <p>No → Use Default HR Approver</p>
+                                    </>
+                                }
+                            />
                             {form.errors.default_hr_approver_employee_id ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {
@@ -237,7 +331,7 @@ export default function LeaveApprovalSettings({
 
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Fallback approver
+                                Department Manager Fallback
                             </Label>
                             <AppSelect
                                 value={String(
@@ -260,13 +354,30 @@ export default function LeaveApprovalSettings({
                                         key={employee.id}
                                         value={String(employee.id)}
                                     >
-                                        {employee.employee_no
-                                            ? `${employee.employee_no} — ${employee.name}`
-                                            : (employee.name ??
-                                              `Employee #${employee.id}`)}
+                                        {employeeOptionLabel(employee)}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
+                            <ApproverFieldHelp
+                                description="Used when a Leave Approval Policy requires a Department Manager, but the system cannot find a valid actionable manager from the employee's department management chain. This is not a universal fallback for Parent Manager, Specific Employee, or other step types."
+                                example="Example: If an employee's department has no valid manager, this employee can be used instead so the approval workflow does not get stuck."
+                                resolution={
+                                    <>
+                                        <p>
+                                            Department Manager missing →
+                                            Department Manager Fallback
+                                        </p>
+                                        <p>
+                                            HR Approver not selected → Default
+                                            HR Approver
+                                        </p>
+                                        <p>
+                                            Parent Manager / Specific Employee →
+                                            no company fallback
+                                        </p>
+                                    </>
+                                }
+                            />
                             {form.errors.fallback_approver_employee_id ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.fallback_approver_employee_id}
