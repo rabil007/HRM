@@ -30,13 +30,6 @@ function resolveLabel(
     value: string,
     options: FilterOptions,
 ): string {
-    if (key === 'status') {
-        return (
-            options.statuses.find((option) => option.value === value)?.label ??
-            value
-        );
-    }
-
     if (key === 'employee_id') {
         const employee = options.employees.find(
             (option) => String(option.id) === value,
@@ -112,14 +105,6 @@ function buildActiveFilterChips({
         });
     }
 
-    if (filters.status !== '') {
-        chips.push({
-            key: 'status',
-            label: `Status: ${resolveLabel('status', filters.status, options)}`,
-            onClear: () => onApply({ status: '' }),
-        });
-    }
-
     if (filters.submitted_from !== '' || filters.submitted_to !== '') {
         chips.push({
             key: 'submitted',
@@ -152,10 +137,6 @@ export function countSheetFilters(filters: LeaveReportFilters): number {
     let count = 0;
 
     if (filters.employee_id !== '') {
-        count += 1;
-    }
-
-    if (filters.status !== '') {
         count += 1;
     }
 

@@ -25,6 +25,7 @@ import {
     countSheetFilters,
 } from './leave-report-active-filters';
 import { LeaveReportTable } from './report-table';
+import { LeaveReportStatusFilters } from './status-filters';
 import { LeaveReportSummaryCards } from './summary-cards';
 import type { LeaveReportProps } from './types';
 import { useLeaveReportFilters } from './use-leave-report-filters';
@@ -47,6 +48,7 @@ export function LeaveReportContent(props: LeaveReportProps) {
         filters.leave_to !== '' ||
         filters.department_id !== '' ||
         filters.leave_type_id !== '' ||
+        filters.status !== '' ||
         controls.searchInput.trim() !== '';
 
     const exportUrl = (format: 'xlsx' | 'csv'): string =>
@@ -109,6 +111,12 @@ export function LeaveReportContent(props: LeaveReportProps) {
                     onChange={controls.changeSearch}
                     right={
                         <div className="flex flex-wrap items-center gap-2">
+                            <LeaveReportStatusFilters
+                                activeStatus={filters.status}
+                                onSelect={(status) =>
+                                    controls.apply({ status })
+                                }
+                            />
                             <DateRangeFilter
                                 label="Leave period"
                                 hint="Show leave that overlaps this period."
