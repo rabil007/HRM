@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization;
 
 use App\Models\LeaveBalance;
 use App\Support\Settings\CompanyTimezone;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -15,6 +16,11 @@ class UpdateLeaveBalanceOpeningRequest extends FormRequest
             && ($this->user()?->can('reports.leave_balance.update_opening') ?? false);
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->assertRouteBalanceBelongsToCurrentCompany();
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -22,7 +28,7 @@ class UpdateLeaveBalanceOpeningRequest extends FormRequest
     {
         return [
             'opening_used_days' => ['required', 'numeric', 'min:0', 'max:9999.99', 'decimal:0,2'],
-            'opening_balance_as_of' => ['nullable', 'date'],
+            'opening_balance_as_of' => ['nullable', 'date_format:Y-m-d'],
             'opening_balance_note' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -35,8 +41,7 @@ class UpdateLeaveBalanceOpeningRequest extends FormRequest
             }
 
             $openingUsed = round((float) $this->input('opening_used_days'), 2);
-            /** @var LeaveBalance $balance */
-            $balance = $this->route('leaveBalance');
+            $balance = $this->routeBalance();
             $companyId = (int) $this->attributes->get('current_company_id');
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $today = now($timezone)->toDateString();
@@ -52,17 +57,16 @@ class UpdateLeaveBalanceOpeningRequest extends FormRequest
                     return;
                 }
 
-                $asOfDate = (string) $asOf;
-                $year = (int) substr($asOfDate, 0, 4);
+                $asOfDate = CarbonImmutable::createFromFormat('!Y-m-d', (string) $asOf);
 
-                if ($year !== (int) $balance->year) {
+                if ((int) $asOfDate->year !== (int) $balance->year) {
                     $validator->errors()->add(
                         'opening_balance_as_of',
                         'The as-of date must fall within the balance year.',
                     );
                 }
 
-                if ($asOfDate > $today) {
+                if ($asOfDate->toDateString() > $today) {
                     $validator->errors()->add(
                         'opening_balance_as_of',
                         'The as-of date cannot be later than today.',
@@ -86,5 +90,30 @@ class UpdateLeaveBalanceOpeningRequest extends FormRequest
             'opening_balance_as_of' => $this->validated('opening_balance_as_of'),
             'opening_balance_note' => $this->validated('opening_balance_note'),
         ];
+    }
+
+    private function assertRouteBalanceBelongsToCurrentCompany(): void
+    {
+        $balance = $this->route('leaveBalance');
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if (! $balance instanceof LeaveBalance) {
+            abort(404);
+        }
+
+        if ((int) $balance->company_id !== $companyId) {
+            abort(404);
+        }
+    }
+
+    private function routeBalance(): LeaveBalance
+    {
+        $balance = $this->route('leaveBalance');
+
+        if (! $balance instanceof LeaveBalance) {
+            abort(404);
+        }
+
+        return $balance;
     }
 }

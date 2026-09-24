@@ -45,6 +45,7 @@ export type LeaveBalanceReportRow = {
     total_available: number;
     opening_used_days: number;
     opening_balance_as_of: string | null;
+    opening_balance_note: string | null;
     used_days: number;
     total_used_days: number;
     pending_days: number;

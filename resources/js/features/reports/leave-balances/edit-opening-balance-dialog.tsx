@@ -22,6 +22,10 @@ function days(value: number): string {
     });
 }
 
+function decimalInputValue(value: number): string {
+    return value.toFixed(2);
+}
+
 type Props = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -48,10 +52,10 @@ export function EditOpeningBalanceDialog({
 
         form.clearErrors();
         form.setData({
-            opening_used_days: days(balance.opening_used_days),
+            opening_used_days: decimalInputValue(balance.opening_used_days),
             opening_balance_as_of:
                 balance.opening_balance_as_of ?? companyToday,
-            opening_balance_note: '',
+            opening_balance_note: balance.opening_balance_note ?? '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when dialog opens for a row
     }, [open, balance?.id, companyToday]);

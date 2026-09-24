@@ -101,8 +101,9 @@ test('company isolation blocks cross-company opening updates', function () {
     ]);
     $foreignEmployee = createAttendanceLeaveEmployee($other, ['status' => 'active']);
     $foreignType = LeaveType::factory()->for($other)->create(['status' => 'active']);
+    $foreignYear = (int) now(CompanyTimezone::forCompanyId($other->id))->year;
     $foreignBalance = LeaveBalance::factory()->forEmployee($foreignEmployee)->forLeaveType($foreignType)->create([
-        'year' => (int) now(CompanyTimezone::forCompanyId($other->id))->year,
+        'year' => $foreignYear,
         'entitled_days' => 30,
     ]);
 
@@ -113,6 +114,81 @@ test('company isolation blocks cross-company opening updates', function () {
             'opening_balance_as_of' => now()->toDateString(),
         ])
         ->assertNotFound();
+
+    // Deliberately invalid / mismatched as-of must still be 404, not balance-year validation.
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->patch(route('organization.reports.leave-balances.update-opening', $foreignBalance), [
+            'opening_used_days' => 5,
+            'opening_balance_as_of' => ($foreignYear + 5).'-01-01',
+            'opening_balance_note' => 'should not validate against foreign year',
+        ])
+        ->assertNotFound()
+        ->assertSessionDoesntHaveErrors();
+});
+
+test('existing opening note is preserved when re-saved unchanged', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, [
+        'reports.leave_balance.view',
+        'reports.leave_balance.update_opening',
+        'employees.view',
+    ]);
+
+    $businessYear = (int) now(CompanyTimezone::forCompanyId($company->id))->year;
+    $balance = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
+        'year' => $businessYear,
+        'entitled_days' => 30,
+        'carried_days' => 0,
+        'used_days' => 3,
+        'pending_days' => 0,
+        'opening_used_days' => 8,
+        'opening_balance_as_of' => "{$businessYear}-03-01",
+        'opening_balance_note' => 'Imported from old HR system',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave-balances.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('balances.0.can_edit_opening', true)
+            ->where('balances.0.opening_balance_note', 'Imported from old HR system'));
+
+    $this->actingAs($user)
+        ->patch(route('organization.reports.leave-balances.update-opening', $balance), [
+            'opening_used_days' => 9,
+            'opening_balance_as_of' => "{$businessYear}-03-01",
+            'opening_balance_note' => 'Imported from old HR system',
+        ])
+        ->assertRedirect();
+
+    $balance->refresh();
+
+    expect((float) $balance->opening_used_days)->toBe(9.0)
+        ->and($balance->opening_balance_as_of?->toDateString())->toBe("{$businessYear}-03-01")
+        ->and($balance->opening_balance_note)->toBe('Imported from old HR system');
+});
+
+test('opening note is hidden from viewers without update permission', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, ['reports.leave_balance.view', 'employees.view']);
+
+    $businessYear = (int) now(CompanyTimezone::forCompanyId($company->id))->year;
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
+        'year' => $businessYear,
+        'entitled_days' => 30,
+        'opening_used_days' => 8,
+        'opening_balance_as_of' => "{$businessYear}-03-01",
+        'opening_balance_note' => 'Secret import note',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave-balances.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('balances.0.can_edit_opening', false)
+            ->where('balances.0.opening_balance_note', null)
+            ->where('balances.0.opening_used_days', 8));
 });
 
 test('department-restricted user cannot update a hidden employee opening balance', function () {

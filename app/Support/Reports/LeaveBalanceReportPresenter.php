@@ -63,6 +63,9 @@ final class LeaveBalanceReportPresenter
             'total_available' => round($entitled + $carried, 2),
             'opening_used_days' => $openingUsed,
             'opening_balance_as_of' => $balance->opening_balance_as_of?->toDateString(),
+            'opening_balance_note' => $canUpdateOpening
+                ? (filled($balance->opening_balance_note) ? (string) $balance->opening_balance_note : null)
+                : null,
             'used_days' => $used,
             'total_used_days' => round($openingUsed + $used, 2),
             'pending_days' => $pending,

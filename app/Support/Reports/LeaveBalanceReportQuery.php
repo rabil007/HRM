@@ -79,6 +79,8 @@ final class LeaveBalanceReportQuery
                     'name',
                     'code',
                     'category',
+                    'status',
+                    'deleted_at',
                 ]),
             ]);
         }

@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
-test('leave balance opening permission is created without copying onto existing roles', function () {
+test('leave balance opening permission is created without copying onto existing non-Owner roles', function () {
     $migration = require database_path('migrations/2026_09_24_130620_add_leave_balance_opening_update_permission.php');
     expect($migration)->toBeInstanceOf(Migration::class);
     $migration->down();
