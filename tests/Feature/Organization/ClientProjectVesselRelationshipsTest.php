@@ -414,7 +414,6 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertRedirect();
@@ -422,12 +421,14 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
     $planning = CrewPlanningAssignment::query()
         ->where('company_id', $company->id)
         ->where('vessel_id', $vessel->id)
-        ->where('employee_id', $employee->id)
+        ->where('rank_id', $rank->id)
+        ->whereNull('employee_id')
+        ->whereNull('crew_assignment_id')
         ->first();
 
     expect($planning)->not->toBeNull();
 
-    $assignment = createAssignmentFromPlanning($planning, $user->id);
+    $assignment = createAssignmentFromPlanning($planning, $user->id, $employee->id);
 
     expect((int) $assignment->vessel_id)->toBe((int) $vessel->id)
         ->and((int) $assignment->client_id)->toBe((int) $client->id);

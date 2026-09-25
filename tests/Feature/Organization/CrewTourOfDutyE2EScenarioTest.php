@@ -54,7 +54,7 @@ it('uses Rank Master tour suggestion on join vessel', function () {
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
-    $assignment->refresh()->load('currentPhase', 'planningAssignment');
+    $assignment->refresh()->load('currentPhase');
 
     expect($assignment->tour_of_duty_days)->toBe(90)
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
@@ -64,7 +64,7 @@ it('uses Rank Master tour suggestion on join vessel', function () {
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
         ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->where('crew_assignment_phase_id', $assignment->current_phase_id)->exists())->toBeTrue()
         ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->value('end_date'))->toBeNull()
-        ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-10');
+        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeFalse();
 });
 
 it('keeps existing planning leave when existing_plan is chosen', function () {
@@ -168,7 +168,7 @@ it('keeps snapshotted tour after later Rank Master changes', function () {
     ], $this->user->id);
 
     expect($future->fresh()->tour_of_duty_days)->toBe(120)
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue()
+        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeFalse()
         ->and(EmployeeSeaService::query()->count())->toBe(2)
         ->and(EmployeeSeaService::query()->whereNull('end_date')->count())->toBe(2);
 });

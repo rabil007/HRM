@@ -517,7 +517,6 @@ class CrewAssignmentController extends Controller
 
         DB::transaction(function () use ($assignment, $updateData): void {
             $assignment->update($updateData);
-            $this->planningSync->sync($assignment->fresh(['phases', 'employee', 'company']) ?? $assignment);
         });
 
         return redirect()

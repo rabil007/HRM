@@ -50,7 +50,7 @@ it('stores tour snapshot and suggested planned sign-off on join vessel', functio
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
-    $assignment->refresh()->load('currentPhase', 'phases', 'planningAssignment');
+    $assignment->refresh()->load('currentPhase', 'phases');
 
     expect($assignment->tour_of_duty_days)->toBe(90)
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
@@ -62,7 +62,7 @@ it('stores tour snapshot and suggested planned sign-off on join vessel', functio
         ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10')
         ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->where('crew_assignment_phase_id', $assignment->current_phase_id)->exists())->toBeTrue()
         ->and(EmployeeSeaService::query()->where('employee_id', $this->employee->id)->value('end_date'))->toBeNull()
-        ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-10');
+        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeFalse();
 });
 
 it('preserves existing planned sign-off when chosen', function () {
@@ -196,7 +196,7 @@ it('does not create sea service or complete p4 from generated planned sign-off',
     expect($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
         ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(1)
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
+        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeFalse();
 });
 
 it('requires a reason when performing active P4 plan_signoff action', function () {
@@ -239,13 +239,13 @@ it('updates planned sign-off with manual override source and reason during plan_
         'planned_signoff_override_reason' => 'Vessel operational schedule extension',
     ], $this->user->id);
 
-    $assignment->refresh()->load('currentPhase', 'planningAssignment');
+    $assignment->refresh()->load('currentPhase');
 
     expect($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-25')
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
         ->and($assignment->planned_signoff_override_reason)->toBe('Vessel operational schedule extension')
         ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-25')
-        ->and($assignment->planningAssignment?->planned_leave_date?->toDateString())->toBe('2026-11-25')
+        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeFalse()
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
         ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(1);
 
