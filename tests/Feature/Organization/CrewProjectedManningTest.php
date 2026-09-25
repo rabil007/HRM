@@ -11,7 +11,6 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 
 function makeProjectedManningPosition(array $fixtures, string $vesselName, int $required = 1): array
@@ -256,7 +255,7 @@ it('ignores vacant Planning and counts Planning-only employees once with linked 
     $planningOnly = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
     expect(collect($planningOnly['events'])->where('type', 'join'))->toHaveCount(1);
 
-    app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $ctx['user']->id);
+    createAssignmentFromPlanning($planning, $ctx['user']->id);
     $linked = firstProjectedItem(projectManning($ctx, '2026-08-01', '2026-08-31'));
     expect(collect($linked['events'])->where('type', 'join'))->toHaveCount(1)
         ->and(collect($linked['events'])->where('type', 'join')->first()['crew_assignment_id'])->not->toBeNull();

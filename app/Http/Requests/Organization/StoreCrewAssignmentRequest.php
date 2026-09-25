@@ -24,19 +24,12 @@ class StoreCrewAssignmentRequest extends FormRequest
             return false;
         }
 
-        if (! $user->can('crew_operations.assignments.create')) {
-            return false;
-        }
-
-        if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Start) {
-            return $user->can('crew_operations.movements.perform');
-        }
-
-        if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan) {
-            return $user->can('crew_operations.planning.create');
-        }
-
-        return true;
+        return match ($this->submissionIntent()) {
+            CrewAssignmentSubmissionIntent::Plan => $user->can('crew_operations.planning.create'),
+            CrewAssignmentSubmissionIntent::Start => $user->can('crew_operations.assignments.create')
+                && $user->can('crew_operations.movements.perform'),
+            CrewAssignmentSubmissionIntent::Draft => $user->can('crew_operations.assignments.create'),
+        };
     }
 
     protected function prepareForValidation(): void

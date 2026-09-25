@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
 
@@ -48,7 +47,7 @@ it('recalculates tour-derived planned sign-off when approved p4 start changes', 
     );
     $phase = $assignment->currentPhase;
     $phase->update(['planned_end_at' => '2026-04-01 00:00:00']);
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment->fresh());
+    syncPlanningFromAssignment($assignment->fresh());
 
     $correction = app(RequestCrewMovementCorrection::class)->handle(
         $assignment,
@@ -125,7 +124,7 @@ it('preserves manual planned sign-off when p4 start is corrected', function () {
     );
     $phase = $assignment->currentPhase;
     $phase->update(['planned_end_at' => '2026-03-15 00:00:00']);
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment->fresh());
+    syncPlanningFromAssignment($assignment->fresh());
 
     $correction = app(RequestCrewMovementCorrection::class)->handle(
         $assignment,
@@ -173,7 +172,7 @@ it('preserves existing_plan sign-off when p4 start is corrected', function () {
     );
     $phase = $assignment->currentPhase;
     $phase->update(['planned_end_at' => '2026-11-08 00:00:00']);
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment->fresh());
+    syncPlanningFromAssignment($assignment->fresh());
 
     $correction = app(RequestCrewMovementCorrection::class)->handle(
         $assignment,

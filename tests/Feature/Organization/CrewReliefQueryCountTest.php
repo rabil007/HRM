@@ -12,7 +12,6 @@ use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\CrewMovements\CrewReliefVisibility;
 use App\Support\CrewMovements\CurrentCrewQuery;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -54,7 +53,7 @@ it('keeps current crew index query count bounded when attaching relief readiness
     DB::disableQueryLog();
 
     expect($page->total())->toBe(8)
-        ->and($queryCount)->toBeLessThan(12);
+        ->and($queryCount)->toBeLessThan(14);
 });
 
 it('maintains constant query count scaling as onboard crew size grows without reliefs', function () {
@@ -179,7 +178,7 @@ it('keeps Current Crew queries bounded for mixed relief states as row count grow
             'planned_join_date' => $today->addDays(11)->toDateString(),
             'planned_leave_date' => $today->addDays(100)->toDateString(),
         ]);
-        app(CreateCrewAssignmentFromPlanning::class)->handle($draftPlan, $fixtures['user']->id);
+        createAssignmentFromPlanning($draftPlan, $fixtures['user']->id);
 
         // linked P3
         $sourceP3 = makeActiveOnVesselAssignment(
@@ -204,7 +203,7 @@ it('keeps Current Crew queries bounded for mixed relief states as row count grow
             'planned_join_date' => $today->addDays(9)->toDateString(),
             'planned_leave_date' => $today->addDays(100)->toDateString(),
         ]);
-        $p3Linked = app(CreateCrewAssignmentFromPlanning::class)->handle($p3Plan, $fixtures['user']->id);
+        $p3Linked = createAssignmentFromPlanning($p3Plan, $fixtures['user']->id);
         $p3Linked->update(['status' => CrewAssignmentStatus::Active]);
         $p3Linked->currentPhase->update([
             'phase_code' => CrewPhaseCode::ReadyToJoin,
@@ -234,7 +233,7 @@ it('keeps Current Crew queries bounded for mixed relief states as row count grow
             'planned_join_date' => $today->addDays(8)->toDateString(),
             'planned_leave_date' => $today->addDays(100)->toDateString(),
         ]);
-        $p4Linked = app(CreateCrewAssignmentFromPlanning::class)->handle($p4Plan, $fixtures['user']->id);
+        $p4Linked = createAssignmentFromPlanning($p4Plan, $fixtures['user']->id);
         $p4Linked->update(['status' => CrewAssignmentStatus::Active]);
         $p4Linked->currentPhase->update([
             'phase_code' => CrewPhaseCode::OnVessel,

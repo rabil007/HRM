@@ -1,6 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { Info } from 'lucide-react';
-import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -15,11 +14,7 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { assignmentDurationDays } from '../lib/planning-gantt-math';
-import type {
-    AssignmentFormData,
-    GanttBar,
-    PlanningOption,
-} from '../types';
+import type { AssignmentFormData, GanttBar, PlanningOption } from '../types';
 
 const fieldInputClass =
     'rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all';
@@ -32,7 +27,6 @@ export function AssignCrewSheet({
     editing,
     relievesEmployeeName,
     vessels,
-    ranks,
     ranks,
 }: {
     open: boolean;
@@ -97,14 +91,14 @@ export function AssignCrewSheet({
                             />
                             <div className="space-y-1">
                                 <p>
-                                    This creates a Planning record only. It does
-                                    not start mobilisation or place the employee
-                                    onboard.
+                                    This creates a vacant planning slot only. It
+                                    does not name an employee, start
+                                    mobilisation, or place anyone onboard.
                                 </p>
                                 <p>
-                                    After conversion to Crew Assignments,
-                                    operational dates and movements are
-                                    controlled from Crew Assignments.
+                                    Named crew mobilisation is controlled from
+                                    Crew Assignments. Planned dates remain
+                                    forecasts until an assignment is started.
                                 </p>
                             </div>
                         </div>
@@ -194,8 +188,6 @@ export function AssignCrewSheet({
                                     {form.errors.rank_id}
                                 </div>
                             ) : null}
-                        </div>
-
                         </div>
                     </div>
 

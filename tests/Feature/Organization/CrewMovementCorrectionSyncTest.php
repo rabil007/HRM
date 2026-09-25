@@ -8,7 +8,6 @@ use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\SeaServiceSyncService;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 
 test('approved p4 date correction re-syncs planning join date', function () {
     $fixtures = makeCrewAssignmentFixtures();
@@ -28,7 +27,7 @@ test('approved p4 date correction re-syncs planning join date', function () {
         $vessel,
     );
     $phase = $assignment->currentPhase;
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment);
+    syncPlanningFromAssignment($assignment);
 
     $proposedStart = $phase->actual_start_at->copy()->addDays(3)->timezone($fixtures['company']->timezone)->format('Y-m-d H:i');
     $correction = app(RequestCrewMovementCorrection::class)->handle(

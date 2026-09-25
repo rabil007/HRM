@@ -66,7 +66,6 @@ import {
 } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
-
 let nextRowKey = 1;
 
 function newCrewRow(): CrewMemberRowState {
@@ -163,6 +162,7 @@ type UnifiedCreateFormData = BulkAddCrewFormData & {
     planned_signoff_at?: string;
     relieves_crew_assignment_id?: number | null;
     submission_intent?: 'start' | 'draft' | 'plan';
+    planning_assignment_id?: number;
 };
 
 export function CrewAssignmentCreateForm({
@@ -191,6 +191,10 @@ export function CrewAssignmentCreateForm({
     planning_back_query?: CrewPlanningBackQuery | null;
 }): ReactElement {
     const fromPlanning = planning_context !== null;
+    const fromNamedPlanning =
+        planning_context !== null && planning_context.employee_id !== null;
+    const fromVacantPlanning =
+        planning_context !== null && planning_context.employee_id === null;
     const { current_company_id: currentCompanyId } = usePage().props as {
         current_company_id?: number | null;
     };
@@ -238,7 +242,10 @@ export function CrewAssignmentCreateForm({
             restoredBulkSession?.form.planned_join_at ??
             planning_context?.planned_join_at ??
             '',
-        planned_signoff_at: prefill?.planned_signoff_at ?? '',
+        planned_signoff_at:
+            prefill?.planned_signoff_at ??
+            planning_context?.planned_signoff_at ??
+            '',
         relieves_crew_assignment_id:
             prefill?.relieves_crew_assignment_id ?? null,
         planned_arrival_at: planning_context?.planned_arrival_at ?? '',
@@ -578,11 +585,14 @@ export function CrewAssignmentCreateForm({
         const row = form.data.crew[0];
         form.setData('submission_intent', intentParam);
 
-        form.transform(() => {
-            if (fromPlanning) {
+        form.transform((): Record<string, unknown> => {
+            if (fromNamedPlanning) {
                 return {
                     planned_arrival_at: form.data.planned_arrival_at || null,
                     remarks: form.data.remarks,
+                    submission_intent: intentParam,
+                    planning_assignment_id:
+                        planning_context?.planning_assignment_id ?? undefined,
                 };
             }
 
@@ -601,7 +611,8 @@ export function CrewAssignmentCreateForm({
                     null,
                 remarks: form.data.remarks,
                 submission_intent: intentParam,
-                planning_assignment_id: planning_context?.planning_assignment_id ?? undefined,
+                planning_assignment_id:
+                    planning_context?.planning_assignment_id ?? undefined,
             };
         });
 
@@ -739,7 +750,7 @@ export function CrewAssignmentCreateForm({
                                     onSubmit={handleSubmit}
                                     className="space-y-8"
                                 >
-                                    {fromPlanning && planning_context ? (
+                                    {fromNamedPlanning && planning_context ? (
                                         <>
                                             <PlanningStartAuthoritativeFields
                                                 context={planning_context}
@@ -801,6 +812,12 @@ export function CrewAssignmentCreateForm({
                                         </>
                                     ) : (
                                         <>
+                                            {fromVacantPlanning &&
+                                            planning_context ? (
+                                                <PlanningStartAuthoritativeFields
+                                                    context={planning_context}
+                                                />
+                                            ) : null}
                                             <CrewMembersSection
                                                 rows={rows}
                                                 formOptions={form_options}

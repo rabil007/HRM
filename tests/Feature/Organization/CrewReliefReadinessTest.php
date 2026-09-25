@@ -10,7 +10,6 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 
 it('presenter includes relief readiness fields for on-vessel assignments', function () {
@@ -86,7 +85,7 @@ it('resolves assignment_created, mobilising, ready_to_join and relief_onboard', 
         'planned_leave_date' => now()->addDays(100)->toDateString(),
     ]);
 
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($planning, $fixtures['user']->id);
     expect($planning->fresh()->relieves_crew_assignment_id)->toBe($source->id)
         ->and((new CrewReliefReadinessResolver)->forSourceAssignment($source->fresh())->status)
         ->toBe(CrewReliefStatus::AssignmentCreated);

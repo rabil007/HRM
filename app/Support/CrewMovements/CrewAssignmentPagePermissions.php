@@ -48,7 +48,7 @@ class CrewAssignmentPagePermissions
     {
         $create = $user?->can('crew_operations.assignments.create') ?? false;
         $performMovement = $user?->can('crew_operations.movements.perform') ?? false;
-        $plan = $create && ($user?->can('crew_operations.planning.create') ?? false);
+        $plan = $user?->can('crew_operations.planning.create') ?? false;
 
         return [
             'view' => $user?->can('crew_operations.assignments.view') ?? false,

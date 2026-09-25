@@ -424,15 +424,16 @@ export interface CrewAssignmentCreateFormOptions extends CrewAssignmentFormOptio
 
 export type CrewPlanningStartContext = {
     planning_assignment_id: number;
-    employee_id: number;
-    employee_name: string;
-    rank_id: number;
-    rank_name: string;
-    vessel_id: number;
-    vessel_name: string;
+    employee_id: number | null;
+    employee_name: string | null;
+    rank_id: number | null;
+    rank_name: string | null;
+    vessel_id: number | null;
+    vessel_name: string | null;
     client_id: number | null;
     client_name: string | null;
-    planned_join_at: string;
+    planned_join_at: string | null;
+    planned_signoff_at?: string | null;
     planned_arrival_at?: string | null;
     remarks: string | null;
 };

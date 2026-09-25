@@ -16,6 +16,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\Rank;
+use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
@@ -32,7 +33,7 @@ use Illuminate\Validation\ValidationException;
  *
  * CrewAssignment is the single source of truth for crew movement.
  * Completed P4 phases sync EmployeeSeaService within the same transaction.
- * Eligible assignments sync CrewPlanningAssignment after each movement action.
+ * CrewPlanningAssignment vacant slots are linked only via explicit handoff; there is no automatic planning sync.
  */
 final class CrewMovementService
 {
@@ -69,6 +70,10 @@ final class CrewMovementService
 
             $masters = $this->resolveCreateMasters($companyId, $employee, $attributes);
 
+            $relievesId = isset($attributes['relieves_crew_assignment_id']) && $attributes['relieves_crew_assignment_id'] !== ''
+                ? (int) $attributes['relieves_crew_assignment_id']
+                : null;
+
             $assignmentNo = $this->numbers->next($companyId);
 
             $assignment = CrewAssignment::query()->create([
@@ -83,6 +88,7 @@ final class CrewMovementService
                 'planned_join_at' => $attributes['planned_join_at'] ?? null,
                 'planned_signoff_at' => $attributes['planned_signoff_at'] ?? null,
                 'planned_travel_at' => $attributes['planned_travel_at'] ?? null,
+                'relieves_crew_assignment_id' => $relievesId,
                 'previous_assignment_id' => $attributes['previous_assignment_id'] ?? null,
                 'source' => $attributes['source'] ?? 'manual',
                 'remarks' => $attributes['remarks'] ?? null,
@@ -146,6 +152,8 @@ final class CrewMovementService
                 ? (int) $attributes['relieves_crew_assignment_id']
                 : null;
 
+            $actor = $actorId !== null ? User::query()->find($actorId) : null;
+
             $conflictContext = new CrewAssignmentConflictContext(
                 companyId: $companyId,
                 employeeId: $employeeId,
@@ -157,6 +165,7 @@ final class CrewMovementService
                 rankId: $masters['rankId'],
                 clientId: $masters['clientId'],
                 relievesCrewAssignmentId: $relievesId,
+                actor: $actor,
             );
 
             $this->conflictEvaluator->assertNoBlockingConflicts($conflictContext, withLock: true);
@@ -258,6 +267,8 @@ final class CrewMovementService
                 ? (int) $attributes['relieves_crew_assignment_id']
                 : null;
 
+            $actor = $actorId !== null ? User::query()->find($actorId) : null;
+
             $conflictContext = new CrewAssignmentConflictContext(
                 companyId: $companyId,
                 employeeId: $employeeId,
@@ -269,6 +280,7 @@ final class CrewMovementService
                 rankId: $masters['rankId'],
                 clientId: $masters['clientId'],
                 relievesCrewAssignmentId: $relievesId,
+                actor: $actor,
             );
             $this->conflictEvaluator->assertNoBlockingConflicts($conflictContext, withLock: true);
 
@@ -397,7 +409,13 @@ final class CrewMovementService
             companyId: (int) $assignment->company_id,
             employeeId: (int) $assignment->employee_id,
             action: 'start',
-            plannedJoinAt: $occurredAt,
+            plannedJoinAt: $wasPlanned && $assignment->planned_join_at !== null
+                ? $assignment->planned_join_at
+                : $occurredAt,
+            plannedSignoffAt: $wasPlanned ? $assignment->planned_signoff_at : null,
+            vesselId: $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
+            rankId: $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
+            clientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
             currentAssignmentId: (int) $assignment->id,
         );
         $this->conflictEvaluator->assertNoBlockingConflicts($conflictContext, withLock: true);

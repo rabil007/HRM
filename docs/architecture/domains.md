@@ -594,7 +594,7 @@ Verified Eloquent relations: `Employee::crewAssignments()`, `CrewAssignment` bel
 - `CrewMovementCorrectionController` / `CrewMovementCorrectionDecisionController`
 - `CrewMovementHistoryController` — report
 
-Support includes `CrewMovementService`, `CurrentCrewQuery`, `CurrentOnboardCrewQuery`, `SeaServiceSyncService`, `CreateCrewAssignmentFromPlanning`, `CrewAssignmentAccess`, `CrewAssignmentPresenter`, `CrewAssignmentPagePermissions`.
+Support includes `CrewMovementService`, `CurrentCrewQuery`, `CurrentOnboardCrewQuery`, `SeaServiceSyncService`, `LinkVacantCrewPlanningSlot`, `CrewAssignmentAccess`, `CrewAssignmentPresenter`, `CrewAssignmentPagePermissions`, `CrewAssignmentConflictEvaluator`.
 
 Policy: `app/Policies/CrewAssignmentPolicy.php`.
 
@@ -629,7 +629,7 @@ Frontend `can` from `CrewAssignmentPagePermissions::for()`.
 ### Important workflows
 
 1. **Current Crew** (`/organization/crew`) — operational Draft/Active assignments; Vessel View lists currently onboard active P4 crew.
-2. **Planning** — `CreateCrewAssignmentFromPlanning` may create a draft assignment; `SyncPlanningAssignmentFromCrewAssignment` keeps the linked Gantt bar in sync.
+2. **Planning** — optional vacant-slot Gantt workspace; named crew are `CrewAssignment` records (`draft` / `planned` / `active`). Vacant slots may be linked explicitly via `planning_assignment_id`; there is no automatic planning sync.
 3. **Movements** — `CrewMovementService::perform()` in a company-scoped transaction with `lockForUpdate()`.
 4. **Sea service** — completed P4 (`actual_start_at` + `actual_end_at`) syncs via `SeaServiceSyncService`.
 5. **Corrections** — request/approve workflow; see [crew-movement-corrections.md](./crew-movement-corrections.md).

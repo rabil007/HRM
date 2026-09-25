@@ -36,8 +36,7 @@ class CrewAssignmentPolicy
 
     public function plan(User $user): bool
     {
-        return $user->can('crew_operations.assignments.create')
-            && $user->can('crew_operations.planning.create');
+        return $user->can('crew_operations.planning.create');
     }
 
     public function update(User $user, CrewAssignment $assignment): bool

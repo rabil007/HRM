@@ -9,7 +9,6 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 
 it('excludes cross-company Vessel Manning assignments and Planning from projection', function () {
     $a = makeCrewAssignmentFixtures();
@@ -131,7 +130,7 @@ it('does not project cancelled completed or P5/P6 historical linked relief as fu
         'planned_join_date' => '2026-08-20',
         'planned_leave_date' => '2026-11-20',
     ]);
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($planning, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::OnVessel,

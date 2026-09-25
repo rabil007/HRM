@@ -16,7 +16,6 @@ use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -1094,7 +1093,7 @@ test('planning projection ignores vacant planning and counts linked assignment o
 
     $beforeMax = $beforeLink->inertiaProps('projection.rows.0.minimum_projected_count');
 
-    app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id);
+    createAssignmentFromPlanning($planning, $user->id);
 
     $assignmentCountBefore = CrewAssignment::query()->where('company_id', $company->id)->count();
     $seaServiceCountBefore = EmployeeSeaService::query()->where('company_id', $company->id)->count();

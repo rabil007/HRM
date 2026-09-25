@@ -10,6 +10,7 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -101,7 +102,7 @@ final class CrewAssignmentConflictEvaluator
             $relievedQuery = CrewAssignment::query()
                 ->where('company_id', $context->companyId)
                 ->whereKey($context->relievesCrewAssignmentId)
-                ->with(['employee:id,name,employee_no', 'currentPhase', 'vessel:id,name', 'rank:id,name']);
+                ->with(['employee:id,name,employee_no,department_id,user_id', 'currentPhase', 'vessel:id,name', 'rank:id,name']);
 
             if ($withLock) {
                 $relievedQuery->lockForUpdate();
@@ -112,7 +113,18 @@ final class CrewAssignmentConflictEvaluator
             if ($relieved === null) {
                 return CrewAssignmentConflictResult::blocking(
                     code: 'tenant_isolation_violation',
-                    message: 'The assignment being relieved could not be found in this company.',
+                    message: 'The assignment being relieved could not be found.',
+                );
+            }
+
+            $relievedEmployee = $relieved->employee;
+
+            if ($relievedEmployee === null
+                || ($context->actor !== null
+                    && ! EmployeeVisibilityScope::canAccess($context->actor, $relievedEmployee, $context->companyId))) {
+                return CrewAssignmentConflictResult::blocking(
+                    code: 'relief_unavailable',
+                    message: 'The assignment being relieved could not be found.',
                 );
             }
 

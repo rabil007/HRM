@@ -36,6 +36,7 @@ use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
+use App\Support\CrewPlanning\LinkVacantCrewPlanningSlot;
 use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
@@ -143,10 +144,12 @@ class CrewAssignmentController extends Controller
 
     public function create(Request $request, ResolvePlanningStartHandoff $planningHandoff)
     {
-        Gate::authorize('create', CrewAssignment::class);
+        $isPlanIntent = $request->query('intent') === 'plan';
 
-        if ($request->query('intent') === 'plan') {
-            Gate::authorize('crew_operations.planning.create');
+        if ($isPlanIntent) {
+            Gate::authorize('plan', CrewAssignment::class);
+        } else {
+            Gate::authorize('create', CrewAssignment::class);
         }
 
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -158,7 +161,10 @@ class CrewAssignmentController extends Controller
         $planningAssignmentId = $request->query('planning_assignment_id');
 
         if ($planningAssignmentId !== null && $planningAssignmentId !== '') {
-            if (! $permissions['start'] || ! $request->user()?->can('crew_operations.planning.view')) {
+            $canOpenHandoff = $request->user()?->can('crew_operations.planning.view')
+                && ($permissions['start'] || ($isPlanIntent && $permissions['plan']));
+
+            if (! $canOpenHandoff) {
                 abort(403);
             }
 
@@ -192,7 +198,9 @@ class CrewAssignmentController extends Controller
             }
 
             try {
-                $planningContext = $planningHandoff->prefill($planning, $companyId, $request->user());
+                $planningContext = $planning->employee_id === null
+                    ? $planningHandoff->vacantPrefill($planning, $companyId)
+                    : $planningHandoff->prefill($planning, $companyId, $request->user());
             } catch (CrewMovementException $exception) {
                 return redirect()
                     ->route('organization.crew-planning.index')
@@ -233,7 +241,7 @@ class CrewAssignmentController extends Controller
         ]);
     }
 
-    public function store(StoreCrewAssignmentRequest $request)
+    public function store(StoreCrewAssignmentRequest $request, LinkVacantCrewPlanningSlot $linkVacantSlot)
     {
         $intent = $request->submissionIntent();
 
@@ -250,40 +258,25 @@ class CrewAssignmentController extends Controller
         $planningAssignmentId = $validated['planning_assignment_id'] ?? null;
 
         try {
-            $assignment = match ($intent) {
-                CrewAssignmentSubmissionIntent::Start => $this->service->startAssignment(
-                    $companyId,
-                    (int) $validated['employee_id'],
-                    [
-                        'rank_id' => $validated['rank_id'] ?? null,
-                        'client_id' => $validated['client_id'] ?? null,
-                        'vessel_id' => $validated['vessel_id'] ?? null,
-                        'planned_join_at' => $validated['planned_join_at'] ?? null,
-                        'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
-                        'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-                        'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
-                        'current_stage' => CrewPhaseCode::PreMobilisation->value,
-                        'remarks' => $validated['remarks'] ?? null,
-                    ],
-                    $request->user()?->id,
-                ),
-                CrewAssignmentSubmissionIntent::Plan => $this->service->createPlanned(
-                    $companyId,
-                    (int) $validated['employee_id'],
-                    [
-                        'rank_id' => $validated['rank_id'] ?? null,
-                        'client_id' => $validated['client_id'] ?? null,
-                        'vessel_id' => $validated['vessel_id'] ?? null,
-                        'planned_join_at' => $validated['planned_join_at'] ?? null,
-                        'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
-                        'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-                        'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
-                        'remarks' => $validated['remarks'] ?? null,
-                    ],
-                    $request->user()?->id,
-                ),
-                CrewAssignmentSubmissionIntent::Draft => DB::transaction(function () use ($companyId, $validated, $request) {
-                    $assignment = $this->service->createDraft(
+            $assignment = DB::transaction(function () use ($intent, $companyId, $validated, $request, $planningAssignmentId, $linkVacantSlot) {
+                $created = match ($intent) {
+                    CrewAssignmentSubmissionIntent::Start => $this->service->startAssignment(
+                        $companyId,
+                        (int) $validated['employee_id'],
+                        [
+                            'rank_id' => $validated['rank_id'] ?? null,
+                            'client_id' => $validated['client_id'] ?? null,
+                            'vessel_id' => $validated['vessel_id'] ?? null,
+                            'planned_join_at' => $validated['planned_join_at'] ?? null,
+                            'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
+                            'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
+                            'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
+                            'current_stage' => CrewPhaseCode::PreMobilisation->value,
+                            'remarks' => $validated['remarks'] ?? null,
+                        ],
+                        $request->user()?->id,
+                    ),
+                    CrewAssignmentSubmissionIntent::Plan => $this->service->createPlanned(
                         $companyId,
                         (int) $validated['employee_id'],
                         [
@@ -297,18 +290,41 @@ class CrewAssignmentController extends Controller
                             'remarks' => $validated['remarks'] ?? null,
                         ],
                         $request->user()?->id,
+                    ),
+                    CrewAssignmentSubmissionIntent::Draft => $this->service->createDraft(
+                        $companyId,
+                        (int) $validated['employee_id'],
+                        [
+                            'rank_id' => $validated['rank_id'] ?? null,
+                            'client_id' => $validated['client_id'] ?? null,
+                            'vessel_id' => $validated['vessel_id'] ?? null,
+                            'planned_join_at' => $validated['planned_join_at'] ?? null,
+                            'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
+                            'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
+                            'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
+                            'remarks' => $validated['remarks'] ?? null,
+                        ],
+                        $request->user()?->id,
+                    ),
+                };
+
+                if ($planningAssignmentId !== null) {
+                    $linkVacantSlot->handle(
+                        $companyId,
+                        (int) $planningAssignmentId,
+                        $created,
+                        [
+                            'vessel_id' => $validated['vessel_id'] ?? null,
+                            'rank_id' => $validated['rank_id'] ?? null,
+                            'planned_join_at' => $validated['planned_join_at'] ?? null,
+                            'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
+                        ],
+                        $request->user(),
                     );
+                }
 
-                    return $assignment->fresh() ?? $assignment;
-                }),
-            };
-
-            if ($planningAssignmentId !== null) {
-                CrewPlanningAssignment::query()
-                    ->where('company_id', $companyId)
-                    ->whereKey($planningAssignmentId)
-                    ->update(['crew_assignment_id' => $assignment->id]);
-            }
+                return $created->fresh() ?? $created;
+            });
 
             $success = match ($intent) {
                 CrewAssignmentSubmissionIntent::Start => 'Crew assignment started successfully.',

@@ -13,7 +13,6 @@ use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -520,7 +519,7 @@ test('existing linked planning is preserved when an already-linked assignment la
         'planned_signoff_at' => '2026-12-01',
     ], $user->id);
 
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment);
+    syncPlanningFromAssignment($assignment);
 
     $planning = CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->first();
     expect($planning)->not->toBeNull();

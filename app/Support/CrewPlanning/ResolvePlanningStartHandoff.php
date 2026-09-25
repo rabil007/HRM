@@ -17,6 +17,71 @@ use App\Support\MasterData\ClientAssignmentRules;
 final class ResolvePlanningStartHandoff
 {
     /**
+     * Prefill for a vacant/unfilled planning slot (no named employee yet).
+     *
+     * @return array{
+     *     planning_assignment_id: int,
+     *     employee_id: null,
+     *     employee_name: null,
+     *     rank_id: int|null,
+     *     rank_name: string|null,
+     *     vessel_id: int|null,
+     *     vessel_name: string|null,
+     *     client_id: int|null,
+     *     client_name: string|null,
+     *     planned_join_at: string|null,
+     *     planned_signoff_at: string|null,
+     *     remarks: string|null
+     * }
+     */
+    public function vacantPrefill(CrewPlanningAssignment $planning, int $companyId): array
+    {
+        if ((int) $planning->company_id !== $companyId) {
+            throw CrewMovementException::make(
+                'Planning assignment could not be found.',
+                'planning_wrong_company',
+            );
+        }
+
+        if ($planning->employee_id !== null) {
+            throw CrewMovementException::make(
+                'This planning slot already has a named employee. Open it from Crew Assignments instead.',
+                'planning_not_vacant',
+            );
+        }
+
+        if ($planning->crew_assignment_id !== null) {
+            throw CrewMovementException::make(
+                'This planning slot is already linked to a crew assignment.',
+                'planning_already_linked',
+            );
+        }
+
+        $planning->loadMissing(['rank:id,name', 'vessel:id,name,client_id']);
+
+        $vessel = $planning->vessel;
+        $rank = $planning->rank;
+        $clientId = $vessel !== null
+            ? ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vessel->id)
+            : null;
+
+        return [
+            'planning_assignment_id' => (int) $planning->id,
+            'employee_id' => null,
+            'employee_name' => null,
+            'rank_id' => $rank !== null ? (int) $rank->id : null,
+            'rank_name' => $rank?->name,
+            'vessel_id' => $vessel !== null ? (int) $vessel->id : null,
+            'vessel_name' => $vessel?->name,
+            'client_id' => $clientId,
+            'client_name' => $this->resolveClientName($clientId),
+            'planned_join_at' => $planning->planned_join_date?->toDateString(),
+            'planned_signoff_at' => $planning->planned_leave_date?->toDateString(),
+            'remarks' => $planning->notes,
+        ];
+    }
+
+    /**
      * @return array{
      *     planning_assignment_id: int,
      *     employee_id: int,

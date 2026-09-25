@@ -3,7 +3,6 @@
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\User;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Illuminate\Support\Facades\DB;
 
 test('guests cannot access crew assignments index for relief filters', function () {
@@ -97,10 +96,12 @@ it('allows planning creator to plan relief and convert via support action', func
         ->where('relieves_crew_assignment_id', $source->id)
         ->firstOrFail();
 
-    $assignment = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $planner->id);
+    $assignment = createAssignmentFromPlanning($planning, $planner->id, $relief->id);
 
     expect($planning->fresh()->crew_assignment_id)->toBe($assignment->id)
-        ->and($planning->fresh()->relieves_crew_assignment_id)->toBe($source->id);
+        ->and($planning->fresh()->relieves_crew_assignment_id)->toBe($source->id)
+        ->and($assignment->employee_id)->toBe($relief->id)
+        ->and($assignment->relieves_crew_assignment_id)->toBe($source->id);
 });
 
 it('rejects cross-company relief source ids', function () {

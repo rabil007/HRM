@@ -9,7 +9,6 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\VesselManning;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use App\Support\VesselManning\VesselManningHealthQuery;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -263,7 +262,7 @@ it('surfaces mobilising and ready-to-join relief without overriding projected co
         'planned_join_date' => '2026-09-25',
         'planned_leave_date' => '2026-12-25',
     ]);
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $ctx['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $ctx['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::TravelIn,

@@ -98,9 +98,9 @@ Modern assignments do not create new P1/P3 phases, so the correction picker natu
 5. Linked sea service rows (when present)
 6. Linked employee training row (when present for completed Training phase)
 
-All workflows touching both Crew Assignment and Crew Planning (`StartCrewAssignmentFromPlanning`, `CreateCrewAssignmentFromPlanning`, `SaveCrewPlanningAssignment`, `SyncPlanningAssignmentFromCrewAssignment`, `ApproveCrewMovementCorrection`, and `OverrideCrewMovementCorrection`) strictly adhere to this canonical order (`Assignment` 🔒 → `Planning` 🔒) to eliminate deadlock risk.
+All workflows touching both Crew Assignment and Crew Planning (`LinkVacantCrewPlanningSlot`, `SaveCrewPlanningAssignment`, `ApproveCrewMovementCorrection`, and `OverrideCrewMovementCorrection`) strictly adhere to this canonical order (`Assignment` 🔒 → `Planning` 🔒) to eliminate deadlock risk.
 
-Then: stale-original conflict check → validate → apply → tour recalculation → invariants → planning sync → sea-service sync (completed P4 only; reject if unsyncable) → training sync (completed P2B only) → mark approved / create approved override record.
+Then: stale-original conflict check → validate → apply → tour recalculation → invariants → sea-service sync (completed P4 only; reject if unsyncable) → training sync (completed P2B only) → mark approved / create approved override record.
 
 Notification failures after commit are reported and never roll back approval. Direct overrides do not dispatch self-decision notifications.
 

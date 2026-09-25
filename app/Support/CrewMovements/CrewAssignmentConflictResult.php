@@ -114,6 +114,18 @@ final class CrewAssignmentConflictResult
             ];
         }
 
+        $new = $this->newAssignment;
+        if ($new !== null) {
+            $new = [
+                'vessel_id' => $new['vessel_id'] ?? null,
+                'vessel_name' => $new['vessel_name'] ?? null,
+                'rank_id' => $new['rank_id'] ?? null,
+                'rank_name' => $new['rank_name'] ?? null,
+                'planned_join_at' => $new['start_date'] ?? $new['planned_join_at'] ?? null,
+                'planned_signoff_at' => $new['end_date'] ?? $new['planned_signoff_at'] ?? null,
+            ];
+        }
+
         $affectedDates = null;
         if ($this->affectedDates !== null) {
             $affectedDates = [
@@ -121,8 +133,8 @@ final class CrewAssignmentConflictResult
                 'overlap_end' => $this->affectedDates['end'] ?? $this->affectedDates['overlap_end'] ?? null,
                 'existing_start' => $existing['planned_join_at'] ?? null,
                 'existing_end' => $existing['planned_signoff_at'] ?? null,
-                'new_start' => $this->newAssignment['start_date'] ?? $this->newAssignment['planned_join_at'] ?? null,
-                'new_end' => $this->newAssignment['end_date'] ?? $this->newAssignment['planned_signoff_at'] ?? null,
+                'new_start' => $new['planned_join_at'] ?? null,
+                'new_end' => $new['planned_signoff_at'] ?? null,
             ];
         }
 
@@ -132,7 +144,7 @@ final class CrewAssignmentConflictResult
             'code' => $this->code,
             'message' => $this->message,
             'existing_assignment' => $existing,
-            'new_assignment' => $this->newAssignment,
+            'new_assignment' => $new,
             'affected_dates' => $affectedDates,
             'allowed_actions' => $this->allowedActions,
             'blocking' => $this->blocking,

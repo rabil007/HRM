@@ -75,6 +75,23 @@ function requestedTransferPrefill(
     };
 }
 
+function requestedCancelAssignment(
+    canCancel: boolean,
+    availableActions: string[],
+): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('action') !== 'cancel_assignment') {
+        return false;
+    }
+
+    return canCancel && availableActions.includes('cancel_assignment');
+}
+
 function reliefActionHref(
     assignment: CrewAssignmentDetail,
     canViewPlanning: boolean,
@@ -159,6 +176,7 @@ export default function CrewAssignmentShow({
         number | null
     >(null);
     const [transferDismissed, setTransferDismissed] = useState(false);
+    const [cancelDismissed, setCancelDismissed] = useState(false);
     const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
     const [isApplyTourDialogOpen, setIsApplyTourDialogOpen] = useState(false);
 
@@ -171,6 +189,13 @@ export default function CrewAssignmentShow({
         [assignment.available_actions, can.perform_movement],
     );
     const transferPrefill = transferDismissed ? null : requestedTransfer;
+
+    const openCancelFromQuery = useMemo(
+        () =>
+            !cancelDismissed &&
+            requestedCancelAssignment(can.cancel, assignment.available_actions),
+        [assignment.available_actions, can.cancel, cancelDismissed],
+    );
 
     const isOnVessel = assignment.current_phase?.code === 'p4';
     const reliefHref = isOnVessel
@@ -619,6 +644,19 @@ export default function CrewAssignmentShow({
                 movementContext={assignment.movement_context}
                 formOptions={form_options}
                 transferPrefill={transferPrefill}
+            />
+
+            <MovementActionDialog
+                open={openCancelFromQuery}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setCancelDismissed(true);
+                    }
+                }}
+                action={openCancelFromQuery ? 'cancel_assignment' : null}
+                assignmentId={assignment.id}
+                movementContext={assignment.movement_context}
+                formOptions={form_options}
             />
         </>
     );

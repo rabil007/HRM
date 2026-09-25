@@ -8,7 +8,6 @@ use App\Enums\CrewReliefStatus;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 
 it('marks no relief within 14 days as warning risk', function () {
     $resolver = new CrewReliefReadinessResolver;
@@ -52,8 +51,7 @@ it('treats active P5 and P6 linked relief as non-operational', function () {
         'planned_join_date' => now()->addDays(5)->toDateString(),
         'planned_leave_date' => now()->addDays(90)->toDateString(),
     ]);
-    $linked = app(CreateCrewAssignmentFromPlanning::class)
-        ->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::DemobStandby,

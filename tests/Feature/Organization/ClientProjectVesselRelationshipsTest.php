@@ -11,7 +11,6 @@ use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\Project;
 use App\Support\CrewMovements\CrewMovementService;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\UploadedFile;
@@ -428,8 +427,7 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
 
     expect($planning)->not->toBeNull();
 
-    $assignment = app(CreateCrewAssignmentFromPlanning::class)
-        ->handle($planning, $user->id);
+    $assignment = createAssignmentFromPlanning($planning, $user->id);
 
     expect((int) $assignment->vessel_id)->toBe((int) $vessel->id)
         ->and((int) $assignment->client_id)->toBe((int) $client->id);
@@ -668,7 +666,7 @@ test('planning conversion fails when vessel becomes inactive after planning', fu
 
     $vessel->update(['is_active' => false]);
 
-    expect(fn () => app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id))
+    expect(fn () => createAssignmentFromPlanning($planning, $user->id))
         ->toThrow(CrewMovementException::class);
 
     expect($planning->fresh()->crew_assignment_id)->toBeNull()
@@ -870,7 +868,7 @@ test('planning conversion fails when vessel client becomes inactive after planni
 
     $client->update(['is_active' => false]);
 
-    expect(fn () => app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id))
+    expect(fn () => createAssignmentFromPlanning($planning, $user->id))
         ->toThrow(CrewMovementException::class);
 
     expect($planning->fresh()->crew_assignment_id)->toBeNull()
