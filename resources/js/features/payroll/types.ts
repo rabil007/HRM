@@ -525,9 +525,9 @@ export type PayrollGenerationSummary = {
 
 export type EmployeeStats = {
     total: number;
-    with_bank_account: number;
-    missing_bank_account: number;
-    cash_payment_count: number;
+    with_bank_account?: number;
+    missing_bank_account?: number;
+    cash_payment_count?: number;
 };
 
 export type PayrollRecordsSummary = {

@@ -265,7 +265,8 @@ class PayrollController extends Controller
 
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
-        $boardFilters = PayrollPeriodBoardFilters::fromRequest($request);
+        $includeFinancial = (bool) ($user?->can('payroll.periods.view'));
+        $boardFilters = PayrollPeriodBoardFilters::fromRequest($request, $includeFinancial);
         $crewSalaryStructure = $payrollPeriod->isCrew()
             ? $boardFilters->crewSalaryStructure
             : 'daily';
@@ -293,7 +294,6 @@ class PayrollController extends Controller
         ], true);
 
         $boardSearch = $search !== '' ? $search : null;
-        $includeFinancial = (bool) ($user?->can('payroll.periods.view'));
 
         $paginator = $boardQuery->paginate(
             companyId: $companyId,
@@ -422,36 +422,42 @@ class PayrollController extends Controller
             );
         }
 
-        $allCategoryEmployees = $allCategoryEmployeesQuery
-            ->with('primaryBankAccount')
-            ->get(['id', 'salary_payment_method']);
-        $totalCount = $allCategoryEmployees->count();
-        $cashPaymentCount = $allCategoryEmployees->filter(
-            fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->excludesFromWps(),
-        )->count();
-        $withBankCount = $allCategoryEmployees->filter(
-            fn ($employee) => $employee->primaryBankAccount !== null,
-        )->count();
-        $missingBankCount = $allCategoryEmployees->filter(function ($employee) {
-            $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+        if ($includeFinancial) {
+            $allCategoryEmployees = $allCategoryEmployeesQuery
+                ->with('primaryBankAccount')
+                ->get(['id', 'salary_payment_method']);
+            $totalCount = $allCategoryEmployees->count();
+            $cashPaymentCount = $allCategoryEmployees->filter(
+                fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->excludesFromWps(),
+            )->count();
+            $withBankCount = $allCategoryEmployees->filter(
+                fn ($employee) => $employee->primaryBankAccount !== null,
+            )->count();
+            $missingBankCount = $allCategoryEmployees->filter(function ($employee) {
+                $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
 
-            return $paymentMethod->requiresBankAccount() && $employee->primaryBankAccount === null;
-        })->count();
-        $employeeStats = [
-            'total' => $totalCount,
-            'with_bank_account' => $withBankCount,
-            'missing_bank_account' => $missingBankCount,
-            'cash_payment_count' => $cashPaymentCount,
-        ];
+                return $paymentMethod->requiresBankAccount() && $employee->primaryBankAccount === null;
+            })->count();
+            $employeeStats = [
+                'total' => $totalCount,
+                'with_bank_account' => $withBankCount,
+                'missing_bank_account' => $missingBankCount,
+                'cash_payment_count' => $cashPaymentCount,
+            ];
+        } else {
+            $employeeStats = [
+                'total' => $allCategoryEmployeesQuery->count(),
+            ];
+        }
 
         $provisionDefaultSalaryInputTypes->handle($companyId);
 
         $generationSummary = $payrollPeriod->isCrew()
-            ? $buildCrewPayrollCoverageSummary->handle($payrollPeriod, $companyId)
+            ? $buildCrewPayrollCoverageSummary->handle($payrollPeriod, $companyId, $user)
             : null;
 
         return Inertia::render('payroll/show', [
-            'period' => PayrollPeriodResource::toArray($payrollPeriod, $generationSummary),
+            'period' => PayrollPeriodResource::toArray($payrollPeriod, $generationSummary, $includeFinancial, $user),
             'leave_types' => $leaveTypes,
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
@@ -461,24 +467,26 @@ class PayrollController extends Controller
             'payroll_records_monthly' => $payrollRecordsMonthly,
             'payroll_records_monthly_pagination' => $payrollRecordsMonthlyPagination,
             'all_payroll_record_ids' => $allPayrollRecordIds,
-            'payroll_records_summary' => $payrollPeriod->payroll_records_count > 0
+            'payroll_records_summary' => $includeFinancial && $payrollPeriod->payroll_records_count > 0
                 ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod, $user)
                 : null,
             'salary_inputs_by_employee' => $salaryInputsByEmployee,
-            'salary_input_type_options' => SalaryInputType::query()
-                ->where('company_id', $companyId)
-                ->where('status', 'active')
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'name', 'code', 'is_addition'])
-                ->map(fn (SalaryInputType $type) => [
-                    'value' => $type->id,
-                    'label' => $type->name,
-                    'code' => $type->code,
-                    'is_addition' => $type->is_addition,
-                ])
-                ->values()
-                ->all(),
+            'salary_input_type_options' => $includeFinancial
+                ? SalaryInputType::query()
+                    ->where('company_id', $companyId)
+                    ->where('status', 'active')
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'is_addition'])
+                    ->map(fn (SalaryInputType $type) => [
+                        'value' => $type->id,
+                        'label' => $type->name,
+                        'code' => $type->code,
+                        'is_addition' => $type->is_addition,
+                    ])
+                    ->values()
+                    ->all()
+                : [],
             'generation_summary' => $request->session()->get('payroll_generation')
                 ?? $request->session()->get('crew_payroll_generation'),
             'search' => $search,
@@ -981,10 +989,6 @@ class PayrollController extends Controller
 
             if ($result->skippedMissingTimesheetCount > 0) {
                 $skipParts[] = "{$result->skippedMissingTimesheetCount} without timesheets";
-            }
-
-            if ($result->skippedAwaitingApprovalCount > 0) {
-                $skipParts[] = "{$result->skippedAwaitingApprovalCount} awaiting approval";
             }
 
             if ($result->skippedExcludedCount > 0) {

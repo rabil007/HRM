@@ -15,6 +15,7 @@ use App\Models\CrewTimesheetSegment;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Models\PayrollRecord;
 use App\Models\User;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
@@ -446,4 +447,168 @@ test('non-bypassable cross-company integrity warning still blocks generation', f
 
     expect(fn () => app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh()))
         ->toThrow(ValidationException::class);
+});
+
+test('crew timesheet-only user does not receive financial summary bank stats or payment proofs', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $fixtures['period']->update([
+        'payment_proof_path' => 'payroll-periods/payment-proofs/ops-hidden.pdf',
+        'payment_proof_paths' => ['payroll-periods/payment-proofs/ops-hidden.pdf'],
+        'payment_date' => '2026-07-31',
+    ]);
+
+    PayrollRecord::factory()->crew()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['visibleEmployee']->id,
+        'period_id' => $fixtures['period']->id,
+        'gross_salary' => 1500,
+        'net_salary' => 1400,
+        'overtime_pay' => 50,
+        'total_deductions' => 100,
+    ]);
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('permissions.view_financial', false)
+            ->where('payroll_records_summary', null)
+            ->where('employee_stats.total', 1)
+            ->missing('employee_stats.with_bank_account')
+            ->missing('employee_stats.missing_bank_account')
+            ->missing('employee_stats.cash_payment_count')
+            ->where('period.has_payment_proof', false)
+            ->where('period.payment_proof_url', null)
+            ->where('period.payment_proofs', [])
+            ->where('period.payment_date', null)
+            ->where('salary_input_type_options', [])
+        );
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.payment-proof', $fixtures['period']))
+        ->assertForbidden();
+});
+
+test('payroll-authorized user still receives financial summary bank stats and payment proof links', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $fixtures['period']->update([
+        'payment_proof_path' => 'payroll-periods/payment-proofs/visible.pdf',
+        'payment_proof_paths' => ['payroll-periods/payment-proofs/visible.pdf'],
+        'payment_date' => '2026-07-31',
+    ]);
+
+    PayrollRecord::factory()->crew()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['visibleEmployee']->id,
+        'period_id' => $fixtures['period']->id,
+        'gross_salary' => 1500,
+        'net_salary' => 1400,
+    ]);
+
+    $this->actingAs($fixtures['payrollUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('permissions.view_financial', true)
+            ->where('payroll_records_summary.total_gross', fn ($value) => $value !== null)
+            ->where('employee_stats.with_bank_account', fn ($value) => is_int($value))
+            ->where('period.has_payment_proof', true)
+            ->where('period.payment_proof_url', fn ($url) => is_string($url) && $url !== '')
+            ->where('period.payment_date', '2026-07-31')
+        );
+});
+
+test('crew timesheet-only user cannot infer banking status via employee_group filters', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', [
+            $fixtures['period'],
+            'employee_group' => 'with_bank_account',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('filters.employee_group', '')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $fixtures['visibleEmployee']->id)
+        );
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', [
+            $fixtures['period'],
+            'employee_group' => 'missing_bank_account',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.employee_group', '')
+            ->has('rows', 1)
+        );
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', [
+            $fixtures['period'],
+            'crew_timesheet_filter' => 'awaiting_approval',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.crew_timesheet_filter', '')
+        );
+});
+
+test('generation readiness for crew timesheet-only user excludes hidden employees', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $fixtures['hiddenTimesheet']->segments()->delete();
+    $fixtures['hiddenTimesheet']->delete();
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $fixtures['visibleEmployee']->id)
+            ->where('period.generation_preview.ready_count', 1)
+            ->where('period.generation_preview.missing_timesheet_count', 0)
+            ->where('period.generation_preview.blocking_issues', [])
+            ->where('period.generation_blocking_reason', null)
+        );
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle(
+        $fixtures['period']->fresh(),
+        (int) $fixtures['company']->id,
+        [],
+        $fixtures['opsUser'],
+    );
+
+    expect($preview->readyCount)->toBe(1)
+        ->and($preview->missingTimesheetCount)->toBe(0)
+        ->and($preview->readyEmployeeIds)->toBe([(int) $fixtures['visibleEmployee']->id])
+        ->and($preview->missingTimesheetEmployeeIds)->not->toContain((int) $fixtures['hiddenEmployee']->id);
+
+    $encoded = json_encode($preview->toPublicArray());
+    expect($encoded)->not->toContain($fixtures['hiddenEmployee']->name)
+        ->and($encoded)->not->toContain((string) $fixtures['hiddenEmployee']->id);
+
+    $unrestricted = app(BuildCrewPayrollGenerationPreview::class)->handle(
+        $fixtures['period']->fresh(),
+        (int) $fixtures['company']->id,
+        [],
+        $fixtures['payrollUser'],
+    );
+
+    expect($unrestricted->missingTimesheetCount)->toBe(1)
+        ->and($unrestricted->missingTimesheetEmployeeIds)->toContain((int) $fixtures['hiddenEmployee']->id);
 });

@@ -1023,6 +1023,7 @@ export function PayrollShowContent({
                             financialAutosaveErrors={financialAutosaveErrors}
                             onRetryFinancialAutosave={retryFinancialAutosave}
                             canEditTimesheets={canEditTimesheets}
+                            canViewFinancial={permissions.view_financial}
                             onOpenMovementPeriods={(row, categoryGroup) =>
                                 setMovementPeriodsTarget({
                                     row,

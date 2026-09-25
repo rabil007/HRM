@@ -6,6 +6,8 @@ use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 /**
  * Period-level generation readiness for the payroll show page.
@@ -20,7 +22,7 @@ final class BuildCrewPayrollCoverageSummary
     /**
      * @return array<string, mixed>
      */
-    public function handle(PayrollPeriod $period, int $companyId): array
+    public function handle(PayrollPeriod $period, int $companyId, ?User $user = null): array
     {
         if ((int) $period->company_id !== $companyId) {
             abort(404);
@@ -36,21 +38,26 @@ final class BuildCrewPayrollCoverageSummary
         )));
 
         if ($period->requiresExclusiveCrewOperationsTimesheets()) {
-            return $this->exclusiveSummary($period, $companyId, $excluded);
+            return $this->exclusiveSummary($period, $companyId, $excluded, $user);
         }
 
-        return $this->hybridReadiness($period, $companyId, $excluded);
+        return $this->hybridReadiness($period, $companyId, $excluded, $user);
     }
 
     /**
      * @param  list<int>  $excluded
      * @return array<string, mixed>
      */
-    private function exclusiveSummary(PayrollPeriod $period, int $companyId, array $excluded): array
+    private function exclusiveSummary(PayrollPeriod $period, int $companyId, array $excluded, ?User $user = null): array
     {
-        $employees = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
-            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded))
-            ->get(['employees.id']);
+        $employeesQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded));
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+        }
+
+        $employees = $employeesQuery->get(['employees.id']);
 
         $legacy = $this->legacyGuard->validateReadiness($period, $employees, $companyId);
 
@@ -80,7 +87,7 @@ final class BuildCrewPayrollCoverageSummary
      * @param  list<int>  $excluded
      * @return array<string, mixed>
      */
-    private function hybridReadiness(PayrollPeriod $period, int $companyId, array $excluded): array
+    private function hybridReadiness(PayrollPeriod $period, int $companyId, array $excluded, ?User $user = null): array
     {
         $applied = CrewTimesheetPreparation::query()
             ->where('company_id', $companyId)
@@ -105,8 +112,14 @@ final class BuildCrewPayrollCoverageSummary
 
         $preparation = $applied->count() === 1 ? $applied->first() : null;
 
-        $includedEmployeeIds = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
-            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded))
+        $includedEmployeeIdsQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded));
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($includedEmployeeIdsQuery, $user, $companyId);
+        }
+
+        $includedEmployeeIds = $includedEmployeeIdsQuery
             ->pluck('employees.id')
             ->map(intval(...))
             ->all();

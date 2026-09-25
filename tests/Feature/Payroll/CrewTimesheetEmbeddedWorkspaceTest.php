@@ -157,7 +157,11 @@ test('prepare from crew assignments populates timesheets and redirects to payrol
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->post("/payroll/{$period->id}/crew-timeline/prepare")
-        ->assertRedirect(route('payroll.show', $period));
+        ->assertRedirect(route('payroll.show', $period))
+        ->assertSessionHas('success', function (string $message): bool {
+            return str_contains($message, 'Crew Timesheets populated from Crew Assignments')
+                && ! str_contains(strtolower($message), 'version');
+        });
 
     $timesheet = CrewTimesheet::query()
         ->where('company_id', $company->id)
@@ -188,6 +192,15 @@ test('prepare from crew assignments populates timesheets and redirects to payrol
             ->missing('permissions.approve_timesheet')
             ->missing('permissions.return_timesheet')
         );
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post("/payroll/{$period->id}/crew-timeline/prepare")
+        ->assertRedirect(route('payroll.show', $period))
+        ->assertSessionHas('success', function (string $message): bool {
+            return str_contains($message, 'Crew Timesheets refreshed from Crew Assignments')
+                && ! str_contains(strtolower($message), 'version');
+        });
 });
 
 test('authorized user can edit onsite standby overtime and remarks without mutating crew assignment', function () {

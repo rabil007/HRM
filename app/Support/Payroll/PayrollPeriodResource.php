@@ -5,32 +5,41 @@ namespace App\Support\Payroll;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodCreationSource;
 use App\Models\PayrollPeriod;
+use App\Models\User;
 
 final class PayrollPeriodResource
 {
     /**
      * @param  array<string, mixed>|null  $generationSummary
      */
-    public static function toArray(PayrollPeriod $period, ?array $generationSummary = null): array
-    {
-        $paths = $period->payment_proof_paths ?? [];
-        if (empty($paths) && filled($period->payment_proof_path)) {
-            $paths = [$period->payment_proof_path];
-        }
-
+    public static function toArray(
+        PayrollPeriod $period,
+        ?array $generationSummary = null,
+        bool $includeFinancial = true,
+        ?User $user = null,
+    ): array {
         $proofs = [];
-        foreach ($paths as $index => $path) {
-            $proofs[] = [
-                'id' => $index,
-                'name' => basename($path),
-                'url' => route('payroll.payment-proof', ['payrollPeriod' => $period, 'index' => $index]),
-            ];
+
+        if ($includeFinancial) {
+            $paths = $period->payment_proof_paths ?? [];
+            if (empty($paths) && filled($period->payment_proof_path)) {
+                $paths = [$period->payment_proof_path];
+            }
+
+            foreach ($paths as $index => $path) {
+                $proofs[] = [
+                    'id' => $index,
+                    'name' => basename($path),
+                    'url' => route('payroll.payment-proof', ['payrollPeriod' => $period, 'index' => $index]),
+                ];
+            }
         }
 
         if ($generationSummary === null && $period->isCrew()) {
             $generationSummary = app(BuildCrewPayrollCoverageSummary::class)->handle(
                 $period,
                 (int) $period->company_id,
+                $user,
             );
         }
 
@@ -39,7 +48,7 @@ final class PayrollPeriodResource
             'name' => $period->name,
             'start_date' => $period->start_date?->toDateString(),
             'end_date' => $period->end_date?->toDateString(),
-            'payment_date' => $period->payment_date?->toDateString(),
+            'payment_date' => $includeFinancial ? $period->payment_date?->toDateString() : null,
             'generated_at' => $period->generated_at?->toDateTimeString(),
             'payroll_category' => $period->payroll_category?->value ?? PayrollCategory::Crew->value,
             'payroll_category_label' => $period->payroll_category?->label() ?? PayrollCategory::Crew->label(),
@@ -85,9 +94,9 @@ final class PayrollPeriodResource
                     'name' => $period->approvedBy->name,
                 ]
                 : null,
-            'has_payment_proof' => ! empty($proofs),
-            'payment_proof_url' => $proofs[0]['url'] ?? null,
-            'payment_proofs' => $proofs,
+            'has_payment_proof' => $includeFinancial && ! empty($proofs),
+            'payment_proof_url' => $includeFinancial ? ($proofs[0]['url'] ?? null) : null,
+            'payment_proofs' => $includeFinancial ? $proofs : [],
             'created_at' => $period->created_at?->toDateTimeString(),
         ];
     }

@@ -30,14 +30,14 @@ class PrepareCrewTimesheetTimelineController extends Controller
             $cutoffDate,
         );
 
-        $preparation = $result['preparation'];
         $appliedCount = $result['applied_employee_count'];
+        $verb = ($result['was_refresh'] ?? false) ? 'refreshed' : 'populated';
 
         return redirect()
             ->route('payroll.show', $payrollPeriod)
             ->with(
                 'success',
-                "Crew Timesheet populated from Crew Assignments (version {$preparation->version}) for {$appliedCount} employee(s).",
+                "Crew Timesheets {$verb} from Crew Assignments for {$appliedCount} employee(s).",
             );
     }
 }

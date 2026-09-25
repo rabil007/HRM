@@ -170,26 +170,6 @@ final class PayrollPeriodBoardEmployeeScope
                             ->orWhereNull('salary_structure');
                     });
                 }),
-            CrewTimesheetBoardFilter::AwaitingApproval => $query->whereHas(
-                'crewTimesheets',
-                fn (Builder $timesheetQuery) => $timesheetQuery
-                    ->where('period_id', $period->id)
-                    ->whereIn('source', [
-                        CrewTimesheetSource::Manual->value,
-                        CrewTimesheetSource::Import->value,
-                    ])
-                    ->whereIn('approval_status', [
-                        CrewTimesheetApprovalStatus::Draft->value,
-                        CrewTimesheetApprovalStatus::Submitted->value,
-                        CrewTimesheetApprovalStatus::Returned->value,
-                    ]),
-            ),
-            CrewTimesheetBoardFilter::Returned => $query->whereHas(
-                'crewTimesheets',
-                fn (Builder $timesheetQuery) => $timesheetQuery
-                    ->where('period_id', $period->id)
-                    ->where('approval_status', CrewTimesheetApprovalStatus::Returned->value),
-            ),
             CrewTimesheetBoardFilter::CrewOperations => $query->whereHas(
                 'crewTimesheets',
                 fn (Builder $timesheetQuery) => $timesheetQuery

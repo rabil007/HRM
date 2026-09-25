@@ -129,8 +129,6 @@ export function PayrollGenerateDialog({
                                             </strong>
                                         </p>
                                         {(preview.missing_timesheet_count > 0 ||
-                                            preview.awaiting_approval_count >
-                                                0 ||
                                             preview.excluded_count > 0) && (
                                             <div className="space-y-1 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
                                                 <p className="font-semibold">
@@ -144,16 +142,6 @@ export function PayrollGenerateDialog({
                                                         }{' '}
                                                         employees have no
                                                         timesheet
-                                                    </p>
-                                                ) : null}
-                                                {preview.awaiting_approval_count >
-                                                0 ? (
-                                                    <p>
-                                                        {
-                                                            preview.awaiting_approval_count
-                                                        }{' '}
-                                                        employees are awaiting
-                                                        approval
                                                     </p>
                                                 ) : null}
                                                 {preview.excluded_count > 0 ? (
@@ -248,9 +236,12 @@ export function PayrollGenerateDialog({
                                             </p>
                                         ) : null}
                                         <p>
-                                            Only Ready employees receive payroll
-                                            records. Missing or unapproved
-                                            timesheets are skipped.
+                                            Only employees with a usable Crew
+                                            Timesheet are included in payroll
+                                            generation. Employees with missing
+                                            timesheets are skipped, while
+                                            blocking validation issues must be
+                                            corrected first.
                                         </p>
                                     </>
                                 ) : null

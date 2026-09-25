@@ -30,7 +30,8 @@ final class PopulateCrewTimesheetsFromAssignments
      *     applied_employee_count: int,
      *     created_timesheet_count: int,
      *     updated_timesheet_count: int,
-     *     skipped_employee_count: int
+     *     skipped_employee_count: int,
+     *     was_refresh: bool
      * }
      */
     public function handle(
@@ -40,6 +41,12 @@ final class PopulateCrewTimesheetsFromAssignments
         ?CarbonInterface $cutoffDate = null,
     ): array {
         return DB::transaction(function () use ($period, $actor, $companyId, $cutoffDate): array {
+            $wasRefresh = CrewTimesheetPreparation::query()
+                ->where('company_id', $companyId)
+                ->where('payroll_period_id', $period->id)
+                ->where('status', CrewTimesheetPreparationStatus::Applied)
+                ->exists();
+
             $this->supersedeAppliedPreparations($period, $companyId, $actor);
 
             $preparation = $this->prepare->handle(
@@ -62,6 +69,7 @@ final class PopulateCrewTimesheetsFromAssignments
                 'created_timesheet_count' => $result->createdTimesheetCount,
                 'updated_timesheet_count' => $result->updatedTimesheetCount,
                 'skipped_employee_count' => $result->skippedEmployeeCount,
+                'was_refresh' => $wasRefresh,
             ];
         });
     }
