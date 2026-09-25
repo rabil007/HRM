@@ -449,7 +449,6 @@ test('crew planning rejects legacy unassigned vessel', function () {
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -592,7 +591,6 @@ test('crew planning create rejects inactive mapped vessel', function () {
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -616,7 +614,6 @@ test('crew planning update rejects changing to inactive vessel', function () {
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $activeVessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertRedirect();
@@ -629,7 +626,6 @@ test('crew planning update rejects changing to inactive vessel', function () {
     $this->put("/organization/crew-planning/assignments/{$planning->id}", [
         'vessel_id' => $inactiveVessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -846,7 +842,6 @@ test('crew planning create rejects active vessel whose client is inactive', func
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');

@@ -669,9 +669,9 @@ Typical suggestions:
 | Phase | Usual recommendation |
 |-------|----------------------|
 | Active P0 (ready or no checks configured) | Record Arrival |
-| Active P0 (readiness issues) | Resolve readiness, with Record Arrival Anyway |
+| Active P0 (readiness issues) | Resolve readiness (guidance only); Record Arrival remains available once |
 | Draft P0 (ready or no checks configured) | Start Assignment (`approve_mobilisation`) |
-| Draft P0 (readiness issues) | Resolve readiness, with Start Assignment Anyway |
+| Draft P0 (readiness issues) | Resolve readiness (guidance only); Start Assignment remains available once |
 | P1 (legacy) | Record Arrival |
 | P2A | Join Vessel |
 | P2B | Complete Training |
