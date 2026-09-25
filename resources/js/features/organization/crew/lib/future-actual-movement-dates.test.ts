@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     resolveMovementOccurredAtMax,
+    shouldBlockFutureActualMovementDate,
     shouldShowFutureMovementWarning,
     shouldShowPlannedConflictAction,
     shouldShowTestingOverrideBanner,
@@ -25,6 +26,13 @@ describe('future actual movement dates helpers', () => {
         );
         assert.equal(shouldShowFutureMovementWarning(true, true), false);
         assert.equal(shouldShowTestingOverrideBanner(true), true);
+    });
+
+    it('blocks correction progress for future actual dates only when override is off', () => {
+        assert.equal(shouldBlockFutureActualMovementDate(true, false), true);
+        assert.equal(shouldBlockFutureActualMovementDate(true, true), false);
+        assert.equal(shouldBlockFutureActualMovementDate(false, false), false);
+        assert.equal(shouldBlockFutureActualMovementDate(false, true), false);
     });
 
     it('shows Planned conflict actions from allowed_actions without create-page can flags', () => {

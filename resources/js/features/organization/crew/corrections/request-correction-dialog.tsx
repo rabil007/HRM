@@ -39,6 +39,7 @@ import {
 } from '../lib/correction-form';
 import {
     resolveMovementOccurredAtMax,
+    shouldBlockFutureActualMovementDate,
     shouldShowFutureMovementWarning,
 } from '../lib/future-actual-movement-dates';
 import type { CorrectablePhase, CrewAssignmentFormOptions } from '../types';
@@ -206,6 +207,10 @@ export function RequestCorrectionDialog({
                     effectiveTimezone,
                 ),
         ),
+    );
+    const hasBlockedFutureActualDate = shouldBlockFutureActualMovementDate(
+        hasFutureActualDate,
+        allowFuture,
     );
 
     return (
@@ -488,7 +493,9 @@ export function RequestCorrectionDialog({
                             <Button
                                 type="button"
                                 onClick={() => setStep(3)}
-                                disabled={!hasChanges || hasFutureActualDate}
+                                disabled={
+                                    !hasChanges || hasBlockedFutureActualDate
+                                }
                             >
                                 Next
                             </Button>
