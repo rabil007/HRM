@@ -283,7 +283,10 @@ test('payroll show can filter board rows by employee analytics group', function 
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.crew_timesheets.view',
+    ]);
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
