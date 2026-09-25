@@ -13,6 +13,7 @@ use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 final class CrewAssignmentConflictEvaluator
@@ -474,6 +475,17 @@ final class CrewAssignmentConflictEvaluator
             $existingVessel = $plan->vessel?->name ?? 'Unassigned Vessel';
             $newVessel = $context->vesselId ? (Vessel::find($context->vesselId)?->name ?? 'Selected Vessel') : 'New Assignment';
 
+            $allowedActions = ['adjust_dates', 'edit_existing_plan', 'cancel_existing_plan', 'cancel'];
+            if ($context->actor !== null) {
+                $allowedActions = ['adjust_dates', 'cancel'];
+                if (Gate::forUser($context->actor)->allows('update', $plan)) {
+                    $allowedActions[] = 'edit_existing_plan';
+                }
+                if (Gate::forUser($context->actor)->allows('cancel', $plan)) {
+                    $allowedActions[] = 'cancel_existing_plan';
+                }
+            }
+
             return CrewAssignmentConflictResult::blocking(
                 code: 'planned_planned_overlap',
                 message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$effectivePEnd}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart} to {$overlapEnd}.",
@@ -499,7 +511,7 @@ final class CrewAssignmentConflictEvaluator
                     'start' => $overlapStart,
                     'end' => $overlapEnd,
                 ],
-                allowedActions: ['adjust_dates', 'edit_existing_plan', 'cancel_existing_plan', 'cancel'],
+                allowedActions: $allowedActions,
             );
         }
 

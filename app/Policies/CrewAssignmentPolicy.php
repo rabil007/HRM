@@ -15,7 +15,12 @@ class CrewAssignmentPolicy
 
     public function view(User $user, CrewAssignment $assignment): bool
     {
-        return $user->can('crew_operations.assignments.view');
+        if ($user->can('crew_operations.assignments.view')) {
+            return true;
+        }
+
+        return $assignment->status === CrewAssignmentStatus::Planned
+            && $user->can('crew_operations.planning.view');
     }
 
     public function create(User $user): bool
@@ -41,7 +46,12 @@ class CrewAssignmentPolicy
 
     public function update(User $user, CrewAssignment $assignment): bool
     {
-        return $user->can('crew_operations.assignments.update');
+        if ($user->can('crew_operations.assignments.update')) {
+            return true;
+        }
+
+        return $assignment->status === CrewAssignmentStatus::Planned
+            && $user->can('crew_operations.planning.update');
     }
 
     public function performMovement(User $user, CrewAssignment $assignment): bool

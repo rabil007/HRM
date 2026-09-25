@@ -10,8 +10,9 @@ use Illuminate\Support\Collection;
 /**
  * Batch-load active operational relief for source assignments.
  *
- * Prefer named CrewAssignment relief (planned/draft/active). Fall back to
+ * Prefer named CrewAssignment relief (planned/active). Fall back to
  * CrewPlanningAssignment vacant/legacy relief rows when no assignment exists.
+ * Draft CrewAssignments are non-committed and do not count as operational relief.
  */
 final class CrewReliefPlanningLoader
 {
@@ -39,7 +40,6 @@ final class CrewReliefPlanningLoader
             ->whereIn('status', [
                 CrewAssignmentStatus::Planned,
                 CrewAssignmentStatus::Active,
-                CrewAssignmentStatus::Draft,
             ])
             ->with([
                 'employee:id,company_id,name,employee_no',

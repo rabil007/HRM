@@ -126,36 +126,62 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Link uses `crew_assignment_phase_id`
 - [ ] Re-running sync remains idempotent
 
-## 6. Planning
+## 6. Planning (unified CrewAssignment architecture)
 
-- [ ] Planning row **Start Assignment** opens the unified Start form without creating a CrewAssignment
-- [ ] Planning master data (Employee, Rank, Client, Vessel, Expected Join) is read-only on the handoff form
-- [ ] Arrival Date is editable on the handoff form and is operational assignment data (not Crew Planning authoritative)
-- [ ] Confirm Start creates one Active CrewAssignment with one P0 phase, `source = crew_planning`, and links the original planning row
-- [ ] Expected Join and Planned Sign-Off remain forecasts; actual start uses trusted server submit time
-- [ ] Arrival Date provenance displays **Entered on assignment**, not **From Crew Planning**
-- [ ] No initial-stage selector; crafted `current_stage` is ignored
-- [ ] Back/Cancel returns to Crew Planning with practical filter context preserved
-- [ ] User without `crew_operations.planning.view` cannot open or submit the Planning → Start handoff
-- [ ] Crafted POST cannot substitute employee/rank/vessel/client/planned join — server uses locked Planning values
-- [ ] Arrival Date after Expected Vessel Join is rejected using calendar-date comparison (no timezone shift on date-only Planning values)
-- [ ] Expected Join after Planned Sign-Off is rejected at Start
-- [ ] Relief planning preserves `relieves_crew_assignment_id` and rejects incompatible relief state
-- [ ] Linked Active assignment opens existing record without duplicate
-- [ ] Planning employee already Active P4 on another vessel opens Start form with conflict warning, no Start Assignment button, no Transfer Vessel dialog, and Open Current Assignment when view permission is granted
-- [ ] Crafted Planning Start POST for an employee with another Active assignment is rejected; planning `crew_assignment_id` stays null and no duplicate planning row is created
-- [ ] Relief planning Start still works when only the source crew member is Active P4
-- [ ] Linked Draft assignment remains backward compatible (redirect to existing draft workflow)
-- [ ] Repeat Start on linked Active is idempotent and keeps exactly one planning row
-- [ ] Manual Crew Assignments draft with vessel/rank/join/sign-off creates a planning bar
-- [ ] Join vessel without sign-off shows an open-ended Assigned bar on the Gantt
-- [ ] Plan sign-off updates the same planning bar leave date
-- [ ] Confirm disembarkation sets leave to actual end and keeps one planning row
-- [ ] Linked planning bars cannot be edited/deleted from Planning (open Crew Assignments instead)
-- [ ] Unlinked planned-relief bars remain editable
-- [ ] Cancel before P4 removes the future planning bar
-- [ ] Gantt shows `is_assigned` / Assigned styling
-- [ ] No EmployeeDeployment created
+CrewAssignment is the authoritative named-crew allocation record. Planning/Gantt is a workspace over Planned and Active CrewAssignments. CrewPlanningAssignment remains only for genuine vacant/legacy slots — there is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
+
+### Status semantics
+
+- [ ] **Draft** — `CrewAssignment(status=draft)`: incomplete/non-committed; does **not** reserve employee availability; does **not** appear as a named Planning allocation; does **not** count as committed relief
+- [ ] **Planned** — `CrewAssignment(status=planned)`: committed future reservation with vessel, rank, Expected Join, and Expected Sign-Off; appears directly on Planning/Gantt; **no** employee-backed duplicate `CrewPlanningAssignment`
+- [ ] **Active** — operational mobilisation (P0–P6); Planned → Active keeps the **same CrewAssignment ID**
+- [ ] **Completed / Cancelled** — historical / end states
+
+### Direct Start and Save as Planned
+
+- [ ] Save as Planned requires vessel + effective rank + Expected Join + Expected Sign-Off
+- [ ] Accepted Planned assignment appears on the Planning Gantt
+- [ ] Direct Start may create Active without a prior Planned record
+- [ ] Expected Vessel Join may be blank on direct Start (`planned_join_at` stays null — never invented from `started_at`)
+- [ ] Expected Sign-Off cannot precede Assignment Start on Start / Active edit
+- [ ] Planned dates remain forecasts; actual join/sign-off happen only through Movement Actions
+
+### Vacant slot handoff
+
+- [ ] Vacant `CrewPlanningAssignment` may represent an unfilled vessel/rank slot
+- [ ] Assigning a named employee creates/links the authoritative CrewAssignment
+- [ ] Crafted POST cannot clear vessel/rank or escape slot compatibility while linking
+- [ ] Linked slot disappears from vacant Gantt; named bar is the CrewAssignment
+- [ ] User without `crew_operations.planning.view` cannot link a vacant slot
+
+### Planning-only permissions (Planned CrewAssignment)
+
+- [ ] `planning.view` can open a Planned assignment (without `assignments.view`)
+- [ ] `planning.update` can edit a Planned assignment (without `assignments.update`)
+- [ ] `planning.delete` can cancel a Planned assignment (without `assignments.cancel`)
+- [ ] Planning permissions do **not** grant Start Assignment / movements / Active edits
+- [ ] Conflict dialog Edit/Cancel Existing Plan actions match the same Gate results
+
+### Edit integrity
+
+- [ ] Planned update cannot clear Expected Join or Expected Sign-Off
+- [ ] Update validation uses the effective candidate state (explicit blank ≠ silent fallback to old value)
+- [ ] Authoritative conflict re-check runs inside the write transaction with locking
+- [ ] Draft date-order invariants still apply; Draft still does not reserve availability
+
+### Relief
+
+- [ ] Draft relief does **not** satisfy “relief planned” or block a committed Planned relief
+- [ ] Planned / Active relief remains authoritative
+- [ ] Cancelled / Completed relief does not block replacement planning
+- [ ] Legacy vacant `CrewPlanningAssignment` relief slots still work when no named assignment exists
+
+### Obsolete (do not expect)
+
+- Manual Draft does **not** create a synchronized Planning row
+- Every CrewAssignment does **not** require a CrewPlanningAssignment mirror
+- Starting from Planning does **not** create a second CrewAssignment copy
+- Planning does **not** manufacture actual movement / sea-service history
 
 ## 7. Dashboard / manning
 

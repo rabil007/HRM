@@ -87,7 +87,6 @@ final class CrewReliefReadinessResolver
             ->whereIn('status', [
                 CrewAssignmentStatus::Planned,
                 CrewAssignmentStatus::Active,
-                CrewAssignmentStatus::Draft,
             ])
             ->with([
                 'employee:id,name,employee_no',
@@ -133,7 +132,6 @@ final class CrewReliefReadinessResolver
             ->whereIn('status', [
                 CrewAssignmentStatus::Planned,
                 CrewAssignmentStatus::Active,
-                CrewAssignmentStatus::Draft,
             ])
             ->when($exceptPlanningId !== null, fn ($q) => $q->whereKeyNot($exceptPlanningId))
             ->with('currentPhase')
@@ -164,8 +162,9 @@ final class CrewReliefReadinessResolver
     }
 
     /**
-     * Active operational relief: non-deleted Planning with no linked assignment,
-     * or a linked Draft/Active assignment whose current phase is still P0–P4.
+     * Active operational relief: non-deleted vacant Planning with no linked assignment,
+     * or a named Planned/Active CrewAssignment (or linked Active assignment) still in P0–P4.
+     * Draft CrewAssignments are non-committed and do not count.
      * Active P5/P6 replacements are historical and must not block a new plan.
      */
     public function isOperationallyActive(CrewAssignment|CrewPlanningAssignment $plan): bool
@@ -178,14 +177,12 @@ final class CrewReliefReadinessResolver
             if (in_array($plan->status, [
                 CrewAssignmentStatus::Completed,
                 CrewAssignmentStatus::Cancelled,
+                CrewAssignmentStatus::Draft,
             ], true)) {
                 return false;
             }
 
-            if (in_array($plan->status, [
-                CrewAssignmentStatus::Planned,
-                CrewAssignmentStatus::Draft,
-            ], true)) {
+            if ($plan->status === CrewAssignmentStatus::Planned) {
                 return true;
             }
 
@@ -214,10 +211,14 @@ final class CrewReliefReadinessResolver
         }
 
         if (! in_array($linked->status, [
-            CrewAssignmentStatus::Draft,
+            CrewAssignmentStatus::Planned,
             CrewAssignmentStatus::Active,
         ], true)) {
             return false;
+        }
+
+        if ($linked->status === CrewAssignmentStatus::Planned) {
+            return true;
         }
 
         $phase = $linked->relationLoaded('currentPhase')
@@ -332,10 +333,6 @@ final class CrewReliefReadinessResolver
     {
         if ($assignment->status === CrewAssignmentStatus::Planned) {
             return CrewReliefStatus::ReliefPlanned;
-        }
-
-        if ($assignment->status === CrewAssignmentStatus::Draft) {
-            return CrewReliefStatus::AssignmentCreated;
         }
 
         $phase = $assignment->currentPhase;

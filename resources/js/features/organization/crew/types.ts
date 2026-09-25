@@ -333,6 +333,7 @@ export interface CrewAssignmentFormData {
     vessel_id: number | null;
     planned_join_at: string;
     planned_arrival_at?: string | null;
+    planned_signoff_at?: string;
     remarks: string;
 }
 

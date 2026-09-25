@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Organization;
 
 use App\Enums\CrewAssignmentSubmissionIntent;
+use App\Models\CrewPlanningAssignment;
+use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
@@ -45,6 +47,25 @@ class StoreCrewAssignmentRequest extends FormRequest
             $merge['submission_intent'] = $intent;
         }
 
+        $planningAssignmentId = $this->input('planning_assignment_id');
+        if ($planningAssignmentId !== null && $planningAssignmentId !== '' && $companyId > 0) {
+            $slot = CrewPlanningAssignment::query()
+                ->where('company_id', $companyId)
+                ->whereKey((int) $planningAssignmentId)
+                ->first(['id', 'vessel_id', 'rank_id']);
+
+            if ($slot !== null) {
+                if ($slot->vessel_id !== null) {
+                    $merge['vessel_id'] = (int) $slot->vessel_id;
+                    $vesselId = $merge['vessel_id'];
+                }
+
+                if ($slot->rank_id !== null) {
+                    $merge['rank_id'] = (int) $slot->rank_id;
+                }
+            }
+        }
+
         if (($clientId === null || $clientId === '')
             && $vesselId !== null
             && $vesselId !== ''
@@ -78,7 +99,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             ],
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
-            'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
+            'vessel_id' => [$isPlanIntent ? 'required' : 'nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'planned_arrival_at' => ['nullable', 'date'],
             'planned_join_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
             'planned_signoff_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
@@ -96,6 +117,7 @@ class StoreCrewAssignmentRequest extends FormRequest
         return [
             'planned_join_at.required' => 'Expected Vessel Join is required when saving as Planned.',
             'planned_signoff_at.required' => 'Expected Sign-off is required when saving as Planned.',
+            'vessel_id.required' => 'Vessel is required when saving as Planned.',
         ];
     }
 
@@ -116,6 +138,25 @@ class StoreCrewAssignmentRequest extends FormRequest
                 $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
             );
+
+            if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan) {
+                $rankId = $this->input('rank_id');
+                $effectiveRankId = $rankId !== null && $rankId !== '' ? (int) $rankId : null;
+
+                if ($effectiveRankId === null) {
+                    $employeeId = (int) $this->input('employee_id');
+                    $employeeRankId = Employee::query()
+                        ->where('company_id', $companyId)
+                        ->whereKey($employeeId)
+                        ->value('rank_id');
+
+                    $effectiveRankId = $employeeRankId !== null ? (int) $employeeRankId : null;
+                }
+
+                if ($effectiveRankId === null) {
+                    $validator->errors()->add('rank_id', 'Rank is required when saving as Planned.');
+                }
+            }
 
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $plannedArrival = $this->input('planned_arrival_at');

@@ -708,9 +708,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/crew/bulk-void', BulkVoidCrewAssignmentsController::class)
         ->middleware(['can:crew_operations.assignments.void', 'privileged.2fa'])
         ->name('organization.crew-assignments.bulk-void');
-    Route::get('organization/crew/{assignment}', [CrewAssignmentController::class, 'show'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.show');
-    Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.edit');
-    Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.update');
+    Route::get('organization/crew/{assignment}', [CrewAssignmentController::class, 'show'])->name('organization.crew-assignments.show');
+    Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->name('organization.crew-assignments.edit');
+    Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->name('organization.crew-assignments.update');
     Route::post('organization/crew/{assignment}/actions', CrewMovementActionController::class)->name('organization.crew-assignments.perform-action');
     Route::post('organization/crew/{assignment}/apply-tour', ApplyCrewTourOfDutyController::class)
         ->middleware('can:crew_operations.movements.perform')

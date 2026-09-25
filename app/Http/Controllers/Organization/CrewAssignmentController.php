@@ -47,7 +47,6 @@ use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -259,6 +258,43 @@ class CrewAssignmentController extends Controller
 
         try {
             $assignment = DB::transaction(function () use ($intent, $companyId, $validated, $request, $planningAssignmentId, $linkVacantSlot) {
+                if ($planningAssignmentId !== null) {
+                    $slot = CrewPlanningAssignment::query()
+                        ->where('company_id', $companyId)
+                        ->whereKey((int) $planningAssignmentId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($slot === null) {
+                        throw ValidationException::withMessages([
+                            'planning_assignment_id' => 'The selected planning slot could not be found.',
+                        ]);
+                    }
+
+                    CrewPlanningAssignmentAccess::assertInCompany($slot, $companyId, $request->user());
+
+                    // Authoritative slot identity — crafted blanks cannot strip vessel/rank.
+                    if ($slot->vessel_id !== null) {
+                        $validated['vessel_id'] = (int) $slot->vessel_id;
+                    }
+
+                    if ($slot->rank_id !== null) {
+                        $validated['rank_id'] = (int) $slot->rank_id;
+                    }
+
+                    if (($validated['vessel_id'] ?? null) === null || ($validated['vessel_id'] ?? '') === '') {
+                        throw ValidationException::withMessages([
+                            'vessel_id' => 'Vessel is required when linking a planning slot.',
+                        ]);
+                    }
+
+                    if (($validated['rank_id'] ?? null) === null || ($validated['rank_id'] ?? '') === '') {
+                        throw ValidationException::withMessages([
+                            'rank_id' => 'Rank is required when linking a planning slot.',
+                        ]);
+                    }
+                }
+
                 $created = match ($intent) {
                     CrewAssignmentSubmissionIntent::Start => $this->service->startAssignment(
                         $companyId,
@@ -313,12 +349,7 @@ class CrewAssignmentController extends Controller
                         $companyId,
                         (int) $planningAssignmentId,
                         $created,
-                        [
-                            'vessel_id' => $validated['vessel_id'] ?? null,
-                            'rank_id' => $validated['rank_id'] ?? null,
-                            'planned_join_at' => $validated['planned_join_at'] ?? null,
-                            'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-                        ],
+                        [],
                         $request->user(),
                     );
                 }
@@ -416,7 +447,7 @@ class CrewAssignmentController extends Controller
             'correction_request_context' => $correctionRequestContext,
             'recent_activity' => $recentActivity,
             'form_options' => $this->movementFormOptions($companyId),
-            'can' => CrewAssignmentPagePermissions::for($request->user()),
+            'can' => CrewAssignmentPagePermissions::forAssignment($request->user(), $assignment),
         ]);
     }
 
@@ -485,7 +516,7 @@ class CrewAssignmentController extends Controller
         return Inertia::render('organization/crew/edit', [
             'assignment' => CrewAssignmentPresenter::detail($assignment, $request->user()),
             'form_options' => $formOptions,
-            'can' => CrewAssignmentPagePermissions::for($request->user()),
+            'can' => CrewAssignmentPagePermissions::forAssignment($request->user(), $assignment),
         ]);
     }
 
@@ -496,31 +527,20 @@ class CrewAssignmentController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
-        $validated = $request->validated();
-
-        if (! CrewAssignmentEditability::isEditable($assignment)) {
-            throw ValidationException::withMessages([
-                'error' => 'Only draft assignments or those before P4 can be updated.',
-            ]);
+        try {
+            $updated = $this->service->updateAssignment(
+                $companyId,
+                (int) $assignment->id,
+                $request->submittedUpdatePayload(),
+                $request->user()?->id,
+                $request->user(),
+            );
+        } catch (CrewMovementException $e) {
+            throw ValidationException::withMessages(['error' => $e->getMessage()]);
         }
 
-        $updateData = Arr::only($validated, [
-            'rank_id',
-            'client_id',
-            'vessel_id',
-            'planned_join_at',
-            'planned_arrival_at',
-            'planned_signoff_at',
-            'remarks',
-        ]);
-        $updateData['updated_by'] = $request->user()?->id;
-
-        DB::transaction(function () use ($assignment, $updateData): void {
-            $assignment->update($updateData);
-        });
-
         return redirect()
-            ->route('organization.crew-assignments.show', $assignment)
+            ->route('organization.crew-assignments.show', $updated)
             ->with('success', 'Crew assignment updated successfully.');
     }
 

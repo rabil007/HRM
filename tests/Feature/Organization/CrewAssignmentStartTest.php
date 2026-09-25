@@ -901,6 +901,7 @@ test('save as planned does not apply assignment start versus sign-off ordering',
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
         'crew_operations.planning.create',
     ]);
+    $vessel = makeCrewMovementVessel('Plan Order Vessel', $company);
     Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
 
     $this->actingAs($user)
@@ -908,6 +909,7 @@ test('save as planned does not apply assignment start versus sign-off ordering',
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
             'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])

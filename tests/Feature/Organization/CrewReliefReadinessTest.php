@@ -88,7 +88,7 @@ it('resolves assignment_created, mobilising, ready_to_join and relief_onboard', 
     $linked = createAssignmentFromPlanning($planning, $fixtures['user']->id);
     expect($planning->fresh()->relieves_crew_assignment_id)->toBe($source->id)
         ->and((new CrewReliefReadinessResolver)->forSourceAssignment($source->fresh())->status)
-        ->toBe(CrewReliefStatus::AssignmentCreated);
+        ->toBe(CrewReliefStatus::NoRelief);
 
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([

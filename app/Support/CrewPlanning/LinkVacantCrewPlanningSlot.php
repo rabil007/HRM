@@ -5,7 +5,6 @@ namespace App\Support\CrewPlanning;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
-use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -22,13 +21,13 @@ final class LinkVacantCrewPlanningSlot
      *     rank_id?: int|null,
      *     planned_join_at?: string|null,
      *     planned_signoff_at?: string|null,
-     * }  $submitted
+     * }  $submitted  Unused for identity — assignment fields are authoritative.
      */
     public function handle(
         int $companyId,
         int $planningAssignmentId,
         CrewAssignment $assignment,
-        array $submitted,
+        array $submitted = [],
         ?User $actor = null,
     ): void {
         if ($actor === null || ! $actor->can('crew_operations.planning.view')) {
@@ -63,39 +62,38 @@ final class LinkVacantCrewPlanningSlot
             ]);
         }
 
-        $this->assertCompatibleContext($planning, $submitted);
+        $this->assertCompatibleWithAssignment($planning, $assignment);
 
         $planning->update([
             'crew_assignment_id' => $assignment->id,
         ]);
     }
 
-    /**
-     * @param  array{
-     *     vessel_id?: int|null,
-     *     rank_id?: int|null,
-     *     planned_join_at?: string|null,
-     *     planned_signoff_at?: string|null,
-     * }  $submitted
-     */
-    private function assertCompatibleContext(CrewPlanningAssignment $planning, array $submitted): void
-    {
-        $submittedVesselId = isset($submitted['vessel_id']) && $submitted['vessel_id'] !== null && $submitted['vessel_id'] !== ''
-            ? (int) $submitted['vessel_id']
-            : null;
-        $submittedRankId = isset($submitted['rank_id']) && $submitted['rank_id'] !== null && $submitted['rank_id'] !== ''
-            ? (int) $submitted['rank_id']
-            : null;
+    private function assertCompatibleWithAssignment(
+        CrewPlanningAssignment $planning,
+        CrewAssignment $assignment,
+    ): void {
+        if ($assignment->vessel_id === null) {
+            throw ValidationException::withMessages([
+                'vessel_id' => 'The crew assignment must have a vessel before linking a planning slot.',
+            ]);
+        }
 
-        if ($planning->vessel_id !== null && $submittedVesselId !== null
-            && (int) $planning->vessel_id !== $submittedVesselId) {
+        if ($assignment->rank_id === null) {
+            throw ValidationException::withMessages([
+                'rank_id' => 'The crew assignment must have a rank before linking a planning slot.',
+            ]);
+        }
+
+        if ($planning->vessel_id !== null
+            && (int) $planning->vessel_id !== (int) $assignment->vessel_id) {
             throw ValidationException::withMessages([
                 'planning_assignment_id' => 'The planning slot vessel does not match this crew assignment.',
             ]);
         }
 
-        if ($planning->rank_id !== null && $submittedRankId !== null
-            && (int) $planning->rank_id !== $submittedRankId) {
+        if ($planning->rank_id !== null
+            && (int) $planning->rank_id !== (int) $assignment->rank_id) {
             throw ValidationException::withMessages([
                 'planning_assignment_id' => 'The planning slot rank does not match this crew assignment.',
             ]);
@@ -103,11 +101,10 @@ final class LinkVacantCrewPlanningSlot
 
         $slotJoin = $planning->planned_join_date?->toDateString();
         $slotLeave = $planning->planned_leave_date?->toDateString();
-        $assignmentJoin = $this->toDateString($submitted['planned_join_at'] ?? null);
-        $assignmentSignoff = $this->toDateString($submitted['planned_signoff_at'] ?? null);
+        $assignmentJoin = $assignment->planned_join_at?->toDateString();
+        $assignmentSignoff = $assignment->planned_signoff_at?->toDateString();
 
         // Named assignments may occupy a valid subset of the vacant slot window.
-        // Each boundary is checked independently (equal join must still respect leave).
         if ($slotJoin !== null && $assignmentJoin !== null && $assignmentJoin < $slotJoin) {
             throw ValidationException::withMessages([
                 'planning_assignment_id' => 'The planning slot dates are not compatible with this crew assignment.',
@@ -125,14 +122,5 @@ final class LinkVacantCrewPlanningSlot
                 'planning_assignment_id' => 'The planning slot dates are not compatible with this crew assignment.',
             ]);
         }
-    }
-
-    private function toDateString(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return CarbonImmutable::parse((string) $value)->toDateString();
     }
 }

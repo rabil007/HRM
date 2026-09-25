@@ -52,6 +52,7 @@ export default function CrewAssignmentEdit({
         vessel_id: assignment.vessel?.id ?? null,
         planned_join_at: assignment.planned_join_at ?? '',
         planned_arrival_at: assignment.planned_arrival_at ?? '',
+        planned_signoff_at: assignment.planned_signoff_at ?? '',
         remarks: assignment.remarks ?? '',
     });
 

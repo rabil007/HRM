@@ -212,7 +212,7 @@ test('relief desk shows planning-only relief as open relief plan', function () {
         );
 });
 
-test('relief desk shows converted draft assignment as assignment created', function () {
+test('relief desk does not treat draft conversion as committed relief', function () {
     $fixtures = makeReliefDeskFixtures();
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 11, 'Source Draft');
     $plan = makeReliefPlanFor(
@@ -220,15 +220,14 @@ test('relief desk shows converted draft assignment as assignment created', funct
         makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Draft Relief'),
         $fixtures['today']->addDays(11),
     );
-    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    createAssignmentFromPlanning($plan, $fixtures['user']->id);
 
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-planning.index', ['view' => 'relief']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::AssignmentCreated->value)
-            ->where('relief_desk.rows.0.relief_crew_assignment_id', $linked->id)
-            ->where('relief_desk.rows.0.recommended_action.key', 'open_relief_assignment')
+            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::NoRelief->value)
+            ->where('relief_desk.rows.0.relief_crew_assignment_id', null)
         );
 });
 
@@ -392,7 +391,13 @@ test('relief desk surfaces mobilisation readiness for pre-join relief without bl
     $reliefEmployee = makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Readiness Relief');
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 8, 'Readiness Source');
     $plan = makeReliefPlanFor($source, $reliefEmployee, $fixtures['today']->addDays(8));
-    createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
 
     if ($case !== 'none') {
         $type = DocumentType::query()->create([
@@ -474,7 +479,13 @@ test('open assignment actions are hidden without assignment view permission', fu
     ]);
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 9, 'Hidden Assignment');
     $plan = makeReliefPlanFor($source, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Hidden Relief'), $fixtures['today']->addDays(9));
-    createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
 
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-planning.index', ['view' => 'relief']))

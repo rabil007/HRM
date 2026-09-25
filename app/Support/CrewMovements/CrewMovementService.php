@@ -154,6 +154,18 @@ final class CrewMovementService
 
             $actor = $actorId !== null ? User::query()->find($actorId) : null;
 
+            if ($masters['vesselId'] === null) {
+                throw ValidationException::withMessages([
+                    'vessel_id' => 'Vessel is required when saving as Planned.',
+                ]);
+            }
+
+            if ($masters['rankId'] === null) {
+                throw ValidationException::withMessages([
+                    'rank_id' => 'Rank is required when saving as Planned.',
+                ]);
+            }
+
             $conflictContext = new CrewAssignmentConflictContext(
                 companyId: $companyId,
                 employeeId: $employeeId,
@@ -220,6 +232,183 @@ final class CrewMovementService
 
             return $assignment;
         });
+    }
+
+    /**
+     * Authoritative update for editable Draft / Planned / pre-P4 Active assignments.
+     *
+     * FormRequest may provide early UX validation; this method re-locks, rebuilds the
+     * effective candidate from submitted keys, re-checks state-specific invariants and
+     * conflicts, then persists inside the same transaction.
+     *
+     * @param  array<string, mixed>  $attributes  Only keys present in the write payload
+     */
+    public function updateAssignment(
+        int $companyId,
+        int $assignmentId,
+        array $attributes,
+        ?int $actorId = null,
+        ?User $actor = null,
+    ): CrewAssignment {
+        return DB::transaction(function () use ($companyId, $assignmentId, $attributes, $actorId, $actor): CrewAssignment {
+            $assignment = $this->reloadLocked($companyId, $assignmentId);
+            $this->lockEmployee($companyId, (int) $assignment->employee_id);
+
+            if (! CrewAssignmentEditability::isEditable($assignment)) {
+                throw ValidationException::withMessages([
+                    'error' => 'Only draft assignments or those before P4 can be updated.',
+                ]);
+            }
+
+            $timezone = CompanyTimezone::forCompanyId($companyId);
+            $candidate = CrewAssignmentUpdateCandidate::resolve($assignment, $attributes, $timezone);
+            $this->assertUpdateCandidateValid($assignment, $candidate);
+
+            $this->assertUpdateConflicts(
+                $assignment,
+                $candidate,
+                $actor ?? ($actorId !== null ? User::query()->find($actorId) : null),
+            );
+
+            $persist = CrewAssignmentUpdateCandidate::persistableSlice($attributes, $candidate);
+            $persist['updated_by'] = $actorId;
+
+            $assignment->update($persist);
+
+            $assignment = $this->reloadLocked($companyId, $assignmentId);
+            $this->invariants->assertValid($assignment);
+
+            return $assignment;
+        });
+    }
+
+    /**
+     * @param  array{
+     *     rank_id: int|null,
+     *     client_id: int|null,
+     *     vessel_id: int|null,
+     *     planned_arrival_at: CarbonInterface|null,
+     *     planned_join_at: CarbonInterface|null,
+     *     planned_signoff_at: CarbonInterface|null,
+     *     remarks: string|null,
+     * }  $candidate
+     */
+    private function assertUpdateCandidateValid(CrewAssignment $assignment, array $candidate): void
+    {
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $arrival = $candidate['planned_arrival_at']?->copy()->timezone($timezone)->toDateString();
+        $join = $candidate['planned_join_at']?->copy()->timezone($timezone)->toDateString();
+        $signoff = $candidate['planned_signoff_at']?->copy()->timezone($timezone)->toDateString();
+
+        if ($assignment->status === CrewAssignmentStatus::Planned) {
+            if ($candidate['vessel_id'] === null) {
+                throw ValidationException::withMessages([
+                    'vessel_id' => 'Vessel is required for Planned assignments.',
+                ]);
+            }
+
+            if ($candidate['rank_id'] === null) {
+                throw ValidationException::withMessages([
+                    'rank_id' => 'Rank is required for Planned assignments.',
+                ]);
+            }
+
+            if ($candidate['planned_join_at'] === null) {
+                throw ValidationException::withMessages([
+                    'planned_join_at' => 'Expected Vessel Join is required for Planned assignments.',
+                ]);
+            }
+
+            if ($candidate['planned_signoff_at'] === null) {
+                throw ValidationException::withMessages([
+                    'planned_signoff_at' => 'Expected Sign-Off is required for Planned assignments.',
+                ]);
+            }
+        }
+
+        if ($arrival !== null && $join !== null && $arrival > $join) {
+            throw ValidationException::withMessages([
+                'planned_arrival_at' => 'Arrival Date cannot be after Expected Vessel Join.',
+            ]);
+        }
+
+        if ($join !== null && $signoff !== null && $signoff < $join) {
+            throw ValidationException::withMessages([
+                'planned_signoff_at' => 'Expected Sign-off cannot be before Expected Vessel Join.',
+            ]);
+        }
+
+        if ($assignment->status === CrewAssignmentStatus::Active
+            && $assignment->started_at !== null
+            && $signoff !== null) {
+            $startDate = $assignment->started_at->copy()->timezone($timezone)->toDateString();
+
+            if ($signoff < $startDate) {
+                throw ValidationException::withMessages([
+                    'planned_signoff_at' => 'Expected Sign-Off cannot be before Assignment Start.',
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param  array{
+     *     rank_id: int|null,
+     *     client_id: int|null,
+     *     vessel_id: int|null,
+     *     planned_arrival_at: CarbonInterface|null,
+     *     planned_join_at: CarbonInterface|null,
+     *     planned_signoff_at: CarbonInterface|null,
+     *     remarks: string|null,
+     * }  $candidate
+     */
+    private function assertUpdateConflicts(
+        CrewAssignment $assignment,
+        array $candidate,
+        ?User $actor,
+    ): void {
+        if ($assignment->status === CrewAssignmentStatus::Draft) {
+            return;
+        }
+
+        $companyId = (int) $assignment->company_id;
+
+        if ($assignment->status === CrewAssignmentStatus::Planned) {
+            $context = new CrewAssignmentConflictContext(
+                companyId: $companyId,
+                employeeId: (int) $assignment->employee_id,
+                action: 'plan',
+                plannedJoinAt: $candidate['planned_join_at'],
+                plannedSignoffAt: $candidate['planned_signoff_at'],
+                plannedArrivalAt: $candidate['planned_arrival_at'],
+                vesselId: $candidate['vessel_id'],
+                rankId: $candidate['rank_id'],
+                clientId: $candidate['client_id'],
+                currentAssignmentId: (int) $assignment->id,
+                actor: $actor,
+            );
+            $this->conflictEvaluator->assertNoBlockingConflicts($context, withLock: true);
+
+            return;
+        }
+
+        if ($assignment->status === CrewAssignmentStatus::Active) {
+            $context = new CrewAssignmentConflictContext(
+                companyId: $companyId,
+                employeeId: (int) $assignment->employee_id,
+                action: 'start',
+                plannedJoinAt: $candidate['planned_join_at'],
+                plannedSignoffAt: $candidate['planned_signoff_at'],
+                plannedArrivalAt: $candidate['planned_arrival_at'],
+                operationalStartAt: $assignment->started_at,
+                vesselId: $candidate['vessel_id'],
+                rankId: $candidate['rank_id'],
+                clientId: $candidate['client_id'],
+                currentAssignmentId: (int) $assignment->id,
+                actor: $actor,
+            );
+            $this->conflictEvaluator->assertNoBlockingConflicts($context, withLock: true);
+        }
     }
 
     /**
