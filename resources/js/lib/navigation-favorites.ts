@@ -179,6 +179,12 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Crew Operations',
     },
     {
+        key: 'reports.hotel-checkin-checkout',
+        label: 'Hotel Stays',
+        href: '/organization/reports/hotel-checkin-checkout',
+        group: 'Crew Operations',
+    },
+    {
         key: 'crew.settings',
         label: 'Settings',
         href: '/organization/crew-operations/settings',

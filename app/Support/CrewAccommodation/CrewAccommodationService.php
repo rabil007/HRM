@@ -929,9 +929,9 @@ final class CrewAccommodationService
         return Carbon::parse((string) $value, $timezone)->startOfDay();
     }
 
-    private function stayDays(
+    public static function calculateStayDays(
         ?CarbonInterface $checkIn,
-        CarbonInterface $through,
+        ?CarbonInterface $through,
         string $timezone,
     ): ?int {
         if ($checkIn === null) {
@@ -939,9 +939,17 @@ final class CrewAccommodationService
         }
 
         $from = $checkIn->copy()->timezone($timezone)->startOfDay();
-        $to = $through->copy()->timezone($timezone)->startOfDay();
+        $to = ($through ?? Carbon::now($timezone))->copy()->timezone($timezone)->startOfDay();
 
         return max(0, (int) $from->diffInDays($to));
+    }
+
+    private function stayDays(
+        ?CarbonInterface $checkIn,
+        CarbonInterface $through,
+        string $timezone,
+    ): ?int {
+        return self::calculateStayDays($checkIn, $through, $timezone);
     }
 
     /**
