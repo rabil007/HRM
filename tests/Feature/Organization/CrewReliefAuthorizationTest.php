@@ -3,7 +3,6 @@
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\User;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Illuminate\Support\Facades\DB;
 
 test('guests cannot access crew assignments index for relief filters', function () {
@@ -47,15 +46,10 @@ it('requires planning create permission to plan relief', function () {
         $fixtures['rank'],
         makeCrewMovementVessel('Auth Viewer Vessel'),
     );
-    $relief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'active',
-    ]);
 
     $this->actingAs($viewer)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
         'rank_id' => $source->rank_id,
-        'employee_id' => $relief->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -87,7 +81,6 @@ it('allows planning creator to plan relief and convert via support action', func
     $this->actingAs($planner)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
         'rank_id' => $source->rank_id,
-        'employee_id' => $relief->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -97,10 +90,12 @@ it('allows planning creator to plan relief and convert via support action', func
         ->where('relieves_crew_assignment_id', $source->id)
         ->firstOrFail();
 
-    $assignment = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $planner->id);
+    $assignment = createAssignmentFromPlanning($planning, $planner->id, $relief->id);
 
     expect($planning->fresh()->crew_assignment_id)->toBe($assignment->id)
-        ->and($planning->fresh()->relieves_crew_assignment_id)->toBe($source->id);
+        ->and($planning->fresh()->relieves_crew_assignment_id)->toBe($source->id)
+        ->and($assignment->employee_id)->toBe($relief->id)
+        ->and($assignment->relieves_crew_assignment_id)->toBe($source->id);
 });
 
 it('rejects cross-company relief source ids', function () {
@@ -119,16 +114,11 @@ it('rejects cross-company relief source ids', function () {
         $other['rank'],
         makeCrewMovementVessel('Foreign Source Vessel'),
     );
-    $relief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'active',
-    ]);
     $localVessel = makeCrewMovementVessel('Local Auth Vessel');
 
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $localVessel->id,
         'rank_id' => $fixtures['rank']->id,
-        'employee_id' => $relief->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $foreignSource->id,

@@ -2,12 +2,10 @@
 
 use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPlannedSignoffSource;
-use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
 
@@ -48,7 +46,8 @@ it('recalculates tour-derived planned sign-off when approved p4 start changes', 
     );
     $phase = $assignment->currentPhase;
     $phase->update(['planned_end_at' => '2026-04-01 00:00:00']);
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment->fresh());
+    $planning = syncPlanningFromAssignment($assignment->fresh());
+    $originalLeaveDate = $planning->planned_leave_date?->toDateString();
 
     $correction = app(RequestCrewMovementCorrection::class)->handle(
         $assignment,
@@ -60,8 +59,7 @@ it('recalculates tour-derived planned sign-off when approved p4 start changes', 
 
     expect($phase->fresh()->actual_start_at?->toDateString())->toBe('2026-01-03')
         ->and($assignment->fresh()->planned_signoff_at?->toDateString())->toBe('2026-04-01')
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->value('planned_leave_date')?->toDateString())
-        ->toBe('2026-04-01');
+        ->and($planning->fresh()->planned_leave_date?->toDateString())->toBe('2026-04-01');
 
     $this->actingAs($approver)
         ->post(route('organization.crew-movement-corrections.approve', $correction), [
@@ -71,14 +69,15 @@ it('recalculates tour-derived planned sign-off when approved p4 start changes', 
 
     $assignment->refresh();
     $phase->refresh();
-    $planning = CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->first();
+    $planning->refresh();
 
     expect($correction->fresh()->status)->toBe(CrewMovementCorrectionStatus::Approved)
         ->and($phase->actual_start_at?->timezone($fixtures['company']->timezone)->toDateString())->toBe('2026-02-01')
         ->and($assignment->tour_of_duty_days)->toBe(90)
         ->and($assignment->planned_signoff_at?->timezone($fixtures['company']->timezone)->toDateString())->toBe('2026-05-02')
         ->and($phase->planned_end_at?->timezone($fixtures['company']->timezone)->toDateString())->toBe('2026-05-02')
-        ->and($planning?->planned_leave_date?->toDateString())->toBe('2026-05-02')
+        ->and($planning->planned_leave_date?->toDateString())->toBe($originalLeaveDate)
+        ->and($originalLeaveDate)->toBe('2026-04-01')
         ->and(Activity::query()
             ->where('subject_type', $assignment::class)
             ->where('subject_id', $assignment->id)
@@ -125,7 +124,8 @@ it('preserves manual planned sign-off when p4 start is corrected', function () {
     );
     $phase = $assignment->currentPhase;
     $phase->update(['planned_end_at' => '2026-03-15 00:00:00']);
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment->fresh());
+    $planning = syncPlanningFromAssignment($assignment->fresh());
+    $originalLeaveDate = $planning->planned_leave_date?->toDateString();
 
     $correction = app(RequestCrewMovementCorrection::class)->handle(
         $assignment,
@@ -141,12 +141,13 @@ it('preserves manual planned sign-off when p4 start is corrected', function () {
 
     $assignment->refresh();
     $phase->refresh();
-    $planning = CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->first();
+    $planning->refresh();
 
     expect($assignment->planned_signoff_at?->timezone($fixtures['company']->timezone)->toDateString())->toBe('2026-03-15')
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
         ->and($phase->planned_end_at?->timezone($fixtures['company']->timezone)->toDateString())->toBe('2026-03-15')
-        ->and($planning?->planned_leave_date?->toDateString())->toBe('2026-03-15');
+        ->and($planning->planned_leave_date?->toDateString())->toBe($originalLeaveDate)
+        ->and($originalLeaveDate)->toBe('2026-03-15');
 });
 
 it('preserves existing_plan sign-off when p4 start is corrected', function () {
@@ -173,7 +174,8 @@ it('preserves existing_plan sign-off when p4 start is corrected', function () {
     );
     $phase = $assignment->currentPhase;
     $phase->update(['planned_end_at' => '2026-11-08 00:00:00']);
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment->fresh());
+    $planning = syncPlanningFromAssignment($assignment->fresh());
+    $originalLeaveDate = $planning->planned_leave_date?->toDateString();
 
     $correction = app(RequestCrewMovementCorrection::class)->handle(
         $assignment,
@@ -191,13 +193,14 @@ it('preserves existing_plan sign-off when p4 start is corrected', function () {
 
     $assignment->refresh();
     $phase->refresh();
-    $planning = CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->first();
+    $planning->refresh();
 
     expect($assignment->tour_of_duty_days)->toBe(75)
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ExistingPlan)
         ->and($assignment->planned_signoff_at?->timezone($fixtures['company']->timezone)->toDateString())->toBe('2026-11-08')
         ->and($phase->planned_end_at?->timezone($fixtures['company']->timezone)->toDateString())->toBe('2026-11-08')
-        ->and($planning?->planned_leave_date?->toDateString())->toBe('2026-11-08');
+        ->and($planning->planned_leave_date?->toDateString())->toBe($originalLeaveDate)
+        ->and($originalLeaveDate)->toBe('2026-11-08');
 });
 
 it('rolls back tour recalculation when approval fails after apply', function () {

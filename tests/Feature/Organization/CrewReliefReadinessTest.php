@@ -10,7 +10,6 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 
 it('presenter includes relief readiness fields for on-vessel assignments', function () {
@@ -86,10 +85,10 @@ it('resolves assignment_created, mobilising, ready_to_join and relief_onboard', 
         'planned_leave_date' => now()->addDays(100)->toDateString(),
     ]);
 
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($planning, $fixtures['user']->id);
     expect($planning->fresh()->relieves_crew_assignment_id)->toBe($source->id)
         ->and((new CrewReliefReadinessResolver)->forSourceAssignment($source->fresh())->status)
-        ->toBe(CrewReliefStatus::AssignmentCreated);
+        ->toBe(CrewReliefStatus::NoRelief);
 
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
@@ -160,19 +159,10 @@ it('rejects duplicate active relief plans', function () {
         $fixtures['rank'],
         makeCrewMovementVessel('Dup Relief Vessel'),
     );
-    $firstRelief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'active',
-    ]);
-    $secondRelief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'active',
-    ]);
 
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
         'rank_id' => $source->rank_id,
-        'employee_id' => $firstRelief->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -181,7 +171,6 @@ it('rejects duplicate active relief plans', function () {
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
         'rank_id' => $source->rank_id,
-        'employee_id' => $secondRelief->id,
         'planned_join_date' => now()->addDays(11)->toDateString(),
         'planned_leave_date' => now()->addDays(101)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,

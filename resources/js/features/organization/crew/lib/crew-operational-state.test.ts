@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
     currentStateLabel,
     otherValidMovementActions,
+    resolveOperatorNextStepButtons,
 } from './crew-operational-state.ts';
 
 const permissions = {
@@ -125,5 +126,164 @@ describe('crew operational state helpers', () => {
             ),
             ['redeploy'],
         );
+    });
+});
+
+describe('resolveOperatorNextStepButtons', () => {
+    it('shows Start Assignment once when draft has no readiness issue', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'movement',
+                action: 'approve_mobilisation',
+                label: 'Start Assignment',
+                reason: 'Assignment is in draft.',
+                href: null,
+                anyway_action: null,
+                anyway_label: null,
+            },
+            availableActions: ['approve_mobilisation', 'cancel_assignment'],
+            permissions,
+            canViewDocuments: true,
+            canViewPlanning: false,
+        });
+
+        const startLabels = buttons.filter((button) =>
+            button.label.includes('Start Assignment'),
+        );
+
+        assert.equal(startLabels.length, 1);
+        assert.equal(startLabels[0]?.kind, 'movement');
+        assert.equal(startLabels[0]?.action, 'approve_mobilisation');
+        assert.ok(buttons.some((button) => button.kind === 'cancel'));
+        assert.equal(
+            buttons.some((button) => button.label.includes('Anyway')),
+            false,
+        );
+    });
+
+    it('keeps advisory readiness guidance without a second Start Anyway button', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'readiness',
+                action: null,
+                label: 'Resolve readiness issues before mobilisation',
+                reason: 'One mobilisation requirement needs attention. This is guidance only and does not block movement.',
+                href: '/organization/documents/employees/1',
+                anyway_action: null,
+                anyway_label: null,
+            },
+            availableActions: ['approve_mobilisation', 'cancel_assignment'],
+            permissions,
+            canViewDocuments: true,
+            canViewPlanning: false,
+        });
+
+        assert.ok(buttons.some((button) => button.label === 'Open Documents'));
+        assert.equal(
+            buttons.filter((button) => button.label === 'Start Assignment')
+                .length,
+            1,
+        );
+        assert.equal(
+            buttons.some((button) =>
+                button.label.includes('Start Assignment Anyway'),
+            ),
+            false,
+        );
+        assert.ok(buttons.some((button) => button.kind === 'cancel'));
+        assert.ok(
+            buttons.some(
+                (button) =>
+                    button.action === 'approve_mobilisation' &&
+                    button.kind === 'movement',
+            ),
+        );
+    });
+
+    it('does not disable Start Assignment for advisory readiness', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'readiness',
+                action: null,
+                label: 'Resolve readiness issues before mobilisation',
+                reason: 'Guidance only.',
+                href: '/docs',
+                anyway_action: null,
+                anyway_label: null,
+            },
+            availableActions: ['approve_mobilisation'],
+            permissions: { perform_movement: true, cancel: false },
+            canViewDocuments: true,
+            canViewPlanning: false,
+        });
+
+        assert.ok(
+            buttons.some(
+                (button) =>
+                    button.action === 'approve_mobilisation' &&
+                    button.kind === 'movement',
+            ),
+        );
+    });
+
+    it('preserves an authorized override button when anyway_action is present', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'readiness',
+                action: null,
+                label: 'Resolve readiness issues before mobilisation',
+                reason: 'Blocked until resolved.',
+                href: '/docs',
+                anyway_action: 'approve_mobilisation',
+                anyway_label: 'Start Assignment Anyway',
+            },
+            availableActions: ['approve_mobilisation', 'cancel_assignment'],
+            permissions,
+            canViewDocuments: true,
+            canViewPlanning: false,
+        });
+
+        assert.equal(
+            buttons.filter((button) =>
+                button.label.includes('Start Assignment'),
+            ).length,
+            1,
+        );
+        assert.equal(
+            buttons.find((button) => button.kind === 'anyway')?.label,
+            'Start Assignment Anyway',
+        );
+        assert.equal(
+            buttons.some(
+                (button) =>
+                    button.kind === 'movement' &&
+                    button.action === 'approve_mobilisation',
+            ),
+            false,
+        );
+    });
+
+    it('hides override when the user cannot perform movement', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'readiness',
+                action: null,
+                label: 'Resolve readiness issues before mobilisation',
+                reason: 'Blocked.',
+                href: '/docs',
+                anyway_action: 'approve_mobilisation',
+                anyway_label: 'Start Assignment Anyway',
+            },
+            availableActions: ['approve_mobilisation', 'cancel_assignment'],
+            permissions: { perform_movement: false, cancel: true },
+            canViewDocuments: true,
+            canViewPlanning: false,
+        });
+
+        assert.equal(
+            buttons.some((button) => button.kind === 'anyway'),
+            false,
+        );
+        assert.ok(buttons.some((button) => button.kind === 'cancel'));
     });
 });

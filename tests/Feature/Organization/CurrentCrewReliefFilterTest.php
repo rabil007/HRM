@@ -10,7 +10,6 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewOperations\CrewOperationsDashboardAnalytics;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -129,7 +128,7 @@ it('matches current crew relief filters to daily dashboard risk and action signa
         'planned_join_date' => '2026-09-01',
         'planned_leave_date' => '2026-12-01',
     ]);
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($planning, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::ReadyToJoin,

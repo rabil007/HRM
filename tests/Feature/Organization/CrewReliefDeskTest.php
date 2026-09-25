@@ -15,7 +15,6 @@ use App\Models\EmployeeDocument;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -213,7 +212,7 @@ test('relief desk shows planning-only relief as open relief plan', function () {
         );
 });
 
-test('relief desk shows converted draft assignment as assignment created', function () {
+test('relief desk does not treat draft conversion as committed relief', function () {
     $fixtures = makeReliefDeskFixtures();
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 11, 'Source Draft');
     $plan = makeReliefPlanFor(
@@ -221,15 +220,14 @@ test('relief desk shows converted draft assignment as assignment created', funct
         makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Draft Relief'),
         $fixtures['today']->addDays(11),
     );
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    createAssignmentFromPlanning($plan, $fixtures['user']->id);
 
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-planning.index', ['view' => 'relief']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::AssignmentCreated->value)
-            ->where('relief_desk.rows.0.relief_crew_assignment_id', $linked->id)
-            ->where('relief_desk.rows.0.recommended_action.key', 'open_relief_assignment')
+            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::NoRelief->value)
+            ->where('relief_desk.rows.0.relief_crew_assignment_id', null)
         );
 });
 
@@ -241,7 +239,7 @@ test('relief desk maps linked pre-join phases to mobilising and ready to join', 
         makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Phase Relief'),
         $fixtures['today']->addDays(9),
     );
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => $phase,
@@ -272,7 +270,7 @@ test('relief desk filter options exclude ready to join but still resolve histori
         makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Filter Relief'),
         $fixtures['today']->addDays(9),
     );
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::ReadyToJoin,
@@ -311,7 +309,7 @@ test('relief desk shows relief onboard without closing the source assignment', f
         makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Onboard Relief'),
         $fixtures['today']->addDays(4),
     );
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::OnVessel,
@@ -337,12 +335,12 @@ test('cancelled completed and soft-deleted reliefs do not count as operational r
 
     $cancelledSource = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 6, 'Cancelled Source');
     $cancelledPlan = makeReliefPlanFor($cancelledSource, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Cancelled Relief'), $fixtures['today']->addDays(6));
-    $cancelledLinked = app(CreateCrewAssignmentFromPlanning::class)->handle($cancelledPlan, $fixtures['user']->id);
+    $cancelledLinked = createAssignmentFromPlanning($cancelledPlan, $fixtures['user']->id);
     $cancelledLinked->update(['status' => CrewAssignmentStatus::Cancelled]);
 
     $completedSource = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], makeCrewMovementVessel('Completed Vessel', $fixtures['company']), $fixtures['today'], 6, 'Completed Source');
     $completedPlan = makeReliefPlanFor($completedSource, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Completed Relief'), $fixtures['today']->addDays(6));
-    $completedLinked = app(CreateCrewAssignmentFromPlanning::class)->handle($completedPlan, $fixtures['user']->id);
+    $completedLinked = createAssignmentFromPlanning($completedPlan, $fixtures['user']->id);
     $completedLinked->update(['status' => CrewAssignmentStatus::Completed]);
 
     $deletedSource = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], makeCrewMovementVessel('Deleted Plan Vessel', $fixtures['company']), $fixtures['today'], 6, 'Deleted Source');
@@ -364,7 +362,7 @@ test('relief desk risk follows existing readiness semantics', function (int $day
 
     if ($status === CrewReliefStatus::ReadyToJoin->value) {
         $plan = makeReliefPlanFor($source, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Ready Relief'), $fixtures['today']->addDays(max($days, 1)));
-        $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+        $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
         $linked->update(['status' => CrewAssignmentStatus::Active]);
         $linked->currentPhase->update([
             'phase_code' => CrewPhaseCode::ReadyToJoin,
@@ -393,7 +391,13 @@ test('relief desk surfaces mobilisation readiness for pre-join relief without bl
     $reliefEmployee = makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Readiness Relief');
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 8, 'Readiness Source');
     $plan = makeReliefPlanFor($source, $reliefEmployee, $fixtures['today']->addDays(8));
-    app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
 
     if ($case !== 'none') {
         $type = DocumentType::query()->create([
@@ -475,7 +479,13 @@ test('open assignment actions are hidden without assignment view permission', fu
     ]);
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 9, 'Hidden Assignment');
     $plan = makeReliefPlanFor($source, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Hidden Relief'), $fixtures['today']->addDays(9));
-    app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
 
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-planning.index', ['view' => 'relief']))
@@ -511,7 +521,7 @@ test('focus filters limit the desk to matching operational buckets', function ()
     makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 5, 'Needs Relief');
     $readySource = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], makeCrewMovementVessel('Ready Vessel', $fixtures['company']), $fixtures['today'], 4, 'Ready Source');
     $plan = makeReliefPlanFor($readySource, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Ready Relief'), $fixtures['today']->addDays(4));
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::ReadyToJoin,

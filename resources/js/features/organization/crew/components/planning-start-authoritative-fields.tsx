@@ -40,17 +40,27 @@ export function PlanningStartAuthoritativeFields({
             <div className="grid gap-4 rounded-xl border border-border/60 bg-muted/10 p-4 md:grid-cols-2">
                 <ReadOnlyField
                     label="Crew Member"
-                    value={context.employee_name}
+                    value={context.employee_name ?? 'Select on form'}
                 />
-                <ReadOnlyField label="Rank" value={context.rank_name} />
+                <ReadOnlyField
+                    label="Rank"
+                    value={context.rank_name ?? 'Select on form'}
+                />
                 <ReadOnlyField
                     label="Client"
                     value={context.client_name ?? 'Not assigned'}
                 />
-                <ReadOnlyField label="Vessel" value={context.vessel_name} />
+                <ReadOnlyField
+                    label="Vessel"
+                    value={context.vessel_name ?? 'Select on form'}
+                />
                 <ReadOnlyField
                     label="Expected Vessel Join"
-                    value={formatDisplayDate(context.planned_join_at)}
+                    value={
+                        context.planned_join_at
+                            ? formatDisplayDate(context.planned_join_at)
+                            : 'Select on form'
+                    }
                 />
             </div>
         </section>

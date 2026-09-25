@@ -15,7 +15,6 @@ use App\Models\User;
 use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\ReconcileCrewOperationalAlerts;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -211,7 +210,7 @@ test('signoff no relief and relief not ready create distinct alerts', function (
         'planned_join_date' => '2026-08-10',
         'planned_leave_date' => '2026-11-10',
     ]);
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($planning, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::TravelIn,

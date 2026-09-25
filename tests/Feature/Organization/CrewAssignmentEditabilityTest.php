@@ -455,7 +455,7 @@ test('15. P4 Request Correction still works', function () {
     expect($p4->corrections()->where('status', 'pending')->exists())->toBeTrue();
 });
 
-test('16. clearing optional edit fields persists null without wiping stored planned sign-off or travel', function () {
+test('16. clearing optional edit fields nulls planned sign-off but preserves planned travel', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Clear Fields Vessel');
     $client = Client::query()->create(['name' => 'Clear Client '.Str::uuid(), 'is_active' => true]);
@@ -497,7 +497,7 @@ test('16. clearing optional edit fields persists null without wiping stored plan
         ->and($fresh->rank_id)->toBeNull()
         ->and($fresh->client_id)->toBeNull()
         ->and($fresh->planned_join_at)->toBeNull()
-        ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
+        ->and($fresh->planned_signoff_at)->toBeNull()
         ->and($fresh->planned_travel_at?->toDateString())->toBe('2026-11-05')
         ->and($fresh->remarks)->toBeNull()
         ->and($fresh->updated_by)->toBe($user->id);
@@ -568,7 +568,7 @@ test('18. edit assignment cannot mutate started_at phase or actual movement time
         ->and($fresh->currentPhase?->actual_end_at)->toBeNull();
 });
 
-test('19. normal edit payload updates expected vessel join and ignores planned sign-off or travel mutations', function () {
+test('19. normal edit payload updates expected vessel join and planned sign-off but ignores travel mutations', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Edit Payload Vessel');
     $client = Client::query()->create(['name' => 'Edit Payload Client '.Str::uuid(), 'is_active' => true]);
@@ -609,7 +609,7 @@ test('19. normal edit payload updates expected vessel join and ignores planned s
 
     expect($fresh->planned_join_at?->toDateString())->toBe('2026-09-20')
         ->and($fresh->remarks)->toBe('Updated from simplified edit form')
-        ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
+        ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-12-15')
         ->and($fresh->planned_travel_at?->toDateString())->toBe('2026-11-05');
 });
 

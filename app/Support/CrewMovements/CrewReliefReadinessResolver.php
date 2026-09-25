@@ -23,7 +23,7 @@ final class CrewReliefReadinessResolver
      */
     public function forSourceAssignment(
         CrewAssignment $source,
-        ?CrewPlanningAssignment $reliefPlan = null,
+        CrewAssignment|CrewPlanningAssignment|null $reliefPlan = null,
         ?CarbonInterface $asOf = null,
         ?string $timezone = null,
     ): CrewReliefReadinessResult {
@@ -47,7 +47,7 @@ final class CrewReliefReadinessResolver
      */
     public function forPreloadedPlan(
         CrewAssignment $source,
-        ?CrewPlanningAssignment $reliefPlan,
+        CrewAssignment|CrewPlanningAssignment|null $reliefPlan,
         ?CarbonInterface $asOf = null,
         ?string $timezone = null,
     ): CrewReliefReadinessResult {
@@ -79,8 +79,29 @@ final class CrewReliefReadinessResolver
         return CrewReliefRisk::None;
     }
 
-    public function findActiveReliefPlan(int $companyId, int $sourceAssignmentId): ?CrewPlanningAssignment
+    public function findActiveReliefPlan(int $companyId, int $sourceAssignmentId): CrewAssignment|CrewPlanningAssignment|null
     {
+        $assignments = CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->where('relieves_crew_assignment_id', $sourceAssignmentId)
+            ->whereIn('status', [
+                CrewAssignmentStatus::Planned,
+                CrewAssignmentStatus::Active,
+            ])
+            ->with([
+                'employee:id,name,employee_no',
+                'currentPhase',
+            ])
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($assignments as $assignment) {
+            if ($this->isOperationallyActive($assignment)) {
+                return $assignment;
+            }
+        }
+
+        // Fallback to legacy planning assignments if present
         $plans = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->where('relieves_crew_assignment_id', $sourceAssignmentId)
@@ -105,6 +126,24 @@ final class CrewReliefReadinessResolver
         int $sourceAssignmentId,
         ?int $exceptPlanningId = null,
     ): bool {
+        $hasAssignment = CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->where('relieves_crew_assignment_id', $sourceAssignmentId)
+            ->whereIn('status', [
+                CrewAssignmentStatus::Planned,
+                CrewAssignmentStatus::Active,
+            ])
+            ->when($exceptPlanningId !== null, fn ($q) => $q->whereKeyNot($exceptPlanningId))
+            ->with('currentPhase')
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($hasAssignment as $assignment) {
+            if ($this->isOperationallyActive($assignment)) {
+                return true;
+            }
+        }
+
         $plans = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->where('relieves_crew_assignment_id', $sourceAssignmentId)
@@ -123,14 +162,44 @@ final class CrewReliefReadinessResolver
     }
 
     /**
-     * Active operational relief: non-deleted Planning with no linked assignment,
-     * or a linked Draft/Active assignment whose current phase is still P0–P4.
+     * Active operational relief: non-deleted vacant Planning with no linked assignment,
+     * or a named Planned/Active CrewAssignment (or linked Active assignment) still in P0–P4.
+     * Draft CrewAssignments are non-committed and do not count.
      * Active P5/P6 replacements are historical and must not block a new plan.
      */
-    public function isOperationallyActive(CrewPlanningAssignment $plan): bool
+    public function isOperationallyActive(CrewAssignment|CrewPlanningAssignment $plan): bool
     {
         if ($plan->trashed()) {
             return false;
+        }
+
+        if ($plan instanceof CrewAssignment) {
+            if (in_array($plan->status, [
+                CrewAssignmentStatus::Completed,
+                CrewAssignmentStatus::Cancelled,
+                CrewAssignmentStatus::Draft,
+            ], true)) {
+                return false;
+            }
+
+            if ($plan->status === CrewAssignmentStatus::Planned) {
+                return true;
+            }
+
+            $phase = $plan->currentPhase;
+
+            if ($phase === null) {
+                return true;
+            }
+
+            return in_array($phase->phase_code, [
+                CrewPhaseCode::PreMobilisation,
+                CrewPhaseCode::TravelIn,
+                CrewPhaseCode::JoinStandby,
+                CrewPhaseCode::Training,
+                CrewPhaseCode::ReadyToJoin,
+                CrewPhaseCode::OnVessel,
+            ], true);
         }
 
         $linked = $plan->relationLoaded('crewAssignment')
@@ -142,10 +211,14 @@ final class CrewReliefReadinessResolver
         }
 
         if (! in_array($linked->status, [
-            CrewAssignmentStatus::Draft,
+            CrewAssignmentStatus::Planned,
             CrewAssignmentStatus::Active,
         ], true)) {
             return false;
+        }
+
+        if ($linked->status === CrewAssignmentStatus::Planned) {
+            return true;
         }
 
         $phase = $linked->relationLoaded('currentPhase')
@@ -182,7 +255,7 @@ final class CrewReliefReadinessResolver
 
     private function buildResult(
         CrewAssignment $source,
-        ?CrewPlanningAssignment $plan,
+        CrewAssignment|CrewPlanningAssignment|null $plan,
         ?CarbonInterface $asOf,
         ?string $timezone,
     ): CrewReliefReadinessResult {
@@ -197,6 +270,33 @@ final class CrewReliefReadinessResolver
 
         if ($plan === null || ! $this->isOperationallyActive($plan)) {
             return CrewReliefReadinessResult::none($signoffDate, $daysUntil);
+        }
+
+        if ($plan instanceof CrewAssignment) {
+            $status = $this->resolveAssignmentStatus($plan);
+            $risk = $this->riskFor($status, $daysUntil);
+            $phase = $plan->currentPhase;
+            $employee = $plan->employee;
+
+            return new CrewReliefReadinessResult(
+                status: $status,
+                risk: $risk,
+                reliefEmployee: $employee !== null ? [
+                    'id' => (int) $employee->id,
+                    'name' => (string) $employee->name,
+                    'employee_no' => $employee->employee_no !== null ? (string) $employee->employee_no : null,
+                ] : null,
+                reliefPlanningAssignmentId: (int) $plan->id,
+                reliefCrewAssignmentId: (int) $plan->id,
+                reliefPlannedJoinDate: $plan->planned_join_at?->copy()->timezone($timezone)->toDateString(),
+                reliefPhase: $phase !== null ? [
+                    'code' => $phase->phase_code->value,
+                    'label' => $phase->phase_code->label(),
+                    'status' => $phase->status->value,
+                ] : null,
+                sourcePlannedSignoffDate: $signoffDate,
+                daysUntilSignoff: $daysUntil,
+            );
         }
 
         $linked = $plan->relationLoaded('crewAssignment')
@@ -227,6 +327,41 @@ final class CrewReliefReadinessResolver
             sourcePlannedSignoffDate: $signoffDate,
             daysUntilSignoff: $daysUntil,
         );
+    }
+
+    private function resolveAssignmentStatus(CrewAssignment $assignment): CrewReliefStatus
+    {
+        if ($assignment->status === CrewAssignmentStatus::Planned) {
+            return CrewReliefStatus::ReliefPlanned;
+        }
+
+        $phase = $assignment->currentPhase;
+
+        if ($phase === null) {
+            return CrewReliefStatus::AssignmentCreated;
+        }
+
+        if ($phase->phase_code === CrewPhaseCode::OnVessel
+            && $phase->status === CrewPhaseStatus::Active
+            && $phase->actual_start_at !== null) {
+            return CrewReliefStatus::ReliefOnboard;
+        }
+
+        if ($phase->phase_code === CrewPhaseCode::ReadyToJoin
+            && $phase->status === CrewPhaseStatus::Active) {
+            return CrewReliefStatus::ReadyToJoin;
+        }
+
+        if (in_array($phase->phase_code, [
+            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::Training,
+        ], true)) {
+            return CrewReliefStatus::Mobilising;
+        }
+
+        return CrewReliefStatus::AssignmentCreated;
     }
 
     private function resolveStatus(

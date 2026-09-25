@@ -97,17 +97,10 @@ final class CrewAssignmentRecommendedActionResolver
 
         if ($hasIssues) {
             $problemCount = count($readiness->problems);
-            $anywayAction = match (true) {
-                $canRecordArrival => CrewMovementAction::RecordArrival->value,
-                $canApprove => CrewMovementAction::ApproveMobilisation->value,
-                default => null,
-            };
-            $anywayLabel = match (true) {
-                $canRecordArrival => 'Record Arrival Anyway',
-                $canApprove => 'Start Assignment Anyway',
-                default => null,
-            };
 
+            // Advisory only — mobilisation is not blocked. Do not invent a second
+            // "Anyway" button for the same Draft→Active / Record Arrival transition;
+            // operators use the normal available action once.
             return new CrewAssignmentRecommendedActionResult(
                 type: 'readiness',
                 label: 'Resolve readiness issues before mobilisation',
@@ -115,8 +108,6 @@ final class CrewAssignmentRecommendedActionResolver
                     ? 'One mobilisation requirement needs attention. This is guidance only and does not block movement.'
                     : sprintf('%d mobilisation requirements need attention. This is guidance only and does not block movement.', $problemCount),
                 href: $readiness->documentsHref,
-                anywayAction: $anywayAction,
-                anywayLabel: $anywayLabel,
             );
         }
 

@@ -8,12 +8,14 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
+use App\Support\CrewMovements\CrewMovementService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -185,4 +187,85 @@ function makeCurrentCrewVesselViewFixtures(array $permissions = ['crew_operation
     $fixtures['vessel'] = makeCrewMovementVessel('HAI DUONG 08', $fixtures['company']);
 
     return $fixtures;
+}
+
+/**
+ * Test-only helper that replaces the deleted CreateCrewAssignmentFromPlanning service.
+ *
+ * Creates a draft CrewAssignment from planning context and links the planning row.
+ * If the planning slot is vacant, pass $employeeId explicitly.
+ */
+function createAssignmentFromPlanning(
+    CrewPlanningAssignment $planning,
+    ?int $actorId = null,
+    ?int $employeeId = null,
+): CrewAssignment {
+    $resolvedEmployeeId = $employeeId ?? ($planning->employee_id !== null ? (int) $planning->employee_id : null);
+
+    if ($resolvedEmployeeId === null) {
+        throw new RuntimeException('Planning slot must have an employee to create an assignment.');
+    }
+
+    $service = app(CrewMovementService::class);
+
+    $assignment = $service->createDraft(
+        (int) $planning->company_id,
+        $resolvedEmployeeId,
+        [
+            'rank_id' => $planning->rank_id,
+            'vessel_id' => $planning->vessel_id,
+            'planned_join_at' => $planning->planned_join_date?->toDateString().' 00:00:00',
+            'planned_signoff_at' => $planning->planned_leave_date?->toDateString().' 00:00:00',
+            'relieves_crew_assignment_id' => $planning->relieves_crew_assignment_id,
+            'source' => 'crew_planning',
+            'remarks' => $planning->notes,
+        ],
+        $actorId,
+    );
+
+    $planning->update(['crew_assignment_id' => $assignment->id]);
+
+    return $assignment->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $assignment;
+}
+
+/**
+ * Test-only helper that replaces the deleted SyncPlanningAssignmentFromCrewAssignment service.
+ *
+ * Creates or updates a CrewPlanningAssignment linked to the given CrewAssignment,
+ * using planned dates from the assignment.
+ */
+function syncPlanningFromAssignment(CrewAssignment $assignment): CrewPlanningAssignment
+{
+    $timezone = $assignment->company?->timezone ?? 'UTC';
+
+    $joinDate = $assignment->phases
+        ?->where('phase_code', CrewPhaseCode::OnVessel)
+        ->sortByDesc('sequence')
+        ->first()
+        ?->actual_start_at
+        ?->timezone($timezone)
+        ->toDateString()
+        ?? $assignment->planned_join_at?->timezone($timezone)->toDateString();
+
+    $leaveDate = $assignment->phases
+        ?->where('phase_code', CrewPhaseCode::OnVessel)
+        ->sortByDesc('sequence')
+        ->first()
+        ?->actual_end_at
+        ?->timezone($timezone)
+        ->toDateString()
+        ?? $assignment->planned_signoff_at?->timezone($timezone)->toDateString();
+
+    return CrewPlanningAssignment::query()->updateOrCreate(
+        ['crew_assignment_id' => $assignment->id],
+        [
+            'company_id' => $assignment->company_id,
+            'vessel_id' => $assignment->vessel_id,
+            'rank_id' => $assignment->rank_id ?? $assignment->employee?->rank_id,
+            'employee_id' => $assignment->employee_id,
+            'planned_join_date' => $joinDate,
+            'planned_leave_date' => $leaveDate,
+            'relieves_crew_assignment_id' => $assignment->relieves_crew_assignment_id,
+        ],
+    );
 }

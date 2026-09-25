@@ -132,7 +132,10 @@ describe('buildAssignmentEditGuidance', () => {
         });
 
         assert.equal(guidance.planningChanges.length, 3);
-        assert.ok(guidance.planningSyncNote);
+        assert.match(
+            guidance.planningSyncNote ?? '',
+            /not updated automatically/i,
+        );
     });
 
     it('warns when arrival is after expected join', () => {

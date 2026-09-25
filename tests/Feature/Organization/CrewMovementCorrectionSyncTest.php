@@ -3,14 +3,12 @@
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignmentPhase;
-use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\SeaServiceSyncService;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 
-test('approved p4 date correction re-syncs planning join date', function () {
+test('approved p4 date correction leaves linked planning join date unchanged', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $requester = $fixtures['user'];
     $requester->update(['current_company_id' => $fixtures['company']->id]);
@@ -28,7 +26,8 @@ test('approved p4 date correction re-syncs planning join date', function () {
         $vessel,
     );
     $phase = $assignment->currentPhase;
-    app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment);
+    $planning = syncPlanningFromAssignment($assignment);
+    $originalJoinDate = $planning->planned_join_date->toDateString();
 
     $proposedStart = $phase->actual_start_at->copy()->addDays(3)->timezone($fixtures['company']->timezone)->format('Y-m-d H:i');
     $correction = app(RequestCrewMovementCorrection::class)->handle(
@@ -46,10 +45,11 @@ test('approved p4 date correction re-syncs planning join date', function () {
     );
 
     $phase->refresh();
-    $planning = CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->first();
+    $planning->refresh();
 
-    expect($planning)->not->toBeNull()
-        ->and($planning->planned_join_date->toDateString())->toBe(
+    expect($planning->exists)->toBeTrue()
+        ->and($planning->planned_join_date->toDateString())->toBe($originalJoinDate)
+        ->and($originalJoinDate)->not->toBe(
             $phase->actual_start_at->timezone($fixtures['company']->timezone)->toDateString()
         );
 });

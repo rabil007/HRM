@@ -2,19 +2,14 @@
 
 namespace App\Http\Controllers\Organization;
 
-use App\Exceptions\CrewMovementException;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Organization\CrewPlanning\StartCrewAssignmentFromPlanningRequest;
 use App\Http\Requests\Organization\CrewPlanning\StoreCrewPlanningAssignmentRequest;
 use App\Http\Requests\Organization\CrewPlanning\UpdateCrewPlanningAssignmentRequest;
-use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use App\Support\CrewPlanning\SaveCrewPlanningAssignment;
-use App\Support\CrewPlanning\StartCrewAssignmentFromPlanning;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class CrewPlanningAssignmentController extends Controller
@@ -71,44 +66,6 @@ class CrewPlanningAssignmentController extends Controller
             'to' => $request->query('to'),
             'search' => $request->query('search'),
         ], fn ($value) => $value !== null && $value !== ''));
-    }
-
-    public function startAssignment(
-        StartCrewAssignmentFromPlanningRequest $request,
-        CrewPlanningAssignment $assignment,
-        StartCrewAssignmentFromPlanning $startFromPlanning,
-    ): RedirectResponse {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        CrewPlanningAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
-
-        Gate::authorize('start', CrewAssignment::class);
-
-        try {
-            $result = $startFromPlanning->handle(
-                $assignment,
-                $request->validated(),
-                $request->user(),
-            );
-        } catch (CrewMovementException $exception) {
-            throw ValidationException::withMessages([
-                'error' => $exception->getMessage(),
-            ]);
-        }
-
-        $started = $result['assignment'];
-        $success = $result['created_new']
-            ? 'Crew assignment started from planning.'
-            : 'This planning record is already linked to an active crew assignment.';
-
-        if (Gate::allows('view', $started)) {
-            return redirect()
-                ->route('organization.crew-assignments.show', $started)
-                ->with('success', $success);
-        }
-
-        return redirect()
-            ->route('dashboard')
-            ->with('success', $success);
     }
 
     public function destroy(Request $request, CrewPlanningAssignment $assignment): RedirectResponse

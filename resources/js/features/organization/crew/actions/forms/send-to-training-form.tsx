@@ -39,6 +39,9 @@ export function SendToTrainingForm({
                     form={form}
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
+                    allowFutureActualMovementDates={Boolean(
+                        context.allow_future_actual_movement_dates,
+                    )}
                     inputRef={firstFieldRef}
                 />
             ) : null}

@@ -339,6 +339,7 @@ class CrewAssignmentPresenter
             'training_course' => is_array($trainingPhase?->details) ? ($trainingPhase->details['course'] ?? null) : null,
             'training_course_id' => is_array($trainingPhase?->details) ? ($trainingPhase->details['course_id'] ?? null) : null,
             'sync_training_enabled' => CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled((int) $assignment->company_id),
+            'allow_future_actual_movement_dates' => CrewOperationsSettings::allowFutureActualMovementDates((int) $assignment->company_id),
             'training_started_at' => self::formatDateTime($trainingPhase?->actual_start_at, $timezone),
             'training_expected_completion_at' => $trainingPhase?->planned_end_at?->toDateString(),
             'company_timezone' => $timezone,

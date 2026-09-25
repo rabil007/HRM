@@ -2,13 +2,13 @@
 
 High-impact crew movement actions use the shared impact-preview pattern documented in [high-impact-actions.md](./high-impact-actions.md).
 
-CrewAssignment is the **single source of truth** for crew movement.
+CrewAssignment is the **single source of truth** for an intended or actual crew mobilisation cycle.
+
+Crew Planning is a scheduling/Gantt/availability **workspace** over CrewAssignments (`status = planned`, with active assignments visible for context/conflicts). Planning is optional; assignments can start directly as Active without a prior planned record.
 
 ```text
-Crew Planning
-    ↓ confirm / convert
-Crew Assignment
-    ↓ movement lifecycle
+CrewAssignment (draft | planned | active | completed | cancelled)
+    ↓ movement lifecycle (active)
     Crew Assignment Phases
     ↓ P4 On Vessel (synchronized on join, finalized on disembarkation)
 Employee Sea Service
@@ -97,16 +97,16 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 
 | Concept | Role |
 |------|------|
-| **CrewPlanningAssignment** | Planned join/leave on the Gantt board; may convert into a draft assignment. |
-| **CrewAssignment** | One mobilisation cycle (P0–P6). |
-| **CrewAssignmentPhase** | Ordered occurrence of a phase on that cycle. |
+| **CrewAssignment** | Single operational and planning record representing an intended or actual mobilisation cycle (`draft`, `planned`, `active`, `completed`, `cancelled`). |
+| **CrewAssignmentPhase** | Ordered occurrence of an operational movement phase (P0–P6) on that cycle. |
 | **CrewAccommodationStay** | Accommodation history for a mobilisation cycle (hotel stay or explicit no-accommodation record). |
 | **EmployeeSeaService** | Historical and ongoing sea time synchronized from P4 On Vessel phases. |
 | **EmployeeTraining** | Formal employee qualification record; optionally synced from completed P2B phases. |
 
 ```text
-CrewAssignment = mobilisation cycle
-CrewAssignmentPhase = operational movement history
+CrewAssignment = single planning and operational mobilisation cycle
+CrewAssignment.status = draft (unconfirmed) | planned (reserved future) | active (operational P0-P6) | completed | cancelled
+CrewAssignmentPhase = operational movement history (active cycles)
 CrewAccommodationStay = accommodation history
 ```
 
@@ -206,25 +206,21 @@ Employee Sea Service
 
 Manual Start Assignment (without Planning) remains available at `/organization/crew/create`.
 
-### Planning → Operational Start handoff
+### Planning → CrewAssignment handoff
 
-Crew Planning records **future intention only**. Planning dates are forecasts and never become actual movement timestamps automatically.
+Crew Planning records **vacant/unfilled scheduling slots only**. Named employees belong on `CrewAssignment`. Planning dates are forecasts and never become actual movement timestamps automatically.
 
 | Step | Behaviour |
 |------|-----------|
-| Planning row **Start Assignment** | Opens the unified Create UI with trusted server-side prefill. **Does not** create a `CrewAssignment`. |
-| Operations review | Employee, Rank, Client/Vessel, Expected Vessel Join (`planned_join_at`), Arrival Date (`planned_arrival_at`), Remarks. Browser requests no longer submit or validate `current_stage`. |
-| Confirm **Start Assignment** | `POST organization/crew-planning/assignments/{planning}/start` → `StartCrewAssignmentFromPlanning` → `CrewMovementService::startAssignment()` inside one transaction. |
-| Linking | Original `CrewPlanningAssignment` is linked via `crew_assignment_id`. `relieves_crew_assignment_id` is preserved. `source = crew_planning`. |
-| Timestamps | `started_at` and first phase `actual_start_at` use company-local trusted server submit time (`now()`). Expected Vessel Join remains `planned_join_at` forecast only. Arrival Date remains `planned_arrival_at` forecast only. |
-| Planned Sign-Off | When present on the Planning row, `planned_leave_date` maps server-side to `CrewAssignment.planned_signoff_at`. It is not editable in the Start handoff and is not an actual disembarkation or payroll date. |
-| Permissions | Planning handoff requires `crew_operations.planning.view` **and** `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Normal manual Start at `/organization/crew/create` (without `planning_assignment_id`) does **not** require Planning view. Backend authorization is mandatory. |
-| Master data | Employee, Rank, Client, Vessel, and Expected Vessel Join come from the locked Planning record at Start and are rendered in the read-only `PlanningStartAuthoritativeFields`. Arrival Date is an operational assignment field below it (not Crew Planning authoritative data). The handoff form is read-only for planning authoritative fields; crafted POST values cannot override them. Update Planning separately when master data is wrong. |
-| Linked Active assignment | Redirect to the existing assignment; never create a duplicate. |
-| Linked Draft assignment | Backward compatible with the legacy draft-conversion workflow: redirect to the linked draft assignment show page; continue mobilisation from Crew Assignments (Start Assignment / draft edits). |
-| Active assignment conflict | When the planned employee already has any Active `CrewAssignment`, Planning → Start does **not** offer Start Assignment or the manual Transfer Vessel recommendation dialog. The page shows an operational warning and, when permitted, **Open Current Assignment**. For active P4 On Vessel on a different vessel, Operations must review the existing assignment and use the existing Transfer Vessel workflow from that assignment when appropriate. Planning is **not** linked atomically into Transfer Vessel in this phase. Backend still rejects crafted POSTs via `CrewMovementService::startAssignment()` → `assertNoActiveAssignment()`. Relief planning for a different employee (`relieves_crew_assignment_id`) is not treated as a conflict for the relief crew member. |
+| Vacant slot → Create / Plan | Opens the unified Create UI with vessel/rank/date prefill. Operator selects the named employee. **Does not** create a `CrewAssignment` until submit. |
+| Confirm **Save as Planned** | `POST /organization/crew` with `submission_intent=plan` → `CrewMovementService::createPlanned()`. Requires `crew_operations.planning.create`. |
+| Confirm **Start Assignment** | `POST /organization/crew` with `submission_intent=start` → `CrewMovementService::startAssignment()`. Requires `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. |
+| Linking | Optional vacant `CrewPlanningAssignment` may be linked via `planning_assignment_id` inside the same store transaction (`LinkVacantCrewPlanningSlot`). Slot must be company-scoped, unlinked, `employee_id` null, and vessel/rank/date-compatible. |
+| Timestamps | On Start, `started_at` and first phase `actual_start_at` use company-local trusted server submit time. Expected Vessel Join remains `planned_join_at` forecast only. |
+| Permissions | Plan-only users (`planning.view` + `planning.create`, without `assignments.create`) may open `?intent=plan` and Save as Planned. They cannot Draft or Start. |
+| Linked assignment | Redirect to the existing assignment; never create a duplicate. |
 
-The legacy `POST organization/crew-planning/assignments/{planning}/create-crew-assignment` route now redirects to the unified Start form for bookmarks. `CreateCrewAssignmentFromPlanning` remains for programmatic draft creation in tests and legacy linked-draft compatibility.
+The legacy `POST organization/crew-planning/assignments/{planning}/create-crew-assignment` route redirects to the unified Create form for bookmarks. There is **no** `StartCrewAssignmentFromPlanning` or `CreateCrewAssignmentFromPlanning` service. There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment synchronization.
 
 This phase does **not** redesign Crew Planning or spreadsheet import.
 
@@ -255,7 +251,7 @@ Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those 
 
 Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark the employee On Vessel, or create P4. Expected Vessel Join never becomes P4 `actual_start_at`. `CrewAssignment.started_at` is the assignment lifecycle timestamp and is not a payroll input; the first phase `actual_start_at` is recorded as the same company-local submit instant for operational history.
 
-`SyncPlanningAssignmentFromCrewAssignment` still runs. A manually started pre-P4 assignment is **not** forced to manufacture a new Planning row when Planned Sign-Off is absent. Existing linked Planning rows stay linked.
+There is **no** automatic planning synchronization after Start. A manually started assignment does **not** manufacture a new Planning row. Existing linked vacant slots stay linked.
 
 ### Bulk Add Crew (unified Create UI)
 
@@ -283,7 +279,7 @@ Current Crew
 | Timestamp | One company-local server timestamp for the whole successful batch. The HTTP request does not accept `stage_started_at`, `started_at`, or browser-supplied company IDs. Each assignment `started_at` equals its initial phase `actual_start_at`. |
 | Atomicity | All-or-nothing. Every visible bulk row must have a selected employee or be removed by the user; incomplete, blocked, or invalid rows prevent the entire batch. If any row is invalid or the employee already has an Active assignment, **no** assignments from that batch are committed. Partial success / Skip Blocked Rows is not in this phase. |
 | Active assignment | Reuses `startAssignment()` locking and `assertNoActiveAssignment()`. On Vessel and other Active phases block the row/batch; Transfer Vessel remains the existing movement, not an automatic bulk action. |
-| Payroll / sea service | Unchanged. P0 stays payroll-excluded. Bulk P0 does not create `EmployeeSeaService` or invent P2A/P3/P4. Planning sync still runs through `startAssignment()`. |
+| Payroll / sea service | Unchanged. P0 stays payroll-excluded. Bulk P0 does not create `EmployeeSeaService` or invent P2A/P3/P4. There is no automatic Planning synchronization. |
 
 ### Save as Draft (optional)
 
@@ -389,7 +385,7 @@ The repair:
 - uses the original actual P4 join date (`actual_start_at`)
 - generates Planned Sign-Off only when one is missing (`planned_signoff_at = actual P4 join + tour days`)
 - preserves existing manual/existing-plan dates and override reasons
-- syncs linked Crew Planning (`planned_leave_date`)
+- does **not** update linked vacant Crew Planning slots
 - is audited under `late_tour_of_duty_applied`
 
 Ineligible assignments (draft, pre-P4, completed, cancelled, assignments with existing snapshots, or assignments whose rank still has no Tour configured) are never modified. Dry-run (`--dry-run`) performs zero mutations.
@@ -421,9 +417,8 @@ When an approved correction changes P4 `actual_start_at` and `planned_signoff_so
 
 1. `crew_assignments.planned_signoff_at`
 2. P4 `crew_assignment_phases.planned_end_at`
-3. Linked `crew_planning_assignments.planned_leave_date` (via `SyncPlanningAssignmentFromCrewAssignment` in the same approval transaction)
 
-Manual / existing-plan sources are preserved. Pending corrections do not mutate official dates. A failure during approval rolls back assignment, phase, planning, and correction status together.
+Manual / existing-plan sources are preserved. Pending corrections do not mutate official dates. A failure during approval rolls back assignment, phase, and correction status together. Linked vacant planning slots are **not** auto-synced.
 
 ### Transfer / redeployment (Phase 2C.1)
 
@@ -543,7 +538,7 @@ See also [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ### Transfer Vessel (`transfer_vessel`)
 
-Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Destination **Client** defaults from the destination Vessel’s current `client_id` (not the source assignment Client). An explicitly submitted destination Client must match that vessel Client when the vessel is assigned. Rank may still default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
+Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Linked vacant Planning slots are **not** auto-updated. Destination vessel must start blank in the form, must differ from the source, and is required. Destination **Client** defaults from the destination Vessel’s current `client_id` (not the source assignment Client). An explicitly submitted destination Client must match that vessel Client when the vessel is assigned. Rank may still default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
 
 #### Intelligent transfer recommendation
 
@@ -674,9 +669,9 @@ Typical suggestions:
 | Phase | Usual recommendation |
 |-------|----------------------|
 | Active P0 (ready or no checks configured) | Record Arrival |
-| Active P0 (readiness issues) | Resolve readiness, with Record Arrival Anyway |
+| Active P0 (readiness issues) | Resolve readiness (guidance only); Record Arrival remains available once |
 | Draft P0 (ready or no checks configured) | Start Assignment (`approve_mobilisation`) |
-| Draft P0 (readiness issues) | Resolve readiness, with Start Assignment Anyway |
+| Draft P0 (readiness issues) | Resolve readiness (guidance only); Start Assignment remains available once |
 | P1 (legacy) | Record Arrival |
 | P2A | Join Vessel |
 | P2B | Complete Training |
@@ -812,37 +807,21 @@ Crew Operations and HR maintain strict separation of owned fields on `EmployeeTr
 
 ## Planning
 
-Bidirectional sync:
+`CrewAssignment` is the authoritative named-employee mobilisation/planning record (`draft`, `planned`, `active`, `completed`, `cancelled`).
 
-1. **Planning → Assignment** — `CreateCrewAssignmentFromPlanning` creates a draft (`source = crew_planning`), links `crew_planning_assignments.crew_assignment_id`, then runs `SyncPlanningAssignmentFromCrewAssignment` so the original planning row is reused (no duplicate).
-2. **Assignment → Planning** — `SyncPlanningAssignmentFromCrewAssignment` creates/updates the linked planning bar after Crew Assignments create/update and after every `CrewMovementService::perform()` action.
+`CrewPlanningAssignment` is a **vacant/unfilled** scheduling slot only (optional Gantt workspace). Planning is optional.
 
-### Date precedence (Assignment → Planning)
-
-- Join: `P4.actual_start_at` → `planned_join_at`
-- Leave: `P4.actual_end_at` → `planned_signoff_at` → `P4.planned_end_at` → `null` (open-ended active P4)
-
-Actual disembarkation replaces planned sign-off on the planning bar. Planned sign-off is never treated as actual disembarkation.
-
-### Open-ended P4
-
-Active P4 without planned/actual leave may store `planned_leave_date = null`. Gantt includes those rows (`planned_leave_date IS NULL` overlaps the range). Display `end` uses the requested Gantt `to` date only; it is not persisted. Payload includes `is_open_ended: true`.
+There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment synchronization and **no** Planning → Assignment conversion service. Named crew are created directly as `CrewAssignment` (Save Draft / Save as Planned / Start). A vacant slot may be linked explicitly via `planning_assignment_id` during store when company-scoped, unlinked, empty of employee, and context-compatible.
 
 ### Linked-row ownership
 
-Once `crew_assignment_id` is set, Crew Assignments is source of truth. Planning update/delete of linked rows is rejected; the UI links to the assignment instead.
+Once `crew_assignment_id` is set, Crew Assignments is source of truth for that named mobilisation. Planning update/delete of linked rows is rejected; the UI links to the assignment instead.
 
 ### Cancellation
 
-- Cancelled before any completed P4: soft-delete the linked planning bar.
-- Completed P4 history: preserve the planning bar with actual join/leave dates.
-- Incomplete pre-P4 eligibility (missing vessel/dates) does **not** delete an existing planning-origin row.
+Cancelled planned/active assignments release reservation. Linked vacant slots remain linked historical context unless soft-deleted by planning delete rules.
 
-### Idempotency
-
-Lookup by `crew_assignment_id` (unique), restore soft-deleted linked rows, never create a second planning row for one assignment.
-
-Relief linking uses `relieves_crew_assignment_id`. Gantt `is_assigned` is true when `crew_assignment_id` is set.
+Relief linking uses `relieves_crew_assignment_id` on `CrewAssignment` (and optionally on vacant planning slots). Gantt `is_assigned` is true when `crew_assignment_id` is set.
 
 ## Phase 2A — Crew Relief Readiness
 
@@ -874,10 +853,9 @@ Soft-deleted Planning rows, cancelled or completed linked assignments, and linke
 
 ### Workflow
 
-1. Current Crew → **Plan Relief** opens Crew Planning with vessel/rank/source/prefill join (= source Planned Sign-Off).
-2. Crew Planning creates/edits the row (`relieves_crew_assignment_id` set; same vessel/rank; one active relief per source).
-3. `CreateCrewAssignmentFromPlanning` converts the same Planning row (preserves the relief link).
-4. Real P0–P4 movement progresses on the linked assignment; readiness recalculates from phase.
+1. Current Crew → **Plan Relief** opens Crew Planning with vessel/rank/source/prefill join (= source Planned Sign-Off), or opens unified Create with `relieves_crew_assignment_id`.
+2. Prefer creating a **Planned** `CrewAssignment` for the named relief employee (Save as Planned). Optional vacant planning slots remain scheduling-only.
+3. Real P0–P4 movement progresses on that `CrewAssignment`; readiness recalculates from phase.
 
 Planning never starts movement, completes source P4, creates Sea Service, or creates payroll actuals.
 

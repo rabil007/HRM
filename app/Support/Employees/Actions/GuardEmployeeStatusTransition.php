@@ -68,12 +68,26 @@ final class GuardEmployeeStatusTransition
     {
         $today = CarbonImmutable::now(CompanyTimezone::forCompanyId($companyId))->toDateString();
 
-        return CrewPlanningAssignment::query()
+        $hasPlanningAssignment = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)
             ->where(function ($query) use ($today): void {
                 $query->whereNull('planned_leave_date')
                     ->orWhereDate('planned_leave_date', '>=', $today);
+            })
+            ->exists();
+
+        if ($hasPlanningAssignment) {
+            return true;
+        }
+
+        return CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->where('status', CrewAssignmentStatus::Planned)
+            ->where(function ($query) use ($today): void {
+                $query->whereNull('planned_signoff_at')
+                    ->orWhereDate('planned_signoff_at', '>=', $today);
             })
             ->exists();
     }

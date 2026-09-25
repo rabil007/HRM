@@ -156,7 +156,7 @@ it('updates active P4 planned_end_at with the calculated sign-off date', functio
     expect($p4->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-08-30');
 });
 
-it('synchronizes linked Crew Planning planned leave date upon repair', function () {
+it('does not create or sync Crew Planning when repairing tour of duty', function () {
     $assignment = createJoinedActiveP4AssignmentWithoutTour(
         $this->service,
         $this->company,
@@ -169,12 +169,10 @@ it('synchronizes linked Crew Planning planned leave date upon repair', function 
 
     $this->rank->update(['max_tour_of_duty_days' => 90]);
 
-    $this->action->handle($this->company->id, $assignment->id, $this->user->id);
+    $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
-    $planning = CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->first();
-
-    expect($planning)->not->toBeNull()
-        ->and($planning->planned_leave_date?->toDateString())->toBe('2026-08-30');
+    expect($repaired->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-08-30')
+        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeFalse();
 });
 
 it('preserves existing manual Planned Sign-Off and does not overwrite it', function () {

@@ -65,7 +65,7 @@ test('legacy conversion redirect does not create duplicate planning rows', funct
         ->and($planning->fresh()->crew_assignment_id)->toBeNull();
 });
 
-test('vacant planning row cannot open start handoff and throws validation error on direct create', function () {
+test('vacant planning row can open unified create handoff with vessel prefill', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Vacant Vessel');
     grantCompanyPermissions($user, $company, [
@@ -81,12 +81,19 @@ test('vacant planning row cannot open start handoff and throws validation error 
         'rank_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2027-06-01',
+        'planned_leave_date' => '2027-09-01',
     ]);
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->id]))
-        ->assertRedirect(route('organization.crew-planning.index'))
-        ->assertSessionHas('error');
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/crew/create')
+            ->where('planning_context.planning_assignment_id', $planning->id)
+            ->where('planning_context.employee_id', null)
+            ->where('planning_context.vessel_id', $vessel->id)
+            ->where('planning_context.rank_id', $rank->id)
+        );
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
@@ -186,13 +193,18 @@ test('existing edit and delete behavior for unlinked planning rows still works',
         ->put(route('organization.crew-planning.assignments.update', $planning), [
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'employee_id' => $employee->id,
             'planned_join_date' => '2027-05-01',
         ])
         ->assertRedirect()
         ->assertSessionHas('success', 'Assignment updated.');
 
     expect($planning->fresh()->planned_join_date->toDateString())->toBe('2027-05-01');
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-planning.assignments.update', $planning), [
+            'employee_id' => $employee->id,
+        ])
+        ->assertSessionHasErrors('employee_id');
 
     $this->actingAs($user)
         ->delete(route('organization.crew-planning.assignments.destroy', $planning))

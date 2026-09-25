@@ -90,6 +90,7 @@ export type CrewMovementContext = {
     training_course: string | null;
     training_course_id?: number | null;
     sync_training_enabled?: boolean;
+    allow_future_actual_movement_dates?: boolean;
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
@@ -333,6 +334,7 @@ export interface CrewAssignmentFormData {
     vessel_id: number | null;
     planned_join_at: string;
     planned_arrival_at?: string | null;
+    planned_signoff_at?: string;
     remarks: string;
 }
 
@@ -342,8 +344,10 @@ export interface CrewAssignmentCreateFormData {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
+    planned_signoff_at?: string;
     planned_arrival_at?: string | null;
-    submission_intent: 'start' | 'draft';
+    relieves_crew_assignment_id?: number | null;
+    submission_intent: 'start' | 'draft' | 'plan';
     remarks: string;
 }
 
@@ -389,6 +393,8 @@ export interface CrewAssignmentFormOptions {
     room_types?: Array<{ id: number; name: string; hotel_id: number | null }>;
     /** Company IANA timezone for consistent operational date display. */
     company_timezone?: string;
+    /** Testing override: when true, actual movement timestamps may be in the future. */
+    allow_future_actual_movement_dates?: boolean;
 }
 
 export interface EmployeeOperationalStatus {
@@ -422,15 +428,16 @@ export interface CrewAssignmentCreateFormOptions extends CrewAssignmentFormOptio
 
 export type CrewPlanningStartContext = {
     planning_assignment_id: number;
-    employee_id: number;
-    employee_name: string;
-    rank_id: number;
-    rank_name: string;
-    vessel_id: number;
-    vessel_name: string;
+    employee_id: number | null;
+    employee_name: string | null;
+    rank_id: number | null;
+    rank_name: string | null;
+    vessel_id: number | null;
+    vessel_name: string | null;
     client_id: number | null;
     client_name: string | null;
-    planned_join_at: string;
+    planned_join_at: string | null;
+    planned_signoff_at?: string | null;
     planned_arrival_at?: string | null;
     remarks: string | null;
 };
@@ -552,6 +559,7 @@ export interface CrewAssignmentFilters {
 export interface CrewAssignmentPagePermissions {
     view: boolean;
     create: boolean;
+    plan?: boolean;
     create_historical?: boolean;
     start: boolean;
     update: boolean;

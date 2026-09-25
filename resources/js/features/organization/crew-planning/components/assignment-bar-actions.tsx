@@ -25,7 +25,7 @@ export function AssignmentBarActions({
     onEdit,
     onDelete,
 }: Props): ReactElement | null {
-    if (bar.is_assigned && bar.crew_assignment_id !== null) {
+    if (bar.crew_assignment_id !== null) {
         return (
             <div className="flex flex-wrap gap-2 border-t pt-2">
                 <Button
@@ -36,7 +36,7 @@ export function AssignmentBarActions({
                 >
                     <a href={showAssignment.url(bar.crew_assignment_id)}>
                         <ExternalLink className="h-3 w-3" />
-                        Open Crew Assignments
+                        Open Crew Assignment
                     </a>
                 </Button>
             </div>

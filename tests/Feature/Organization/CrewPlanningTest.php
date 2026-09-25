@@ -16,7 +16,6 @@ use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -1094,7 +1093,7 @@ test('planning projection ignores vacant planning and counts linked assignment o
 
     $beforeMax = $beforeLink->inertiaProps('projection.rows.0.minimum_projected_count');
 
-    app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id);
+    createAssignmentFromPlanning($planning, $user->id);
 
     $assignmentCountBefore = CrewAssignment::query()->where('company_id', $company->id)->count();
     $seaServiceCountBefore = EmployeeSeaService::query()->where('company_id', $company->id)->count();
@@ -1211,42 +1210,4 @@ test('vacant planning position remains visible under restricted scope', function
             ->where('bars.0.employee_id', null)
             ->where('bars.0.employee_name', 'Vacant')
         );
-});
-
-test('store planning assignment with hidden employee is rejected', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeCrewPlanningFixtures();
-    grantCompanyPermissions($user, $company, ['crew_operations.planning.create']);
-
-    $crewDept = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Deck Crew',
-        'code' => 'DECK',
-        'status' => 'active',
-        'include_in_attendance_leave' => true,
-    ]);
-    $officeDept = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Office Staff',
-        'code' => 'OFF',
-        'status' => 'active',
-        'include_in_attendance_leave' => true,
-    ]);
-
-    $hidden = Employee::factory()->create([
-        'company_id' => $company->id,
-        'department_id' => $officeDept->id,
-        'rank_id' => $captain->id,
-        'status' => 'active',
-    ]);
-
-    restrictTestRoleEmployeeVisibility($user, $company, [$crewDept->id]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.store'), [
-            'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
-            'employee_id' => $hidden->id,
-            'planned_join_date' => now()->toDateString(),
-        ])
-        ->assertSessionHasErrors('employee_id');
 });

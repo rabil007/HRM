@@ -260,7 +260,7 @@ export function buildAssignmentEditGuidance({
         planningChanges,
         planningSyncNote:
             planningChanges.length > 0
-                ? 'If an eligible linked Planning record exists, these changes will synchronize when saved.'
+                ? 'Linked vacant Planning slots are not updated automatically. Edit the Planning slot separately if its vessel, rank, or dates need to change.'
                 : undefined,
         dateAdvisories,
     };

@@ -26,7 +26,6 @@ use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
 use App\Support\CrewOperations\ReconcileCrewOperationalAlerts;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -391,7 +390,7 @@ test('void soft-deletes derived planning sync row', function () {
         'planned_signoff_at' => '2026-11-01 00:00:00',
     ], $user->id);
 
-    $planning = app(SyncPlanningAssignmentFromCrewAssignment::class)->sync($assignment);
+    $planning = syncPlanningFromAssignment($assignment);
     expect($planning)->not->toBeNull()
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
 

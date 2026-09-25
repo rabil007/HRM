@@ -111,6 +111,7 @@ final class CrewProjectedManningQuery
             ->where(function ($query) use ($fromDate, $companyId): void {
                 $query->whereIn('status', [
                     CrewAssignmentStatus::Draft->value,
+                    CrewAssignmentStatus::Planned->value,
                     CrewAssignmentStatus::Active->value,
                 ])->orWhere(function ($completed) use ($fromDate, $companyId): void {
                     $completed->where('status', CrewAssignmentStatus::Completed->value)
@@ -146,6 +147,7 @@ final class CrewProjectedManningQuery
                 'current_phase_id',
                 'planned_join_at',
                 'planned_signoff_at',
+                'relieves_crew_assignment_id',
             ]);
 
         $linkedAssignmentIds = $assignments->pluck('id')->all();
@@ -343,7 +345,7 @@ final class CrewProjectedManningQuery
             }
 
             if (
-                in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active], true)
+                in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active], true)
                 && $employee->status !== 'active'
             ) {
                 return [];
@@ -394,7 +396,7 @@ final class CrewProjectedManningQuery
                 'employee_id' => $employeeId,
                 'crew_assignment_id' => (int) $assignment->id,
                 'crew_planning_assignment_id' => $planning?->id !== null ? (int) $planning->id : null,
-                'is_relief' => $planning?->relieves_crew_assignment_id !== null,
+                'is_relief' => $assignment->relieves_crew_assignment_id !== null || $planning?->relieves_crew_assignment_id !== null,
             ];
         }
 
@@ -416,7 +418,7 @@ final class CrewProjectedManningQuery
             'employee_id' => $employeeId,
             'crew_assignment_id' => (int) $assignment->id,
             'crew_planning_assignment_id' => $planning?->id !== null ? (int) $planning->id : null,
-            'is_relief' => $planning?->relieves_crew_assignment_id !== null,
+            'is_relief' => $assignment->relieves_crew_assignment_id !== null || $planning?->relieves_crew_assignment_id !== null,
         ];
 
         return $segments;
@@ -430,6 +432,7 @@ final class CrewProjectedManningQuery
 
         if (! in_array($assignment->status, [
             CrewAssignmentStatus::Draft,
+            CrewAssignmentStatus::Planned,
             CrewAssignmentStatus::Active,
         ], true)) {
             return false;

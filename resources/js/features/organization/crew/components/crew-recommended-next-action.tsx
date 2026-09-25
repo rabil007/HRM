@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
 import { CrewOperationalStatePanel } from '@/features/organization/crew/components/crew-operational-state-panel';
+import { resolveOperatorNextStepButtons } from '@/features/organization/crew/lib/crew-operational-state';
 import type {
     CrewAssignmentFormOptions,
     CrewMovementAction,
     CrewMovementContext,
     CrewRecommendedAction,
 } from '@/features/organization/crew/types';
-import { CREW_MOVEMENT_ACTION_LABELS } from '@/features/organization/crew/types';
 
 export function CrewRecommendedNextAction({
     assignmentId,
@@ -60,20 +60,16 @@ export function CrewRecommendedNextAction({
         setDialogOpen(true);
     };
 
-    const recommendedMovement =
-        recommended?.type === 'movement' && recommended.action
-            ? recommended.action
-            : null;
-    const otherActions = availableActions.filter(
-        (action) => action !== recommendedMovement,
-    );
-    const recommendedHref =
-        recommended?.href &&
-        ((recommended.type === 'readiness' && canViewDocuments) ||
-            (recommended.type === 'relief' && canViewPlanning) ||
-            recommended.type === 'movement')
-            ? recommended.href
-            : null;
+    const buttons = resolveOperatorNextStepButtons({
+        recommended,
+        availableActions,
+        permissions: {
+            perform_movement: canPerformMovement,
+            cancel: canCancel,
+        },
+        canViewDocuments,
+        canViewPlanning,
+    });
 
     return (
         <Card className="overflow-hidden border-primary/20 bg-primary/3 shadow-xs dark:border-primary/20 dark:bg-primary/5">
@@ -122,104 +118,68 @@ export function CrewRecommendedNextAction({
                 />
 
                 <div className="space-y-2 border-t border-primary/10 pt-3">
-                    {recommended ? (
+                    {buttons.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-2.5">
-                            {recommendedMovement ? (
-                                <Button
-                                    type="button"
-                                    onClick={() =>
-                                        openAction(recommendedMovement)
-                                    }
-                                    className="font-medium shadow-xs"
-                                >
-                                    <span>
-                                        {CREW_MOVEMENT_ACTION_LABELS[
-                                            recommendedMovement as CrewMovementAction
-                                        ] ?? recommended.label}
-                                    </span>
-                                    <ArrowRight className="ml-1.5 size-4" />
-                                </Button>
-                            ) : null}
-                            {recommendedHref && !recommendedMovement ? (
-                                <Button
-                                    asChild
-                                    className="font-medium shadow-xs"
-                                >
-                                    <Link href={recommendedHref}>
-                                        <span>
-                                            {recommended.type === 'readiness'
-                                                ? 'Open Documents'
-                                                : recommended.label}
-                                        </span>
-                                        <ArrowRight className="ml-1.5 size-4" />
-                                    </Link>
-                                </Button>
-                            ) : null}
-                            {recommended.anyway_action ? (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="border-amber-500/30 text-amber-800 hover:bg-amber-500/10 dark:text-amber-200"
-                                    onClick={() =>
-                                        openAction(recommended.anyway_action!)
-                                    }
-                                >
-                                    {recommended.anyway_label ??
-                                        'Start Assignment Anyway'}
-                                </Button>
-                            ) : null}
-                            {otherActions.map((actionValue) => {
-                                const action =
-                                    actionValue as CrewMovementAction;
-                                const isCancel = action === 'cancel_assignment';
+                            {buttons.map((button) => {
+                                if (button.kind === 'href' && button.href) {
+                                    return (
+                                        <Button
+                                            key={`href-${button.href}`}
+                                            asChild
+                                            className="font-medium shadow-xs"
+                                        >
+                                            <Link href={button.href}>
+                                                <span>{button.label}</span>
+                                                <ArrowRight className="ml-1.5 size-4" />
+                                            </Link>
+                                        </Button>
+                                    );
+                                }
+
+                                if (!button.action) {
+                                    return null;
+                                }
+
+                                const isPrimary =
+                                    button.kind === 'movement' &&
+                                    recommended?.type === 'movement' &&
+                                    button.action === recommended.action;
+                                const isAnyway = button.kind === 'anyway';
+                                const isCancel = button.kind === 'cancel';
 
                                 return (
                                     <Button
-                                        key={action}
+                                        key={`${button.kind}-${button.action}`}
                                         type="button"
-                                        variant="outline"
-                                        className={
-                                            isCancel
-                                                ? 'border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20'
-                                                : undefined
+                                        variant={
+                                            isPrimary ? 'default' : 'outline'
                                         }
-                                        onClick={() => openAction(action)}
+                                        className={
+                                            isAnyway
+                                                ? 'border-amber-500/30 text-amber-800 hover:bg-amber-500/10 dark:text-amber-200'
+                                                : isCancel
+                                                  ? 'border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20'
+                                                  : isPrimary
+                                                    ? 'font-medium shadow-xs'
+                                                    : undefined
+                                        }
+                                        onClick={() =>
+                                            openAction(button.action!)
+                                        }
                                     >
-                                        {CREW_MOVEMENT_ACTION_LABELS[action] ??
-                                            action}
+                                        <span>{button.label}</span>
+                                        {isPrimary ? (
+                                            <ArrowRight className="ml-1.5 size-4" />
+                                        ) : null}
                                     </Button>
                                 );
                             })}
                         </div>
                     ) : (
-                        <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm text-muted-foreground">
-                                Choose any allowed movement. Recommendations are
-                                guidance only.
-                            </p>
-                            {availableActions.map((actionValue) => {
-                                const action =
-                                    actionValue as CrewMovementAction;
-                                const isCancel = action === 'cancel_assignment';
-
-                                return (
-                                    <Button
-                                        key={action}
-                                        type="button"
-                                        variant="outline"
-                                        className={
-                                            isCancel
-                                                ? 'border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20'
-                                                : undefined
-                                        }
-                                        onClick={() => openAction(action)}
-                                    >
-                                        {CREW_MOVEMENT_ACTION_LABELS[action] ??
-                                            action}
-                                    </Button>
-                                );
-                            })}
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Choose any allowed movement. Recommendations are
+                            guidance only.
+                        </p>
                     )}
                 </div>
             </CardContent>

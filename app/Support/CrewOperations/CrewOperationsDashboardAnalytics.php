@@ -210,7 +210,7 @@ final class CrewOperationsDashboardAnalytics
 
         $assignmentJoinsQuery = CrewAssignment::query()
             ->where('company_id', $companyId)
-            ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active])
+            ->whereIn('status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active])
             ->whereNotNull('planned_join_at')
             ->whereDate('planned_join_at', '>=', $from->toDateString())
             ->whereDate('planned_join_at', '<=', $to->toDateString())

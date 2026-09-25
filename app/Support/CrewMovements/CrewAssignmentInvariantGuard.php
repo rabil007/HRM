@@ -17,6 +17,7 @@ class CrewAssignmentInvariantGuard
             'currentPhase',
             'previousAssignment',
             'planningAssignment',
+            'relievedAssignment',
         ]);
 
         $this->assertCompanyIntegrity($assignment);
@@ -66,6 +67,14 @@ class CrewAssignmentInvariantGuard
             throw CrewMovementException::make(
                 'Linked planning assignment company does not match assignment company.',
                 'company_mismatch_planning',
+            );
+        }
+
+        if ($assignment->relievedAssignment !== null
+            && (int) $assignment->relievedAssignment->company_id !== (int) $assignment->company_id) {
+            throw CrewMovementException::make(
+                'Relieved assignment company does not match assignment company.',
+                'company_mismatch_relieved',
             );
         }
     }
@@ -119,10 +128,10 @@ class CrewAssignmentInvariantGuard
             );
         }
 
-        if ($assignment->status === CrewAssignmentStatus::Draft) {
+        if (in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Planned], true)) {
             if (! in_array($current->status, [CrewPhaseStatus::Planned, CrewPhaseStatus::Active], true)) {
                 throw CrewMovementException::make(
-                    'Draft assignment current phase must be planned or active.',
+                    'Draft or planned assignment current phase must be planned or active.',
                     'draft_current_phase_status',
                 );
             }
@@ -204,6 +213,15 @@ class CrewAssignmentInvariantGuard
             throw CrewMovementException::make(
                 'Active assignment must have started_at.',
                 'active_missing_started_at',
+            );
+        }
+
+        if ($assignment->planned_join_at !== null
+            && $assignment->planned_signoff_at !== null
+            && $assignment->planned_signoff_at->lt($assignment->planned_join_at)) {
+            throw CrewMovementException::make(
+                'Planned sign-off cannot be before planned join.',
+                'planned_signoff_before_join',
             );
         }
     }

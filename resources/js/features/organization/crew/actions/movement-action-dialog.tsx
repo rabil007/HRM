@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { MovementWorkflowHelp } from '@/features/organization/crew/components/movement-workflow-help';
+import { shouldShowTestingOverrideBanner } from '@/features/organization/crew/lib/future-actual-movement-dates';
 import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
 import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
 import {
@@ -558,6 +559,17 @@ export function MovementActionDialog({
                     </DialogHeader>
 
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                        {shouldShowTestingOverrideBanner(
+                            Boolean(
+                                movementContext.allow_future_actual_movement_dates,
+                            ),
+                        ) ? (
+                            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+                                Testing override active — future movement dates
+                                are allowed.
+                            </div>
+                        ) : null}
+
                         <MovementContextCard context={movementContext} />
 
                         <ActionForm

@@ -1,6 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { Info } from 'lucide-react';
-import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -15,12 +14,7 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { assignmentDurationDays } from '../lib/planning-gantt-math';
-import type {
-    AssignmentFormData,
-    GanttBar,
-    PlanningOption,
-    PlanningPoolEmployee,
-} from '../types';
+import type { AssignmentFormData, GanttBar, PlanningOption } from '../types';
 
 const fieldInputClass =
     'rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all';
@@ -34,7 +28,6 @@ export function AssignCrewSheet({
     relievesEmployeeName,
     vessels,
     ranks,
-    employees,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -44,19 +37,8 @@ export function AssignCrewSheet({
     relievesEmployeeName: string;
     vessels: PlanningOption[];
     ranks: PlanningOption[];
-    employees: PlanningPoolEmployee[];
 }): ReactElement {
     const isEdit = editing !== null;
-
-    const availableEmployees = useMemo(() => {
-        if (form.data.rank_id === '') {
-            return employees;
-        }
-
-        return employees.filter(
-            (employee) => employee.rank_id === Number(form.data.rank_id),
-        );
-    }, [employees, form.data.rank_id]);
 
     const plannedDurationDays =
         form.data.planned_join_date !== '' &&
@@ -68,44 +50,10 @@ export function AssignCrewSheet({
             : null;
 
     const handleRankChange = (value: string): void => {
-        const selectedEmployee =
-            form.data.employee_id !== ''
-                ? employees.find(
-                      (employee) =>
-                          employee.id === Number(form.data.employee_id),
-                  )
-                : undefined;
-        const employeeStillMatches =
-            selectedEmployee === undefined ||
-            selectedEmployee.rank_id === Number(value);
-
         form.setData({
             ...form.data,
             rank_id: value,
-            employee_id: employeeStillMatches ? form.data.employee_id : '',
             relieves_crew_assignment_id: '',
-        });
-    };
-
-    const handleEmployeeChange = (value: string): void => {
-        if (value === '') {
-            form.setData('employee_id', '');
-
-            return;
-        }
-
-        const employee = employees.find((entry) => entry.id === Number(value));
-
-        if (employee === undefined) {
-            form.setData('employee_id', value);
-
-            return;
-        }
-
-        form.setData({
-            ...form.data,
-            employee_id: value,
-            rank_id: String(employee.rank_id),
         });
     };
 
@@ -143,14 +91,14 @@ export function AssignCrewSheet({
                             />
                             <div className="space-y-1">
                                 <p>
-                                    This creates a Planning record only. It does
-                                    not start mobilisation or place the employee
-                                    onboard.
+                                    This creates a vacant planning slot only. It
+                                    does not name an employee, start
+                                    mobilisation, or place anyone onboard.
                                 </p>
                                 <p>
-                                    After conversion to Crew Assignments,
-                                    operational dates and movements are
-                                    controlled from Crew Assignments.
+                                    Named crew mobilisation is controlled from
+                                    Crew Assignments. Planned dates remain
+                                    forecasts until an assignment is started.
                                 </p>
                             </div>
                         </div>
@@ -238,66 +186,6 @@ export function AssignCrewSheet({
                             {form.errors.rank_id ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.rank_id}
-                                </div>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="employee_id"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Crew member{' '}
-                                <span className="font-normal tracking-normal normal-case">
-                                    (optional)
-                                </span>
-                            </Label>
-                            <AppSelect
-                                value={form.data.employee_id}
-                                onValueChange={handleEmployeeChange}
-                                placeholder={
-                                    form.data.rank_id === ''
-                                        ? 'Select rank first'
-                                        : availableEmployees.length === 0
-                                          ? 'No matching crew for this rank'
-                                          : 'Search and select crew'
-                                }
-                                disabled={
-                                    form.data.rank_id === '' ||
-                                    availableEmployees.length === 0
-                                }
-                                variant="card"
-                            >
-                                <AppSelectItem value="">
-                                    Vacant slot
-                                </AppSelectItem>
-                                {availableEmployees.map((employee) => (
-                                    <AppSelectItem
-                                        key={employee.id}
-                                        value={String(employee.id)}
-                                    >
-                                        {employee.name} · {employee.rank_name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                            <p className="text-xs text-muted-foreground">
-                                Leave blank to plan an open slot on the
-                                timeline.
-                            </p>
-                            {form.data.rank_id !== '' &&
-                            availableEmployees.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">
-                                    No crew match the selected rank.
-                                </p>
-                            ) : null}
-                            {form.errors.employee_id ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.employee_id}
-                                </div>
-                            ) : null}
-                            {form.errors.relieves_crew_assignment_id ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.relieves_crew_assignment_id}
                                 </div>
                             ) : null}
                         </div>

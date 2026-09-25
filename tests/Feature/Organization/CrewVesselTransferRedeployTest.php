@@ -110,10 +110,8 @@ test('direct vessel transfer closes source p4 and starts destination in active p
         ->where('crew_assignment_phase_id', $source->current_phase_id)
         ->exists())->toBeTrue();
 
-    expect(CrewPlanningAssignment::query()->where('crew_assignment_id', $source->id)->exists())->toBeTrue()
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $destination->id)->exists())->toBeTrue()
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $source->id)->count())->toBe(1)
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $destination->id)->count())->toBe(1);
+    expect(CrewPlanningAssignment::query()->where('crew_assignment_id', $source->id)->exists())->toBeFalse()
+        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $destination->id)->exists())->toBeFalse();
 
     expect(Activity::query()
         ->where('company_id', $company->id)

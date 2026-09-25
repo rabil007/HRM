@@ -167,7 +167,7 @@ test('crew planning gantt keeps past bars for inactive employees and excludes cu
     CarbonImmutable::setTestNow();
 });
 
-test('crew assignment and planning mutations reject inactive employee ids', function () {
+test('crew assignment mutations reject inactive employee ids and planning creates vacant slots', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $user->update(['current_company_id' => $company->id]);
     $vessel = makeCrewMovementVessel('Reject Vessel', $company);
@@ -199,6 +199,26 @@ test('crew assignment and planning mutations reject inactive employee ids', func
             'planned_leave_date' => '2027-08-31',
         ])
         ->assertSessionHasErrors('employee_id');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'planned_join_date' => '2027-02-01',
+            'planned_leave_date' => '2027-08-31',
+        ])
+        ->assertSessionDoesntHaveErrors()
+        ->assertRedirect();
+
+    $planning = CrewPlanningAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('vessel_id', $vessel->id)
+        ->where('rank_id', $rank->id)
+        ->whereDate('planned_join_date', '2027-02-01')
+        ->first();
+
+    expect($planning)->not->toBeNull()
+        ->and($planning->employee_id)->toBeNull();
 });
 
 test('crew movement history retains completed assignments after termination', function () {

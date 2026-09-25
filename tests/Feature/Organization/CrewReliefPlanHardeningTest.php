@@ -11,7 +11,6 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\CrewMovements\CurrentCrewQuery;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use App\Support\CrewPlanning\SaveCrewPlanningAssignment;
 use Illuminate\Validation\ValidationException;
 
@@ -211,7 +210,7 @@ it('allows replacement planning after cancelled completed or soft-deleted relief
     $cancelledPlan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
         'employee_id' => $reliefEmployee->id,
     ]));
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($cancelledPlan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($cancelledPlan, $fixtures['user']->id, $reliefEmployee->id);
     $linked->update(['status' => CrewAssignmentStatus::Cancelled]);
 
     expect((new CrewReliefReadinessResolver)->forSourceAssignment($source->fresh())->status)
@@ -256,7 +255,7 @@ it('treats completed linked relief as non-blocking for a new plan', function () 
     $plan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
         'employee_id' => $reliefEmployee->id,
     ]));
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id, $reliefEmployee->id);
     $linked->update(['status' => CrewAssignmentStatus::Completed]);
     CrewAssignmentPhase::query()->where('crew_assignment_id', $linked->id)->update([
         'phase_code' => CrewPhaseCode::OnVessel,
@@ -288,7 +287,7 @@ it('treats active P4 relief as operational and P5/P6 as historical', function ()
     $plan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
         'employee_id' => $reliefEmployee->id,
     ]));
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id, $reliefEmployee->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::OnVessel,
@@ -339,7 +338,7 @@ it('allows a new relief plan after linked relief reaches P5 or P6 and preserves 
     $p5Plan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
         'employee_id' => $firstRelief->id,
     ]));
-    $p5Linked = app(CreateCrewAssignmentFromPlanning::class)->handle($p5Plan, $fixtures['user']->id);
+    $p5Linked = createAssignmentFromPlanning($p5Plan, $fixtures['user']->id, $firstRelief->id);
     $p5Linked->update(['status' => CrewAssignmentStatus::Active]);
     $p5Linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::DemobStandby,
@@ -354,7 +353,7 @@ it('allows a new relief plan after linked relief reaches P5 or P6 and preserves 
     expect($afterP5->id)->not->toBe($p5Plan->id)
         ->and($p5Plan->fresh())->not->toBeNull();
 
-    $afterP5Linked = app(CreateCrewAssignmentFromPlanning::class)->handle($afterP5, $fixtures['user']->id);
+    $afterP5Linked = createAssignmentFromPlanning($afterP5, $fixtures['user']->id, $secondRelief->id);
     $afterP5Linked->update(['status' => CrewAssignmentStatus::Active]);
     $afterP5Linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::HomeRedeploy,
@@ -387,7 +386,7 @@ it('resolves Current Crew no_relief when only an old P5 or P6 relief exists', fu
     $plan = $save->create((int) $fixtures['company']->id, reliefPlanningPayload($source, [
         'employee_id' => $reliefEmployee->id,
     ]));
-    $linked = app(CreateCrewAssignmentFromPlanning::class)->handle($plan, $fixtures['user']->id);
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id, $reliefEmployee->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::DemobStandby,
@@ -403,76 +402,4 @@ it('resolves Current Crew no_relief when only an old P5 or P6 relief exists', fu
 
     expect($row)->not->toBeNull()
         ->and($row->relief_readiness->status)->toBe(CrewReliefStatus::NoRelief);
-});
-
-it('authoritatively validates the relief employee inside SaveCrewPlanningAssignment', function () {
-    $fixtures = makeCrewAssignmentFixtures();
-    $other = makeCrewAssignmentFixtures();
-    $save = app(SaveCrewPlanningAssignment::class);
-    $source = makeActiveOnVesselAssignment(
-        $fixtures['company'],
-        $fixtures['employee'],
-        $fixtures['rank'],
-        makeCrewMovementVessel('Employee Txn Vessel'),
-    );
-    $companyId = (int) $fixtures['company']->id;
-
-    $valid = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'active',
-    ]);
-    expect($save->create($companyId, reliefPlanningPayload($source, [
-        'employee_id' => $valid->id,
-    ]))->employee_id)->toBe($valid->id);
-
-    $sourceB = makeActiveOnVesselAssignment(
-        $fixtures['company'],
-        Employee::factory()->forCompany($fixtures['company'])->create([
-            'rank_id' => $fixtures['rank']->id,
-            'status' => 'active',
-        ]),
-        $fixtures['rank'],
-        makeCrewMovementVessel('Employee Txn Vessel B'),
-    );
-
-    $foreign = Employee::factory()->forCompany($other['company'])->create([
-        'rank_id' => $other['rank']->id,
-        'status' => 'active',
-    ]);
-    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
-        'employee_id' => $foreign->id,
-    ])))->toThrow(ValidationException::class);
-
-    $inactive = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'inactive',
-    ]);
-    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
-        'employee_id' => $inactive->id,
-    ])))->toThrow(ValidationException::class);
-
-    $wrongRank = Rank::query()->create([
-        'name' => 'Wrong Emp Rank '.uniqid(),
-        'is_active' => true,
-    ]);
-    $wrongRankEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $wrongRank->id,
-        'status' => 'active',
-    ]);
-    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
-        'employee_id' => $wrongRankEmployee->id,
-    ])))->toThrow(ValidationException::class);
-
-    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
-        'employee_id' => 9_999_999,
-    ])))->toThrow(ValidationException::class);
-
-    expect(fn () => $save->create($companyId, reliefPlanningPayload($sourceB, [
-        'employee_id' => $sourceB->employee_id,
-    ])))->toThrow(ValidationException::class);
-
-    $vacant = $save->create($companyId, reliefPlanningPayload($sourceB, [
-        'employee_id' => null,
-    ]));
-    expect($vacant->employee_id)->toBeNull();
 });

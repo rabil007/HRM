@@ -2,17 +2,23 @@
 
 namespace App\Support\CrewMovements;
 
+use App\Enums\CrewAssignmentStatus;
+use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use Illuminate\Support\Collection;
 
 /**
- * Batch-load active operational relief Planning rows for source assignments.
+ * Batch-load active operational relief for source assignments.
+ *
+ * Prefer named CrewAssignment relief (planned/active). Fall back to
+ * CrewPlanningAssignment vacant/legacy relief rows when no assignment exists.
+ * Draft CrewAssignments are non-committed and do not count as operational relief.
  */
 final class CrewReliefPlanningLoader
 {
     /**
      * @param  list<int>  $sourceAssignmentIds
-     * @return Collection<int, CrewPlanningAssignment> keyed by relieves_crew_assignment_id
+     * @return Collection<int, CrewAssignment|CrewPlanningAssignment> keyed by relieves_crew_assignment_id
      */
     public function forSourceAssignmentIds(int $companyId, array $sourceAssignmentIds): Collection
     {
@@ -25,9 +31,52 @@ final class CrewReliefPlanningLoader
             return collect();
         }
 
-        $plans = CrewPlanningAssignment::query()
+        $resolver = new CrewReliefReadinessResolver;
+        $activeBySource = collect();
+
+        $assignments = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('relieves_crew_assignment_id', $ids)
+            ->whereIn('status', [
+                CrewAssignmentStatus::Planned,
+                CrewAssignmentStatus::Active,
+            ])
+            ->with([
+                'employee:id,company_id,name,employee_no',
+                'currentPhase',
+                'relievedAssignment.employee:id,company_id,name,employee_no',
+                'relievedAssignment.vessel:id,company_id,name',
+                'relievedAssignment.rank:id,name',
+            ])
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($assignments as $assignment) {
+            $sourceId = (int) $assignment->relieves_crew_assignment_id;
+
+            if ($activeBySource->has($sourceId)) {
+                continue;
+            }
+
+            if (! $resolver->isOperationallyActive($assignment)) {
+                continue;
+            }
+
+            $activeBySource->put($sourceId, $assignment);
+        }
+
+        $remainingIds = array_values(array_filter(
+            $ids,
+            fn (int $id): bool => ! $activeBySource->has($id),
+        ));
+
+        if ($remainingIds === []) {
+            return $activeBySource;
+        }
+
+        $plans = CrewPlanningAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('relieves_crew_assignment_id', $remainingIds)
             ->with([
                 'employee:id,company_id,name,employee_no',
                 'crewAssignment.currentPhase',
@@ -38,9 +87,6 @@ final class CrewReliefPlanningLoader
             ])
             ->orderByDesc('id')
             ->get();
-
-        $resolver = new CrewReliefReadinessResolver;
-        $activeBySource = collect();
 
         foreach ($plans as $plan) {
             $sourceId = (int) $plan->relieves_crew_assignment_id;

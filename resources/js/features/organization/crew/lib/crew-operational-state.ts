@@ -87,6 +87,98 @@ export function formatOtherValidActionLabel(
     return CREW_MOVEMENT_ACTION_LABELS[action] ?? action;
 }
 
+/**
+ * Canonical Operator next-step button set for the assignment detail panel.
+ * Deduplicates recommended movement / anyway / available_actions so Draft→Active
+ * (and similar) never render twice under different labels.
+ */
+export type OperatorNextStepButton = {
+    kind: 'href' | 'movement' | 'anyway' | 'cancel';
+    label: string;
+    action?: CrewMovementAction;
+    href?: string;
+};
+
+export function resolveOperatorNextStepButtons(options: {
+    recommended: CrewRecommendedAction | null | undefined;
+    availableActions: string[];
+    permissions: OperationalStatePermissions;
+    canViewDocuments: boolean;
+    canViewPlanning: boolean;
+}): OperatorNextStepButton[] {
+    const { recommended, availableActions, permissions } = options;
+    const buttons: OperatorNextStepButton[] = [];
+
+    const recommendedMovement =
+        recommended?.type === 'movement' && recommended.action
+            ? (recommended.action as CrewMovementAction)
+            : null;
+
+    if (recommendedMovement) {
+        buttons.push({
+            kind: 'movement',
+            action: recommendedMovement,
+            label:
+                CREW_MOVEMENT_ACTION_LABELS[recommendedMovement] ??
+                recommended?.label ??
+                recommendedMovement,
+        });
+    }
+
+    const recommendedHref =
+        recommended?.href &&
+        ((recommended.type === 'readiness' && options.canViewDocuments) ||
+            (recommended.type === 'relief' && options.canViewPlanning) ||
+            recommended.type === 'movement')
+            ? recommended.href
+            : null;
+
+    if (recommendedHref && !recommendedMovement) {
+        buttons.push({
+            kind: 'href',
+            href: recommendedHref,
+            label:
+                recommended?.type === 'readiness'
+                    ? 'Open Documents'
+                    : (recommended?.label ?? 'Open'),
+        });
+    }
+
+    if (
+        recommended?.anyway_action &&
+        permissions.perform_movement &&
+        availableActions.includes(recommended.anyway_action)
+    ) {
+        buttons.push({
+            kind: 'anyway',
+            action: recommended.anyway_action as CrewMovementAction,
+            label: recommended.anyway_label ?? 'Continue Anyway',
+        });
+    }
+
+    for (const action of otherValidMovementActions(
+        availableActions,
+        recommended,
+        permissions,
+    )) {
+        buttons.push({
+            kind: 'movement',
+            action,
+            label: formatOtherValidActionLabel(action),
+        });
+    }
+
+    if (permissions.cancel && availableActions.includes('cancel_assignment')) {
+        buttons.push({
+            kind: 'cancel',
+            action: 'cancel_assignment',
+            label: CREW_MOVEMENT_ACTION_LABELS.cancel_assignment,
+        });
+    }
+
+    return buttons;
+}
+
 export type LastOperationalChangeInput = Pick<
     CrewAssignmentListItem,
     'actual_join_at' | 'actual_disembarkation_at' | 'vessel' | 'current_phase'

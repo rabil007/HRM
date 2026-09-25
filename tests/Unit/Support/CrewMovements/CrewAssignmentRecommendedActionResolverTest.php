@@ -112,7 +112,8 @@ it('recommends resolving readiness on P0 when checks fail without removing other
     );
 
     expect($recommended?->type)->toBe('readiness')
-        ->and($recommended?->anywayAction)->toBe(CrewMovementAction::ApproveMobilisation->value)
+        ->and($recommended?->anywayAction)->toBeNull()
+        ->and($recommended?->anywayLabel)->toBeNull()
         ->and($available)->toContain(CrewMovementAction::ApproveMobilisation->value)
         ->and($available)->toContain(CrewMovementAction::CancelAssignment->value);
 });

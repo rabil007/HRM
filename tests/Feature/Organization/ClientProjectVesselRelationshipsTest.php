@@ -11,7 +11,6 @@ use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\Project;
 use App\Support\CrewMovements\CrewMovementService;
-use App\Support\CrewPlanning\CreateCrewAssignmentFromPlanning;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\UploadedFile;
@@ -415,7 +414,6 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertRedirect();
@@ -423,13 +421,14 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
     $planning = CrewPlanningAssignment::query()
         ->where('company_id', $company->id)
         ->where('vessel_id', $vessel->id)
-        ->where('employee_id', $employee->id)
+        ->where('rank_id', $rank->id)
+        ->whereNull('employee_id')
+        ->whereNull('crew_assignment_id')
         ->first();
 
     expect($planning)->not->toBeNull();
 
-    $assignment = app(CreateCrewAssignmentFromPlanning::class)
-        ->handle($planning, $user->id);
+    $assignment = createAssignmentFromPlanning($planning, $user->id, $employee->id);
 
     expect((int) $assignment->vessel_id)->toBe((int) $vessel->id)
         ->and((int) $assignment->client_id)->toBe((int) $client->id);
@@ -450,7 +449,6 @@ test('crew planning rejects legacy unassigned vessel', function () {
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -593,7 +591,6 @@ test('crew planning create rejects inactive mapped vessel', function () {
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -617,7 +614,6 @@ test('crew planning update rejects changing to inactive vessel', function () {
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $activeVessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertRedirect();
@@ -630,7 +626,6 @@ test('crew planning update rejects changing to inactive vessel', function () {
     $this->put("/organization/crew-planning/assignments/{$planning->id}", [
         'vessel_id' => $inactiveVessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -668,7 +663,7 @@ test('planning conversion fails when vessel becomes inactive after planning', fu
 
     $vessel->update(['is_active' => false]);
 
-    expect(fn () => app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id))
+    expect(fn () => createAssignmentFromPlanning($planning, $user->id))
         ->toThrow(CrewMovementException::class);
 
     expect($planning->fresh()->crew_assignment_id)->toBeNull()
@@ -847,7 +842,6 @@ test('crew planning create rejects active vessel whose client is inactive', func
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -870,7 +864,7 @@ test('planning conversion fails when vessel client becomes inactive after planni
 
     $client->update(['is_active' => false]);
 
-    expect(fn () => app(CreateCrewAssignmentFromPlanning::class)->handle($planning, $user->id))
+    expect(fn () => createAssignmentFromPlanning($planning, $user->id))
         ->toThrow(CrewMovementException::class);
 
     expect($planning->fresh()->crew_assignment_id)->toBeNull()
