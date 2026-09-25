@@ -6,7 +6,9 @@ use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Models\CrewTimesheetPreparationLine;
+use App\Support\Payroll\CrewTimeline\Actions\SubmitCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
+use Illuminate\Validation\ValidationException;
 
 test('exact phase handoffs produce no overlap warning and onsite wins transition dates', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
@@ -233,10 +235,12 @@ test('preparation with only exact handoffs can be submitted', function () {
         (int) $fixtures['user']->id,
     );
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.submit', [$fixtures['period'], $preparation]))
-        ->assertSessionHasNoErrors();
+    app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
 
     expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Submitted);
 });
@@ -254,10 +258,12 @@ test('preparation with genuine overlap cannot be submitted', function () {
         (int) $fixtures['user']->id,
     );
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.submit', [$fixtures['period'], $preparation]))
-        ->assertSessionHasErrors('preparation');
+    expect(fn () => app(SubmitCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    ))->toThrow(ValidationException::class);
 
     expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Draft);
 });

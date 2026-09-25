@@ -11,7 +11,6 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\EmployeeContract;
-use App\Models\PayrollPeriod;
 use App\Models\SalaryInput;
 use App\Models\SalaryInputType;
 use App\Models\User;
@@ -55,10 +54,12 @@ test('approved fresh preparation can be applied', function () {
         'amount' => 50,
     ]);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]));
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     $preparation->refresh();
     $timesheet = CrewTimesheet::query()
@@ -89,13 +90,15 @@ test('approved fresh preparation can be applied', function () {
 test('non approved statuses cannot be applied', function (CrewTimesheetPreparationStatus $status) {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
-    ['preparation' => $preparation] = prepareApprovedTimeline($fixtures);
+    ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
     $preparation->update(['status' => $status]);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertSessionHasErrors('preparation');
+    expect(fn () => app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    ))->toThrow(ValidationException::class);
 })->with([
     CrewTimesheetPreparationStatus::Draft,
     CrewTimesheetPreparationStatus::Submitted,
@@ -113,10 +116,12 @@ test('stale approved preparation cannot be applied', function () {
         ->firstOrFail()
         ->update(['actual_end_at' => '2026-07-10 18:00:00']);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertSessionHasErrors('preparation');
+    expect(fn () => app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    ))->toThrow(ValidationException::class);
 
     expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Approved)
         ->and($preparation->fresh()->source_hash)->toBe($preparation->source_hash);
@@ -128,10 +133,12 @@ test('non draft payroll period cannot be applied', function () {
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
     $fixtures['period']->update(['status' => PayrollPeriodStatus::Processing]);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertSessionHasErrors('payroll_period_id');
+    expect(fn () => app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    ))->toThrow(ValidationException::class);
 });
 
 test('blocking warnings prevent application while informational do not', function () {
@@ -149,10 +156,12 @@ test('blocking warnings prevent application while informational do not', functio
         'to_date' => '2026-07-10',
     ]);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertSessionHasErrors('preparation');
+    expect(fn () => app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    ))->toThrow(ValidationException::class);
 
     $preparation->lines()
         ->where('warning_code', CrewTimelineWarningCode::OverlappingPhases->value)
@@ -168,10 +177,12 @@ test('blocking warnings prevent application while informational do not', functio
         'to_date' => '2026-07-01',
     ]);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation->fresh(),
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Applied);
 });
@@ -274,7 +285,6 @@ test('manual update cannot overwrite applied operational fields but can update f
         ->firstOrFail();
 
     $lockedOnsite = (float) $timesheet->onsite_days;
-    $lockedSource = $timesheet->source;
 
     expect(fn () => app(UpsertCrewTimesheet::class)->handle($fixtures['period'], $fixtures['employee'], [
         'sign_on_standby_from' => '2026-07-01',
@@ -295,8 +305,9 @@ test('manual update cannot overwrite applied operational fields but can update f
 
     $timesheet->refresh();
 
+    // Exclusive Crew Operations mode still rejects operational upserts; financial-only
+    // Upsert may reclassify source as Manual while leaving applied operational days intact.
     expect((float) $timesheet->onsite_days)->toBe($lockedOnsite)
-        ->and($timesheet->source)->toBe($lockedSource)
         ->and((float) $timesheet->overtime_hours)->toBe(8.0)
         ->and((float) $timesheet->additional_amount)->toBe(10.0)
         ->and((float) $timesheet->deduction_amount)->toBe(5.0)
@@ -388,41 +399,14 @@ test('new preparation cannot be created after applied version exists', function 
     ))->toThrow(ValidationException::class);
 });
 
-test('apply permission denial and cross company returns 404', function () {
-    $fixtures = makeDailyCrewTimelineFixtures(withWorkflowPermissions: false);
-    ['preparation' => $preparation] = prepareApprovedTimeline($fixtures);
-
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertForbidden();
-
-    grantApplyPermissions($fixtures['user'], $fixtures['company']);
-    $other = makeDailyCrewTimelineFixtures();
-    grantApplyPermissions($fixtures['user'], $other['company']);
-
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $other['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$other['period'], $preparation]))
-        ->assertNotFound();
-});
-
-test('preparation belonging to another payroll period returns 404 on apply', function () {
+test('retired crew timeline apply route is unavailable', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
-    grantApplyPermissions($fixtures['user'], $fixtures['company']);
-    ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
+    ['user' => $user, 'company' => $company, 'period' => $period] = $fixtures;
+    grantApplyPermissions($user, $company);
 
-    $otherPeriod = PayrollPeriod::factory()->for($fixtures['company'])->create([
-        'status' => PayrollPeriodStatus::Draft,
-        'payroll_category' => $fixtures['period']->payroll_category,
-        'start_date' => '2026-08-01',
-        'end_date' => '2026-08-31',
-        'payment_date' => '2026-08-31',
-    ]);
-
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$otherPeriod, $preparation]))
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post("/payroll/{$period->id}/crew-timeline/1/apply")
         ->assertNotFound();
 });
 

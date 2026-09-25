@@ -27,14 +27,13 @@ export function PayrollReprepareTimelineDialog({
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Prepare a new Crew Timesheet version?
+                        Refresh Crew Timesheets from assignments?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        This creates a new draft Crew Timesheet version from the
-                        latest Crew Assignment movement data. The current
-                        version {currentVersion} and any review progress on it
-                        will be superseded. Use this when the underlying Crew
-                        Assignment data has changed.
+                        This repopulates timesheets from the latest Crew
+                        Assignment movement data. The current version{' '}
+                        {currentVersion} will be superseded. Use this when the
+                        underlying Crew Assignment data has changed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -49,7 +48,7 @@ export function PayrollReprepareTimelineDialog({
                             onConfirm();
                         }}
                     >
-                        {processing ? 'Preparing…' : 'Create new version'}
+                        {processing ? 'Refreshing…' : 'Refresh timesheets'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

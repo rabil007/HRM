@@ -61,12 +61,6 @@ final class ReplaceCrewTimesheetSegments
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($timesheet->isOperationallyLocked()) {
-                throw ValidationException::withMessages([
-                    'segments' => 'Operational Crew Assignment timesheet fields cannot be changed after the timesheet is Applied.',
-                ]);
-            }
-
             $employee = $timesheet->employee;
 
             if ($employee === null || (int) $employee->company_id !== $companyId) {
@@ -89,15 +83,16 @@ final class ReplaceCrewTimesheetSegments
                 ]);
             }
 
-            if ($period->requiresExclusiveCrewOperationsTimesheets()) {
-                throw ValidationException::withMessages([
-                    'segments' => 'Daily crew operational days come from the Applied Crew Timesheet and cannot be set manually.',
-                ]);
-            }
-
             $normalized = $this->normalizeSegments($segments);
 
-            $source = CrewTimesheetSource::Manual;
+            // Payroll-specific movement corrections stay on the timesheet. Preserve
+            // Crew Operations provenance when the row was populated from assignments;
+            // otherwise treat the edit as a Manual correction.
+            $existingSource = $timesheet->resolvedSource();
+            $source = $existingSource === CrewTimesheetSource::CrewOperations
+                ? CrewTimesheetSource::CrewOperations
+                : CrewTimesheetSource::Manual;
+
             $persisted = $this->persistMovements->handle(
                 $timesheet,
                 $period,
@@ -108,13 +103,17 @@ final class ReplaceCrewTimesheetSegments
 
             $attributes = [
                 'source' => $source,
-                'crew_timesheet_preparation_id' => null,
-                'operational_approved_by' => null,
-                'operational_approved_at' => null,
-                'movement_source_hash' => null,
             ];
 
-            if ($this->autoApproval->shouldAutoApprove($source)) {
+            if ($source === CrewTimesheetSource::Manual) {
+                $attributes['crew_timesheet_preparation_id'] = null;
+                $attributes['operational_approved_by'] = null;
+                $attributes['operational_approved_at'] = null;
+                $attributes['movement_source_hash'] = null;
+            }
+
+            if ($this->autoApproval->shouldAutoApprove($source)
+                || $source === CrewTimesheetSource::CrewOperations) {
                 $attributes = array_merge(
                     $attributes,
                     $this->autoApproval->approvalAttributes((int) $actor->id),

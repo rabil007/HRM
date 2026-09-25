@@ -1,11 +1,13 @@
 <?php
 
+use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetSource;
 use App\Models\CrewTimesheet;
 use App\Models\PayrollPeriod;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
+use App\Support\Payroll\CrewTimeline\PopulateCrewTimesheetsFromAssignments;
 use Illuminate\Validation\ValidationException;
 
 test('manual timesheet creation is automatically approved', function () {
@@ -82,10 +84,10 @@ test('manual timesheet save without authenticated actor is rejected', function (
     ]))->toThrow(ValidationException::class);
 });
 
-test('legacy submitted import timesheet can still be returned through approval route', function () {
+test('retired per-timesheet submit approve and return routes are unavailable', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     grantCompanyPermissions($user, $company, [
-        'payroll.crew_timesheets.return',
+        'payroll.crew_timesheets.view',
         'payroll.periods.view',
     ]);
 
@@ -102,77 +104,32 @@ test('legacy submitted import timesheet can still be returned through approval r
         'onsite_days' => 5,
     ]);
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->post(route('payroll.timesheets.return', [$period, $timesheet]), [
-            'return_reason' => 'Correct onsite days',
-        ])
-        ->assertRedirect();
-
-    expect($timesheet->fresh()->approval_status)->toBe(CrewTimesheetApprovalStatus::Returned)
-        ->and($timesheet->fresh()->return_reason)->toBe('Correct onsite days');
+    foreach ([
+        "/payroll/{$period->id}/timesheets/{$timesheet->id}/submit",
+        "/payroll/{$period->id}/timesheets/{$timesheet->id}/approve",
+        "/payroll/{$period->id}/timesheets/{$timesheet->id}/return",
+    ] as $path) {
+        $this->actingAs($user)
+            ->withSession(['current_company_id' => $company->id])
+            ->post($path, ['return_reason' => 'Correct onsite days'])
+            ->assertNotFound();
+    }
 });
 
-test('unauthorized approval is rejected', function () {
-    ['user' => $user, 'company' => $company] = makePayrollFixtures();
-    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
-
-    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
-        'start_date' => '2026-07-01',
-        'end_date' => '2026-07-31',
-    ]);
-    $employee = createCrewEmployeeWithContract($company, 'APR-UNAUTH', 100, 50, 25);
-    $timesheet = CrewTimesheet::factory()->submitted()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'period_id' => $period->id,
-        'source' => CrewTimesheetSource::Manual,
-    ]);
-
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->post(route('payroll.timesheets.approve', [$period, $timesheet]))
-        ->assertForbidden();
-});
-
-test('cross company approval is rejected', function () {
-    ['user' => $user, 'company' => $company] = makePayrollFixtures();
-    ['company' => $other] = makePayrollFixtures();
-    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.approve']);
-
-    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
-        'start_date' => '2026-07-01',
-        'end_date' => '2026-07-31',
-    ]);
-    $otherPeriod = PayrollPeriod::factory()->for($other)->hybridTimesheets()->create([
-        'start_date' => '2026-07-01',
-        'end_date' => '2026-07-31',
-    ]);
-    $employee = createCrewEmployeeWithContract($other, 'APR-XCO', 100, 50, 25);
-    $timesheet = CrewTimesheet::factory()->submitted()->create([
-        'company_id' => $other->id,
-        'employee_id' => $employee->id,
-        'period_id' => $otherPeriod->id,
-        'source' => CrewTimesheetSource::Manual,
-    ]);
-
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->post(route('payroll.timesheets.approve', [$period, $timesheet]))
-        ->assertNotFound();
-});
-
-test('financial only update on locked crew operations preserves approval and operational fields', function () {
+test('financial only update on crew operations preserves approval and operational fields', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
 
-    ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-04 08:00:00', '2026-07-15 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 3, '2026-07-16 08:00:00', '2026-07-18 18:00:00');
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(PopulateCrewTimesheetsFromAssignments::class)->handle(
+        $fixtures['period'],
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
 
     $before = CrewTimesheet::query()
         ->where('employee_id', $fixtures['employee']->id)
@@ -183,10 +140,10 @@ test('financial only update on locked crew operations preserves approval and ope
         'overtime_hours' => 22,
         'additional_amount' => 150,
         'source' => CrewTimesheetSource::Manual,
-    ], $approver->id);
+    ], $fixtures['user']->id);
 
     expect($updated->source)->toBe(CrewTimesheetSource::CrewOperations)
-        ->and($updated->isOperationallyLocked())->toBeTrue()
+        ->and($updated->isOperationallyLocked())->toBeFalse()
         ->and($updated->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved)
         ->and((float) $updated->onsite_days)->toBe((float) $before->onsite_days)
         ->and((float) $updated->overtime_hours)->toBe(22.0)

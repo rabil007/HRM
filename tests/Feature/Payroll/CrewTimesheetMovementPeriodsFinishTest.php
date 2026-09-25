@@ -12,8 +12,8 @@ use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\ClearManualImportCrewTimesheets;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use App\Support\Payroll\Services\CrewPayrollSalarySheetExporter;
-use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 test('manual save accepts two onsite periods and nulls parent from/to', function () {
@@ -132,7 +132,7 @@ test('overlapping manual movement periods are rejected while consecutive are acc
     expect(CrewTimesheet::query()->where('employee_id', $employee->id)->where('period_id', $period->id)->exists())->toBeTrue();
 });
 
-test('crew operations segments cannot be replaced by manual segments payload', function () {
+test('hybrid draft allows replacing crew operations segments via upsert payload', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
     grantApplyPermissions($fixtures['user'], $fixtures['company'], [
@@ -142,19 +142,22 @@ test('crew operations segments cannot be replaced by manual segments payload', f
 
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     $timesheet = CrewTimesheet::query()
         ->where('period_id', $fixtures['period']->id)
         ->where('employee_id', $fixtures['employee']->id)
         ->firstOrFail();
 
-    expect($timesheet->isOperationallyLocked())->toBeTrue();
+    expect($timesheet->isOperationallyLocked())->toBeFalse();
 
-    expect(fn () => app(UpsertCrewTimesheet::class)->handle(
+    // Hybrid draft rows remain editable: Upsert with segments replaces operational days.
+    $updated = app(UpsertCrewTimesheet::class)->handle(
         $fixtures['period']->fresh(),
         $fixtures['employee'],
         [
@@ -166,13 +169,13 @@ test('crew operations segments cannot be replaced by manual segments payload', f
                     'to_date' => '2026-07-05',
                 ],
             ],
+            'source' => CrewTimesheetSource::Manual,
         ],
         $fixtures['user']->id,
-    ))->toThrow(ValidationException::class);
+    );
 
-    expect($timesheet->fresh()->segments->every(
-        fn ($segment) => $segment->source === CrewTimesheetSource::CrewOperations,
-    ))->toBeTrue();
+    expect((float) $updated->onsite_days)->toBe(5.0)
+        ->and($updated->source)->toBe(CrewTimesheetSource::Manual);
 });
 
 test('clear timesheets soft-deletes manual segments and preserves crew operations segments', function () {
@@ -183,10 +186,12 @@ test('clear timesheets soft-deletes manual segments and preserves crew operation
     ]);
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     $ops = CrewTimesheet::query()
         ->where('period_id', $fixtures['period']->id)

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetSource;
@@ -10,8 +11,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
-use Illuminate\Validation\ValidationException;
-use Spatie\Activitylog\Models\Activity;
+use App\Support\Payroll\CrewTimeline\PopulateCrewTimesheetsFromAssignments;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 test('hybrid period allows manual operational entry without movement coverage', function () {
@@ -61,7 +61,7 @@ test('hybrid period allows import source operational entry without movement cove
         ->and((float) $timesheet->overtime_hours)->toBe(10.0);
 });
 
-test('applying approved movement replaces import operational values and preserves financials', function () {
+test('populating from assignments replaces import operational values and preserves financials', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
@@ -78,12 +78,16 @@ test('applying approved movement replaces import operational values and preserve
         'additional_amount' => 500,
     ]);
 
-    ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-04 08:00:00', '2026-07-15 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 3, '2026-07-16 08:00:00', '2026-07-18 18:00:00');
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    $result = app(PopulateCrewTimesheetsFromAssignments::class)->handle(
+        $fixtures['period'],
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
+    $preparation = $result['preparation'];
 
     $timesheet = CrewTimesheet::query()
         ->where('employee_id', $fixtures['employee']->id)
@@ -94,33 +98,27 @@ test('applying approved movement replaces import operational values and preserve
         ->and((float) $timesheet->onsite_days)->not->toBe(15.0)
         ->and((float) $timesheet->overtime_hours)->toBe(10.0)
         ->and((float) $timesheet->additional_amount)->toBe(500.0)
-        ->and($timesheet->isOperationallyLocked())->toBeTrue()
+        ->and($timesheet->isOperationallyLocked())->toBeFalse()
         ->and((int) $timesheet->crew_timesheet_preparation_id)->toBe((int) $preparation->id)
         ->and($timesheet->movement_source_hash)->toBe($preparation->fresh()->source_hash);
-
-    expect(Activity::query()
-        ->where('description', 'Crew timesheet preparation applied to timesheets')
-        ->exists())->toBeTrue();
 });
 
-test('manual and import cannot overwrite applied crew operations operational fields', function () {
+test('hybrid draft allows overwriting crew operations operational fields and financial-only updates', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
-    ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-04 08:00:00', '2026-07-15 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 3, '2026-07-16 08:00:00', '2026-07-18 18:00:00');
 
-    $locked = CrewTimesheet::query()
-        ->where('employee_id', $fixtures['employee']->id)
-        ->where('period_id', $fixtures['period']->id)
-        ->firstOrFail();
-    $originalOnsite = (float) $locked->onsite_days;
+    app(PopulateCrewTimesheetsFromAssignments::class)->handle(
+        $fixtures['period'],
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
 
-    expect(fn () => app(UpsertCrewTimesheet::class)->handle(
+    $overwritten = app(UpsertCrewTimesheet::class)->handle(
         $fixtures['period']->fresh(),
         $fixtures['employee'],
         [
@@ -129,8 +127,12 @@ test('manual and import cannot overwrite applied crew operations operational fie
             'onsite_days' => 20,
             'source' => CrewTimesheetSource::Manual,
         ],
-        $approver->id,
-    ))->toThrow(ValidationException::class);
+        $fixtures['user']->id,
+    );
+
+    expect((float) $overwritten->onsite_days)->toBe(20.0)
+        ->and($overwritten->source)->toBe(CrewTimesheetSource::Manual)
+        ->and($overwritten->isOperationallyLocked())->toBeFalse();
 
     $financial = app(UpsertCrewTimesheet::class)->handle(
         $fixtures['period']->fresh(),
@@ -140,16 +142,15 @@ test('manual and import cannot overwrite applied crew operations operational fie
             'additional_amount' => 250,
             'source' => CrewTimesheetSource::Import,
         ],
-        $approver->id,
+        $fixtures['user']->id,
     );
 
-    expect((float) $financial->onsite_days)->toBe($originalOnsite)
-        ->and($financial->source)->toBe(CrewTimesheetSource::CrewOperations)
+    expect((float) $financial->onsite_days)->toBe(20.0)
         ->and((float) $financial->overtime_hours)->toBe(8.0)
         ->and((float) $financial->additional_amount)->toBe(250.0);
 });
 
-test('employee outside preparation remains editable after apply', function () {
+test('employee outside preparation remains editable after populate', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
@@ -165,12 +166,15 @@ test('employee outside preparation remains editable after apply', function () {
         'onsite_to' => '2026-07-12',
     ]);
 
-    ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-04 08:00:00', '2026-07-15 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 3, '2026-07-16 08:00:00', '2026-07-18 18:00:00');
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(PopulateCrewTimesheetsFromAssignments::class)->handle(
+        $fixtures['period'],
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
 
     $otherTimesheet = app(UpsertCrewTimesheet::class)->handle(
         $fixtures['period']->fresh(),
@@ -181,7 +185,7 @@ test('employee outside preparation remains editable after apply', function () {
             'onsite_days' => 14,
             'source' => CrewTimesheetSource::Manual,
         ],
-        $approver->id,
+        $fixtures['user']->id,
     );
 
     expect($otherTimesheet->source)->toBe(CrewTimesheetSource::Manual)
@@ -227,20 +231,17 @@ test('hybrid generation succeeds for mixed crew operations import manual and mon
         'unpaid_leave_days' => 0,
     ]);
 
-    ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
-    grantCompanyPermissions($approver, $fixtures['company'], [
-        'payroll.periods.update',
-        'payroll.periods.view',
-        'payroll.crew_timesheets.apply_approved',
-        'payroll.crew_timesheets.view',
-    ]);
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-04 08:00:00', '2026-07-15 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 3, '2026-07-16 08:00:00', '2026-07-18 18:00:00');
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(PopulateCrewTimesheetsFromAssignments::class)->handle(
+        $fixtures['period'],
+        $fixtures['user'],
+        (int) $fixtures['company']->id,
+    );
 
-    $this->actingAs($approver)
+    $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.generate', $fixtures['period']))
         ->assertRedirect(route('payroll.show', ['payrollPeriod' => $fixtures['period']]))

@@ -40,7 +40,6 @@ import {
 } from '@/components/ui/tooltip';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { formatDisplayDate } from '@/lib/format-date';
-import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { clearManualImport } from '@/routes/payroll/crew-timesheets';
 import { ClearCrewTimesheetsDialog } from './components/clear-crew-timesheets-dialog';
 import { CrewMovementPeriodsDialog } from './components/crew-movement-periods-dialog';
@@ -67,7 +66,6 @@ import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-
 import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { PayrollStatusTimeline } from './components/payroll-status-timeline';
-import { CrewTimelineStatusBadge } from './crew-timeline/crew-timeline-status-badge';
 import { useCrewTimesheetFinancialAutosave } from './hooks/use-crew-timesheet-financial-autosave';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
 import type { MovementCategoryGroup } from './lib/crew-movement-period-drafts';
@@ -562,7 +560,7 @@ export function PayrollShowContent({
 
     const generationBlockingReason =
         period.generation_blocking_reason ??
-        'Apply the approved Crew Timesheet before generating payroll.';
+        'Populate Crew Timesheets from Crew Assignments, or enter Manual / Excel timesheet data, before generating payroll.';
 
     const showTimelineCard =
         period.supports_timesheets &&
@@ -577,8 +575,7 @@ export function PayrollShowContent({
         period.status === 'draft' &&
         period.uses_crew_operations_timesheets &&
         period.supports_timesheets &&
-        permissions.prepare_timeline &&
-        crew_timeline_preparation?.status !== 'applied';
+        permissions.prepare_timeline;
 
     const canRevertToDraft =
         period.can_revert_to_draft && permissions.revert_to_draft;
@@ -949,14 +946,6 @@ export function PayrollShowContent({
                                     <p className="text-sm font-semibold">
                                         Crew Timesheet
                                     </p>
-                                    <CrewTimelineStatusBadge
-                                        status={
-                                            crew_timeline_preparation.status
-                                        }
-                                        label={
-                                            crew_timeline_preparation.status_label
-                                        }
-                                    />
                                     <Badge variant="outline">
                                         Version{' '}
                                         {crew_timeline_preparation.version}
@@ -979,58 +968,29 @@ export function PayrollShowContent({
                                     </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                    Blocking warnings:{' '}
-                                    {
-                                        crew_timeline_preparation.blocking_warning_count
-                                    }{' '}
-                                    · Informational warnings:{' '}
-                                    {
-                                        crew_timeline_preparation.informational_warning_count
-                                    }
-                                    {crew_timeline_preparation.status ===
-                                    'applied'
-                                        ? ` · Applied to ${crew_timeline_preparation.linked_timesheet_count} timesheet(s)`
-                                        : null}
+                                    {crew_timeline_preparation.linked_timesheet_count >
+                                    0
+                                        ? `Populated ${crew_timeline_preparation.linked_timesheet_count} timesheet(s) from Crew Assignments.`
+                                        : 'Prepared from Crew Assignments.'}{' '}
+                                    Edit movement periods and financial fields
+                                    on this page.
                                 </p>
-                                {crew_timeline_preparation.status ===
-                                'applied' ? (
-                                    <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                                        Operational timesheets came from Crew
-                                        Assignments.
-                                    </p>
-                                ) : null}
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                                {canPrepareTimeline ? (
-                                    <Button
-                                        variant="outline"
-                                        disabled={isPreparingTimeline}
-                                        onClick={() =>
-                                            setIsReprepareDialogOpen(true)
-                                        }
-                                    >
-                                        <RotateCcw className="mr-2 h-4 w-4" />
-                                        Prepare new version
-                                    </Button>
-                                ) : null}
+                            {canPrepareTimeline ? (
                                 <Button
                                     variant="outline"
+                                    disabled={isPreparingTimeline}
                                     onClick={() =>
-                                        router.visit(
-                                            crewTimelineShow.url([
-                                                period.id,
-                                                crew_timeline_preparation.id,
-                                            ]),
-                                        )
+                                        setIsReprepareDialogOpen(true)
                                     }
                                 >
-                                    <Ship className="mr-2 h-4 w-4" />
+                                    <RotateCcw className="mr-2 h-4 w-4" />
                                     {crew_timeline_preparation.status ===
                                     'applied'
-                                        ? 'View Crew Timesheet'
-                                        : 'Review Crew Timesheet'}
+                                        ? 'Refresh from Crew Assignments'
+                                        : 'Prepare new version'}
                                 </Button>
-                            </div>
+                            ) : null}
                         </div>
                         {isGenerationBlocked ? (
                             <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">

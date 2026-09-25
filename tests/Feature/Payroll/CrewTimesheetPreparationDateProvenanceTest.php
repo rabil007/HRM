@@ -14,6 +14,23 @@ use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 
+/**
+ * @return array<string, mixed>
+ */
+function crewTimelineDateProvenancePayload(array $fixtures, CrewTimesheetPreparation $preparation): array
+{
+    $loaded = app(CrewTimesheetPreparationReviewQuery::class)->findForReview(
+        $fixtures['period'],
+        (int) $preparation->id,
+        (int) $fixtures['company']->id,
+    );
+
+    return app(CrewTimesheetPreparationReviewResource::class)->toArray(
+        $fixtures['period'],
+        $loaded,
+    );
+}
+
 afterEach(function () {
     CarbonImmutable::setTestNow();
 });
@@ -69,24 +86,22 @@ test('payroll allocation dates are not labelled as planned schedule', function (
             'days' => 7,
         ]);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->missing('employees.0.assignments.0.phases.0.planned_start')
-            ->missing('employees.0.assignments.0.phases.0.planned_end')
-            ->missing('employees.0.assignments.0.phases.0.planned_date_origin')
-            ->missing('employees.0.assignments.0.phases.0.planned_date_origin_label')
-            ->missing('employees.0.assignments.0.phases.0.has_planned_schedule')
-            ->where('employees.0.assignments.0.phases.0.payroll_from', '2026-07-04')
-            ->where('employees.0.assignments.0.phases.0.payroll_to', '2026-07-10')
-            ->where('employees.0.assignments.0.phases.0.payroll_date_origin', CrewDateProvenance::PayrollAllocation)
-            ->where('employees.0.assignments.0.phases.0.payroll_period_label', 'Payroll allocation')
-            ->where('employees.0.assignments.0.phases.0.actual_start', '2026-07-04')
-            ->where('employees.0.assignments.0.phases.0.actual_end', '2026-07-10')
-            ->has('employees.0.assignments.0.phases.0.payroll_lines')
-            ->where('employees.0.total_payable_days', 7));
+    $payload = crewTimelineDateProvenancePayload($fixtures, $preparation);
+    $phaseCard = $payload['employees'][0]['assignments'][0]['phases'][0];
+
+    expect($phaseCard)->not->toHaveKey('planned_start')
+        ->and($phaseCard)->not->toHaveKey('planned_end')
+        ->and($phaseCard)->not->toHaveKey('planned_date_origin')
+        ->and($phaseCard)->not->toHaveKey('planned_date_origin_label')
+        ->and($phaseCard)->not->toHaveKey('has_planned_schedule')
+        ->and($phaseCard['payroll_from'])->toBe('2026-07-04')
+        ->and($phaseCard['payroll_to'])->toBe('2026-07-10')
+        ->and($phaseCard['payroll_date_origin'])->toBe(CrewDateProvenance::PayrollAllocation)
+        ->and($phaseCard['payroll_period_label'])->toBe('Payroll allocation')
+        ->and($phaseCard['actual_start'])->toBe('2026-07-04')
+        ->and($phaseCard['actual_end'])->toBe('2026-07-10')
+        ->and($phaseCard['payroll_lines'])->not->toBeEmpty()
+        ->and($payload['employees'][0]['total_payable_days'])->toBe(7.0);
 });
 
 test('warning ranges are labelled as affected period and use phase actual dates', function () {
@@ -128,20 +143,18 @@ test('warning ranges are labelled as affected period and use phase actual dates'
             'source_actual_end_at' => null,
         ]);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->has('employees.0.assignments.0.phases', 1)
-            ->missing('employees.0.assignments.0.phases.0.planned_start')
-            ->missing('employees.0.assignments.0.phases.0.has_planned_schedule')
-            ->where('employees.0.assignments.0.phases.0.actual_start', '2026-07-04')
-            ->where('employees.0.assignments.0.phases.0.actual_end', '2026-07-10')
-            ->where('employees.0.assignments.0.phases.0.payroll_date_origin', CrewDateProvenance::PayrollAllocation)
-            ->has('employees.0.assignments.0.phases.0.warnings', 1)
-            ->where('employees.0.total_payable_days', 7)
-            ->where('employees.0.informational_warning_count', 1));
+    $payload = crewTimelineDateProvenancePayload($fixtures, $preparation);
+    $phaseCard = $payload['employees'][0]['assignments'][0]['phases'][0];
+
+    expect($payload['employees'][0]['assignments'][0]['phases'])->toHaveCount(1)
+        ->and($phaseCard)->not->toHaveKey('planned_start')
+        ->and($phaseCard)->not->toHaveKey('has_planned_schedule')
+        ->and($phaseCard['actual_start'])->toBe('2026-07-04')
+        ->and($phaseCard['actual_end'])->toBe('2026-07-10')
+        ->and($phaseCard['payroll_date_origin'])->toBe(CrewDateProvenance::PayrollAllocation)
+        ->and($phaseCard['warnings'])->toHaveCount(1)
+        ->and($payload['employees'][0]['total_payable_days'])->toBe(7.0)
+        ->and($payload['employees'][0]['informational_warning_count'])->toBe(1);
 });
 
 test('phase planned dates are not exposed on the payroll review payload', function () {
@@ -174,22 +187,20 @@ test('phase planned dates are not exposed on the payroll review payload', functi
             'days' => 7,
         ]);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->missing('employees.0.assignments.0.phases.0.planned_start')
-            ->missing('employees.0.assignments.0.phases.0.planned_end')
-            ->missing('employees.0.assignments.0.phases.0.planned_date_origin')
-            ->missing('employees.0.assignments.0.phases.0.planned_date_origin_label')
-            ->missing('employees.0.assignments.0.phases.0.has_planned_schedule')
-            ->where('employees.0.assignments.0.phases.0.actual_start', '2026-07-04')
-            ->where('employees.0.assignments.0.phases.0.actual_end', '2026-07-10')
-            ->where('employees.0.assignments.0.phases.0.payroll_from', '2026-07-04')
-            ->where('employees.0.assignments.0.phases.0.payroll_to', '2026-07-10')
-            ->has('employees.0.assignments.0.phases.0.payroll_lines')
-            ->has('employees.0.assignments.0.phases.0.warnings'));
+    $payload = crewTimelineDateProvenancePayload($fixtures, $preparation);
+    $phaseCard = $payload['employees'][0]['assignments'][0]['phases'][0];
+
+    expect($phaseCard)->not->toHaveKey('planned_start')
+        ->and($phaseCard)->not->toHaveKey('planned_end')
+        ->and($phaseCard)->not->toHaveKey('planned_date_origin')
+        ->and($phaseCard)->not->toHaveKey('planned_date_origin_label')
+        ->and($phaseCard)->not->toHaveKey('has_planned_schedule')
+        ->and($phaseCard['actual_start'])->toBe('2026-07-04')
+        ->and($phaseCard['actual_end'])->toBe('2026-07-10')
+        ->and($phaseCard['payroll_from'])->toBe('2026-07-04')
+        ->and($phaseCard['payroll_to'])->toBe('2026-07-10')
+        ->and($phaseCard['payroll_lines'])->not->toBeEmpty()
+        ->and($phaseCard['warnings'])->toBeArray();
 });
 
 test('planned september overlap without actual overlap yields no payable september allocation', function () {
@@ -269,13 +280,10 @@ test('completed june-august p4 with september planned sign-off yields zero septe
                 ->count()
         )->toBe(0);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->has('employees', 0)
-            ->where('summary.total_onsite_days', '0.00'));
+    $payload = crewTimelineDateProvenancePayload($fixtures, $preparation);
+
+    expect($payload['employees'])->toHaveCount(0)
+        ->and($payload['summary']['total_onsite_days'])->toBe('0.00');
 });
 
 test('active actual p4 is clipped to company-local today not planned sign-off', function () {
@@ -315,22 +323,21 @@ test('active actual p4 is clipped to company-local today not planned sign-off', 
         ->and($onsite->to_date->toDateString())->toBe('2026-09-15')
         ->and((float) $onsite->days)->toBe(15.0);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->missing('employees.0.assignments.0.phases.0.planned_start')
-            ->missing('employees.0.assignments.0.phases.0.planned_end')
-            ->missing('employees.0.assignments.0.phases.0.has_planned_schedule')
-            ->where('employees.0.onsite_from', '2026-09-01')
-            ->where('employees.0.onsite_to', '2026-09-15')
-            ->where('employees.0.onsite_days', 15)
-            ->where('employees.0.assignments.0.phases.0.actual_start', '2026-08-20')
-            ->where('employees.0.assignments.0.phases.0.actual_end', null)
-            ->where('employees.0.assignments.0.phases.0.payroll_from', '2026-09-01')
-            ->where('employees.0.assignments.0.phases.0.payroll_to', '2026-09-15')
-            ->has('employees.0.assignments.0.phases.0.payroll_lines'));
+    $payload = crewTimelineDateProvenancePayload($fixtures, $preparation);
+    $employee = $payload['employees'][0];
+    $phaseCard = $employee['assignments'][0]['phases'][0];
+
+    expect($phaseCard)->not->toHaveKey('planned_start')
+        ->and($phaseCard)->not->toHaveKey('planned_end')
+        ->and($phaseCard)->not->toHaveKey('has_planned_schedule')
+        ->and($employee['onsite_from'])->toBe('2026-09-01')
+        ->and($employee['onsite_to'])->toBe('2026-09-15')
+        ->and($employee['onsite_days'])->toBe(15.0)
+        ->and($phaseCard['actual_start'])->toBe('2026-08-20')
+        ->and($phaseCard['actual_end'])->toBeNull()
+        ->and($phaseCard['payroll_from'])->toBe('2026-09-01')
+        ->and($phaseCard['payroll_to'])->toBe('2026-09-15')
+        ->and($phaseCard['payroll_lines'])->not->toBeEmpty();
 });
 
 test('planned window locates missing actual start as a zero-day warning only', function () {
@@ -371,20 +378,19 @@ test('planned window locates missing actual start as a zero-day warning only', f
                 ->count()
         )->toBe(0);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->missing('employees.0.assignments.0.phases.0.planned_start')
-            ->missing('employees.0.assignments.0.phases.0.planned_end')
-            ->missing('employees.0.assignments.0.phases.0.has_planned_schedule')
-            ->where('employees.0.assignments.0.phases.0.actual_start', null)
-            ->where('employees.0.assignments.0.phases.0.actual_end', null)
-            ->has('employees.0.assignments.0.phases.0.warnings', 1)
-            ->where('employees.0.assignments.0.phases.0.warnings.0.code', CrewTimelineWarningCode::MissingActualStart->value)
-            ->where('employees.0.total_payable_days', 0)
-            ->where('employees.0.onsite_days', 0));
+    $payload = crewTimelineDateProvenancePayload($fixtures, $preparation);
+    $employee = $payload['employees'][0];
+    $phaseCard = $employee['assignments'][0]['phases'][0];
+
+    expect($phaseCard)->not->toHaveKey('planned_start')
+        ->and($phaseCard)->not->toHaveKey('planned_end')
+        ->and($phaseCard)->not->toHaveKey('has_planned_schedule')
+        ->and($phaseCard['actual_start'])->toBeNull()
+        ->and($phaseCard['actual_end'])->toBeNull()
+        ->and($phaseCard['warnings'])->toHaveCount(1)
+        ->and($phaseCard['warnings'][0]['code'])->toBe(CrewTimelineWarningCode::MissingActualStart->value)
+        ->and($employee['total_payable_days'])->toBe(0.0)
+        ->and($employee['onsite_days'])->toBe(0.0);
 });
 
 test('crew payroll review formats phase actual dates in the company timezone', function () {

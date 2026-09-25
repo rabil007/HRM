@@ -32,7 +32,6 @@ import type {
     PayrollShowFilters,
 } from '../types';
 import { CrewOperationalSourceBadge } from './crew-operational-source-badge';
-import { CrewTimesheetApprovalBadge } from './crew-timesheet-approval-badge';
 import { EmployeeAnalyticsCardsGrid } from './employee-analytics-cards';
 import { OperationalDateRange } from './operational-date-range';
 import { PayrollBoardFilteredEmptyState } from './payroll-board-filtered-empty-state';
@@ -268,7 +267,7 @@ export function CrewTimesheetsBoard({
                                     Overtime
                                 </DataTableHead>
                                 <DataTableHead>Payment</DataTableHead>
-                                <DataTableHead>Timesheet Status</DataTableHead>
+                                <DataTableHead>Save</DataTableHead>
                                 <DataTableHead>Source</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
@@ -618,12 +617,6 @@ export function CrewTimesheetsBoard({
                                             )}
                                         >
                                             <div className="flex flex-wrap items-center gap-1.5">
-                                                <CrewTimesheetApprovalBadge
-                                                    status={row.approval_status}
-                                                    label={
-                                                        row.approval_status_label
-                                                    }
-                                                />
                                                 {isSaving ? (
                                                     <span className="text-[10px] font-medium text-muted-foreground">
                                                         Saving…
@@ -659,7 +652,11 @@ export function CrewTimesheetsBoard({
                                                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
                                                         Unsaved
                                                     </span>
-                                                ) : null}
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
                                             </div>
                                         </TableCell>
 

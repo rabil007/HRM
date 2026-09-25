@@ -56,7 +56,7 @@ test('prepare rejects cutoff date outside the pay period', function () {
         ->assertSessionHasErrors('cutoff_date');
 });
 
-test('prepare creates draft timeline for normal p2a p3 p4 flow', function () {
+test('prepare creates applied timeline for normal p2a p3 p4 flow', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $this->actingAs($fixtures['user']);
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['payroll.crew_timesheets.prepare']);
@@ -73,12 +73,9 @@ test('prepare creates draft timeline for normal p2a p3 p4 flow', function () {
         ->where('payroll_period_id', $fixtures['period']->id)
         ->firstOrFail();
 
-    $response->assertRedirect(route('payroll.crew-timeline.show', [
-        $fixtures['period'],
-        $preparation,
-    ]));
+    $response->assertRedirect(route('payroll.show', $fixtures['period']));
 
-    expect($preparation->status)->toBe(CrewTimesheetPreparationStatus::Draft)
+    expect($preparation->status)->toBe(CrewTimesheetPreparationStatus::Applied)
         ->and($preparation->version)->toBe(1)
         ->and($preparation->prepared_by)->toBe($fixtures['user']->id)
         ->and($preparation->source_hash)->not->toBeEmpty();
@@ -94,7 +91,12 @@ test('prepare creates draft timeline for normal p2a p3 p4 flow', function () {
 
     expect($payable->contains(fn ($line) => $line->pay_category === CrewTimesheetPayCategory::SignOnStandby))->toBeTrue()
         ->and($payable->contains(fn ($line) => $line->pay_category === CrewTimesheetPayCategory::Onsite))->toBeTrue()
-        ->and(CrewTimesheet::query()->count())->toBe(0);
+        ->and(
+            CrewTimesheet::query()
+                ->where('period_id', $fixtures['period']->id)
+                ->where('employee_id', $fixtures['employee']->id)
+                ->exists()
+        )->toBeTrue();
 });
 
 test('prepare creates sign off standby after p4 disembarkation', function () {

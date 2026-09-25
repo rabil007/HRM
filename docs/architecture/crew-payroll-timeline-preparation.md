@@ -1,5 +1,9 @@
 # Crew Payroll Timesheet Preparation
 
+> **Active workflow (current):** Crew Timesheets are populated and edited on `/payroll/{payrollPeriod}` for Draft crew periods. `POST .../crew-timeline/prepare` populates timesheets from Crew Assignments in one step. The separate review page and submit/approve/return/apply/skip routes are **retired**. Preparation tables remain for history. See [payroll.md](../payroll.md#crew-timesheet-on-the-payroll-period-page).
+>
+> The sections below document the historical Phase 1A–1D architecture and the phase-mapping / day-allocation engine that Populate from Crew Assignments still uses.
+
 This document describes the crew payroll timesheet preparation architecture.
 
 ## Intended flow

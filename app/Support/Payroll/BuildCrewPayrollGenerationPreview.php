@@ -244,25 +244,6 @@ final class BuildCrewPayrollGenerationPreview
             $source = $timesheet->resolvedSource();
 
             if ($source === CrewTimesheetSource::CrewOperations) {
-                $linkReason = $this->legacyGuard->dailyTimesheetLinkReason(
-                    $employee,
-                    $period,
-                    $preparation,
-                    $companyId,
-                    $timesheet,
-                );
-
-                if ($linkReason !== null) {
-                    $blockingIssues[] = [
-                        'employee_id' => $employeeId,
-                        'employee_name' => $employee->name,
-                        'code' => 'crew_operations_linkage',
-                        'message' => $linkReason,
-                    ];
-
-                    continue;
-                }
-
                 if ($this->appendIntegrityFindings(
                     $timesheet,
                     $employee,

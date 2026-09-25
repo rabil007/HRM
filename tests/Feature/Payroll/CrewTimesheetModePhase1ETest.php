@@ -12,7 +12,7 @@ use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
-use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -189,17 +189,19 @@ test('manual crew payroll generation works without applied timeline preparation'
         ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBeGreaterThan(0);
 });
 
-test('crew operations payroll generation is blocked without an applied timeline', function () {
+test('crew operations payroll generation is blocked without timesheets', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
         'payroll.periods.update',
     ]);
 
+    $missingMessage = "Daily crew employee {$fixtures['employee']->name} is missing a timesheet. Enter Manual or Excel data, or populate from Crew Assignments.";
+
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.generate', $fixtures['period']))
         ->assertSessionHasErrors([
-            'period_id' => CrewOperationsPayrollGenerationGuard::MISSING_APPLIED_MESSAGE,
+            'period_id' => $missingMessage,
         ]);
 
     expect(PayrollRecord::query()->where('period_id', $fixtures['period']->id)->exists())->toBeFalse();
@@ -213,10 +215,12 @@ test('crew operations payroll generation succeeds after approved timeline is app
 
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Applied);
 
@@ -258,7 +262,7 @@ test('payroll show exposes mode, generation readiness, and timeline props for cr
             ->where('period.generation_preview.ready', false)
             ->where(
                 'period.generation_preview.blocking_reason',
-                CrewOperationsPayrollGenerationGuard::MISSING_APPLIED_MESSAGE,
+                'Daily crew employee  is missing a timesheet. Enter Manual or Excel data, or populate from Crew Assignments.',
             )
             ->has('crew_timesheet_mode_options', 3));
 });

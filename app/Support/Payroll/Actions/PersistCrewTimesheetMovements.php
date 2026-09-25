@@ -11,8 +11,9 @@ use App\Support\Attendance\CalculateLeaveRequestDays;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Soft-deletes Manual/Import segments and recreates them as original ranges.
+ * Soft-deletes existing movement segments and recreates them as original ranges.
  * Ranges may start before the payroll period; days after period end are rejected upstream.
+ * Supports Manual, Import, and Crew Operations sources for draft payroll corrections.
  */
 final class PersistCrewTimesheetMovements
 {
@@ -32,9 +33,13 @@ final class PersistCrewTimesheetMovements
         CrewTimesheetSource $source,
         ?int $actorId = null,
     ): array {
-        if (! in_array($source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+        if (! in_array($source, [
+            CrewTimesheetSource::Manual,
+            CrewTimesheetSource::Import,
+            CrewTimesheetSource::CrewOperations,
+        ], true)) {
             throw ValidationException::withMessages([
-                'segments' => 'Only Manual or Import movement sources can be replaced this way.',
+                'segments' => 'Only Manual, Import, or Crew Assignment movement sources can be replaced this way.',
             ]);
         }
 
@@ -52,10 +57,6 @@ final class PersistCrewTimesheetMovements
         $existingSegments = CrewTimesheetSegment::query()
             ->where('company_id', $timesheet->company_id)
             ->where('crew_timesheet_id', $timesheet->id)
-            ->whereIn('source', [
-                CrewTimesheetSource::Manual->value,
-                CrewTimesheetSource::Import->value,
-            ])
             ->lockForUpdate()
             ->orderBy('sequence')
             ->get();

@@ -11,6 +11,7 @@ use App\Support\Payroll\Actions\ClearManualImportCrewTimesheets;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\ClearableManualImportCrewTimesheetsQuery;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
@@ -109,10 +110,12 @@ test('crew operations preparation-linked and operationally locked timesheets rem
 
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     grantClearTimesheetPermissions($fixtures['user'], $fixtures['company']);
 
@@ -132,7 +135,7 @@ test('crew operations preparation-linked and operationally locked timesheets rem
 
     expect($opsTimesheet->source)->toBe(CrewTimesheetSource::CrewOperations)
         ->and($opsTimesheet->crew_timesheet_preparation_id)->toBe($preparation->id)
-        ->and($opsTimesheet->isOperationallyLocked())->toBeTrue();
+        ->and($opsTimesheet->isOperationallyLocked())->toBeFalse();
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])

@@ -200,58 +200,62 @@ Key implementation files:
 - `app/Support/Payroll/SplitCrewMovementRangeAcrossPeriod.php`
 - `app/Support/Payroll/Actions/PersistCrewTimesheetMovements.php`
 
-### Crew timesheet preparation (Phase 1A–1D)
+### Crew Timesheet on the payroll period page
 
-Phase 1A added versioned preparation tables and additive standby/source metadata on `crew_timesheets`.
+Crew Draft payroll periods are prepared and edited on `/payroll/{payrollPeriod}` — there is no separate Crew Timeline review page and no Crew Timesheet submit/approve/return/apply workflow.
 
-Phase 1B adds the automatic draft preparation engine:
+Responsibility split:
 
-- authorized users can `POST /payroll/{payrollPeriod}/crew-timeline/prepare`
-- actual Crew Assignment phases are clipped into the pay period and allocated by day
-- a new draft `CrewTimesheetPreparation` version is created with lines and warning codes
-- successful prepare redirects to the timesheet review page
-- prepare is blocked after an Applied preparation exists
+- **Crew Operations** prepares operational Crew Timesheet inputs on the draft payroll page: Sign-On Standby, Onsite, Sign-Off Standby, multiple movement segments, overtime, and remarks.
+- **Payroll** owns financial calculation, Generate Payroll, period approval, and payment.
+- **Crew Assignment / CrewAssignmentPhase** remains the source of truth for movement history. Editing a Crew Timesheet never mutates assignments, phases, sea service, or Crew Planning.
 
-Phase 1C adds review, submission, return, and approval:
+#### Populate from Crew Assignments
 
-- `GET /payroll/{payrollPeriod}/crew-timeline/{preparation}` for review
-- `POST .../submit`, `POST .../approve`, `POST .../return`
-- Draft → Submitted → Approved or Returned
-- previous Approved versions become Superseded when a newer version is approved
-- approval requires the `payroll.crew_timesheets.approve` permission (no maker-checker restriction; the preparer/submitter may also approve)
-- stale source hash and blocking warnings prevent submit/approve
+Authorized users with `payroll.crew_timesheets.prepare` can `POST /payroll/{payrollPeriod}/crew-timeline/prepare`:
 
-Phase 1D applies an Approved preparation to `crew_timesheets`:
+- Derives payable days from eligible actual Crew Assignment phases (same allocation engine as before).
+- Creates a versioned `CrewTimesheetPreparation` snapshot (tables retained for history / possible future reuse).
+- Immediately writes payable operational days onto `crew_timesheets` / `crew_timesheet_segments`.
+- Redirects back to `/payroll/{payrollPeriod}` (not a separate review page).
+- Re-prepare on a Draft period supersedes any previous Applied preparation and refreshes timesheets.
 
-- `POST .../apply` with `payroll.crew_timesheets.apply_approved`
-- creates one parent timesheet per employee and one `crew_timesheet_segments` row per payable preparation line
-- preserves exact assignment/vessel/date periods; parent category from/to are null when multiple segments exist for that category
-- preserves overtime, additions, deductions, remarks, and salary inputs
-- sets `source = crew_operations` and locks operational fields while Applied
-- writes parent day totals from segments; legacy flat from/to columns remain for single-segment and pre-segment rows
+Payroll-specific date corrections (for example paying Onsite through the 25th when movement continues to the 26th) are edited on the Crew Timesheet only.
 
-Vessel transfer and redeployment create linked assignments so one employee can have multiple exact onsite periods in the same payroll month without inventing phases or duplicating final salary records.
+#### Editing operational timesheets
 
-### Skip Timesheet Data workflow
+While the Crew payroll period is `draft`, users with `payroll.crew_timesheets.create` / `update` can edit:
 
-Crew timesheet preparations can contain blocking warnings (e.g. `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `invalid_phase_range`). To prevent an entire payroll run from becoming blocked because one employee has incomplete or bad Crew Assignment movement data, authorized users with `payroll.crew_timesheets.skip_timeline` can explicitly skip the affected employee's Crew Timesheet data for that draft preparation version.
+- Sign-On Standby / Onsite / Sign-Off Standby ranges (via movement segments)
+- Multiple segments per category
+- Overtime hours and remarks (and other existing non-financial operational fields)
 
-Key characteristics:
+Editing is blocked once the period leaves Draft (processing / approved / paid), consistent with existing period locking. Revert to Draft restores editability under the normal period revert rules.
 
-- **Dedicated permission:** Authorized via `payroll.crew_timesheets.skip_timeline`. Seeded into the catalog for the system `Owner` role; administrators must explicitly assign it to other tenant roles via Roles & permissions.
-- **Version-specific scope:** A skip decision is attached strictly to `(company_id, crew_timesheet_preparation_id, employee_id)` on `crew_timesheet_preparation_skips`. Preparing a new preparation version does **not** inherit previous skips; each preparation version starts with zero skips and must be reviewed anew.
-- **Mandatory reason:** Skipping requires an explicit, audited reason (between 5 and 1,000 characters).
-- **Audit tracking:** Skips and restores write company-aware activity logs (`crew_timeline_employee_skipped` and `crew_timeline_employee_skip_restored`). The restore event captures complete historical context including `company_id`, `payroll_period_id`, `preparation_id`, `preparation_version`, `employee_id`, `actor_id`, `original_skip_reason`, `warning_codes` (derived from immutable preparation lines), and `timestamp`.
-- **Skippable vs Non-skippable warnings:** Employee-level operational warnings (`missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `invalid_phase_range`, as well as informational warnings) may be skipped. However, tenant data-isolation failures (`cross_company_reference`) and stale preparations can **never** be skipped or bypassed. If any line in a preparation contains a `cross_company_reference`, skipping is disabled across the entire preparation (`can_skip = false` for all employees).
-- **Immutable snapshot preserved:** Original `CrewAssignment`, `CrewAssignmentPhase`, and generated `CrewTimesheetPreparationLine` records are never deleted, mutated, or zeroed. They remain visible in the review history and details dialog for audit evidence.
-- **Warning breakdown consistency:** The headline blocker counter reflects `unresolved_blocking_warning_count` (which discounts actively skipped employees). The detailed warning breakdown exposes `total_count`, `unresolved_count`, and `skipped_count` per warning code, so historical blocker totals remain visible while actionable blockers clearly show unresolved counts.
-- **Exclusion from Apply:** When the approved preparation is applied (`ApplyCrewTimesheetPreparation`), payable preparation lines for actively skipped employees are completely excluded. No Applied Crew Timesheet or operational segments are written for that employee.
-- **Preservation of Manual / Excel data:** If a skipped employee already has a Manual or Imported timesheet or segments, Apply leaves that employee's operational and financial data untouched.
-- **Separate from payroll exclusion:** Skipping an employee's Crew Timesheet data is strictly a source-selection decision. It does **not** automatically add the employee to `payroll_periods.excluded_employee_ids`. In hybrid payroll, the employee may subsequently have hours/movements entered manually or imported via Excel, or be excluded during the final payroll generation step if no replacement timesheet is provided. If no replacement data is provided, generation preview marks the Daily crew employee as missing/unready and generation will not proceed for them.
-- **Exclusive mode behavior:** In exclusive Crew Timesheet mode, all Daily crew employees must have valid Crew Assignment coverage. Skipping an employee's timesheet means they are not covered by Crew Assignments and will block generation unless that employee is explicitly excluded from the pay run via `payroll_periods.excluded_employee_ids`.
-- **Freshness independent:** Skip decisions are payroll-review choices rather than changes to operational source data; therefore, `crew_timesheet_preparation_skips` is **not** included in the `source_hash`. Creating or restoring a skip does not make the preparation stale.
-- **Reversible via Restore:** While the preparation is in `Draft` status, an active skip may be reversed via **Restore Timesheet Data** (`restored_by`, `restored_at`). Upon restoration, the employee's original warning and payable lines become active again; any unresolved blocking warnings will once again prevent submission.
-- **Empty effective preparation supported:** If all employees in a preparation are skipped, the preparation can still be submitted, approved, and applied without generating dummy timesheets.
+Monetary salary rates and Generate / Approve / Mark Paid remain gated by payroll period permissions — not by Crew Timesheet update.
+
+#### Generation
+
+Generate Payroll uses the Crew Timesheet records on the period directly. It does **not** require submit, Crew Manager approve, or apply of a preparation.
+
+Generation still refuses genuine blockers (missing/overlapping contracts, missing historical salary revision, malformed segments, reserved work-allocation conflicts, and other existing payroll blockers).
+
+Dormant preparation tables and historical preparation rows are retained. Retired approval routes and permissions are removed from the active surface; do not rely on hidden UI for security.
+
+#### Manual and Excel entry
+
+Hybrid periods still allow Manual entry and Excel import alongside (or instead of) Populate from Crew Assignments.
+
+Permissions:
+
+- `payroll.crew_timesheets.view`
+- `payroll.crew_timesheets.create`
+- `payroll.crew_timesheets.update`
+- `payroll.crew_timesheets.import`
+- `payroll.crew_timesheets.clear`
+- `payroll.crew_timesheets.prepare`
+
+See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) for the historical preparation schema and phase mapping (engine still used by Populate).
 
 ### Manual and Excel movement periods
 
@@ -262,21 +266,11 @@ Key characteristics:
 - **Segment replacement** (`PUT …/timesheets/{timesheet}/segments`) requires an explicit non-empty `segments` array. Tenant ownership of period/timesheet is confirmed before payload validation (cross-company → 404). Validation runs before any delete; empty lists are rejected.
 - Vessel, Client, and Rank on segments are **global** master-data tables (active-only `exists` checks), not company-owned rows.
 - Overlapping payable calendar dates for the same employee are rejected; consecutive or gapped ranges are allowed.
-- Crew Assignment Applied operational data remains locked; financial fields may still update under existing rules. Clear Timesheets soft-deletes Manual/Import parents and segments only.
+- Operational Crew Timesheet fields remain editable while the payroll period is Draft. Clear Timesheets soft-deletes Manual/Import parents and segments only.
 - Daily Crew Excel may repeat the same employee number once per movement row. Preview groups rows, validates overlaps/period bounds using original Excel row numbers, and rejects duplicated non-zero employee-level amounts (enter once; blanks/zeros on other rows are OK). Monthly Crew duplicate employee rows remain invalid.
 - Payroll generation still produces **one** `PayrollRecord`, payslip, and payment per employee/period. Salary export keeps one consolidated Salary Sheet row and a **Movement Details** worksheet (one row per segment, including rank).
 
-Permissions:
-
-- `payroll.crew_timesheets.prepare`
-- `payroll.crew_timesheets.view` (review page)
-- `payroll.crew_timesheets.submit`
-- `payroll.crew_timesheets.approve`
-- `payroll.crew_timesheets.return`
-- `payroll.crew_timesheets.apply_approved`
-- `payroll.crew_timesheets.skip_timeline`
-
-See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
+See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) for phase mapping used by Populate from Crew Assignments.
 
 Legacy Crew phase compatibility: modern assignments stop at P0/P2A/P2B/P4/P5/P6, but payroll preparation and movement corrections still understand historical P1 (Excluded) and P3 (Sign-On Standby) when those phases exist on an assignment. Pay mapping, overlap rules, and source hashing are unchanged.
 
@@ -582,11 +576,8 @@ All routes below are inside the authenticated and verified web group. Some use r
 | POST   | `/payroll/{payrollPeriod}/timesheets/import`                   | `payroll.timesheets.import`                   | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | DELETE | `/payroll/{payrollPeriod}/crew-timesheets/manual-import`       | `payroll.crew-timesheets.clear-manual-import` | `payroll.crew_timesheets.clear`                                      |
 | POST   | `/payroll/{payrollPeriod}/crew-timeline/prepare`               | `payroll.crew-timeline.prepare`               | `payroll.crew_timesheets.prepare`                                    |
-| GET    | `/payroll/{payrollPeriod}/crew-timeline/{preparation}`         | `payroll.crew-timeline.show`                  | `payroll.crew_timesheets.view`                                       |
-| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit`  | `payroll.crew-timeline.submit`                | `payroll.crew_timesheets.submit`                                     |
-| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/approve` | `payroll.crew-timeline.approve`               | `payroll.crew_timesheets.approve`                                    |
-| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/return`  | `payroll.crew-timeline.return`                | `payroll.crew_timesheets.return`                                     |
-| POST   | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/apply`   | `payroll.crew-timeline.apply`                 | `payroll.crew_timesheets.apply_approved`                             |
+| PATCH  | `/payroll/{payrollPeriod}/timesheets/{timesheet}/financials`   | `payroll.timesheets.financials`               | `payroll.crew_timesheets.create` or `payroll.crew_timesheets.update` |
+| PUT    | `/payroll/{payrollPeriod}/timesheets/{timesheet}/segments`     | `payroll.timesheets.segments`                 | `payroll.crew_timesheets.create` or `payroll.crew_timesheets.update` |
 | GET    | `/payroll/salary-inputs`                                       | `payroll.salary-inputs.index`                 | `payroll.salary_inputs.view` or `payroll.periods.update`             |
 | POST   | `/payroll/salary-inputs`                                       | `payroll.salary-input-types.store`            | `payroll.salary_inputs.create` or `payroll.periods.update`           |
 | PUT    | `/payroll/salary-inputs/{salaryInputType}`                     | `payroll.salary-input-types.update`           | `payroll.salary_inputs.update` or `payroll.periods.update`           |
@@ -632,10 +623,6 @@ payroll.crew_timesheets.update
 payroll.crew_timesheets.import
 payroll.crew_timesheets.clear
 payroll.crew_timesheets.prepare
-payroll.crew_timesheets.submit
-payroll.crew_timesheets.approve
-payroll.crew_timesheets.return
-payroll.crew_timesheets.apply_approved
 payroll.salary_inputs.create
 payroll.salary_inputs.update
 payroll.salary_inputs.delete

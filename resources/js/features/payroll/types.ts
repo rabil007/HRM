@@ -1,7 +1,6 @@
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
-import type { CrewTimelinePreparationSummary } from './crew-timeline/types';
 
 export type PayrollBoardEmployeeGroup =
     | ''
@@ -323,13 +322,29 @@ export function buildCrewTimesheetDraft(
     };
 }
 
+export type CrewTimelinePreparationSummary = {
+    id: number;
+    version: number;
+    status: string;
+    status_label: string;
+    is_fresh: boolean;
+    is_stale: boolean;
+    stale_reason?: string | null;
+    effective_cutoff_date?: string | null;
+    blocking_warning_count: number;
+    informational_warning_count: number;
+    prepared_at: string | null;
+    submitted_at: string | null;
+    approved_at: string | null;
+    returned_at: string | null;
+    applied_at: string | null;
+    linked_timesheet_count: number;
+};
+
 export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
     clear_timesheets: boolean;
-    submit_timesheet: boolean;
-    approve_timesheet: boolean;
-    return_timesheet: boolean;
     import_timesheets: boolean;
     prepare_timeline: boolean;
     view_timeline: boolean;

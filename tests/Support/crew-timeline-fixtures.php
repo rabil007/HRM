@@ -21,9 +21,7 @@ use App\Models\User;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
-use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
-use App\Support\Payroll\CrewTimeline\Actions\ApproveCrewTimesheetPreparation;
-use App\Support\Payroll\CrewTimeline\Actions\SubmitCrewTimesheetPreparation;
+use App\Support\Payroll\CrewTimeline\PopulateCrewTimesheetsFromAssignments;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -137,19 +135,16 @@ function grantCrewTimelineWorkflowPermissions(User $user, Company $company, arra
     grantCompanyPermissions($user, $company, array_values(array_unique(array_merge([
         'payroll.crew_timesheets.view',
         'payroll.crew_timesheets.prepare',
-        'payroll.crew_timesheets.submit',
-        'payroll.crew_timesheets.approve',
-        'payroll.crew_timesheets.return',
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+        'payroll.periods.view',
+        'payroll.periods.update',
     ], $extra))));
 }
 
 function grantApplyPermissions(User $user, Company $company, array $extra = []): void
 {
-    grantCrewTimelineWorkflowPermissions($user, $company, [
-        'payroll.crew_timesheets.apply_approved',
-        'payroll.crew_timesheets.create',
-        'payroll.crew_timesheets.update',
-    ]);
+    grantCrewTimelineWorkflowPermissions($user, $company, $extra);
 }
 
 /**
@@ -167,30 +162,13 @@ function runDailyCrewPayrollPipeline(
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
     $approver ??= $fixtures['user'];
 
-    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+    $result = app(PopulateCrewTimesheetsFromAssignments::class)->handle(
         $fixtures['period'],
-        (int) $fixtures['company']->id,
-        (int) $fixtures['user']->id,
-    );
-
-    app(SubmitCrewTimesheetPreparation::class)->handle(
-        $fixtures['period'],
-        $preparation,
         $fixtures['user'],
         (int) $fixtures['company']->id,
     );
-    app(ApproveCrewTimesheetPreparation::class)->handle(
-        $fixtures['period'],
-        $preparation->fresh(),
-        $approver,
-        (int) $fixtures['company']->id,
-    );
-    app(ApplyCrewTimesheetPreparation::class)->handle(
-        $fixtures['period'],
-        $preparation->fresh(),
-        $approver,
-        (int) $fixtures['company']->id,
-    );
+
+    $preparation = $result['preparation'];
 
     $timesheet = CrewTimesheet::query()
         ->where('period_id', $fixtures['period']->id)

@@ -11,6 +11,7 @@ use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use Illuminate\Validation\ValidationException;
 
 test('missing daily timesheet is skipped warning and does not block readiness when another employee is ready', function () {
@@ -147,10 +148,12 @@ test('applied crew operations timesheet is ready without second approval', funct
 
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     $preview = app(BuildCrewPayrollGenerationPreview::class)->handle(
         $fixtures['period']->fresh(),
@@ -266,7 +269,7 @@ test('approved invalid timesheet is blocking and prevents generation', function 
         ->toThrow(ValidationException::class);
 });
 
-test('broken crew operations linkage is blocking', function () {
+test('hybrid crew operations timesheet without preparation link is still generatable', function () {
     ['company' => $company] = makePayrollFixtures();
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
         'start_date' => '2026-07-01',
@@ -281,6 +284,8 @@ test('broken crew operations linkage is blocking', function () {
         'source' => CrewTimesheetSource::CrewOperations,
         'approval_status' => CrewTimesheetApprovalStatus::Approved,
         'onsite_days' => 10,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-10',
         'crew_timesheet_preparation_id' => null,
         'movement_source_hash' => 'stale-hash',
         'operational_approved_by' => null,
@@ -289,8 +294,9 @@ test('broken crew operations linkage is blocking', function () {
 
     $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id);
 
-    expect($preview->blockingCount)->toBe(1)
-        ->and($preview->blockingIssues[0]['code'])->toBe('crew_operations_linkage');
+    expect($preview->ready)->toBeTrue()
+        ->and($preview->readyCount)->toBe(1)
+        ->and($preview->blockingCount)->toBe(0);
 });
 
 test('daily allocation plan issues block generation preview with work date context', function () {
