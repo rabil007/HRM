@@ -40,6 +40,11 @@ import {
     summarizeBulkRows,
 } from '@/features/organization/crew/lib/bulk-row-status';
 import {
+    clearCreateFormDateErrors,
+    dependentCreateDateErrorKeys,
+    resolveArrivalDateDisplayError,
+} from '@/features/organization/crew/lib/crew-assignment-create-date-validation';
+import {
     bulkStartButtonLabel,
     isBulkCreateMode,
     resolveCreateEffectiveEmployeeId,
@@ -382,7 +387,28 @@ export function CrewAssignmentCreateForm({
         rowKeys,
     ]);
 
-    const formErrors = form.errors as Record<string, string | undefined>;
+    const serverErrors = form.errors as Record<string, string | undefined>;
+    const effectiveArrivalAt =
+        form.data.planned_arrival_at ||
+        form.data.crew[0]?.planned_arrival_at ||
+        null;
+    const formErrors: Record<string, string | undefined> = {
+        ...serverErrors,
+        planned_arrival_at: resolveArrivalDateDisplayError({
+            serverError: serverErrors.planned_arrival_at,
+            arrival: effectiveArrivalAt,
+            join: form.data.planned_join_at,
+        }),
+    };
+
+    form.data.crew.forEach((row, index) => {
+        const key = `crew.${index}.planned_arrival_at`;
+        formErrors[key] = resolveArrivalDateDisplayError({
+            serverError: serverErrors[key],
+            arrival: row.planned_arrival_at,
+            join: form.data.planned_join_at,
+        });
+    });
     const backHref = fromPlanning
         ? crewPlanningIndex.url({
               query: planning_back_query ?? undefined,
@@ -800,12 +826,20 @@ export function CrewAssignmentCreateForm({
                                                             .planned_arrival_at ??
                                                         ''
                                                     }
-                                                    onChange={(e) =>
+                                                    onChange={(e) => {
+                                                        clearCreateFormDateErrors(
+                                                            form.clearErrors as (
+                                                                ...fields: string[]
+                                                            ) => void,
+                                                            dependentCreateDateErrorKeys(
+                                                                'planned_arrival_at',
+                                                            ),
+                                                        );
                                                         form.setData(
                                                             'planned_arrival_at',
                                                             e.target.value,
-                                                        )
-                                                    }
+                                                        );
+                                                    }}
                                                 />
                                                 <p className="text-xs text-muted-foreground">
                                                     Expected date the crew
@@ -816,8 +850,7 @@ export function CrewAssignmentCreateForm({
                                                 </p>
                                                 <InputError
                                                     message={
-                                                        form.errors
-                                                            .planned_arrival_at
+                                                        formErrors.planned_arrival_at
                                                     }
                                                 />
                                             </div>
@@ -867,6 +900,27 @@ export function CrewAssignmentCreateForm({
                                                     index: number,
                                                     row: BulkAddCrewRow,
                                                 ) => {
+                                                    const previous =
+                                                        form.data.crew[index];
+
+                                                    if (
+                                                        previous?.planned_arrival_at !==
+                                                        row.planned_arrival_at
+                                                    ) {
+                                                        clearCreateFormDateErrors(
+                                                            form.clearErrors as (
+                                                                ...fields: string[]
+                                                            ) => void,
+                                                            dependentCreateDateErrorKeys(
+                                                                'planned_arrival_at',
+                                                                {
+                                                                    crewIndex:
+                                                                        index,
+                                                                },
+                                                            ),
+                                                        );
+                                                    }
+
                                                     form.setData(
                                                         'crew',
                                                         form.data.crew.map(
@@ -916,6 +970,21 @@ export function CrewAssignmentCreateForm({
                                         form={form}
                                         formOptions={form_options}
                                         showMasterFields={!fromPlanning}
+                                        onClearDependentDateErrors={(field) => {
+                                            clearCreateFormDateErrors(
+                                                form.clearErrors as (
+                                                    ...fields: string[]
+                                                ) => void,
+                                                dependentCreateDateErrorKeys(
+                                                    field,
+                                                    {
+                                                        crewRowCount:
+                                                            form.data.crew
+                                                                .length,
+                                                    },
+                                                ),
+                                            );
+                                        }}
                                     />
 
                                     <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
