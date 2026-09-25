@@ -3,7 +3,6 @@
 namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetBoardFilter;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollBoardEmployeeGroup;
@@ -188,37 +187,6 @@ final class PayrollPeriodBoardEmployeeScope
                     ->where('period_id', $period->id)
                     ->where('source', CrewTimesheetSource::Import->value),
             ),
-            CrewTimesheetBoardFilter::Ready => $query->where(function (Builder $readyQuery) use ($period): void {
-                $readyQuery
-                    ->whereHas(
-                        'crewTimesheets',
-                        fn (Builder $timesheetQuery) => $timesheetQuery
-                            ->where('period_id', $period->id)
-                            ->where(function (Builder $approvedQuery): void {
-                                $approvedQuery
-                                    ->where('source', CrewTimesheetSource::CrewOperations->value)
-                                    ->orWhere('approval_status', CrewTimesheetApprovalStatus::Approved->value);
-                            }),
-                    )
-                    ->orWhere(function (Builder $monthlyQuery) use ($period): void {
-                        $monthlyQuery
-                            ->whereHas('currentContract', fn (Builder $contractQuery) => $contractQuery
-                                ->where('salary_structure', ContractSalaryStructure::Monthly->value))
-                            ->where(function (Builder $monthlyTimesheetQuery) use ($period): void {
-                                $monthlyTimesheetQuery
-                                    ->whereDoesntHave(
-                                        'crewTimesheets',
-                                        fn (Builder $timesheetQuery) => $timesheetQuery->where('period_id', $period->id),
-                                    )
-                                    ->orWhereHas(
-                                        'crewTimesheets',
-                                        fn (Builder $timesheetQuery) => $timesheetQuery
-                                            ->where('period_id', $period->id)
-                                            ->where('approval_status', CrewTimesheetApprovalStatus::Approved->value),
-                                    );
-                            });
-                    });
-            }),
         };
     }
 }

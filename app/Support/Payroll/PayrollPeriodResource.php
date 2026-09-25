@@ -6,6 +6,7 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodCreationSource;
 use App\Models\PayrollPeriod;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 final class PayrollPeriodResource
 {
@@ -43,6 +44,19 @@ final class PayrollPeriodResource
             );
         }
 
+        $excludedEmployeeIds = array_values(array_map(
+            intval(...),
+            $period->excluded_employee_ids ?? [],
+        ));
+
+        if ($user !== null) {
+            $excludedEmployeeIds = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+                $user,
+                (int) $period->company_id,
+                $excludedEmployeeIds,
+            );
+        }
+
         return [
             'id' => $period->id,
             'name' => $period->name,
@@ -66,10 +80,7 @@ final class PayrollPeriodResource
             'creation_source_label' => ($period->creation_source ?? PayrollPeriodCreationSource::Manual)->label(),
             'is_automatic' => $period->isAutomatic(),
             'notes' => $period->notes,
-            'excluded_employee_ids' => array_values(array_map(
-                intval(...),
-                $period->excluded_employee_ids ?? [],
-            )),
+            'excluded_employee_ids' => $excludedEmployeeIds,
             'is_editable' => $period->isEditable(),
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
             'can_generate_payroll' => $period->canGeneratePayroll(),

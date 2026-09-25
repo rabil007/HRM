@@ -74,7 +74,6 @@ export function PayrollShowFiltersSheet({
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="ready">Ready</AppSelectItem>
                         <AppSelectItem value="missing_timesheet">
                             Missing Timesheet
                         </AppSelectItem>

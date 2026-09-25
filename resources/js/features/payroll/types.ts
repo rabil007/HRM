@@ -152,6 +152,7 @@ export type PayrollPeriodFormData = {
 export type PayrollHubPermissions = {
     create_period: boolean;
     view_crew_timesheets: boolean;
+    view_financial?: boolean;
 };
 
 export type PayrollHubFilters = {

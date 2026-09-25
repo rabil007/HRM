@@ -46,20 +46,24 @@ final class BuildCrewPayrollGenerationPreview
             array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
         )));
 
+        $visibleExcludedEmployeeIds = $this->visibleExcludedIds($excludedEmployeeIds, $companyId, $user);
+
         if ($period->requiresExclusiveCrewOperationsTimesheets()) {
-            return $this->exclusiveCrewOperationsPreview($period, $companyId, $excludedEmployeeIds, $user);
+            return $this->exclusiveCrewOperationsPreview($period, $companyId, $excludedEmployeeIds, $visibleExcludedEmployeeIds, $user);
         }
 
-        return $this->hybridOrManualPreview($period, $companyId, $excludedEmployeeIds, $user);
+        return $this->hybridOrManualPreview($period, $companyId, $excludedEmployeeIds, $visibleExcludedEmployeeIds, $user);
     }
 
     /**
      * @param  list<int>  $excludedEmployeeIds
+     * @param  list<int>  $visibleExcludedEmployeeIds
      */
     private function exclusiveCrewOperationsPreview(
         PayrollPeriod $period,
         int $companyId,
         array $excludedEmployeeIds,
+        array $visibleExcludedEmployeeIds,
         ?User $user = null,
     ): CrewPayrollGenerationPreview {
         $employees = $this->loadEmployees($companyId, $excludedEmployeeIds, $user);
@@ -82,8 +86,8 @@ final class BuildCrewPayrollGenerationPreview
                 missingTimesheetCount: 0,
                 awaitingApprovalEmployeeIds: [],
                 awaitingApprovalCount: 0,
-                excludedEmployeeIds: $excludedEmployeeIds,
-                excludedCount: count($excludedEmployeeIds),
+                excludedEmployeeIds: $visibleExcludedEmployeeIds,
+                excludedCount: count($visibleExcludedEmployeeIds),
                 blockingIssues: $blocking,
                 blockingCount: 1,
                 appliedPreparationId: $legacy['applied_preparation_id'],
@@ -103,8 +107,8 @@ final class BuildCrewPayrollGenerationPreview
             missingTimesheetCount: 0,
             awaitingApprovalEmployeeIds: [],
             awaitingApprovalCount: 0,
-            excludedEmployeeIds: $excludedEmployeeIds,
-            excludedCount: count($excludedEmployeeIds),
+            excludedEmployeeIds: $visibleExcludedEmployeeIds,
+            excludedCount: count($visibleExcludedEmployeeIds),
             blockingIssues: [],
             blockingCount: 0,
             appliedPreparationId: $legacy['applied_preparation_id'],
@@ -114,11 +118,13 @@ final class BuildCrewPayrollGenerationPreview
 
     /**
      * @param  list<int>  $excludedEmployeeIds
+     * @param  list<int>  $visibleExcludedEmployeeIds
      */
     private function hybridOrManualPreview(
         PayrollPeriod $period,
         int $companyId,
         array $excludedEmployeeIds,
+        array $visibleExcludedEmployeeIds,
         ?User $user = null,
     ): CrewPayrollGenerationPreview {
         $allEmployeesQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
@@ -299,8 +305,8 @@ final class BuildCrewPayrollGenerationPreview
             missingTimesheetCount: count($missingIds),
             awaitingApprovalEmployeeIds: $awaitingIds,
             awaitingApprovalCount: count($awaitingIds),
-            excludedEmployeeIds: $excludedEmployeeIds,
-            excludedCount: count($excludedEmployeeIds),
+            excludedEmployeeIds: $visibleExcludedEmployeeIds,
+            excludedCount: count($visibleExcludedEmployeeIds),
             blockingIssues: $blockingIssues,
             blockingCount: $blockingCount,
             appliedPreparationId: $preparation?->id,
@@ -423,6 +429,19 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         return $query->orderBy('employees.name')->get();
+    }
+
+    /**
+     * @param  list<int>  $excluded
+     * @return list<int>
+     */
+    private function visibleExcludedIds(array $excluded, int $companyId, ?User $user): array
+    {
+        if ($excluded === [] || $user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $excluded;
+        }
+
+        return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $excluded);
     }
 
     private function emptyReadyPreview(): CrewPayrollGenerationPreview

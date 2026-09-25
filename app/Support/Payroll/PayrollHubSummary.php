@@ -28,9 +28,15 @@ final class PayrollHubSummary
         array $months = [],
         ?User $user = null,
     ): array {
+        $includeFinancial = (bool) ($user?->can('payroll.periods.view'));
+
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
             ->withCount('crewTimesheets');
+
+        if (! $includeFinancial) {
+            $query->where('payroll_category', PayrollCategory::Crew);
+        }
 
         if ($months !== []) {
             $query->where(function (Builder $dateQuery) use ($months): void {
@@ -63,20 +69,25 @@ final class PayrollHubSummary
 
         $crewEmployeeCount = $crewEmployeeQuery->count();
 
-        $incompleteCrewRuns = $periods
-            ->filter(fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew)
+        $crewPeriods = $periods->filter(
+            fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
+        );
+
+        $incompleteCrewRuns = $crewPeriods
             ->filter(fn (PayrollPeriod $period) => $period->status === PayrollPeriodStatus::Draft)
             ->filter(fn (PayrollPeriod $period) => $crewEmployeeCount > 0 && (int) $period->crew_timesheets_count < $crewEmployeeCount)
             ->count();
 
+        $crewPeriodCount = $crewPeriods->count();
+
         return [
-            'total_periods' => $periods->count(),
-            'crew_periods' => $periods->filter(
-                fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
-            )->count(),
-            'office_periods' => $periods->filter(
-                fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Office,
-            )->count(),
+            'total_periods' => $includeFinancial ? $periods->count() : $crewPeriodCount,
+            'crew_periods' => $crewPeriodCount,
+            'office_periods' => $includeFinancial
+                ? $periods->filter(
+                    fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Office,
+                )->count()
+                : 0,
             'incomplete_crew_runs' => $incompleteCrewRuns,
         ];
     }

@@ -5,6 +5,7 @@ use App\Enums\CrewTimelineWarningCode;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
+use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Company;
 use App\Models\CrewAssignmentPhase;
@@ -611,4 +612,148 @@ test('generation readiness for crew timesheet-only user excludes hidden employee
 
     expect($unrestricted->missingTimesheetCount)->toBe(1)
         ->and($unrestricted->missingTimesheetEmployeeIds)->toContain((int) $fixtures['hiddenEmployee']->id);
+});
+
+test('crew timesheet-only user cannot download crew salary sheet export', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+    $fixtures['period']->update(['status' => PayrollPeriodStatus::Approved]);
+
+    PayrollRecord::factory()->crew()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['visibleEmployee']->id,
+        'period_id' => $fixtures['period']->id,
+        'gross_salary' => 1500,
+        'net_salary' => 1400,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.export', $fixtures['period']))
+        ->assertForbidden();
+});
+
+test('crew timesheet-only user can open crew period but not office period', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $officePeriod = PayrollPeriod::factory()->for($fixtures['company'])->create([
+        'payroll_category' => PayrollCategory::Office,
+        'status' => PayrollPeriodStatus::Draft,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk();
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $officePeriod))
+        ->assertForbidden();
+
+    $this->actingAs($fixtures['payrollUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $officePeriod))
+        ->assertOk();
+});
+
+test('crew timesheet-only user sees only crew periods on payroll index', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $officePeriod = PayrollPeriod::factory()->for($fixtures['company'])->create([
+        'name' => 'July 2026 Office Hidden',
+        'payroll_category' => PayrollCategory::Office,
+        'status' => PayrollPeriodStatus::Draft,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+        'payment_date' => '2026-07-31',
+        'payment_proof_path' => 'payroll-periods/payment-proofs/office.pdf',
+        'payment_proof_paths' => ['payroll-periods/payment-proofs/office.pdf'],
+    ]);
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.index', [
+            'all' => '1',
+            'category' => 'office',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->where('permissions.view_financial', false)
+            ->where('filters.category', 'crew')
+            ->where('summary.office_periods', 0)
+            ->where('summary.crew_periods', fn ($count) => (int) $count >= 1)
+            ->where('periods', fn ($periods) => collect($periods)->every(
+                fn ($period) => ($period['payroll_category'] ?? null) === 'crew'
+                    && ($period['payment_proof_url'] ?? null) === null
+                    && ($period['has_payment_proof'] ?? false) === false
+            ))
+            ->where('periods', fn ($periods) => collect($periods)->doesntContain(
+                fn ($period) => (int) ($period['id'] ?? 0) === (int) $officePeriod->id
+            ))
+        );
+});
+
+test('hidden excluded employee ids and counts are not leaked to restricted crew users', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $fixtures['period']->update([
+        'excluded_employee_ids' => [
+            (int) $fixtures['visibleEmployee']->id,
+            (int) $fixtures['hiddenEmployee']->id,
+        ],
+    ]);
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('period.excluded_employee_ids', [(int) $fixtures['visibleEmployee']->id])
+            ->where('period.generation_preview.excluded_count', 1)
+        );
+
+    $this->actingAs($fixtures['payrollUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('period.excluded_employee_ids', fn ($ids) => collect($ids)->contains((int) $fixtures['hiddenEmployee']->id)
+                && collect($ids)->contains((int) $fixtures['visibleEmployee']->id))
+            ->where('period.generation_preview.excluded_count', 2)
+        );
+});
+
+test('restricted employee-scope user cannot populate crew timesheets from assignments', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    grantCompanyPermissions($fixtures['opsUser'], $fixtures['company'], [
+        'payroll.crew_timesheets.view',
+        'payroll.crew_timesheets.update',
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.prepare',
+    ], 'ops-crew-timesheet-role');
+    restrictTestRoleEmployeeVisibility(
+        $fixtures['opsUser'],
+        $fixtures['company'],
+        [(int) $fixtures['visibleDept']->id],
+        'ops-crew-timesheet-role',
+    );
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('permissions.prepare_timeline', false)
+        );
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.prepare', $fixtures['period']))
+        ->assertForbidden();
 });

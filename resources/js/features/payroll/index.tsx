@@ -209,6 +209,7 @@ export function PayrollIndexContent({
                 summary={summary}
                 activeCategory={initialFilters.category}
                 onSelect={handleCategoryChange}
+                showOffice={permissions.view_financial !== false}
             />
 
             <SearchBar

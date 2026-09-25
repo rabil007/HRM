@@ -24,7 +24,10 @@ test('crew timesheet source labels and values match terminology standards', func
 test('crew timesheet board filter labels match terminology standards', function () {
     expect(CrewTimesheetBoardFilter::CrewOperations->value)->toBe('crew_operations')
         ->and(CrewTimesheetBoardFilter::CrewOperations->label())->toBe('Crew Assignments')
-        ->and(CrewTimesheetBoardFilter::Ready->label())->toBe('Ready');
+        ->and(CrewTimesheetBoardFilter::MissingTimesheet->label())->toBe('Missing Timesheet')
+        ->and(CrewTimesheetBoardFilter::tryFromQuery('ready'))->toBeNull()
+        ->and(CrewTimesheetBoardFilter::tryFromQuery('awaiting_approval'))->toBeNull()
+        ->and(CrewTimesheetBoardFilter::tryFromQuery('returned'))->toBeNull();
 });
 
 test('crew timesheet resource operational source label matches terminology standards', function () {

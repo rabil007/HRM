@@ -212,7 +212,15 @@ Responsibility split:
 
 #### Populate from Crew Assignments
 
-Authorized users with `payroll.crew_timesheets.prepare` can `POST /payroll/{payrollPeriod}/crew-timeline/prepare`:
+Populate / Refresh is a **company-wide** operational sync: it builds one preparation snapshot from eligible Crew Assignment phases across the company, then writes payable days onto Crew Timesheets.
+
+Authorization:
+
+- Requires `payroll.crew_timesheets.prepare`
+- Requires unrestricted employee visibility for the company (`EmployeeVisibilityScope::hasUnrestrictedAccess`)
+- Restricted department users may still view and edit their visible Crew Timesheets, but cannot trigger Populate / Refresh
+
+`POST /payroll/{payrollPeriod}/crew-timeline/prepare`:
 
 - Derives payable days from eligible actual Crew Assignment phases (same allocation engine as before).
 - Creates a versioned `CrewTimesheetPreparation` snapshot (tables retained for history / possible future reuse).
@@ -248,12 +256,14 @@ Hybrid periods still allow Manual entry and Excel import alongside (or instead o
 
 Permissions:
 
-- `payroll.crew_timesheets.view`
+- `payroll.crew_timesheets.view` — operational access to **Crew** payroll periods and Crew Timesheets only. Does **not** grant Office Payroll access, salary-sheet export, salary/rate visibility, payroll totals, bank/payment information, or payment-proof access.
 - `payroll.crew_timesheets.create`
 - `payroll.crew_timesheets.update`
 - `payroll.crew_timesheets.import`
 - `payroll.crew_timesheets.clear`
-- `payroll.crew_timesheets.prepare`
+- `payroll.crew_timesheets.prepare` — company-wide Populate / Refresh; also requires unrestricted employee visibility
+
+`payroll.periods.view` is the financial Payroll permission: Crew and Office periods, salary-sheet export, payment proofs, and financial props.
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) for the historical preparation schema and phase mapping (engine still used by Populate).
 
@@ -456,7 +466,7 @@ Approved and paid periods with payroll records can be exported as XLSX salary sh
 - office periods use `OfficePayrollSalarySheetExporter` and the `Office Payroll` worksheet;
 - crew periods use `CrewPayrollSalarySheetExporter` and the `Salary Sheet` worksheet.
 
-The period export endpoint chooses the exporter from the period category. Office export requires `payroll.periods.view`; crew export requires `payroll.crew_timesheets.view`.
+The period export endpoint chooses the exporter from the period category. Both office and crew salary-sheet exports require `payroll.periods.view`. `payroll.crew_timesheets.view` alone does **not** authorize financial salary-sheet download.
 
 ## Payslips
 
@@ -547,9 +557,9 @@ All routes below are inside the authenticated and verified web group. Some use r
 | GET    | `/payroll/overview`                                | `payroll.overview`        | `payroll.periods.view` or `payroll.crew_timesheets.view` |
 | GET    | `/payroll`                                         | `payroll.index`           | `payroll.periods.view` or `payroll.crew_timesheets.view` |
 | POST   | `/payroll/periods`                                 | `payroll.periods.store`   | `payroll.periods.create`                                 |
-| GET    | `/payroll/{payrollPeriod}`                         | `payroll.show`            | `payroll.periods.view` or `payroll.crew_timesheets.view` |
+| GET    | `/payroll/{payrollPeriod}`                         | `payroll.show`            | `payroll.periods.view`, or Crew period + `payroll.crew_timesheets.view` |
 | GET    | `/payroll/records`                                 | `payroll.records.index`   | `payroll.records.view`                                   |
-| GET    | `/payroll/{payrollPeriod}/export`                  | `payroll.export`          | Approved/paid period plus category view permission       |
+| GET    | `/payroll/{payrollPeriod}/export`                  | `payroll.export`          | Approved/paid period plus `payroll.periods.view`         |
 | DELETE | `/payroll/{payrollPeriod}/records/{payrollRecord}` | `payroll.records.destroy` | `payroll.periods.update`                                 |
 
 ### Generation and workflow
@@ -575,7 +585,7 @@ All routes below are inside the authenticated and verified web group. Some use r
 | POST   | `/payroll/{payrollPeriod}/timesheets/import/preview`           | `payroll.timesheets.import.preview`           | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | POST   | `/payroll/{payrollPeriod}/timesheets/import`                   | `payroll.timesheets.import`                   | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | DELETE | `/payroll/{payrollPeriod}/crew-timesheets/manual-import`       | `payroll.crew-timesheets.clear-manual-import` | `payroll.crew_timesheets.clear`                                      |
-| POST   | `/payroll/{payrollPeriod}/crew-timeline/prepare`               | `payroll.crew-timeline.prepare`               | `payroll.crew_timesheets.prepare`                                    |
+| POST   | `/payroll/{payrollPeriod}/crew-timeline/prepare`               | `payroll.crew-timeline.prepare`               | `payroll.crew_timesheets.prepare` + unrestricted employee visibility |
 | PATCH  | `/payroll/{payrollPeriod}/timesheets/{timesheet}/financials`   | `payroll.timesheets.financials`               | `payroll.crew_timesheets.create` or `payroll.crew_timesheets.update` |
 | PUT    | `/payroll/{payrollPeriod}/timesheets/{timesheet}/segments`     | `payroll.timesheets.segments`                 | `payroll.crew_timesheets.create` or `payroll.crew_timesheets.update` |
 | GET    | `/payroll/salary-inputs`                                       | `payroll.salary-inputs.index`                 | `payroll.salary_inputs.view` or `payroll.periods.update`             |

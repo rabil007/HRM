@@ -37,19 +37,39 @@ final class BuildCrewPayrollCoverageSummary
             $period->excluded_employee_ids ?? [],
         )));
 
+        $visibleExcludedCount = count($this->visibleExcludedEmployeeIds($excluded, $companyId, $user));
+
         if ($period->requiresExclusiveCrewOperationsTimesheets()) {
-            return $this->exclusiveSummary($period, $companyId, $excluded, $user);
+            return $this->exclusiveSummary($period, $companyId, $excluded, $visibleExcludedCount, $user);
         }
 
-        return $this->hybridReadiness($period, $companyId, $excluded, $user);
+        return $this->hybridReadiness($period, $companyId, $excluded, $visibleExcludedCount, $user);
+    }
+
+    /**
+     * @param  list<int>  $excluded
+     * @return list<int>
+     */
+    private function visibleExcludedEmployeeIds(array $excluded, int $companyId, ?User $user): array
+    {
+        if ($excluded === [] || $user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $excluded;
+        }
+
+        return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $excluded);
     }
 
     /**
      * @param  list<int>  $excluded
      * @return array<string, mixed>
      */
-    private function exclusiveSummary(PayrollPeriod $period, int $companyId, array $excluded, ?User $user = null): array
-    {
+    private function exclusiveSummary(
+        PayrollPeriod $period,
+        int $companyId,
+        array $excluded,
+        int $visibleExcludedCount,
+        ?User $user = null,
+    ): array {
         $employeesQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
             ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded));
 
@@ -67,7 +87,7 @@ final class BuildCrewPayrollCoverageSummary
             'ready_count' => $legacy['ready'] ? $employees->count() : 0,
             'missing_timesheet_count' => 0,
             'awaiting_approval_count' => 0,
-            'excluded_count' => count($excluded),
+            'excluded_count' => $visibleExcludedCount,
             'blocking_count' => $legacy['ready'] ? 0 : 1,
             'blocking_issues' => $legacy['ready'] ? [] : [[
                 'employee_id' => $legacy['affected_employee_id'],
@@ -87,8 +107,13 @@ final class BuildCrewPayrollCoverageSummary
      * @param  list<int>  $excluded
      * @return array<string, mixed>
      */
-    private function hybridReadiness(PayrollPeriod $period, int $companyId, array $excluded, ?User $user = null): array
-    {
+    private function hybridReadiness(
+        PayrollPeriod $period,
+        int $companyId,
+        array $excluded,
+        int $visibleExcludedCount,
+        ?User $user = null,
+    ): array {
         $applied = CrewTimesheetPreparation::query()
             ->where('company_id', $companyId)
             ->where('payroll_period_id', $period->id)
@@ -143,7 +168,7 @@ final class BuildCrewPayrollCoverageSummary
             'ready_count' => $employeeCount,
             'missing_timesheet_count' => 0,
             'awaiting_approval_count' => 0,
-            'excluded_count' => count($excluded),
+            'excluded_count' => $visibleExcludedCount,
             'blocking_count' => $blockingCount,
             'blocking_issues' => $blockingIssues,
             'applied_preparation_id' => $preparation?->id,

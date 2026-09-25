@@ -4,6 +4,7 @@ namespace App\Support\Payroll;
 
 use App\Enums\PayrollCategory;
 use App\Models\PayrollPeriod;
+use App\Models\User;
 use App\Support\Contracts\ContractSalaryStructureFilter;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -13,8 +14,12 @@ final class PayrollPeriodListResource
      * @param  array{crew: int, office: int, daily_crew: int}  $employeeCountsByCategory
      * @return array<string, mixed>
      */
-    public static function toArray(PayrollPeriod $period, array $employeeCountsByCategory): array
-    {
+    public static function toArray(
+        PayrollPeriod $period,
+        array $employeeCountsByCategory,
+        bool $includeFinancial = true,
+        ?User $user = null,
+    ): array {
         $category = $period->payroll_category ?? PayrollCategory::Crew;
         $employeeCount = $employeeCountsByCategory[$category->value] ?? 0;
 
@@ -23,7 +28,7 @@ final class PayrollPeriodListResource
             : [0, 0];
 
         return [
-            ...PayrollPeriodResource::toArray($period),
+            ...PayrollPeriodResource::toArray($period, null, $includeFinancial, $user),
             'run_label' => $period->name.' · '.$category->label(),
             'employee_count' => $employeeCount,
             'timesheet_eligible_count' => $timesheetEligibleCount,
