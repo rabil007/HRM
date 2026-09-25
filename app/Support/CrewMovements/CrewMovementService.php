@@ -256,7 +256,7 @@ final class CrewMovementService
 
             $plannedJoinAt = isset($attributes['planned_join_at']) && $attributes['planned_join_at'] !== null && $attributes['planned_join_at'] !== ''
                 ? $this->parseTimestamp($companyId, (string) $attributes['planned_join_at'])
-                : $startedAt;
+                : null;
             $plannedSignoffAt = isset($attributes['planned_signoff_at']) && $attributes['planned_signoff_at'] !== null && $attributes['planned_signoff_at'] !== ''
                 ? $this->parseTimestamp($companyId, (string) $attributes['planned_signoff_at'])
                 : null;
@@ -276,6 +276,7 @@ final class CrewMovementService
                 plannedJoinAt: $plannedJoinAt,
                 plannedSignoffAt: $plannedSignoffAt,
                 plannedArrivalAt: $plannedArrivalAt,
+                operationalStartAt: $startedAt,
                 vesselId: $masters['vesselId'],
                 rankId: $masters['rankId'],
                 clientId: $masters['clientId'],
@@ -409,10 +410,10 @@ final class CrewMovementService
             companyId: (int) $assignment->company_id,
             employeeId: (int) $assignment->employee_id,
             action: 'start',
-            plannedJoinAt: $wasPlanned && $assignment->planned_join_at !== null
-                ? $assignment->planned_join_at
-                : $occurredAt,
-            plannedSignoffAt: $wasPlanned ? $assignment->planned_signoff_at : null,
+            plannedJoinAt: $assignment->planned_join_at,
+            plannedSignoffAt: $assignment->planned_signoff_at,
+            plannedArrivalAt: $assignment->planned_arrival_at,
+            operationalStartAt: $occurredAt,
             vesselId: $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
             rankId: $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
             clientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,

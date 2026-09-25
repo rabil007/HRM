@@ -549,3 +549,267 @@ test('list presenter keeps planned join values for expected vessel join display'
         ->and($item['current_phase']['code'])->toBe('p0')
         ->and($item['current_phase']['status'])->toBe('active');
 });
+
+test('direct start with future arrival and no expected join succeeds without inventing planned_join_at', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_arrival_at' => '2026-09-26',
+            'planned_join_at' => '',
+            'planned_signoff_at' => null,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->started_at)->not->toBeNull()
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-09-26')
+        ->and($assignment->planned_join_at)->toBeNull()
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
+        ->and($assignment->currentPhase?->actual_start_at)->not->toBeNull();
+});
+
+test('direct start with no arrival and no expected join keeps planned_join_at null', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->planned_join_at)->toBeNull()
+        ->and($assignment->planned_arrival_at)->toBeNull();
+});
+
+test('direct start with valid arrival before expected join persists both forecasts', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_arrival_at' => '2026-09-26',
+            'planned_join_at' => '2026-09-27',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-09-26')
+        ->and($assignment->planned_join_at?->toDateString())->toBe('2026-09-27');
+});
+
+test('direct start with arrival after expected join is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_arrival_at' => '2026-09-28',
+            'planned_join_at' => '2026-09-27',
+        ])
+        ->assertSessionHasErrors(['planned_arrival_at']);
+
+    expect(session('errors')->first('planned_arrival_at'))
+        ->toBe('Arrival Date cannot be after Expected Vessel Join.')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('save as planned still requires expected vessel join', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_arrival_at' => '2026-09-26',
+            'planned_join_at' => '',
+            'planned_signoff_at' => '2026-11-30',
+        ])
+        ->assertSessionHasErrors(['planned_join_at']);
+
+    expect(session('errors')->first('planned_join_at'))
+        ->toContain('Expected Vessel Join is required')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('planned to active keeps expected join and signoff forecasts on the same assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    $vessel = makeCrewMovementVessel('Planned Start Vessel', $company);
+    $service = app(CrewMovementService::class);
+
+    $planned = $service->createPlanned($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-10',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    Carbon::setTestNow(Carbon::parse('2026-10-01 09:00:00', $company->timezone));
+
+    $started = $service->perform($company->id, $planned->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-10-01 09:00:00',
+    ], $user->id);
+
+    expect($started->id)->toBe($planned->id)
+        ->and($started->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($started->started_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-01')
+        ->and($started->planned_join_at?->toDateString())->toBe('2026-10-10')
+        ->and($started->planned_signoff_at?->toDateString())->toBe('2026-11-30');
+});
+
+test('open-ended direct start conflicts with a future confirmed planned assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    $vessel = makeCrewMovementVessel('Future Plan Vessel', $company);
+    $service = app(CrewMovementService::class);
+
+    $service->createPlanned($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-01',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+        ])
+        ->assertSessionHasErrors(['employee_id']);
+
+    expect(CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('status', CrewAssignmentStatus::Active)
+        ->count())->toBe(0);
+});
+
+test('direct start with known end before a future plan is allowed', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    $vessel = makeCrewMovementVessel('Bounded Start Vessel', $company);
+    $service = app(CrewMovementService::class);
+
+    $service->createPlanned($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-01',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_at' => '2026-09-30',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('status', CrewAssignmentStatus::Active)
+        ->count())->toBe(1);
+});
+
+test('direct start with known end overlapping a future plan is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    $vessel = makeCrewMovementVessel('Overlap Start Vessel', $company);
+    $service = app(CrewMovementService::class);
+
+    $service->createPlanned($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-01',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_at' => '2026-10-15',
+        ])
+        ->assertSessionHasErrors(['employee_id']);
+
+    expect(CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('status', CrewAssignmentStatus::Active)
+        ->count())->toBe(0);
+});
+
+test('start conflict payload keeps planned_join_at null when join was not supplied', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    $vessel = makeCrewMovementVessel('Payload Plan Vessel', $company);
+    $service = app(CrewMovementService::class);
+
+    $service->createPlanned($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-01',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+        ])
+        ->assertSessionHasErrors(['employee_id', 'conflict']);
+
+    $payload = json_decode((string) session('errors')->first('conflict'), true);
+
+    expect($payload)->toBeArray()
+        ->and($payload['blocking'])->toBeTrue()
+        ->and($payload['new_assignment'])->toHaveKey('planned_join_at')
+        ->and($payload['new_assignment']['planned_join_at'])->toBeNull();
+});

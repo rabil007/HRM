@@ -121,8 +121,12 @@ final class CrewAssignmentConflictResult
                 'vessel_name' => $new['vessel_name'] ?? null,
                 'rank_id' => $new['rank_id'] ?? null,
                 'rank_name' => $new['rank_name'] ?? null,
-                'planned_join_at' => $new['start_date'] ?? $new['planned_join_at'] ?? null,
-                'planned_signoff_at' => $new['end_date'] ?? $new['planned_signoff_at'] ?? null,
+                'planned_join_at' => array_key_exists('planned_join_at', $new)
+                    ? $new['planned_join_at']
+                    : ($new['start_date'] ?? null),
+                'planned_signoff_at' => array_key_exists('planned_signoff_at', $new)
+                    ? $new['planned_signoff_at']
+                    : ($new['end_date'] ?? null),
             ];
         }
 

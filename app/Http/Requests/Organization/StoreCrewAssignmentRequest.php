@@ -136,13 +136,19 @@ class StoreCrewAssignmentRequest extends FormRequest
 
             // Run shared conflict evaluator
             $conflictEvaluator = new CrewAssignmentConflictEvaluator;
+            $intent = $this->submissionIntent();
+            $operationalStartAt = $intent === CrewAssignmentSubmissionIntent::Start
+                ? Carbon::now($timezone)
+                : null;
+
             $conflictContext = new CrewAssignmentConflictContext(
                 companyId: $companyId,
                 employeeId: (int) $this->input('employee_id'),
-                action: $this->submissionIntent()->value,
+                action: $intent->value,
                 plannedJoinAt: $joinCarbon,
                 plannedSignoffAt: $signoffCarbon,
                 plannedArrivalAt: $arrivalCarbon,
+                operationalStartAt: $operationalStartAt,
                 vesselId: $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
                 rankId: $this->input('rank_id') !== null && $this->input('rank_id') !== '' ? (int) $this->input('rank_id') : null,
                 clientId: $clientId !== null && $clientId !== '' ? (int) $clientId : null,

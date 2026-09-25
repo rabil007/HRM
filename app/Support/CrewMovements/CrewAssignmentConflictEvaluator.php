@@ -171,10 +171,11 @@ final class CrewAssignmentConflictEvaluator
             }
         }
 
-        // 4. Date order checks
+        // 4. Date order checks (user forecasts only — never compare against operational start)
         $arrivalDate = $context->plannedArrivalAt?->copy()->timezone($timezone)->toDateString();
         $joinDate = $context->plannedJoinAt?->copy()->timezone($timezone)->toDateString();
         $signoffDate = $context->plannedSignoffAt?->copy()->timezone($timezone)->toDateString();
+        $operationalStartDate = $context->operationalStartAt?->copy()->timezone($timezone)->toDateString();
 
         if ($arrivalDate !== null && $joinDate !== null && $arrivalDate > $joinDate) {
             return CrewAssignmentConflictResult::blocking(
@@ -200,8 +201,8 @@ final class CrewAssignmentConflictEvaluator
             'vessel_name' => $vessel?->name ?? 'Unassigned Vessel',
             'rank_id' => $rank?->id,
             'rank_name' => $rank?->name,
-            'start_date' => $joinDate,
-            'end_date' => $signoffDate,
+            'planned_join_at' => $joinDate,
+            'planned_signoff_at' => $signoffDate,
         ];
 
         // 6. Action: START
@@ -248,19 +249,22 @@ final class CrewAssignmentConflictEvaluator
                     ],
                     newAssignment: $newAssignmentData,
                     affectedDates: [
-                        'start' => $joinDate,
+                        'start' => $joinDate ?? $operationalStartDate,
                         'end' => $signoffDate,
                     ],
                     allowedActions: $allowedActions,
                 );
             }
 
-            // Check if start date overlaps any planned assignment
-            if ($joinDate !== null) {
+            // Conflict window starts at operational Start Assignment time.
+            // Expected Join remains a forecast only — never invent or substitute it here.
+            $conflictStart = $operationalStartDate ?? $joinDate;
+
+            if ($conflictStart !== null) {
                 $plannedOverlaps = $this->findPlannedOverlaps(
                     $context,
-                    $joinDate,
-                    $signoffDate ?? $joinDate,
+                    $conflictStart,
+                    $signoffDate,
                     $timezone,
                     $withLock,
                 );
@@ -268,13 +272,12 @@ final class CrewAssignmentConflictEvaluator
                 if ($plannedOverlaps !== null) {
                     return $plannedOverlaps;
                 }
-            }
 
-            // Check historical completed assignments
-            if ($joinDate !== null) {
-                $historical = $this->findHistoricalOverlap($context, $joinDate, $signoffDate ?? $joinDate, $timezone, $withLock);
-                if ($historical !== null) {
-                    return $historical;
+                if ($signoffDate !== null) {
+                    $historical = $this->findHistoricalOverlap($context, $conflictStart, $signoffDate, $timezone, $withLock);
+                    if ($historical !== null) {
+                        return $historical;
+                    }
                 }
             }
 
@@ -404,7 +407,7 @@ final class CrewAssignmentConflictEvaluator
     private function findPlannedOverlaps(
         CrewAssignmentConflictContext $context,
         string $reqStart,
-        string $reqEnd,
+        ?string $reqEnd,
         string $timezone,
         bool $withLock,
     ): ?CrewAssignmentConflictResult {
@@ -420,6 +423,8 @@ final class CrewAssignmentConflictEvaluator
         }
 
         $existingPlans = $query->get();
+        $forecastJoin = $context->plannedJoinAt?->copy()->timezone($timezone)->toDateString();
+        $forecastSignoff = $context->plannedSignoffAt?->copy()->timezone($timezone)->toDateString();
 
         foreach ($existingPlans as $plan) {
             $pStart = ($plan->planned_arrival_at ?? $plan->planned_join_at)?->copy()->timezone($timezone)->toDateString();
@@ -431,43 +436,57 @@ final class CrewAssignmentConflictEvaluator
 
             $effectivePEnd = $pEnd ?? $pStart;
 
-            // Overlap condition: max(start1, start2) <= min(end1, end2)
-            $overlapStart = max($reqStart, $pStart);
-            $overlapEnd = min($reqEnd, $effectivePEnd);
+            if ($reqEnd === null) {
+                // Open-ended operational window from $reqStart: overlaps any plan ending on/after that day.
+                if ($effectivePEnd < $reqStart) {
+                    continue;
+                }
 
-            if ($overlapStart <= $overlapEnd) {
-                $employeeName = $plan->employee?->name ?? 'Employee';
-                $existingVessel = $plan->vessel?->name ?? 'Unassigned Vessel';
-                $newVessel = $context->vesselId ? (Vessel::find($context->vesselId)?->name ?? 'Selected Vessel') : 'New Assignment';
+                $overlapStart = max($reqStart, $pStart);
+                $overlapEnd = $effectivePEnd;
+                $reqEndLabel = 'open-ended';
+            } else {
+                $overlapStart = max($reqStart, $pStart);
+                $overlapEnd = min($reqEnd, $effectivePEnd);
 
-                return CrewAssignmentConflictResult::blocking(
-                    code: 'planned_planned_overlap',
-                    message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$effectivePEnd}). New assignment: {$newVessel} ({$reqStart} - {$reqEnd}). These dates overlap from {$overlapStart} to {$overlapEnd}.",
-                    existingAssignment: [
-                        'id' => $plan->id,
-                        'assignment_no' => $plan->assignment_no,
-                        'vessel_id' => $plan->vessel_id,
-                        'vessel_name' => $existingVessel,
-                        'rank_id' => $plan->rank_id,
-                        'rank_name' => $plan->rank?->name,
-                        'status' => $plan->status->value,
-                        'start_date' => $pStart,
-                        'end_date' => $effectivePEnd,
-                    ],
-                    newAssignment: [
-                        'vessel_id' => $context->vesselId,
-                        'vessel_name' => $newVessel,
-                        'rank_id' => $context->rankId,
-                        'start_date' => $reqStart,
-                        'end_date' => $reqEnd,
-                    ],
-                    affectedDates: [
-                        'start' => $overlapStart,
-                        'end' => $overlapEnd,
-                    ],
-                    allowedActions: ['adjust_dates', 'edit_existing_plan', 'cancel_existing_plan', 'cancel'],
-                );
+                if ($overlapStart > $overlapEnd) {
+                    continue;
+                }
+
+                $reqEndLabel = $reqEnd;
             }
+
+            $employeeName = $plan->employee?->name ?? 'Employee';
+            $existingVessel = $plan->vessel?->name ?? 'Unassigned Vessel';
+            $newVessel = $context->vesselId ? (Vessel::find($context->vesselId)?->name ?? 'Selected Vessel') : 'New Assignment';
+
+            return CrewAssignmentConflictResult::blocking(
+                code: 'planned_planned_overlap',
+                message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$effectivePEnd}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart} to {$overlapEnd}.",
+                existingAssignment: [
+                    'id' => $plan->id,
+                    'assignment_no' => $plan->assignment_no,
+                    'vessel_id' => $plan->vessel_id,
+                    'vessel_name' => $existingVessel,
+                    'rank_id' => $plan->rank_id,
+                    'rank_name' => $plan->rank?->name,
+                    'status' => $plan->status->value,
+                    'start_date' => $pStart,
+                    'end_date' => $effectivePEnd,
+                ],
+                newAssignment: [
+                    'vessel_id' => $context->vesselId,
+                    'vessel_name' => $newVessel,
+                    'rank_id' => $context->rankId,
+                    'planned_join_at' => $forecastJoin,
+                    'planned_signoff_at' => $forecastSignoff,
+                ],
+                affectedDates: [
+                    'start' => $overlapStart,
+                    'end' => $overlapEnd,
+                ],
+                allowedActions: ['adjust_dates', 'edit_existing_plan', 'cancel_existing_plan', 'cancel'],
+            );
         }
 
         return null;

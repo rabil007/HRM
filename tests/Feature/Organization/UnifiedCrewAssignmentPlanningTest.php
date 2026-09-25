@@ -211,10 +211,12 @@ test('planned to active transition reruns conflict check and blocks if circumsta
         'planned_signoff_at' => '2026-11-30',
     ], $user->id);
 
-    // Simulate an active assignment being created concurrently
+    // Concurrent Active that ends before the Planned window — allowed at start time,
+    // but still blocks Planned → Active because an Active assignment already exists.
     $service->startAssignment($company->id, $employee->id, [
         'rank_id' => $rank->id,
         'vessel_id' => $vessel2->id,
+        'planned_signoff_at' => '2026-09-30',
         'stage_started_at' => '2026-09-15 08:00:00',
     ], $user->id);
 
