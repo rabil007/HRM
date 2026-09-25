@@ -440,6 +440,7 @@ test('authorized users can upsert crew timesheets for draft periods', function (
         'payroll.crew_timesheets.view',
         'payroll.crew_timesheets.create',
         'payroll.crew_timesheets.update',
+        'payroll.periods.update',
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->create([

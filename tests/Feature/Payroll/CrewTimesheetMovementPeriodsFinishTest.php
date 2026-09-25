@@ -39,8 +39,6 @@ test('manual save accepts two onsite periods and nulls parent from/to', function
             'period_id' => $period->id,
             'employee_id' => $employee->id,
             'overtime_hours' => 4,
-            'additional_amount' => 0,
-            'deduction_amount' => 0,
             'segments' => [
                 [
                     'pay_category' => CrewTimesheetPayCategory::Onsite->value,

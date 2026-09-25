@@ -327,7 +327,10 @@ test('payroll show includes payroll records on payroll tab', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.view',
+        'payroll.periods.view',
+    ]);
 
     $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create(['status' => PayrollPeriodStatus::Processing]);
     $employee = createCrewEmployeeWithContract($company, 'CREW-600', 100, 0, 0);

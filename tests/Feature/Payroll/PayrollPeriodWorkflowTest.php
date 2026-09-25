@@ -578,6 +578,7 @@ test('approved pay period show includes wps delivery props', function () {
 
     grantCompanyPermissions($user, $company, [
         'payroll.crew_timesheets.view',
+        'payroll.periods.view',
         'payroll.wps.export',
     ]);
 
