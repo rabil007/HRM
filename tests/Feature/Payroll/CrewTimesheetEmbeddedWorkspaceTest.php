@@ -101,9 +101,11 @@ test('crew draft period show page exposes editable crew timesheet workspace with
             ->where('period.status', PayrollPeriodStatus::Draft->value)
             ->where('permissions.prepare_timeline', true)
             ->where('permissions.update', true)
+            ->where('crew_timeline_preparation', null)
             ->missing('permissions.submit_timesheet')
             ->missing('permissions.approve_timesheet')
             ->missing('permissions.return_timesheet')
+            ->missing('permissions.apply_approved')
         );
 });
 
@@ -146,6 +148,7 @@ test('prepare from crew assignments populates timesheets and redirects to payrol
     addTimelinePhase($assignment, CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-20 18:00:00');
 
     grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
         'payroll.crew_timesheets.prepare',
         'payroll.crew_timesheets.view',
         'payroll.crew_timesheets.update',
@@ -171,6 +174,20 @@ test('prepare from crew assignments populates timesheets and redirects to payrol
     $preparation = $timesheet->preparation;
     expect($preparation)->not->toBeNull()
         ->and($preparation->status)->toBe(CrewTimesheetPreparationStatus::Applied);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('permissions.prepare_timeline', true)
+            ->where('crew_timeline_preparation.status', CrewTimesheetPreparationStatus::Applied->value)
+            ->where('crew_timeline_preparation.linked_timesheet_count', fn ($count) => (int) $count >= 1)
+            ->missing('permissions.submit_timesheet')
+            ->missing('permissions.approve_timesheet')
+            ->missing('permissions.return_timesheet')
+        );
 });
 
 test('authorized user can edit onsite standby overtime and remarks without mutating crew assignment', function () {

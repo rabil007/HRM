@@ -32,7 +32,6 @@ import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
     Tooltip,
     TooltipContent,
@@ -56,10 +55,10 @@ import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
+import { PayrollPopulateFromAssignmentsDialog } from './components/payroll-populate-from-assignments-dialog';
 import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
 import { PayrollRecordsBoard } from './components/payroll-records-board';
 import { PayrollRecordsSummaryCards } from './components/payroll-records-summary-cards';
-import { PayrollReprepareTimelineDialog } from './components/payroll-reprepare-timeline-dialog';
 import { PayrollRevertToApprovedDialog } from './components/payroll-revert-to-approved-dialog';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-processing-dialog';
@@ -202,7 +201,10 @@ export function PayrollShowContent({
         useState<PayrollRecordListItem | null>(null);
     const [isRemovingRecord, setIsRemovingRecord] = useState(false);
     const [isPreparingTimeline, setIsPreparingTimeline] = useState(false);
-    const [isReprepareDialogOpen, setIsReprepareDialogOpen] = useState(false);
+    const [
+        isPopulateFromAssignmentsDialogOpen,
+        setIsPopulateFromAssignmentsDialogOpen,
+    ] = useState(false);
     /**
      * Records are selected for WPS export by default, so the deselected ids are
      * tracked instead of the selected ones. Every partial reload hands back a
@@ -486,7 +488,7 @@ export function PayrollShowContent({
                 preserveScroll: true,
                 onFinish: () => {
                     setIsPreparingTimeline(false);
-                    setIsReprepareDialogOpen(false);
+                    setIsPopulateFromAssignmentsDialogOpen(false);
                 },
             },
         );
@@ -562,20 +564,23 @@ export function PayrollShowContent({
         period.generation_blocking_reason ??
         'Populate Crew Timesheets from Crew Assignments, or enter Manual / Excel timesheet data, before generating payroll.';
 
-    const showTimelineCard =
-        period.supports_timesheets &&
-        permissions.view_timeline &&
-        period.uses_crew_operations_timesheets &&
-        !!crew_timeline_preparation;
-
     const canEditTimesheets =
         period.status === 'draft' && (permissions.create || permissions.update);
 
-    const canPrepareTimeline =
+    const canPopulateFromAssignments =
         period.status === 'draft' &&
         period.uses_crew_operations_timesheets &&
         period.supports_timesheets &&
         permissions.prepare_timeline;
+
+    const crewTimesheetsPopulatedFromAssignments =
+        !!crew_timeline_preparation &&
+        ((crew_timeline_preparation.linked_timesheet_count ?? 0) > 0 ||
+            crew_timeline_preparation.status === 'applied');
+
+    const populateFromAssignmentsMode = crewTimesheetsPopulatedFromAssignments
+        ? 'refresh'
+        : 'populate';
 
     const canRevertToDraft =
         period.can_revert_to_draft && permissions.revert_to_draft;
@@ -656,7 +661,6 @@ export function PayrollShowContent({
     const hasHeaderActions =
         canGenerate ||
         isGenerationBlocked ||
-        canPrepareTimeline ||
         canRevertToDraft ||
         canRevertToApproved ||
         canRevertToProcessing ||
@@ -797,20 +801,6 @@ export function PayrollShowContent({
                                         : 'Clear Timesheets'}
                                 </Button>
                             ) : null}
-                            {canPrepareTimeline &&
-                            !crew_timeline_preparation ? (
-                                <Button
-                                    variant="outline"
-                                    className={headerSecondaryActionClass}
-                                    disabled={isPreparingTimeline}
-                                    onClick={handlePrepareTimeline}
-                                >
-                                    <Ship className="mr-2 h-4 w-4" />
-                                    {isPreparingTimeline
-                                        ? 'Preparing…'
-                                        : 'Prepare from Crew Assignments'}
-                                </Button>
-                            ) : null}
                             {canRevertToDraft ? (
                                 <Button
                                     variant="outline"
@@ -937,92 +927,18 @@ export function PayrollShowContent({
                 approver={period.approver}
             />
 
-            {showTimelineCard && crew_timeline_preparation ? (
-                <Card className="glass-card">
-                    <CardContent className="flex flex-col gap-4 p-5">
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-                            <div className="space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-semibold">
-                                        Crew Timesheet
-                                    </p>
-                                    <Badge variant="outline">
-                                        Version{' '}
-                                        {crew_timeline_preparation.version}
-                                    </Badge>
-                                    <Badge
-                                        variant="outline"
-                                        className={
-                                            crew_timeline_preparation.is_stale
-                                                ? 'border-red-500/40 text-red-700 dark:text-red-300'
-                                                : 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
-                                        }
-                                    >
-                                        {crew_timeline_preparation.is_fresh
-                                            ? 'Fresh'
-                                            : crew_timeline_preparation.stale_reason?.includes(
-                                                    'timeline has advanced',
-                                                )
-                                              ? 'Timeline advanced'
-                                              : 'Crew Assignment data changed'}
-                                    </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                    {crew_timeline_preparation.linked_timesheet_count >
-                                    0
-                                        ? `Populated ${crew_timeline_preparation.linked_timesheet_count} timesheet(s) from Crew Assignments.`
-                                        : 'Prepared from Crew Assignments.'}{' '}
-                                    Edit movement periods and financial fields
-                                    on this page.
-                                </p>
-                            </div>
-                            {canPrepareTimeline ? (
-                                <Button
-                                    variant="outline"
-                                    disabled={isPreparingTimeline}
-                                    onClick={() =>
-                                        setIsReprepareDialogOpen(true)
-                                    }
-                                >
-                                    <RotateCcw className="mr-2 h-4 w-4" />
-                                    {crew_timeline_preparation.status ===
-                                    'applied'
-                                        ? 'Refresh from Crew Assignments'
-                                        : 'Prepare new version'}
-                                </Button>
-                            ) : null}
-                        </div>
-                        {isGenerationBlocked ? (
-                            <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-                                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-                                <div className="space-y-1">
-                                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                                        Payroll generation blocked
-                                    </p>
-                                    <p className="text-sm text-amber-800/90 dark:text-amber-200/90">
-                                        {generationBlockingReason}
-                                    </p>
-                                </div>
-                            </div>
-                        ) : null}
-                    </CardContent>
-                </Card>
-            ) : null}
-
-            {isGenerationBlocked && !showTimelineCard ? (
-                <Card className="glass-card border-amber-500/30 bg-amber-500/5">
-                    <CardContent className="flex items-start gap-3 p-5">
-                        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-                        <div className="space-y-1">
-                            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                                Payroll generation blocked
-                            </p>
-                            <p className="text-sm text-amber-800/90 dark:text-amber-200/90">
-                                {generationBlockingReason}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+            {isGenerationBlocked ? (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div className="space-y-1">
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                            Payroll generation blocked
+                        </p>
+                        <p className="text-sm text-amber-800/90 dark:text-amber-200/90">
+                            {generationBlockingReason}
+                        </p>
+                    </div>
+                </div>
             ) : null}
 
             {/* ── Section 1: Employees / Timesheets ──────── */}
@@ -1045,6 +961,29 @@ export function PayrollShowContent({
                                       value={activeCrewSalaryStructure}
                                       onChange={handleCrewSalaryStructureChange}
                                   />
+                                  {canPopulateFromAssignments ? (
+                                      <Button
+                                          variant="outline"
+                                          className="h-12 shrink-0 rounded-xl px-6"
+                                          disabled={isPreparingTimeline}
+                                          onClick={() =>
+                                              setIsPopulateFromAssignmentsDialogOpen(
+                                                  true,
+                                              )
+                                          }
+                                      >
+                                          <Ship className="mr-2 h-4 w-4" />
+                                          {isPreparingTimeline
+                                              ? populateFromAssignmentsMode ===
+                                                'refresh'
+                                                  ? 'Refreshing…'
+                                                  : 'Populating…'
+                                              : populateFromAssignmentsMode ===
+                                                  'refresh'
+                                                ? 'Refresh from Crew Assignments'
+                                                : 'Populate from Crew Assignments'}
+                                      </Button>
+                                  ) : null}
                                   {permissions.import_timesheets ? (
                                       <Button
                                           variant="outline"
@@ -1404,13 +1343,13 @@ export function PayrollShowContent({
                 />
             ) : null}
 
-            {crew_timeline_preparation && isReprepareDialogOpen ? (
-                <PayrollReprepareTimelineDialog
-                    open={isReprepareDialogOpen}
-                    onOpenChange={setIsReprepareDialogOpen}
+            {isPopulateFromAssignmentsDialogOpen ? (
+                <PayrollPopulateFromAssignmentsDialog
+                    open={isPopulateFromAssignmentsDialogOpen}
+                    onOpenChange={setIsPopulateFromAssignmentsDialogOpen}
                     onConfirm={handlePrepareTimeline}
                     processing={isPreparingTimeline}
-                    currentVersion={crew_timeline_preparation.version}
+                    mode={populateFromAssignmentsMode}
                 />
             ) : null}
 
