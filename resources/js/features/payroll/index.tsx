@@ -51,6 +51,7 @@ import { PayrollPeriodMobileCard } from './components/payroll-period-mobile-card
 import { PayrollPeriodProgress } from './components/payroll-period-progress';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import { PayrollSummaryCards } from './components/payroll-summary-cards';
+import { payrollIndexShowPayment } from './lib/payroll-index-show-payment';
 import type {
     PayrollCategory,
     PayrollCategoryOption,
@@ -159,6 +160,7 @@ export function PayrollIndexContent({
 
     const canOpen =
         permissions.view_crew_timesheets || permissions.create_period;
+    const showPayment = payrollIndexShowPayment(permissions.view_financial);
 
     const handleAdd = () => {
         form.reset();
@@ -320,11 +322,18 @@ export function PayrollIndexContent({
                                         key={period.id}
                                         period={period}
                                         canOpen={canOpen}
+                                        showPayment={showPayment}
                                     />
                                 ))}
                             </div>
                         ) : (
-                            <OrganizationDataTable minWidth="min-w-[1080px]">
+                            <OrganizationDataTable
+                                minWidth={
+                                    showPayment
+                                        ? 'min-w-[1080px]'
+                                        : 'min-w-[920px]'
+                                }
+                            >
                                 <TableHeader>
                                     <DataTableHeaderRow>
                                         <DataTableHead className="pl-5">
@@ -332,7 +341,11 @@ export function PayrollIndexContent({
                                         </DataTableHead>
                                         <DataTableHead>Type</DataTableHead>
                                         <DataTableHead>Period</DataTableHead>
-                                        <DataTableHead>Payment</DataTableHead>
+                                        {showPayment ? (
+                                            <DataTableHead>
+                                                Payment
+                                            </DataTableHead>
+                                        ) : null}
                                         <DataTableHead>Progress</DataTableHead>
                                         <DataTableHead>Status</DataTableHead>
                                         <DataTableHead className="text-right">
@@ -408,15 +421,17 @@ export function PayrollIndexContent({
                                                         period.end_date,
                                                     )}
                                                 </TableCell>
-                                                <TableCell
-                                                    className={dataTableCellClass()}
-                                                >
-                                                    {period.payment_date
-                                                        ? formatDisplayDate(
-                                                              period.payment_date,
-                                                          )
-                                                        : 'Pending'}
-                                                </TableCell>
+                                                {showPayment ? (
+                                                    <TableCell
+                                                        className={dataTableCellClass()}
+                                                    >
+                                                        {period.payment_date
+                                                            ? formatDisplayDate(
+                                                                  period.payment_date,
+                                                              )
+                                                            : 'Pending'}
+                                                    </TableCell>
+                                                ) : null}
                                                 <TableCell
                                                     className={cn(
                                                         dataTableCellClass(),

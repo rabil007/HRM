@@ -58,6 +58,7 @@ use App\Support\Payroll\PayrollPeriodDepartmentTree;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodRecordsSummary;
 use App\Support\Payroll\PayrollPeriodResource;
+use App\Support\Payroll\PayrollPeriodVisibleCrewStats;
 use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
@@ -154,32 +155,10 @@ class PayrollController extends Controller
 
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
-            ->withCount([
-                'crewTimesheets',
-                'payrollRecords',
-                'payrollRecords as daily_payroll_records_count' => function ($recordsQuery): void {
-                    $recordsQuery->crewDaily();
-                },
-                'crewTimesheets as daily_crew_timesheets_count' => function ($timesheetQuery): void {
-                    $timesheetQuery->whereHas('employee.currentContract', function ($contractQuery): void {
-                        $contractQuery->where('payroll_category', PayrollCategory::Crew->value);
-                        ContractSalaryStructureFilter::apply(
-                            $contractQuery,
-                            ContractSalaryStructureFilter::DAILY,
-                        );
-                    });
-                },
-                'payrollRecords as daily_payroll_records_with_timesheet_count' => function ($recordsQuery): void {
-                    $recordsQuery
-                        ->crewDaily()
-                        ->whereHas('employee.crewTimesheets', function ($timesheetQuery): void {
-                            $timesheetQuery->whereColumn(
-                                'crew_timesheets.period_id',
-                                'payroll_records.period_id',
-                            );
-                        });
-                },
-            ])
+            ->when(
+                $includeFinancial,
+                fn (Builder $periodQuery) => $periodQuery->withCount('payrollRecords'),
+            )
             ->latest('start_date');
 
         if ($search !== '') {
@@ -221,6 +200,9 @@ class PayrollController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        $periodIds = collect($paginator->items())->pluck('id')->map(intval(...))->all();
+        $visibleCrewStatsByPeriod = PayrollPeriodVisibleCrewStats::forPeriods($periodIds, $companyId, $user);
+
         return Inertia::render('payroll/index', [
             'periods' => collect($paginator->items())
                 ->map(fn (PayrollPeriod $period) => PayrollPeriodListResource::toArray(
@@ -228,6 +210,7 @@ class PayrollController extends Controller
                     $employeeCountsByCategory,
                     $includeFinancial,
                     $user,
+                    $visibleCrewStatsByPeriod[(int) $period->id] ?? null,
                 ))
                 ->values()
                 ->all(),

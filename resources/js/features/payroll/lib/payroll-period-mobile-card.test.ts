@@ -68,4 +68,41 @@ describe('payrollPeriodMobileCardModel', () => {
 
         assert.equal(model.showOpen, false);
     });
+
+    it('does not surface payment wording in the mobile workflow line', () => {
+        const model = payrollPeriodMobileCardModel(
+            period({
+                payment_date: '2026-08-31',
+                timesheets_progress_label: '1/2',
+            }),
+            true,
+        );
+
+        assert.equal(model.workflowLine, '1/2');
+        assert.doesNotMatch(model.workflowLine, /payment|pending/i);
+        assert.doesNotMatch(model.title, /payment|pending/i);
+        assert.doesNotMatch(model.dateRange, /payment|pending/i);
+        assert.equal(model.exposesSalary, false);
+    });
+
+    it('never exposes payment date as operational mobile content', () => {
+        const model = payrollPeriodMobileCardModel(
+            period({
+                payment_date: '2026-09-15',
+                timesheets_progress_label: null,
+                supports_timesheets: false,
+            }),
+            true,
+        );
+
+        const surface = [
+            model.title,
+            model.categoryLabel,
+            model.dateRange,
+            model.workflowLine,
+            model.statusLabel,
+        ].join(' ');
+
+        assert.doesNotMatch(surface, /payment|pending|2026-09-15/i);
+    });
 });

@@ -97,7 +97,9 @@ final class PayrollPeriodResource
             'can_approve' => $period->canApprove(),
             'can_mark_paid' => $period->canMarkPaid(),
             'can_cancel' => $period->canCancel(),
-            'payroll_records_count' => (int) ($period->payroll_records_count ?? 0),
+            'payroll_records_count' => $includeFinancial
+                ? (int) ($period->payroll_records_count ?? 0)
+                : 0,
             'approved_at' => $period->approved_at?->toDateTimeString(),
             'approver' => $period->relationLoaded('approvedBy') && $period->approvedBy !== null
                 ? [

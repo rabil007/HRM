@@ -22,6 +22,7 @@ use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
 use App\Support\Payroll\CrewTimeline\PopulateCrewTimesheetsFromAssignments;
+use App\Support\Payroll\PayrollHubSummary;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -756,4 +757,194 @@ test('restricted employee-scope user cannot populate crew timesheets from assign
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.crew-timeline.prepare', $fixtures['period']))
         ->assertForbidden();
+});
+
+test('restricted crew user receives visibility-scoped payroll index progress', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    $secondVisible = createCrewEmployeeWithContract($fixtures['company'], 'VIS-CREW-2', 100, 50, 25);
+    $secondVisible->update(['department_id' => $fixtures['visibleDept']->id]);
+
+    foreach (['HID-CREW-2', 'HID-CREW-3'] as $employeeNo) {
+        $hidden = createCrewEmployeeWithContract($fixtures['company'], $employeeNo, 100, 50, 25);
+        $hidden->update(['department_id' => $fixtures['hiddenDept']->id]);
+
+        CrewTimesheet::factory()->create([
+            'company_id' => $fixtures['company']->id,
+            'employee_id' => $hidden->id,
+            'period_id' => $fixtures['period']->id,
+            'source' => CrewTimesheetSource::Manual,
+            'onsite_from' => '2026-07-01',
+            'onsite_to' => '2026-07-05',
+            'onsite_days' => 5,
+        ]);
+    }
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.index', ['all' => '1']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->where('periods', function ($periods) use ($fixtures) {
+                $period = collect($periods)->firstWhere('id', $fixtures['period']->id);
+
+                return $period !== null
+                    && (int) $period['employee_count'] === 2
+                    && (int) $period['timesheet_eligible_count'] === 2
+                    && (int) $period['timesheets_filled_count'] === 1
+                    && $period['timesheets_progress_label'] === '1/2'
+                    && (int) $period['payroll_records_count'] === 0;
+            })
+        );
+});
+
+test('restricted crew user does not receive company-wide payroll record counts on index', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    PayrollRecord::factory()->crew()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['visibleEmployee']->id,
+        'period_id' => $fixtures['period']->id,
+        'gross_salary' => 1000,
+        'net_salary' => 900,
+        'calculation_breakdown' => ['salary_structure' => 'daily'],
+    ]);
+
+    PayrollRecord::factory()->crew()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['hiddenEmployee']->id,
+        'period_id' => $fixtures['period']->id,
+        'gross_salary' => 2000,
+        'net_salary' => 1800,
+        'calculation_breakdown' => ['salary_structure' => 'daily'],
+    ]);
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.index', ['all' => '1']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('periods', function ($periods) use ($fixtures) {
+                $period = collect($periods)->firstWhere('id', $fixtures['period']->id);
+
+                return $period !== null
+                    && (int) $period['payroll_records_count'] === 0
+                    && (int) $period['timesheet_eligible_count'] === 1
+                    && (int) $period['timesheets_filled_count'] === 1
+                    && $period['timesheets_progress_label'] === '1/1';
+            })
+        );
+
+    $this->actingAs($fixtures['payrollUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.index', ['all' => '1']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('periods', function ($periods) use ($fixtures) {
+                $period = collect($periods)->firstWhere('id', $fixtures['period']->id);
+
+                return $period !== null
+                    && (int) $period['payroll_records_count'] === 2
+                    && (int) $period['timesheet_eligible_count'] === 2
+                    && (int) $period['timesheets_filled_count'] === 2;
+            })
+        );
+});
+
+test('payroll hub incomplete_crew_runs uses visibility-scoped timesheet counts', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    // Visible: 3 employees / 2 timesheets → ops incomplete.
+    // Hidden: 5 employees / 5 timesheets → must not make the ops period look complete.
+    foreach (['VIS-CREW-2', 'VIS-CREW-3'] as $index => $employeeNo) {
+        $visible = createCrewEmployeeWithContract($fixtures['company'], $employeeNo, 100, 50, 25);
+        $visible->update(['department_id' => $fixtures['visibleDept']->id]);
+
+        if ($index === 0) {
+            CrewTimesheet::factory()->create([
+                'company_id' => $fixtures['company']->id,
+                'employee_id' => $visible->id,
+                'period_id' => $fixtures['period']->id,
+                'source' => CrewTimesheetSource::Manual,
+                'onsite_from' => '2026-07-01',
+                'onsite_to' => '2026-07-03',
+                'onsite_days' => 3,
+            ]);
+        }
+    }
+
+    foreach (['HID-COMPLETE-2', 'HID-COMPLETE-3', 'HID-COMPLETE-4', 'HID-COMPLETE-5'] as $employeeNo) {
+        $hidden = createCrewEmployeeWithContract($fixtures['company'], $employeeNo, 100, 50, 25);
+        $hidden->update(['department_id' => $fixtures['hiddenDept']->id]);
+
+        CrewTimesheet::factory()->create([
+            'company_id' => $fixtures['company']->id,
+            'employee_id' => $hidden->id,
+            'period_id' => $fixtures['period']->id,
+            'source' => CrewTimesheetSource::Manual,
+            'onsite_from' => '2026-07-01',
+            'onsite_to' => '2026-07-03',
+            'onsite_days' => 3,
+        ]);
+    }
+
+    $opsSummary = PayrollHubSummary::forCompany(
+        (int) $fixtures['company']->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $fixtures['opsUser'],
+    );
+
+    $payrollSummary = PayrollHubSummary::forCompany(
+        (int) $fixtures['company']->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $fixtures['payrollUser'],
+    );
+
+    // Ops: 2 visible timesheets / 3 visible employees → incomplete.
+    // Hidden timesheets must not mark the ops period complete.
+    expect($opsSummary['incomplete_crew_runs'])->toBe(1)
+        ->and($opsSummary['office_periods'])->toBe(0)
+        // Company-wide: 7 timesheets / 8 employees → also incomplete for financial users.
+        ->and($payrollSummary['incomplete_crew_runs'])->toBe(1)
+        ->and($payrollSummary['office_periods'])->toBe(0);
+});
+
+test('payroll hub incomplete_crew_runs stays incomplete for ops when only hidden timesheets are full', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    // Remove the visible timesheet so ops has 1 employee / 0 timesheets.
+    $fixtures['visibleTimesheet']->segments()->delete();
+    $fixtures['visibleTimesheet']->delete();
+
+    // Hidden department is fully covered (original + 4 more).
+    foreach (['HID-FULL-2', 'HID-FULL-3', 'HID-FULL-4', 'HID-FULL-5'] as $employeeNo) {
+        $hidden = createCrewEmployeeWithContract($fixtures['company'], $employeeNo, 100, 50, 25);
+        $hidden->update(['department_id' => $fixtures['hiddenDept']->id]);
+
+        CrewTimesheet::factory()->create([
+            'company_id' => $fixtures['company']->id,
+            'employee_id' => $hidden->id,
+            'period_id' => $fixtures['period']->id,
+            'source' => CrewTimesheetSource::Manual,
+            'onsite_from' => '2026-07-01',
+            'onsite_to' => '2026-07-02',
+            'onsite_days' => 2,
+        ]);
+    }
+
+    $opsSummary = PayrollHubSummary::forCompany(
+        (int) $fixtures['company']->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $fixtures['opsUser'],
+    );
+
+    // Pre-fix leak: company-wide timesheet count (5) >= visible employees (1) looked "complete".
+    expect($opsSummary['incomplete_crew_runs'])->toBe(1);
 });
