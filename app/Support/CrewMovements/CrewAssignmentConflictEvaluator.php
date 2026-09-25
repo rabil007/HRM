@@ -171,7 +171,7 @@ final class CrewAssignmentConflictEvaluator
             }
         }
 
-        // 4. Date order checks (user forecasts only — never compare against operational start)
+        // 4. Date order checks
         $arrivalDate = $context->plannedArrivalAt?->copy()->timezone($timezone)->toDateString();
         $joinDate = $context->plannedJoinAt?->copy()->timezone($timezone)->toDateString();
         $signoffDate = $context->plannedSignoffAt?->copy()->timezone($timezone)->toDateString();
@@ -188,6 +188,20 @@ final class CrewAssignmentConflictEvaluator
             return CrewAssignmentConflictResult::blocking(
                 code: 'invalid_date_range',
                 message: 'Expected Sign-off cannot be before Expected Vessel Join.',
+            );
+        }
+
+        // Start only: Expected Sign-Off cannot precede the operational Assignment Start date.
+        // Do not invent planned_join_at; do not apply this to plan/draft.
+        if (
+            $context->action === 'start'
+            && $operationalStartDate !== null
+            && $signoffDate !== null
+            && $signoffDate < $operationalStartDate
+        ) {
+            return CrewAssignmentConflictResult::blocking(
+                code: 'invalid_date_range',
+                message: 'Expected Sign-Off cannot be before Assignment Start.',
             );
         }
 

@@ -813,3 +813,139 @@ test('start conflict payload keeps planned_join_at null when join was not suppli
         ->and($payload['new_assignment'])->toHaveKey('planned_join_at')
         ->and($payload['new_assignment']['planned_join_at'])->toBeNull();
 });
+
+test('direct start with sign-off before operational start is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_join_at' => null,
+            'planned_signoff_at' => '2026-09-20',
+        ])
+        ->assertSessionHasErrors(['employee_id']);
+
+    expect(session('errors')->first('employee_id'))
+        ->toBe('Expected Sign-Off cannot be before Assignment Start.')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('direct start with sign-off after operational start succeeds with null planned join', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_at' => '2026-09-30',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->planned_join_at)->toBeNull()
+        ->and($assignment->planned_signoff_at?->toDateString())->toBe('2026-09-30');
+});
+
+test('direct start with same-day expected sign-off is not rejected by assignment start ordering', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_signoff_at' => '2026-09-25',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->planned_signoff_at?->toDateString())->toBe('2026-09-25');
+});
+
+test('direct start still blocks when expected sign-off is before expected vessel join', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_join_at' => '2026-09-27',
+            'planned_signoff_at' => '2026-09-26',
+        ])
+        ->assertSessionHasErrors();
+
+    $messages = collect(session('errors')->all())->flatten()->all();
+
+    expect($messages)->toContain('Expected Sign-off cannot be before Expected Vessel Join.')
+        ->and($messages)->not->toContain('Expected Sign-Off cannot be before Assignment Start.')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('save as planned does not apply assignment start versus sign-off ordering', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'planned_join_at' => '2026-10-10',
+            'planned_signoff_at' => '2026-11-30',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Planned)
+        ->and($assignment->started_at)->toBeNull()
+        ->and($assignment->planned_join_at?->toDateString())->toBe('2026-10-10')
+        ->and($assignment->planned_signoff_at?->toDateString())->toBe('2026-11-30');
+});
+
+test('planned to active with future expected sign-off keeps forecasts on the same assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
+        'crew_operations.planning.create',
+    ]);
+    $vessel = makeCrewMovementVessel('Future Signoff Start Vessel', $company);
+    $service = app(CrewMovementService::class);
+
+    $planned = $service->createPlanned($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-10',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    Carbon::setTestNow(Carbon::parse('2026-10-01 09:00:00', $company->timezone));
+
+    $started = $service->perform($company->id, $planned->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-10-01 09:00:00',
+    ], $user->id);
+
+    expect($started->id)->toBe($planned->id)
+        ->and($started->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($started->started_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-01')
+        ->and($started->planned_join_at?->toDateString())->toBe('2026-10-10')
+        ->and($started->planned_signoff_at?->toDateString())->toBe('2026-11-30');
+});
