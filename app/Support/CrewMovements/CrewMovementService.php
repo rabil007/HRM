@@ -19,7 +19,6 @@ use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
@@ -41,7 +40,6 @@ final class CrewMovementService
         private CrewAssignmentInvariantGuard $invariants,
         private CrewAssignmentNumberGenerator $numbers,
         private SeaServiceSyncService $seaServiceSync,
-        private SyncPlanningAssignmentFromCrewAssignment $planningSync,
         private CrewMovementMasterDataGuard $masters,
         private CrewTourOfDutyResolver $tourOfDutyResolver = new CrewTourOfDutyResolver,
         private CrewJoinVesselSignoffApplier $signoffApplier = new CrewJoinVesselSignoffApplier,
@@ -316,7 +314,6 @@ final class CrewMovementService
             $assignment = $this->reloadLocked($companyId, $assignment->id);
             $this->invariants->assertValid($assignment);
             if ($assignment->plannedAssignment !== null) {
-                $this->planningSync->sync($assignment);
             }
 
             return $this->reloadLocked($companyId, $assignment->id);
@@ -367,7 +364,6 @@ final class CrewMovementService
 
             $result = $this->reloadLocked($identity->companyId, $result->id);
             $this->invariants->assertValid($result);
-            $this->planningSync->sync($result);
 
             return $this->reloadLocked($identity->companyId, $result->id);
         });
@@ -968,7 +964,6 @@ final class CrewMovementService
 
         $source = $this->reloadLocked($assignment->company_id, $assignment->id);
         $this->invariants->assertValid($source);
-        $this->planningSync->sync($source);
 
         $destination = $this->createLinkedAssignment(
             companyId: $assignment->company_id,
@@ -1142,7 +1137,6 @@ final class CrewMovementService
 
         $source = $this->reloadLocked($assignment->company_id, $assignment->id);
         $this->invariants->assertValid($source);
-        $this->planningSync->sync($source);
 
         $destinationPlannedArrivalAt = (isset($payload['planned_arrival_at']) && filled($payload['planned_arrival_at']))
             ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_arrival_at'])

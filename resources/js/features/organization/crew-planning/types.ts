@@ -289,7 +289,6 @@ export type NotificationUserOption = {
 export type AssignmentFormData = {
     vessel_id: string;
     rank_id: string;
-    employee_id: string;
     planned_join_date: string;
     planned_leave_date: string;
     notes: string;

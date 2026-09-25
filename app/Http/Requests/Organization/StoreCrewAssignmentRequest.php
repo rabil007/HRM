@@ -90,6 +90,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             'planned_join_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
             'planned_signoff_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
             'relieves_crew_assignment_id' => ['nullable', 'integer', Rule::exists('crew_assignments', 'id')->where('company_id', $companyId)],
+            'planning_assignment_id' => ['nullable', 'integer', Rule::exists('crew_planning_assignments', 'id')->where('company_id', $companyId)],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -197,7 +197,6 @@ export function CrewPlanningContent({
     const form = useForm<AssignmentFormData>({
         vessel_id: '',
         rank_id: '',
-        employee_id: '',
         planned_join_date: '',
         planned_leave_date: '',
         notes: '',
@@ -295,7 +294,6 @@ export function CrewPlanningContent({
         form.setData({
             vessel_id: bar.row_key.split('|')[0].replace('vessel:', ''),
             rank_id: bar.row_key.split('|')[1].replace('rank:', ''),
-            employee_id: bar.employee_id != null ? String(bar.employee_id) : '',
             planned_join_date: bar.planned_join_date,
             planned_leave_date: bar.planned_leave_date ?? '',
             notes: bar.notes ?? '',
@@ -365,8 +363,6 @@ export function CrewPlanningContent({
         form.transform((data) => ({
             vessel_id: Number(data.vessel_id),
             rank_id: Number(data.rank_id),
-            employee_id:
-                data.employee_id !== '' ? Number(data.employee_id) : null,
             planned_join_date: data.planned_join_date,
             planned_leave_date: data.planned_leave_date,
             notes: data.notes || null,
@@ -759,7 +755,6 @@ export function CrewPlanningContent({
                         relievesEmployeeName={dialogState.relievesEmployeeName}
                         vessels={vessels}
                         ranks={ranks}
-                        employees={employees}
                     />
                 </Main>
 

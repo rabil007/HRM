@@ -65,7 +65,7 @@ import {
     store as storeAssignment,
 } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
-import { start as startFromPlanning } from '@/routes/organization/crew-planning/assignments';
+
 
 let nextRowKey = 1;
 
@@ -601,12 +601,11 @@ export function CrewAssignmentCreateForm({
                     null,
                 remarks: form.data.remarks,
                 submission_intent: intentParam,
+                planning_assignment_id: planning_context?.planning_assignment_id ?? undefined,
             };
         });
 
-        const postUrl = fromPlanning
-            ? startFromPlanning.url(planning_context!.planning_assignment_id)
-            : storeAssignment.url();
+        const postUrl = storeAssignment.url();
 
         form.post(postUrl, {
             onFinish: () => form.transform((data) => data),

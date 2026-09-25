@@ -37,7 +37,6 @@ use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\RecentItems\RecordRecentItem;
@@ -60,7 +59,7 @@ class CrewAssignmentController extends Controller
 
     public function __construct(
         private CrewMovementService $service,
-        private SyncPlanningAssignmentFromCrewAssignment $planningSync,
+
     ) {}
 
     public function index(Request $request): InertiaResponse|RedirectResponse
@@ -145,6 +144,10 @@ class CrewAssignmentController extends Controller
     public function create(Request $request, ResolvePlanningStartHandoff $planningHandoff)
     {
         Gate::authorize('create', CrewAssignment::class);
+
+        if ($request->query('intent') === 'plan') {
+            Gate::authorize('crew_operations.planning.create');
+        }
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $permissions = CrewAssignmentPagePermissions::for($request->user());
@@ -244,6 +247,7 @@ class CrewAssignmentController extends Controller
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $validated = $request->validated();
+        $planningAssignmentId = $validated['planning_assignment_id'] ?? null;
 
         try {
             $assignment = match ($intent) {
@@ -298,6 +302,13 @@ class CrewAssignmentController extends Controller
                     return $assignment->fresh() ?? $assignment;
                 }),
             };
+
+            if ($planningAssignmentId !== null) {
+                CrewPlanningAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey($planningAssignmentId)
+                    ->update(['crew_assignment_id' => $assignment->id]);
+            }
 
             $success = match ($intent) {
                 CrewAssignmentSubmissionIntent::Start => 'Crew assignment started successfully.',

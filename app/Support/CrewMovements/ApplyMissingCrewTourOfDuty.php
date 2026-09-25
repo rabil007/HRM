@@ -7,7 +7,6 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
 use App\Models\CrewAssignment;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -15,7 +14,7 @@ final class ApplyMissingCrewTourOfDuty
 {
     public function __construct(
         private readonly CrewTourOfDutyResolver $tourOfDutyResolver = new CrewTourOfDutyResolver,
-        private readonly SyncPlanningAssignmentFromCrewAssignment $planningSync = new SyncPlanningAssignmentFromCrewAssignment,
+
     ) {}
 
     /**
@@ -144,7 +143,6 @@ final class ApplyMissingCrewTourOfDuty
             }
 
             $assignment = $assignment->fresh(['phases', 'employee', 'company', 'rank', 'currentPhase']) ?? $assignment;
-            $this->planningSync->sync($assignment);
 
             activity()
                 ->performedOn($assignment)

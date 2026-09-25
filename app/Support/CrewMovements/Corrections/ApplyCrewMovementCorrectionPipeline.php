@@ -11,7 +11,6 @@ use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\SeaServiceSyncService;
-use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -24,8 +23,6 @@ final class ApplyCrewMovementCorrectionPipeline
 
     private readonly CrewAssignmentInvariantGuard $invariantGuard;
 
-    private readonly SyncPlanningAssignmentFromCrewAssignment $planningSync;
-
     private readonly SeaServiceSyncService $seaServiceSync;
 
     private readonly CrewMovementCorrectionValueSnapshot $snapshot;
@@ -34,14 +31,14 @@ final class ApplyCrewMovementCorrectionPipeline
         ?ApplyCrewMovementCorrection $applier = null,
         ?RecalculateTourSignoffAfterP4StartCorrection $tourSignoffRecalc = null,
         ?CrewAssignmentInvariantGuard $invariantGuard = null,
-        ?SyncPlanningAssignmentFromCrewAssignment $planningSync = null,
+
         ?SeaServiceSyncService $seaServiceSync = null,
         ?CrewMovementCorrectionValueSnapshot $snapshot = null,
     ) {
         $this->applier = $applier ?? app(ApplyCrewMovementCorrection::class);
         $this->tourSignoffRecalc = $tourSignoffRecalc ?? app(RecalculateTourSignoffAfterP4StartCorrection::class);
         $this->invariantGuard = $invariantGuard ?? app(CrewAssignmentInvariantGuard::class);
-        $this->planningSync = $planningSync ?? app(SyncPlanningAssignmentFromCrewAssignment::class);
+
         $this->seaServiceSync = $seaServiceSync ?? app(SeaServiceSyncService::class);
         $this->snapshot = $snapshot ?? app(CrewMovementCorrectionValueSnapshot::class);
     }
@@ -73,7 +70,6 @@ final class ApplyCrewMovementCorrectionPipeline
         $assignment->load(['employee', 'phases', 'currentPhase', 'previousAssignment', 'planningAssignment']);
 
         $this->invariantGuard->assertValid($assignment);
-        $this->planningSync->sync($assignment);
 
         if ($phase->phase_code === CrewPhaseCode::OnVessel) {
             $synced = $this->seaServiceSync->syncFromPhase($phase->fresh(['assignment.employee', 'assignment.vessel']));

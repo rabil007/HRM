@@ -300,9 +300,9 @@ final class CrewAssignmentConflictEvaluator
                     ?? CarbonImmutable::now($timezone)->toDateString();
                 $activeEnd = $active->planned_signoff_at?->copy()->timezone($timezone)->toDateString();
 
-                // If active assignment has no signoff, it is actively ongoing; any plan starting on or before now/start conflicts
+                // If active assignment has no signoff, it is actively ongoing; any plan unconditionally conflicts.
                 $activeOverlaps = $activeEnd === null
-                    ? $reqStart <= CarbonImmutable::now($timezone)->toDateString() || $reqStart <= $activeStart
+                    ? true
                     : ($reqStart <= $activeEnd && $activeStart <= $reqEnd);
 
                 if ($activeOverlaps) {

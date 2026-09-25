@@ -7,7 +7,6 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
-use App\Models\Employee;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -32,11 +31,11 @@ final class SaveCrewPlanningAssignment
     public function create(int $companyId, array $attributes, ?User $actor = null): CrewPlanningAssignment
     {
         return DB::transaction(function () use ($companyId, $attributes, $actor): CrewPlanningAssignment {
-            $this->assertEmployeeIsActive($companyId, $attributes, $actor);
             $this->assertReliefConstraints($companyId, $attributes, null, $actor);
 
             return CrewPlanningAssignment::query()->create([
                 ...$attributes,
+                'employee_id' => null,
                 'company_id' => $companyId,
             ]);
         });
@@ -112,12 +111,9 @@ final class SaveCrewPlanningAssignment
                         'rank_id' => array_key_exists('rank_id', $attributes)
                             ? $attributes['rank_id']
                             : $locked->rank_id,
-                        'employee_id' => array_key_exists('employee_id', $attributes)
-                            ? $attributes['employee_id']
-                            : $locked->employee_id,
+                        'employee_id' => null,
                     ];
 
-                    $this->assertEmployeeIsActive($companyId, $merged, $actor);
                     $this->assertReliefConstraints($companyId, $merged, (int) $locked->id, $actor);
 
                     $locked->update($attributes);
@@ -140,35 +136,6 @@ final class SaveCrewPlanningAssignment
         throw ValidationException::withMessages([
             'error' => 'The planning assignment was modified concurrently. Please refresh and try again.',
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $attributes
-     */
-    private function assertEmployeeIsActive(int $companyId, array $attributes, ?User $actor = null): void
-    {
-        $employeeId = $attributes['employee_id'] ?? null;
-
-        if ($employeeId === null || $employeeId === '') {
-            return;
-        }
-
-        $employee = Employee::query()
-            ->where('company_id', $companyId)
-            ->whereKey((int) $employeeId)
-            ->first(['id', 'status', 'department_id', 'user_id']);
-
-        if ($employee === null || $employee->status !== 'active') {
-            throw ValidationException::withMessages([
-                'employee_id' => 'The selected employee must be an active employee in this company.',
-            ]);
-        }
-
-        if ($actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $companyId)) {
-            throw ValidationException::withMessages([
-                'employee_id' => 'The selected employee could not be found.',
-            ]);
-        }
     }
 
     /**
@@ -249,45 +216,6 @@ final class SaveCrewPlanningAssignment
             throw ValidationException::withMessages([
                 'relieves_crew_assignment_id' => 'The relief assignment must be for the same rank as the assignment being relieved.',
             ]);
-        }
-
-        $employeeId = $attributes['employee_id'] ?? null;
-
-        if ($employeeId !== null && $employeeId !== '') {
-            $employee = Employee::query()
-                ->where('company_id', $companyId)
-                ->whereKey((int) $employeeId)
-                ->first(['id', 'status', 'rank_id', 'department_id', 'user_id']);
-
-            if ($employee === null) {
-                throw ValidationException::withMessages([
-                    'employee_id' => 'The selected relief employee could not be found.',
-                ]);
-            }
-
-            if ($actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $companyId)) {
-                throw ValidationException::withMessages([
-                    'employee_id' => 'The selected relief employee could not be found.',
-                ]);
-            }
-
-            if ($employee->status !== 'active') {
-                throw ValidationException::withMessages([
-                    'employee_id' => 'The selected relief employee must be active.',
-                ]);
-            }
-
-            if ((int) $employee->rank_id !== (int) $rankId) {
-                throw ValidationException::withMessages([
-                    'employee_id' => 'The selected relief employee must have the selected rank.',
-                ]);
-            }
-
-            if ((int) $employee->id === (int) $source->employee_id) {
-                throw ValidationException::withMessages([
-                    'employee_id' => 'The relief crew member cannot be the same person as the crew being relieved.',
-                ]);
-            }
         }
 
         if ($this->reliefResolver->hasActiveOperationalRelief($companyId, $relievesId, $exceptPlanningId)) {
