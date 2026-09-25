@@ -16,6 +16,8 @@ export type CrewAssignmentCommonFieldsData = {
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
+    planned_signoff_at?: string;
+    relieves_crew_assignment_id?: number | null;
     remarks: string;
 };
 
@@ -165,7 +167,7 @@ export function CrewAssignmentCommonFields({
                             <Label htmlFor="planned_join_at">
                                 Expected Vessel Join{' '}
                                 <span className="font-normal text-muted-foreground">
-                                    (optional)
+                                    (optional until confirmed)
                                 </span>
                             </Label>
                             <Input
@@ -182,10 +184,38 @@ export function CrewAssignmentCommonFields({
                             />
                             <p className="text-xs text-muted-foreground">
                                 Expected date the crew member should join the
-                                vessel. Actual joining is recorded later through
-                                Join Vessel.
+                                vessel. Target only; actual joining is recorded
+                                later.
                             </p>
                             <InputError message={form.errors.planned_join_at} />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="planned_signoff_at">
+                                Expected Sign-Off{' '}
+                                <span className="font-normal text-muted-foreground">
+                                    (required for Planned)
+                                </span>
+                            </Label>
+                            <Input
+                                id="planned_signoff_at"
+                                type="date"
+                                className="h-11"
+                                value={form.data.planned_signoff_at ?? ''}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'planned_signoff_at',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Expected sign-off date. Required when saving as
+                                Planned to reserve the crew member.
+                            </p>
+                            <InputError
+                                message={form.errors.planned_signoff_at}
+                            />
                         </div>
                     </>
                 ) : null}

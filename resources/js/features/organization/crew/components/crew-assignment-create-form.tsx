@@ -1,4 +1,4 @@
-import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { Info } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useCallback, useMemo, useState } from 'react';
@@ -13,6 +13,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
 import { CrewAssignmentBulkReadinessPanel } from '@/features/organization/crew/components/crew-assignment-bulk-readiness-panel';
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
+import type { ConflictDialogData } from '@/features/organization/crew/components/crew-assignment-conflict-dialog';
+import { CrewAssignmentConflictDialog } from '@/features/organization/crew/components/crew-assignment-conflict-dialog';
 import { CrewAssignmentReadinessPanel } from '@/features/organization/crew/components/crew-assignment-readiness-panel';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
@@ -80,6 +82,10 @@ function newCrewRow(): CrewMemberRowState {
 function createInitialRows(
     initialRowCount: number,
     planningContext?: CrewPlanningStartContext | null,
+    prefill?: {
+        employee_id?: number | null;
+        rank_id?: number | null;
+    } | null,
 ): {
     rows: CrewMemberRowState[];
     keys: string[];
@@ -102,7 +108,19 @@ function createInitialRows(
     const rows: CrewMemberRowState[] = [];
 
     for (let index = 0; index < count; index += 1) {
-        rows.push(newCrewRow());
+        const row = newCrewRow();
+
+        if (index === 0 && prefill) {
+            if (prefill.employee_id) {
+                row.employee_id = prefill.employee_id;
+            }
+
+            if (prefill.rank_id) {
+                row.rank_id = prefill.rank_id;
+            }
+        }
+
+        rows.push(row);
     }
 
     return {
@@ -142,19 +160,33 @@ function findBulkRowValidationError(
 }
 
 type UnifiedCreateFormData = BulkAddCrewFormData & {
-    submission_intent?: 'start' | 'draft';
+    planned_signoff_at?: string;
+    relieves_crew_assignment_id?: number | null;
+    submission_intent?: 'start' | 'draft' | 'plan';
 };
 
 export function CrewAssignmentCreateForm({
     form_options,
     can,
     initial_row_count = 1,
+    intent = null,
+    prefill = null,
     planning_context = null,
     planning_back_query = null,
 }: {
     form_options: CrewAssignmentCreateFormOptions;
     can: CrewAssignmentPagePermissions;
     initial_row_count?: number;
+    intent?: 'plan' | 'start' | null;
+    prefill?: {
+        employee_id?: number | null;
+        vessel_id?: number | null;
+        rank_id?: number | null;
+        client_id?: number | null;
+        planned_join_at?: string | null;
+        planned_signoff_at?: string | null;
+        relieves_crew_assignment_id?: number | null;
+    } | null;
     planning_context?: CrewPlanningStartContext | null;
     planning_back_query?: CrewPlanningBackQuery | null;
 }): ReactElement {
@@ -163,8 +195,8 @@ export function CrewAssignmentCreateForm({
         current_company_id?: number | null;
     };
     const initialRows = useMemo(
-        () => createInitialRows(initial_row_count, planning_context),
-        [initial_row_count, planning_context],
+        () => createInitialRows(initial_row_count, planning_context, prefill),
+        [initial_row_count, planning_context, prefill],
     );
     const restoredBulkSession = useMemo(() => {
         if (fromPlanning || currentCompanyId == null) {
@@ -177,6 +209,9 @@ export function CrewAssignmentCreateForm({
         () => restoredBulkSession?.rowKeys ?? initialRows.keys,
     );
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
+    const [dismissedConflict, setDismissedConflict] = useState<string | null>(
+        null,
+    );
     const [bulkSidebarMode, setBulkSidebarMode] = useState<BulkSidebarMode>(
         () => restoredBulkSession?.bulkSidebarMode ?? 'summary',
     );
@@ -189,17 +224,23 @@ export function CrewAssignmentCreateForm({
 
     const form = useForm<UnifiedCreateFormData>({
         client_id:
+            prefill?.client_id ??
             restoredBulkSession?.form.client_id ??
             planning_context?.client_id ??
             null,
         vessel_id:
+            prefill?.vessel_id ??
             restoredBulkSession?.form.vessel_id ??
             planning_context?.vessel_id ??
             null,
         planned_join_at:
+            prefill?.planned_join_at ??
             restoredBulkSession?.form.planned_join_at ??
             planning_context?.planned_join_at ??
             '',
+        planned_signoff_at: prefill?.planned_signoff_at ?? '',
+        relieves_crew_assignment_id:
+            prefill?.relieves_crew_assignment_id ?? null,
         planned_arrival_at: planning_context?.planned_arrival_at ?? '',
         remarks:
             restoredBulkSession?.form.remarks ??
@@ -214,8 +255,32 @@ export function CrewAssignmentCreateForm({
                     planned_arrival_at: planned_arrival_at ?? null,
                 }),
             ),
-        submission_intent: can.start ? 'start' : 'draft',
+        submission_intent:
+            intent === 'plan' && can.plan
+                ? 'plan'
+                : can.start
+                  ? 'start'
+                  : 'draft',
     });
+
+    const conflictError = (
+        form.errors as unknown as Record<string, string | undefined>
+    ).conflict;
+
+    const conflictData: ConflictDialogData | null = useMemo(() => {
+        if (!conflictError) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(conflictError) as ConflictDialogData;
+        } catch {
+            return null;
+        }
+    }, [conflictError]);
+
+    const conflictDialogOpen =
+        conflictData !== null && dismissedConflict !== conflictError;
 
     const rows: CrewMemberRowState[] = form.data.crew.map((row, index) => ({
         ...row,
@@ -489,23 +554,29 @@ export function CrewAssignmentCreateForm({
         );
     };
 
-    const submitSingle = (intent: 'start' | 'draft'): void => {
-        if (canUseRecommendedTransfer) {
-            setTransferPromptOpen(true);
+    const submitSingle = (intentParam: 'start' | 'draft' | 'plan'): void => {
+        if (intentParam === 'start') {
+            if (canUseRecommendedTransfer) {
+                setTransferPromptOpen(true);
 
-            return;
+                return;
+            }
+
+            if (hasActiveAssignmentConflict) {
+                return;
+            }
+
+            if (!can.start) {
+                return;
+            }
         }
 
-        if (hasActiveAssignmentConflict) {
-            return;
-        }
-
-        if (intent === 'start' && !can.start) {
+        if (intentParam === 'plan' && !can.plan) {
             return;
         }
 
         const row = form.data.crew[0];
-        form.setData('submission_intent', intent);
+        form.setData('submission_intent', intentParam);
 
         form.transform(() => {
             if (fromPlanning) {
@@ -521,12 +592,15 @@ export function CrewAssignmentCreateForm({
                 client_id: form.data.client_id,
                 vessel_id: form.data.vessel_id,
                 planned_join_at: form.data.planned_join_at,
+                planned_signoff_at: form.data.planned_signoff_at || null,
+                relieves_crew_assignment_id:
+                    form.data.relieves_crew_assignment_id || null,
                 planned_arrival_at:
                     row?.planned_arrival_at ||
                     form.data.planned_arrival_at ||
                     null,
                 remarks: form.data.remarks,
-                submission_intent: intent,
+                submission_intent: intentParam,
             };
         });
 
@@ -578,6 +652,12 @@ export function CrewAssignmentCreateForm({
             return;
         }
 
+        if (intent === 'plan' && can.plan) {
+            submitSingle('plan');
+
+            return;
+        }
+
         submitSingle(fromPlanning || can.start ? 'start' : 'draft');
     };
 
@@ -588,12 +668,22 @@ export function CrewAssignmentCreateForm({
     return (
         <Main>
             <DetailsHeader
-                kicker={fromPlanning ? 'Crew Planning' : 'Crew Assignments'}
-                title="Start Crew Assignment"
+                kicker={
+                    fromPlanning || intent === 'plan'
+                        ? 'Crew Planning'
+                        : 'Crew Assignments'
+                }
+                title={
+                    intent === 'plan'
+                        ? 'Plan Crew Assignment'
+                        : 'Start Crew Assignment'
+                }
                 description={
-                    fromPlanning
-                        ? 'Review planning details and start the operational mobilisation cycle.'
-                        : 'Record crew operational positions and start the mobilisation cycle.'
+                    intent === 'plan'
+                        ? 'Record planned crew reservation for scheduling and Gantt overview.'
+                        : fromPlanning
+                          ? 'Review planning details and start the operational mobilisation cycle.'
+                          : 'Record crew operational positions and start the mobilisation cycle.'
                 }
                 backHref={backHref}
                 backLabel={backLabel}
@@ -804,7 +894,16 @@ export function CrewAssignmentCreateForm({
                                         {can.start &&
                                         !planningActiveAssignmentConflict ? (
                                             <Button
-                                                type="submit"
+                                                type={
+                                                    intent === 'plan'
+                                                        ? 'button'
+                                                        : 'submit'
+                                                }
+                                                variant={
+                                                    intent === 'plan'
+                                                        ? 'outline'
+                                                        : 'default'
+                                                }
                                                 disabled={
                                                     form.processing ||
                                                     (bulkMode
@@ -825,8 +924,21 @@ export function CrewAssignmentCreateForm({
                                                             : undefined
                                                 }
                                                 className="h-11 rounded-xl px-6"
+                                                onClick={() => {
+                                                    if (intent === 'plan') {
+                                                        if (bulkMode) {
+                                                            submitBulk();
+                                                        } else {
+                                                            submitSingle(
+                                                                'start',
+                                                            );
+                                                        }
+                                                    }
+                                                }}
                                             >
-                                                {form.processing ? (
+                                                {form.processing &&
+                                                form.data.submission_intent ===
+                                                    'start' ? (
                                                     <Spinner className="mr-2" />
                                                 ) : null}
                                                 {bulkMode
@@ -837,15 +949,42 @@ export function CrewAssignmentCreateForm({
                                             </Button>
                                         ) : null}
 
+                                        {can.plan &&
+                                        !bulkMode &&
+                                        !fromPlanning ? (
+                                            <Button
+                                                type={
+                                                    intent === 'plan'
+                                                        ? 'submit'
+                                                        : 'button'
+                                                }
+                                                variant={
+                                                    intent === 'plan'
+                                                        ? 'default'
+                                                        : 'outline'
+                                                }
+                                                className="h-11 rounded-xl px-6"
+                                                disabled={form.processing}
+                                                onClick={() => {
+                                                    if (intent !== 'plan') {
+                                                        submitSingle('plan');
+                                                    }
+                                                }}
+                                            >
+                                                {form.processing &&
+                                                form.data.submission_intent ===
+                                                    'plan' ? (
+                                                    <Spinner className="mr-2" />
+                                                ) : null}
+                                                Save as Planned
+                                            </Button>
+                                        ) : null}
+
                                         {shouldShowSaveDraft(rows.length) &&
                                         !fromPlanning ? (
                                             <Button
                                                 type="button"
-                                                variant={
-                                                    can.start
-                                                        ? 'outline'
-                                                        : 'default'
-                                                }
+                                                variant="outline"
                                                 className="h-11 rounded-xl px-6"
                                                 disabled={
                                                     form.processing ||
@@ -858,7 +997,7 @@ export function CrewAssignmentCreateForm({
                                                     'draft' ? (
                                                     <Spinner className="mr-2" />
                                                 ) : null}
-                                                Save as Draft
+                                                Save Draft
                                             </Button>
                                         ) : null}
 
@@ -881,18 +1020,6 @@ export function CrewAssignmentCreateForm({
                                                 Draft for one crew member, or
                                                 ask an authorized Operations
                                                 user to start the assignment.
-                                            </p>
-                                        ) : null}
-
-                                        {can.view_planning ? (
-                                            <p className="w-full text-xs text-muted-foreground">
-                                                Planning this for later?{' '}
-                                                <Link
-                                                    href={crewPlanningIndex.url()}
-                                                    className="font-medium text-primary hover:underline"
-                                                >
-                                                    Plan Crew Instead →
-                                                </Link>
                                             </p>
                                         ) : null}
 
@@ -958,6 +1085,25 @@ export function CrewAssignmentCreateForm({
                     }}
                 />
             ) : null}
+
+            <CrewAssignmentConflictDialog
+                open={conflictDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDismissedConflict(conflictError ?? null);
+                    }
+                }}
+                conflict={conflictData}
+                employeeName={
+                    form_options.employees.find(
+                        (e) => e.id === form.data.crew[0]?.employee_id,
+                    )?.name
+                }
+                can={can}
+                onAdjustDates={() => {
+                    document.getElementById('planned_join_at')?.focus();
+                }}
+            />
         </Main>
     );
 }

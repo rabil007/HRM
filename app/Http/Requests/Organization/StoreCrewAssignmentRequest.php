@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Organization;
 
 use App\Enums\CrewAssignmentSubmissionIntent;
+use App\Support\CrewMovements\CrewAssignmentConflictContext;
+use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
@@ -28,6 +30,10 @@ class StoreCrewAssignmentRequest extends FormRequest
 
         if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Start) {
             return $user->can('crew_operations.movements.perform');
+        }
+
+        if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan) {
+            return $user->can('crew_operations.planning.create');
         }
 
         return true;
@@ -68,6 +74,7 @@ class StoreCrewAssignmentRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        $isPlanIntent = $this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan;
 
         return [
             'submission_intent' => ['required', 'string', Rule::in(CrewAssignmentSubmissionIntent::values())],
@@ -80,7 +87,9 @@ class StoreCrewAssignmentRequest extends FormRequest
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
             'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'planned_arrival_at' => ['nullable', 'date'],
-            'planned_join_at' => ['nullable', 'date'],
+            'planned_join_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
+            'planned_signoff_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
+            'relieves_crew_assignment_id' => ['nullable', 'integer', Rule::exists('crew_assignments', 'id')->where('company_id', $companyId)],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -90,7 +99,10 @@ class StoreCrewAssignmentRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [];
+        return [
+            'planned_join_at.required' => 'Expected Vessel Join is required when saving as Planned.',
+            'planned_signoff_at.required' => 'Expected Sign-off is required when saving as Planned.',
+        ];
     }
 
     public function withValidator(Validator $validator): void
@@ -111,17 +123,45 @@ class StoreCrewAssignmentRequest extends FormRequest
                 $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
             );
 
+            $timezone = CompanyTimezone::forCompanyId($companyId);
             $plannedArrival = $this->input('planned_arrival_at');
             $plannedJoin = $this->input('planned_join_at');
+            $plannedSignoff = $this->input('planned_signoff_at');
 
-            if ($plannedArrival !== null && $plannedArrival !== '' && $plannedJoin !== null && $plannedJoin !== '') {
-                $timezone = CompanyTimezone::forCompanyId($companyId);
-                $arrivalDate = Carbon::parse($plannedArrival, $timezone)->toDateString();
-                $joinDate = Carbon::parse($plannedJoin, $timezone)->toDateString();
+            $arrivalCarbon = $plannedArrival !== null && $plannedArrival !== '' ? Carbon::parse($plannedArrival, $timezone) : null;
+            $joinCarbon = $plannedJoin !== null && $plannedJoin !== '' ? Carbon::parse($plannedJoin, $timezone) : null;
+            $signoffCarbon = $plannedSignoff !== null && $plannedSignoff !== '' ? Carbon::parse($plannedSignoff, $timezone) : null;
 
-                if ($arrivalDate > $joinDate) {
-                    $validator->errors()->add('planned_arrival_at', 'Arrival Date cannot be after Expected Vessel Join.');
-                }
+            if ($arrivalCarbon !== null && $joinCarbon !== null && $arrivalCarbon->toDateString() > $joinCarbon->toDateString()) {
+                $validator->errors()->add('planned_arrival_at', 'Arrival Date cannot be after Expected Vessel Join.');
+            }
+
+            if ($joinCarbon !== null && $signoffCarbon !== null && $signoffCarbon->toDateString() < $joinCarbon->toDateString()) {
+                $validator->errors()->add('planned_signoff_at', 'Expected Sign-off cannot be before Expected Vessel Join.');
+            }
+
+            // Run shared conflict evaluator
+            $conflictEvaluator = new CrewAssignmentConflictEvaluator;
+            $conflictContext = new CrewAssignmentConflictContext(
+                companyId: $companyId,
+                employeeId: (int) $this->input('employee_id'),
+                action: $this->submissionIntent()->value,
+                plannedJoinAt: $joinCarbon,
+                plannedSignoffAt: $signoffCarbon,
+                plannedArrivalAt: $arrivalCarbon,
+                vesselId: $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
+                rankId: $this->input('rank_id') !== null && $this->input('rank_id') !== '' ? (int) $this->input('rank_id') : null,
+                clientId: $clientId !== null && $clientId !== '' ? (int) $clientId : null,
+                relievesCrewAssignmentId: $this->input('relieves_crew_assignment_id') !== null && $this->input('relieves_crew_assignment_id') !== ''
+                    ? (int) $this->input('relieves_crew_assignment_id')
+                    : null,
+                actor: $this->user(),
+            );
+
+            $result = $conflictEvaluator->evaluate($conflictContext);
+            if ($result->blocking) {
+                $validator->errors()->add('employee_id', $result->message);
+                $validator->errors()->add('conflict', json_encode($result->toArray()));
             }
         });
     }

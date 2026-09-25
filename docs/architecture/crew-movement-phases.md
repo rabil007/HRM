@@ -2,13 +2,13 @@
 
 High-impact crew movement actions use the shared impact-preview pattern documented in [high-impact-actions.md](./high-impact-actions.md).
 
-CrewAssignment is the **single source of truth** for crew movement.
+CrewAssignment is the **single source of truth** for an intended or actual crew mobilisation cycle.
+
+Crew Planning is a scheduling/Gantt/availability **workspace** over CrewAssignments (`status = planned`, with active assignments visible for context/conflicts). Planning is optional; assignments can start directly as Active without a prior planned record.
 
 ```text
-Crew Planning
-    ↓ confirm / convert
-Crew Assignment
-    ↓ movement lifecycle
+CrewAssignment (draft | planned | active | completed | cancelled)
+    ↓ movement lifecycle (active)
     Crew Assignment Phases
     ↓ P4 On Vessel (synchronized on join, finalized on disembarkation)
 Employee Sea Service
@@ -97,16 +97,16 @@ Selection uses the shared `useRecordSelection` hook. `selectedIds` remains the v
 
 | Concept | Role |
 |------|------|
-| **CrewPlanningAssignment** | Planned join/leave on the Gantt board; may convert into a draft assignment. |
-| **CrewAssignment** | One mobilisation cycle (P0–P6). |
-| **CrewAssignmentPhase** | Ordered occurrence of a phase on that cycle. |
+| **CrewAssignment** | Single operational and planning record representing an intended or actual mobilisation cycle (`draft`, `planned`, `active`, `completed`, `cancelled`). |
+| **CrewAssignmentPhase** | Ordered occurrence of an operational movement phase (P0–P6) on that cycle. |
 | **CrewAccommodationStay** | Accommodation history for a mobilisation cycle (hotel stay or explicit no-accommodation record). |
 | **EmployeeSeaService** | Historical and ongoing sea time synchronized from P4 On Vessel phases. |
 | **EmployeeTraining** | Formal employee qualification record; optionally synced from completed P2B phases. |
 
 ```text
-CrewAssignment = mobilisation cycle
-CrewAssignmentPhase = operational movement history
+CrewAssignment = single planning and operational mobilisation cycle
+CrewAssignment.status = draft (unconfirmed) | planned (reserved future) | active (operational P0-P6) | completed | cancelled
+CrewAssignmentPhase = operational movement history (active cycles)
 CrewAccommodationStay = accommodation history
 ```
 

@@ -2,17 +2,18 @@
 
 namespace App\Support\CrewMovements;
 
-use App\Models\CrewPlanningAssignment;
+use App\Enums\CrewAssignmentStatus;
+use App\Models\CrewAssignment;
 use Illuminate\Support\Collection;
 
 /**
- * Batch-load active operational relief Planning rows for source assignments.
+ * Batch-load active operational relief assignments for source assignments.
  */
 final class CrewReliefPlanningLoader
 {
     /**
      * @param  list<int>  $sourceAssignmentIds
-     * @return Collection<int, CrewPlanningAssignment> keyed by relieves_crew_assignment_id
+     * @return Collection<int, CrewAssignment> keyed by relieves_crew_assignment_id
      */
     public function forSourceAssignmentIds(int $companyId, array $sourceAssignmentIds): Collection
     {
@@ -25,13 +26,17 @@ final class CrewReliefPlanningLoader
             return collect();
         }
 
-        $plans = CrewPlanningAssignment::query()
+        $plans = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('relieves_crew_assignment_id', $ids)
+            ->whereIn('status', [
+                CrewAssignmentStatus::Planned,
+                CrewAssignmentStatus::Active,
+                CrewAssignmentStatus::Draft,
+            ])
             ->with([
                 'employee:id,company_id,name,employee_no',
-                'crewAssignment.currentPhase',
-                'crewAssignment.employee:id,company_id,name,employee_no',
+                'currentPhase',
                 'relievedAssignment.employee:id,company_id,name,employee_no',
                 'relievedAssignment.vessel:id,company_id,name',
                 'relievedAssignment.rank:id,name',

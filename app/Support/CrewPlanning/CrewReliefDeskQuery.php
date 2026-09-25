@@ -467,7 +467,7 @@ final class CrewReliefDeskQuery
         ])->filter();
     }
 
-    private function tenantSafePlan(?CrewPlanningAssignment $plan, int $companyId): ?CrewPlanningAssignment
+    private function tenantSafePlan(CrewAssignment|CrewPlanningAssignment|null $plan, int $companyId): CrewAssignment|CrewPlanningAssignment|null
     {
         if ($plan === null || (int) $plan->company_id !== $companyId) {
             return null;
@@ -479,11 +479,13 @@ final class CrewReliefDeskQuery
             $plan->setRelation('employee', null);
         }
 
-        $linked = $plan->crewAssignment;
+        if ($plan instanceof CrewPlanningAssignment) {
+            $linked = $plan->crewAssignment;
 
-        if ($linked !== null && (int) $linked->company_id !== $companyId) {
-            $plan->setRelation('crewAssignment', null);
-            $plan->crew_assignment_id = null;
+            if ($linked !== null && (int) $linked->company_id !== $companyId) {
+                $plan->setRelation('crewAssignment', null);
+                $plan->crew_assignment_id = null;
+            }
         }
 
         return $plan;

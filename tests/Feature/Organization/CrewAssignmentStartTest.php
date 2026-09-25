@@ -341,7 +341,7 @@ test('service rejects payable join-standby stages as a direct start', function (
     );
 })->with(['p2a', 'p3']);
 
-test('manual quick create ignores planned sign-off and travel input', function () {
+test('manual quick create preserves planned sign-off and ignores travel input', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
     $vessel = makeCrewMovementVessel('Ignore Planning Dates', $company);
 
@@ -361,7 +361,7 @@ test('manual quick create ignores planned sign-off and travel input', function (
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
 
     expect($assignment->planned_join_at?->toDateString())->toBe('2026-09-20')
-        ->and($assignment->planned_signoff_at)->toBeNull()
+        ->and($assignment->planned_signoff_at?->toDateString())->toBe('2026-11-01')
         ->and($assignment->planned_travel_at)->toBeNull()
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 });
@@ -436,7 +436,7 @@ test('active p0 rejects crafted approve mobilisation and creates no p1', functio
         'occurred_at' => '2026-09-15 14:15:00',
     ], $user->id))->toThrow(
         CrewMovementException::class,
-        'Start Assignment can only be performed on a draft assignment in planned pre-mobilisation.',
+        'Start Assignment can only be performed on a draft or planned assignment in planned pre-mobilisation.',
     );
 
     $assignment->refresh()->load('phases');

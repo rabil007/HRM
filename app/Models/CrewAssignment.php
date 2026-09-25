@@ -46,6 +46,7 @@ class CrewAssignment extends Model
         'started_at',
         'closed_at',
         'previous_assignment_id',
+        'relieves_crew_assignment_id',
         'source',
         'historical_import_batch_id',
         'remarks',
@@ -76,6 +77,7 @@ class CrewAssignment extends Model
                 'started_at',
                 'closed_at',
                 'previous_assignment_id',
+                'relieves_crew_assignment_id',
                 'source',
                 'remarks',
                 'voided_at',
@@ -98,6 +100,7 @@ class CrewAssignment extends Model
             'vessel_id' => 'integer',
             'current_phase_id' => 'integer',
             'previous_assignment_id' => 'integer',
+            'relieves_crew_assignment_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
             'voided_by' => 'integer',
@@ -233,6 +236,21 @@ class CrewAssignment extends Model
         return $this->belongsTo(User::class, 'voided_by');
     }
 
+    public function relievedAssignment(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'relieves_crew_assignment_id');
+    }
+
+    /**
+     * Assignments that relieve this onboard assignment.
+     *
+     * @return HasMany<CrewAssignment, $this>
+     */
+    public function reliefAssignments(): HasMany
+    {
+        return $this->hasMany(self::class, 'relieves_crew_assignment_id');
+    }
+
     public function isVoided(): bool
     {
         return $this->voided_at !== null || $this->trashed();
@@ -245,6 +263,38 @@ class CrewAssignment extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', CrewAssignmentStatus::Active);
+    }
+
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     * @return Builder<CrewAssignment>
+     */
+    public function scopePlanned(Builder $query): Builder
+    {
+        return $query->where('status', CrewAssignmentStatus::Planned);
+    }
+
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     * @return Builder<CrewAssignment>
+     */
+    public function scopeDraft(Builder $query): Builder
+    {
+        return $query->where('status', CrewAssignmentStatus::Draft);
+    }
+
+    /**
+     * Confirmed reservations that hold employee availability (planned + active).
+     *
+     * @param  Builder<CrewAssignment>  $query
+     * @return Builder<CrewAssignment>
+     */
+    public function scopeReservations(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            CrewAssignmentStatus::Planned,
+            CrewAssignmentStatus::Active,
+        ]);
     }
 
     /**

@@ -24,6 +24,7 @@ import { onboardSelectionResetKey } from '@/features/organization/crew/onboard-b
 import type { CurrentCrewVesselRow } from '@/features/organization/crew/types';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { create as createAssignment } from '@/routes/organization/crew-assignments';
 import type { PaginationMeta } from '@/types/pagination';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
 import { CrewPlanningViewSwitcher } from './components/crew-planning-view-switcher';
@@ -210,29 +211,33 @@ export function CrewPlanningContent({
             initialDate = '',
             employeeId = '',
             relievesCrewAssignmentId = '',
-            relievesEmployeeName = '',
         ): void => {
-            form.reset();
-            form.clearErrors();
-            form.setData({
-                vessel_id: initialVesselId,
-                rank_id: initialRankId,
-                employee_id: employeeId,
-                planned_join_date: initialDate,
-                planned_leave_date: '',
-                notes: '',
-                relieves_crew_assignment_id: relievesCrewAssignmentId,
-            });
-            setDialogState({
-                open: true,
-                editing: null,
-                initialVesselId,
-                initialRankId,
-                initialDate,
-                relievesEmployeeName,
-            });
+            const query: Record<string, string> = {
+                intent: 'plan',
+            };
+
+            if (initialVesselId) {
+                query.vessel_id = initialVesselId;
+            }
+
+            if (initialRankId) {
+                query.rank_id = initialRankId;
+            }
+
+            if (initialDate) {
+                query.planned_join_at = initialDate;
+            }
+
+            if (employeeId) {
+                query.employee_id = employeeId;
+            }
+
+            if (relievesCrewAssignmentId) {
+                query.relieves_crew_assignment_id = relievesCrewAssignmentId;
+            }
+
+            router.visit(createAssignment.url({ query }));
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
     );
 
@@ -256,7 +261,6 @@ export function CrewPlanningContent({
             reliefPrefill.relieves_crew_assignment_id != null
                 ? String(reliefPrefill.relieves_crew_assignment_id)
                 : '',
-            reliefPrefill.relieves_employee_name ?? '',
         );
     }, [can.create, openCreate, reliefPrefill]);
 
@@ -280,7 +284,6 @@ export function CrewPlanningContent({
                 relieved?.plannedLeaveDate ?? estimatedDate,
                 employeeId,
                 relieved ? String(relieved.crewAssignmentId) : '',
-                relieved?.employeeName ?? '',
             );
         },
         [bars, openCreate],

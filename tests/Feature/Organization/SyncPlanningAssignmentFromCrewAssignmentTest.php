@@ -408,7 +408,7 @@ test('repeated synchronization remains idempotent under unique crew_assignment_i
     ]))->toThrow(QueryException::class);
 });
 
-test('crew assignments store endpoint does not persist planned sign-off or travel from quick create', function () {
+test('crew assignments store endpoint persists planned sign-off and ignores travel from quick create', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Store Sync Vessel');
 
@@ -434,7 +434,7 @@ test('crew assignments store endpoint does not persist planned sign-off or trave
 
     expect($assignment)->not->toBeNull()
         ->and($assignment->planned_join_at?->toDateString())->toBe('2026-08-01')
-        ->and($assignment->planned_signoff_at)->toBeNull()
+        ->and($assignment->planned_signoff_at?->toDateString())->toBe('2026-11-01')
         ->and($assignment->planned_travel_at)->toBeNull()
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 });

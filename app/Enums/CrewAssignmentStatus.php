@@ -5,6 +5,7 @@ namespace App\Enums;
 enum CrewAssignmentStatus: string
 {
     case Draft = 'draft';
+    case Planned = 'planned';
     case Active = 'active';
     case Completed = 'completed';
     case Cancelled = 'cancelled';
@@ -13,6 +14,7 @@ enum CrewAssignmentStatus: string
     {
         return match ($this) {
             self::Draft => 'Draft',
+            self::Planned => 'Planned',
             self::Active => 'Active',
             self::Completed => 'Completed',
             self::Cancelled => 'Cancelled',

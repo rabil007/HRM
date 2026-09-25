@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
 use App\Support\CrewMovements\CrewAssignmentAccess;
+use App\Support\CrewMovements\CrewAssignmentConflictContext;
+use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
@@ -91,6 +94,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
             ],
             'planned_arrival_at' => ['nullable', 'date'],
             'planned_join_at' => ['nullable', 'date'],
+            'planned_signoff_at' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -110,6 +114,43 @@ class UpdateCrewAssignmentRequest extends FormRequest
 
             if ($validator->errors()->isNotEmpty()) {
                 return;
+            }
+
+            // If updating a Planned assignment, rerun conflict detection
+            if ($assignment !== null && $assignment->status === CrewAssignmentStatus::Planned) {
+                $timezone = CompanyTimezone::forCompanyId($companyId);
+                $plannedJoin = $this->filled('planned_join_at')
+                    ? Carbon::parse((string) $this->input('planned_join_at'), $timezone)
+                    : $assignment->planned_join_at;
+                $plannedSignoff = $this->filled('planned_signoff_at')
+                    ? Carbon::parse((string) $this->input('planned_signoff_at'), $timezone)
+                    : $assignment->planned_signoff_at;
+                $plannedArrival = $this->filled('planned_arrival_at')
+                    ? Carbon::parse((string) $this->input('planned_arrival_at'), $timezone)
+                    : $assignment->planned_arrival_at;
+
+                $conflictEvaluator = new CrewAssignmentConflictEvaluator;
+                $conflictContext = new CrewAssignmentConflictContext(
+                    companyId: $companyId,
+                    employeeId: (int) $assignment->employee_id,
+                    action: 'plan',
+                    plannedJoinAt: $plannedJoin,
+                    plannedSignoffAt: $plannedSignoff,
+                    plannedArrivalAt: $plannedArrival,
+                    vesselId: $this->filled('vessel_id') ? (int) $this->input('vessel_id') : (int) $assignment->vessel_id,
+                    rankId: $this->filled('rank_id') ? (int) $this->input('rank_id') : (int) $assignment->rank_id,
+                    clientId: $this->filled('client_id') ? (int) $this->input('client_id') : ($assignment->client_id ? (int) $assignment->client_id : null),
+                    currentAssignmentId: (int) $assignment->id,
+                    actor: $this->user(),
+                );
+
+                $result = $conflictEvaluator->evaluate($conflictContext);
+                if ($result->blocking) {
+                    $validator->errors()->add('employee_id', $result->message);
+                    $validator->errors()->add('conflict', json_encode($result->toArray()));
+
+                    return;
+                }
             }
 
             $clientId = $this->nullableInt($this->input('client_id'));

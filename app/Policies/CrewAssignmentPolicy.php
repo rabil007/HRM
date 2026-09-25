@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
 use App\Models\User;
 
@@ -33,6 +34,12 @@ class CrewAssignmentPolicy
             && $user->can('crew_operations.movements.perform');
     }
 
+    public function plan(User $user): bool
+    {
+        return $user->can('crew_operations.assignments.create')
+            && $user->can('crew_operations.planning.create');
+    }
+
     public function update(User $user, CrewAssignment $assignment): bool
     {
         return $user->can('crew_operations.assignments.update');
@@ -45,6 +52,11 @@ class CrewAssignmentPolicy
 
     public function cancel(User $user, CrewAssignment $assignment): bool
     {
+        if ($assignment->status === CrewAssignmentStatus::Planned) {
+            return $user->can('crew_operations.assignments.cancel')
+                || $user->can('crew_operations.planning.delete');
+        }
+
         return $user->can('crew_operations.assignments.cancel');
     }
 

@@ -5,6 +5,7 @@ namespace App\Enums;
 enum CrewAssignmentSubmissionIntent: string
 {
     case Start = 'start';
+    case Plan = 'plan';
     case Draft = 'draft';
 
     /**
