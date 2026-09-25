@@ -29,8 +29,22 @@ return new class extends Migration
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
+    /**
+     * Restore retired permission definition rows so a migration rollback does not
+     * leave the permissions catalog corrupted. Role grants are not restored —
+     * the live application catalog no longer exposes these permissions.
+     */
     public function down(): void
     {
-        // Retired Crew Timesheet approval-workflow permissions are not restored.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        foreach (self::RETIRED_PERMISSIONS as $name) {
+            Permission::query()->firstOrCreate([
+                'name' => $name,
+                'guard_name' => 'web',
+            ]);
+        }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 };

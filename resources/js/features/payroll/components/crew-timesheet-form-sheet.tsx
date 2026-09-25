@@ -80,6 +80,7 @@ export function CrewTimesheetFormSheet({
     onOpenChange,
     row,
     canSave,
+    canEditMonetary = false,
     form,
     errors,
     onSubmit,
@@ -88,6 +89,7 @@ export function CrewTimesheetFormSheet({
     onOpenChange: (open: boolean) => void;
     row: CrewPayrollRow | null;
     canSave: boolean;
+    canEditMonetary?: boolean;
     form: InertiaFormProps<CrewTimesheetFormData>;
     errors: Record<string, string | undefined>;
     onSubmit: () => void;
@@ -212,52 +214,56 @@ export function CrewTimesheetFormSheet({
                                     />
                                 </div>
                             ) : null}
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Additions
-                                </Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.additional_amount}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'additional_amount',
-                                            e.target.value,
-                                        )
-                                    }
-                                    disabled={!canSave}
-                                />
-                                <InputError
-                                    message={errors.additional_amount}
-                                    className="text-xs"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Deductions
-                                </Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.deduction_amount}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'deduction_amount',
-                                            e.target.value,
-                                        )
-                                    }
-                                    disabled={!canSave}
-                                />
-                                <InputError
-                                    message={errors.deduction_amount}
-                                    className="text-xs"
-                                />
-                            </div>
+                            {canEditMonetary ? (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            Additions
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className="h-11 rounded-xl border-border bg-card"
+                                            value={form.data.additional_amount}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'additional_amount',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            disabled={!canSave}
+                                        />
+                                        <InputError
+                                            message={errors.additional_amount}
+                                            className="text-xs"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            Deductions
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className="h-11 rounded-xl border-border bg-card"
+                                            value={form.data.deduction_amount}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'deduction_amount',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            disabled={!canSave}
+                                        />
+                                        <InputError
+                                            message={errors.deduction_amount}
+                                            className="text-xs"
+                                        />
+                                    </div>
+                                </>
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">

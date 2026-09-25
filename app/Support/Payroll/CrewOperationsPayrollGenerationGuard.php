@@ -180,6 +180,10 @@ final class CrewOperationsPayrollGenerationGuard
         /** @var CrewTimesheetPreparation|null $preparation */
         $preparation = $applied->first();
 
+        if ($preparation !== null && $this->preparationHasNonBypassableIntegrityProblems($preparation)) {
+            return $this->result(false, self::BLOCKING_WARNINGS_MESSAGE, $preparation);
+        }
+
         $contracts = $this->resolveContract->resolveMany(
             $period,
             $employees->pluck('id')->map(intval(...))->all(),
@@ -253,6 +257,17 @@ final class CrewOperationsPayrollGenerationGuard
             $preparation,
             $includedEmployeeIds,
         );
+    }
+
+    /**
+     * Non-bypassable integrity problems (e.g. cross-company reference) still block
+     * generation. Correctable operational prep warnings do not — current timesheet
+     * data is the generation authority after Populate.
+     */
+    public function preparationHasNonBypassableIntegrityProblems(
+        CrewTimesheetPreparation $preparation,
+    ): bool {
+        return $this->skipResolver->hasNonBypassableIntegrityProblems($preparation);
     }
 
     public function dailyTimesheetLinkReason(

@@ -218,7 +218,7 @@ test('overlapping submitted ranges including prior portions are rejected', funct
         ->assertSessionHasErrors(['segments.0.from_date', 'segments.1.from_date']);
 });
 
-test('replacing manual movements soft-deletes only manual import segments', function () {
+test('replacing movements replaces the full payroll timesheet segment snapshot', function () {
     $fixtures = makePriorPeriodArrearsTimesheetFixtures();
 
     $manualSegment = CrewTimesheetSegment::factory()->create([
@@ -260,10 +260,13 @@ test('replacing manual movements soft-deletes only manual import segments', func
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
+    $fresh = $fixtures['timesheet']->fresh(['segments']);
+
     expect(CrewTimesheetSegment::withTrashed()->find($manualSegment->id)?->trashed())->toBeTrue()
-        ->and(CrewTimesheetSegment::query()->find($crewOpsSegment->id))->not->toBeNull()
-        ->and($fixtures['timesheet']->fresh()->segments()->where('source', CrewTimesheetSource::Manual)->count())->toBe(1)
-        ->and($fixtures['timesheet']->fresh()->segments()->where('source', CrewTimesheetSource::CrewOperations)->count())->toBe(1);
+        ->and(CrewTimesheetSegment::withTrashed()->find($crewOpsSegment->id)?->trashed())->toBeTrue()
+        ->and($fresh->segments)->toHaveCount(1)
+        ->and($fresh->segments->first()->from_date?->toDateString())->toBe('2026-06-25')
+        ->and($fresh->segments->first()->to_date?->toDateString())->toBe('2026-07-03');
 });
 
 test('import preview allows prior dates and shows movement split', function () {

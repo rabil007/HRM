@@ -3,7 +3,6 @@
 namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
@@ -173,14 +172,11 @@ final class BuildCrewPayrollGenerationPreview
         /** @var CrewTimesheetPreparation|null $preparation */
         $preparation = $applied->count() === 1 ? $applied->first() : null;
 
-        if ($preparation !== null && $this->legacyGuard->preparationHasBlockingWarningsForIncludedEmployees(
-            $preparation,
-            $included->pluck('id')->map(intval(...))->all(),
-        )) {
+        if ($preparation !== null && $this->legacyGuard->preparationHasNonBypassableIntegrityProblems($preparation)) {
             $blockingIssues[] = [
                 'employee_id' => null,
                 'employee_name' => null,
-                'code' => 'applied_preparation_blocking_warnings',
+                'code' => 'preparation_integrity_violation',
                 'message' => CrewOperationsPayrollGenerationGuard::BLOCKING_WARNINGS_MESSAGE,
             ];
         }
@@ -224,12 +220,6 @@ final class BuildCrewPayrollGenerationPreview
                     continue;
                 }
 
-                if (! $this->isFallbackApproved($timesheet)) {
-                    $awaitingIds[] = $employeeId;
-
-                    continue;
-                }
-
                 $readyIds[] = $employeeId;
 
                 continue;
@@ -269,12 +259,6 @@ final class BuildCrewPayrollGenerationPreview
                     'code' => 'invalid_timesheet_source',
                     'message' => "{$employee->name} timesheet source must be Manual, Import, or Crew Assignments.",
                 ];
-
-                continue;
-            }
-
-            if (! $this->isFallbackApproved($timesheet)) {
-                $awaitingIds[] = $employeeId;
 
                 continue;
             }
@@ -366,12 +350,6 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         return true;
-    }
-
-    private function isFallbackApproved(CrewTimesheet $timesheet): bool
-    {
-        return ($timesheet->approval_status ?? CrewTimesheetApprovalStatus::Draft)
-            === CrewTimesheetApprovalStatus::Approved;
     }
 
     /**

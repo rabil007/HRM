@@ -60,7 +60,7 @@ test('missing daily timesheet is skipped warning and does not block readiness wh
         ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $missing->id)->exists())->toBeFalse();
 });
 
-test('legacy unapproved manual and import timesheets remain awaiting approval until normalized', function () {
+test('legacy unapproved manual and import timesheets are ready without approval workflow', function () {
     ['company' => $company] = makePayrollFixtures();
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
@@ -92,12 +92,10 @@ test('legacy unapproved manual and import timesheets remain awaiting approval un
     $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id);
 
     expect($preview->ready)->toBeTrue()
-        ->and($preview->canGenerate)->toBeFalse()
-        ->and($preview->awaitingApprovalCount)->toBe(2)
+        ->and($preview->canGenerate)->toBeTrue()
+        ->and($preview->awaitingApprovalCount)->toBe(0)
+        ->and($preview->readyCount)->toBe(2)
         ->and($preview->blockingCount)->toBe(0);
-
-    expect(fn () => app(GenerateCrewPayroll::class)->handle($period))
-        ->toThrow(ValidationException::class, 'No employees are ready for payroll.');
 });
 
 test('approved manual and import timesheets are ready and generate payroll', function () {
@@ -175,7 +173,7 @@ test('applied crew operations timesheet is ready without second approval', funct
     expect(PayrollRecord::query()->where('period_id', $fixtures['period']->id)->exists())->toBeTrue();
 });
 
-test('mixed payroll generates ready employees and skips missing and unapproved', function () {
+test('mixed payroll generates ready employees and skips missing timesheets', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
@@ -187,7 +185,7 @@ test('mixed payroll generates ready employees and skips missing and unapproved',
     $approvedManual = createCrewEmployeeWithContract($company, 'MIX-MAN', 100, 50, 25);
     $approvedImport = createCrewEmployeeWithContract($company, 'MIX-IMP', 100, 50, 25);
     $missing = createCrewEmployeeWithContract($company, 'MIX-MISS', 100, 50, 25);
-    $unapproved = createCrewEmployeeWithContract($company, 'MIX-WAIT', 100, 50, 25);
+    $draftReady = createCrewEmployeeWithContract($company, 'MIX-WAIT', 100, 50, 25);
     $monthly = createCrewMonthlyEmployeeWithContract($company, 'MIX-MON', 5000, 1000, 500, 200);
 
     CrewTimesheet::factory()->create([
@@ -210,19 +208,21 @@ test('mixed payroll generates ready employees and skips missing and unapproved',
     ]);
     CrewTimesheet::factory()->draft()->create([
         'company_id' => $company->id,
-        'employee_id' => $unapproved->id,
+        'employee_id' => $draftReady->id,
         'period_id' => $period->id,
         'source' => CrewTimesheetSource::Manual,
         'onsite_days' => 5,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-05',
     ]);
 
     $result = app(GenerateCrewPayroll::class)->handle($period);
 
-    expect($result->generatedCount)->toBe(3)
+    expect($result->generatedCount)->toBe(4)
         ->and($result->skippedMissingTimesheetCount)->toBe(1)
-        ->and($result->skippedAwaitingApprovalCount)->toBe(1)
+        ->and($result->skippedAwaitingApprovalCount)->toBe(0)
         ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $missing->id)->exists())->toBeFalse()
-        ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $unapproved->id)->exists())->toBeFalse()
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $draftReady->id)->exists())->toBeTrue()
         ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $monthly->id)->exists())->toBeTrue();
 });
 

@@ -11,7 +11,14 @@ use App\Support\Attendance\CalculateLeaveRequestDays;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Soft-deletes existing movement segments and recreates them as original ranges.
+ * Soft-deletes every existing movement segment on the timesheet and recreates
+ * them from the submitted full Movement Periods snapshot.
+ *
+ * API contract: callers send the complete current movement set for this payroll
+ * timesheet. Unrelated segments on other timesheets are never touched. Mixed
+ * historical sources on the same timesheet are replaced as one snapshot —
+ * the editor does not preserve untouched source subsets.
+ *
  * Ranges may start before the payroll period; days after period end are rejected upstream.
  * Supports Manual, Import, and Crew Operations sources for draft payroll corrections.
  */

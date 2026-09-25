@@ -28,6 +28,7 @@ final class PayrollPeriodBoardQuery
         int $perPage = 25,
         ?PayrollPeriodBoardFilters $filters = null,
         ?User $user = null,
+        bool $includeFinancial = true,
     ): LengthAwarePaginator {
         $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
         $filters ??= new PayrollPeriodBoardFilters;
@@ -98,6 +99,7 @@ final class PayrollPeriodBoardQuery
             $emptyLeaveSummary,
             $resolvedContracts,
             $ambiguousCrewEmployeeIds,
+            $includeFinancial,
         ) {
             $contractIssue = null;
 
@@ -128,6 +130,7 @@ final class PayrollPeriodBoardQuery
                     $timesheet,
                     $period->id,
                     $period->start_date,
+                    $includeFinancial,
                 );
 
                 $row['contract_resolution_issue'] = $contractIssue;

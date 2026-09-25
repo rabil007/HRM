@@ -38,6 +38,7 @@ function makeMultiSegmentManualTimesheetFixtures(CrewTimesheetSource $source = C
         'payroll.crew_timesheets.update',
         'payroll.crew_timesheets.view',
         'payroll.periods.view',
+        'payroll.periods.update',
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
@@ -688,7 +689,7 @@ test('unauthorized financial and segment requests are rejected', function () {
         ]), [
             'overtime_hours' => 99,
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 
     $this->actingAs($outsider)
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -704,7 +705,7 @@ test('unauthorized financial and segment requests are rejected', function () {
                 ],
             ],
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 
     expect((float) $fixtures['timesheet']->fresh()->overtime_hours)->toBe(2.0)
         ->and($fixtures['timesheet']->fresh()->segments)->toHaveCount(2);

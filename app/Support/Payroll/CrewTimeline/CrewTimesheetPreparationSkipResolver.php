@@ -59,6 +59,17 @@ final class CrewTimesheetPreparationSkipResolver
     }
 
     /**
+     * Tenant / data-isolation integrity problems that must never be bypassed by
+     * correcting the payroll timesheet snapshot alone.
+     */
+    public function hasNonBypassableIntegrityProblems(CrewTimesheetPreparation $preparation): bool
+    {
+        return $this->getPreparationLines($preparation)->contains(function (CrewTimesheetPreparationLine $line): bool {
+            return $line->warning_code === CrewTimelineWarningCode::CrossCompanyReference->value;
+        });
+    }
+
+    /**
      * Hybrid generation may exclude a skipped employee. Their timeline warnings
      * must not keep the rest of the pay run unready. A null included list means
      * every employee still counts. cross_company_reference is never ignored.

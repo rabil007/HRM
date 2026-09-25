@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Organization\Payroll;
 
 use App\Enums\CrewTimesheetPayCategory;
-use App\Models\CrewTimesheet;
+use App\Http\Requests\Organization\Payroll\Concerns\AssertsOwnedVisibleCrewTimesheetRoute;
 use App\Models\PayrollPeriod;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use Carbon\CarbonImmutable;
@@ -14,6 +14,8 @@ use Illuminate\Validation\Rule;
 
 class UpdateCrewTimesheetSegmentsRequest extends FormRequest
 {
+    use AssertsOwnedVisibleCrewTimesheetRoute;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -22,7 +24,7 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
             return false;
         }
 
-        $this->assertOwnedCrewTimesheetRoute();
+        $this->assertOwnedVisibleCrewTimesheetRoute();
 
         return $user->can('payroll.crew_timesheets.create')
             || $user->can('payroll.crew_timesheets.update');
@@ -86,7 +88,7 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
             /** @var PayrollPeriod|null $period */
             $period = $this->route('payrollPeriod');
 
-            if (! $period instanceof PayrollPeriod) {
+            if ($period === null) {
                 return;
             }
 
@@ -121,8 +123,6 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                     );
                 }
 
-                // Daily Crew may start before the payroll period (prior-period arrears).
-                // Dates after the period end remain invalid.
                 if ($periodEnd !== null && $end->toDateString() > $periodEnd) {
                     $validator->errors()->add(
                         "segments.{$index}.to_date",
@@ -148,7 +148,6 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                     }
                 }
 
-                // Overlap checks use the full submitted range (prior + current portions).
                 $ranges[] = [$start, $end, $index];
             }
 
@@ -194,28 +193,5 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                 'remarks' => $segment['remarks'] ?? null,
             ];
         }, $segments);
-    }
-
-    private function assertOwnedCrewTimesheetRoute(): void
-    {
-        $companyId = (int) $this->attributes->get('current_company_id');
-
-        if ($companyId <= 0) {
-            abort(404);
-        }
-
-        $period = $this->route('payrollPeriod');
-        $timesheet = $this->route('timesheet');
-
-        if (! $period instanceof PayrollPeriod || ! $timesheet instanceof CrewTimesheet) {
-            abort(404);
-        }
-
-        if ((int) $period->company_id !== $companyId
-            || ! $period->isCrew()
-            || (int) $timesheet->company_id !== $companyId
-            || (int) $timesheet->period_id !== (int) $period->id) {
-            abort(404);
-        }
     }
 }

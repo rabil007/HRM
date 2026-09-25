@@ -209,11 +209,13 @@ export type CrewTimesheet = {
     total_payable_days: number | null;
     overtime_hours: string;
     overtime_amount?: string | null;
-    additional_amount: string;
-    deduction_amount: string;
+    additional_amount?: string | null;
+    deduction_amount?: string | null;
     remarks: string | null;
     source: string | null;
     source_label: string | null;
+    readiness_status?: string | null;
+    readiness_status_label?: string | null;
     approval_status?: string | null;
     approval_status_label?: string | null;
     return_reason?: string | null;
@@ -348,6 +350,8 @@ export type CrewPayrollPermissions = {
     import_timesheets: boolean;
     prepare_timeline: boolean;
     view_timeline: boolean;
+    view_financial?: boolean;
+    edit_monetary_timesheet_fields?: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
     revert_to_approved: boolean;

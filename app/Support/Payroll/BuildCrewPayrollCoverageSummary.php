@@ -111,16 +111,13 @@ final class BuildCrewPayrollCoverageSummary
             ->map(intval(...))
             ->all();
 
-        if ($preparation !== null && $this->legacyGuard->preparationHasBlockingWarningsForIncludedEmployees(
-            $preparation,
-            $includedEmployeeIds,
-        )) {
+        if ($preparation !== null && $this->legacyGuard->preparationHasNonBypassableIntegrityProblems($preparation)) {
             $periodBlocking = CrewOperationsPayrollGenerationGuard::BLOCKING_WARNINGS_MESSAGE;
             $blockingCount = 1;
             $blockingIssues = [[
                 'employee_id' => null,
                 'employee_name' => null,
-                'code' => 'applied_preparation_blocking_warnings',
+                'code' => 'preparation_integrity_violation',
                 'message' => $periodBlocking,
             ]];
         }
