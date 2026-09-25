@@ -4,6 +4,7 @@ import {
     Bell,
     CheckCircle2,
     Clock3,
+    FlaskConical,
     Home,
     Mail,
     RotateCcw,
@@ -90,6 +91,8 @@ export default function CrewOperationsSettings({
         ...crew_settings,
     });
     const [disableSyncDialogOpen, setDisableSyncDialogOpen] = useState(false);
+    const [enableFutureDatesDialogOpen, setEnableFutureDatesDialogOpen] =
+        useState(false);
 
     useEffect(() => {
         form.setData({ ...crew_settings });
@@ -596,6 +599,94 @@ export default function CrewOperationsSettings({
                     </Card>
 
                     <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
+                        <CardHeader className="border-b border-border/60 bg-linear-to-br from-amber-500/[0.08] to-transparent p-5 dark:border-white/6">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                                    <FlaskConical className="h-5 w-5" />
+                                </div>
+                                <div className="space-y-1">
+                                    <CardTitle className="text-base font-bold tracking-tight">
+                                        Testing Override
+                                    </CardTitle>
+                                    <CardDescription className="text-xs leading-relaxed">
+                                        Temporary company-scoped controls for
+                                        controlled operational testing. Keep
+                                        disabled in production use.
+                                    </CardDescription>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 p-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="allow_future_actual_movement_dates"
+                                        className="text-sm font-semibold text-foreground"
+                                    >
+                                        Allow Future Actual Movement Dates
+                                    </Label>
+                                    <p className="text-xs leading-relaxed text-muted-foreground">
+                                        When enabled, actual crew movement
+                                        actions may be recorded with future
+                                        dates/times for testing. This
+                                        immediately changes operational crew
+                                        state even when the recorded movement
+                                        time is in the future.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="allow_future_actual_movement_dates"
+                                    checked={Boolean(
+                                        form.data
+                                            .allow_future_actual_movement_dates,
+                                    )}
+                                    onCheckedChange={(checked) => {
+                                        if (
+                                            checked &&
+                                            !form.data
+                                                .allow_future_actual_movement_dates
+                                        ) {
+                                            setEnableFutureDatesDialogOpen(
+                                                true,
+                                            );
+
+                                            return;
+                                        }
+
+                                        form.setData(
+                                            'allow_future_actual_movement_dates',
+                                            checked,
+                                        );
+                                    }}
+                                />
+                            </div>
+                            {form.errors.allow_future_actual_movement_dates ? (
+                                <p className="text-xs font-medium text-destructive">
+                                    {
+                                        form.errors
+                                            .allow_future_actual_movement_dates
+                                    }
+                                </p>
+                            ) : null}
+                            {form.data.allow_future_actual_movement_dates ? (
+                                <Alert className="border-destructive/40 bg-destructive/10 text-destructive dark:text-red-200">
+                                    <AlertTriangle className="text-destructive" />
+                                    <AlertTitle>
+                                        Testing override enabled
+                                    </AlertTitle>
+                                    <AlertDescription>
+                                        Future actual movement dates can affect
+                                        crew status, availability, Sea Service,
+                                        accommodation, alerts, and operational
+                                        reports. Disable this setting after
+                                        testing.
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
                         <CardHeader className="border-b border-border/60 bg-linear-to-br from-primary/[0.07] to-transparent p-5 dark:border-white/6">
                             <div className="flex items-start gap-3">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
@@ -740,6 +831,19 @@ export default function CrewOperationsSettings({
                 onConfirm={() => {
                     form.setData('sync_sea_service', false);
                     setDisableSyncDialogOpen(false);
+                }}
+            />
+
+            <ConfirmDeleteDialog
+                open={enableFutureDatesDialogOpen}
+                onOpenChange={setEnableFutureDatesDialogOpen}
+                title="Enable future movement dates?"
+                description="This testing override allows future dates for actual crew movements. Movement actions are applied immediately and may affect operational records and reports. Use this only for controlled testing."
+                cancelText="Cancel"
+                confirmText="Enable Testing Override"
+                onConfirm={() => {
+                    form.setData('allow_future_actual_movement_dates', true);
+                    setEnableFutureDatesDialogOpen(false);
                 }}
             />
         </Main>

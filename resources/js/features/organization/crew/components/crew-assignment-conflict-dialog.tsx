@@ -11,6 +11,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
+import { shouldShowPlannedConflictAction } from '../lib/future-actual-movement-dates';
 import type { CrewAssignmentPagePermissions } from '../types';
 
 export type ConflictDialogData = {
@@ -280,10 +281,12 @@ export function CrewAssignmentConflictDialog({
                         </Button>
                     ) : null}
 
-                    {/* Edit existing plan */}
+                    {/* Edit existing plan — allowed_actions is already instance-policy filtered */}
                     {isPlannedPlanned &&
-                    allowedActions.includes('edit_existing_plan') &&
-                    can.update ? (
+                    shouldShowPlannedConflictAction(
+                        allowedActions,
+                        'edit_existing_plan',
+                    ) ? (
                         <Button
                             type="button"
                             variant="outline"
@@ -294,10 +297,12 @@ export function CrewAssignmentConflictDialog({
                         </Button>
                     ) : null}
 
-                    {/* Cancel existing plan */}
+                    {/* Cancel existing plan — allowed_actions is already instance-policy filtered */}
                     {isPlannedPlanned &&
-                    allowedActions.includes('cancel_existing_plan') &&
-                    can.cancel ? (
+                    shouldShowPlannedConflictAction(
+                        allowedActions,
+                        'cancel_existing_plan',
+                    ) ? (
                         <Button
                             type="button"
                             variant="destructive"

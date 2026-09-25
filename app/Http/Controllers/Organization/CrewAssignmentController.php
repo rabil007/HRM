@@ -35,6 +35,7 @@ use App\Support\CrewMovements\CurrentCrewHomeQuery;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use App\Support\CrewPlanning\LinkVacantCrewPlanningSlot;
 use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
@@ -379,10 +380,9 @@ class CrewAssignmentController extends Controller
 
     public function show(Request $request, CrewAssignment $assignment, RecordRecentItem $recordRecentItem)
     {
-        Gate::authorize('view', $assignment);
-
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
+        Gate::authorize('view', $assignment);
 
         $user = $request->user();
         if ($user !== null) {
@@ -453,10 +453,9 @@ class CrewAssignmentController extends Controller
 
     public function edit(Request $request, CrewAssignment $assignment)
     {
-        Gate::authorize('update', $assignment);
-
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
+        Gate::authorize('update', $assignment);
 
         if (! CrewAssignmentEditability::isEditable($assignment)) {
             $actionMessage = $request->user()?->can('crew_operations.corrections.override')
@@ -522,10 +521,9 @@ class CrewAssignmentController extends Controller
 
     public function update(UpdateCrewAssignmentRequest $request, CrewAssignment $assignment)
     {
-        Gate::authorize('update', $assignment);
-
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
+        Gate::authorize('update', $assignment);
 
         try {
             $updated = $this->service->updateAssignment(
@@ -735,6 +733,7 @@ class CrewAssignmentController extends Controller
             'hotels' => $this->activeHotels($companyId),
             'room_types' => $this->activeRoomTypes($companyId),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
+            'allow_future_actual_movement_dates' => CrewOperationsSettings::allowFutureActualMovementDates($companyId),
         ];
     }
 

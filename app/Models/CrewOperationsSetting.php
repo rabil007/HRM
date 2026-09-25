@@ -35,6 +35,7 @@ class CrewOperationsSetting extends Model
             'max_home_days' => 'integer',
             'sync_sea_service' => 'boolean',
             'sync_training_to_employee_training' => 'boolean',
+            'allow_future_actual_movement_dates' => 'boolean',
             'notifications_enabled' => 'boolean',
             'notification_recipient_user_ids' => 'array',
             'alert_signoff_overdue' => 'boolean',

@@ -614,6 +614,10 @@ export default function CrewAssignmentShow({
                     companyTimezone={
                         assignment.movement_context?.company_timezone
                     }
+                    allowFutureActualMovementDates={Boolean(
+                        assignment.movement_context
+                            ?.allow_future_actual_movement_dates,
+                    )}
                     mode={correctionDialogMode}
                     initialPhaseId={correctionInitialPhaseId}
                 />

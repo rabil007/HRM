@@ -28,6 +28,7 @@ class CrewOperationsSettingsController extends Controller
                 'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),
                 'sync_sea_service' => CrewOperationsSettings::syncSeaServiceEnabled($companyId),
                 'sync_training_to_employee_training' => CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled($companyId),
+                'allow_future_actual_movement_dates' => CrewOperationsSettings::allowFutureActualMovementDates($companyId),
                 ...$notifications,
             ],
         ]);
@@ -53,6 +54,10 @@ class CrewOperationsSettingsController extends Controller
 
         if ($request->has('sync_training_to_employee_training')) {
             $options['sync_training_to_employee_training'] = $request->boolean('sync_training_to_employee_training');
+        }
+
+        if ($request->has('allow_future_actual_movement_dates')) {
+            $options['allow_future_actual_movement_dates'] = $request->boolean('allow_future_actual_movement_dates');
         }
 
         CrewOperationsSettings::saveSettings(

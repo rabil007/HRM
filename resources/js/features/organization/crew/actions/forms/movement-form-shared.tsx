@@ -10,6 +10,10 @@ import {
     nowInCompanyTime,
     useCompanyTimezone,
 } from '@/lib/company-timezone';
+import {
+    resolveMovementOccurredAtMax,
+    shouldShowFutureMovementWarning,
+} from '../../lib/future-actual-movement-dates';
 import type {
     CrewAssignmentFormOptions,
     CrewMovementActionFormData,
@@ -32,6 +36,7 @@ export function MovementOccurredAtField({
     id = 'movement-occurred-at',
     min,
     timezone,
+    allowFutureActualMovementDates = false,
     onValueChange,
 }: {
     form: InertiaFormProps<CrewMovementActionFormData>;
@@ -40,6 +45,7 @@ export function MovementOccurredAtField({
     id?: string;
     min?: string;
     timezone?: string;
+    allowFutureActualMovementDates?: boolean;
     onValueChange?: (value: string) => void;
 }): ReactElement {
     const effectiveTimezone = useCompanyTimezone(timezone);
@@ -48,6 +54,14 @@ export function MovementOccurredAtField({
     const isFuture = isCompanyTimeInFuture(
         form.data.occurred_at,
         effectiveTimezone,
+    );
+    const max = resolveMovementOccurredAtMax(
+        companyNow,
+        allowFutureActualMovementDates,
+    );
+    const showFutureWarning = shouldShowFutureMovementWarning(
+        isFuture,
+        allowFutureActualMovementDates,
     );
 
     return (
@@ -61,7 +75,7 @@ export function MovementOccurredAtField({
                 type="datetime-local"
                 value={form.data.occurred_at}
                 min={min}
-                max={companyNow}
+                max={max}
                 onChange={(event) => {
                     const value = event.target.value;
                     form.setData('occurred_at', value);
@@ -73,7 +87,7 @@ export function MovementOccurredAtField({
             <p className="text-xs text-muted-foreground">
                 Recorded in company time: {timezoneLabel}.
             </p>
-            {isFuture ? (
+            {showFutureWarning ? (
                 <p className="text-xs text-destructive">
                     Movement time cannot be in the future (current company time:{' '}
                     {formatDisplayDateTime12hInTimezone(

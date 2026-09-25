@@ -251,8 +251,22 @@ final class CrewMovementService
         ?User $actor = null,
     ): CrewAssignment {
         return DB::transaction(function () use ($companyId, $assignmentId, $attributes, $actorId, $actor): CrewAssignment {
+            // Canonical lock order: Employee → CrewAssignment → conflicting assignments.
+            // Resolve employee_id without FOR UPDATE first (immutable after creation).
+            $identity = CrewAssignment::query()
+                ->where('company_id', $companyId)
+                ->whereKey($assignmentId)
+                ->first(['id', 'company_id', 'employee_id']);
+
+            if ($identity === null) {
+                throw CrewMovementException::make(
+                    'Crew assignment not found for this company.',
+                    'assignment_not_found',
+                );
+            }
+
+            $this->lockEmployee($companyId, (int) $identity->employee_id);
             $assignment = $this->reloadLocked($companyId, $assignmentId);
-            $this->lockEmployee($companyId, (int) $assignment->employee_id);
 
             if (! CrewAssignmentEditability::isEditable($assignment)) {
                 throw ValidationException::withMessages([

@@ -30,6 +30,11 @@ final class CrewOperationsSettings
      */
     public const CONFIG_SYNC_TRAINING_TO_EMPLOYEE_TRAINING = 'crew_operations.sync_training_to_employee_training';
 
+    /**
+     * Company testing override: allow future timestamps on actual crew movements.
+     */
+    public const CONFIG_ALLOW_FUTURE_ACTUAL_MOVEMENT_DATES = 'crew_operations.allow_future_actual_movement_dates';
+
     public static function findForCompany(int $companyId): ?CrewOperationsSetting
     {
         $cache = app()->bound('crew_operations_settings_cache')
@@ -96,6 +101,21 @@ final class CrewOperationsSettings
         }
 
         return (bool) $setting->sync_training_to_employee_training;
+    }
+
+    /**
+     * Testing override: when ON, actual movement timestamps may be in the future.
+     * Defaults to OFF when the company has no settings row yet.
+     */
+    public static function allowFutureActualMovementDates(int $companyId): bool
+    {
+        $setting = self::findForCompany($companyId);
+
+        if ($setting === null) {
+            return false;
+        }
+
+        return (bool) $setting->allow_future_actual_movement_dates;
     }
 
     /**
@@ -265,9 +285,17 @@ final class CrewOperationsSettings
                 ? false
                 : (bool) $existing->sync_training_to_employee_training;
 
+            $previousAllowFutureActual = $existing === null
+                ? false
+                : (bool) $existing->allow_future_actual_movement_dates;
+
             $trainingSync = array_key_exists('sync_training_to_employee_training', $actualOptions)
                 ? (bool) $actualOptions['sync_training_to_employee_training']
                 : $previousTrainingSync;
+
+            $allowFutureActual = array_key_exists('allow_future_actual_movement_dates', $actualOptions)
+                ? (bool) $actualOptions['allow_future_actual_movement_dates']
+                : $previousAllowFutureActual;
 
             $recipientIds = array_key_exists('notification_recipient_user_ids', $actualOptions)
                 ? self::normalizeRecipientUserIds(
@@ -282,6 +310,7 @@ final class CrewOperationsSettings
                     'max_home_days' => $actualMaxHomeDays,
                     'sync_sea_service' => $actualSyncSeaService,
                     'sync_training_to_employee_training' => $trainingSync,
+                    'allow_future_actual_movement_dates' => $allowFutureActual,
                     'notifications_enabled' => array_key_exists('notifications_enabled', $actualOptions)
                         ? (bool) $actualOptions['notifications_enabled']
                         : (bool) ($existing?->notifications_enabled ?? false),
@@ -355,6 +384,27 @@ final class CrewOperationsSettings
                 }
 
                 $activity->log('updated crew operations training sync setting');
+            }
+
+            if ($previousAllowFutureActual !== $allowFutureActual) {
+                $activity = activity()
+                    ->performedOn($setting)
+                    ->withProperties([
+                        'company_id' => $companyId,
+                        'setting_key' => self::CONFIG_ALLOW_FUTURE_ACTUAL_MOVEMENT_DATES,
+                        'old' => ['allow_future_actual_movement_dates' => $previousAllowFutureActual],
+                        'attributes' => ['allow_future_actual_movement_dates' => $allowFutureActual],
+                        'old_values' => ['allow_future_actual_movement_dates' => $previousAllowFutureActual],
+                        'new_values' => ['allow_future_actual_movement_dates' => $allowFutureActual],
+                    ]);
+
+                $actorId = $actualOptions['actor_id'] ?? null;
+
+                if (is_int($actorId) && $actorId > 0) {
+                    $activity->causedBy($actorId);
+                }
+
+                $activity->log('updated crew operations future actual movement dates setting');
             }
 
             return $setting;

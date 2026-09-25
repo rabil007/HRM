@@ -37,6 +37,10 @@ import {
     initialCorrectionFieldValue,
     initialCorrectionValues,
 } from '../lib/correction-form';
+import {
+    resolveMovementOccurredAtMax,
+    shouldShowFutureMovementWarning,
+} from '../lib/future-actual-movement-dates';
 import type { CorrectablePhase, CrewAssignmentFormOptions } from '../types';
 
 type CorrectionFormData = {
@@ -52,6 +56,7 @@ export function RequestCorrectionDialog({
     correctablePhases,
     formOptions,
     companyTimezone,
+    allowFutureActualMovementDates,
     mode = 'request',
     initialPhaseId = null,
 }: {
@@ -61,12 +66,16 @@ export function RequestCorrectionDialog({
     correctablePhases: CorrectablePhase[];
     formOptions?: CrewAssignmentFormOptions;
     companyTimezone?: string;
+    allowFutureActualMovementDates?: boolean;
     mode?: 'request' | 'override';
     initialPhaseId?: number | null;
 }): ReactElement {
     const effectiveTimezone = useCompanyTimezone(companyTimezone);
     const timezoneLabel = formatCompanyTimezoneLabel(effectiveTimezone);
     const nowLocal = nowInCompanyTime(effectiveTimezone);
+    const allowFuture =
+        allowFutureActualMovementDates ??
+        Boolean(formOptions?.allow_future_actual_movement_dates);
 
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
@@ -282,7 +291,10 @@ export function RequestCorrectionDialog({
                                                 type="datetime-local"
                                                 max={
                                                     field.includes('actual')
-                                                        ? nowLocal
+                                                        ? resolveMovementOccurredAtMax(
+                                                              nowLocal,
+                                                              allowFuture,
+                                                          )
                                                         : undefined
                                                 }
                                                 value={
@@ -302,11 +314,14 @@ export function RequestCorrectionDialog({
                                                 {timezoneLabel}
                                             </p>
                                             {field.includes('actual') &&
-                                            isCompanyTimeInFuture(
-                                                form.data.proposed_values[
-                                                    field
-                                                ] ?? '',
-                                                effectiveTimezone,
+                                            shouldShowFutureMovementWarning(
+                                                isCompanyTimeInFuture(
+                                                    form.data.proposed_values[
+                                                        field
+                                                    ] ?? '',
+                                                    effectiveTimezone,
+                                                ),
+                                                allowFuture,
                                             ) ? (
                                                 <p className="text-xs font-medium text-destructive">
                                                     This timestamp is in the

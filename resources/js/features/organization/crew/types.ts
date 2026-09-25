@@ -90,6 +90,7 @@ export type CrewMovementContext = {
     training_course: string | null;
     training_course_id?: number | null;
     sync_training_enabled?: boolean;
+    allow_future_actual_movement_dates?: boolean;
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
@@ -392,6 +393,8 @@ export interface CrewAssignmentFormOptions {
     room_types?: Array<{ id: number; name: string; hotel_id: number | null }>;
     /** Company IANA timezone for consistent operational date display. */
     company_timezone?: string;
+    /** Testing override: when true, actual movement timestamps may be in the future. */
+    allow_future_actual_movement_dates?: boolean;
 }
 
 export interface EmployeeOperationalStatus {
