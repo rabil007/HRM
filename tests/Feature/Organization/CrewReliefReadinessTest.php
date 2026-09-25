@@ -159,19 +159,10 @@ it('rejects duplicate active relief plans', function () {
         $fixtures['rank'],
         makeCrewMovementVessel('Dup Relief Vessel'),
     );
-    $firstRelief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'active',
-    ]);
-    $secondRelief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
-        'status' => 'active',
-    ]);
 
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
         'rank_id' => $source->rank_id,
-        'employee_id' => $firstRelief->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -180,7 +171,6 @@ it('rejects duplicate active relief plans', function () {
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
         'rank_id' => $source->rank_id,
-        'employee_id' => $secondRelief->id,
         'planned_join_date' => now()->addDays(11)->toDateString(),
         'planned_leave_date' => now()->addDays(101)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,

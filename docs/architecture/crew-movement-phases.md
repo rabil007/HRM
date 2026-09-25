@@ -279,7 +279,7 @@ Current Crew
 | Timestamp | One company-local server timestamp for the whole successful batch. The HTTP request does not accept `stage_started_at`, `started_at`, or browser-supplied company IDs. Each assignment `started_at` equals its initial phase `actual_start_at`. |
 | Atomicity | All-or-nothing. Every visible bulk row must have a selected employee or be removed by the user; incomplete, blocked, or invalid rows prevent the entire batch. If any row is invalid or the employee already has an Active assignment, **no** assignments from that batch are committed. Partial success / Skip Blocked Rows is not in this phase. |
 | Active assignment | Reuses `startAssignment()` locking and `assertNoActiveAssignment()`. On Vessel and other Active phases block the row/batch; Transfer Vessel remains the existing movement, not an automatic bulk action. |
-| Payroll / sea service | Unchanged. P0 stays payroll-excluded. Bulk P0 does not create `EmployeeSeaService` or invent P2A/P3/P4. Planning sync still runs through `startAssignment()`. |
+| Payroll / sea service | Unchanged. P0 stays payroll-excluded. Bulk P0 does not create `EmployeeSeaService` or invent P2A/P3/P4. There is no automatic Planning synchronization. |
 
 ### Save as Draft (optional)
 
@@ -385,7 +385,7 @@ The repair:
 - uses the original actual P4 join date (`actual_start_at`)
 - generates Planned Sign-Off only when one is missing (`planned_signoff_at = actual P4 join + tour days`)
 - preserves existing manual/existing-plan dates and override reasons
-- syncs linked Crew Planning (`planned_leave_date`)
+- does **not** update linked vacant Crew Planning slots
 - is audited under `late_tour_of_duty_applied`
 
 Ineligible assignments (draft, pre-P4, completed, cancelled, assignments with existing snapshots, or assignments whose rank still has no Tour configured) are never modified. Dry-run (`--dry-run`) performs zero mutations.
@@ -538,7 +538,7 @@ See also [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ### Transfer Vessel (`transfer_vessel`)
 
-Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Destination **Client** defaults from the destination Vessel’s current `client_id` (not the source assignment Client). An explicitly submitted destination Client must match that vessel Client when the vessel is assigned. Rank may still default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
+Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Linked vacant Planning slots are **not** auto-updated. Destination vessel must start blank in the form, must differ from the source, and is required. Destination **Client** defaults from the destination Vessel’s current `client_id` (not the source assignment Client). An explicitly submitted destination Client must match that vessel Client when the vessel is assigned. Rank may still default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
 
 #### Intelligent transfer recommendation
 

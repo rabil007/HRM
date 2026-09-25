@@ -193,13 +193,18 @@ test('existing edit and delete behavior for unlinked planning rows still works',
         ->put(route('organization.crew-planning.assignments.update', $planning), [
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'employee_id' => $employee->id,
             'planned_join_date' => '2027-05-01',
         ])
         ->assertRedirect()
         ->assertSessionHas('success', 'Assignment updated.');
 
     expect($planning->fresh()->planned_join_date->toDateString())->toBe('2027-05-01');
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-planning.assignments.update', $planning), [
+            'employee_id' => $employee->id,
+        ])
+        ->assertSessionHasErrors('employee_id');
 
     $this->actingAs($user)
         ->delete(route('organization.crew-planning.assignments.destroy', $planning))

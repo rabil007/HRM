@@ -917,3 +917,226 @@ test('employee visibility scope hides inaccessible relief source without leaking
         ->and($message)->not->toContain($officeEmployee->name)
         ->and($message)->not->toContain($hiddenActive->assignment_no);
 });
+
+test('planning handoff for a slot linked to a planned crew assignment redirects without throwing', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Planned Link Handoff Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $planned = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-10',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    $slot = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => null,
+        'crew_assignment_id' => $planned->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $slot->id,
+            'intent' => 'plan',
+        ]))
+        ->assertRedirect(route('organization.crew-assignments.show', $planned))
+        ->assertSessionHas(
+            'success',
+            'This planning record is already linked to a planned crew assignment.',
+        );
+});
+
+test('vacant planning slot date compatibility allows subsets and rejects out-of-window dates', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Date Boundary Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $baseSlot = fn (): CrewPlanningAssignment => CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    // Exact match — allow
+    $exact = $baseSlot();
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-10',
+            'planned_signoff_at' => '2026-11-30',
+            'planning_assignment_id' => $exact->id,
+        ])
+        ->assertRedirect();
+    expect($exact->fresh()->crew_assignment_id)->not->toBeNull();
+
+    // Subset within slot — allow
+    $subsetEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $subset = $baseSlot();
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $subsetEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-15',
+            'planned_signoff_at' => '2026-11-25',
+            'planning_assignment_id' => $subset->id,
+        ])
+        ->assertRedirect();
+    expect($subset->fresh()->crew_assignment_id)->not->toBeNull();
+
+    // Equal join + overlong sign-off — reject
+    $overlong = $baseSlot();
+    $overlongEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $overlongEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-10',
+            'planned_signoff_at' => '2026-12-31',
+            'planning_assignment_id' => $overlong->id,
+        ])
+        ->assertSessionHasErrors('planning_assignment_id');
+    expect($overlong->fresh()->crew_assignment_id)->toBeNull();
+
+    // Join before slot start — reject
+    $before = $baseSlot();
+    $beforeEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $beforeEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-09',
+            'planned_signoff_at' => '2026-11-25',
+            'planning_assignment_id' => $before->id,
+        ])
+        ->assertSessionHasErrors('planning_assignment_id');
+
+    // Entirely after slot end — reject
+    $after = $baseSlot();
+    $afterEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $afterEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-12-01',
+            'planned_signoff_at' => '2026-12-15',
+            'planning_assignment_id' => $after->id,
+        ])
+        ->assertSessionHasErrors('planning_assignment_id');
+
+    // Subset join with overlong sign-off — reject
+    $subsetOverlong = $baseSlot();
+    $subsetOverlongEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'plan',
+            'employee_id' => $subsetOverlongEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-15',
+            'planned_signoff_at' => '2026-12-31',
+            'planning_assignment_id' => $subsetOverlong->id,
+        ])
+        ->assertSessionHasErrors('planning_assignment_id');
+});
+
+test('vacant planning create rejects employee_id and succeeds without it', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Vacant Planning Create Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $beforeCount = CrewPlanningAssignment::query()->where('company_id', $company->id)->count();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2026-10-10',
+            'planned_leave_date' => '2026-11-30',
+        ])
+        ->assertSessionHasErrors('employee_id');
+
+    $sessionErrors = session('errors');
+    $message = (string) ($sessionErrors?->first('employee_id') ?? '');
+
+    expect($message)->toContain('Crew Assignment → Save as Planned')
+        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount)
+        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->whereNotNull('employee_id')->count())->toBe(0);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'planned_join_date' => '2026-10-10',
+            'planned_leave_date' => '2026-11-30',
+        ])
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    $created = CrewPlanningAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('vessel_id', $vessel->id)
+        ->whereDate('planned_join_date', '2026-10-10')
+        ->latest('id')
+        ->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->employee_id)->toBeNull();
+});

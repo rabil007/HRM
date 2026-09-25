@@ -43,8 +43,8 @@ import {
     bulkStartButtonLabel,
     isBulkCreateMode,
     resolveCreateEffectiveEmployeeId,
+    resolveCreateFooterActions,
     resolveCreateSubmitRoute,
-    shouldShowSaveDraft,
 } from '@/features/organization/crew/lib/crew-assignment-create-mode';
 import {
     canUseManualTransferRecommendation,
@@ -337,6 +337,18 @@ export function CrewAssignmentCreateForm({
         );
     const planningActiveAssignmentConflict =
         fromPlanning && hasActiveAssignmentConflict && currentEmployeeStatus;
+
+    const footerActions = resolveCreateFooterActions({
+        canCreate: can.create,
+        canPlan: Boolean(can.plan),
+        canStart: can.start,
+        crewRowCount: rows.length,
+        fromPlanning,
+        bulkMode,
+        planningActiveAssignmentConflict: Boolean(
+            planningActiveAssignmentConflict,
+        ),
+    });
 
     const bulkSummary = summarizeBulkRows(form.data.crew, (employeeId) =>
         lookupStatus(form_options, employeeId),
@@ -907,8 +919,7 @@ export function CrewAssignmentCreateForm({
                                     />
 
                                     <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
-                                        {can.start &&
-                                        !planningActiveAssignmentConflict ? (
+                                        {footerActions.showStart ? (
                                             <Button
                                                 type={
                                                     intent === 'plan'
@@ -965,9 +976,7 @@ export function CrewAssignmentCreateForm({
                                             </Button>
                                         ) : null}
 
-                                        {can.plan &&
-                                        !bulkMode &&
-                                        !fromPlanning ? (
+                                        {footerActions.showPlan ? (
                                             <Button
                                                 type={
                                                     intent === 'plan'
@@ -996,8 +1005,7 @@ export function CrewAssignmentCreateForm({
                                             </Button>
                                         ) : null}
 
-                                        {shouldShowSaveDraft(rows.length) &&
-                                        !fromPlanning ? (
+                                        {footerActions.showDraft ? (
                                             <Button
                                                 type="button"
                                                 variant="outline"

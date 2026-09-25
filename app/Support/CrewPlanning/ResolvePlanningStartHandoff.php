@@ -222,6 +222,7 @@ final class ResolvePlanningStartHandoff
     {
         return match ($assignment->status) {
             CrewAssignmentStatus::Active => 'This planning record is already linked to an active crew assignment.',
+            CrewAssignmentStatus::Planned => 'This planning record is already linked to a planned crew assignment.',
             CrewAssignmentStatus::Draft => 'This planning record is linked to a draft crew assignment. Continue mobilisation from Crew Assignments.',
             CrewAssignmentStatus::Completed => 'This planning record is linked to a completed crew assignment and cannot be started again.',
             CrewAssignmentStatus::Cancelled => 'This planning record is linked to a cancelled crew assignment and cannot be started again.',

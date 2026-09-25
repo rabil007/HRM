@@ -31,6 +31,7 @@ class UpdateCrewPlanningAssignmentRequest extends FormRequest
                     ->where('is_active', true),
             ],
             'rank_id' => ['sometimes', 'integer', Rule::exists('ranks', 'id')],
+            'employee_id' => $this->crewPlanningEmployeeIdMustBeAbsentRule(),
             'planned_join_date' => ['sometimes', 'date'],
             'planned_leave_date' => ['sometimes', 'date', 'after_or_equal:planned_join_date'],
             'notes' => ['nullable', 'string', 'max:1000'],

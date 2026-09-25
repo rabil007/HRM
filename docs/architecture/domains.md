@@ -35,7 +35,7 @@ erDiagram
     CrewAssignment }o--o| Vessel : on
     CrewAssignment }o--o| Client : for
     CrewAssignment }o--o| Rank : rank
-    CrewAssignment ||--o| CrewPlanningAssignment : syncs
+    CrewAssignment }o--o| CrewPlanningAssignment : "optional vacant link"
     CrewAssignmentPhase ||--o| EmployeeSeaService : completed_P4
 
     Client ||--o{ Project : has
@@ -552,17 +552,17 @@ See [docs/document-management.md](../document-management.md), [docs/document-sea
 
 ### Purpose
 
-`CrewAssignment` is the source of truth for one mobilisation cycle (P0–P6). Phases are stored as ordered, repeatable `CrewAssignmentPhase` rows. Completed actual P4 time may sync to `EmployeeSeaService`. Planned sign-off is never actual disembarkation.
+`CrewAssignment` is the source of truth for one mobilisation cycle (P0–P6), including named-employee planning (`status = planned`). Phases are stored as ordered, repeatable `CrewAssignmentPhase` rows. Completed actual P4 time may sync to `EmployeeSeaService`. Planned sign-off is never actual disembarkation.
 
 **EmployeeDeployment has been removed.** Do not describe deployments, `crew-deployments` routes, or `crew_operations.deployments.*` as current architecture.
 
-Detailed lifecycle, Tour of Duty, planning sync, transfer/redeploy, alerts, and manning: [crew-movement-phases.md](./crew-movement-phases.md).
+Detailed lifecycle, Tour of Duty, vacant Planning linkage, transfer/redeploy, alerts, and manning: [crew-movement-phases.md](./crew-movement-phases.md).
 
 ### Main models
 
-- `CrewAssignment` — one mobilisation cycle; `company_id`, vessel/client/rank, status, planned dates, Tour snapshot
+- `CrewAssignment` — authoritative named-employee planning and mobilisation cycle; `company_id`, vessel/client/rank, status, planned dates, Tour snapshot
 - `CrewAssignmentPhase` — ordered occurrence of P0–P6 (phases may repeat, e.g. P2A → P2B → P2A → P3)
-- `CrewPlanningAssignment` — Gantt/planning row; may create/sync a CrewAssignment
+- `CrewPlanningAssignment` — optional vacant/unfilled scheduling slot; may be explicitly linked to a CrewAssignment via `planning_assignment_id` / `crew_assignment_id`
 - `EmployeeSeaService` — historical sea time linked by `crew_assignment_phase_id`
 - `CrewMovementCorrection` — in-place field corrections (separate approval workflow)
 - Master data: `Vessel`, `VesselType`, `Client`, `Rank`
@@ -571,7 +571,7 @@ Detailed lifecycle, Tour of Duty, planning sync, transfer/redeploy, alerts, and 
 
 ```mermaid
 flowchart LR
-    CrewPlanningAssignment -->|convert / sync| CrewAssignment
+    CrewPlanningAssignment -->|optional vacant link| CrewAssignment
     CrewAssignment --> Employee
     CrewAssignment --> Vessel
     CrewAssignment --> Client
@@ -581,7 +581,9 @@ flowchart LR
     EmployeeSeaService --> Employee
 ```
 
-Verified Eloquent relations: `Employee::crewAssignments()`, `CrewAssignment` belongs to company/employee/rank/client/vessel and has many phases, planning assignment, corrections; `CrewAssignmentPhase::seaService()`; `EmployeeSeaService::crewAssignmentPhase()`.
+There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment synchronization. Movement, Tour of Duty, corrections, transfers, redeployment, and normal CrewAssignment editing must not manufacture or auto-update CrewPlanningAssignment mirrors. CrewAssignment planned dates are authoritative for named employees; CrewPlanningAssignment dates remain the vacant slot's planning context unless explicitly edited through the Planning workflow.
+
+Verified Eloquent relations: `Employee::crewAssignments()`, `CrewAssignment` belongs to company/employee/rank/client/vessel and has many phases, optional planning assignment, corrections; `CrewAssignmentPhase::seaService()`; `EmployeeSeaService::crewAssignmentPhase()`.
 
 ### Controllers
 

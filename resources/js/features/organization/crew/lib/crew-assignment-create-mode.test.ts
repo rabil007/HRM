@@ -4,7 +4,9 @@ import {
     bulkStartButtonLabel,
     isBulkCreateMode,
     resolveCreateEffectiveEmployeeId,
+    resolveCreateFooterActions,
     resolveCreateSubmitRoute,
+    shouldRenderSaveDraftButton,
     shouldShowSaveDraft,
 } from './crew-assignment-create-mode.ts';
 
@@ -23,6 +25,95 @@ describe('shouldShowSaveDraft', () => {
     it('allows draft only for a single crew row', () => {
         assert.equal(shouldShowSaveDraft(1), true);
         assert.equal(shouldShowSaveDraft(2), false);
+    });
+});
+
+describe('shouldRenderSaveDraftButton', () => {
+    it('hides Save Draft for plan-only users', () => {
+        assert.equal(
+            shouldRenderSaveDraftButton({
+                canCreate: false,
+                crewRowCount: 1,
+                fromPlanning: false,
+            }),
+            false,
+        );
+    });
+
+    it('shows Save Draft when the user can create assignments', () => {
+        assert.equal(
+            shouldRenderSaveDraftButton({
+                canCreate: true,
+                crewRowCount: 1,
+                fromPlanning: false,
+            }),
+            true,
+        );
+    });
+
+    it('hides Save Draft when starting from a planning handoff', () => {
+        assert.equal(
+            shouldRenderSaveDraftButton({
+                canCreate: true,
+                crewRowCount: 1,
+                fromPlanning: true,
+            }),
+            false,
+        );
+    });
+});
+
+describe('resolveCreateFooterActions', () => {
+    it('shows only Save as Planned for planning-only users', () => {
+        const actions = resolveCreateFooterActions({
+            canCreate: false,
+            canPlan: true,
+            canStart: false,
+            crewRowCount: 1,
+            fromPlanning: false,
+            bulkMode: false,
+            planningActiveAssignmentConflict: false,
+        });
+
+        assert.deepEqual(actions, {
+            showStart: false,
+            showPlan: true,
+            showDraft: false,
+        });
+    });
+
+    it('shows Save Draft for assignment-create users', () => {
+        const actions = resolveCreateFooterActions({
+            canCreate: true,
+            canPlan: false,
+            canStart: false,
+            crewRowCount: 1,
+            fromPlanning: false,
+            bulkMode: false,
+            planningActiveAssignmentConflict: false,
+        });
+
+        assert.equal(actions.showDraft, true);
+        assert.equal(actions.showPlan, false);
+        assert.equal(actions.showStart, false);
+    });
+
+    it('shows Start when the user has start permission', () => {
+        const actions = resolveCreateFooterActions({
+            canCreate: true,
+            canPlan: true,
+            canStart: true,
+            crewRowCount: 1,
+            fromPlanning: false,
+            bulkMode: false,
+            planningActiveAssignmentConflict: false,
+        });
+
+        assert.deepEqual(actions, {
+            showStart: true,
+            showPlan: true,
+            showDraft: true,
+        });
     });
 });
 

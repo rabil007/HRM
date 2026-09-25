@@ -198,6 +198,15 @@ test('crew assignment mutations reject inactive employee ids and planning create
             'planned_join_date' => '2027-02-01',
             'planned_leave_date' => '2027-08-31',
         ])
+        ->assertSessionHasErrors('employee_id');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'planned_join_date' => '2027-02-01',
+            'planned_leave_date' => '2027-08-31',
+        ])
         ->assertSessionDoesntHaveErrors()
         ->assertRedirect();
 

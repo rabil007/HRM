@@ -56,7 +56,7 @@ Derived updates on approve / override:
 - Completed P6 end → assignment `closed_at`
 - Completed Training provider / completion date / course_id → linked `EmployeeTraining` `institute_center`, `issue_date`, `course_id`
 - P4 `actual_start_at` or `rank_id` change → if `planned_signoff_source === tour_of_duty`, recalculates `planned_signoff_at` and P4 `planned_end_at` based on the rank's Tour of Duty rule. When the source is `manual_override` or `existing_plan`, the planned dates remain preserved.
-- Linked `CrewPlanningAssignment` synchronized with updated rank, vessel, dates, and status.
+- Linked vacant `CrewPlanningAssignment` rows are **not** synchronized. Correct the Planning slot explicitly if its context must change.
 - Completed P4 changes → linked `EmployeeSeaService` synchronized.
 
 Correcting P1 Travel In updates that phase `actual_start_at` only. It does **not** rewrite `CrewAssignment.started_at`. Assignment `started_at` / `closed_at` describe the assignment lifecycle and are not Crew payroll inputs.

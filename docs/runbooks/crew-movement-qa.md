@@ -196,7 +196,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Salary export has one consolidated row plus Movement Details (including rank); Clear Timesheets removes Manual/Import segments only
 - [ ] Movement corrections go through request → approve/reject (not immediate `correct_movement`)
 - [ ] Pending/rejected/cancelled corrections leave official phase dates unchanged
-- [ ] Approved corrections update assignment/phase fields and re-sync planning + completed P4 sea service
+- [ ] Approved corrections update assignment/phase fields and re-sync completed P4 sea service (linked vacant Planning slots are not auto-updated)
 
 ## 11. Crew Movement History report
 

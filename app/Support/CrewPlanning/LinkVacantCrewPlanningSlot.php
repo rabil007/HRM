@@ -5,6 +5,7 @@ namespace App\Support\CrewPlanning;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -102,20 +103,36 @@ final class LinkVacantCrewPlanningSlot
 
         $slotJoin = $planning->planned_join_date?->toDateString();
         $slotLeave = $planning->planned_leave_date?->toDateString();
-        $assignmentJoin = isset($submitted['planned_join_at']) && $submitted['planned_join_at'] !== null && $submitted['planned_join_at'] !== ''
-            ? (string) $submitted['planned_join_at']
-            : null;
-        $assignmentSignoff = isset($submitted['planned_signoff_at']) && $submitted['planned_signoff_at'] !== null && $submitted['planned_signoff_at'] !== ''
-            ? (string) $submitted['planned_signoff_at']
-            : null;
+        $assignmentJoin = $this->toDateString($submitted['planned_join_at'] ?? null);
+        $assignmentSignoff = $this->toDateString($submitted['planned_signoff_at'] ?? null);
 
-        if ($slotJoin !== null && $assignmentJoin !== null && $slotJoin !== $assignmentJoin) {
-            // Allow assignment dates that fall within the vacant slot window when leave is set.
-            if ($slotLeave === null || $assignmentJoin < $slotJoin || ($assignmentSignoff !== null && $assignmentSignoff > $slotLeave)) {
-                throw ValidationException::withMessages([
-                    'planning_assignment_id' => 'The planning slot dates are not compatible with this crew assignment.',
-                ]);
-            }
+        // Named assignments may occupy a valid subset of the vacant slot window.
+        // Each boundary is checked independently (equal join must still respect leave).
+        if ($slotJoin !== null && $assignmentJoin !== null && $assignmentJoin < $slotJoin) {
+            throw ValidationException::withMessages([
+                'planning_assignment_id' => 'The planning slot dates are not compatible with this crew assignment.',
+            ]);
         }
+
+        if ($slotLeave !== null && $assignmentJoin !== null && $assignmentJoin > $slotLeave) {
+            throw ValidationException::withMessages([
+                'planning_assignment_id' => 'The planning slot dates are not compatible with this crew assignment.',
+            ]);
+        }
+
+        if ($slotLeave !== null && $assignmentSignoff !== null && $assignmentSignoff > $slotLeave) {
+            throw ValidationException::withMessages([
+                'planning_assignment_id' => 'The planning slot dates are not compatible with this crew assignment.',
+            ]);
+        }
+    }
+
+    private function toDateString(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return CarbonImmutable::parse((string) $value)->toDateString();
     }
 }
