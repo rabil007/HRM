@@ -548,7 +548,10 @@ test('approved and paid pay periods load without tab query params', function () 
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.view',
+        'payroll.periods.view',
+    ]);
 
     [$approvedPeriod] = createApprovedPayrollPeriodWithRecord($company, $user);
 
