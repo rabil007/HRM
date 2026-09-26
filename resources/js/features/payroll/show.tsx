@@ -44,6 +44,7 @@ import { ClearCrewTimesheetsDialog } from './components/clear-crew-timesheets-di
 import { CrewMovementPeriodsDialog } from './components/crew-movement-periods-dialog';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
+import { CrewTimesheetPayrollGuide } from './components/crew-timesheet-payroll-guide';
 import { CrewTimesheetsBoard } from './components/crew-timesheets-board';
 import { OfficeEmployeesTabContent } from './components/office-employees-tab-content';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
@@ -68,6 +69,7 @@ import { PayrollStatusTimeline } from './components/payroll-status-timeline';
 import { useCrewTimesheetFinancialAutosave } from './hooks/use-crew-timesheet-financial-autosave';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
 import type { MovementCategoryGroup } from './lib/crew-movement-period-drafts';
+import { shouldShowCrewTimesheetPayrollGuide } from './lib/crew-timesheet-payroll-guide-visibility';
 import { pruneExcludedIds } from './lib/payroll-board-selection';
 import type {
     CrewPayrollRow,
@@ -970,11 +972,19 @@ export function PayrollShowContent({
                 <section className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="h-px flex-1 bg-border/60" />
-                        <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
-                            {period.supports_timesheets
-                                ? 'Timesheets'
-                                : 'Employees'}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                            <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
+                                {period.supports_timesheets
+                                    ? 'Timesheets'
+                                    : 'Employees'}
+                            </span>
+                            {shouldShowCrewTimesheetPayrollGuide({
+                                surface: 'payroll-show',
+                                payrollCategory: period.payroll_category,
+                            }) ? (
+                                <CrewTimesheetPayrollGuide variant="compact" />
+                            ) : null}
+                        </div>
                         <div className="h-px flex-1 bg-border/60" />
                     </div>
 
