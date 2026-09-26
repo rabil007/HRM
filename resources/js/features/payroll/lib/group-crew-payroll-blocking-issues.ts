@@ -8,6 +8,7 @@ export type CrewPayrollBlockingIssueGroup = {
     employeeName: string | null;
     code: string;
     message: string;
+    action: string | null;
     occurrenceCount: number;
 };
 
@@ -18,7 +19,7 @@ const DATE_PLACEHOLDER = '{{date}}';
  * day) into a single line per employee/issue, with the individual dates
  * replaced by a compact range summary. Without this, an employee affected on
  * every day of the period would flood the list and hide every other issue.
- * Used for both blocking errors and non-blocking warnings.
+ * Used for blocking errors, warnings, skipped employees, and automatic adjustments.
  */
 export function groupCrewPayrollBlockingIssues(
     issues: CrewPayrollBlockingIssue[],
@@ -30,6 +31,7 @@ export function groupCrewPayrollBlockingIssues(
             employeeName: string | null;
             code: string;
             template: string;
+            action: string | null;
             dates: string[];
         }
     >();
@@ -57,6 +59,7 @@ export function groupCrewPayrollBlockingIssues(
             employeeName: issue.employee_name,
             code: issue.code,
             template,
+            action: issue.action ?? null,
             dates: workDate ? [workDate] : [],
         });
     });
@@ -78,6 +81,7 @@ export function groupCrewPayrollBlockingIssues(
             message: rangeText
                 ? group.template.split(DATE_PLACEHOLDER).join(rangeText)
                 : group.template,
+            action: group.action,
             occurrenceCount: Math.max(dates.length, 1),
         };
     });

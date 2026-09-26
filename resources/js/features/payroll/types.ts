@@ -49,6 +49,7 @@ export type CrewPayrollGenerationPreviewIssue = {
     from_date?: string | null;
     to_date?: string | null;
     pay_category?: string | null;
+    action?: string | null;
     contract_id?: number | null;
     salary_revision_id?: number | null;
 };
@@ -68,6 +69,10 @@ export type CrewPayrollGenerationPreview = {
     blocking_count: number;
     warning_issues: CrewPayrollGenerationPreviewIssue[];
     warning_count: number;
+    skipped_issues?: CrewPayrollGenerationPreviewIssue[];
+    skipped_count?: number;
+    automatic_adjustments?: CrewPayrollGenerationPreviewIssue[];
+    automatic_adjustment_count?: number;
     applied_preparation_id: number | null;
     applied_preparation_version: number | null;
     period_blocking_reason: string | null;

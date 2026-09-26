@@ -12,7 +12,40 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { groupCrewPayrollBlockingIssues } from '../lib/group-crew-payroll-blocking-issues';
+import type { CrewPayrollBlockingIssueGroup } from '../lib/group-crew-payroll-blocking-issues';
+import { payrollGenerateReviewCanConfirm } from '../lib/payroll-generate-review';
 import type { CrewPayrollGenerationPreview, PayrollCategory } from '../types';
+
+function PreviewIssueList({
+    groups,
+}: {
+    groups: CrewPayrollBlockingIssueGroup[];
+}) {
+    return (
+        <ul className="max-h-48 list-none space-y-2 overflow-y-auto">
+            {groups.map((group) => (
+                <li
+                    key={group.key}
+                    className="rounded-lg border border-current/10 bg-background/40 px-2.5 py-2"
+                >
+                    {group.employeeName ? (
+                        <p className="font-semibold text-foreground">
+                            {group.employeeName}
+                        </p>
+                    ) : null}
+                    <p className="mt-0.5 text-[11px] leading-relaxed">
+                        {group.message}
+                    </p>
+                    {group.action ? (
+                        <p className="mt-1 text-[11px] font-medium opacity-90">
+                            Action: {group.action}
+                        </p>
+                    ) : null}
+                </li>
+            ))}
+        </ul>
+    );
+}
 
 export function PayrollGenerateDialog({
     open,
@@ -56,6 +89,17 @@ export function PayrollGenerateDialog({
         () => groupCrewPayrollBlockingIssues(preview?.warning_issues ?? []),
         [preview],
     );
+    const skippedGroups = useMemo(
+        () => groupCrewPayrollBlockingIssues(preview?.skipped_issues ?? []),
+        [preview],
+    );
+    const automaticGroups = useMemo(
+        () =>
+            groupCrewPayrollBlockingIssues(
+                preview?.automatic_adjustments ?? [],
+            ),
+        [preview],
+    );
 
     useEffect(() => {
         if (!open || !isCrew) {
@@ -95,14 +139,15 @@ export function PayrollGenerateDialog({
         ? 'Base salary will be refreshed from contracts and all salary input lines will be re-applied to gross and net pay.'
         : 'Payroll will use full monthly salary for all office employees on this run. Any salary input lines will be applied to gross and net pay.';
 
-    const canConfirmCrew =
-        preview !== null &&
-        preview.blocking_count === 0 &&
-        preview.ready_count > 0;
+    const canConfirmCrew = payrollGenerateReviewCanConfirm(preview);
+    const skippedCount =
+        (preview?.skipped_count ?? 0) ||
+        (preview?.missing_timesheet_count ?? 0) +
+            (preview?.excluded_count ?? 0);
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
-            <AlertDialogContent className="max-w-xl glass-card">
+            <AlertDialogContent className="max-h-[90vh] max-w-xl overflow-y-auto glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
                         {isCrew
@@ -128,106 +173,101 @@ export function PayrollGenerateDialog({
                                                 {preview.ready_count} employees
                                             </strong>
                                         </p>
-                                        {(preview.missing_timesheet_count > 0 ||
-                                            preview.excluded_count > 0) && (
-                                            <div className="space-y-1 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
-                                                <p className="font-semibold">
-                                                    Will be skipped
-                                                </p>
-                                                {preview.missing_timesheet_count >
-                                                0 ? (
-                                                    <p>
-                                                        {
-                                                            preview.missing_timesheet_count
-                                                        }{' '}
-                                                        employees have no
-                                                        timesheet
-                                                    </p>
-                                                ) : null}
-                                                {preview.excluded_count > 0 ? (
-                                                    <p>
-                                                        {preview.excluded_count}{' '}
-                                                        employees are explicitly
-                                                        excluded
-                                                    </p>
-                                                ) : null}
-                                            </div>
-                                        )}
+
                                         {preview.blocking_count > 0 ? (
                                             <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                                                 <p className="font-semibold">
                                                     Blocking errors (
-                                                    {blockingGroups.length}{' '}
-                                                    {blockingGroups.length === 1
-                                                        ? 'issue'
-                                                        : 'issues'}
-                                                    )
+                                                    {blockingGroups.length})
                                                 </p>
-                                                <ul className="max-h-48 list-disc space-y-1.5 overflow-y-auto pl-4">
-                                                    {blockingGroups.map(
-                                                        (group) => (
-                                                            <li key={group.key}>
-                                                                {group.employeeName ? (
-                                                                    <>
-                                                                        <span className="font-semibold">
-                                                                            {
-                                                                                group.employeeName
-                                                                            }
-                                                                            :
-                                                                        </span>{' '}
-                                                                        {
-                                                                            group.message
-                                                                        }
-                                                                    </>
-                                                                ) : (
-                                                                    group.message
-                                                                )}
-                                                            </li>
-                                                        ),
-                                                    )}
-                                                </ul>
+                                                <p className="text-[11px] opacity-90">
+                                                    Must be fixed before payroll
+                                                    can be generated.
+                                                </p>
+                                                <PreviewIssueList
+                                                    groups={blockingGroups}
+                                                />
                                             </div>
                                         ) : null}
-                                        {(preview.warning_count ?? 0) > 0 ? (
+
+                                        {skippedCount > 0 ||
+                                        warningGroups.length > 0 ? (
                                             <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
                                                 <p className="font-semibold">
-                                                    Warnings (
-                                                    {warningGroups.length}{' '}
-                                                    {warningGroups.length === 1
-                                                        ? 'issue'
-                                                        : 'issues'}
-                                                    )
+                                                    Warnings / skipped
                                                 </p>
                                                 <p className="text-[11px] text-amber-700/90 dark:text-amber-200/80">
-                                                    Incomplete movement dates
-                                                    are ignored and do not block
-                                                    generation.
+                                                    Generation may continue for
+                                                    ready employees. Skipped
+                                                    employees are not paid in
+                                                    this run.
                                                 </p>
-                                                <ul className="max-h-48 list-disc space-y-1.5 overflow-y-auto pl-4">
-                                                    {warningGroups.map(
-                                                        (group) => (
-                                                            <li key={group.key}>
-                                                                {group.employeeName ? (
-                                                                    <>
-                                                                        <span className="font-semibold">
-                                                                            {
-                                                                                group.employeeName
-                                                                            }
-                                                                            :
-                                                                        </span>{' '}
-                                                                        {
-                                                                            group.message
-                                                                        }
-                                                                    </>
-                                                                ) : (
-                                                                    group.message
-                                                                )}
-                                                            </li>
-                                                        ),
-                                                    )}
-                                                </ul>
+                                                {skippedGroups.length > 0 ? (
+                                                    <PreviewIssueList
+                                                        groups={skippedGroups}
+                                                    />
+                                                ) : (
+                                                    <>
+                                                        {preview.missing_timesheet_count >
+                                                        0 ? (
+                                                            <p>
+                                                                {
+                                                                    preview.missing_timesheet_count
+                                                                }{' '}
+                                                                employees have
+                                                                no timesheet
+                                                            </p>
+                                                        ) : null}
+                                                        {preview.excluded_count >
+                                                        0 ? (
+                                                            <p>
+                                                                {
+                                                                    preview.excluded_count
+                                                                }{' '}
+                                                                employees are
+                                                                explicitly
+                                                                excluded
+                                                            </p>
+                                                        ) : null}
+                                                    </>
+                                                )}
+                                                {warningGroups.length > 0 ? (
+                                                    <>
+                                                        <p className="pt-1 font-semibold">
+                                                            Warnings (
+                                                            {
+                                                                warningGroups.length
+                                                            }
+                                                            )
+                                                        </p>
+                                                        <PreviewIssueList
+                                                            groups={
+                                                                warningGroups
+                                                            }
+                                                        />
+                                                    </>
+                                                ) : null}
                                             </div>
                                         ) : null}
+
+                                        {automaticGroups.length > 0 ? (
+                                            <div className="space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sky-950 dark:text-sky-100">
+                                                <p className="font-semibold">
+                                                    Automatic adjustments (
+                                                    {automaticGroups.length})
+                                                </p>
+                                                <p className="text-[11px] opacity-90">
+                                                    The system handled these
+                                                    decisions automatically.
+                                                    They do not block
+                                                    generation.
+                                                </p>
+                                                <PreviewIssueList
+                                                    groups={automaticGroups}
+                                                />
+                                            </div>
+                                        ) : null}
+
                                         {preview.ready_count === 0 &&
                                         preview.blocking_count === 0 ? (
                                             <p>
@@ -237,11 +277,10 @@ export function PayrollGenerateDialog({
                                         ) : null}
                                         <p>
                                             Only employees with a usable Crew
-                                            Timesheet are included in payroll
-                                            generation. Employees with missing
-                                            timesheets are skipped, while
-                                            blocking validation issues must be
-                                            corrected first.
+                                            Timesheet are included. Missing
+                                            timesheets are skipped. Blocking
+                                            validation issues must be corrected
+                                            first.
                                         </p>
                                     </>
                                 ) : null

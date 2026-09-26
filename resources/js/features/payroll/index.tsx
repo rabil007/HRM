@@ -41,10 +41,10 @@ import {
 import type { SavedView } from '@/lib/saved-views';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
+import { CrewTimesheetPayrollGuide } from './components/crew-timesheet-payroll-guide';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollCreationSourceBadge } from './components/payroll-creation-source-badge';
 import { PayrollMonthFilter } from './components/payroll-month-filter';
-
 import { PayrollPeriodCard } from './components/payroll-period-card';
 import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
 import { PayrollPeriodMobileCard } from './components/payroll-period-mobile-card';
@@ -206,6 +206,8 @@ export function PayrollIndexContent({
                     ) : null
                 }
             />
+
+            <CrewTimesheetPayrollGuide />
 
             <PayrollSummaryCards
                 summary={summary}
