@@ -6,6 +6,15 @@ import {
     crewTimesheetPayrollGuideSections,
 } from './crew-timesheet-payroll-guide-content.ts';
 
+const EXPECTED_SECTION_TITLES = [
+    '1. Record movements',
+    '2. Populate payroll',
+    '3. Review and correct',
+    '4. Prior-period dates / arrears',
+    '5. Generate payroll',
+    '6. Clear Timesheets',
+] as const;
+
 describe('crewTimesheetPayrollGuideSections', () => {
     it('exposes a safe operational guide without salary amounts', () => {
         const sections = crewTimesheetPayrollGuideSections();
@@ -27,5 +36,23 @@ describe('crewTimesheetPayrollGuideSections', () => {
         assert.match(text, /prior-period work \/ arrears/i);
         assert.match(text, /Clear Manual\/Imported Timesheets/i);
         assert.doesNotMatch(text, /AED|\$|rate amount|basic_salary/i);
+    });
+
+    it('keeps the full Crew Timesheet walkthrough topics unchanged', () => {
+        const sections = crewTimesheetPayrollGuideSections();
+        const titles = sections.map((section) => section.title);
+
+        for (const title of EXPECTED_SECTION_TITLES) {
+            assert.equal(
+                titles.includes(title),
+                true,
+                `missing guide section: ${title}`,
+            );
+        }
+
+        assert.match(
+            sections.map((section) => section.body).join(' '),
+            /OT hours|remarks|validation|Generate/i,
+        );
     });
 });

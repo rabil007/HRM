@@ -1,5 +1,5 @@
 /**
- * Informational copy for the Payroll index Crew Timesheet guide.
+ * Informational copy for the Crew payroll period Timesheet guide.
  * Safe for Crew Timesheet-only users — no salary amounts or rates.
  */
 
@@ -15,6 +15,8 @@ export const CREW_TIMESHEET_PAYROLL_GUIDE_TITLE =
 
 export const CREW_TIMESHEET_PAYROLL_GUIDE_SUMMARY =
     'Record movements in Crew Assignments, populate the Draft payroll period, review corrections, then generate. Payroll corrections never rewrite Crew Assignment history.';
+
+export const CREW_TIMESHEET_PAYROLL_GUIDE_TRIGGER_LABEL = 'Guide';
 
 export function crewTimesheetPayrollGuideSections(): CrewTimesheetPayrollGuideSection[] {
     return [
