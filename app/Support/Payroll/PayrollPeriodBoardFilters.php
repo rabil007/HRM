@@ -17,17 +17,23 @@ final class PayrollPeriodBoardFilters
         public readonly ?CrewTimesheetBoardFilter $crewTimesheetFilter = null,
     ) {}
 
-    public static function fromRequest(Request $request): self
+    public static function fromRequest(Request $request, bool $includeFinancial = true): self
     {
         $crewSalaryStructure = in_array($request->query('crew_salary_structure'), ['daily', 'monthly'], true)
             ? (string) $request->query('crew_salary_structure')
             : 'daily';
 
+        $employeeGroup = PayrollBoardEmployeeGroup::fromQuery($request->query('employee_group'));
+
+        if (! $includeFinancial && $employeeGroup->isActive()) {
+            $employeeGroup = PayrollBoardEmployeeGroup::Total;
+        }
+
         return new self(
             departmentId: trim((string) $request->query('department_id', '')),
             positionId: trim((string) $request->query('position_id', '')),
             companyVisaTypeId: trim((string) $request->query('company_visa_type_id', '')),
-            employeeGroup: PayrollBoardEmployeeGroup::fromQuery($request->query('employee_group')),
+            employeeGroup: $employeeGroup,
             crewSalaryStructure: $crewSalaryStructure,
             crewTimesheetFilter: CrewTimesheetBoardFilter::tryFromQuery($request->query('crew_timesheet_filter')),
         );

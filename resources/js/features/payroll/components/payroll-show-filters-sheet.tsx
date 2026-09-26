@@ -74,19 +74,16 @@ export function PayrollShowFiltersSheet({
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="ready">Ready</AppSelectItem>
                         <AppSelectItem value="missing_timesheet">
                             Missing Timesheet
-                        </AppSelectItem>
-                        <AppSelectItem value="awaiting_approval">
-                            Awaiting Approval
                         </AppSelectItem>
                         <AppSelectItem value="crew_operations">
                             Crew Assignments
                         </AppSelectItem>
                         <AppSelectItem value="manual">Manual</AppSelectItem>
-                        <AppSelectItem value="import">Import</AppSelectItem>
-                        <AppSelectItem value="returned">Returned</AppSelectItem>
+                        <AppSelectItem value="import">
+                            Excel Import
+                        </AppSelectItem>
                     </AppSelect>
                 </div>
             ) : null}

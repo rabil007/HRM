@@ -120,7 +120,7 @@ test('explicit zero clears a financial value while explicit amount updates it', 
         ->and((float) $timesheet->deduction_amount)->toBe(250.0);
 });
 
-test('ui readiness and backend generation return the same blocking reason when no applied timeline exists', function () {
+test('ui readiness and backend generation return the same blocking reason when no usable daily timesheet exists', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
     $readiness = app(CrewOperationsPayrollGenerationGuard::class)
@@ -135,74 +135,40 @@ test('ui readiness and backend generation return the same blocking reason when n
     }
 
     expect($readiness['ready'])->toBeFalse()
-        ->and($readiness['blocking_reason'])->toBe(CrewOperationsPayrollGenerationGuard::MISSING_APPLIED_MESSAGE)
-        ->and($generationMessage)->toBe($readiness['blocking_reason']);
+        ->and($readiness['can_generate'])->toBeFalse()
+        ->and($readiness['period_blocking_reason'])->not->toBeNull()
+        ->and($generationMessage)->toBe($readiness['period_blocking_reason']);
 });
 
-test('excluded-only employee does not block crew operations generation readiness', function () {
+test('excluded employee does not block generation readiness for remaining included employees', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
+    $included = createCrewEmployeeWithContract($fixtures['company'], 'INC-READY-1', 100, 50, 25);
 
-    $preparation = CrewTimesheetPreparation::query()->create([
-        'company_id' => $fixtures['company']->id,
-        'payroll_period_id' => $fixtures['period']->id,
-        'version' => 1,
-        'status' => CrewTimesheetPreparationStatus::Applied,
-        'source_hash' => 'hash-excluded',
-        'applied_by' => $fixtures['user']->id,
-        'applied_at' => now(),
+    $fixtures['period']->update([
+        'excluded_employee_ids' => [(int) $fixtures['employee']->id],
     ]);
 
-    CrewTimesheetPreparationLine::query()->create([
+    CrewTimesheet::factory()->create([
         'company_id' => $fixtures['company']->id,
-        'crew_timesheet_preparation_id' => $preparation->id,
-        'employee_id' => $fixtures['employee']->id,
-        'crew_assignment_id' => $fixtures['assignment']->id,
-        'crew_assignment_phase_id' => null,
-        'phase_code' => CrewPhaseCode::PreMobilisation,
-        'pay_category' => CrewTimesheetPayCategory::Excluded,
-        'from_date' => '2026-07-01',
-        'to_date' => '2026-07-01',
-        'days' => 0,
-        'warning_code' => null,
-        'remarks' => 'Excluded phase',
+        'employee_id' => $included->id,
+        'period_id' => $fixtures['period']->id,
+        'source' => CrewTimesheetSource::Manual,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-10',
+        'onsite_days' => 10,
     ]);
 
     $readiness = app(CrewOperationsPayrollGenerationGuard::class)->validateReadiness(
         $fixtures['period']->fresh(),
-        collect([$fixtures['employee']]),
+        collect([$included]),
         (int) $fixtures['company']->id,
     );
 
     expect($readiness['ready'])->toBeTrue();
 });
 
-test('payable daily employee without a linked timesheet blocks generation readiness', function () {
+test('payable daily employee without a usable timesheet blocks generation readiness', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
-
-    $preparation = CrewTimesheetPreparation::query()->create([
-        'company_id' => $fixtures['company']->id,
-        'payroll_period_id' => $fixtures['period']->id,
-        'version' => 1,
-        'status' => CrewTimesheetPreparationStatus::Applied,
-        'source_hash' => 'hash-payable',
-        'applied_by' => $fixtures['user']->id,
-        'applied_at' => now(),
-    ]);
-
-    CrewTimesheetPreparationLine::query()->create([
-        'company_id' => $fixtures['company']->id,
-        'crew_timesheet_preparation_id' => $preparation->id,
-        'employee_id' => $fixtures['employee']->id,
-        'crew_assignment_id' => $fixtures['assignment']->id,
-        'crew_assignment_phase_id' => null,
-        'phase_code' => CrewPhaseCode::OnVessel,
-        'pay_category' => CrewTimesheetPayCategory::Onsite,
-        'from_date' => '2026-07-01',
-        'to_date' => '2026-07-05',
-        'days' => 5,
-        'warning_code' => null,
-        'remarks' => 'Onsite',
-    ]);
 
     $readiness = app(CrewOperationsPayrollGenerationGuard::class)->validateReadiness(
         $fixtures['period']->fresh(),
@@ -214,7 +180,7 @@ test('payable daily employee without a linked timesheet blocks generation readin
         ->and($readiness['affected_employee_id'])->toBe((int) $fixtures['employee']->id);
 });
 
-test('empty approved preparation applies, repeated apply is idempotent, and generation does not error', function () {
+test('empty preparation populate is idempotent and generation requires a usable timesheet', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
 
@@ -244,13 +210,13 @@ test('empty approved preparation applies, repeated apply is idempotent, and gene
         (int) $fixtures['company']->id,
     );
 
-    $result = app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh());
-
     expect($first->appliedEmployeeCount)->toBe(0)
         ->and($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Applied)
         ->and($second->idempotent)->toBeTrue()
-        ->and($result->errors)->toBe([])
         ->and(CrewTimesheet::query()->where('period_id', $fixtures['period']->id)->count())->toBe(0);
+
+    expect(fn () => app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh()))
+        ->toThrow(ValidationException::class);
 });
 
 test('a new pending movement correction makes an approved preparation stale', function () {

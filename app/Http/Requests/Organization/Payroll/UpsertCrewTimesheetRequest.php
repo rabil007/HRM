@@ -19,10 +19,32 @@ use Illuminate\Validation\Rule;
 
 class UpsertCrewTimesheetRequest extends FormRequest
 {
+    /**
+     * @var list<string>
+     */
+    private const MONETARY_FIELDS = [
+        'additional_amount',
+        'deduction_amount',
+    ];
+
     public function authorize(): bool
     {
-        return (bool) ($this->user()?->can('payroll.crew_timesheets.create')
-            || $this->user()?->can('payroll.crew_timesheets.update'));
+        $user = $this->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        if (! ($user->can('payroll.crew_timesheets.create')
+            || $user->can('payroll.crew_timesheets.update'))) {
+            return false;
+        }
+
+        if ($this->requestsMonetaryFields() && ! $user->can('payroll.periods.update')) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function prepareForValidation(): void
@@ -372,13 +394,17 @@ class UpsertCrewTimesheetRequest extends FormRequest
     public function timesheetData(): array
     {
         $validated = $this->validated();
+        $mayEditMoney = (bool) $this->user()?->can('payroll.periods.update');
 
         $data = [
             'overtime_hours' => $validated['overtime_hours'] ?? 0,
-            'additional_amount' => $validated['additional_amount'] ?? 0,
-            'deduction_amount' => $validated['deduction_amount'] ?? 0,
             'remarks' => $validated['remarks'] ?? null,
         ];
+
+        if ($mayEditMoney) {
+            $data['additional_amount'] = $validated['additional_amount'] ?? 0;
+            $data['deduction_amount'] = $validated['deduction_amount'] ?? 0;
+        }
 
         if ($this->exists('unpaid_leave_days')) {
             $data['unpaid_leave_days'] = $validated['unpaid_leave_days'] ?? null;
@@ -424,6 +450,17 @@ class UpsertCrewTimesheetRequest extends FormRequest
         }
 
         return $data;
+    }
+
+    private function requestsMonetaryFields(): bool
+    {
+        foreach (self::MONETARY_FIELDS as $field) {
+            if ($this->exists($field)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function inclusiveDays(?string $from, ?string $to): ?float

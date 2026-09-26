@@ -59,14 +59,25 @@ export function PayrollSummaryCards({
     summary,
     activeCategory,
     onSelect,
+    showOffice = true,
 }: {
     summary: PayrollHubSummary;
     activeCategory: SummaryCategoryFilter;
     onSelect: (category: SummaryCategoryFilter) => void;
+    showOffice?: boolean;
 }) {
+    const items = showOffice
+        ? SUMMARY_ITEMS
+        : SUMMARY_ITEMS.filter((item) => item.category !== 'office');
+
     return (
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {SUMMARY_ITEMS.map((item) => {
+        <div
+            className={cn(
+                'mb-6 grid gap-4 sm:grid-cols-2',
+                showOffice ? 'xl:grid-cols-3' : 'xl:grid-cols-2',
+            )}
+        >
+            {items.map((item) => {
                 const Icon = item.icon;
                 const isActive = item.category === activeCategory;
 

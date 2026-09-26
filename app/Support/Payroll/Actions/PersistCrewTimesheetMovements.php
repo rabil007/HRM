@@ -11,8 +11,16 @@ use App\Support\Attendance\CalculateLeaveRequestDays;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Soft-deletes Manual/Import segments and recreates them as original ranges.
+ * Soft-deletes every existing movement segment on the timesheet and recreates
+ * them from the submitted full Movement Periods snapshot.
+ *
+ * API contract: callers send the complete current movement set for this payroll
+ * timesheet. Unrelated segments on other timesheets are never touched. Mixed
+ * historical sources on the same timesheet are replaced as one snapshot —
+ * the editor does not preserve untouched source subsets.
+ *
  * Ranges may start before the payroll period; days after period end are rejected upstream.
+ * Supports Manual, Import, and Crew Operations sources for draft payroll corrections.
  */
 final class PersistCrewTimesheetMovements
 {
@@ -32,9 +40,13 @@ final class PersistCrewTimesheetMovements
         CrewTimesheetSource $source,
         ?int $actorId = null,
     ): array {
-        if (! in_array($source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+        if (! in_array($source, [
+            CrewTimesheetSource::Manual,
+            CrewTimesheetSource::Import,
+            CrewTimesheetSource::CrewOperations,
+        ], true)) {
             throw ValidationException::withMessages([
-                'segments' => 'Only Manual or Import movement sources can be replaced this way.',
+                'segments' => 'Only Manual, Import, or Crew Assignment movement sources can be replaced this way.',
             ]);
         }
 
@@ -52,10 +64,6 @@ final class PersistCrewTimesheetMovements
         $existingSegments = CrewTimesheetSegment::query()
             ->where('company_id', $timesheet->company_id)
             ->where('crew_timesheet_id', $timesheet->id)
-            ->whereIn('source', [
-                CrewTimesheetSource::Manual->value,
-                CrewTimesheetSource::Import->value,
-            ])
             ->lockForUpdate()
             ->orderBy('sequence')
             ->get();

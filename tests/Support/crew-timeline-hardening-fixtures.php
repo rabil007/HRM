@@ -123,10 +123,9 @@ function setupCrewTimelineHardeningFixtures(): array
     grantCompanyPermissions($user, $company, [
         'payroll.crew_timesheets.view',
         'payroll.crew_timesheets.prepare',
-        'payroll.crew_timesheets.submit',
-        'payroll.crew_timesheets.approve',
-        'payroll.crew_timesheets.return',
-        'payroll.crew_timesheets.skip_timeline',
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+        'payroll.periods.view',
     ]);
     restrictUserToDepartments($user, $company, [$marineDept->id]);
 

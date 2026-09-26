@@ -9,32 +9,34 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export function PayrollReprepareTimelineDialog({
+export function PayrollPopulateFromAssignmentsDialog({
     open,
     onOpenChange,
     onConfirm,
     processing,
-    currentVersion,
+    mode,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onConfirm: () => void;
     processing: boolean;
-    currentVersion: number;
+    mode: 'populate' | 'refresh';
 }) {
+    const isRefresh = mode === 'refresh';
+
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Prepare a new Crew Timesheet version?
+                        {isRefresh
+                            ? 'Refresh from Crew Assignments?'
+                            : 'Populate from Crew Assignments?'}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        This creates a new draft Crew Timesheet version from the
-                        latest Crew Assignment movement data. The current
-                        version {currentVersion} and any review progress on it
-                        will be superseded. Use this when the underlying Crew
-                        Assignment data has changed.
+                        {isRefresh
+                            ? 'This will refresh Crew Timesheet movement periods from the current Crew Assignment actual movement data. Existing payroll-specific timesheet data may be updated according to the current refresh rules.'
+                            : 'This will populate Crew Timesheet movement periods from the current Crew Assignment actual movement data. Existing payroll-specific timesheet data may be updated according to the current refresh rules.'}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -49,7 +51,13 @@ export function PayrollReprepareTimelineDialog({
                             onConfirm();
                         }}
                     >
-                        {processing ? 'Preparing…' : 'Create new version'}
+                        {processing
+                            ? isRefresh
+                                ? 'Refreshing…'
+                                : 'Populating…'
+                            : isRefresh
+                              ? 'Refresh timesheets'
+                              : 'Populate timesheets'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

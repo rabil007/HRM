@@ -40,13 +40,13 @@ function grantCompanyPermissions(User $user, Company $company, array $permission
 /**
  * @param  list<int>  $departmentIds
  */
-function restrictTestRoleEmployeeVisibility(User $user, Company $company, array $departmentIds): void
+function restrictTestRoleEmployeeVisibility(User $user, Company $company, array $departmentIds, string $roleName = 'test-role'): void
 {
     app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
 
     $role = $user->roles()
         ->where('spatie_roles.company_id', $company->id)
-        ->where('spatie_roles.name', 'test-role')
+        ->where('spatie_roles.name', $roleName)
         ->first();
 
     if ($role === null) {

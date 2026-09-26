@@ -15,10 +15,12 @@ import { PayrollPeriodStatusBadge } from './payroll-period-status-badge';
 export function PayrollPeriodCard({
     period,
     canOpen,
+    showPayment = true,
     className,
 }: {
     period: PayrollPeriodListItem;
     canOpen: boolean;
+    showPayment?: boolean;
     className?: string;
 }) {
     const progress = getPeriodProgressPercent(period);
@@ -66,17 +68,24 @@ export function PayrollPeriodCard({
             </CardHeader>
 
             <CardContent className="relative z-10 space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
-                        <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
-                            Payment
-                        </p>
-                        <p className="mt-1 font-semibold">
-                            {period.payment_date
-                                ? formatDisplayDate(period.payment_date)
-                                : 'Pending'}
-                        </p>
-                    </div>
+                <div
+                    className={cn(
+                        'grid gap-3 text-sm',
+                        showPayment ? 'grid-cols-2' : 'grid-cols-1',
+                    )}
+                >
+                    {showPayment ? (
+                        <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+                            <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
+                                Payment
+                            </p>
+                            <p className="mt-1 font-semibold">
+                                {period.payment_date
+                                    ? formatDisplayDate(period.payment_date)
+                                    : 'Pending'}
+                            </p>
+                        </div>
+                    ) : null}
                     <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
                         <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                             Generated

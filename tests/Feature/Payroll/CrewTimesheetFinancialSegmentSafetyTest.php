@@ -14,6 +14,7 @@ use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 
 /**
  * @return array{
@@ -37,6 +38,7 @@ function makeMultiSegmentManualTimesheetFixtures(CrewTimesheetSource $source = C
         'payroll.crew_timesheets.update',
         'payroll.crew_timesheets.view',
         'payroll.periods.view',
+        'payroll.periods.update',
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
@@ -156,10 +158,12 @@ test('financial update on crew operations applied timesheet preserves operationa
     ]);
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     $timesheet = CrewTimesheet::query()
         ->where('period_id', $fixtures['period']->id)
@@ -180,7 +184,7 @@ test('financial update on crew operations applied timesheet preserves operationa
 
     $fresh = $timesheet->fresh(['segments']);
 
-    expect($fresh->isOperationallyLocked())->toBeTrue()
+    expect($fresh->isOperationallyLocked())->toBeFalse()
         ->and($fresh->source)->toBe(CrewTimesheetSource::CrewOperations)
         ->and((int) $fresh->crew_timesheet_preparation_id)->toBe((int) $preparationId)
         ->and($fresh->segments->pluck('id')->sort()->values()->all())
@@ -532,7 +536,7 @@ test('failed validation leaves old segments unchanged', function () {
         ->and($segments[1]->from_date?->toDateString())->toBe('2026-07-20');
 });
 
-test('crew operations segments cannot be replaced manually via segment route', function () {
+test('crew operations segments can be replaced via segment route while draft', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
     grantApplyPermissions($fixtures['user'], $fixtures['company'], [
@@ -541,17 +545,18 @@ test('crew operations segments cannot be replaced manually via segment route', f
     ]);
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     $timesheet = CrewTimesheet::query()
         ->where('period_id', $fixtures['period']->id)
         ->where('employee_id', $fixtures['employee']->id)
         ->with('segments')
         ->firstOrFail();
-    $segmentIds = $timesheet->segments->pluck('id')->all();
 
     $this->actingAs($approver)
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -566,9 +571,15 @@ test('crew operations segments cannot be replaced manually via segment route', f
             ],
         ])
         ->assertRedirect()
-        ->assertSessionHasErrors('segments');
+        ->assertSessionHasNoErrors();
 
-    expect(CrewTimesheetSegment::query()->whereIn('id', $segmentIds)->count())->toBe(count($segmentIds));
+    $fresh = $timesheet->fresh(['segments']);
+
+    expect($fresh->segments)->toHaveCount(1)
+        ->and($fresh->segments->first()->from_date?->toDateString())->toBe('2026-07-01')
+        ->and($fresh->segments->first()->to_date?->toDateString())->toBe('2026-07-05')
+        ->and($fresh->source)->toBe(CrewTimesheetSource::CrewOperations)
+        ->and((float) $fresh->onsite_days)->toBe(5.0);
 });
 
 test('legacy flat operational payload still works when intentionally submitted', function () {
@@ -678,7 +689,7 @@ test('unauthorized financial and segment requests are rejected', function () {
         ]), [
             'overtime_hours' => 99,
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 
     $this->actingAs($outsider)
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -694,7 +705,7 @@ test('unauthorized financial and segment requests are rejected', function () {
                 ],
             ],
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 
     expect((float) $fixtures['timesheet']->fresh()->overtime_hours)->toBe(2.0)
         ->and($fixtures['timesheet']->fresh()->segments)->toHaveCount(2);

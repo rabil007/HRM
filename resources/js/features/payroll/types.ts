@@ -1,7 +1,6 @@
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
-import type { CrewTimelinePreparationSummary } from './crew-timeline/types';
 
 export type PayrollBoardEmployeeGroup =
     | ''
@@ -50,6 +49,7 @@ export type CrewPayrollGenerationPreviewIssue = {
     from_date?: string | null;
     to_date?: string | null;
     pay_category?: string | null;
+    action?: string | null;
     contract_id?: number | null;
     salary_revision_id?: number | null;
 };
@@ -69,6 +69,10 @@ export type CrewPayrollGenerationPreview = {
     blocking_count: number;
     warning_issues: CrewPayrollGenerationPreviewIssue[];
     warning_count: number;
+    skipped_issues?: CrewPayrollGenerationPreviewIssue[];
+    skipped_count?: number;
+    automatic_adjustments?: CrewPayrollGenerationPreviewIssue[];
+    automatic_adjustment_count?: number;
     applied_preparation_id: number | null;
     applied_preparation_version: number | null;
     period_blocking_reason: string | null;
@@ -153,6 +157,7 @@ export type PayrollPeriodFormData = {
 export type PayrollHubPermissions = {
     create_period: boolean;
     view_crew_timesheets: boolean;
+    view_financial?: boolean;
 };
 
 export type PayrollHubFilters = {
@@ -210,11 +215,13 @@ export type CrewTimesheet = {
     total_payable_days: number | null;
     overtime_hours: string;
     overtime_amount?: string | null;
-    additional_amount: string;
-    deduction_amount: string;
+    additional_amount?: string | null;
+    deduction_amount?: string | null;
     remarks: string | null;
     source: string | null;
     source_label: string | null;
+    readiness_status?: string | null;
+    readiness_status_label?: string | null;
     approval_status?: string | null;
     approval_status_label?: string | null;
     return_reason?: string | null;
@@ -323,16 +330,34 @@ export function buildCrewTimesheetDraft(
     };
 }
 
+export type CrewTimelinePreparationSummary = {
+    id: number;
+    version: number;
+    status: string;
+    status_label: string;
+    is_fresh: boolean;
+    is_stale: boolean;
+    stale_reason?: string | null;
+    effective_cutoff_date?: string | null;
+    blocking_warning_count: number;
+    informational_warning_count: number;
+    prepared_at: string | null;
+    submitted_at: string | null;
+    approved_at: string | null;
+    returned_at: string | null;
+    applied_at: string | null;
+    linked_timesheet_count: number;
+};
+
 export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
     clear_timesheets: boolean;
-    submit_timesheet: boolean;
-    approve_timesheet: boolean;
-    return_timesheet: boolean;
     import_timesheets: boolean;
     prepare_timeline: boolean;
     view_timeline: boolean;
+    view_financial?: boolean;
+    edit_monetary_timesheet_fields?: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
     revert_to_approved: boolean;
@@ -506,9 +531,9 @@ export type PayrollGenerationSummary = {
 
 export type EmployeeStats = {
     total: number;
-    with_bank_account: number;
-    missing_bank_account: number;
-    cash_payment_count: number;
+    with_bank_account?: number;
+    missing_bank_account?: number;
+    cash_payment_count?: number;
 };
 
 export type PayrollRecordsSummary = {

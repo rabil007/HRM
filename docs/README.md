@@ -83,17 +83,15 @@ Keep product-facing terminology distinct from compatibility names:
 
 ```text
 CrewAssignment / CrewAssignmentPhase
-    ↓ actual operational movement data
-CrewTimesheetPreparation
-    ↓ versioned Payroll review / warning / approval workflow
-CrewTimesheet
-    ↓ applied Payroll input
-Payroll generation
+    ↓ actual operational movement data (source of truth)
+Crew Timesheet on /payroll/{period} (Draft)
+    ↓ Populate from Assignments and/or Manual/Excel edits
+Payroll generation → period approval → payment
 ```
 
-- `CrewAssignment` / `CrewAssignmentPhase` remain the operational source of truth for Crew movements.
-- Product-facing Payroll copy uses **Crew Timesheet** and **Crew Assignments**.
-- Internal persisted/technical compatibility names such as `source = crew_operations`, `CrewTimesheetSource::CrewOperations`, `CrewTimeline*`, `app/Support/Payroll/CrewTimeline/`, and `payroll.crew-timeline.*` remain valid implementation identifiers.
+- `CrewAssignment` / `CrewAssignmentPhase` remain the operational source of truth for Crew movements. Crew Timesheet edits never mutate them.
+- Product-facing Payroll copy uses **Crew Timesheet** and **Crew Assignments**. There is no separate Crew Timeline review page or Crew Timesheet submit/approve/apply workflow.
+- Internal persisted/technical compatibility names such as `source = crew_operations`, `CrewTimesheetSource::CrewOperations`, `CrewTimeline*`, `app/Support/Payroll/CrewTimeline/`, and `payroll.crew-timeline.prepare` remain valid implementation identifiers.
 - Planned sign-off or planning dates are never actual disembarkation/payroll movement dates.
 - `EmployeeDeployment` has been removed; do not reintroduce it unless an explicit migration task requires it.
 

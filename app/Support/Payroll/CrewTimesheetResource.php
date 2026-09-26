@@ -3,9 +3,7 @@
 namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetPayCategory;
-use App\Enums\CrewTimesheetSource;
 use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
@@ -16,14 +14,13 @@ final class CrewTimesheetResource
     /**
      * @return array<string, mixed>
      */
-    public static function toArray(?CrewTimesheet $timesheet): ?array
+    public static function toArray(?CrewTimesheet $timesheet, bool $includeFinancial = true): ?array
     {
         if ($timesheet === null) {
             return null;
         }
 
-        $timesheet->loadMissing(['preparation', 'segments.assignment']);
-        $operationallyLocked = $timesheet->isOperationallyLocked();
+        $timesheet->loadMissing(['segments.assignment']);
         $signOnDays = (float) ($timesheet->sign_on_standby_days ?? 0);
         $signOffDays = (float) ($timesheet->sign_off_standby_days ?? 0);
         $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
@@ -34,7 +31,7 @@ final class CrewTimesheetResource
         $onsiteSegmentCount = $segments->where('pay_category', CrewTimesheetPayCategory::Onsite)->count();
         $signOffSegmentCount = $segments->where('pay_category', CrewTimesheetPayCategory::SignOffStandby)->count();
 
-        return [
+        $payload = [
             'id' => $timesheet->id,
             'period_id' => $timesheet->period_id,
             'employee_id' => $timesheet->employee_id,
@@ -73,27 +70,21 @@ final class CrewTimesheetResource
             'total_standby_days' => $totalStandbyDays,
             'total_payable_days' => $totalPayableDays,
             'overtime_hours' => $timesheet->overtime_hours,
-            'overtime_amount' => $timesheet->overtime_amount,
-            'additional_amount' => $timesheet->additional_amount,
-            'deduction_amount' => $timesheet->deduction_amount,
             'remarks' => $timesheet->remarks,
             'source' => $timesheet->source?->value,
             'source_label' => $timesheet->source?->label(),
-            'approval_status' => $timesheet->approval_status?->value,
-            'approval_status_label' => self::approvalStatusLabel($timesheet),
-            'return_reason' => $timesheet->return_reason,
-            'submitted_at' => $timesheet->submitted_at?->toIso8601String(),
-            'approved_at' => $timesheet->approved_at?->toIso8601String(),
-            'returned_at' => $timesheet->returned_at?->toIso8601String(),
-            'crew_timesheet_preparation_id' => $timesheet->crew_timesheet_preparation_id,
-            'operational_approved_by' => $timesheet->operational_approved_by,
-            'operational_approved_at' => $timesheet->operational_approved_at?->toIso8601String(),
-            'movement_source_hash' => $timesheet->movement_source_hash,
-            'is_operationally_locked' => $operationallyLocked,
-            'is_payroll_approved' => $timesheet->isPayrollApproved(),
-            'preparation_status' => $timesheet->preparation?->status?->value,
-            'preparation_version' => $timesheet->preparation?->version,
+            'readiness_status' => self::readinessStatus($timesheet),
+            'readiness_status_label' => self::readinessStatusLabel($timesheet),
+            'is_operationally_locked' => false,
         ];
+
+        if ($includeFinancial) {
+            $payload['overtime_amount'] = $timesheet->overtime_amount;
+            $payload['additional_amount'] = $timesheet->additional_amount;
+            $payload['deduction_amount'] = $timesheet->deduction_amount;
+        }
+
+        return $payload;
     }
 
     /**
@@ -104,43 +95,49 @@ final class CrewTimesheetResource
         ?CrewTimesheet $timesheet,
         int $periodId,
         CarbonInterface $asOf,
+        bool $includeFinancial = true,
     ): array {
         $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
         $contract = $employee->currentContract;
         $salaryStructure = $contract?->resolvedSalaryStructure() ?? ContractSalaryStructure::Daily;
+        $readiness = self::boardReadinessStatus($timesheet, $salaryStructure);
 
-        return [
+        $row = [
             'employee' => PayrollEmployeeIdentityResource::forEmployee($employee),
             'period_id' => $periodId,
-            'timesheet' => self::toArray($timesheet),
+            'timesheet' => self::toArray($timesheet, $includeFinancial),
             'is_filled' => $timesheet !== null,
             'operational_source' => self::operationalSource($timesheet, $salaryStructure),
             'operational_source_label' => self::operationalSourceLabel($timesheet, $salaryStructure),
-            'approval_status' => self::boardApprovalStatus($timesheet, $salaryStructure),
-            'approval_status_label' => self::boardApprovalStatusLabel($timesheet, $salaryStructure),
-            'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
-            'salary_payment_method' => $paymentMethod->value,
-            'salary_payment_method_label' => $paymentMethod->label(),
+            'readiness_status' => $readiness,
+            'readiness_status_label' => self::boardReadinessStatusLabel($readiness),
+            // Compatibility aliases for existing frontend filters until fully migrated.
+            'approval_status' => $readiness,
+            'approval_status_label' => self::boardReadinessStatusLabel($readiness),
             'salary_structure' => $salaryStructure->value,
-            'contract' => $contract !== null
-                ? app(ResolveContractRatesForPeriod::class)->handle($contract, $asOf)
-                : null,
         ];
-    }
 
-    public static function approvalStatusLabel(CrewTimesheet $timesheet): string
-    {
-        if ($timesheet->isOperationallyLocked()) {
-            return 'Applied/Approved';
+        if ($includeFinancial) {
+            $row['primary_account'] = EmployeePrimaryAccountResource::forEmployee($employee);
+            $row['salary_payment_method'] = $paymentMethod->value;
+            $row['salary_payment_method_label'] = $paymentMethod->label();
+            $row['contract'] = $contract !== null
+                ? app(ResolveContractRatesForPeriod::class)->handle($contract, $asOf)
+                : null;
+        } else {
+            $row['primary_account'] = null;
+            $row['salary_payment_method'] = null;
+            $row['salary_payment_method_label'] = null;
+            $row['contract'] = null;
         }
 
-        return ($timesheet->approval_status ?? CrewTimesheetApprovalStatus::Draft)->label();
+        return $row;
     }
 
     /**
-     * @return 'applied'|'draft'|'submitted'|'approved'|'returned'|'not_applicable'|'not_entered'
+     * @return 'ready'|'not_entered'|'not_applicable'
      */
-    public static function boardApprovalStatus(
+    public static function boardReadinessStatus(
         ?CrewTimesheet $timesheet,
         ContractSalaryStructure $salaryStructure,
     ): string {
@@ -152,26 +149,29 @@ final class CrewTimesheetResource
             return 'not_entered';
         }
 
-        if ($timesheet->source === CrewTimesheetSource::CrewOperations && $timesheet->isOperationallyLocked()) {
-            return 'applied';
-        }
-
-        return ($timesheet->approval_status ?? CrewTimesheetApprovalStatus::Draft)->value;
+        return 'ready';
     }
 
-    public static function boardApprovalStatusLabel(
-        ?CrewTimesheet $timesheet,
-        ContractSalaryStructure $salaryStructure,
-    ): string {
-        return match (self::boardApprovalStatus($timesheet, $salaryStructure)) {
-            'applied' => 'Applied/Approved',
-            'draft' => 'Draft',
-            'submitted' => 'Submitted',
-            'approved' => 'Approved',
-            'returned' => 'Returned',
+    public static function boardReadinessStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'ready' => 'Ready',
             'not_applicable' => 'Not applicable',
-            'not_entered' => 'Not Entered',
+            default => 'Not Entered',
         };
+    }
+
+    /**
+     * @return 'ready'|'not_entered'
+     */
+    public static function readinessStatus(CrewTimesheet $timesheet): string
+    {
+        return 'ready';
+    }
+
+    public static function readinessStatusLabel(CrewTimesheet $timesheet): string
+    {
+        return 'Ready';
     }
 
     /**

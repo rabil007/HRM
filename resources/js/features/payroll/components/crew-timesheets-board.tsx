@@ -32,7 +32,6 @@ import type {
     PayrollShowFilters,
 } from '../types';
 import { CrewOperationalSourceBadge } from './crew-operational-source-badge';
-import { CrewTimesheetApprovalBadge } from './crew-timesheet-approval-badge';
 import { EmployeeAnalyticsCardsGrid } from './employee-analytics-cards';
 import { OperationalDateRange } from './operational-date-range';
 import { PayrollBoardFilteredEmptyState } from './payroll-board-filtered-empty-state';
@@ -82,6 +81,7 @@ export type CrewTimesheetsBoardProps = {
         initialTimesheet: CrewPayrollRow['timesheet'],
     ) => void;
     canEditTimesheets: boolean;
+    canViewFinancial?: boolean;
     onOpenMovementPeriods: (
         row: CrewPayrollRow,
         categoryGroup: MovementCategoryGroup,
@@ -106,6 +106,7 @@ export function CrewTimesheetsBoard({
     financialAutosaveErrors,
     onRetryFinancialAutosave,
     canEditTimesheets,
+    canViewFinancial = true,
     onOpenMovementPeriods,
 }: CrewTimesheetsBoardProps) {
     const allIds = allBoardEmployeeIds;
@@ -202,7 +203,13 @@ export function CrewTimesheetsBoard({
                         )}
                     </div>
 
-                    <OrganizationDataTable minWidth="min-w-[1540px]">
+                    <OrganizationDataTable
+                        minWidth={
+                            canViewFinancial
+                                ? 'min-w-[1540px]'
+                                : 'min-w-[980px]'
+                        }
+                    >
                         <TableHeader>
                             {/* Group labels row */}
                             <tr className="border-b-0">
@@ -210,16 +217,20 @@ export function CrewTimesheetsBoard({
                                     colSpan={2}
                                     className="h-7 border-b border-border/30"
                                 />
-                                <th
-                                    colSpan={1}
-                                    className="h-7 border-b border-border/30"
-                                />
-                                <th
-                                    colSpan={3}
-                                    className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
-                                >
-                                    Daily Rates
-                                </th>
+                                {canViewFinancial ? (
+                                    <>
+                                        <th
+                                            colSpan={1}
+                                            className="h-7 border-b border-border/30"
+                                        />
+                                        <th
+                                            colSpan={3}
+                                            className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
+                                        >
+                                            Daily Rates
+                                        </th>
+                                    </>
+                                ) : null}
                                 <th
                                     colSpan={2}
                                     className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-blue-600/60 uppercase dark:text-blue-400/60"
@@ -233,7 +244,7 @@ export function CrewTimesheetsBoard({
                                     Overtime
                                 </th>
                                 <th
-                                    colSpan={3}
+                                    colSpan={canViewFinancial ? 3 : 2}
                                     className="h-7 border-b border-border/30"
                                 />
                             </tr>
@@ -248,16 +259,20 @@ export function CrewTimesheetsBoard({
                                     />
                                 </DataTableHead>
                                 <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Bank</DataTableHead>
-                                <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
-                                    Basic
-                                </DataTableHead>
-                                <DataTableHead className="bg-primary/3 text-right">
-                                    Supplementary
-                                </DataTableHead>
-                                <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
-                                    Site
-                                </DataTableHead>
+                                {canViewFinancial ? (
+                                    <>
+                                        <DataTableHead>Bank</DataTableHead>
+                                        <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
+                                            Basic
+                                        </DataTableHead>
+                                        <DataTableHead className="bg-primary/3 text-right">
+                                            Supplementary
+                                        </DataTableHead>
+                                        <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
+                                            Site
+                                        </DataTableHead>
+                                    </>
+                                ) : null}
                                 <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
                                     Standby
                                 </DataTableHead>
@@ -267,8 +282,10 @@ export function CrewTimesheetsBoard({
                                 <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
                                     Overtime
                                 </DataTableHead>
-                                <DataTableHead>Payment</DataTableHead>
-                                <DataTableHead>Timesheet Status</DataTableHead>
+                                {canViewFinancial ? (
+                                    <DataTableHead>Payment</DataTableHead>
+                                ) : null}
+                                <DataTableHead>Save</DataTableHead>
                                 <DataTableHead>Source</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
@@ -277,9 +294,6 @@ export function CrewTimesheetsBoard({
                                 const isExcluded = excludedIds.has(
                                     row.employee.id,
                                 );
-                                const paymentMethod =
-                                    (row.salary_payment_method ??
-                                        'bank_transfer') as SalaryPaymentMethodValue;
                                 const contract = row.contract ?? null;
                                 const isMonthlyCrewRow =
                                     row.salary_structure === 'monthly';
@@ -367,53 +381,59 @@ export function CrewTimesheetsBoard({
                                             isExcluded={isExcluded}
                                         />
 
-                                        {/* Bank account */}
-                                        <PayrollRecordBankAccountCell
-                                            primary_account={
-                                                row.primary_account ?? null
-                                            }
-                                            salary_payment_method={
-                                                paymentMethod
-                                            }
-                                        />
+                                        {canViewFinancial ? (
+                                            <>
+                                                <PayrollRecordBankAccountCell
+                                                    primary_account={
+                                                        row.primary_account ??
+                                                        null
+                                                    }
+                                                    salary_payment_method={
+                                                        (row.salary_payment_method ??
+                                                            'bank_transfer') as SalaryPaymentMethodValue
+                                                    }
+                                                />
 
-                                        {/* Basic salary */}
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'border-l border-primary/8 bg-primary/2 text-right',
-                                            )}
-                                        >
-                                            <SalaryCell
-                                                value={contract?.basic_salary}
-                                            />
-                                        </TableCell>
+                                                <TableCell
+                                                    className={cn(
+                                                        dataTableCellClass(),
+                                                        'border-l border-primary/8 bg-primary/2 text-right',
+                                                    )}
+                                                >
+                                                    <SalaryCell
+                                                        value={
+                                                            contract?.basic_salary
+                                                        }
+                                                    />
+                                                </TableCell>
 
-                                        {/* Supplementary */}
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'bg-primary/2 text-right',
-                                            )}
-                                        >
-                                            <SalaryCell
-                                                value={
-                                                    contract?.supplementary_allowance
-                                                }
-                                            />
-                                        </TableCell>
+                                                <TableCell
+                                                    className={cn(
+                                                        dataTableCellClass(),
+                                                        'bg-primary/2 text-right',
+                                                    )}
+                                                >
+                                                    <SalaryCell
+                                                        value={
+                                                            contract?.supplementary_allowance
+                                                        }
+                                                    />
+                                                </TableCell>
 
-                                        {/* Site allowance */}
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'border-r border-primary/8 bg-primary/2 text-right',
-                                            )}
-                                        >
-                                            <SalaryCell
-                                                value={contract?.site_allowance}
-                                            />
-                                        </TableCell>
+                                                <TableCell
+                                                    className={cn(
+                                                        dataTableCellClass(),
+                                                        'border-r border-primary/8 bg-primary/2 text-right',
+                                                    )}
+                                                >
+                                                    <SalaryCell
+                                                        value={
+                                                            contract?.site_allowance
+                                                        }
+                                                    />
+                                                </TableCell>
+                                            </>
+                                        ) : null}
 
                                         {/* Sign-on / Sign-off standby (daily) or Unpaid leave (monthly) */}
                                         <TableCell
@@ -602,14 +622,18 @@ export function CrewTimesheetsBoard({
                                             )}
                                         </TableCell>
 
-                                        {/* Payment method */}
-                                        <PayrollRecordPaymentMethodCell
-                                            method={paymentMethod}
-                                            label={
-                                                row.salary_payment_method_label ??
-                                                'Bank transfer'
-                                            }
-                                        />
+                                        {canViewFinancial ? (
+                                            <PayrollRecordPaymentMethodCell
+                                                method={
+                                                    (row.salary_payment_method ??
+                                                        'bank_transfer') as SalaryPaymentMethodValue
+                                                }
+                                                label={
+                                                    row.salary_payment_method_label ??
+                                                    'Bank transfer'
+                                                }
+                                            />
+                                        ) : null}
 
                                         <TableCell
                                             className={cn(
@@ -618,12 +642,6 @@ export function CrewTimesheetsBoard({
                                             )}
                                         >
                                             <div className="flex flex-wrap items-center gap-1.5">
-                                                <CrewTimesheetApprovalBadge
-                                                    status={row.approval_status}
-                                                    label={
-                                                        row.approval_status_label
-                                                    }
-                                                />
                                                 {isSaving ? (
                                                     <span className="text-[10px] font-medium text-muted-foreground">
                                                         Saving…
@@ -659,7 +677,11 @@ export function CrewTimesheetsBoard({
                                                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
                                                         Unsaved
                                                     </span>
-                                                ) : null}
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
                                             </div>
                                         </TableCell>
 

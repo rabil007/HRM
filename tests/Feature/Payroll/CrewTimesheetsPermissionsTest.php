@@ -23,16 +23,30 @@ test('crew timesheets module exposes granular permissions only', function () {
         ->all();
 
     expect($modulePermissions)->toBe([
-        'payroll.crew_timesheets.apply_approved',
-        'payroll.crew_timesheets.approve',
         'payroll.crew_timesheets.clear',
         'payroll.crew_timesheets.create',
         'payroll.crew_timesheets.import',
         'payroll.crew_timesheets.prepare',
-        'payroll.crew_timesheets.return',
-        'payroll.crew_timesheets.skip_timeline',
-        'payroll.crew_timesheets.submit',
         'payroll.crew_timesheets.update',
         'payroll.crew_timesheets.view',
     ]);
+});
+
+test('retired crew timesheet approval permissions are not seeded', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    foreach ([
+        'payroll.crew_timesheets.submit',
+        'payroll.crew_timesheets.approve',
+        'payroll.crew_timesheets.return',
+        'payroll.crew_timesheets.apply_approved',
+        'payroll.crew_timesheets.skip_timeline',
+    ] as $name) {
+        expect(
+            Permission::query()
+                ->where('guard_name', 'web')
+                ->where('name', $name)
+                ->exists(),
+        )->toBeFalse();
+    }
 });

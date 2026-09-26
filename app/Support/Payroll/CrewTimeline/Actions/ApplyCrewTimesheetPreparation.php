@@ -44,7 +44,60 @@ final class ApplyCrewTimesheetPreparation
         User $actor,
         int $companyId,
     ): ApplyCrewTimesheetPreparationResult {
-        return DB::transaction(function () use ($period, $preparation, $actor, $companyId): ApplyCrewTimesheetPreparationResult {
+        return $this->apply(
+            $period,
+            $preparation,
+            $actor,
+            $companyId,
+            requireApprovedStatus: true,
+            requireFreshSource: true,
+            requireNoBlockingWarnings: true,
+            stampApprovalOnActor: false,
+        );
+    }
+
+    /**
+     * Populate CrewTimesheets from a fresh draft preparation without the retired
+     * submit/approve workflow. Used by the simplified payroll workspace.
+     */
+    public function handleDirectFromDraft(
+        PayrollPeriod $period,
+        CrewTimesheetPreparation $preparation,
+        User $actor,
+        int $companyId,
+    ): ApplyCrewTimesheetPreparationResult {
+        return $this->apply(
+            $period,
+            $preparation,
+            $actor,
+            $companyId,
+            requireApprovedStatus: false,
+            requireFreshSource: false,
+            requireNoBlockingWarnings: false,
+            stampApprovalOnActor: true,
+        );
+    }
+
+    private function apply(
+        PayrollPeriod $period,
+        CrewTimesheetPreparation $preparation,
+        User $actor,
+        int $companyId,
+        bool $requireApprovedStatus,
+        bool $requireFreshSource,
+        bool $requireNoBlockingWarnings,
+        bool $stampApprovalOnActor,
+    ): ApplyCrewTimesheetPreparationResult {
+        return DB::transaction(function () use (
+            $period,
+            $preparation,
+            $actor,
+            $companyId,
+            $requireApprovedStatus,
+            $requireFreshSource,
+            $requireNoBlockingWarnings,
+            $stampApprovalOnActor,
+        ): ApplyCrewTimesheetPreparationResult {
             $period = PayrollPeriod::query()
                 ->whereKey($period->id)
                 ->where('company_id', $companyId)
@@ -71,20 +124,44 @@ final class ApplyCrewTimesheetPreparation
                 return $this->idempotentResult($preparation, $period, $companyId);
             }
 
-            $this->guard->assertStatus(
-                $preparation,
-                CrewTimesheetPreparationStatus::Approved,
-                'Only approved preparations can be applied to timesheets.',
-            );
+            if ($requireApprovedStatus) {
+                $this->guard->assertStatus(
+                    $preparation,
+                    CrewTimesheetPreparationStatus::Approved,
+                    'Only approved preparations can be applied to timesheets.',
+                );
+            } else {
+                $this->guard->assertStatus(
+                    $preparation,
+                    CrewTimesheetPreparationStatus::Draft,
+                    'Only draft preparations can be applied directly to timesheets.',
+                );
+            }
 
-            $this->freshnessChecker->assertFreshAfterLockingSource(
-                $preparation,
-                $period,
-                $companyId,
-                CrewTimelineFreshnessChecker::APPLY_STALE_MESSAGE,
-            );
-            $this->guard->assertNoBlockingWarnings($preparation);
+            if ($requireFreshSource) {
+                $this->freshnessChecker->assertFreshAfterLockingSource(
+                    $preparation,
+                    $period,
+                    $companyId,
+                    CrewTimelineFreshnessChecker::APPLY_STALE_MESSAGE,
+                );
+            }
+
+            if ($requireNoBlockingWarnings) {
+                $this->guard->assertNoBlockingWarnings($preparation);
+            }
+
             $this->guard->assertNoAppliedPreparation($preparation);
+
+            if ($stampApprovalOnActor) {
+                $preparation->fill([
+                    'approved_by' => $actor->id,
+                    'approved_at' => now(),
+                    'submitted_by' => $actor->id,
+                    'submitted_at' => now(),
+                ]);
+                $preparation->save();
+            }
 
             $lines = CrewTimesheetPreparationLine::query()
                 ->where('company_id', $companyId)

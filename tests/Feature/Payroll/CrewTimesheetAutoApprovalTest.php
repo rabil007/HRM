@@ -33,7 +33,7 @@ test('newly saved manual timesheet is ready for payroll generation', function ()
         ->and($preview->readyEmployeeIds)->toContain($employee->id);
 });
 
-test('legacy unapproved manual and import timesheets remain awaiting approval until normalized', function () {
+test('legacy unapproved manual and import timesheets are ready without approval workflow', function () {
     ['company' => $company] = makePayrollFixtures();
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
@@ -64,8 +64,9 @@ test('legacy unapproved manual and import timesheets remain awaiting approval un
 
     $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id);
 
-    expect($preview->awaitingApprovalCount)->toBe(2)
-        ->and($preview->readyCount)->toBe(0);
+    expect($preview->awaitingApprovalCount)->toBe(0)
+        ->and($preview->readyCount)->toBe(2)
+        ->and($preview->canGenerate)->toBeTrue();
 });
 
 test('legacy normalization approves valid manual and import rows on draft periods only', function () {

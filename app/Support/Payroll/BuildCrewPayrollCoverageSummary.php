@@ -6,6 +6,8 @@ use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 /**
  * Period-level generation readiness for the payroll show page.
@@ -20,7 +22,7 @@ final class BuildCrewPayrollCoverageSummary
     /**
      * @return array<string, mixed>
      */
-    public function handle(PayrollPeriod $period, int $companyId): array
+    public function handle(PayrollPeriod $period, int $companyId, ?User $user = null): array
     {
         if ((int) $period->company_id !== $companyId) {
             abort(404);
@@ -35,22 +37,47 @@ final class BuildCrewPayrollCoverageSummary
             $period->excluded_employee_ids ?? [],
         )));
 
+        $visibleExcludedCount = count($this->visibleExcludedEmployeeIds($excluded, $companyId, $user));
+
         if ($period->requiresExclusiveCrewOperationsTimesheets()) {
-            return $this->exclusiveSummary($period, $companyId, $excluded);
+            return $this->exclusiveSummary($period, $companyId, $excluded, $visibleExcludedCount, $user);
         }
 
-        return $this->hybridReadiness($period, $companyId, $excluded);
+        return $this->hybridReadiness($period, $companyId, $excluded, $visibleExcludedCount, $user);
+    }
+
+    /**
+     * @param  list<int>  $excluded
+     * @return list<int>
+     */
+    private function visibleExcludedEmployeeIds(array $excluded, int $companyId, ?User $user): array
+    {
+        if ($excluded === [] || $user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $excluded;
+        }
+
+        return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $excluded);
     }
 
     /**
      * @param  list<int>  $excluded
      * @return array<string, mixed>
      */
-    private function exclusiveSummary(PayrollPeriod $period, int $companyId, array $excluded): array
-    {
-        $employees = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
-            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded))
-            ->get(['employees.id']);
+    private function exclusiveSummary(
+        PayrollPeriod $period,
+        int $companyId,
+        array $excluded,
+        int $visibleExcludedCount,
+        ?User $user = null,
+    ): array {
+        $employeesQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded));
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
+        }
+
+        $employees = $employeesQuery->get(['employees.id']);
 
         $legacy = $this->legacyGuard->validateReadiness($period, $employees, $companyId);
 
@@ -60,7 +87,7 @@ final class BuildCrewPayrollCoverageSummary
             'ready_count' => $legacy['ready'] ? $employees->count() : 0,
             'missing_timesheet_count' => 0,
             'awaiting_approval_count' => 0,
-            'excluded_count' => count($excluded),
+            'excluded_count' => $visibleExcludedCount,
             'blocking_count' => $legacy['ready'] ? 0 : 1,
             'blocking_issues' => $legacy['ready'] ? [] : [[
                 'employee_id' => $legacy['affected_employee_id'],
@@ -80,8 +107,13 @@ final class BuildCrewPayrollCoverageSummary
      * @param  list<int>  $excluded
      * @return array<string, mixed>
      */
-    private function hybridReadiness(PayrollPeriod $period, int $companyId, array $excluded): array
-    {
+    private function hybridReadiness(
+        PayrollPeriod $period,
+        int $companyId,
+        array $excluded,
+        int $visibleExcludedCount,
+        ?User $user = null,
+    ): array {
         $applied = CrewTimesheetPreparation::query()
             ->where('company_id', $companyId)
             ->where('payroll_period_id', $period->id)
@@ -105,22 +137,25 @@ final class BuildCrewPayrollCoverageSummary
 
         $preparation = $applied->count() === 1 ? $applied->first() : null;
 
-        $includedEmployeeIds = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
-            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded))
+        $includedEmployeeIdsQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+            ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded));
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($includedEmployeeIdsQuery, $user, $companyId);
+        }
+
+        $includedEmployeeIds = $includedEmployeeIdsQuery
             ->pluck('employees.id')
             ->map(intval(...))
             ->all();
 
-        if ($preparation !== null && $this->legacyGuard->preparationHasBlockingWarningsForIncludedEmployees(
-            $preparation,
-            $includedEmployeeIds,
-        )) {
+        if ($preparation !== null && $this->legacyGuard->preparationHasNonBypassableIntegrityProblems($preparation)) {
             $periodBlocking = CrewOperationsPayrollGenerationGuard::BLOCKING_WARNINGS_MESSAGE;
             $blockingCount = 1;
             $blockingIssues = [[
                 'employee_id' => null,
                 'employee_name' => null,
-                'code' => 'applied_preparation_blocking_warnings',
+                'code' => 'preparation_integrity_violation',
                 'message' => $periodBlocking,
             ]];
         }
@@ -133,7 +168,7 @@ final class BuildCrewPayrollCoverageSummary
             'ready_count' => $employeeCount,
             'missing_timesheet_count' => 0,
             'awaiting_approval_count' => 0,
-            'excluded_count' => count($excluded),
+            'excluded_count' => $visibleExcludedCount,
             'blocking_count' => $blockingCount,
             'blocking_issues' => $blockingIssues,
             'applied_preparation_id' => $preparation?->id,

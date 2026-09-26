@@ -2,16 +2,38 @@
 
 namespace App\Http\Requests\Organization\Payroll;
 
-use App\Models\CrewTimesheet;
-use App\Models\PayrollPeriod;
+use App\Http\Requests\Organization\Payroll\Concerns\AssertsOwnedVisibleCrewTimesheetRoute;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateCrewTimesheetFinancialsRequest extends FormRequest
 {
+    use AssertsOwnedVisibleCrewTimesheetRoute;
+
     /**
-     * Non-nullable numeric columns on crew_timesheets.
+     * Operational (non-monetary) timesheet fields.
      *
+     * @var list<string>
+     */
+    public const OPERATIONAL_FIELDS = [
+        'unpaid_leave_days',
+        'overtime_hours',
+        'remarks',
+    ];
+
+    /**
+     * Manually entered monetary adjustment fields.
+     *
+     * @var list<string>
+     */
+    public const MONETARY_FIELDS = [
+        'overtime_amount',
+        'additional_amount',
+        'deduction_amount',
+    ];
+
+    /**
      * @var list<string>
      */
     private const NON_NULLABLE_NUMERIC_FIELDS = [
@@ -29,10 +51,18 @@ class UpdateCrewTimesheetFinancialsRequest extends FormRequest
             return false;
         }
 
-        $this->assertOwnedCrewTimesheetRoute();
+        $this->assertOwnedVisibleCrewTimesheetRoute();
 
-        return $user->can('payroll.crew_timesheets.create')
-            || $user->can('payroll.crew_timesheets.update');
+        if (! ($user->can('payroll.crew_timesheets.create')
+            || $user->can('payroll.crew_timesheets.update'))) {
+            return false;
+        }
+
+        if ($this->requestsMonetaryFields() && ! $user->can('payroll.periods.update')) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function prepareForValidation(): void
@@ -77,6 +107,28 @@ class UpdateCrewTimesheetFinancialsRequest extends FormRequest
         ];
     }
 
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $this->requestsMonetaryFields()) {
+                return;
+            }
+
+            if ($this->user()?->can('payroll.periods.update')) {
+                return;
+            }
+
+            foreach (self::MONETARY_FIELDS as $field) {
+                if ($this->exists($field)) {
+                    $validator->errors()->add(
+                        $field,
+                        'You are not authorized to update payroll monetary fields on crew timesheets.',
+                    );
+                }
+            }
+        });
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -84,43 +136,31 @@ class UpdateCrewTimesheetFinancialsRequest extends FormRequest
     {
         $validated = $this->validated();
         $data = [];
+        $mayEditMoney = (bool) $this->user()?->can('payroll.periods.update');
 
-        foreach ([
-            'unpaid_leave_days',
-            'overtime_hours',
-            'overtime_amount',
-            'additional_amount',
-            'deduction_amount',
-            'remarks',
-        ] as $key) {
-            if (array_key_exists($key, $validated)) {
-                $data[$key] = $validated[$key];
+        foreach ([...self::OPERATIONAL_FIELDS, ...self::MONETARY_FIELDS] as $key) {
+            if (! array_key_exists($key, $validated)) {
+                continue;
             }
+
+            if (in_array($key, self::MONETARY_FIELDS, true) && ! $mayEditMoney) {
+                continue;
+            }
+
+            $data[$key] = $validated[$key];
         }
 
         return $data;
     }
 
-    private function assertOwnedCrewTimesheetRoute(): void
+    private function requestsMonetaryFields(): bool
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
-
-        if ($companyId <= 0) {
-            abort(404);
+        foreach (self::MONETARY_FIELDS as $field) {
+            if ($this->exists($field)) {
+                return true;
+            }
         }
 
-        $period = $this->route('payrollPeriod');
-        $timesheet = $this->route('timesheet');
-
-        if (! $period instanceof PayrollPeriod || ! $timesheet instanceof CrewTimesheet) {
-            abort(404);
-        }
-
-        if ((int) $period->company_id !== $companyId
-            || ! $period->isCrew()
-            || (int) $timesheet->company_id !== $companyId
-            || (int) $timesheet->period_id !== (int) $period->id) {
-            abort(404);
-        }
+        return false;
     }
 }

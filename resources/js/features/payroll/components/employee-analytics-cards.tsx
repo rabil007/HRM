@@ -20,8 +20,29 @@ export function EmployeeAnalyticsCardsGrid({
         ? `Active ${activeCrewSalaryStructure} crew on this pay run`
         : 'Active on this pay run';
 
+    const withBankAccount = employee_stats.with_bank_account;
+    const cashPaymentCount = employee_stats.cash_payment_count;
+    const missingBankAccount = employee_stats.missing_bank_account;
+    const showWithBankAccount = typeof withBankAccount === 'number';
+    const showCashPayment = typeof cashPaymentCount === 'number';
+    const showMissingBankAccount = typeof missingBankAccount === 'number';
+    const cardCount =
+        1 +
+        Number(showWithBankAccount) +
+        Number(showCashPayment) +
+        Number(showMissingBankAccount);
+
+    const gridClass =
+        cardCount === 1
+            ? 'grid gap-4 sm:max-w-sm sm:grid-cols-1'
+            : cardCount === 2
+              ? 'grid gap-4 sm:grid-cols-2'
+              : cardCount === 3
+                ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3'
+                : 'grid gap-4 sm:grid-cols-2 xl:grid-cols-4';
+
     return (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={gridClass}>
             <EmployeeAnalyticsCard
                 title="Total Employees"
                 value={employee_stats.total}
@@ -31,53 +52,49 @@ export function EmployeeAnalyticsCardsGrid({
                 isSelected={activeEmployeeGroup === ''}
                 onClick={() => onEmployeeGroupSelect('')}
             />
-            <EmployeeAnalyticsCard
-                title="Bank Account Set"
-                value={employee_stats.with_bank_account}
-                subtitle={
-                    activeCrewSalaryStructure
-                        ? `Ready for ${activeCrewSalaryStructure} salary transfer`
-                        : 'Ready for salary transfer'
-                }
-                icon={CreditCard}
-                variant="success"
-                isSelected={activeEmployeeGroup === 'with_bank_account'}
-                onClick={() => onEmployeeGroupSelect('with_bank_account')}
-            />
-            <EmployeeAnalyticsCard
-                title="Non-bank payment"
-                value={employee_stats.cash_payment_count}
-                subtitle="C3, Ansari, Cash, or third party"
-                icon={Building2}
-                variant={
-                    employee_stats.cash_payment_count > 0
-                        ? 'warning'
-                        : 'success'
-                }
-                isSelected={activeEmployeeGroup === 'cash_payment'}
-                onClick={() => onEmployeeGroupSelect('cash_payment')}
-            />
-            <EmployeeAnalyticsCard
-                title="Missing Bank Account"
-                value={employee_stats.missing_bank_account}
-                subtitle={
-                    employee_stats.missing_bank_account > 0
-                        ? 'Bank-transfer employees only — action required before WPS'
-                        : 'All bank-transfer employees configured'
-                }
-                icon={
-                    employee_stats.missing_bank_account > 0
-                        ? AlertCircle
-                        : Building2
-                }
-                variant={
-                    employee_stats.missing_bank_account > 0
-                        ? 'warning'
-                        : 'success'
-                }
-                isSelected={activeEmployeeGroup === 'missing_bank_account'}
-                onClick={() => onEmployeeGroupSelect('missing_bank_account')}
-            />
+            {showWithBankAccount ? (
+                <EmployeeAnalyticsCard
+                    title="Bank Account Set"
+                    value={withBankAccount}
+                    subtitle={
+                        activeCrewSalaryStructure
+                            ? `Ready for ${activeCrewSalaryStructure} salary transfer`
+                            : 'Ready for salary transfer'
+                    }
+                    icon={CreditCard}
+                    variant="success"
+                    isSelected={activeEmployeeGroup === 'with_bank_account'}
+                    onClick={() => onEmployeeGroupSelect('with_bank_account')}
+                />
+            ) : null}
+            {showCashPayment ? (
+                <EmployeeAnalyticsCard
+                    title="Non-bank payment"
+                    value={cashPaymentCount}
+                    subtitle="C3, Ansari, Cash, or third party"
+                    icon={Building2}
+                    variant={cashPaymentCount > 0 ? 'warning' : 'success'}
+                    isSelected={activeEmployeeGroup === 'cash_payment'}
+                    onClick={() => onEmployeeGroupSelect('cash_payment')}
+                />
+            ) : null}
+            {showMissingBankAccount ? (
+                <EmployeeAnalyticsCard
+                    title="Missing Bank Account"
+                    value={missingBankAccount}
+                    subtitle={
+                        missingBankAccount > 0
+                            ? 'Bank-transfer employees only — action required before WPS'
+                            : 'All bank-transfer employees configured'
+                    }
+                    icon={missingBankAccount > 0 ? AlertCircle : Building2}
+                    variant={missingBankAccount > 0 ? 'warning' : 'success'}
+                    isSelected={activeEmployeeGroup === 'missing_bank_account'}
+                    onClick={() =>
+                        onEmployeeGroupSelect('missing_bank_account')
+                    }
+                />
+            ) : null}
         </div>
     );
 }

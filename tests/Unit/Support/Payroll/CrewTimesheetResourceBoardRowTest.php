@@ -4,7 +4,6 @@ use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
-use App\Models\CrewTimesheetPreparation;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Support\Payroll\CrewTimesheetResource;
@@ -28,7 +27,7 @@ function crewPayrollBoardRow(
     );
 }
 
-test('crew payroll board row without timesheet exposes not entered status and source', function () {
+test('crew payroll board row without timesheet exposes not entered readiness and source', function () {
     ['company' => $company] = makePayrollFixtures();
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
@@ -37,24 +36,21 @@ test('crew payroll board row without timesheet exposes not entered status and so
 
     $row = crewPayrollBoardRow($employee, null, $period);
 
-    expect($row['approval_status'])->toBe('not_entered')
+    expect($row['readiness_status'])->toBe('not_entered')
+        ->and($row['readiness_status_label'])->toBe('Not Entered')
+        ->and($row['approval_status'])->toBe('not_entered')
         ->and($row['approval_status_label'])->toBe('Not Entered')
         ->and($row['operational_source'])->toBe('not_entered')
         ->and($row['operational_source_label'])->toBe('Not Entered')
         ->and($row['is_filled'])->toBeFalse();
 });
 
-test('crew payroll board row for applied crew operations timesheet exposes applied status and source', function () {
+test('crew payroll board row for crew operations timesheet exposes ready status and assignments source', function () {
     ['company' => $company] = makePayrollFixtures();
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
     ]);
     $employee = createCrewEmployeeWithContract($company, 'CO-APP-1', 50, 50, 50);
-
-    $preparation = CrewTimesheetPreparation::factory()
-        ->forPeriod($period)
-        ->applied()
-        ->create();
 
     $timesheet = CrewTimesheet::factory()->create([
         'company_id' => $company->id,
@@ -62,18 +58,18 @@ test('crew payroll board row for applied crew operations timesheet exposes appli
         'period_id' => $period->id,
         'source' => CrewTimesheetSource::CrewOperations,
         'approval_status' => CrewTimesheetApprovalStatus::Approved,
-        'crew_timesheet_preparation_id' => $preparation->id,
     ]);
 
     $row = crewPayrollBoardRow($employee, $timesheet->fresh(), $period);
 
-    expect($row['approval_status'])->toBe('applied')
-        ->and($row['approval_status_label'])->toBe('Applied/Approved')
+    expect($row['readiness_status'])->toBe('ready')
+        ->and($row['readiness_status_label'])->toBe('Ready')
+        ->and($row['approval_status'])->toBe('ready')
         ->and($row['operational_source'])->toBe('crew_operations')
         ->and($row['operational_source_label'])->toBe('Crew Assignments');
 });
 
-test('crew payroll board row for approved import timesheet exposes approved status and excel import source', function () {
+test('crew payroll board row for import timesheet exposes ready status and excel import source', function () {
     ['company' => $company] = makePayrollFixtures();
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
@@ -90,13 +86,13 @@ test('crew payroll board row for approved import timesheet exposes approved stat
 
     $row = crewPayrollBoardRow($employee, $timesheet, $period);
 
-    expect($row['approval_status'])->toBe('approved')
-        ->and($row['approval_status_label'])->toBe('Approved')
+    expect($row['readiness_status'])->toBe('ready')
+        ->and($row['approval_status'])->toBe('ready')
         ->and($row['operational_source'])->toBe('import')
         ->and($row['operational_source_label'])->toBe('Excel Import');
 });
 
-test('crew payroll board row for manual draft timesheet exposes draft status and manual source', function () {
+test('crew payroll board row for manual timesheet exposes ready status and manual source', function () {
     ['company' => $company] = makePayrollFixtures();
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
@@ -112,53 +108,10 @@ test('crew payroll board row for manual draft timesheet exposes draft status and
 
     $row = crewPayrollBoardRow($employee, $timesheet, $period);
 
-    expect($row['approval_status'])->toBe('draft')
-        ->and($row['approval_status_label'])->toBe('Draft')
+    expect($row['readiness_status'])->toBe('ready')
+        ->and($row['approval_status'])->toBe('ready')
         ->and($row['operational_source'])->toBe('manual')
         ->and($row['operational_source_label'])->toBe('Manual');
-});
-
-test('crew payroll board row for submitted manual timesheet exposes submitted status', function () {
-    ['company' => $company] = makePayrollFixtures();
-    $period = PayrollPeriod::factory()->for($company)->create([
-        'payroll_category' => PayrollCategory::Crew,
-    ]);
-    $employee = createCrewEmployeeWithContract($company, 'MAN-SUB-1', 50, 50, 50);
-
-    $timesheet = CrewTimesheet::factory()->submitted()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'period_id' => $period->id,
-        'source' => CrewTimesheetSource::Manual,
-    ]);
-
-    $row = crewPayrollBoardRow($employee, $timesheet, $period);
-
-    expect($row['approval_status'])->toBe('submitted')
-        ->and($row['approval_status_label'])->toBe('Submitted')
-        ->and($row['operational_source'])->toBe('manual');
-});
-
-test('crew payroll board row for returned import timesheet exposes returned status', function () {
-    ['company' => $company] = makePayrollFixtures();
-    $period = PayrollPeriod::factory()->for($company)->create([
-        'payroll_category' => PayrollCategory::Crew,
-    ]);
-    $employee = createCrewEmployeeWithContract($company, 'IMP-RET-1', 50, 50, 50);
-
-    $timesheet = CrewTimesheet::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'period_id' => $period->id,
-        'source' => CrewTimesheetSource::Import,
-        'approval_status' => CrewTimesheetApprovalStatus::Returned,
-    ]);
-
-    $row = crewPayrollBoardRow($employee, $timesheet, $period);
-
-    expect($row['approval_status'])->toBe('returned')
-        ->and($row['approval_status_label'])->toBe('Returned')
-        ->and($row['operational_source'])->toBe('import');
 });
 
 test('crew payroll board row for monthly crew employee without timesheet exposes monthly source', function () {
@@ -178,8 +131,9 @@ test('crew payroll board row for monthly crew employee without timesheet exposes
     $row = crewPayrollBoardRow($employee, null, $period);
 
     expect($row['salary_structure'])->toBe('monthly')
+        ->and($row['readiness_status'])->toBe('not_applicable')
+        ->and($row['readiness_status_label'])->toBe('Not applicable')
         ->and($row['approval_status'])->toBe('not_applicable')
-        ->and($row['approval_status_label'])->toBe('Not applicable')
         ->and($row['operational_source'])->toBe('monthly_crew')
         ->and($row['operational_source_label'])->toBe('Monthly Crew');
 });

@@ -10,17 +10,16 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
-use App\Support\Payroll\CrewTimeline\PayableCrewPreparationLines;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 final class CrewOperationsPayrollGenerationGuard
 {
-    public const MISSING_APPLIED_MESSAGE = 'Apply the approved Crew Timesheet before generating payroll.';
+    public const MISSING_APPLIED_MESSAGE = 'Populate Crew Timesheets from Crew Assignments, or enter Manual / Excel timesheet data, before generating payroll.';
 
     public const MULTIPLE_APPLIED_MESSAGE = 'Multiple Applied Crew Timesheets were found for this pay period.';
 
-    public const BLOCKING_WARNINGS_MESSAGE = 'The Applied Crew Timesheet still has blocking warnings and cannot be used for payroll generation.';
+    public const BLOCKING_WARNINGS_MESSAGE = 'Crew Timesheet data still has blocking warnings and cannot be used for payroll generation.';
 
     public function __construct(
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
@@ -151,83 +150,9 @@ final class CrewOperationsPayrollGenerationGuard
         Collection $employees,
         int $companyId,
     ): array {
-        $applied = $this->appliedPreparations($period, $companyId);
-
-        if ($applied->count() === 0) {
-            return $this->result(false, self::MISSING_APPLIED_MESSAGE);
-        }
-
-        if ($applied->count() > 1) {
-            return $this->result(false, self::MULTIPLE_APPLIED_MESSAGE);
-        }
-
-        /** @var CrewTimesheetPreparation $preparation */
-        $preparation = $applied->first();
-
-        if ($this->preparationHasBlockingWarnings($preparation)) {
-            return $this->result(false, self::BLOCKING_WARNINGS_MESSAGE, $preparation);
-        }
-
-        $payableEmployeeIds = PayableCrewPreparationLines::payableEmployeeIds($companyId, (int) $preparation->id);
-        $activeSkippedIds = $this->skipResolver->activeSkippedEmployeeIds($preparation);
-        $effectivePayableEmployeeIds = array_values(
-            array_diff($payableEmployeeIds, $activeSkippedIds)
-        );
-
-        $employeeIds = $employees->pluck('id')->map(intval(...))->all();
-        $contracts = $this->resolveContract->resolveMany(
-            $period,
-            $employeeIds,
-        );
-
-        $timesheets = CrewTimesheet::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $period->id)
-            ->whereIn('employee_id', $employeeIds !== [] ? $employeeIds : [0])
-            ->with('preparation')
-            ->get()
-            ->keyBy(fn (CrewTimesheet $timesheet) => (int) $timesheet->employee_id);
-
-        foreach ($employees as $employee) {
-            /** @var Employee $employee */
-            $contract = $contracts->get((int) $employee->id);
-            $structure = $contract?->resolvedSalaryStructure() ?? ContractSalaryStructure::Daily;
-
-            if ($structure === ContractSalaryStructure::Monthly) {
-                continue;
-            }
-
-            if ($contract !== null && $contract->payroll_category !== PayrollCategory::Crew) {
-                continue;
-            }
-
-            if (in_array((int) $employee->id, $activeSkippedIds, true)) {
-                return $this->result(
-                    false,
-                    "Daily crew employee {$employee->name} timeline data was skipped and is not covered by Crew Assignments.",
-                    $preparation,
-                    (int) $employee->id,
-                );
-            }
-
-            if (! in_array((int) $employee->id, $effectivePayableEmployeeIds, true)) {
-                continue;
-            }
-
-            $blockingReason = $this->dailyTimesheetLinkReason(
-                $employee,
-                $period,
-                $preparation,
-                $companyId,
-                $timesheets->get((int) $employee->id),
-            );
-
-            if ($blockingReason !== null) {
-                return $this->result(false, $blockingReason, $preparation, (int) $employee->id);
-            }
-        }
-
-        return $this->result(true, null, $preparation);
+        // Exclusive mode no longer depends on the retired apply/approval workflow.
+        // Ready daily crew simply need a usable timesheet on the draft period.
+        return $this->validateHybridReadiness($period, $employees, $companyId);
     }
 
     /**
@@ -255,7 +180,7 @@ final class CrewOperationsPayrollGenerationGuard
         /** @var CrewTimesheetPreparation|null $preparation */
         $preparation = $applied->first();
 
-        if ($preparation !== null && $this->preparationHasBlockingWarnings($preparation)) {
+        if ($preparation !== null && $this->preparationHasNonBypassableIntegrityProblems($preparation)) {
             return $this->result(false, self::BLOCKING_WARNINGS_MESSAGE, $preparation);
         }
 
@@ -291,7 +216,7 @@ final class CrewOperationsPayrollGenerationGuard
             if ($timesheet === null) {
                 return $this->result(
                     false,
-                    "Daily crew employee {$employee->name} is missing a timesheet. Enter Manual or Excel data, or apply Crew Assignment movement data.",
+                    "Daily crew employee {$employee->name} is missing a timesheet. Enter Manual or Excel data, or populate from Crew Assignments.",
                     $preparation,
                     $employeeId,
                 );
@@ -299,26 +224,11 @@ final class CrewOperationsPayrollGenerationGuard
 
             $source = $timesheet->resolvedSource();
 
-            if ($source === CrewTimesheetSource::CrewOperations) {
-                if ($preparation === null) {
-                    return $this->result(
-                        false,
-                        "Daily crew employee {$employee->name} has Crew Assignment timesheet data but no Applied timesheet was found.",
-                        null,
-                        $employeeId,
-                    );
-                }
-
-                $blockingReason = $this->dailyTimesheetLinkReason($employee, $period, $preparation, $companyId);
-
-                if ($blockingReason !== null) {
-                    return $this->result(false, $blockingReason, $preparation, $employeeId);
-                }
-
-                continue;
-            }
-
-            if (! in_array($source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+            if (! in_array($source, [
+                CrewTimesheetSource::Manual,
+                CrewTimesheetSource::Import,
+                CrewTimesheetSource::CrewOperations,
+            ], true)) {
                 return $this->result(
                     false,
                     "Daily crew employee {$employee->name} timesheet source must be Manual, Import, or Crew Assignments.",
@@ -347,6 +257,17 @@ final class CrewOperationsPayrollGenerationGuard
             $preparation,
             $includedEmployeeIds,
         );
+    }
+
+    /**
+     * Non-bypassable integrity problems (e.g. cross-company reference) still block
+     * generation. Correctable operational prep warnings do not — current timesheet
+     * data is the generation authority after Populate.
+     */
+    public function preparationHasNonBypassableIntegrityProblems(
+        CrewTimesheetPreparation $preparation,
+    ): bool {
+        return $this->skipResolver->hasNonBypassableIntegrityProblems($preparation);
     }
 
     public function dailyTimesheetLinkReason(

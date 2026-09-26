@@ -12,8 +12,10 @@ namespace App\Support\Payroll;
  *     from_date?: string|null,
  *     to_date?: string|null,
  *     pay_category?: string|null,
+ *     action?: string|null,
  *     contract_id?: int|null,
- *     salary_revision_id?: int|null
+ *     salary_revision_id?: int|null,
+ *     competing_payroll_period_id?: int|null
  * }
  */
 final class CrewPayrollGenerationPreview
@@ -25,6 +27,8 @@ final class CrewPayrollGenerationPreview
      * @param  list<int>  $excludedEmployeeIds
      * @param  list<PreviewIssue>  $blockingIssues
      * @param  list<PreviewIssue>  $warningIssues
+     * @param  list<PreviewIssue>  $skippedIssues
+     * @param  list<PreviewIssue>  $automaticAdjustments
      */
     public function __construct(
         public readonly bool $ready,
@@ -44,6 +48,10 @@ final class CrewPayrollGenerationPreview
         public readonly ?string $periodBlockingReason = null,
         public readonly array $warningIssues = [],
         public readonly int $warningCount = 0,
+        public readonly array $skippedIssues = [],
+        public readonly int $skippedCount = 0,
+        public readonly array $automaticAdjustments = [],
+        public readonly int $automaticAdjustmentCount = 0,
     ) {}
 
     /**
@@ -58,10 +66,14 @@ final class CrewPayrollGenerationPreview
             'missing_timesheet_count' => $this->missingTimesheetCount,
             'awaiting_approval_count' => $this->awaitingApprovalCount,
             'excluded_count' => $this->excludedCount,
-            'blocking_issues' => array_slice($this->groupedIssues($this->blockingIssues), 0, 25),
+            'blocking_issues' => $this->groupedIssues($this->blockingIssues),
             'blocking_count' => $this->blockingCount,
-            'warning_issues' => array_slice($this->groupedIssues($this->warningIssues), 0, 25),
+            'warning_issues' => $this->groupedIssues($this->warningIssues),
             'warning_count' => $this->warningCount,
+            'skipped_issues' => $this->groupedIssues($this->skippedIssues),
+            'skipped_count' => $this->skippedCount,
+            'automatic_adjustments' => $this->groupedIssues($this->automaticAdjustments),
+            'automatic_adjustment_count' => $this->automaticAdjustmentCount,
             'applied_preparation_id' => $this->appliedPreparationId,
             'applied_preparation_version' => $this->appliedPreparationVersion,
             'period_blocking_reason' => $this->periodBlockingReason,
@@ -138,6 +150,8 @@ final class CrewPayrollGenerationPreview
                     : sprintf('%s – %s (%d days)', $dates[0], $dates[count($dates) - 1], count($dates));
 
                 $issue['message'] = str_replace('{date}', $rangeText, $group['template']);
+                $issue['from_date'] = $dates[0];
+                $issue['to_date'] = $dates[count($dates) - 1];
             }
 
             return $issue;

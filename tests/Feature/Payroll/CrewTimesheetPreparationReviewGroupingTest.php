@@ -10,7 +10,25 @@ use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewResource;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+
+/**
+ * @return array<string, mixed>
+ */
+function crewTimelineReviewPayload(array $fixtures, CrewTimesheetPreparation $preparation): array
+{
+    $loaded = app(CrewTimesheetPreparationReviewQuery::class)->findForReview(
+        $fixtures['period'],
+        (int) $preparation->id,
+        (int) $fixtures['company']->id,
+    );
+
+    return app(CrewTimesheetPreparationReviewResource::class)->toArray(
+        $fixtures['period'],
+        $loaded,
+    );
+}
 
 function grantReviewGroupingPermissions(array $fixtures): void
 {
@@ -140,23 +158,21 @@ test('review payload groups one employee with one assignment and phase', functio
     grantReviewGroupingPermissions($fixtures);
     ['preparation' => $preparation, 'phase' => $phase] = makeSingleAssignmentPreparation($fixtures);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employees.0.assignment_count', 1)
-            ->where('employees.0.assignment_number', $fixtures['assignment']->assignment_no)
-            ->where('employees.0.vessel', $fixtures['vessel']->name)
-            ->where('employees.0.assignments.0.id', $fixtures['assignment']->id)
-            ->where('employees.0.assignments.0.source', 'manual')
-            ->where('employees.0.assignments.0.source_label', 'Manual Assignment')
-            ->where('employees.0.assignments.0.phases.0.id', $phase->id)
-            ->where('employees.0.assignments.0.phases.0.phase_code', 'p4')
-            ->where('employees.0.assignments.0.phases.0.phase_code_display', 'P4')
-            ->where('employees.0.assignments.0.phases.0.payable_days', '7.00')
-            ->where('employees.0.total_payable_days', 7)
-            ->has('employees.0.lines', 1));
+    $payload = crewTimelineReviewPayload($fixtures, $preparation);
+    $employee = $payload['employees'][0];
+
+    expect($employee['assignment_count'])->toBe(1)
+        ->and($employee['assignment_number'])->toBe($fixtures['assignment']->assignment_no)
+        ->and($employee['vessel'])->toBe($fixtures['vessel']->name)
+        ->and($employee['assignments'][0]['id'])->toBe($fixtures['assignment']->id)
+        ->and($employee['assignments'][0]['source'])->toBe('manual')
+        ->and($employee['assignments'][0]['source_label'])->toBe('Manual Assignment')
+        ->and($employee['assignments'][0]['phases'][0]['id'])->toBe($phase->id)
+        ->and($employee['assignments'][0]['phases'][0]['phase_code'])->toBe('p4')
+        ->and($employee['assignments'][0]['phases'][0]['phase_code_display'])->toBe('P4')
+        ->and($employee['assignments'][0]['phases'][0]['payable_days'])->toBe('7.00')
+        ->and($employee['total_payable_days'])->toBe(7.0)
+        ->and($employee['lines'])->toHaveCount(1);
 });
 
 test('review payload groups vessel transfer linked assignments separately', function () {
@@ -164,23 +180,21 @@ test('review payload groups vessel transfer linked assignments separately', func
     grantReviewGroupingPermissions($fixtures);
     $linked = makeLinkedAssignmentPreparation($fixtures, 'vessel_transfer');
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $linked['preparation']]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employees.0.assignment_count', 2)
-            ->where('employees.0.assignment_number', null)
-            ->where('employees.0.vessel', null)
-            ->where('employees.0.assignments.0.id', $linked['source']->id)
-            ->where('employees.0.assignments.0.vessel', $fixtures['vessel']->name)
-            ->where('employees.0.assignments.0.source_label', 'Manual Assignment')
-            ->where('employees.0.assignments.1.id', $linked['destination']->id)
-            ->where('employees.0.assignments.1.source', 'vessel_transfer')
-            ->where('employees.0.assignments.1.source_label', 'Vessel Transfer')
-            ->where('employees.0.assignments.1.previous_assignment_id', $linked['source']->id)
-            ->where('employees.0.assignments.1.previous_assignment_number', $linked['source']->assignment_no)
-            ->where('employees.0.total_payable_days', 21));
+    $payload = crewTimelineReviewPayload($fixtures, $linked['preparation']);
+    $employee = $payload['employees'][0];
+
+    expect($employee['assignment_count'])->toBe(2)
+        ->and($employee['assignment_number'])->toBeNull()
+        ->and($employee['vessel'])->toBeNull()
+        ->and($employee['assignments'][0]['id'])->toBe($linked['source']->id)
+        ->and($employee['assignments'][0]['vessel'])->toBe($fixtures['vessel']->name)
+        ->and($employee['assignments'][0]['source_label'])->toBe('Manual Assignment')
+        ->and($employee['assignments'][1]['id'])->toBe($linked['destination']->id)
+        ->and($employee['assignments'][1]['source'])->toBe('vessel_transfer')
+        ->and($employee['assignments'][1]['source_label'])->toBe('Vessel Transfer')
+        ->and($employee['assignments'][1]['previous_assignment_id'])->toBe($linked['source']->id)
+        ->and($employee['assignments'][1]['previous_assignment_number'])->toBe($linked['source']->assignment_no)
+        ->and($employee['total_payable_days'])->toBe(21.0);
 });
 
 test('review payload groups redeployment linked assignments separately', function () {
@@ -188,15 +202,13 @@ test('review payload groups redeployment linked assignments separately', functio
     grantReviewGroupingPermissions($fixtures);
     $linked = makeLinkedAssignmentPreparation($fixtures, 'redeployment');
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $linked['preparation']]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employees.0.assignment_count', 2)
-            ->where('employees.0.assignments.1.source', 'redeployment')
-            ->where('employees.0.assignments.1.source_label', 'Redeployment')
-            ->where('employees.0.assignments.1.previous_assignment_id', $linked['source']->id));
+    $payload = crewTimelineReviewPayload($fixtures, $linked['preparation']);
+    $employee = $payload['employees'][0];
+
+    expect($employee['assignment_count'])->toBe(2)
+        ->and($employee['assignments'][1]['source'])->toBe('redeployment')
+        ->and($employee['assignments'][1]['source_label'])->toBe('Redeployment')
+        ->and($employee['assignments'][1]['previous_assignment_id'])->toBe($linked['source']->id);
 });
 
 test('warning-only lines merge into the related phase card without duplicating occurrences', function () {
@@ -218,22 +230,21 @@ test('warning-only lines merge into the related phase card without duplicating o
             'source_actual_end_at' => null,
         ]);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->has('employees.0.assignments.0.phases', 1)
-            ->where('employees.0.assignments.0.phases.0.id', $phase->id)
-            ->where('employees.0.assignments.0.phases.0.actual_start', '2026-07-04')
-            ->where('employees.0.assignments.0.phases.0.actual_end', '2026-07-10')
-            ->where('employees.0.assignments.0.phases.0.is_operational', true)
-            ->where('employees.0.assignments.0.phases.0.payable_days', '7.00')
-            ->has('employees.0.assignments.0.phases.0.warnings', 1)
-            ->where('employees.0.assignments.0.phases.0.warnings.0.code', 'future_actual_date')
-            ->where('employees.0.informational_warning_count', 1)
-            ->where('employees.0.total_payable_days', 7)
-            ->has('employees.0.lines', 2));
+    $payload = crewTimelineReviewPayload($fixtures, $preparation);
+    $employee = $payload['employees'][0];
+    $phaseCard = $employee['assignments'][0]['phases'][0];
+
+    expect($employee['assignments'][0]['phases'])->toHaveCount(1)
+        ->and($phaseCard['id'])->toBe($phase->id)
+        ->and($phaseCard['actual_start'])->toBe('2026-07-04')
+        ->and($phaseCard['actual_end'])->toBe('2026-07-10')
+        ->and($phaseCard['is_operational'])->toBeTrue()
+        ->and($phaseCard['payable_days'])->toBe('7.00')
+        ->and($phaseCard['warnings'])->toHaveCount(1)
+        ->and($phaseCard['warnings'][0]['code'])->toBe('future_actual_date')
+        ->and($employee['informational_warning_count'])->toBe(1)
+        ->and($employee['total_payable_days'])->toBe(7.0)
+        ->and($employee['lines'])->toHaveCount(2);
 });
 
 test('two real on vessel phase occurrences remain separate cards', function () {
@@ -279,17 +290,15 @@ test('two real on vessel phase occurrences remain separate cards', function () {
             'days' => 6,
         ]);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->has('employees.0.assignments.0.phases', 2)
-            ->where('employees.0.assignments.0.phases.0.id', $first->id)
-            ->where('employees.0.assignments.0.phases.0.occurrence', 1)
-            ->where('employees.0.assignments.0.phases.1.id', $second->id)
-            ->where('employees.0.assignments.0.phases.1.occurrence', 2)
-            ->where('employees.0.total_payable_days', 11));
+    $payload = crewTimelineReviewPayload($fixtures, $preparation);
+    $employee = $payload['employees'][0];
+
+    expect($employee['assignments'][0]['phases'])->toHaveCount(2)
+        ->and($employee['assignments'][0]['phases'][0]['id'])->toBe($first->id)
+        ->and($employee['assignments'][0]['phases'][0]['occurrence'])->toBe(1)
+        ->and($employee['assignments'][0]['phases'][1]['id'])->toBe($second->id)
+        ->and($employee['assignments'][0]['phases'][1]['occurrence'])->toBe(2)
+        ->and($employee['total_payable_days'])->toBe(11.0);
 });
 
 test('blocking and informational warning counts remain correct with merged phases', function () {
@@ -315,15 +324,12 @@ test('blocking and informational warning counts remain correct with merged phase
             'warning_code' => CrewTimelineWarningCode::MissingActualStart->value,
         ]);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('employees.0.blocking_warning_count', 1)
-            ->where('employees.0.informational_warning_count', 1)
-            ->where('summary.blocking_warning_count', 1)
-            ->where('summary.informational_warning_count', 1));
+    $payload = crewTimelineReviewPayload($fixtures, $preparation);
+
+    expect($payload['employees'][0]['blocking_warning_count'])->toBe(1)
+        ->and($payload['employees'][0]['informational_warning_count'])->toBe(1)
+        ->and($payload['summary']['blocking_warning_count'])->toBe(1)
+        ->and($payload['summary']['informational_warning_count'])->toBe(1);
 });
 
 test('cross company preparation review remains isolated', function () {
@@ -334,10 +340,11 @@ test('cross company preparation review remains isolated', function () {
     $other = makeDailyCrewTimelineFixtures();
     grantReviewGroupingPermissions($other);
 
-    $this->actingAs($fixtures['user'])
-        ->withSession(['current_company_id' => $other['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$other['period'], $preparation]))
-        ->assertNotFound();
+    expect(fn () => app(CrewTimesheetPreparationReviewQuery::class)->findForReview(
+        $other['period'],
+        (int) $preparation->id,
+        (int) $other['company']->id,
+    ))->toThrow(ModelNotFoundException::class);
 });
 
 test('review query does not n plus one when loading assignment phase hierarchy', function () {

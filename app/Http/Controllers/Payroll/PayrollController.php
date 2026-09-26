@@ -58,6 +58,7 @@ use App\Support\Payroll\PayrollPeriodDepartmentTree;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodRecordsSummary;
 use App\Support\Payroll\PayrollPeriodResource;
+use App\Support\Payroll\PayrollPeriodVisibleCrewStats;
 use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
@@ -108,14 +109,20 @@ class PayrollController extends Controller
         }
 
         $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
+        $includeFinancial = (bool) ($user?->can('payroll.periods.view'));
         $perPage = $this->resolvePerPage($request);
-        $employeeCountsByCategory = $this->employeeCountsByCategory($companyId, $request->user());
+        $employeeCountsByCategory = $this->employeeCountsByCategory($companyId, $user);
         $search = trim((string) $request->query('search', ''));
         $category = trim((string) $request->query('category', ''));
         $status = trim((string) $request->query('status', ''));
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
         $showAll = $request->boolean('all');
+
+        if (! $includeFinancial) {
+            $category = PayrollCategory::Crew->value;
+        }
 
         $monthsInput = $request->input('months');
         $months = [];
@@ -148,39 +155,19 @@ class PayrollController extends Controller
 
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
-            ->withCount([
-                'crewTimesheets',
-                'payrollRecords',
-                'payrollRecords as daily_payroll_records_count' => function ($recordsQuery): void {
-                    $recordsQuery->crewDaily();
-                },
-                'crewTimesheets as daily_crew_timesheets_count' => function ($timesheetQuery): void {
-                    $timesheetQuery->whereHas('employee.currentContract', function ($contractQuery): void {
-                        $contractQuery->where('payroll_category', PayrollCategory::Crew->value);
-                        ContractSalaryStructureFilter::apply(
-                            $contractQuery,
-                            ContractSalaryStructureFilter::DAILY,
-                        );
-                    });
-                },
-                'payrollRecords as daily_payroll_records_with_timesheet_count' => function ($recordsQuery): void {
-                    $recordsQuery
-                        ->crewDaily()
-                        ->whereHas('employee.crewTimesheets', function ($timesheetQuery): void {
-                            $timesheetQuery->whereColumn(
-                                'crew_timesheets.period_id',
-                                'payroll_records.period_id',
-                            );
-                        });
-                },
-            ])
+            ->when(
+                $includeFinancial,
+                fn (Builder $periodQuery) => $periodQuery->withCount('payrollRecords'),
+            )
             ->latest('start_date');
 
         if ($search !== '') {
             $query->where('name', 'like', '%'.$search.'%');
         }
 
-        if (in_array($category, [PayrollCategory::Crew->value, PayrollCategory::Office->value], true)) {
+        if (! $includeFinancial) {
+            $query->where('payroll_category', PayrollCategory::Crew);
+        } elseif (in_array($category, [PayrollCategory::Crew->value, PayrollCategory::Office->value], true)) {
             $query->where('payroll_category', $category);
         }
 
@@ -213,9 +200,18 @@ class PayrollController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        $periodIds = collect($paginator->items())->pluck('id')->map(intval(...))->all();
+        $visibleCrewStatsByPeriod = PayrollPeriodVisibleCrewStats::forPeriods($periodIds, $companyId, $user);
+
         return Inertia::render('payroll/index', [
             'periods' => collect($paginator->items())
-                ->map(fn (PayrollPeriod $period) => PayrollPeriodListResource::toArray($period, $employeeCountsByCategory))
+                ->map(fn (PayrollPeriod $period) => PayrollPeriodListResource::toArray(
+                    $period,
+                    $employeeCountsByCategory,
+                    $includeFinancial,
+                    $user,
+                    $visibleCrewStatsByPeriod[(int) $period->id] ?? null,
+                ))
                 ->values()
                 ->all(),
             'pagination' => $this->paginationMeta($paginator),
@@ -228,14 +224,15 @@ class PayrollController extends Controller
                 'months' => $months,
                 'all' => $showAll ? '1' : '',
             ],
-            'summary' => PayrollHubSummary::forCompany($companyId, $dateFrom, $dateTo, $months, $request->user()),
-            'payroll_categories' => $this->payrollCategoryOptions(),
+            'summary' => PayrollHubSummary::forCompany($companyId, $dateFrom, $dateTo, $months, $user),
+            'payroll_categories' => $this->payrollCategoryOptions($includeFinancial),
             'payroll_period_statuses' => $this->payrollPeriodStatusOptions(),
             'permissions' => [
-                'create_period' => $request->user()?->can('payroll.periods.create') ?? false,
-                'view_crew_timesheets' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,
+                'create_period' => $user?->can('payroll.periods.create') ?? false,
+                'view_crew_timesheets' => $user?->can('payroll.crew_timesheets.view') ?? false,
+                'view_financial' => $includeFinancial,
             ],
-            'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Payroll),
+            'saved_views' => SavedViewsForPage::props($user, $companyId, SavedViewPage::Payroll),
         ]);
     }
 
@@ -250,7 +247,7 @@ class PayrollController extends Controller
         ClearableManualImportCrewTimesheetsQuery $clearableManualImportCrewTimesheetsQuery,
         RecordRecentItem $recordRecentItem,
     ): InertiaResponse|RedirectResponse {
-        $this->authorizePayrollShow($request);
+        $this->authorizePayrollShow($request, $payrollPeriod);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
@@ -265,7 +262,8 @@ class PayrollController extends Controller
 
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
-        $boardFilters = PayrollPeriodBoardFilters::fromRequest($request);
+        $includeFinancial = (bool) ($user?->can('payroll.periods.view'));
+        $boardFilters = PayrollPeriodBoardFilters::fromRequest($request, $includeFinancial);
         $crewSalaryStructure = $payrollPeriod->isCrew()
             ? $boardFilters->crewSalaryStructure
             : 'daily';
@@ -301,6 +299,7 @@ class PayrollController extends Controller
             perPage: $perPage,
             filters: $boardFilters,
             user: $user,
+            includeFinancial: $includeFinancial,
         );
 
         $allBoardEmployeeIds = $boardQuery->allEmployeeIds(
@@ -311,48 +310,65 @@ class PayrollController extends Controller
             user: $user,
         );
 
-        $payrollRecordsProps = $this->paginatedPayrollRecordsProps(
-            $companyId,
-            $payrollPeriod,
-            $search,
-            $boardFilters,
-            $perPage,
-            $user,
-        );
+        $payrollRecordsProps = $includeFinancial
+            ? $this->paginatedPayrollRecordsProps(
+                $companyId,
+                $payrollPeriod,
+                $search,
+                $boardFilters,
+                $perPage,
+                $user,
+            )
+            : [
+                'payroll_records' => [],
+                'payroll_records_pagination' => null,
+                'payroll_records_monthly' => [],
+                'payroll_records_monthly_pagination' => null,
+            ];
 
         $payrollRecords = $payrollRecordsProps['payroll_records'];
         $payrollRecordsPagination = $payrollRecordsProps['payroll_records_pagination'];
         $payrollRecordsMonthly = $payrollRecordsProps['payroll_records_monthly'];
         $payrollRecordsMonthlyPagination = $payrollRecordsProps['payroll_records_monthly_pagination'];
 
-        $salaryInputsQuery = SalaryInput::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $payrollPeriod->id)
-            ->with('salaryInputType')
-            ->orderBy('id');
+        $salaryInputsByEmployee = [];
 
-        if ($user !== null) {
-            EmployeeVisibilityScope::whereHas($salaryInputsQuery, $user, $companyId, 'employee');
-        }
-
-        $salaryInputsByEmployee = SalaryInputResource::groupByEmployee($salaryInputsQuery->get());
-
-        $allPayrollRecordIds = PayrollRecordAccess::apply(
-            PayrollRecord::query()
+        if ($includeFinancial) {
+            $salaryInputsQuery = SalaryInput::query()
                 ->where('company_id', $companyId)
                 ->where('period_id', $payrollPeriod->id)
-                ->orderBy('id'),
-            $user,
-            $companyId,
-        )
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
+                ->with('salaryInputType')
+                ->orderBy('id');
+
+            if ($user !== null) {
+                EmployeeVisibilityScope::whereHas($salaryInputsQuery, $user, $companyId, 'employee');
+            }
+
+            $salaryInputsByEmployee = SalaryInputResource::groupByEmployee($salaryInputsQuery->get());
+        }
+
+        $allPayrollRecordIds = $includeFinancial
+            ? PayrollRecordAccess::apply(
+                PayrollRecord::query()
+                    ->where('company_id', $companyId)
+                    ->where('period_id', $payrollPeriod->id)
+                    ->orderBy('id'),
+                $user,
+                $companyId,
+            )
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all()
+            : [];
 
         $company = Company::query()->findOrFail($companyId);
-        $payslipSummary = PayslipSummary::forPeriod($payrollPeriod, $user);
-        $wpsPreview = $isFinalizedPeriod && $payrollPeriod->payroll_records_count > 0
+        $payslipSummary = $includeFinancial
+            ? PayslipSummary::forPeriod($payrollPeriod, $user)
+            : null;
+        $wpsPreview = $includeFinancial
+            && $isFinalizedPeriod
+            && $payrollPeriod->payroll_records_count > 0
             ? app(WpsExportPreview::class)->forPeriod($company, $payrollPeriod, $user)
             : null;
 
@@ -403,36 +419,42 @@ class PayrollController extends Controller
             );
         }
 
-        $allCategoryEmployees = $allCategoryEmployeesQuery
-            ->with('primaryBankAccount')
-            ->get(['id', 'salary_payment_method']);
-        $totalCount = $allCategoryEmployees->count();
-        $cashPaymentCount = $allCategoryEmployees->filter(
-            fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->excludesFromWps(),
-        )->count();
-        $withBankCount = $allCategoryEmployees->filter(
-            fn ($employee) => $employee->primaryBankAccount !== null,
-        )->count();
-        $missingBankCount = $allCategoryEmployees->filter(function ($employee) {
-            $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+        if ($includeFinancial) {
+            $allCategoryEmployees = $allCategoryEmployeesQuery
+                ->with('primaryBankAccount')
+                ->get(['id', 'salary_payment_method']);
+            $totalCount = $allCategoryEmployees->count();
+            $cashPaymentCount = $allCategoryEmployees->filter(
+                fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->excludesFromWps(),
+            )->count();
+            $withBankCount = $allCategoryEmployees->filter(
+                fn ($employee) => $employee->primaryBankAccount !== null,
+            )->count();
+            $missingBankCount = $allCategoryEmployees->filter(function ($employee) {
+                $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
 
-            return $paymentMethod->requiresBankAccount() && $employee->primaryBankAccount === null;
-        })->count();
-        $employeeStats = [
-            'total' => $totalCount,
-            'with_bank_account' => $withBankCount,
-            'missing_bank_account' => $missingBankCount,
-            'cash_payment_count' => $cashPaymentCount,
-        ];
+                return $paymentMethod->requiresBankAccount() && $employee->primaryBankAccount === null;
+            })->count();
+            $employeeStats = [
+                'total' => $totalCount,
+                'with_bank_account' => $withBankCount,
+                'missing_bank_account' => $missingBankCount,
+                'cash_payment_count' => $cashPaymentCount,
+            ];
+        } else {
+            $employeeStats = [
+                'total' => $allCategoryEmployeesQuery->count(),
+            ];
+        }
 
         $provisionDefaultSalaryInputTypes->handle($companyId);
 
         $generationSummary = $payrollPeriod->isCrew()
-            ? $buildCrewPayrollCoverageSummary->handle($payrollPeriod, $companyId)
+            ? $buildCrewPayrollCoverageSummary->handle($payrollPeriod, $companyId, $user)
             : null;
 
         return Inertia::render('payroll/show', [
-            'period' => PayrollPeriodResource::toArray($payrollPeriod, $generationSummary),
+            'period' => PayrollPeriodResource::toArray($payrollPeriod, $generationSummary, $includeFinancial, $user),
             'leave_types' => $leaveTypes,
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
@@ -442,24 +464,26 @@ class PayrollController extends Controller
             'payroll_records_monthly' => $payrollRecordsMonthly,
             'payroll_records_monthly_pagination' => $payrollRecordsMonthlyPagination,
             'all_payroll_record_ids' => $allPayrollRecordIds,
-            'payroll_records_summary' => $payrollPeriod->payroll_records_count > 0
+            'payroll_records_summary' => $includeFinancial && $payrollPeriod->payroll_records_count > 0
                 ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod, $user)
                 : null,
             'salary_inputs_by_employee' => $salaryInputsByEmployee,
-            'salary_input_type_options' => SalaryInputType::query()
-                ->where('company_id', $companyId)
-                ->where('status', 'active')
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'name', 'code', 'is_addition'])
-                ->map(fn (SalaryInputType $type) => [
-                    'value' => $type->id,
-                    'label' => $type->name,
-                    'code' => $type->code,
-                    'is_addition' => $type->is_addition,
-                ])
-                ->values()
-                ->all(),
+            'salary_input_type_options' => $includeFinancial
+                ? SalaryInputType::query()
+                    ->where('company_id', $companyId)
+                    ->where('status', 'active')
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'is_addition'])
+                    ->map(fn (SalaryInputType $type) => [
+                        'value' => $type->id,
+                        'label' => $type->name,
+                        'code' => $type->code,
+                        'is_addition' => $type->is_addition,
+                    ])
+                    ->values()
+                    ->all()
+                : [],
             'generation_summary' => $request->session()->get('payroll_generation')
                 ?? $request->session()->get('crew_payroll_generation'),
             'search' => $search,
@@ -490,30 +514,42 @@ class PayrollController extends Controller
                 ? (int) $boardFilters->positionId
                 : null,
             'permissions' => array_merge(CrewPayrollPagePermissions::for($request->user()), [
+                'view_financial' => $includeFinancial,
+                'edit_monetary_timesheet_fields' => $request->user()?->can('payroll.periods.update') ?? false,
                 'import_timesheets' => ($request->user()?->can('payroll.crew_timesheets.import') ?? false)
                     || ($request->user()?->can('payroll.crew_timesheets.create') ?? false),
-                'prepare_timeline' => $request->user()?->can('payroll.crew_timesheets.prepare') ?? false,
+                'prepare_timeline' => ($request->user()?->can('payroll.crew_timesheets.prepare') ?? false)
+                    && EmployeeVisibilityScope::hasUnrestrictedAccess($request->user(), $companyId),
                 'view_timeline' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,
-                'salary_inputs_create' => ($request->user()?->can('payroll.salary_inputs.create') ?? false)
-                    || ($request->user()?->can('payroll.periods.update') ?? false),
-                'salary_inputs_update' => ($request->user()?->can('payroll.salary_inputs.update') ?? false)
-                    || ($request->user()?->can('payroll.periods.update') ?? false),
-                'salary_inputs_delete' => ($request->user()?->can('payroll.salary_inputs.delete') ?? false)
-                    || ($request->user()?->can('payroll.periods.update') ?? false),
-                'recalculate_payroll' => ($request->user()?->can('payroll.periods.recalculate') ?? false)
-                    || ($request->user()?->can('payroll.periods.update') ?? false),
-                'wps_export' => $request->user()?->can('payroll.wps.export') ?? false,
-                'export_payroll' => in_array($payrollPeriod->status, [
-                    PayrollPeriodStatus::Approved,
-                    PayrollPeriodStatus::Paid,
-                ], true)
+                'salary_inputs_create' => $includeFinancial && (
+                    ($request->user()?->can('payroll.salary_inputs.create') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false)
+                ),
+                'salary_inputs_update' => $includeFinancial && (
+                    ($request->user()?->can('payroll.salary_inputs.update') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false)
+                ),
+                'salary_inputs_delete' => $includeFinancial && (
+                    ($request->user()?->can('payroll.salary_inputs.delete') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false)
+                ),
+                'recalculate_payroll' => $includeFinancial && (
+                    ($request->user()?->can('payroll.periods.recalculate') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false)
+                ),
+                'wps_export' => $includeFinancial && ($request->user()?->can('payroll.wps.export') ?? false),
+                'export_payroll' => $includeFinancial
+                    && in_array($payrollPeriod->status, [
+                        PayrollPeriodStatus::Approved,
+                        PayrollPeriodStatus::Paid,
+                    ], true)
                     && $payrollPeriod->payroll_records_count > 0
                     && (
                         ($payrollPeriod->isCrew() && ($request->user()?->can('payroll.crew_timesheets.view') ?? false))
                         || ($payrollPeriod->isOffice() && ($request->user()?->can('payroll.periods.view') ?? false))
                     ),
-                'payslips_generate' => $request->user()?->can('payroll.payslips.generate') ?? false,
-                'payslips_email' => $request->user()?->can('payroll.payslips.email') ?? false,
+                'payslips_generate' => $includeFinancial && ($request->user()?->can('payroll.payslips.generate') ?? false),
+                'payslips_email' => $includeFinancial && ($request->user()?->can('payroll.payslips.email') ?? false),
             ]),
             'payslip_summary' => $payslipSummary,
             'wps_preview' => $wpsPreview,
@@ -849,7 +885,7 @@ class PayrollController extends Controller
         abort_unless($payrollPeriod->payroll_records_count > 0, 422);
 
         if ($payrollPeriod->isCrew()) {
-            abort_unless(request()->user()?->can('payroll.crew_timesheets.view'), 403);
+            abort_unless(request()->user()?->can('payroll.periods.view'), 403);
 
             $result = $crewExporter->export($companyId, $payrollPeriod, request()->user());
 
@@ -951,10 +987,6 @@ class PayrollController extends Controller
 
             if ($result->skippedMissingTimesheetCount > 0) {
                 $skipParts[] = "{$result->skippedMissingTimesheetCount} without timesheets";
-            }
-
-            if ($result->skippedAwaitingApprovalCount > 0) {
-                $skipParts[] = "{$result->skippedAwaitingApprovalCount} awaiting approval";
             }
 
             if ($result->skippedExcludedCount > 0) {
@@ -1172,9 +1204,13 @@ class PayrollController extends Controller
     /**
      * @return list<array{value: string, label: string}>
      */
-    private function payrollCategoryOptions(): array
+    private function payrollCategoryOptions(bool $includeOffice = true): array
     {
-        return collect(PayrollCategory::cases())
+        $categories = $includeOffice
+            ? PayrollCategory::cases()
+            : [PayrollCategory::Crew];
+
+        return collect($categories)
             ->map(fn (PayrollCategory $category) => [
                 'value' => $category->value,
                 'label' => $category->label(),
@@ -1217,11 +1253,16 @@ class PayrollController extends Controller
         );
     }
 
-    private function authorizePayrollShow(Request $request): void
+    private function authorizePayrollShow(Request $request, PayrollPeriod $payrollPeriod): void
     {
+        $user = $request->user();
+
+        if ($user?->can('payroll.periods.view')) {
+            return;
+        }
+
         abort_unless(
-            $request->user()?->can('payroll.periods.view')
-            || $request->user()?->can('payroll.crew_timesheets.view'),
+            $payrollPeriod->isCrew() && ($user?->can('payroll.crew_timesheets.view') ?? false),
             403,
         );
     }

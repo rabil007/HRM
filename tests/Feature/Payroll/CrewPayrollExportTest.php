@@ -17,11 +17,11 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-test('users without crew timesheet view permission cannot export approved crew payroll', function () {
+test('users without payroll periods view permission cannot export approved crew payroll', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
 
     [$period] = createApprovedCrewExportFixture($company);
 
@@ -34,7 +34,7 @@ test('crew payroll export is only available for approved or paid periods', funct
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
 
     [$period] = createApprovedCrewExportFixture($company);
     $period->update(['status' => $status]);
@@ -51,7 +51,7 @@ test('paid crew payroll export downloads salary sheet workbook', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
 
     [$period] = createApprovedCrewExportFixture($company);
     $period->update(['status' => PayrollPeriodStatus::Paid]);

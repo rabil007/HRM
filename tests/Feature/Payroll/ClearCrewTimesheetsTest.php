@@ -11,6 +11,7 @@ use App\Support\Payroll\Actions\ClearManualImportCrewTimesheets;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\ClearableManualImportCrewTimesheetsQuery;
+use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
@@ -109,10 +110,12 @@ test('crew operations preparation-linked and operationally locked timesheets rem
 
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
 
-    $this->actingAs($approver)
-        ->withSession(['current_company_id' => $fixtures['company']->id])
-        ->post(route('payroll.crew-timeline.apply', [$fixtures['period'], $preparation]))
-        ->assertRedirect();
+    app(ApplyCrewTimesheetPreparation::class)->handle(
+        $fixtures['period'],
+        $preparation,
+        $approver,
+        (int) $fixtures['company']->id,
+    );
 
     grantClearTimesheetPermissions($fixtures['user'], $fixtures['company']);
 
@@ -132,7 +135,7 @@ test('crew operations preparation-linked and operationally locked timesheets rem
 
     expect($opsTimesheet->source)->toBe(CrewTimesheetSource::CrewOperations)
         ->and($opsTimesheet->crew_timesheet_preparation_id)->toBe($preparation->id)
-        ->and($opsTimesheet->isOperationallyLocked())->toBeTrue();
+        ->and($opsTimesheet->isOperationallyLocked())->toBeFalse();
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -468,10 +471,12 @@ test('clearable_timesheet_count includes all pages and show props refresh correc
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     grantClearTimesheetPermissions($user, $company);
 
+    $excludedEmployee = createCrewEmployeeWithContract($company, 'CLR-EXCL', 100, 50, 25);
+
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
         'start_date' => '2026-07-01',
         'end_date' => '2026-07-31',
-        'excluded_employee_ids' => [42],
+        'excluded_employee_ids' => [(int) $excludedEmployee->id],
     ]);
 
     foreach (range(1, 5) as $index) {
@@ -497,7 +502,7 @@ test('clearable_timesheet_count includes all pages and show props refresh correc
             ->component('payroll/show')
             ->where('clearable_timesheet_count', 5)
             ->where('permissions.clear_timesheets', true)
-            ->where('period.excluded_employee_ids', [42]));
+            ->where('period.excluded_employee_ids', [(int) $excludedEmployee->id]));
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
@@ -510,7 +515,7 @@ test('clearable_timesheet_count includes all pages and show props refresh correc
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('clearable_timesheet_count', 0)
-            ->where('period.excluded_employee_ids', [42]));
+            ->where('period.excluded_employee_ids', [(int) $excludedEmployee->id]));
 });
 
 test('empty clear request succeeds with zero count', function () {

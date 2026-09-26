@@ -2,69 +2,38 @@
 
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Models\CrewTimesheet;
-use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\User;
 use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\Actions\ApproveCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\Actions\ReturnCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\Actions\SubmitCrewTimesheetPreparation;
 use Illuminate\Validation\ValidationException;
-use Inertia\Testing\AssertableInertia as Assert;
 
-test('restricted user cannot view hidden employees on preparation review page', function () {
-    $f = setupCrewTimelineHardeningFixtures();
-
-    $response = $this->actingAs($f['user'])
-        ->withSession(['current_company_id' => $f['company']->id])
-        ->get(route('payroll.crew-timeline.show', [$f['period'], $f['preparation']]));
-
-    $response->assertOk();
-    $response->assertInertia(function (Assert $page) use ($f) {
-        $page->component('payroll/crew-timeline/show');
-
-        $employeeIds = collect($page->toArray()['props']['employees'])->pluck('employee_id')->all();
-        expect($employeeIds)->toContain($f['marine']->id)
-            ->and($employeeIds)->not->toContain($f['office']->id);
-
-        $deptTree = $page->toArray()['props']['department_tree'];
-        $deptIds = collect($deptTree)->pluck('id')->filter()->all();
-        expect($deptIds)->toContain($f['marineDept']->id)
-            ->and($deptIds)->not->toContain($f['officeDept']->id);
-    });
-});
-
-test('restricted user cannot skip hidden employee in preparation', function () {
+/**
+ * Retired Crew Timesheet preparation review / skip HTTP endpoints.
+ */
+test('retired crew timeline review and skip routes are unavailable', function () {
     $f = setupCrewTimelineHardeningFixtures();
 
     $this->actingAs($f['user'])
         ->withSession(['current_company_id' => $f['company']->id])
-        ->post(route('payroll.crew-timeline.employee-skip', [$f['period'], $f['preparation'], $f['office']]), [
-            'reason' => 'Should be forbidden or not found',
+        ->get("/payroll/{$f['period']->id}/crew-timeline/{$f['preparation']->id}")
+        ->assertNotFound();
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->post("/payroll/{$f['period']->id}/crew-timeline/{$f['preparation']->id}/employees/{$f['office']->id}/skip", [
+            'reason' => 'Should be unavailable',
         ])
         ->assertNotFound();
-});
-
-test('restricted user cannot restore hidden employee in preparation', function () {
-    $f = setupCrewTimelineHardeningFixtures();
-
-    // Create skip for office employee first (as owner/unrestricted)
-    CrewTimesheetPreparationSkip::query()->create([
-        'company_id' => $f['company']->id,
-        'payroll_period_id' => $f['period']->id,
-        'crew_timesheet_preparation_id' => $f['preparation']->id,
-        'employee_id' => $f['office']->id,
-        'skipped_by' => $f['user']->id,
-        'skipped_at' => now(),
-        'reason' => 'Pre-existing skip',
-    ]);
 
     $this->actingAs($f['user'])
         ->withSession(['current_company_id' => $f['company']->id])
-        ->delete(route('payroll.crew-timeline.employee-skip.restore', [$f['period'], $f['preparation'], $f['office']]))
+        ->delete("/payroll/{$f['period']->id}/crew-timeline/{$f['preparation']->id}/employees/{$f['office']->id}/skip")
         ->assertNotFound();
 });
 
-test('restricted user can submit approve return and apply marine-only preparation', function () {
+test('restricted user can submit approve return and apply marine-only preparation via Support', function () {
     $f = setupMarineOnlyCrewTimelineFixtures();
 
     app(SubmitCrewTimesheetPreparation::class)->handle(
@@ -116,10 +85,10 @@ test('restricted user cannot submit approve return or apply mixed-scope preparat
     grantCompanyPermissions($unrestrictedActor, $f['company'], [
         'payroll.crew_timesheets.view',
         'payroll.crew_timesheets.prepare',
-        'payroll.crew_timesheets.submit',
-        'payroll.crew_timesheets.approve',
-        'payroll.crew_timesheets.return',
-        'payroll.crew_timesheets.skip_timeline',
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+        'payroll.periods.view',
+        'payroll.periods.update',
     ], 'unrestricted-role');
 
     expect(fn () => app(SubmitCrewTimesheetPreparation::class)->handle(
@@ -169,13 +138,10 @@ test('unrestricted user can apply mixed-scope preparation', function () {
     grantCompanyPermissions($unrestrictedActor, $f['company'], [
         'payroll.crew_timesheets.view',
         'payroll.crew_timesheets.prepare',
-        'payroll.crew_timesheets.submit',
-        'payroll.crew_timesheets.approve',
-        'payroll.crew_timesheets.return',
-        'payroll.crew_timesheets.skip_timeline',
-        'payroll.crew_timesheets.apply_approved',
         'payroll.crew_timesheets.create',
         'payroll.crew_timesheets.update',
+        'payroll.periods.view',
+        'payroll.periods.update',
     ], 'unrestricted-role');
 
     app(SubmitCrewTimesheetPreparation::class)->handle(

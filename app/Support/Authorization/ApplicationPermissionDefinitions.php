@@ -946,72 +946,42 @@ final class ApplicationPermissionDefinitions
                 'group' => 'Language Records',
             ],
             155 => [
-                'name' => 'payroll.crew_timesheets.apply_approved',
-                'label' => 'Apply Approved Crew Timesheets',
-                'description' => 'Allows the user to apply an approved crew timesheet preparation to crew timesheets.',
-                'group' => 'Payroll',
-            ],
-            156 => [
-                'name' => 'payroll.crew_timesheets.approve',
-                'label' => 'Approve Crew Timesheets',
-                'description' => 'Allows the user to approve submitted crew timesheet preparations or individual timesheets.',
-                'group' => 'Payroll',
-            ],
-            157 => [
                 'name' => 'payroll.crew_timesheets.clear',
                 'label' => 'Clear Crew Timesheets',
                 'description' => 'Allows the user to clear all manual or imported timesheets on a draft crew payroll period.',
                 'group' => 'Payroll',
             ],
-            158 => [
+            156 => [
                 'name' => 'payroll.crew_timesheets.create',
                 'label' => 'Create Crew Timesheets',
                 'description' => 'Allows the user to create manual or import crew timesheet records for draft payroll periods.',
                 'group' => 'Payroll',
             ],
-            159 => [
+            157 => [
                 'name' => 'payroll.crew_timesheets.import',
                 'label' => 'Import Crew Timesheets',
                 'description' => 'Allows the user to import crew timesheet data into draft payroll periods.',
                 'group' => 'Payroll',
             ],
-            160 => [
+            158 => [
                 'name' => 'payroll.crew_timesheets.prepare',
                 'label' => 'Prepare Crew Timesheets',
-                'description' => 'Allows the user to create a new draft crew timesheet preparation version.',
+                'description' => 'Allows the user to populate draft crew timesheets from eligible Crew Assignment movement data on the payroll period page.',
+                'group' => 'Payroll',
+            ],
+            159 => [
+                'name' => 'payroll.crew_timesheets.update',
+                'label' => 'Update Crew Timesheets',
+                'description' => 'Allows the user to update operational crew timesheet data (movement segments, overtime, remarks) on draft payroll periods.',
+                'group' => 'Payroll',
+            ],
+            160 => [
+                'name' => 'payroll.crew_timesheets.view',
+                'label' => 'View Crew Timesheets',
+                'description' => 'Allows the user to view crew timesheet data on crew payroll periods for the active company.',
                 'group' => 'Payroll',
             ],
             161 => [
-                'name' => 'payroll.crew_timesheets.return',
-                'label' => 'Return Crew Timesheets',
-                'description' => 'Allows the user to return submitted crew timesheet preparations or individual timesheets with notes.',
-                'group' => 'Payroll',
-            ],
-            162 => [
-                'name' => 'payroll.crew_timesheets.skip_timeline',
-                'label' => 'Skip Crew Timesheet Timeline Entries',
-                'description' => 'Allows the user to skip or restore an employee\'s crew timesheet data for a draft preparation version.',
-                'group' => 'Payroll',
-            ],
-            163 => [
-                'name' => 'payroll.crew_timesheets.submit',
-                'label' => 'Submit Crew Timesheets',
-                'description' => 'Allows the user to submit draft crew timesheet preparations or individual timesheets for approval.',
-                'group' => 'Payroll',
-            ],
-            164 => [
-                'name' => 'payroll.crew_timesheets.update',
-                'label' => 'Update Crew Timesheets',
-                'description' => 'Allows the user to update crew timesheet records within permitted draft workflow states.',
-                'group' => 'Payroll',
-            ],
-            165 => [
-                'name' => 'payroll.crew_timesheets.view',
-                'label' => 'View Crew Timesheets',
-                'description' => 'Allows the user to view crew timesheet preparation and related payroll timesheet data for the active company.',
-                'group' => 'Payroll',
-            ],
-            166 => [
                 'name' => 'payroll.overview.view',
                 'label' => 'View Payroll Overview',
                 'description' => 'Allows the user to view the payroll overview dashboard for the active company.',

@@ -6,7 +6,6 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
 use App\Models\User;
-use App\Support\Employees\EmployeeVisibilityScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -28,9 +27,14 @@ final class PayrollHubSummary
         array $months = [],
         ?User $user = null,
     ): array {
+        $includeFinancial = (bool) ($user?->can('payroll.periods.view'));
+
         $query = PayrollPeriod::query()
-            ->where('company_id', $companyId)
-            ->withCount('crewTimesheets');
+            ->where('company_id', $companyId);
+
+        if (! $includeFinancial) {
+            $query->where('payroll_category', PayrollCategory::Crew);
+        }
 
         if ($months !== []) {
             $query->where(function (Builder $dateQuery) use ($months): void {
@@ -53,30 +57,45 @@ final class PayrollHubSummary
             }
         }
 
-        $periods = $query->get();
+        $periods = $query->get(['id', 'payroll_category', 'status']);
 
-        $crewEmployeeQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+        $baseline = PayrollPeriodVisibleCrewStats::companyBaseline($companyId, $user);
+        $eligibleDailyCrewCount = $baseline['eligible_daily_crew'];
 
-        if ($user !== null) {
-            EmployeeVisibilityScope::apply($crewEmployeeQuery, $user, $companyId);
+        $crewPeriods = $periods->filter(
+            fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
+        );
+
+        $draftCrewPeriodIds = $crewPeriods
+            ->filter(fn (PayrollPeriod $period) => $period->status === PayrollPeriodStatus::Draft)
+            ->pluck('id')
+            ->map(intval(...))
+            ->all();
+
+        $periodStats = PayrollPeriodVisibleCrewStats::forPeriods($draftCrewPeriodIds, $companyId, $user);
+
+        $incompleteCrewRuns = 0;
+
+        if ($eligibleDailyCrewCount > 0) {
+            foreach ($draftCrewPeriodIds as $periodId) {
+                $filledDailyTimesheets = (int) ($periodStats[$periodId]['filled_daily_timesheets'] ?? 0);
+
+                if ($filledDailyTimesheets < $eligibleDailyCrewCount) {
+                    $incompleteCrewRuns++;
+                }
+            }
         }
 
-        $crewEmployeeCount = $crewEmployeeQuery->count();
-
-        $incompleteCrewRuns = $periods
-            ->filter(fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew)
-            ->filter(fn (PayrollPeriod $period) => $period->status === PayrollPeriodStatus::Draft)
-            ->filter(fn (PayrollPeriod $period) => $crewEmployeeCount > 0 && (int) $period->crew_timesheets_count < $crewEmployeeCount)
-            ->count();
+        $crewPeriodCount = $crewPeriods->count();
 
         return [
-            'total_periods' => $periods->count(),
-            'crew_periods' => $periods->filter(
-                fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
-            )->count(),
-            'office_periods' => $periods->filter(
-                fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Office,
-            )->count(),
+            'total_periods' => $includeFinancial ? $periods->count() : $crewPeriodCount,
+            'crew_periods' => $crewPeriodCount,
+            'office_periods' => $includeFinancial
+                ? $periods->filter(
+                    fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Office,
+                )->count()
+                : 0,
             'incomplete_crew_runs' => $incompleteCrewRuns,
         ];
     }

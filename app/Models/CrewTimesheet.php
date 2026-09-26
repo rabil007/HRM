@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\CrewTimesheetApprovalStatus;
-use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\CrewTimesheetFactory;
@@ -153,15 +152,18 @@ class CrewTimesheet extends Model
         return $this->source ?? CrewTimesheetSource::Manual;
     }
 
+    /**
+     * Operational Crew Timesheet fields remain editable while the payroll period
+     * is Draft. Period-level editability (see ReplaceCrewTimesheetSegments and
+     * UpdateCrewTimesheetFinancials) is the authoritative lock after generation.
+     *
+     * The previous "Applied preparation locks ops fields" behavior is retired with
+     * the Crew Timesheet approval workflow; this method remains for compatibility
+     * and always returns false.
+     */
     public function isOperationallyLocked(): bool
     {
-        if ($this->resolvedSource() !== CrewTimesheetSource::CrewOperations) {
-            return false;
-        }
-
-        $this->loadMissing('preparation');
-
-        return $this->preparation?->status === CrewTimesheetPreparationStatus::Applied;
+        return false;
     }
 
     public function isPayrollApproved(): bool
