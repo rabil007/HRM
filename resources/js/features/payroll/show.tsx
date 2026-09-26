@@ -661,6 +661,7 @@ export function PayrollShowContent({
     const hasHeaderActions =
         canGenerate ||
         isGenerationBlocked ||
+        canPopulateFromAssignments ||
         canRevertToDraft ||
         canRevertToApproved ||
         canRevertToProcessing ||
@@ -845,6 +846,29 @@ export function PayrollShowContent({
                                     Mark as paid
                                 </Button>
                             ) : null}
+                            {canPopulateFromAssignments ? (
+                                <Button
+                                    variant="outline"
+                                    className={headerSecondaryActionClass}
+                                    disabled={isPreparingTimeline}
+                                    onClick={() =>
+                                        setIsPopulateFromAssignmentsDialogOpen(
+                                            true,
+                                        )
+                                    }
+                                >
+                                    <Ship className="mr-2 h-4 w-4" />
+                                    {isPreparingTimeline
+                                        ? populateFromAssignmentsMode ===
+                                          'refresh'
+                                            ? 'Refreshing…'
+                                            : 'Populating…'
+                                        : populateFromAssignmentsMode ===
+                                            'refresh'
+                                          ? 'Refresh from Crew Assignments'
+                                          : 'Populate from Crew Assignments'}
+                                </Button>
+                            ) : null}
                             {canGenerate ? (
                                 <Button
                                     variant={
@@ -961,29 +985,6 @@ export function PayrollShowContent({
                                       value={activeCrewSalaryStructure}
                                       onChange={handleCrewSalaryStructureChange}
                                   />
-                                  {canPopulateFromAssignments ? (
-                                      <Button
-                                          variant="outline"
-                                          className="h-12 shrink-0 rounded-xl px-6"
-                                          disabled={isPreparingTimeline}
-                                          onClick={() =>
-                                              setIsPopulateFromAssignmentsDialogOpen(
-                                                  true,
-                                              )
-                                          }
-                                      >
-                                          <Ship className="mr-2 h-4 w-4" />
-                                          {isPreparingTimeline
-                                              ? populateFromAssignmentsMode ===
-                                                'refresh'
-                                                  ? 'Refreshing…'
-                                                  : 'Populating…'
-                                              : populateFromAssignmentsMode ===
-                                                  'refresh'
-                                                ? 'Refresh from Crew Assignments'
-                                                : 'Populate from Crew Assignments'}
-                                      </Button>
-                                  ) : null}
                                   {permissions.import_timesheets ? (
                                       <Button
                                           variant="outline"
