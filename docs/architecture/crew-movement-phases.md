@@ -1122,7 +1122,11 @@ See [Crew operational alerts email delivery](../crew-operational-alerts-email.md
 
 ## Sea service
 
-Requires P4 with `actual_start_at`, `actual_end_at`, plus assignment vessel/rank/employee. Linked by unique `employee_sea_services.crew_assignment_phase_id`.
+Requires P4 with `actual_start_at` plus assignment vessel/rank/employee. Linked by unique `employee_sea_services.crew_assignment_phase_id`.
+
+- Active / open P4 may synchronize an ongoing `EmployeeSeaService` with `end_date = null`.
+- Completed P4 / disembarkation finalizes the Sea Service end date (`actual_end_at`).
+- Exact-match linking and overlap protection treat `end_date = null` as an open-ended interval.
 
 ## Status / dashboard / manning / attention
 
@@ -1316,7 +1320,12 @@ Later Crew payroll Draft → Populate / Refresh reads `CrewAssignmentPhase` date
 
 Same-day period handoffs reuse existing Crew Timeline day-allocation / pay-category priority so one calendar day is not paid twice.
 
-Sea Service continues to depend only on P4 Onsite. No Onsite period means no fabricated Sea Service. Existing exact-match and overlap protections remain.
+Sea Service continues to depend only on P4 Onsite. No Onsite period means no fabricated Sea Service.
+
+- Active / open P4 may synchronize an **ongoing** `EmployeeSeaService` with `end_date = null`.
+- Disembarkation / completed P4 finalizes the Sea Service end date.
+- Sea Service remains linked through `crew_assignment_phase_id`.
+- Existing exact-match linking and overlap protections apply to both completed and open-ended Sea Service rows (open `end_date = null` is treated as an open-ended interval).
 
 ### Existing Active OMS assignment protection
 

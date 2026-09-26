@@ -689,6 +689,20 @@ final class HistoricalCrewImportPreviewService
         }
 
         if ($choice !== HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL) {
+            $hotelLabel = is_string($hotelName) ? trim($hotelName) : '';
+            $roomLabel = is_string($roomTypeName) ? trim($roomTypeName) : '';
+            $choiceLabel = $choice === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION
+                ? 'No accommodation'
+                : 'Not recorded';
+
+            if ($hotelLabel !== '') {
+                $errors[$hotelField] = "Hotel must be empty when Accommodation is {$choiceLabel}.";
+            }
+
+            if ($roomLabel !== '') {
+                $errors[$roomTypeField] = "Room type must be empty when Accommodation is {$choiceLabel}.";
+            }
+
             return [null, null, $errors];
         }
 

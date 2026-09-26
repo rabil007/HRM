@@ -1789,7 +1789,7 @@ test('legacy detailed movement event fields are prohibited', function () {
         ->assertJsonValidationErrors(['joined_vessel_at', 'mobilisation_at', 'training_started_at']);
 });
 
-test('on vessel only creates active P4 without sea service', function () {
+test('on vessel only creates active P4 with ongoing synchronized sea service', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('On Vessel Only', $company);
 
@@ -1797,6 +1797,17 @@ test('on vessel only creates active P4 without sea service', function () {
         'crew_operations.assignments.create_historical',
     ]);
     $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-01-15',
+        ])
+        ->assertOk()
+        ->assertJsonPath('sea_service.status', 'will_create_ongoing')
+        ->assertJsonPath('sea_service.end_date', null);
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.historical.store'), [
@@ -2254,4 +2265,198 @@ test('hotel dates outside the related standby period are rejected', function () 
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['sign_on_hotel_check_out']);
+});
+
+test('open P4 links exact unlinked ongoing sea service without duplicating', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Open Link Vessel', $company);
+
+    $existing = EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-08-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertOk()
+        ->assertJsonPath('sea_service.status', 'will_link')
+        ->assertJsonPath('sea_service.existing_id', $existing->id);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertRedirect();
+
+    expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
+
+    $phase = CrewAssignmentPhase::query()
+        ->where('phase_code', CrewPhaseCode::OnVessel)
+        ->whereHas('assignment', fn ($q) => $q->where('employee_id', $employee->id))
+        ->firstOrFail();
+
+    expect($existing->fresh()->crew_assignment_phase_id)->toBe($phase->id)
+        ->and($existing->fresh()->end_date)->toBeNull();
+});
+
+test('open P4 is blocked when exact ongoing sea service is already linked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Linked Ongoing Vessel', $company);
+    $other = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-08-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => $other->current_phase_id,
+    ]);
+
+    // Close the active assignment so bootstrap itself is allowed; keep the linked open sea service.
+    $other->update([
+        'status' => CrewAssignmentStatus::Completed,
+        'closed_at' => now(),
+    ]);
+    $other->currentPhase?->update([
+        'status' => CrewPhaseStatus::Completed,
+        'actual_end_at' => now(),
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
+});
+
+test('open P4 is blocked by overlapping open sea service on a different interval', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Overlap Open Vessel', $company);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-06-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
+});
+
+test('completed P4 is blocked by overlapping open-ended sea service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Completed Vs Open Vessel', $company);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-03-01',
+            'onsite_to' => '2024-06-01',
+            'sign_off_standby_from' => '2024-06-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
+});
+
+test('open P4 exact match with conflicting rank is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Rank Conflict Open Vessel', $company);
+    $otherRank = Rank::query()->create(['name' => 'Other Rank '.Str::random(5), 'is_active' => true]);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $otherRank->id,
+        'start_date' => '2024-08-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
 });

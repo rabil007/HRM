@@ -302,6 +302,8 @@ final class HistoricalCrewAssignmentValidator
         $seaEndDate = $data->disembarkedAt()?->toDateString();
         $vesselName = $vessel?->name ?? 'Unknown Vessel';
         $syncEnabled = $bulk?->seaServiceSyncEnabled ?? $this->seaServiceSync->isEnabled($data->companyId);
+        $hasCompletedSea = $data->hasCompletedSeaServicePeriod() && $seaStartDate !== null && $seaEndDate !== null;
+        $hasOpenSea = $data->hasOpenOnsiteSeaServicePeriod() && $seaStartDate !== null;
 
         $seaServiceImpact = [
             'status' => 'not_applicable',
@@ -312,20 +314,22 @@ final class HistoricalCrewAssignmentValidator
             'vessel_id' => $data->vesselId,
             'vessel_name' => $vesselName,
             'existing_id' => null,
-            'message' => 'Sea Service is created only for a completed Onsite / On Vessel period.',
+            'message' => 'Sea Service is created only when an Onsite / On Vessel period is entered.',
         ];
 
-        if ($data->hasCompletedSeaServicePeriod() && $seaStartDate !== null && $seaEndDate !== null) {
+        if ($hasCompletedSea || $hasOpenSea) {
             $seaServiceImpact = [
-                'status' => 'will_create',
-                'days' => $seaDuration['days'],
-                'months' => $seaDuration['months'],
+                'status' => $hasOpenSea ? 'will_create_ongoing' : 'will_create',
+                'days' => $hasCompletedSea ? $seaDuration['days'] : 0,
+                'months' => $hasCompletedSea ? $seaDuration['months'] : 0,
                 'start_date' => $seaStartDate,
                 'end_date' => $seaEndDate,
                 'vessel_id' => $data->vesselId,
                 'vessel_name' => $vesselName,
                 'existing_id' => null,
-                'message' => "{$seaDuration['days']} days will be recorded/synchronized to Sea Service.",
+                'message' => $hasOpenSea
+                    ? 'An ongoing Sea Service record will be synchronized from this Onsite period.'
+                    : "{$seaDuration['days']} days will be recorded/synchronized to Sea Service.",
             ];
 
             if (! $syncEnabled) {
@@ -343,7 +347,7 @@ final class HistoricalCrewAssignmentValidator
                     data: $data,
                     seaStartDate: $seaStartDate,
                     seaEndDate: $seaEndDate,
-                    seaDays: $seaDuration['days'],
+                    seaDays: $hasCompletedSea ? $seaDuration['days'] : 0,
                     proposedRankName: $rank?->name,
                     existingForEmployee: $existingSeaServices,
                 );
@@ -355,36 +359,18 @@ final class HistoricalCrewAssignmentValidator
                 if ($exactMatch['error'] !== null) {
                     $errors['sea_service'] = $exactMatch['error'];
                 } else {
-                    foreach ($existingSeaServices as $record) {
-                        $recordStart = $record->start_date?->toDateString();
-                        $recordEnd = $record->end_date?->toDateString();
+                    $overlapMessage = $this->seaServiceMatchResolver->firstOverlappingConflictMessage(
+                        existingForEmployee: $existingSeaServices,
+                        data: $data,
+                        seaStartDate: $seaStartDate,
+                        seaEndDate: $seaEndDate,
+                        exactMatchIdToIgnore: $exactMatch['existing_id'],
+                    );
 
-                        if ($recordStart === null || $recordEnd === null) {
-                            continue;
-                        }
-
-                        if ((int) $record->vessel_id === $data->vesselId
-                            && $recordStart === $seaStartDate
-                            && $recordEnd === $seaEndDate) {
-                            continue;
-                        }
-
-                        if ($recordStart <= $seaEndDate && $seaStartDate <= $recordEnd) {
-                            $conflictVesselName = $record->vessel?->name ?? 'another vessel';
-                            $recStartFormatted = Carbon::parse($recordStart)->format('d M Y');
-                            $recEndFormatted = Carbon::parse($recordEnd)->format('d M Y');
-                            $errMsg = sprintf(
-                                'Overlaps existing Sea Service record #%d (%s, %s -> %s).',
-                                $record->id,
-                                $conflictVesselName,
-                                $recStartFormatted,
-                                $recEndFormatted,
-                            );
-                            $errors['sea_service'] = $errMsg;
-                            $seaServiceImpact['status'] = 'conflict';
-                            $seaServiceImpact['message'] = $errMsg;
-                            break;
-                        }
+                    if ($overlapMessage !== null) {
+                        $errors['sea_service'] = $overlapMessage;
+                        $seaServiceImpact['status'] = 'conflict';
+                        $seaServiceImpact['message'] = $overlapMessage;
                     }
                 }
             }

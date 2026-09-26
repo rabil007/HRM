@@ -755,6 +755,7 @@ export interface HistoricalLastMovement {
 export interface HistoricalSeaServiceImpact {
     status:
         | 'will_create'
+        | 'will_create_ongoing'
         | 'will_link'
         | 'warning'
         | 'conflict'

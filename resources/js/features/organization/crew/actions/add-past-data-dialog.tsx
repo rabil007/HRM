@@ -64,6 +64,10 @@ function seaServiceStatusLabel(status: string): string {
         return 'Will Create Record';
     }
 
+    if (status === 'will_create_ongoing') {
+        return 'Will Create Ongoing';
+    }
+
     if (status === 'not_applicable') {
         return 'Not Applicable';
     }
@@ -845,7 +849,10 @@ export function AddPastDataDialog({
                                                 ? 'border-sky-500/20 bg-sky-500/5'
                                                 : previewData.sea_service
                                                         .status ===
-                                                    'will_create'
+                                                        'will_create' ||
+                                                    previewData.sea_service
+                                                        .status ===
+                                                        'will_create_ongoing'
                                                   ? 'border-emerald-500/20 bg-emerald-500/5'
                                                   : 'border-amber-500/20 bg-amber-500/5'
                                         }`}

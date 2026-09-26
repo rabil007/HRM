@@ -1367,3 +1367,114 @@ test('excel sign-on onsite and open sign-off is ready with P2A P4 P5 timeline', 
         ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p5')
         ->and($row['is_open'] ?? false)->toBeTrue();
 });
+
+test('excel not recorded accommodation with hotel populated is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Not Recorded Hotel Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
+            HistoricalCrewImportColumns::VESSEL => $vessel->name,
+            HistoricalCrewImportColumns::RANK => $rank->name,
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
+            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::PRE_JOIN_HOTEL => 'City Seasons',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
+            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $errors = implode(' ', $row['errors'] ?? []);
+
+    expect($row['status'])->toBe('blocked')
+        ->and($errors)->toContain('Hotel must be empty when Accommodation is Not recorded');
+});
+
+test('excel no accommodation with room type populated is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel No Acc Room Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
+            HistoricalCrewImportColumns::VESSEL => $vessel->name,
+            HistoricalCrewImportColumns::RANK => $rank->name,
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
+            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'No accommodation',
+            HistoricalCrewImportColumns::PRE_JOIN_ROOM_TYPE => 'Twin',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
+            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $errors = implode(' ', $row['errors'] ?? []);
+
+    expect($row['status'])->toBe('blocked')
+        ->and($errors)->toContain('Room type must be empty when Accommodation is No accommodation');
+});
+
+test('excel blank not recorded accommodation remains valid', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Blank Acc Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
+            HistoricalCrewImportColumns::VESSEL => $vessel->name,
+            HistoricalCrewImportColumns::RANK => $rank->name,
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
+            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
+            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+
+    expect($row['status'])->toBeIn(['ready', 'warning']);
+});

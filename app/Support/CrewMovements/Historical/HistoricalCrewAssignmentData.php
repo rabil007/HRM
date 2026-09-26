@@ -364,6 +364,11 @@ final class HistoricalCrewAssignmentData
             && $this->onsiteFrom->lte($this->onsiteTo);
     }
 
+    public function hasOpenOnsiteSeaServicePeriod(): bool
+    {
+        return $this->onsiteFrom !== null && $this->onsiteTo === null;
+    }
+
     public function seaServiceDuration(): array
     {
         if (! $this->hasCompletedSeaServicePeriod()) {
