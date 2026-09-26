@@ -119,6 +119,8 @@ test('already paid prior dates appear as non-blocking automatic adjustments', fu
         ->and($preview->automaticAdjustmentCount)->toBeGreaterThan(0)
         ->and($codes)->toContain('already_paid_prior_dates')
         ->and($codes)->toContain('prior_period_arrears_included')
+        ->and(collect($public['automatic_adjustments'])->pluck('message')->implode(' '))
+        ->toContain('will be included as arrears if payroll generation proceeds')
         ->and(json_encode($public))->not->toContain('basic_daily_rate')
         ->and(json_encode($public))->not->toContain('daily rate of');
 });
@@ -286,5 +288,113 @@ test('automatic adjustments do not force can_generate false', function () {
 
     expect($preview->blockingCount)->toBe(0)
         ->and($preview->canGenerate)->toBeTrue()
-        ->and($codes)->toContain('prior_period_arrears_included');
+        ->and($codes)->toContain('prior_period_arrears_included')
+        ->and(collect($preview->toPublicArray()['automatic_adjustments'])->pluck('message')->implode(' '))
+        ->toContain('will be included as arrears if payroll generation proceeds');
+});
+
+test('toPublicArray does not truncate more than 25 distinct grouped skipped issues', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    $ready = createCrewEmployeeWithContract($company, 'CAP-READY-1', 100, 50, 25);
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $ready->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'onsite_days' => 3,
+    ]);
+    CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'sequence' => 1,
+        'source' => CrewTimesheetSource::Manual,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-01',
+        'to_date' => '2026-07-03',
+        'days' => 3,
+    ]);
+
+    $missingNames = [];
+    for ($index = 1; $index <= 30; $index++) {
+        $missing = createCrewEmployeeWithContract($company, sprintf('CAP-MISS-%02d', $index), 100, 50, 25);
+        $missingNames[] = $missing->name;
+    }
+
+    $public = app(BuildCrewPayrollGenerationPreview::class)
+        ->handle($period, (int) $company->id, [], $user)
+        ->toPublicArray();
+
+    expect($public['skipped_count'])->toBe(30)
+        ->and($public['skipped_issues'])->toHaveCount(30)
+        ->and(collect($public['skipped_issues'])->pluck('employee_name')->all())
+        ->toEqualCanonicalizing($missingNames);
+});
+
+test('phantom and foreign-company excluded ids do not inflate preview excluded counts', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, ['payroll.periods.update', 'payroll.periods.view']);
+
+    ['company' => $otherCompany] = makePayrollFixtures();
+    $foreignEmployee = createCrewEmployeeWithContract($otherCompany, 'FOREIGN-EXCL-1', 100, 50, 25);
+
+    $validExcluded = createCrewEmployeeWithContract($company, 'VALID-EXCL-1', 100, 50, 25);
+    $ready = createCrewEmployeeWithContract($company, 'VALID-READY-1', 100, 50, 25);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+        'excluded_employee_ids' => [
+            (int) $validExcluded->id,
+            999999,
+            (int) $foreignEmployee->id,
+        ],
+    ]);
+
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $ready->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'onsite_days' => 2,
+    ]);
+    CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'sequence' => 1,
+        'source' => CrewTimesheetSource::Manual,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-01',
+        'to_date' => '2026-07-02',
+        'days' => 2,
+    ]);
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle(
+        $period,
+        (int) $company->id,
+        [],
+        $user,
+    );
+    $public = $preview->toPublicArray();
+    $encoded = json_encode($public);
+
+    expect($preview->excludedCount)->toBe(1)
+        ->and($preview->excludedEmployeeIds)->toBe([(int) $validExcluded->id])
+        ->and($preview->skippedCount)->toBe(1)
+        ->and($public['skipped_issues'])->toHaveCount(1)
+        ->and($public['skipped_issues'][0]['code'])->toBe('explicitly_excluded')
+        ->and($public['skipped_issues'][0]['employee_name'])->toBe($validExcluded->name)
+        ->and($public['skipped_issues'][0]['employee_id'])->toBe((int) $validExcluded->id)
+        ->and(collect($public['skipped_issues'])->pluck('employee_id')->all())
+        ->not->toContain((int) $foreignEmployee->id)
+        ->and(collect($public['skipped_issues'])->pluck('employee_id')->all())
+        ->not->toContain(999999)
+        ->and($encoded)->not->toContain($foreignEmployee->name)
+        ->and($encoded)->not->toContain('999999');
 });

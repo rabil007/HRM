@@ -518,7 +518,7 @@ final class BuildCrewPayrollGenerationPreview
                     'employee_name' => $employeeName,
                     'code' => 'prior_period_arrears_included',
                     'message' => sprintf(
-                        '%s prior-period work detected — included in this payroll as arrears using the contract and rates effective for those work dates.',
+                        '%s prior-period work detected — will be included as arrears if payroll generation proceeds, using the contract and rates effective for those work dates.',
                         $this->formatDateRange($range['from'], $range['to']),
                     ),
                     'from_date' => $range['from'],
@@ -650,16 +650,30 @@ final class BuildCrewPayrollGenerationPreview
     }
 
     /**
+     * Resolve stored exclusion IDs to current-company employees the actor may see.
+     * Phantom, deleted, and foreign-company IDs must not inflate preview counts.
+     *
      * @param  list<int>  $excluded
      * @return list<int>
      */
     private function visibleExcludedIds(array $excluded, int $companyId, ?User $user): array
     {
-        if ($excluded === [] || $user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
-            return $excluded;
+        if ($excluded === []) {
+            return [];
         }
 
-        return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $excluded);
+        if ($user !== null) {
+            return EmployeeVisibilityScope::filterAuthorizedEmployeeIds($user, $companyId, $excluded);
+        }
+
+        return Employee::query()
+            ->where('company_id', $companyId)
+            ->whereIn('id', $excluded)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
     }
 
     private function emptyReadyPreview(): CrewPayrollGenerationPreview
