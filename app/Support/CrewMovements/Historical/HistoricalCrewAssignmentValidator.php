@@ -2,13 +2,16 @@
 
 namespace App\Support\CrewMovements\Historical;
 
+use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
 use App\Models\User;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -20,7 +23,7 @@ final class HistoricalCrewAssignmentValidator
 {
     public const ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE = 'This employee already has an active Crew Assignment in OMS-HRM. Historical records before the active assignment may still be imported, but this row cannot become another current assignment.';
 
-    public const OPEN_BOOTSTRAP_REQUIRES_ACTIVE_EMPLOYEE_MESSAGE = 'This historical record would become the employee\'s current active Crew Assignment, but the employee is not currently Active. Complete the historical movement through Home / Redeployment, or reactivate the employee before using this record to establish their current Crew state.';
+    public const OPEN_BOOTSTRAP_REQUIRES_ACTIVE_EMPLOYEE_MESSAGE = 'This historical record would become the employee\'s current active Crew Assignment, but the employee is not currently Active. Complete the historical movement through Home / Available, or reactivate the employee before using this record to establish their current Crew state.';
 
     public function __construct(
         private readonly SeaServiceSyncService $seaServiceSync,
@@ -37,7 +40,6 @@ final class HistoricalCrewAssignmentValidator
         $warnings = [];
         $checks = [];
 
-        // 1. Employee Check
         $employee = $bulk?->employee($data->employeeId)
             ?? Employee::query()
                 ->where('company_id', $data->companyId)
@@ -65,7 +67,6 @@ final class HistoricalCrewAssignmentValidator
             'message' => $employeeMessage,
         ];
 
-        // 2. Vessel Check
         $vessel = $bulk?->vessel($data->vesselId)
             ?? ClientAssignmentRules::findCompanyVessel($data->companyId, $data->vesselId);
 
@@ -89,7 +90,6 @@ final class HistoricalCrewAssignmentValidator
             'message' => $vesselMessage,
         ];
 
-        // 3. Rank Check
         $rank = $bulk?->rank($data->rankId) ?? Rank::query()->find($data->rankId);
         $rankValid = true;
         $rankMessage = null;
@@ -111,7 +111,6 @@ final class HistoricalCrewAssignmentValidator
             'message' => $rankMessage,
         ];
 
-        // Client is a historical snapshot — never force today's Vessel.client_id.
         $client = null;
         if ($data->clientId !== null) {
             $client = $bulk?->client($data->clientId) ?? Client::query()->find($data->clientId);
@@ -129,25 +128,28 @@ final class HistoricalCrewAssignmentValidator
             $warnings[] = "Client '{$client->name}' is currently inactive in master data.";
         }
 
-        // 4. Chronological & dependency validation
         $datesValid = true;
         $datesMessage = null;
         $now = Carbon::now($timezone);
         $reconstruction = null;
 
-        if (! $data->hasAnyMovementDate()) {
+        if (! $data->hasAnyMovementPeriod()) {
             $datesValid = false;
-            $errors['dates'] = 'At least one meaningful movement date must be supplied.';
+            $errors['dates'] = 'At least one meaningful movement period must be supplied.';
         }
 
         $allSuppliedTimestamps = [
-            'mobilisation_start_at' => $data->mobilisationStartAt,
-            'join_standby_at' => $data->joinStandbyAt,
-            'training_start_at' => $data->trainingStartAt,
-            'training_end_at' => $data->trainingEndAt,
-            'joined_vessel_at' => $data->joinedVesselAt,
-            'disembarked_at' => $data->disembarkedAt,
-            'travel_home_at' => $data->travelHomeAt,
+            'sign_on_standby_from' => $data->signOnStandbyFrom,
+            'sign_on_standby_to' => $data->signOnStandbyTo,
+            'onsite_from' => $data->onsiteFrom,
+            'onsite_to' => $data->onsiteTo,
+            'sign_off_standby_from' => $data->signOffStandbyFrom,
+            'sign_off_standby_to' => $data->signOffStandbyTo,
+            'home_available_from' => $data->homeAvailableFrom,
+            'sign_on_hotel_check_in' => $data->signOnHotelCheckIn,
+            'sign_on_hotel_check_out' => $data->signOnHotelCheckOut,
+            'sign_off_hotel_check_in' => $data->signOffHotelCheckIn,
+            'sign_off_hotel_check_out' => $data->signOffHotelCheckOut,
         ];
 
         foreach ($allSuppliedTimestamps as $field => $ts) {
@@ -157,94 +159,21 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
-        if ($data->trainingEndAt !== null && $data->trainingStartAt === null) {
-            $datesValid = false;
-            $errors['training_start_at'] = 'Training Start is required when Training End is provided.';
-        }
+        $this->validatePeriodBounds($data, $errors, $datesValid);
+        $this->validatePeriodSequence($data, $errors, $datesValid);
+        $this->validateOpenCurrentState($data, $errors, $datesValid);
+        $this->validateAccommodation($data, $errors, $warnings);
 
-        // Training Start may remain open only when it is the latest known movement.
-        // Do not invent Training End from a later On Vessel / Disembarked / Home timestamp.
-        if (
-            $data->trainingStartAt !== null
-            && $data->trainingEndAt === null
-            && (
-                $data->joinedVesselAt !== null
-                || $data->disembarkedAt !== null
-                || $data->travelHomeAt !== null
-            )
-        ) {
-            $datesValid = false;
-            $errors['training_end_at'] = 'Training End is required before On Vessel when Training Start has been entered.';
-        }
-
-        if ($data->disembarkedAt !== null && $data->joinedVesselAt === null) {
-            $datesValid = false;
-            $errors['joined_vessel_at'] = 'On Vessel is required when Disembarked is provided.';
-        }
-
-        if ($data->travelHomeAt !== null && $data->disembarkedAt === null) {
-            $datesValid = false;
-            $errors['disembarked_at'] = 'Disembarked is required when Home / Redeployment is provided.';
-        }
-
-        if ($data->joinedVesselAt !== null && $data->disembarkedAt !== null
-            && ! $data->joinedVesselAt->lt($data->disembarkedAt)) {
-            $datesValid = false;
-            $errors['disembarked_at'] = 'Disembarked must be after On Vessel.';
-        }
-
-        $chainDefinitions = [
-            ['field' => 'mobilisation_start_at', 'label' => 'Pre-Mobilisation', 'ts' => $data->mobilisationStartAt],
-            ['field' => 'join_standby_at', 'label' => 'Join Standby', 'ts' => $data->joinStandbyAt],
-            ['field' => 'training_start_at', 'label' => 'Training Start', 'ts' => $data->trainingStartAt],
-            ['field' => 'training_end_at', 'label' => 'Training End', 'ts' => $data->trainingEndAt],
-            ['field' => 'joined_vessel_at', 'label' => 'On Vessel', 'ts' => $data->joinedVesselAt],
-            ['field' => 'disembarked_at', 'label' => 'Disembarked', 'ts' => $data->disembarkedAt],
-            ['field' => 'travel_home_at', 'label' => 'Home / Redeployment', 'ts' => $data->travelHomeAt],
-        ];
-
-        /** @var list<array{field: string, label: string, ts: CarbonInterface}> $suppliedChain */
-        $suppliedChain = [];
-        foreach ($chainDefinitions as $def) {
-            if ($def['ts'] !== null) {
-                $suppliedChain[] = $def;
-            }
-        }
-
-        for ($i = 0; $i < count($suppliedChain) - 1; $i++) {
-            $left = $suppliedChain[$i];
-            $right = $suppliedChain[$i + 1];
-
-            if ($left['field'] === 'joined_vessel_at' && $right['field'] === 'disembarked_at') {
-                if (! $left['ts']->lt($right['ts'])) {
-                    $datesValid = false;
-                    $errors[$right['field']] = "{$right['label']} must be after {$left['label']}.";
-                }
-            } elseif ($left['field'] === 'disembarked_at' && $right['field'] === 'travel_home_at') {
-                // Same timestamp is valid (direct P4 → P6).
-                if ($left['ts']->gt($right['ts'])) {
-                    $datesValid = false;
-                    $errors[$right['field']] = "{$right['label']} cannot be before {$left['label']}.";
-                    $errors[$left['field']] = "{$left['label']} cannot be after {$right['label']}.";
-                }
-            } else {
-                if ($left['ts']->gt($right['ts'])) {
-                    $datesValid = false;
-                    $msg = "{$right['label']} cannot be before {$left['label']}.";
-                    $errors[$right['field']] = $msg;
-                    $errors[$left['field']] = "{$left['label']} cannot be after {$right['label']}.";
-
-                    if ($left['field'] === 'mobilisation_start_at') {
-                        $errors['mobilisation_at'] = $errors[$left['field']];
-                    }
-                    if ($right['field'] === 'mobilisation_start_at') {
-                        $errors['mobilisation_at'] = $errors[$right['field']];
-                    }
-                }
-            }
-        }
-
-        if ($datesValid && $data->hasAnyMovementDate()) {
+        if ($datesValid && $data->hasAnyMovementPeriod() && empty(array_intersect_key($errors, array_flip([
+            'dates',
+            'sign_on_standby_from',
+            'sign_on_standby_to',
+            'onsite_from',
+            'onsite_to',
+            'sign_off_standby_from',
+            'sign_off_standby_to',
+            'home_available_from',
+        ])))) {
             try {
                 $reconstruction = $data->reconstruction();
             } catch (\InvalidArgumentException $exception) {
@@ -254,12 +183,12 @@ final class HistoricalCrewAssignmentValidator
         }
 
         if (! $datesValid && $datesMessage === null) {
-            $datesMessage = 'One or more timestamps are chronologically invalid or in the future.';
+            $datesMessage = 'One or more movement periods are chronologically invalid, overlapping, or leave the current state ambiguous.';
         }
 
         $checks[] = [
             'code' => 'dates',
-            'passed' => $datesValid,
+            'passed' => $datesValid && ! isset($errors['dates']),
             'message' => $datesMessage ?? 'Dates and chronological sequence are valid.',
         ];
 
@@ -272,7 +201,6 @@ final class HistoricalCrewAssignmentValidator
             $newEnd = $data->intervalEnd();
         }
 
-        // 5. Open/current bootstrap requires Active HR status (completed history remains allowed).
         if ($employee !== null && $employee->status !== 'active') {
             $statusLabel = str_replace('_', ' ', (string) $employee->status);
 
@@ -283,7 +211,6 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
-        // 6. Existing Active OMS assignment protection for open bootstrap rows
         $activeAssignment = null;
 
         if ($employee !== null) {
@@ -305,7 +232,6 @@ final class HistoricalCrewAssignmentValidator
             $errors['assignment'] = self::ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE;
         }
 
-        // 7. Overlap Check with Existing Assignment History
         $noConflict = true;
         $conflictMessage = null;
         $conflictingAssignment = null;
@@ -355,7 +281,6 @@ final class HistoricalCrewAssignmentValidator
             'message' => $errors['assignment'] ?? $conflictMessage ?? 'No conflicting assignment found.',
         ];
 
-        // 8. Current operational isolation messaging
         if (isset($errors['assignment'])) {
             $currentIsolatedMessage = $errors['assignment'];
         } elseif ($isOpenBootstrap && $activeAssignment === null) {
@@ -372,10 +297,9 @@ final class HistoricalCrewAssignmentValidator
             'message' => $currentIsolatedMessage,
         ];
 
-        // 9. Sea Service Impact (only for completed P4)
         $seaDuration = $data->seaServiceDuration();
-        $seaStartDate = $data->joinedVesselAt?->toDateString();
-        $seaEndDate = $data->disembarkedAt?->toDateString();
+        $seaStartDate = $data->joinedVesselAt()?->toDateString();
+        $seaEndDate = $data->disembarkedAt()?->toDateString();
         $vesselName = $vessel?->name ?? 'Unknown Vessel';
         $syncEnabled = $bulk?->seaServiceSyncEnabled ?? $this->seaServiceSync->isEnabled($data->companyId);
 
@@ -388,7 +312,7 @@ final class HistoricalCrewAssignmentValidator
             'vessel_id' => $data->vesselId,
             'vessel_name' => $vesselName,
             'existing_id' => null,
-            'message' => 'Sea Service is created only for a completed On Vessel → Disembarked period.',
+            'message' => 'Sea Service is created only for a completed Onsite / On Vessel period.',
         ];
 
         if ($data->hasCompletedSeaServicePeriod() && $seaStartDate !== null && $seaEndDate !== null) {
@@ -468,6 +392,8 @@ final class HistoricalCrewAssignmentValidator
 
         $inferredState = null;
         $lastMovement = null;
+        $knownPeriods = [];
+        $accommodationSummary = [];
 
         if ($reconstruction !== null) {
             $inferred = $reconstruction['inferred_state'];
@@ -487,15 +413,21 @@ final class HistoricalCrewAssignmentValidator
                 'event_at' => $last['event_at']->copy()->timezone($timezone)->format('d M Y'),
                 'display' => $last['event_label'].' — '.$last['event_at']->copy()->timezone($timezone)->format('d M Y'),
             ];
+            $knownPeriods = $reconstruction['known_periods'];
+            $accommodationSummary = $this->accommodationPreviewSummary($data);
         }
 
         $summary = [
-            'joined_vessel_at' => $data->joinedVesselAt?->copy()->timezone($timezone)->format('d M Y'),
-            'disembarked_at' => $data->disembarkedAt?->copy()->timezone($timezone)->format('d M Y'),
+            'onsite_from' => $data->onsiteFrom?->copy()->timezone($timezone)->format('d M Y'),
+            'onsite_to' => $data->onsiteTo?->copy()->timezone($timezone)->format('d M Y'),
+            'joined_vessel_at' => $data->onsiteFrom?->copy()->timezone($timezone)->format('d M Y'),
+            'disembarked_at' => $data->onsiteTo?->copy()->timezone($timezone)->format('d M Y'),
             'sea_service_days' => $data->hasCompletedSeaServicePeriod() ? $seaDuration['days'] : null,
             'remarks' => $data->remarks,
             'assignment_status' => $reconstruction['assignment_status']->value ?? null,
             'is_open' => $reconstruction['is_open'] ?? null,
+            'known_periods' => $knownPeriods,
+            'accommodation' => $accommodationSummary,
         ];
 
         $timeline = [];
@@ -507,8 +439,8 @@ final class HistoricalCrewAssignmentValidator
 
                 if ($phase['phase_code'] === CrewPhaseCode::OnVessel && $phaseEnd !== null) {
                     $duration = $seaDuration['days'];
-                } elseif ($phaseEnd !== null && $phaseStart->toDateString() !== $phaseEnd->toDateString()) {
-                    $duration = (int) $phaseStart->diffInDays($phaseEnd) + 1;
+                } elseif ($phaseEnd !== null) {
+                    $duration = HistoricalCrewAssignmentData::inclusiveDays($phase['actual_start_at'], $phase['actual_end_at']);
                 }
 
                 $timeline[] = [
@@ -555,5 +487,289 @@ final class HistoricalCrewAssignmentValidator
             inferredState: $inferredState,
             lastMovement: $lastMovement,
         );
+    }
+
+    /**
+     * @param  array<string, string>  $errors
+     */
+    private function validatePeriodBounds(HistoricalCrewAssignmentData $data, array &$errors, bool &$datesValid): void
+    {
+        $pairs = [
+            ['from' => $data->signOnStandbyFrom, 'to' => $data->signOnStandbyTo, 'from_field' => 'sign_on_standby_from', 'to_field' => 'sign_on_standby_to', 'label' => 'Sign-On Standby'],
+            ['from' => $data->onsiteFrom, 'to' => $data->onsiteTo, 'from_field' => 'onsite_from', 'to_field' => 'onsite_to', 'label' => 'Onsite / On Vessel'],
+            ['from' => $data->signOffStandbyFrom, 'to' => $data->signOffStandbyTo, 'from_field' => 'sign_off_standby_from', 'to_field' => 'sign_off_standby_to', 'label' => 'Sign-Off Standby'],
+        ];
+
+        foreach ($pairs as $pair) {
+            if ($pair['to'] !== null && $pair['from'] === null) {
+                $datesValid = false;
+                $errors[$pair['from_field']] = "{$pair['label']} From is required when To is provided.";
+            }
+
+            if ($pair['from'] !== null && $pair['to'] !== null && $pair['from']->gt($pair['to'])) {
+                $datesValid = false;
+                $errors[$pair['to_field']] = "{$pair['label']} From must not be after To.";
+            }
+        }
+
+        if ($data->signOnStandbyTo !== null && $data->signOnStandbyFrom === null) {
+            // already covered
+        }
+
+        if ($data->signOnAccommodation !== HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED
+            && $data->signOnStandbyFrom === null) {
+            $errors['sign_on_accommodation'] = 'Sign-On Standby period is required when accommodation is recorded.';
+        }
+
+        if ($data->signOffAccommodation !== HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED
+            && $data->signOffStandbyFrom === null) {
+            $errors['sign_off_accommodation'] = 'Sign-Off Standby period is required when accommodation is recorded.';
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $errors
+     */
+    private function validatePeriodSequence(HistoricalCrewAssignmentData $data, array &$errors, bool &$datesValid): void
+    {
+        $ordered = $data->enteredOperationalPeriods();
+
+        for ($i = 0; $i < count($ordered) - 1; $i++) {
+            $left = $ordered[$i];
+            $right = $ordered[$i + 1];
+
+            if ($left['from']->gt($right['from'])) {
+                $datesValid = false;
+                $errors[$right['key'].'_from'] = "{$right['label']} cannot start before {$left['label']}.";
+            }
+
+            if ($left['to'] !== null && $left['to']->gt($right['from'])) {
+                $datesValid = false;
+                $errors[$left['key'] === 'sign_on_standby' ? 'sign_on_standby_to' : ($left['key'] === 'onsite' ? 'onsite_to' : 'sign_off_standby_to')]
+                    = "{$left['label']} overlaps {$right['label']}. Periods may meet on the same date, but must not improperly overlap.";
+            }
+        }
+
+        if ($data->homeAvailableFrom !== null) {
+            foreach ($ordered as $period) {
+                if ($period['from']->gt($data->homeAvailableFrom)) {
+                    $datesValid = false;
+                    $errors['home_available_from'] = 'Home / Available From cannot precede known movement periods.';
+                }
+
+                if ($period['to'] !== null && $period['to']->gt($data->homeAvailableFrom)) {
+                    $datesValid = false;
+                    $errors['home_available_from'] = 'Home / Available From cannot precede known movement periods.';
+                }
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $errors
+     */
+    private function validateOpenCurrentState(HistoricalCrewAssignmentData $data, array &$errors, bool &$datesValid): void
+    {
+        $periods = $data->enteredOperationalPeriods();
+
+        if ($periods === [] && $data->homeAvailableFrom === null) {
+            return;
+        }
+
+        $openIndexes = [];
+
+        foreach ($periods as $index => $period) {
+            if ($period['to'] === null) {
+                $openIndexes[] = $index;
+            }
+        }
+
+        if ($data->homeAvailableFrom !== null) {
+            if ($openIndexes !== []) {
+                $datesValid = false;
+                $errors['dates'] = 'Close every movement period before Home / Available From, or leave Home empty for an open current period.';
+            }
+
+            return;
+        }
+
+        if ($openIndexes === []) {
+            $datesValid = false;
+            $errors['dates'] = HistoricalCrewAssignmentData::AMBIGUOUS_CURRENT_STATE_MESSAGE;
+
+            return;
+        }
+
+        if (count($openIndexes) > 1) {
+            $datesValid = false;
+            $errors['dates'] = 'Only the latest chronological movement period may remain open.';
+
+            return;
+        }
+
+        $openIndex = $openIndexes[0];
+        $lastIndex = count($periods) - 1;
+
+        if ($openIndex !== $lastIndex) {
+            $datesValid = false;
+            $errors['dates'] = 'Only the latest chronological movement period may remain open.';
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $errors
+     * @param  list<string>  $warnings
+     */
+    private function validateAccommodation(HistoricalCrewAssignmentData $data, array &$errors, array &$warnings): void
+    {
+        $this->validateStandbyAccommodation(
+            choice: $data->signOnAccommodation,
+            standbyFrom: $data->signOnStandbyFrom,
+            standbyTo: $data->signOnStandbyTo,
+            hotelId: $data->signOnHotelId,
+            roomTypeId: $data->signOnRoomTypeId,
+            checkIn: $data->signOnHotelCheckIn,
+            checkOut: $data->signOnHotelCheckOut,
+            prefix: 'sign_on',
+            label: 'Sign-On Standby',
+            companyId: $data->companyId,
+            errors: $errors,
+            warnings: $warnings,
+        );
+
+        $this->validateStandbyAccommodation(
+            choice: $data->signOffAccommodation,
+            standbyFrom: $data->signOffStandbyFrom,
+            standbyTo: $data->signOffStandbyTo,
+            hotelId: $data->signOffHotelId,
+            roomTypeId: $data->signOffRoomTypeId,
+            checkIn: $data->signOffHotelCheckIn,
+            checkOut: $data->signOffHotelCheckOut,
+            prefix: 'sign_off',
+            label: 'Sign-Off Standby',
+            companyId: $data->companyId,
+            errors: $errors,
+            warnings: $warnings,
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $errors
+     * @param  list<string>  $warnings
+     */
+    private function validateStandbyAccommodation(
+        string $choice,
+        ?CarbonInterface $standbyFrom,
+        ?CarbonInterface $standbyTo,
+        ?int $hotelId,
+        ?int $roomTypeId,
+        ?CarbonInterface $checkIn,
+        ?CarbonInterface $checkOut,
+        string $prefix,
+        string $label,
+        int $companyId,
+        array &$errors,
+        array &$warnings,
+    ): void {
+        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED) {
+            if ($hotelId !== null || $roomTypeId !== null || $checkIn !== null || $checkOut !== null) {
+                $errors[$prefix.'_accommodation'] = "{$label} hotel fields must be empty when Accommodation is Not recorded.";
+            }
+
+            return;
+        }
+
+        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
+            if ($hotelId !== null || $roomTypeId !== null || $checkIn !== null || $checkOut !== null) {
+                $errors[$prefix.'_accommodation'] = "{$label} hotel fields must be empty when Accommodation is No accommodation.";
+            }
+
+            return;
+        }
+
+        if ($hotelId === null) {
+            $errors[$prefix.'_hotel_id'] = 'Hotel is required when Accommodation is Hotel.';
+        } else {
+            $hotel = Hotel::query()
+                ->where('company_id', $companyId)
+                ->whereKey($hotelId)
+                ->first();
+
+            if ($hotel === null) {
+                $errors[$prefix.'_hotel_id'] = 'Hotel must belong to the current company.';
+            } elseif (! $hotel->is_active) {
+                $warnings[] = "{$label} hotel '{$hotel->name}' is currently inactive in master data.";
+            }
+        }
+
+        if ($roomTypeId !== null) {
+            $roomType = RoomType::query()
+                ->where('company_id', $companyId)
+                ->whereKey($roomTypeId)
+                ->first();
+
+            if ($roomType === null) {
+                $errors[$prefix.'_room_type_id'] = 'Room type must belong to the current company.';
+            } elseif ($hotelId !== null && $roomType->hotel_id !== null && (int) $roomType->hotel_id !== $hotelId) {
+                $errors[$prefix.'_room_type_id'] = 'Room type must belong to the selected hotel.';
+            }
+        }
+
+        $effectiveCheckIn = $checkIn ?? $standbyFrom;
+
+        if ($effectiveCheckIn === null) {
+            $errors[$prefix.'_hotel_check_in'] = 'Hotel check-in is required when Accommodation is Hotel.';
+        }
+
+        $standbyIsOpen = $standbyFrom !== null && $standbyTo === null;
+        $effectiveCheckOut = $checkOut ?? ($standbyIsOpen ? null : $standbyTo);
+
+        if (! $standbyIsOpen && $effectiveCheckOut === null) {
+            $errors[$prefix.'_hotel_check_out'] = 'Hotel check-out is required for a closed standby period.';
+        }
+
+        if ($effectiveCheckIn !== null && $effectiveCheckOut !== null && $effectiveCheckOut->lt($effectiveCheckIn)) {
+            $errors[$prefix.'_hotel_check_out'] = 'Check-out date cannot be before check-in date.';
+        }
+    }
+
+    /**
+     * @return list<array{label: string, detail: string}>
+     */
+    private function accommodationPreviewSummary(HistoricalCrewAssignmentData $data): array
+    {
+        $summary = [];
+
+        if ($data->signOnAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL) {
+            $hotelName = $data->signOnHotelId !== null
+                ? (Hotel::query()->find($data->signOnHotelId)?->name ?? 'Hotel')
+                : 'Hotel';
+            $summary[] = [
+                'label' => 'Pre-Join Hotel',
+                'detail' => $hotelName,
+            ];
+        } elseif ($data->signOnAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
+            $summary[] = [
+                'label' => 'Pre-Join',
+                'detail' => CrewAccommodationStatus::NoAccommodation->label(),
+            ];
+        }
+
+        if ($data->signOffAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL) {
+            $hotelName = $data->signOffHotelId !== null
+                ? (Hotel::query()->find($data->signOffHotelId)?->name ?? 'Hotel')
+                : 'Hotel';
+            $summary[] = [
+                'label' => 'Post-Sign-Off Hotel',
+                'detail' => $hotelName,
+            ];
+        } elseif ($data->signOffAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
+            $summary[] = [
+                'label' => 'Post-Sign-Off',
+                'detail' => CrewAccommodationStatus::NoAccommodation->label(),
+            ];
+        }
+
+        return $summary;
     }
 }

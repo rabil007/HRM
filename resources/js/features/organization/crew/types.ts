@@ -792,10 +792,25 @@ export interface HistoricalCrewAssignmentPreviewData {
     summary: {
         joined_vessel_at: string | null;
         disembarked_at: string | null;
+        onsite_from?: string | null;
+        onsite_to?: string | null;
         sea_service_days: number | null;
         remarks: string | null;
         assignment_status?: string | null;
         is_open?: boolean | null;
+        known_periods?: Array<{
+            key: string;
+            label: string;
+            from: string;
+            to: string | null;
+            to_display: string;
+            days: number | null;
+            is_open: boolean;
+        }>;
+        accommodation?: Array<{
+            label: string;
+            detail: string;
+        }>;
     };
     timeline: HistoricalPreviewTimelineItem[];
     checks: HistoricalPreviewCheck[];
@@ -806,18 +821,33 @@ export interface HistoricalCrewAssignmentPreviewData {
     errors?: string[];
 }
 
+export type HistoricalAccommodationChoice =
+    | 'not_recorded'
+    | 'no_accommodation'
+    | 'hotel';
+
 export interface HistoricalCrewAssignmentFormData {
     employee_id: string | number;
     vessel_id: string | number;
     rank_id: string | number;
     client_id: string | number;
-    mobilisation_at?: string;
-    join_standby_at?: string;
-    training_started_at?: string;
-    training_ended_at?: string;
-    joined_vessel_at?: string;
-    disembarked_at?: string;
-    travel_home_at?: string;
+    sign_on_standby_from?: string;
+    sign_on_standby_to?: string;
+    onsite_from?: string;
+    onsite_to?: string;
+    sign_off_standby_from?: string;
+    sign_off_standby_to?: string;
+    home_available_from?: string;
+    sign_on_accommodation?: HistoricalAccommodationChoice;
+    sign_on_hotel_id?: string | number;
+    sign_on_room_type_id?: string | number;
+    sign_on_hotel_check_in?: string;
+    sign_on_hotel_check_out?: string;
+    sign_off_accommodation?: HistoricalAccommodationChoice;
+    sign_off_hotel_id?: string | number;
+    sign_off_room_type_id?: string | number;
+    sign_off_hotel_check_in?: string;
+    sign_off_hotel_check_out?: string;
     remarks?: string;
 }
 
@@ -848,6 +878,17 @@ export interface HistoricalFormOptions {
         id: number;
         name: string;
         is_active?: boolean;
+        [key: string]: unknown;
+    }>;
+    hotels: Array<{
+        id: number;
+        name: string;
+        [key: string]: unknown;
+    }>;
+    room_types: Array<{
+        id: number;
+        name: string;
+        hotel_id: number | null;
         [key: string]: unknown;
     }>;
     company_timezone: string;
@@ -891,10 +932,25 @@ export interface HistoricalImportPreviewRow {
     summary: {
         joined_vessel_at: string | null;
         disembarked_at: string | null;
+        onsite_from?: string | null;
+        onsite_to?: string | null;
         sea_service_days: number | null;
         remarks: string | null;
         assignment_status?: string | null;
         is_open?: boolean | null;
+        known_periods?: Array<{
+            key: string;
+            label: string;
+            from: string;
+            to: string | null;
+            to_display: string;
+            days: number | null;
+            is_open: boolean;
+        }>;
+        accommodation?: Array<{
+            label: string;
+            detail: string;
+        }>;
     };
     conflicting_assignment: {
         id: number;

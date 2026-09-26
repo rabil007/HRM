@@ -45,21 +45,19 @@ final class HistoricalCrewImportRow
         return $value !== null && $value !== '' ? $value : null;
     }
 
-    public function vesselJoinDate(): ?string
+    public function onsiteFrom(): ?string
     {
-        return $this->raw[HistoricalCrewImportColumns::VESSEL_JOIN_DATE] ?? null;
+        return $this->nullableRaw(HistoricalCrewImportColumns::ONSITE_FROM);
     }
 
-    public function disembarkDate(): ?string
+    public function onsiteTo(): ?string
     {
-        return $this->raw[HistoricalCrewImportColumns::DISEMBARK_DATE] ?? null;
+        return $this->nullableRaw(HistoricalCrewImportColumns::ONSITE_TO);
     }
 
     public function remarks(): ?string
     {
-        $value = $this->raw[HistoricalCrewImportColumns::REMARKS] ?? null;
-
-        return $value !== null && $value !== '' ? $value : null;
+        return $this->nullableRaw(HistoricalCrewImportColumns::REMARKS);
     }
 
     public function isEmpty(): bool
@@ -85,5 +83,12 @@ final class HistoricalCrewImportRow
         }
 
         return implode('|', $parts);
+    }
+
+    private function nullableRaw(string $header): ?string
+    {
+        $value = $this->raw[$header] ?? null;
+
+        return $value !== null && $value !== '' ? $value : null;
     }
 }

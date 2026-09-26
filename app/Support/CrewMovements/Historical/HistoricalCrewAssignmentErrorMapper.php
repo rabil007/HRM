@@ -13,11 +13,7 @@ final class HistoricalCrewAssignmentErrorMapper
      *
      * @var array<string, string>
      */
-    public const FORM_ALIASES = [
-        'training_start_at' => 'training_started_at',
-        'training_end_at' => 'training_ended_at',
-        'mobilisation_start_at' => 'mobilisation_at',
-    ];
+    public const FORM_ALIASES = [];
 
     /**
      * Domain-level keys that should appear in the top-level validation alert.

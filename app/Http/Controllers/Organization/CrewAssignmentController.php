@@ -772,6 +772,8 @@ class CrewAssignmentController extends Controller
             'ranks' => $this->historicalRanksWithTour(),
             'vessels' => $this->historicalVessels($companyId),
             'clients' => $this->historicalClients(),
+            'hotels' => $this->activeHotels($companyId),
+            'room_types' => $this->activeRoomTypes($companyId),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
     }
