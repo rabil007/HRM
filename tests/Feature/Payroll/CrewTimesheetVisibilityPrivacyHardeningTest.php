@@ -948,3 +948,224 @@ test('payroll hub incomplete_crew_runs stays incomplete for ops when only hidden
     // Pre-fix leak: company-wide timesheet count (5) >= visible employees (1) looked "complete".
     expect($opsSummary['incomplete_crew_runs'])->toBe(1);
 });
+
+test('payroll hub incomplete_crew_runs ignores monthly crew when daily timesheets are complete', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.crew_timesheets.view',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    for ($i = 1; $i <= 8; $i++) {
+        $daily = createCrewEmployeeWithContract($company, 'DAY-COMPLETE-'.$i, 100, 50, 25);
+        CrewTimesheet::factory()->create([
+            'company_id' => $company->id,
+            'employee_id' => $daily->id,
+            'period_id' => $period->id,
+            'source' => CrewTimesheetSource::Manual,
+            'onsite_from' => '2026-07-01',
+            'onsite_to' => '2026-07-05',
+            'onsite_days' => 5,
+        ]);
+    }
+
+    createCrewMonthlyEmployeeWithContract($company, 'MON-COMPLETE-1', 5000, 1000, 500, 0);
+    createCrewMonthlyEmployeeWithContract($company, 'MON-COMPLETE-2', 5000, 1000, 500, 0);
+
+    $summary = PayrollHubSummary::forCompany(
+        (int) $company->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $user,
+    );
+
+    expect($summary['incomplete_crew_runs'])->toBe(0);
+});
+
+test('payroll hub incomplete_crew_runs stays incomplete when a daily timesheet is missing', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.crew_timesheets.view',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    for ($i = 1; $i <= 8; $i++) {
+        $daily = createCrewEmployeeWithContract($company, 'DAY-INCOMPLETE-'.$i, 100, 50, 25);
+
+        if ($i <= 7) {
+            CrewTimesheet::factory()->create([
+                'company_id' => $company->id,
+                'employee_id' => $daily->id,
+                'period_id' => $period->id,
+                'source' => CrewTimesheetSource::Manual,
+                'onsite_from' => '2026-07-01',
+                'onsite_to' => '2026-07-05',
+                'onsite_days' => 5,
+            ]);
+        }
+    }
+
+    createCrewMonthlyEmployeeWithContract($company, 'MON-INCOMPLETE-1', 5000, 1000, 500, 0);
+    createCrewMonthlyEmployeeWithContract($company, 'MON-INCOMPLETE-2', 5000, 1000, 500, 0);
+
+    $summary = PayrollHubSummary::forCompany(
+        (int) $company->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $user,
+    );
+
+    expect($summary['incomplete_crew_runs'])->toBe(1);
+});
+
+test('restricted ops incomplete_crew_runs ignores monthly and hidden daily crew', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    // Visible: 3 daily (original + 2) with timesheets, plus 2 monthly without timesheets.
+    foreach (['VIS-DAY-2', 'VIS-DAY-3'] as $employeeNo) {
+        $daily = createCrewEmployeeWithContract($fixtures['company'], $employeeNo, 100, 50, 25);
+        $daily->update(['department_id' => $fixtures['visibleDept']->id]);
+
+        CrewTimesheet::factory()->create([
+            'company_id' => $fixtures['company']->id,
+            'employee_id' => $daily->id,
+            'period_id' => $fixtures['period']->id,
+            'source' => CrewTimesheetSource::Manual,
+            'onsite_from' => '2026-07-01',
+            'onsite_to' => '2026-07-03',
+            'onsite_days' => 3,
+        ]);
+    }
+
+    foreach (['VIS-MON-1', 'VIS-MON-2'] as $employeeNo) {
+        $monthly = createCrewMonthlyEmployeeWithContract($fixtures['company'], $employeeNo, 5000, 1000, 500, 0);
+        $monthly->update(['department_id' => $fixtures['visibleDept']->id]);
+    }
+
+    // Hidden daily + monthly must not affect the restricted result.
+    foreach (['HID-DAY-EXTRA-1', 'HID-DAY-EXTRA-2'] as $employeeNo) {
+        $hiddenDaily = createCrewEmployeeWithContract($fixtures['company'], $employeeNo, 100, 50, 25);
+        $hiddenDaily->update(['department_id' => $fixtures['hiddenDept']->id]);
+    }
+
+    $hiddenMonthly = createCrewMonthlyEmployeeWithContract($fixtures['company'], 'HID-MON-1', 5000, 1000, 500, 0);
+    $hiddenMonthly->update(['department_id' => $fixtures['hiddenDept']->id]);
+
+    $summary = PayrollHubSummary::forCompany(
+        (int) $fixtures['company']->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $fixtures['opsUser'],
+    );
+
+    expect($summary['incomplete_crew_runs'])->toBe(0);
+});
+
+test('restricted ops incomplete_crew_runs is incomplete when a visible daily timesheet is missing', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+
+    foreach (['VIS-DAY-MISS-2', 'VIS-DAY-MISS-3'] as $index => $employeeNo) {
+        $daily = createCrewEmployeeWithContract($fixtures['company'], $employeeNo, 100, 50, 25);
+        $daily->update(['department_id' => $fixtures['visibleDept']->id]);
+
+        // Only the first extra daily gets a timesheet → visible daily = 3, filled = 2.
+        if ($index === 0) {
+            CrewTimesheet::factory()->create([
+                'company_id' => $fixtures['company']->id,
+                'employee_id' => $daily->id,
+                'period_id' => $fixtures['period']->id,
+                'source' => CrewTimesheetSource::Manual,
+                'onsite_from' => '2026-07-01',
+                'onsite_to' => '2026-07-03',
+                'onsite_days' => 3,
+            ]);
+        }
+    }
+
+    foreach (['VIS-MON-MISS-1', 'VIS-MON-MISS-2'] as $employeeNo) {
+        $monthly = createCrewMonthlyEmployeeWithContract($fixtures['company'], $employeeNo, 5000, 1000, 500, 0);
+        $monthly->update(['department_id' => $fixtures['visibleDept']->id]);
+    }
+
+    $summary = PayrollHubSummary::forCompany(
+        (int) $fixtures['company']->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $fixtures['opsUser'],
+    );
+
+    expect($summary['incomplete_crew_runs'])->toBe(1);
+});
+
+test('incomplete_crew_runs ignores daily crew and timesheets from another company', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.crew_timesheets.view',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    for ($i = 1; $i <= 3; $i++) {
+        $daily = createCrewEmployeeWithContract($company, 'TENANT-DAY-'.$i, 100, 50, 25);
+        CrewTimesheet::factory()->create([
+            'company_id' => $company->id,
+            'employee_id' => $daily->id,
+            'period_id' => $period->id,
+            'source' => CrewTimesheetSource::Manual,
+            'onsite_from' => '2026-07-01',
+            'onsite_to' => '2026-07-04',
+            'onsite_days' => 4,
+        ]);
+    }
+
+    ['company' => $otherCompany] = makePayrollFixtures();
+    $otherPeriod = PayrollPeriod::factory()->for($otherCompany)->hybridTimesheets()->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    for ($i = 1; $i <= 5; $i++) {
+        $otherDaily = createCrewEmployeeWithContract($otherCompany, 'OTHER-DAY-'.$i, 100, 50, 25);
+        CrewTimesheet::factory()->create([
+            'company_id' => $otherCompany->id,
+            'employee_id' => $otherDaily->id,
+            'period_id' => $otherPeriod->id,
+            'source' => CrewTimesheetSource::Manual,
+            'onsite_from' => '2026-07-01',
+            'onsite_to' => '2026-07-02',
+            'onsite_days' => 2,
+        ]);
+    }
+
+    $summary = PayrollHubSummary::forCompany(
+        (int) $company->id,
+        '2026-07-01',
+        '2026-07-31',
+        [],
+        $user,
+    );
+
+    expect($summary['incomplete_crew_runs'])->toBe(0);
+});

@@ -60,7 +60,7 @@ final class PayrollHubSummary
         $periods = $query->get(['id', 'payroll_category', 'status']);
 
         $baseline = PayrollPeriodVisibleCrewStats::companyBaseline($companyId, $user);
-        $visibleCrewEmployeeCount = $baseline['visible_crew_employees'];
+        $eligibleDailyCrewCount = $baseline['eligible_daily_crew'];
 
         $crewPeriods = $periods->filter(
             fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
@@ -76,11 +76,11 @@ final class PayrollHubSummary
 
         $incompleteCrewRuns = 0;
 
-        if ($visibleCrewEmployeeCount > 0) {
+        if ($eligibleDailyCrewCount > 0) {
             foreach ($draftCrewPeriodIds as $periodId) {
-                $visibleTimesheets = (int) ($periodStats[$periodId]['visible_crew_timesheets'] ?? 0);
+                $filledDailyTimesheets = (int) ($periodStats[$periodId]['filled_daily_timesheets'] ?? 0);
 
-                if ($visibleTimesheets < $visibleCrewEmployeeCount) {
+                if ($filledDailyTimesheets < $eligibleDailyCrewCount) {
                     $incompleteCrewRuns++;
                 }
             }
