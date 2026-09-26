@@ -121,20 +121,73 @@ final class HistoricalCrewAssignmentData
         return CarbonImmutable::parse($trimmed, $timezone);
     }
 
-    public static function normalizeAccommodationChoice(mixed $value): string
+    /**
+     * Canonicalize blank/known accommodation labels for FormRequest merging.
+     * Blank/null → not_recorded. Unrecognized non-blank values are preserved
+     * so Laravel Rule::in can reject them (never silently discarded).
+     */
+    public static function canonicalizeAccommodationInput(mixed $value): mixed
     {
-        if (! is_string($value) && ! is_numeric($value)) {
+        if ($value === null) {
             return self::ACCOMMODATION_NOT_RECORDED;
         }
 
-        $normalized = mb_strtolower(trim((string) $value));
+        if (! is_string($value) && ! is_numeric($value)) {
+            return $value;
+        }
+
+        $trimmed = trim((string) $value);
+
+        if ($trimmed === '') {
+            return self::ACCOMMODATION_NOT_RECORDED;
+        }
+
+        $normalized = mb_strtolower($trimmed);
         $normalized = preg_replace('/[\s\-]+/', '_', $normalized) ?? $normalized;
 
         return match ($normalized) {
+            'not_recorded', 'notrecorded' => self::ACCOMMODATION_NOT_RECORDED,
             'no_accommodation', 'noaccommodation', 'none' => self::ACCOMMODATION_NO_ACCOMMODATION,
             'hotel' => self::ACCOMMODATION_HOTEL,
-            default => self::ACCOMMODATION_NOT_RECORDED,
+            default => $trimmed,
         };
+    }
+
+    /**
+     * Strict accommodation parse for domain persistence/import.
+     * Blank/null → not_recorded. Non-blank unrecognized values throw.
+     *
+     * @throws \InvalidArgumentException
+     */
+    public static function normalizeAccommodationChoice(mixed $value): string
+    {
+        $canonical = self::canonicalizeAccommodationInput($value);
+
+        if (! is_string($canonical) || ! in_array($canonical, [
+            self::ACCOMMODATION_NOT_RECORDED,
+            self::ACCOMMODATION_NO_ACCOMMODATION,
+            self::ACCOMMODATION_HOTEL,
+        ], true)) {
+            $display = is_scalar($value) ? trim((string) $value) : 'provided';
+
+            throw new \InvalidArgumentException(
+                "Accommodation value \"{$display}\" is invalid. Use Not recorded, No accommodation, or Hotel.",
+            );
+        }
+
+        return $canonical;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function accommodationChoices(): array
+    {
+        return [
+            self::ACCOMMODATION_NOT_RECORDED,
+            self::ACCOMMODATION_NO_ACCOMMODATION,
+            self::ACCOMMODATION_HOTEL,
+        ];
     }
 
     public static function inclusiveDays(?CarbonInterface $from, ?CarbonInterface $to): ?int

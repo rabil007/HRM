@@ -37,6 +37,8 @@ describe('Past Crew Data form contract', () => {
         assert.match(periodFields, /choice === 'hotel'/);
         assert.match(periodFields, /prefix="sign_on"/);
         assert.match(periodFields, /prefix="sign_off"/);
+        assert.match(periodFields, /room\.hotel_id === Number\(hotelId\)/);
+        assert.doesNotMatch(periodFields, /room\.hotel_id === null/);
 
         const onsiteSection = periodFields.slice(
             periodFields.indexOf('title="Onsite / On Vessel"'),

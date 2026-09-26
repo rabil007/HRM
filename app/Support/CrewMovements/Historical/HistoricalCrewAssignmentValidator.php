@@ -633,6 +633,7 @@ final class HistoricalCrewAssignmentValidator
             prefix: 'sign_on',
             label: 'Sign-On Standby',
             companyId: $data->companyId,
+            timezone: $data->timezone,
             errors: $errors,
             warnings: $warnings,
         );
@@ -648,6 +649,7 @@ final class HistoricalCrewAssignmentValidator
             prefix: 'sign_off',
             label: 'Sign-Off Standby',
             companyId: $data->companyId,
+            timezone: $data->timezone,
             errors: $errors,
             warnings: $warnings,
         );
@@ -668,6 +670,7 @@ final class HistoricalCrewAssignmentValidator
         string $prefix,
         string $label,
         int $companyId,
+        string $timezone,
         array &$errors,
         array &$warnings,
     ): void {
@@ -710,8 +713,10 @@ final class HistoricalCrewAssignmentValidator
 
             if ($roomType === null) {
                 $errors[$prefix.'_room_type_id'] = 'Room type must belong to the current company.';
-            } elseif ($hotelId !== null && $roomType->hotel_id !== null && (int) $roomType->hotel_id !== $hotelId) {
+            } elseif ($hotelId === null || $roomType->hotel_id === null || (int) $roomType->hotel_id !== $hotelId) {
                 $errors[$prefix.'_room_type_id'] = 'Room type must belong to the selected hotel.';
+            } elseif (! $roomType->is_active) {
+                $warnings[] = "{$label} room type '{$roomType->name}' is currently inactive in master data.";
             }
         }
 
@@ -730,6 +735,24 @@ final class HistoricalCrewAssignmentValidator
 
         if ($effectiveCheckIn !== null && $effectiveCheckOut !== null && $effectiveCheckOut->lt($effectiveCheckIn)) {
             $errors[$prefix.'_hotel_check_out'] = 'Check-out date cannot be before check-in date.';
+        }
+
+        if ($standbyFrom !== null && $effectiveCheckIn !== null) {
+            $checkInDate = $effectiveCheckIn->copy()->timezone($timezone)->toDateString();
+            $standbyFromDate = $standbyFrom->copy()->timezone($timezone)->toDateString();
+
+            if ($checkInDate < $standbyFromDate) {
+                $errors[$prefix.'_hotel_check_in'] = "{$label} hotel check-in cannot be before the standby From date.";
+            }
+        }
+
+        if ($standbyTo !== null && $effectiveCheckOut !== null) {
+            $checkOutDate = $effectiveCheckOut->copy()->timezone($timezone)->toDateString();
+            $standbyToDate = $standbyTo->copy()->timezone($timezone)->toDateString();
+
+            if ($checkOutDate > $standbyToDate) {
+                $errors[$prefix.'_hotel_check_out'] = "{$label} hotel check-out cannot be after the standby To date.";
+            }
         }
     }
 

@@ -94,9 +94,8 @@ function AccommodationFields({
     const hotelId = form.data[hotelKey];
     const roomTypes = (formOptions.room_types ?? []).filter(
         (room) =>
-            hotelId === '' ||
-            hotelId == null ||
-            room.hotel_id === null ||
+            hotelId !== '' &&
+            hotelId != null &&
             room.hotel_id === Number(hotelId),
     );
 

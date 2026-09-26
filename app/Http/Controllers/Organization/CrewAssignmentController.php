@@ -772,8 +772,8 @@ class CrewAssignmentController extends Controller
             'ranks' => $this->historicalRanksWithTour(),
             'vessels' => $this->historicalVessels($companyId),
             'clients' => $this->historicalClients(),
-            'hotels' => $this->activeHotels($companyId),
-            'room_types' => $this->activeRoomTypes($companyId),
+            'hotels' => $this->historicalHotels($companyId),
+            'room_types' => $this->historicalRoomTypes($companyId),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
     }
@@ -867,6 +867,68 @@ class CrewAssignmentController extends Controller
                 return [
                     'id' => (int) $client->id,
                     'name' => $label,
+                    'is_active' => $isActive,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Historical backfill may reference inactive hotels from the active company.
+     *
+     * @return list<array{id: int, name: string, is_active: bool}>
+     */
+    private function historicalHotels(int $companyId): array
+    {
+        return Hotel::query()
+            ->forCompany($companyId)
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active'])
+            ->map(function (Hotel $hotel): array {
+                $isActive = (bool) $hotel->is_active;
+                $label = (string) $hotel->name;
+
+                if (! $isActive) {
+                    $label .= ' — Inactive';
+                }
+
+                return [
+                    'id' => (int) $hotel->id,
+                    'name' => $label,
+                    'is_active' => $isActive,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Historical backfill may reference inactive room types bound to a hotel.
+     *
+     * @return list<array{id: int, name: string, hotel_id: int|null, is_active: bool}>
+     */
+    private function historicalRoomTypes(int $companyId): array
+    {
+        return RoomType::query()
+            ->forCompany($companyId)
+            ->whereNotNull('hotel_id')
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'hotel_id', 'is_active'])
+            ->map(function (RoomType $roomType): array {
+                $isActive = (bool) $roomType->is_active;
+                $label = (string) $roomType->name;
+
+                if (! $isActive) {
+                    $label .= ' — Inactive';
+                }
+
+                return [
+                    'id' => (int) $roomType->id,
+                    'name' => $label,
+                    'hotel_id' => $roomType->hotel_id !== null ? (int) $roomType->hotel_id : null,
                     'is_active' => $isActive,
                 ];
             })

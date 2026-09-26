@@ -23,6 +23,7 @@ use App\Models\RoomType;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -1528,6 +1529,21 @@ test('historical form options include inactive vessel rank and client while live
     $inactiveVessel = makeCrewMovementVessel('Inactive Vessel Opt '.Str::random(5), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
     $activeVessel = makeCrewMovementVessel('Active Vessel Opt '.Str::random(5), $company);
+    $activeHotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Active Hotel Opt '.Str::random(5), 'is_active' => true]);
+    $inactiveHotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Inactive Hotel Opt '.Str::random(5), 'is_active' => false]);
+    $inactiveRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $inactiveHotel->id,
+        'name' => 'Inactive Room Opt '.Str::random(5),
+        'is_active' => false,
+    ]);
+    $orphanRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $activeHotel->id,
+        'name' => 'Orphan Room Opt '.Str::random(5),
+        'is_active' => true,
+    ]);
+    $orphanRoomType->forceFill(['hotel_id' => null])->saveQuietly();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
@@ -1570,11 +1586,35 @@ test('historical form options include inactive vessel rank and client while live
                     && str_contains((string) $inactive['name'], 'Inactive')
                     && ($inactive['is_active'] ?? true) === false;
             })
+            ->where('historical_form_options.hotels', function ($hotels) use ($inactiveHotel, $activeHotel) {
+                $inactive = collect($hotels)->firstWhere('id', $inactiveHotel->id);
+                $active = collect($hotels)->firstWhere('id', $activeHotel->id);
+
+                return $inactive !== null
+                    && $active !== null
+                    && str_contains((string) $inactive['name'], 'Inactive')
+                    && ($inactive['is_active'] ?? true) === false
+                    && ($active['is_active'] ?? false) === true;
+            })
+            ->where('historical_form_options.room_types', function ($roomTypes) use ($inactiveRoomType, $orphanRoomType) {
+                $inactive = collect($roomTypes)->firstWhere('id', $inactiveRoomType->id);
+                $orphan = collect($roomTypes)->firstWhere('id', $orphanRoomType->id);
+
+                return $inactive !== null
+                    && str_contains((string) $inactive['name'], 'Inactive')
+                    && $orphan === null;
+            })
             ->where('form_options.vessels', function ($vessels) use ($inactiveVessel, $activeVessel) {
                 $ids = collect($vessels)->pluck('id')->all();
 
                 return ! in_array($inactiveVessel->id, $ids, true)
                     && in_array($activeVessel->id, $ids, true);
+            })
+            ->where('form_options.hotels', function ($hotels) use ($inactiveHotel, $activeHotel) {
+                $ids = collect($hotels)->pluck('id')->all();
+
+                return ! in_array($inactiveHotel->id, $ids, true)
+                    && in_array($activeHotel->id, $ids, true);
             })
             ->where('form_options.ranks', function ($ranks) use ($inactiveRank, $activeRank) {
                 $ids = collect($ranks)->pluck('id')->all();
@@ -2104,4 +2144,114 @@ test('not recorded accommodation creates no stay and cross-company hotel is reje
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['sign_on_hotel_id']);
+});
+
+test('non-blank invalid accommodation values are rejected and not silently discarded', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Invalid Acc Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-01',
+            'sign_on_accommodation' => 'Hotle',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_accommodation']);
+
+    expect(fn () => HistoricalCrewAssignmentData::normalizeAccommodationChoice('Unknown'))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+test('null hotel_id room type is rejected for new historical hotel stays and preview matches store', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Orphan Room Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Bound Hotel']);
+    $orphanRoom = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Company-wide Twin',
+        'is_active' => true,
+    ]);
+    $orphanRoom->forceFill(['hotel_id' => null])->saveQuietly();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $payload = [
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'sign_on_standby_from' => '2024-09-01',
+        'sign_on_standby_to' => '2024-09-05',
+        'onsite_from' => '2024-09-05',
+        'sign_on_accommodation' => 'hotel',
+        'sign_on_hotel_id' => $hotel->id,
+        'sign_on_room_type_id' => $orphanRoom->id,
+        'sign_on_hotel_check_in' => '2024-09-01',
+        'sign_on_hotel_check_out' => '2024-09-05',
+    ];
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), $payload)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_room_type_id']);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), $payload)
+        ->assertSessionHasErrors(['sign_on_room_type_id']);
+
+    expect(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('hotel dates outside the related standby period are rejected', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Hotel Date Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-10',
+            'sign_on_standby_to' => '2024-09-15',
+            'onsite_from' => '2024-09-15',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+            'sign_on_hotel_check_in' => '2024-09-08',
+            'sign_on_hotel_check_out' => '2024-09-15',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_hotel_check_in']);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-10',
+            'sign_on_standby_to' => '2024-09-15',
+            'onsite_from' => '2024-09-15',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+            'sign_on_hotel_check_in' => '2024-09-10',
+            'sign_on_hotel_check_out' => '2024-09-16',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_hotel_check_out']);
 });

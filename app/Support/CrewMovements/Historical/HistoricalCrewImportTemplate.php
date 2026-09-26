@@ -4,7 +4,9 @@ namespace App\Support\CrewMovements\Historical;
 
 use App\Models\Client;
 use App\Models\Employee;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -210,7 +212,11 @@ final class HistoricalCrewImportTemplate
         $row += 2;
         $row = $this->writeRankReference($sheet, $row);
         $row += 2;
-        $this->writeClientReference($sheet, $row);
+        $row = $this->writeClientReference($sheet, $row);
+        $row += 2;
+        $row = $this->writeHotelReference($sheet, $companyId, $row);
+        $row += 2;
+        $this->writeRoomTypeReference($sheet, $companyId, $row);
 
         foreach (range(1, 5) as $column) {
             $sheet->getColumnDimensionByColumn($column)->setWidth(24);
@@ -317,6 +323,65 @@ final class HistoricalCrewImportTemplate
         foreach (Client::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $client) {
             $this->writeSafeString($sheet, 1, $row, (string) $client->name);
             $this->writeSafeString($sheet, 2, $row, $client->is_active ? 'Active' : 'Inactive');
+            $row++;
+        }
+
+        return $row - 1;
+    }
+
+    private function writeHotelReference(Worksheet $sheet, int $companyId, int $startRow): int
+    {
+        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Hotels');
+        $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
+
+        $headerRow = $startRow + 1;
+        foreach (['Hotel', 'Status'] as $index => $header) {
+            $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
+            $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
+        }
+
+        $row = $headerRow + 1;
+
+        foreach (
+            Hotel::query()
+                ->forCompany($companyId)
+                ->orderByDesc('is_active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'is_active']) as $hotel
+        ) {
+            $this->writeSafeString($sheet, 1, $row, (string) $hotel->name);
+            $this->writeSafeString($sheet, 2, $row, $hotel->is_active ? 'Active' : 'Inactive');
+            $row++;
+        }
+
+        return $row - 1;
+    }
+
+    private function writeRoomTypeReference(Worksheet $sheet, int $companyId, int $startRow): int
+    {
+        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Room Types');
+        $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
+
+        $headerRow = $startRow + 1;
+        foreach (['Room Type', 'Hotel', 'Status'] as $index => $header) {
+            $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
+            $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
+        }
+
+        $row = $headerRow + 1;
+
+        foreach (
+            RoomType::query()
+                ->forCompany($companyId)
+                ->whereNotNull('hotel_id')
+                ->with(['hotel:id,name'])
+                ->orderByDesc('is_active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'hotel_id', 'is_active']) as $roomType
+        ) {
+            $this->writeSafeString($sheet, 1, $row, (string) $roomType->name);
+            $this->writeSafeString($sheet, 2, $row, (string) ($roomType->hotel?->name ?? ''));
+            $this->writeSafeString($sheet, 3, $row, $roomType->is_active ? 'Active' : 'Inactive');
             $row++;
         }
 

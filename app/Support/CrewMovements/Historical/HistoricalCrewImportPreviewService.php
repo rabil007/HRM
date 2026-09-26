@@ -171,9 +171,11 @@ final class HistoricalCrewImportPreviewService
 
         $roomTypesByHotelAndName = [];
 
-        foreach (RoomType::query()->where('company_id', $companyId)->get(['id', 'name', 'hotel_id', 'company_id', 'is_active']) as $roomType) {
-            $hotelKey = $roomType->hotel_id !== null ? (string) $roomType->hotel_id : 'null';
-            $key = $hotelKey.'|'.mb_strtolower(trim((string) $roomType->name));
+        foreach (RoomType::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('hotel_id')
+            ->get(['id', 'name', 'hotel_id', 'company_id', 'is_active']) as $roomType) {
+            $key = ((int) $roomType->hotel_id).'|'.mb_strtolower(trim((string) $roomType->name));
             $roomTypesByHotelAndName[$key] ??= [];
             $roomTypesByHotelAndName[$key][] = $roomType;
         }
@@ -398,6 +400,7 @@ final class HistoricalCrewImportPreviewService
                 accommodationRaw: $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION] ?? null,
                 hotelName: $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_HOTEL] ?? null,
                 roomTypeName: $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_ROOM_TYPE] ?? null,
+                accommodationField: 'sign_on_accommodation',
                 hotelField: 'sign_on_hotel_id',
                 roomTypeField: 'sign_on_room_type_id',
             );
@@ -408,6 +411,7 @@ final class HistoricalCrewImportPreviewService
                 accommodationRaw: $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_ACCOMMODATION] ?? null,
                 hotelName: $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL] ?? null,
                 roomTypeName: $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_ROOM_TYPE] ?? null,
+                accommodationField: 'sign_off_accommodation',
                 hotelField: 'sign_off_hotel_id',
                 roomTypeField: 'sign_off_room_type_id',
             );
@@ -429,12 +433,16 @@ final class HistoricalCrewImportPreviewService
                         'sign_off_standby_from' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM] ?? null,
                         'sign_off_standby_to' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_TO] ?? null,
                         'home_available_from' => $parsedRow->raw[HistoricalCrewImportColumns::HOME_AVAILABLE_FROM] ?? null,
-                        'sign_on_accommodation' => $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION] ?? null,
+                        'sign_on_accommodation' => HistoricalCrewAssignmentData::normalizeAccommodationChoice(
+                            $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION] ?? null,
+                        ),
                         'sign_on_hotel_id' => $signOnHotelId,
                         'sign_on_room_type_id' => $signOnRoomTypeId,
                         'sign_on_hotel_check_in' => $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_IN] ?? null,
                         'sign_on_hotel_check_out' => $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_OUT] ?? null,
-                        'sign_off_accommodation' => $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_ACCOMMODATION] ?? null,
+                        'sign_off_accommodation' => HistoricalCrewAssignmentData::normalizeAccommodationChoice(
+                            $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_ACCOMMODATION] ?? null,
+                        ),
                         'sign_off_hotel_id' => $signOffHotelId,
                         'sign_off_room_type_id' => $signOffRoomTypeId,
                         'sign_off_hotel_check_in' => $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL_CHECK_IN] ?? null,
@@ -666,11 +674,19 @@ final class HistoricalCrewImportPreviewService
         mixed $accommodationRaw,
         mixed $hotelName,
         mixed $roomTypeName,
+        string $accommodationField,
         string $hotelField,
         string $roomTypeField,
     ): array {
-        $choice = HistoricalCrewAssignmentData::normalizeAccommodationChoice($accommodationRaw);
         $errors = [];
+
+        try {
+            $choice = HistoricalCrewAssignmentData::normalizeAccommodationChoice($accommodationRaw);
+        } catch (\InvalidArgumentException $exception) {
+            $errors[$accommodationField] = $exception->getMessage();
+
+            return [null, null, $errors];
+        }
 
         if ($choice !== HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL) {
             return [null, null, $errors];

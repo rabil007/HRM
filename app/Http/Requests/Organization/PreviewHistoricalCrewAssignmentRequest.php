@@ -30,11 +30,7 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
-        $accommodationChoices = [
-            HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED,
-            HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION,
-            HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL,
-        ];
+        $accommodationChoices = HistoricalCrewAssignmentData::accommodationChoices();
 
         return [
             'employee_id' => [
@@ -136,10 +132,10 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'sign_on_accommodation' => HistoricalCrewAssignmentData::normalizeAccommodationChoice(
+            'sign_on_accommodation' => HistoricalCrewAssignmentData::canonicalizeAccommodationInput(
                 $this->input('sign_on_accommodation'),
             ),
-            'sign_off_accommodation' => HistoricalCrewAssignmentData::normalizeAccommodationChoice(
+            'sign_off_accommodation' => HistoricalCrewAssignmentData::canonicalizeAccommodationInput(
                 $this->input('sign_off_accommodation'),
             ),
         ]);

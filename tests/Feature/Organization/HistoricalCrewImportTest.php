@@ -8,7 +8,9 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportColumns;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportParser;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportTemplate;
@@ -28,6 +30,17 @@ test('authorized user can download historical import template with required shee
     $inactiveClient = Client::factory()->create(['name' => 'Inactive Hist Client '.uniqid(), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('Inactive Hist Vessel '.uniqid(), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
+    $inactiveHotel = Hotel::factory()->create([
+        'company_id' => $company->id,
+        'name' => 'Inactive Hist Hotel '.uniqid(),
+        'is_active' => false,
+    ]);
+    $inactiveRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $inactiveHotel->id,
+        'name' => 'Inactive Hist Room '.uniqid(),
+        'is_active' => false,
+    ]);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
@@ -103,6 +116,10 @@ test('authorized user can download historical import template with required shee
         ->and($referenceValues)->toContain($inactiveVessel->name)
         ->and($referenceValues)->toContain($inactiveRank->name)
         ->and($referenceValues)->toContain($inactiveClient->name)
+        ->and($referenceValues)->toContain($inactiveHotel->name)
+        ->and($referenceValues)->toContain($inactiveRoomType->name)
+        ->and($referenceValues)->toContain('Hotels')
+        ->and($referenceValues)->toContain('Room Types')
         ->and($referenceValues)->toContain('Inactive')
         ->and($referenceValues)->toContain('Current Client');
 
