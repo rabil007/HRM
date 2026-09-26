@@ -8,28 +8,36 @@ use App\Enums\CrewPhaseStatus;
 use Carbon\CarbonInterface;
 
 /**
- * Canonical historical/bootstrap phase reconstruction from movement EVENTS.
+ * Canonical historical/bootstrap phase construction from simplified operational periods.
  *
  * Manual preview/store and Excel preview/import must all use this builder.
- * Derived boundaries are allowed only where a live movement action itself
- * defines both phase end and next phase start (e.g. Training End → P2A,
- * Disembarked → P5, Home → P6/completion).
+ * Unknown historical phases (Pre-Mobilisation, Travel, Training, Ready to Join)
+ * are never fabricated.
  */
 final class HistoricalPhaseBuilder
 {
-    public const EVENT_PRE_MOBILISATION = 'pre_mobilisation';
-
-    public const EVENT_JOIN_STANDBY = 'join_standby';
-
-    public const EVENT_TRAINING_START = 'training_start';
-
-    public const EVENT_TRAINING_END = 'training_end';
+    public const EVENT_SIGN_ON_STANDBY = 'sign_on_standby';
 
     public const EVENT_ON_VESSEL = 'on_vessel';
 
-    public const EVENT_DISEMBARKED = 'disembarked';
+    public const EVENT_SIGN_OFF_STANDBY = 'sign_off_standby';
 
-    public const EVENT_HOME = 'home_redeployment';
+    public const EVENT_HOME = 'home_available';
+
+    /** @deprecated Legacy event key retained for reading older reconstructed history. */
+    public const EVENT_PRE_MOBILISATION = 'pre_mobilisation';
+
+    /** @deprecated Legacy event key retained for reading older reconstructed history. */
+    public const EVENT_JOIN_STANDBY = 'join_standby';
+
+    /** @deprecated Legacy event key retained for reading older reconstructed history. */
+    public const EVENT_TRAINING_START = 'training_start';
+
+    /** @deprecated Legacy event key retained for reading older reconstructed history. */
+    public const EVENT_TRAINING_END = 'training_end';
+
+    /** @deprecated Legacy event key retained for reading older reconstructed history. */
+    public const EVENT_DISEMBARKED = 'disembarked';
 
     /**
      * @return array{
@@ -54,124 +62,95 @@ final class HistoricalPhaseBuilder
      *         event_key: string,
      *         event_label: string,
      *         event_at: CarbonInterface
-     *     }
+     *     },
+     *     known_periods: list<array{
+     *         key: string,
+     *         label: string,
+     *         from: string,
+     *         to: ?string,
+     *         to_display: string,
+     *         days: ?int,
+     *         is_open: bool
+     *     }>
      * }
      */
     public static function build(HistoricalCrewAssignmentData $data): array
     {
-        /** @var list<array{key: string, label: string, at: CarbonInterface}> $events */
-        $events = [];
-
-        if ($data->mobilisationStartAt !== null) {
-            $events[] = [
-                'key' => self::EVENT_PRE_MOBILISATION,
-                'label' => 'Pre-Mobilisation',
-                'at' => $data->mobilisationStartAt,
-            ];
-        }
-
-        if ($data->joinStandbyAt !== null) {
-            $events[] = [
-                'key' => self::EVENT_JOIN_STANDBY,
-                'label' => 'Join Standby',
-                'at' => $data->joinStandbyAt,
-            ];
-        }
-
-        if ($data->trainingStartAt !== null) {
-            $events[] = [
-                'key' => self::EVENT_TRAINING_START,
-                'label' => 'Training Start',
-                'at' => $data->trainingStartAt,
-            ];
-        }
-
-        if ($data->trainingEndAt !== null) {
-            $events[] = [
-                'key' => self::EVENT_TRAINING_END,
-                'label' => 'Training End',
-                'at' => $data->trainingEndAt,
-            ];
-        }
-
-        if ($data->joinedVesselAt !== null) {
-            $events[] = [
-                'key' => self::EVENT_ON_VESSEL,
-                'label' => 'On Vessel',
-                'at' => $data->joinedVesselAt,
-            ];
-        }
-
-        if ($data->disembarkedAt !== null) {
-            $events[] = [
-                'key' => self::EVENT_DISEMBARKED,
-                'label' => 'Disembarked',
-                'at' => $data->disembarkedAt,
-            ];
-        }
-
-        if ($data->travelHomeAt !== null) {
-            $events[] = [
-                'key' => self::EVENT_HOME,
-                'label' => 'Home / Redeployment',
-                'at' => $data->travelHomeAt,
-            ];
-        }
-
-        if ($events === []) {
-            throw new \InvalidArgumentException('At least one meaningful movement date must be supplied.');
-        }
-
+        $timezone = $data->timezone;
+        $periods = $data->enteredOperationalPeriods();
         $phases = [];
-        $directHomeAtDisembark = $data->disembarkedAt !== null
-            && $data->travelHomeAt !== null
-            && $data->disembarkedAt->equalTo($data->travelHomeAt);
 
-        foreach ($events as $event) {
-            if ($event['key'] === self::EVENT_HOME && $directHomeAtDisembark) {
-                // Handled with Disembarked as direct P4 → P6 (no fabricated P5).
-                continue;
-            }
-
-            $nextPhase = self::phaseOpenedByEvent($event['key'], $directHomeAtDisembark);
-
-            if ($nextPhase === null) {
-                continue;
-            }
-
-            self::closeOpenPhase($phases, $event['at']);
+        foreach ($periods as $period) {
+            $isOpen = $period['to'] === null;
 
             $phases[] = [
-                'phase_code' => $nextPhase,
-                'actual_start_at' => $event['at'],
-                'actual_end_at' => null,
-                'status' => CrewPhaseStatus::Active,
-                'remarks' => $nextPhase === CrewPhaseCode::OnVessel ? $data->remarks : null,
+                'phase_code' => $period['phase_code'],
+                'actual_start_at' => $period['from'],
+                'actual_end_at' => $period['to'],
+                'status' => $isOpen ? CrewPhaseStatus::Active : CrewPhaseStatus::Completed,
+                'remarks' => $period['phase_code'] === CrewPhaseCode::OnVessel ? $data->remarks : null,
             ];
+        }
 
-            if ($event['key'] === self::EVENT_HOME
-                || ($event['key'] === self::EVENT_DISEMBARKED && $directHomeAtDisembark)) {
-                // Match travel_home / direct-home completion: zero-length completed P6.
-                $last = count($phases) - 1;
-                $phases[$last]['actual_end_at'] = $event['at'];
-                $phases[$last]['status'] = CrewPhaseStatus::Completed;
-            }
+        if ($data->homeAvailableFrom !== null) {
+            self::closeOpenPhase($phases, $data->homeAvailableFrom);
+
+            $phases[] = [
+                'phase_code' => CrewPhaseCode::HomeRedeploy,
+                'actual_start_at' => $data->homeAvailableFrom,
+                'actual_end_at' => $data->homeAvailableFrom,
+                'status' => CrewPhaseStatus::Completed,
+                'remarks' => null,
+            ];
         }
 
         if ($phases === []) {
-            throw new \InvalidArgumentException('Unable to reconstruct movement phases from the supplied events.');
+            throw new \InvalidArgumentException('At least one meaningful movement period must be supplied.');
         }
 
-        $lastEvent = $events[array_key_last($events)];
         $lastPhase = $phases[array_key_last($phases)];
         $isOpen = $lastPhase['status'] === CrewPhaseStatus::Active
-            && $lastPhase['actual_end_at'] === null;
+            && $lastPhase['actual_end_at'] === null
+            && $data->homeAvailableFrom === null;
 
         $inferredCode = $lastPhase['phase_code'];
         $assignmentStatus = $isOpen
             ? CrewAssignmentStatus::Active
             : CrewAssignmentStatus::Completed;
-        $closedAt = $isOpen ? null : ($data->travelHomeAt ?? $lastPhase['actual_end_at']);
+        $closedAt = $isOpen ? null : ($data->homeAvailableFrom ?? $lastPhase['actual_end_at']);
+
+        [$eventKey, $eventLabel, $eventAt] = self::describeCurrentState($data, $lastPhase);
+
+        $knownPeriods = [];
+
+        foreach ($periods as $period) {
+            $fromLocal = $period['from']->copy()->timezone($timezone);
+            $toLocal = $period['to']?->copy()->timezone($timezone);
+            $isPeriodOpen = $period['to'] === null;
+
+            $knownPeriods[] = [
+                'key' => $period['key'],
+                'label' => $period['label'],
+                'from' => $fromLocal->format('d M Y'),
+                'to' => $toLocal?->format('d M Y'),
+                'to_display' => $isPeriodOpen ? 'Current' : ($toLocal?->format('d M Y') ?? 'Current'),
+                'days' => HistoricalCrewAssignmentData::inclusiveDays($period['from'], $period['to']),
+                'is_open' => $isPeriodOpen,
+            ];
+        }
+
+        if ($data->homeAvailableFrom !== null) {
+            $homeLocal = $data->homeAvailableFrom->copy()->timezone($timezone);
+            $knownPeriods[] = [
+                'key' => self::EVENT_HOME,
+                'label' => 'Home / Available',
+                'from' => $homeLocal->format('d M Y'),
+                'to' => $homeLocal->format('d M Y'),
+                'to_display' => $homeLocal->format('d M Y'),
+                'days' => null,
+                'is_open' => false,
+            ];
+        }
 
         return [
             'phases' => $phases,
@@ -181,15 +160,16 @@ final class HistoricalPhaseBuilder
             'inferred_state' => [
                 'phase_code' => $inferredCode,
                 'label' => $inferredCode->label(),
-                'event_key' => $lastEvent['key'],
-                'event_label' => $lastEvent['label'],
-                'event_at' => $lastEvent['at'],
+                'event_key' => $eventKey,
+                'event_label' => $eventLabel,
+                'event_at' => $eventAt,
             ],
             'last_movement' => [
-                'event_key' => $lastEvent['key'],
-                'event_label' => $lastEvent['label'],
-                'event_at' => $lastEvent['at'],
+                'event_key' => $eventKey,
+                'event_label' => $eventLabel,
+                'event_at' => $eventAt,
             ],
+            'known_periods' => $knownPeriods,
         ];
     }
 
@@ -218,18 +198,48 @@ final class HistoricalPhaseBuilder
         $phases[$last]['status'] = CrewPhaseStatus::Completed;
     }
 
-    private static function phaseOpenedByEvent(string $eventKey, bool $directHomeAtDisembark): ?CrewPhaseCode
+    /**
+     * @param  array{
+     *     phase_code: CrewPhaseCode,
+     *     actual_start_at: CarbonInterface,
+     *     actual_end_at: ?CarbonInterface,
+     *     status: CrewPhaseStatus,
+     *     remarks: ?string
+     * }  $lastPhase
+     * @return array{0: string, 1: string, 2: CarbonInterface}
+     */
+    private static function describeCurrentState(HistoricalCrewAssignmentData $data, array $lastPhase): array
     {
-        return match ($eventKey) {
-            self::EVENT_PRE_MOBILISATION => CrewPhaseCode::PreMobilisation,
-            self::EVENT_JOIN_STANDBY, self::EVENT_TRAINING_END => CrewPhaseCode::JoinStandby,
-            self::EVENT_TRAINING_START => CrewPhaseCode::Training,
-            self::EVENT_ON_VESSEL => CrewPhaseCode::OnVessel,
-            self::EVENT_DISEMBARKED => $directHomeAtDisembark
-                ? CrewPhaseCode::HomeRedeploy
-                : CrewPhaseCode::DemobStandby,
-            self::EVENT_HOME => CrewPhaseCode::HomeRedeploy,
-            default => null,
+        if ($data->homeAvailableFrom !== null) {
+            return [self::EVENT_HOME, 'Home / Available', $data->homeAvailableFrom];
+        }
+
+        return match ($lastPhase['phase_code']) {
+            CrewPhaseCode::JoinStandby => [
+                self::EVENT_SIGN_ON_STANDBY,
+                'Sign-On Standby',
+                $lastPhase['actual_start_at'],
+            ],
+            CrewPhaseCode::OnVessel => [
+                self::EVENT_ON_VESSEL,
+                'On Vessel',
+                $lastPhase['actual_start_at'],
+            ],
+            CrewPhaseCode::DemobStandby => [
+                self::EVENT_SIGN_OFF_STANDBY,
+                'Sign-Off Standby',
+                $lastPhase['actual_start_at'],
+            ],
+            CrewPhaseCode::HomeRedeploy => [
+                self::EVENT_HOME,
+                'Home / Available',
+                $lastPhase['actual_start_at'],
+            ],
+            default => [
+                $lastPhase['phase_code']->value,
+                $lastPhase['phase_code']->label(),
+                $lastPhase['actual_start_at'],
+            ],
         };
     }
 
@@ -320,8 +330,8 @@ final class HistoricalPhaseBuilder
                 'Training End',
             ],
             $last['phase_code'] === CrewPhaseCode::JoinStandby => [
-                self::EVENT_JOIN_STANDBY,
-                'Join Standby',
+                self::EVENT_SIGN_ON_STANDBY,
+                'Sign-On Standby',
             ],
             $last['phase_code'] === CrewPhaseCode::Training => [
                 self::EVENT_TRAINING_START,
@@ -332,12 +342,12 @@ final class HistoricalPhaseBuilder
                 'On Vessel',
             ],
             $last['phase_code'] === CrewPhaseCode::DemobStandby => [
-                self::EVENT_DISEMBARKED,
-                'Disembarked',
+                self::EVENT_SIGN_OFF_STANDBY,
+                'Sign-Off Standby',
             ],
             $last['phase_code'] === CrewPhaseCode::HomeRedeploy => [
                 self::EVENT_HOME,
-                'Home / Redeployment',
+                'Home / Available',
             ],
             default => [
                 $last['phase_code']->value,

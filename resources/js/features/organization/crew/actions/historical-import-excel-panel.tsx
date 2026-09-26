@@ -6,7 +6,6 @@ import {
     FileSpreadsheet,
     Loader2,
     Upload,
-    XCircle,
 } from 'lucide-react';
 import type { DragEvent, ReactElement } from 'react';
 import {
@@ -172,10 +171,27 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                 </div>
             ) : null}
 
-            {row.timeline.length > 0 && (
+            {(row.summary.known_periods ?? []).length > 0 ? (
                 <div className="space-y-1">
                     <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                        Timeline
+                        Known Periods
+                    </span>
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                        {row.summary.known_periods?.map((period) => (
+                            <li key={period.key}>
+                                {period.label}: {period.from} →{' '}
+                                {period.to_display}
+                                {period.days != null
+                                    ? ` (${period.days}d)`
+                                    : ''}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : row.timeline.length > 0 ? (
+                <div className="space-y-1">
+                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                        Known Periods
                     </span>
                     <ul className="space-y-1 text-xs text-muted-foreground">
                         {row.timeline.map((item, idx) => {
@@ -197,24 +213,22 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                         })}
                     </ul>
                 </div>
-            )}
+            ) : null}
 
-            {row.checks.length > 0 && (
-                <ul className="space-y-1 text-xs">
-                    {row.checks.map((check, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                            {check.passed ? (
-                                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                            ) : (
-                                <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
-                            )}
-                            <span className="text-muted-foreground">
-                                {check.message}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+            {(row.summary.accommodation ?? []).length > 0 ? (
+                <div className="space-y-1">
+                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                        Accommodation
+                    </span>
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                        {row.summary.accommodation?.map((item) => (
+                            <li key={`${item.label}-${item.detail}`}>
+                                {item.label} — {item.detail}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
 
             {row.sea_service && (
                 <div className="rounded-lg border border-border/60 bg-card p-3 text-xs">

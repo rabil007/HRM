@@ -297,8 +297,9 @@ test('final import revalidation blocks row when overlapping assignment appears a
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-04-01',
-            'disembarked_at' => '2024-10-01',
+            'onsite_from' => '2024-04-01',
+            'onsite_to' => '2024-10-01',
+            'sign_off_standby_from' => '2024-10-01',
         ])
         ->assertRedirect();
 
@@ -565,10 +566,10 @@ test('batch detail and result workbook download work for company actor', functio
     @unlink($tempPath);
 });
 
-test('result workbook reports Training End as last movement when inferred state is Join Standby', function () {
+test('result workbook reports Sign-On Standby as last movement for open P2A', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => 'TRAIN01', 'status' => 'active']);
-    $vessel = makeCrewMovementVessel('Training End Result Vessel', $company);
+    $vessel = makeCrewMovementVessel('SignOn Result Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -580,16 +581,14 @@ test('result workbook reports Training End as last movement when inferred state 
             'employee_no' => 'TRAIN01',
             'vessel' => $vessel->name,
             'rank' => $rank->name,
-            'join_standby_date' => '2024-09-03',
-            'training_start_date' => '2024-09-05',
-            'training_end_date' => '2024-09-10',
+            'sign_on_standby_from' => '2024-09-03',
         ],
     ]);
 
     $import = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.import.execute'), [
             'file' => $file,
-            'idempotency_key' => historicalImportIdempotencyKey('training-end-result'),
+            'idempotency_key' => historicalImportIdempotencyKey('signon-result'),
             'confirmed' => '1',
         ])
         ->assertOk();
@@ -602,7 +601,7 @@ test('result workbook reports Training End as last movement when inferred state 
         ->get(route('organization.crew-assignments.historical.import.batches.result', $import->json('id')));
 
     $download->assertOk();
-    $tempPath = tempnam(sys_get_temp_dir(), 'hist-training-result-').'.xlsx';
+    $tempPath = tempnam(sys_get_temp_dir(), 'hist-signon-result-').'.xlsx';
     file_put_contents($tempPath, $download->streamedContent());
     $rows = IOFactory::load($tempPath)->getActiveSheet()->toArray();
     @unlink($tempPath);
@@ -614,13 +613,12 @@ test('result workbook reports Training End as last movement when inferred state 
 
     expect($lastMovementIndex)->not->toBeFalse()
         ->and($inferredIndex)->not->toBeFalse()
-        ->and((string) $data[$lastMovementIndex])->toContain('Training End')
-        ->and((string) $data[$lastMovementIndex])->toContain('10 Sep')
-        ->and((string) $data[$lastMovementIndex])->not->toContain('Join Standby —')
+        ->and((string) $data[$lastMovementIndex])->toContain('Sign-On Standby')
+        ->and((string) $data[$lastMovementIndex])->toContain('03 Sep')
         ->and((string) $data[$inferredIndex])->toBe('Join Standby');
 });
 
-test('result workbook reports Disembarked as last movement for Active P5 endings', function () {
+test('result workbook reports Sign-Off Standby as last movement for Active P5 endings', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => 'P5RES01', 'status' => 'active']);
     $vessel = makeCrewMovementVessel('P5 Result Vessel', $company);
@@ -660,11 +658,11 @@ test('result workbook reports Disembarked as last movement for Active P5 endings
     $lastIdx = array_search('Last Movement', $header, true);
     $inferredIdx = array_search('Inferred State', $header, true);
 
-    expect((string) $data[$lastIdx])->toContain('Disembarked')
+    expect((string) $data[$lastIdx])->toContain('Sign-Off Standby')
         ->and((string) $data[$inferredIdx])->toBe('Demobilisation Standby');
 });
 
-test('result workbook reports Home / Redeployment as last movement for Completed P6 endings', function () {
+test('result workbook reports Home / Available as last movement for Completed P6 endings', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => 'P6RES01', 'status' => 'active']);
     $vessel = makeCrewMovementVessel('P6 Result Vessel', $company);
@@ -705,7 +703,7 @@ test('result workbook reports Home / Redeployment as last movement for Completed
     $lastIdx = array_search('Last Movement', $header, true);
     $inferredIdx = array_search('Inferred State', $header, true);
 
-    expect((string) $data[$lastIdx])->toContain('Home / Redeployment')
+    expect((string) $data[$lastIdx])->toContain('Home / Available')
         ->and((string) $data[$inferredIdx])->toBe('Home / Redeployment');
 });
 
@@ -787,12 +785,12 @@ test('result workbook stays On Vessel after later live disembarkation', function
     Carbon::setTestNow();
 });
 
-test('result workbook stays Training End / Join Standby after later live join vessel', function () {
+test('result workbook stays Sign-On Standby after later live join vessel', function () {
     Carbon::setTestNow('2025-04-01 10:00:00');
 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => 'AUDITTEND', 'status' => 'active']);
-    $vessel = makeCrewMovementVessel('Audit Stable Training End Vessel', $company);
+    $vessel = makeCrewMovementVessel('Audit Stable SignOn Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -806,11 +804,10 @@ test('result workbook stays Training End / Join Standby after later live join ve
                     'employee_no' => 'AUDITTEND',
                     'vessel' => $vessel->name,
                     'rank' => $rank->name,
-                    'training_start_date' => '2024-09-05',
-                    'training_end_date' => '2024-09-10',
+                    'sign_on_standby_from' => '2024-09-10',
                 ],
             ]),
-            'idempotency_key' => historicalImportIdempotencyKey('audit-training-end-stable'),
+            'idempotency_key' => historicalImportIdempotencyKey('audit-signon-stable'),
             'confirmed' => '1',
         ])
         ->assertOk();
@@ -838,7 +835,7 @@ test('result workbook stays Training End / Join Standby after later live join ve
 
     $download = $this->actingAs($user)
         ->get(route('organization.crew-assignments.historical.import.batches.result', $batchId));
-    $path = tempnam(sys_get_temp_dir(), 'hist-audit-tend-').'.xlsx';
+    $path = tempnam(sys_get_temp_dir(), 'hist-audit-signon-').'.xlsx';
     file_put_contents($path, $download->streamedContent());
     $rows = IOFactory::load($path)->getActiveSheet()->toArray();
     @unlink($path);
@@ -848,7 +845,7 @@ test('result workbook stays Training End / Join Standby after later live join ve
     $lastIdx = array_search('Last Movement', $header, true);
     $inferredIdx = array_search('Inferred State', $header, true);
 
-    expect((string) $data[$lastIdx])->toContain('Training End')
+    expect((string) $data[$lastIdx])->toContain('Sign-On Standby')
         ->and((string) $data[$lastIdx])->toContain('10 Sep')
         ->and((string) $data[$inferredIdx])->toBe('Join Standby');
 

@@ -8,7 +8,10 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
+use App\Support\CrewMovements\Historical\HistoricalCrewImportColumns;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportParser;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportTemplate;
 use Illuminate\Http\UploadedFile;
@@ -27,6 +30,17 @@ test('authorized user can download historical import template with required shee
     $inactiveClient = Client::factory()->create(['name' => 'Inactive Hist Client '.uniqid(), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('Inactive Hist Vessel '.uniqid(), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
+    $inactiveHotel = Hotel::factory()->create([
+        'company_id' => $company->id,
+        'name' => 'Inactive Hist Hotel '.uniqid(),
+        'is_active' => false,
+    ]);
+    $inactiveRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $inactiveHotel->id,
+        'name' => 'Inactive Hist Room '.uniqid(),
+        'is_active' => false,
+    ]);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
@@ -59,28 +73,20 @@ test('authorized user can download historical import template with required shee
         $headerRow[] = (string) $assignments->getCellByColumnAndRow($column, 1)->getValue();
     }
 
-    expect($headerRow)->toBe([
-        'Employee No *',
-        'Employee',
-        'Vessel *',
-        'Rank *',
-        'Client',
-        'Pre-Mobilisation',
-        'Join Standby',
-        'Training Start',
-        'Training End',
-        'On Vessel',
-        'Disembarked',
-        'Home / Redeployment',
-        'Remarks',
-    ])
+    expect($headerRow)->toBe(HistoricalCrewImportColumns::displayHeaders())
+        ->and($headerRow)->toContain('Sign-On Standby From')
+        ->and($headerRow)->toContain('Onsite From')
+        ->and($headerRow)->toContain('Sign-Off Standby From')
+        ->and($headerRow)->toContain('Home / Available From')
+        ->and($headerRow)->not->toContain('Pre-Mobilisation')
+        ->and($headerRow)->not->toContain('Training Start')
+        ->and($headerRow)->not->toContain('Training End')
         ->and($headerRow)->not->toContain('Travel In')
         ->and($headerRow)->not->toContain('Ready to Join')
         ->and($headerRow)->not->toContain('Post-Training Join Standby')
-        ->and($headerRow)->not->toContain('Demobilisation Standby')
         ->and($headerRow)->not->toContain('Assignment Closed')
-        ->and($headerRow)->not->toContain('travel_in_date')
-        ->and($headerRow)->not->toContain('ready_to_join_date');
+        ->and($headerRow)->not->toContain('Standby Days')
+        ->and($headerRow)->not->toContain('Onsite Days');
 
     $instructions = $spreadsheet->getSheetByName(HistoricalCrewImportTemplate::INSTRUCTIONS_SHEET);
     $instructionText = collect($instructions->toArray())
@@ -88,10 +94,9 @@ test('authorized user can download historical import template with required shee
         ->filter(fn ($cell) => is_string($cell))
         ->implode("\n");
 
-    expect($instructionText)->toContain('At least one movement date is required.')
-        ->and($instructionText)->toContain('On Vessel and Disembarked are optional')
-        ->and($instructionText)->toContain('Ambiguous duplicate names are blocked during validation.')
-        ->and($instructionText)->not->toContain('names are unique')
+    expect($instructionText)->toContain('At least one movement period is required.')
+        ->and($instructionText)->toContain('Days are calculated automatically')
+        ->and($instructionText)->not->toContain('Training End')
         ->and($instructionText)->not->toContain('Travel In')
         ->and($instructionText)->not->toContain('Ready to Join')
         ->and($instructionText)->not->toContain('P1')
@@ -111,6 +116,10 @@ test('authorized user can download historical import template with required shee
         ->and($referenceValues)->toContain($inactiveVessel->name)
         ->and($referenceValues)->toContain($inactiveRank->name)
         ->and($referenceValues)->toContain($inactiveClient->name)
+        ->and($referenceValues)->toContain($inactiveHotel->name)
+        ->and($referenceValues)->toContain($inactiveRoomType->name)
+        ->and($referenceValues)->toContain('Hotels')
+        ->and($referenceValues)->toContain('Room Types')
         ->and($referenceValues)->toContain('Inactive')
         ->and($referenceValues)->toContain('Current Client');
 
@@ -544,8 +553,8 @@ test('future date chronology and existing assignment overlap are blocked', funct
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-01',
-            'disembarked_at' => '2024-06-30',
+            'onsite_from' => '2024-01-01',
+            'onsite_to' => '2024-06-30',
         ])
         ->assertRedirect();
 
@@ -948,12 +957,12 @@ test('friendly excel headers map to modern phases without P1 or P3', function ()
     $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
 
     expect($row['status'])->toBe('ready')
-        ->and($phaseCodes)->toContain('p0')
         ->and($phaseCodes)->toContain('p2a')
         ->and($phaseCodes)->toContain('p4')
-        ->and($phaseCodes)->toContain('p5')
         ->and($phaseCodes)->toContain('p6')
+        ->and($phaseCodes)->not->toContain('p0')
         ->and($phaseCodes)->not->toContain('p1')
+        ->and($phaseCodes)->not->toContain('p2b')
         ->and($phaseCodes)->not->toContain('p3');
 });
 
@@ -1287,10 +1296,10 @@ test('excel multiple exact sea service matches are blocked', function () {
         ->and($errors)->toContain('Multiple Sea Service records match');
 });
 
-test('excel training start plus on vessel without training end is blocked', function () {
+test('excel open sign-on standby without later onsite is ready as active P2A', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $vessel = makeCrewMovementVessel('Excel Missing Training End Vessel', $company);
+    $vessel = makeCrewMovementVessel('Excel Open SignOn Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -1302,42 +1311,7 @@ test('excel training start plus on vessel without training end is blocked', func
             'employee_no' => '3119',
             'vessel' => $vessel->name,
             'rank' => $rank->name,
-            'training_start_date' => '2024-06-01',
-            'vessel_join_date' => '2024-06-15',
-        ],
-    ]);
-
-    $response = $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
-            'file' => $file,
-        ])
-        ->assertOk();
-
-    $row = collect($response->json('rows'))->first();
-    $errors = implode(' ', $row['errors'] ?? []);
-
-    expect($row['status'])->toBe('blocked')
-        ->and($errors)->toContain('Training End is required before On Vessel');
-});
-
-test('excel training start training end and on vessel is ready with P2B P2A P4 timeline', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $employee->update(['employee_no' => '3119']);
-    $vessel = makeCrewMovementVessel('Excel Complete Training Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $file = makeHistoricalCrewImportFile([
-        [
-            'employee_no' => '3119',
-            'vessel' => $vessel->name,
-            'rank' => $rank->name,
-            'training_start_date' => '2024-06-01',
-            'training_end_date' => '2024-06-05',
-            'vessel_join_date' => '2024-06-15',
+            'sign_on_standby_from' => '2024-06-01',
         ],
     ]);
 
@@ -1351,7 +1325,156 @@ test('excel training start training end and on vessel is ready with P2B P2A P4 t
     $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
 
     expect($row['status'])->toBeIn(['ready', 'warning'])
-        ->and($phaseCodes)->toBe(['p2b', 'p2a', 'p4'])
-        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p4')
+        ->and($phaseCodes)->toBe(['p2a'])
+        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p2a')
         ->and($row['is_open'] ?? false)->toBeTrue();
+});
+
+test('excel sign-on onsite and open sign-off is ready with P2A P4 P5 timeline', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Period Timeline Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'sign_on_standby_from' => '2024-06-01',
+            'sign_on_standby_to' => '2024-06-05',
+            'onsite_from' => '2024-06-05',
+            'onsite_to' => '2024-06-15',
+            'sign_off_standby_from' => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
+
+    expect($row['status'])->toBeIn(['ready', 'warning'])
+        ->and($phaseCodes)->toBe(['p2a', 'p4', 'p5'])
+        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p5')
+        ->and($row['is_open'] ?? false)->toBeTrue();
+});
+
+test('excel not recorded accommodation with hotel populated is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Not Recorded Hotel Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
+            HistoricalCrewImportColumns::VESSEL => $vessel->name,
+            HistoricalCrewImportColumns::RANK => $rank->name,
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
+            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::PRE_JOIN_HOTEL => 'City Seasons',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
+            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $errors = implode(' ', $row['errors'] ?? []);
+
+    expect($row['status'])->toBe('blocked')
+        ->and($errors)->toContain('Hotel must be empty when Accommodation is Not recorded');
+});
+
+test('excel no accommodation with room type populated is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel No Acc Room Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
+            HistoricalCrewImportColumns::VESSEL => $vessel->name,
+            HistoricalCrewImportColumns::RANK => $rank->name,
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
+            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'No accommodation',
+            HistoricalCrewImportColumns::PRE_JOIN_ROOM_TYPE => 'Twin',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
+            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+    $errors = implode(' ', $row['errors'] ?? []);
+
+    expect($row['status'])->toBe('blocked')
+        ->and($errors)->toContain('Room type must be empty when Accommodation is No accommodation');
+});
+
+test('excel blank not recorded accommodation remains valid', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => '3119']);
+    $vessel = makeCrewMovementVessel('Excel Blank Acc Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $file = makeHistoricalCrewImportFile([
+        [
+            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
+            HistoricalCrewImportColumns::VESSEL => $vessel->name,
+            HistoricalCrewImportColumns::RANK => $rank->name,
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
+            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
+            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
+        ],
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => $file,
+        ])
+        ->assertOk();
+
+    $row = collect($response->json('rows'))->first();
+
+    expect($row['status'])->toBeIn(['ready', 'warning']);
 });

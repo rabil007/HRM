@@ -4,7 +4,9 @@ namespace App\Support\CrewMovements\Historical;
 
 use App\Models\Client;
 use App\Models\Employee;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -62,49 +64,44 @@ final class HistoricalCrewImportTemplate
     private function writeInstructions(Worksheet $sheet): void
     {
         $lines = [
-            ['Historical Crew Import — Instructions'],
+            ['Past Crew Data Import — Instructions'],
             [''],
             ['Purpose'],
-            ['Reconstruct historical crew movements and, when safe, bootstrap where the employee currently is in OMS-HRM.'],
-            ['Sea Service is a downstream result of a completed On Vessel → Disembarked period — not the main reason for this import.'],
+            ['Enter known operational periods to bootstrap where the employee currently is and preserve enough history for Crew status, manning, Sea Service, accommodation, and payroll timesheet population.'],
+            ['Do not reconstruct every historical mobilisation or training event.'],
             [''],
             ['Workflow'],
             ['1. Fill the Historical Assignments sheet using values from Reference Data.'],
-            ['2. Upload the completed workbook in Add Past Data → Import Excel.'],
-            ['3. Validate File runs authoritative historical rules (no records are written yet).'],
-            ['4. Review Ready / Warning / Blocked rows, including Inferred State.'],
+            ['2. Upload the completed workbook in Add Past Crew Data → Import Excel.'],
+            ['3. Validate File runs authoritative past-data rules (no records are written yet).'],
+            ['4. Review Ready / Warning / Blocked rows, including inferred current state.'],
             ['5. Confirm import to revalidate and persist Ready + Warning rows (Blocked rows are skipped).'],
             [''],
-            ['How movement dates work'],
-            ['Enter the employee\'s known movement dates in sequence.'],
-            ['OMS-HRM reconstructs the movement timeline automatically.'],
-            ['The last valid movement determines the employee\'s current operational state when no newer active OMS assignment exists.'],
-            ['Do not guess unknown historical dates.'],
+            ['Movement periods'],
+            ['Sign-On Standby, Onsite / On Vessel, Sign-Off Standby, and Home / Available From.'],
+            ['Enter From/To dates only. Days are calculated automatically — never enter day totals.'],
+            ['Leave the current period To date empty when that period is still open.'],
+            ['If every entered period is closed, supply Home / Available From or leave the current period open.'],
+            ['Do not guess unknown historical dates. Missing phases are not fabricated.'],
+            [''],
+            ['Accommodation (optional)'],
+            ['Pre-Join Accommodation and Post-Sign-Off Accommodation accept: Not recorded | No accommodation | Hotel.'],
+            ['Hotel fields are only used when Accommodation = Hotel.'],
             [''],
             ['Important'],
             ['- Do not enter future dates.'],
-            ['- Employee, Vessel, and Rank are required. At least one movement date is required.'],
-            ['- On Vessel and Disembarked are optional — a row may end at Pre-Mobilisation, Join Standby, Training, On Vessel, Demobilisation Standby, or Home.'],
-            ['- Training End automatically returns the employee to Join Standby.'],
-            ['- Disembarked automatically moves the employee to Demobilisation Standby until Home / Redeployment is recorded.'],
-            ['- Sea Service is created only for a completed On Vessel → Disembarked period.'],
+            ['- Employee, Vessel, and Rank are required. At least one movement period is required.'],
+            ['- Sea Service is created only for a completed Onsite period.'],
             ['- An employee may have at most one open/current assignment in the workbook, and it must be the chronologically latest row.'],
             ['- If the employee already has an active Crew Assignment in OMS-HRM, this import will not create another current assignment.'],
             ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
             ['- Maximum 5,000 historical assignment rows per workbook.'],
-            ['- Vessel, Rank and Client values must exactly match a value in Reference Data.'],
-            ['- Ambiguous duplicate names are blocked during validation.'],
-            ['- Inactive Vessel / Rank / Client values are allowed for historical backfill (shown as warnings).'],
-            ['- Historical Client may differ from the Vessel\'s Current Client in Reference Data.'],
+            ['- Vessel, Rank, Client, Hotel and Room Type values must exactly match Reference Data.'],
             [''],
             ['Accepted date format'],
             ['Prefer YYYY-MM-DD (example: 2024-01-15).'],
             ['Excel date cells are also accepted and normalized to company calendar dates.'],
-            [''],
-            ['Movement sequence'],
-            ['Pre-Mobilisation → Join Standby → Training Start → Training End → On Vessel → Disembarked → Home / Redeployment'],
-            ['Only enter dates you know. OMS derives phases from those events.'],
         ];
 
         foreach ($lines as $index => $line) {
@@ -115,9 +112,9 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyle('A3')->getFont()->setBold(true);
         $sheet->getStyle('A7')->getFont()->setBold(true);
         $sheet->getStyle('A14')->getFont()->setBold(true);
-        $sheet->getStyle('A20')->getFont()->setBold(true);
-        $sheet->getStyle('A37')->getFont()->setBold(true);
-        $sheet->getStyle('A41')->getFont()->setBold(true);
+        $sheet->getStyle('A21')->getFont()->setBold(true);
+        $sheet->getStyle('A25')->getFont()->setBold(true);
+        $sheet->getStyle('A39')->getFont()->setBold(true);
         $sheet->getColumnDimension('A')->setWidth(110);
     }
 
@@ -151,14 +148,24 @@ final class HistoricalCrewImportTemplate
             HistoricalCrewImportColumns::VESSEL => 'Example Vessel',
             HistoricalCrewImportColumns::RANK => 'Example Rank',
             HistoricalCrewImportColumns::CLIENT => '',
-            HistoricalCrewImportColumns::MOBILISATION_DATE => '2024-01-01',
-            HistoricalCrewImportColumns::JOIN_STANDBY_DATE => '2024-01-05',
-            HistoricalCrewImportColumns::TRAINING_START_DATE => '',
-            HistoricalCrewImportColumns::TRAINING_END_DATE => '',
-            HistoricalCrewImportColumns::VESSEL_JOIN_DATE => '2024-01-15',
-            HistoricalCrewImportColumns::DISEMBARK_DATE => '',
-            HistoricalCrewImportColumns::TRAVEL_HOME_DATE => '',
-            HistoricalCrewImportColumns::REMARKS => 'SAMPLE — replace with real historical rows before upload',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-01-05',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-01-14',
+            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::PRE_JOIN_HOTEL => '',
+            HistoricalCrewImportColumns::PRE_JOIN_ROOM_TYPE => '',
+            HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_IN => '',
+            HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_OUT => '',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
+            HistoricalCrewImportColumns::ONSITE_TO => '',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_TO => '',
+            HistoricalCrewImportColumns::POST_SIGNOFF_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL => '',
+            HistoricalCrewImportColumns::POST_SIGNOFF_ROOM_TYPE => '',
+            HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL_CHECK_IN => '',
+            HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL_CHECK_OUT => '',
+            HistoricalCrewImportColumns::HOME_AVAILABLE_FROM => '',
+            HistoricalCrewImportColumns::REMARKS => 'SAMPLE — replace with real past crew data rows before upload',
         ];
 
         foreach (HistoricalCrewImportColumns::headers() as $columnIndex => $header) {
@@ -205,7 +212,11 @@ final class HistoricalCrewImportTemplate
         $row += 2;
         $row = $this->writeRankReference($sheet, $row);
         $row += 2;
-        $this->writeClientReference($sheet, $row);
+        $row = $this->writeClientReference($sheet, $row);
+        $row += 2;
+        $row = $this->writeHotelReference($sheet, $companyId, $row);
+        $row += 2;
+        $this->writeRoomTypeReference($sheet, $companyId, $row);
 
         foreach (range(1, 5) as $column) {
             $sheet->getColumnDimensionByColumn($column)->setWidth(24);
@@ -312,6 +323,65 @@ final class HistoricalCrewImportTemplate
         foreach (Client::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $client) {
             $this->writeSafeString($sheet, 1, $row, (string) $client->name);
             $this->writeSafeString($sheet, 2, $row, $client->is_active ? 'Active' : 'Inactive');
+            $row++;
+        }
+
+        return $row - 1;
+    }
+
+    private function writeHotelReference(Worksheet $sheet, int $companyId, int $startRow): int
+    {
+        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Hotels');
+        $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
+
+        $headerRow = $startRow + 1;
+        foreach (['Hotel', 'Status'] as $index => $header) {
+            $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
+            $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
+        }
+
+        $row = $headerRow + 1;
+
+        foreach (
+            Hotel::query()
+                ->forCompany($companyId)
+                ->orderByDesc('is_active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'is_active']) as $hotel
+        ) {
+            $this->writeSafeString($sheet, 1, $row, (string) $hotel->name);
+            $this->writeSafeString($sheet, 2, $row, $hotel->is_active ? 'Active' : 'Inactive');
+            $row++;
+        }
+
+        return $row - 1;
+    }
+
+    private function writeRoomTypeReference(Worksheet $sheet, int $companyId, int $startRow): int
+    {
+        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Room Types');
+        $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
+
+        $headerRow = $startRow + 1;
+        foreach (['Room Type', 'Hotel', 'Status'] as $index => $header) {
+            $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
+            $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
+        }
+
+        $row = $headerRow + 1;
+
+        foreach (
+            RoomType::query()
+                ->forCompany($companyId)
+                ->whereNotNull('hotel_id')
+                ->with(['hotel:id,name'])
+                ->orderByDesc('is_active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'hotel_id', 'is_active']) as $roomType
+        ) {
+            $this->writeSafeString($sheet, 1, $row, (string) $roomType->name);
+            $this->writeSafeString($sheet, 2, $row, (string) ($roomType->hotel?->name ?? ''));
+            $this->writeSafeString($sheet, 3, $row, $roomType->is_active ? 'Active' : 'Inactive');
             $row++;
         }
 

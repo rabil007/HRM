@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
@@ -15,10 +17,13 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -56,8 +61,9 @@ test('authorized user with create_historical permission can preview historical a
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ]);
 
     $response->assertOk()
@@ -83,8 +89,9 @@ test('user without create_historical permission receives 403 on preview and stor
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'joined_vessel_at' => '2024-01-15',
-        'disembarked_at' => '2024-07-20',
+        'onsite_from' => '2024-01-15',
+        'onsite_to' => '2024-07-20',
+        'sign_off_standby_from' => '2024-07-20',
     ];
 
     $this->actingAs($user)
@@ -113,8 +120,9 @@ test('employee from another company is rejected', function () {
             'employee_id' => $otherEmployee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ]);
 
     $response->assertStatus(422)
@@ -137,8 +145,9 @@ test('vessel from another company is rejected', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $otherVessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ]);
 
     $response->assertStatus(422)
@@ -162,8 +171,9 @@ test('request cannot inject another company_id and resulting assignment uses act
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ]);
 
     $response->assertRedirect(route('organization.crew-assignments.index'));
@@ -192,12 +202,13 @@ test('future timestamps are rejected', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => $futureDate,
-            'disembarked_at' => $farFutureDate,
+            'onsite_from' => $futureDate,
+            'onsite_to' => $farFutureDate,
+            'sign_off_standby_from' => $farFutureDate,
         ]);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['joined_vessel_at']);
+        ->assertJsonValidationErrors(['onsite_from']);
 });
 
 test('joined vessel on or after disembarked is rejected', function () {
@@ -215,12 +226,13 @@ test('joined vessel on or after disembarked is rejected', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-07-20',
-            'disembarked_at' => '2024-01-15',
+            'onsite_from' => '2024-07-20',
+            'onsite_to' => '2024-01-15',
+            'sign_off_standby_from' => '2024-01-15',
         ]);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['disembarked_at']);
+        ->assertJsonValidationErrors(['onsite_to']);
 });
 
 test('optional chronology errors are rejected', function () {
@@ -233,19 +245,50 @@ test('optional chronology errors are rejected', function () {
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    // Mobilisation is after vessel join
+    // Sign-On Standby starts after Onsite
     $response = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.preview'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'mobilisation_at' => '2024-02-01',
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'sign_on_standby_from' => '2024-02-01',
+            'sign_on_standby_to' => '2024-02-05',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-01-31',
+            'sign_off_standby_from' => '2024-01-31',
         ]);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['mobilisation_at']);
+        ->assertJsonValidationErrors(['onsite_from']);
+});
+
+test('all closed periods without home are rejected as ambiguous current state', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Ambiguous Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-01',
+            'sign_on_standby_to' => '2024-09-05',
+            'onsite_from' => '2024-09-06',
+            'onsite_to' => '2024-09-20',
+            'sign_off_standby_from' => '2024-09-21',
+            'sign_off_standby_to' => '2024-09-23',
+        ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['dates']);
+
+    expect($response->json('errors.dates.0'))
+        ->toContain('All entered movement periods are closed');
 });
 
 test('on vessel plus disembarked without home creates active P5 with completed P4 and sea service', function () {
@@ -263,8 +306,9 @@ test('on vessel plus disembarked without home creates active P5 with completed P
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
             'remarks' => 'Only sea time provided',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
@@ -327,9 +371,9 @@ test('completed historical record can be added when employee has an active opera
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'home_available_from' => '2024-07-20',
         ]);
 
     $response->assertRedirect(route('organization.crew-assignments.index'));
@@ -388,8 +432,9 @@ test('overlapping existing historical assignment is blocked with detailed messag
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-05-15',
-            'disembarked_at' => '2024-08-10',
+            'onsite_from' => '2024-05-15',
+            'onsite_to' => '2024-08-10',
+            'sign_off_standby_from' => '2024-08-10',
         ]);
 
     $response->assertStatus(422)
@@ -431,8 +476,9 @@ test('historical P4 synchronizes sea service and links exact unlinked match with
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ]);
 
     $previewResponse->assertOk()
@@ -445,8 +491,9 @@ test('historical P4 synchronizes sea service and links exact unlinked match with
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
@@ -479,8 +526,9 @@ test('historical creation does not trigger unintended operational side effects',
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
@@ -509,8 +557,9 @@ test('preview response matches the canonical contract exactly', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
             'remarks' => 'Inspection crew',
         ]);
 
@@ -533,7 +582,9 @@ test('preview response matches the canonical contract exactly', function () {
     expect($data['employee'])->toHaveKeys(['id', 'name', 'employee_no']);
     expect($data['vessel'])->toHaveKeys(['id', 'name']);
     expect($data['rank'])->toHaveKeys(['id', 'name']);
-    expect($data['summary'])->toEqual([
+    expect($data['summary'])->toMatchArray([
+        'onsite_from' => '15 Jan 2024',
+        'onsite_to' => '20 Jul 2024',
         'joined_vessel_at' => '15 Jan 2024',
         'disembarked_at' => '20 Jul 2024',
         'sea_service_days' => 188,
@@ -541,6 +592,8 @@ test('preview response matches the canonical contract exactly', function () {
         'assignment_status' => 'active',
         'is_open' => true,
     ]);
+    expect($data['summary']['known_periods'])->toBeArray()->not->toBeEmpty();
+    expect($data['inferred_state']['label'] ?? null)->toBe('Demobilisation Standby');
 
     expect($data['timeline'])->toHaveCount(2);
     expect($data['timeline'][0])->toEqual([
@@ -603,9 +656,9 @@ test('completed historical history is allowed for active inactive terminated and
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'joined_vessel_at' => '2024-01-15',
-        'disembarked_at' => '2024-07-20',
-        'travel_home_at' => '2024-07-23',
+        'onsite_from' => '2024-01-15',
+        'onsite_to' => '2024-07-20',
+        'home_available_from' => '2024-07-23',
     ];
 
     $this->actingAs($user)
@@ -639,8 +692,9 @@ test('open historical bootstrap is blocked for inactive terminated and on_leave 
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'joined_vessel_at' => '2024-01-15',
-        'disembarked_at' => '2024-07-20',
+        'onsite_from' => '2024-01-15',
+        'onsite_to' => '2024-07-20',
+        'sign_off_standby_from' => '2024-07-20',
     ];
 
     $this->actingAs($user)
@@ -675,7 +729,7 @@ test('open historical bootstrap is allowed for active employees', function () {
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'joined_vessel_at' => '2024-01-15',
+        'onsite_from' => '2024-01-15',
     ];
 
     $this->actingAs($user)
@@ -714,9 +768,9 @@ test('historical rank snapshot persists independently of employee current rank',
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $historicalRank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-23',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'home_available_from' => '2024-07-23',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
@@ -744,8 +798,9 @@ test('historical entry rejects soft-deleted employees', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['employee_id']);
@@ -768,8 +823,9 @@ test('historical entry respects role-based employee visibility scope and rejects
             'employee_id' => $officeEmployee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['employee_id']);
@@ -791,8 +847,9 @@ test('company timezone semantics preserve local calendar dates for Dubai midnigh
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15 00:00:00',
-            'disembarked_at' => '2024-07-20 23:30:00',
+            'onsite_from' => '2024-01-15 00:00:00',
+            'onsite_to' => '2024-07-20 23:30:00',
+            'sign_off_standby_from' => '2024-07-20 23:30:00',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
@@ -803,12 +860,11 @@ test('company timezone semantics preserve local calendar dates for Dubai midnigh
         ->and($seaService->total_days)->toBe(188);
 });
 
-test('phase correctness: join standby creates P2A and training creates P2B without fabricating missing phases', function () {
+test('simplified periods map to P2A P4 P5 without fabricating training or pre-mobilisation', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Historical Vessel', $company);
+    $vessel = makeCrewMovementVessel('Period Map Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
         'crew_operations.assignments.create_historical',
     ]);
     $user->update(['current_company_id' => $company->id]);
@@ -818,51 +874,34 @@ test('phase correctness: join standby creates P2A and training creates P2B witho
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'join_standby_at' => '2024-01-10',
-            'training_started_at' => '2024-01-12',
-            'training_ended_at' => '2024-01-14',
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'sign_on_standby_from' => '2024-01-10',
+            'sign_on_standby_to' => '2024-01-15',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->first();
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
     $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
 
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Active);
-    expect($phases)->toHaveCount(5);
-    expect($phases[0]->phase_code)->toBe(CrewPhaseCode::JoinStandby)
-        ->and($phases[0]->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($phases[0]->sequence)->toBe(1);
-
-    expect($phases[1]->phase_code)->toBe(CrewPhaseCode::Training)
-        ->and($phases[1]->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($phases[1]->sequence)->toBe(2);
-
-    expect($phases[2]->phase_code)->toBe(CrewPhaseCode::JoinStandby)
-        ->and($phases[2]->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($phases[2]->actual_start_at->toDateString())->toBe('2024-01-14');
-
-    expect($phases[3]->phase_code)->toBe(CrewPhaseCode::OnVessel)
-        ->and($phases[3]->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($phases[3]->sequence)->toBe(4);
-
-    expect($phases[4]->phase_code)->toBe(CrewPhaseCode::DemobStandby)
-        ->and($phases[4]->status)->toBe(CrewPhaseStatus::Active)
-        ->and($phases[4]->actual_end_at)->toBeNull();
-
-    $trainingPhases = $phases->where('phase_code', CrewPhaseCode::Training);
-    expect($trainingPhases)->toHaveCount(1)
-        ->and($trainingPhases->first()->actual_start_at->toDateString())->toBe('2024-01-12')
-        ->and($trainingPhases->first()->actual_end_at->toDateString())->toBe('2024-01-14');
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($phases->pluck('phase_code')->all())->toBe([
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::OnVessel,
+            CrewPhaseCode::DemobStandby,
+        ])
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
+        ->and($phases[2]->status)->toBe(CrewPhaseStatus::Active)
+        ->and($phases[2]->actual_end_at)->toBeNull();
 });
 
-test('phase correctness: full training loop P2A -> P2B -> P2A -> P4 persists ordered phases', function () {
+test('sign-on onsite sign-off and home map to completed P2A P4 P5 P6', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Historical Vessel', $company);
+    $vessel = makeCrewMovementVessel('Home Period Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
         'crew_operations.assignments.create_historical',
     ]);
     $user->update(['current_company_id' => $company->id]);
@@ -872,164 +911,48 @@ test('phase correctness: full training loop P2A -> P2B -> P2A -> P4 persists ord
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'join_standby_at' => '2024-01-10',
-            'training_started_at' => '2024-01-12',
-            'training_ended_at' => '2024-01-14',
-            'joined_vessel_at' => '2024-01-16',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-22',
+            'sign_on_standby_from' => '2024-01-10',
+            'sign_on_standby_to' => '2024-01-15',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
+            'sign_off_standby_to' => '2024-07-22',
+            'home_available_from' => '2024-07-22',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->first();
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
     $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
 
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Completed);
-    expect($phases)->toHaveCount(6);
-    expect($phases[0]->phase_code)->toBe(CrewPhaseCode::JoinStandby)
-        ->and($phases[0]->sequence)->toBe(1);
-    expect($phases[1]->phase_code)->toBe(CrewPhaseCode::Training)
-        ->and($phases[1]->sequence)->toBe(2);
-    expect($phases[2]->phase_code)->toBe(CrewPhaseCode::JoinStandby)
-        ->and($phases[2]->sequence)->toBe(3)
-        ->and($phases[2]->actual_start_at->toDateString())->toBe('2024-01-14');
-    expect($phases[3]->phase_code)->toBe(CrewPhaseCode::OnVessel)
-        ->and($phases[3]->sequence)->toBe(4);
-    expect($phases[4]->phase_code)->toBe(CrewPhaseCode::DemobStandby)
-        ->and($phases[4]->sequence)->toBe(5)
-        ->and($phases[4]->status)->toBe(CrewPhaseStatus::Completed);
-    expect($phases[5]->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)
-        ->and($phases[5]->actual_start_at->toDateString())->toBe('2024-07-22')
-        ->and($phases[5]->status)->toBe(CrewPhaseStatus::Completed);
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($assignment->closed_at?->toDateString())->toBe('2024-07-22')
+        ->and($phases->pluck('phase_code')->all())->toBe([
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::OnVessel,
+            CrewPhaseCode::DemobStandby,
+            CrewPhaseCode::HomeRedeploy,
+        ]);
 });
 
-test('phase correctness: demob standby P5 and travel home P6 persist ordered phases', function () {
+test('only the latest chronological period may remain open', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Historical Vessel', $company);
+    $vessel = makeCrewMovementVessel('Open Period Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
         'crew_operations.assignments.create_historical',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
     $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-22',
-        ])
-        ->assertRedirect(route('organization.crew-assignments.index'));
-
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->first();
-    $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
-
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Completed);
-    expect($phases)->toHaveCount(3);
-    expect($phases[0]->phase_code)->toBe(CrewPhaseCode::OnVessel)
-        ->and($phases[0]->sequence)->toBe(1);
-    expect($phases[1]->phase_code)->toBe(CrewPhaseCode::DemobStandby)
-        ->and($phases[1]->sequence)->toBe(2)
-        ->and($phases[1]->status)->toBe(CrewPhaseStatus::Completed);
-    expect($phases[2]->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)
-        ->and($phases[2]->sequence)->toBe(3)
-        ->and($phases[2]->status)->toBe(CrewPhaseStatus::Completed);
-});
-
-test('chronology validation enforces strict ordering between all supplied movement phases', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Historical Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    // 1. Training ended before started
-    $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.preview'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'training_started_at' => '2024-01-14',
-            'training_ended_at' => '2024-01-12',
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'sign_on_standby_from' => '2024-01-10',
+            'onsite_from' => '2024-01-15',
         ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['training_end_at']);
-
-    // 2. Legacy post-training standby input is prohibited
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'training_started_at' => '2024-01-10',
-            'training_ended_at' => '2024-01-14',
-            'post_training_join_standby_at' => '2024-01-13',
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-        ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['post_training_join_standby_at']);
-
-    // 3. Joined vessel before standby
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'join_standby_at' => '2024-01-16',
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-        ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['joined_vessel_at']);
-
-    // 4. Legacy demob standby input is prohibited
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'demob_standby_at' => '2024-07-19',
-        ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['demob_standby_at']);
-
-    // 5. Travel home before disembarked
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-21',
-            'travel_home_at' => '2024-07-20',
-        ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['travel_home_at']);
-
-    // 6. Legacy assignment closed input is prohibited
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-22',
-            'assignment_closed_at' => '2024-07-21',
-        ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['assignment_closed_at']);
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['dates']);
 });
 
 test('sea service exact match with conflicting rank blocks and does not rewrite existing HR history', function () {
@@ -1060,8 +983,9 @@ test('sea service exact match with conflicting rank blocks and does not rewrite 
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ]);
 
     $response->assertStatus(422)
@@ -1072,8 +996,9 @@ test('sea service exact match with conflicting rank blocks and does not rewrite 
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertSessionHasErrors(['sea_service']);
 
@@ -1112,8 +1037,9 @@ test('sea service exact match with conflicting client blocks', function () {
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
             'client_id' => $clientB->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ]);
 
     $response->assertStatus(422)
@@ -1148,8 +1074,9 @@ test('sea service inclusive date boundary overlap is rejected as conflict', func
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-10',
-            'disembarked_at' => '2024-01-20',
+            'onsite_from' => '2024-01-10',
+            'onsite_to' => '2024-01-20',
+            'sign_off_standby_from' => '2024-01-20',
         ]);
 
     $response->assertStatus(422)
@@ -1184,8 +1111,9 @@ test('sea service adjacent dates without overlap are allowed', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-11',
-            'disembarked_at' => '2024-01-20',
+            'onsite_from' => '2024-01-11',
+            'onsite_to' => '2024-01-20',
+            'sign_off_standby_from' => '2024-01-20',
         ]);
 
     $response->assertOk()
@@ -1208,8 +1136,9 @@ test('historical creation logs activity with company_id, subject, and causer', f
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
@@ -1228,8 +1157,8 @@ test('historical creation logs activity with company_id, subject, and causer', f
         ->and($activity->properties['employee_id'])->toBe($employee->id)
         ->and($activity->properties['assignment_id'])->toBe($assignment->id)
         ->and($activity->properties['source'])->toBe('historical_manual')
-        ->and($activity->properties['historical_joined_vessel_at'])->toBe('2024-01-15')
-        ->and($activity->properties['historical_disembarked_at'])->toBe('2024-07-20');
+        ->and($activity->properties['onsite_from'])->toBe('2024-01-15')
+        ->and($activity->properties['onsite_to'])->toBe('2024-07-20');
 });
 
 test('historical form options are exposed on index only when authorized and default employee list remains empty', function () {
@@ -1281,8 +1210,9 @@ test('historical blank client stays null and does not auto-fill vessel current c
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertOk()
         ->assertJsonPath('client', null);
@@ -1292,8 +1222,9 @@ test('historical blank client stays null and does not auto-fill vessel current c
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertRedirect(route('organization.crew-assignments.index'));
 
@@ -1321,8 +1252,9 @@ test('historical client snapshot differs from vessel current client with warning
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
             'client_id' => $historicalClient->id,
-            'joined_vessel_at' => '2022-01-15',
-            'disembarked_at' => '2022-07-20',
+            'onsite_from' => '2022-01-15',
+            'onsite_to' => '2022-07-20',
+            'sign_off_standby_from' => '2022-07-20',
         ])
         ->assertOk();
 
@@ -1338,8 +1270,9 @@ test('historical client snapshot differs from vessel current client with warning
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
             'client_id' => $historicalClient->id,
-            'joined_vessel_at' => '2022-01-15',
-            'disembarked_at' => '2022-07-20',
+            'onsite_from' => '2022-01-15',
+            'onsite_to' => '2022-07-20',
+            'sign_off_standby_from' => '2022-07-20',
         ])
         ->assertRedirect();
 
@@ -1388,8 +1321,9 @@ test('multiple exact unlinked sea service matches block historical preview and c
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-01',
-            'disembarked_at' => '2024-06-30',
+            'onsite_from' => '2024-01-01',
+            'onsite_to' => '2024-06-30',
+            'sign_off_standby_from' => '2024-06-30',
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['sea_service']);
@@ -1404,8 +1338,9 @@ test('multiple exact unlinked sea service matches block historical preview and c
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-01',
-            'disembarked_at' => '2024-06-30',
+            'onsite_from' => '2024-01-01',
+            'onsite_to' => '2024-06-30',
+            'sign_off_standby_from' => '2024-06-30',
         ])
         ->assertSessionHasErrors(['sea_service']);
 
@@ -1463,8 +1398,9 @@ test('exact matching sea service already linked blocks historical entry', functi
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-01',
-            'disembarked_at' => '2024-06-30',
+            'onsite_from' => '2024-01-01',
+            'onsite_to' => '2024-06-30',
+            'sign_off_standby_from' => '2024-06-30',
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['sea_service']);
@@ -1484,8 +1420,9 @@ test('on vessel plus disembarked without home leaves active P5 open', function (
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertOk()
         ->assertJsonPath('summary.is_open', true)
@@ -1497,8 +1434,9 @@ test('on vessel plus disembarked without home leaves active P5 open', function (
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertRedirect();
 
@@ -1529,9 +1467,11 @@ test('disembarked with home later creates completed P5 then P6', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-25',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
+            'sign_off_standby_to' => '2024-07-25',
+            'home_available_from' => '2024-07-25',
         ])
         ->assertRedirect();
 
@@ -1563,9 +1503,9 @@ test('disembarked and home at same timestamp creates direct P4 to P6 without pos
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'home_available_from' => '2024-07-20',
         ])
         ->assertRedirect();
 
@@ -1589,6 +1529,21 @@ test('historical form options include inactive vessel rank and client while live
     $inactiveVessel = makeCrewMovementVessel('Inactive Vessel Opt '.Str::random(5), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
     $activeVessel = makeCrewMovementVessel('Active Vessel Opt '.Str::random(5), $company);
+    $activeHotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Active Hotel Opt '.Str::random(5), 'is_active' => true]);
+    $inactiveHotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Inactive Hotel Opt '.Str::random(5), 'is_active' => false]);
+    $inactiveRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $inactiveHotel->id,
+        'name' => 'Inactive Room Opt '.Str::random(5),
+        'is_active' => false,
+    ]);
+    $orphanRoomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $activeHotel->id,
+        'name' => 'Orphan Room Opt '.Str::random(5),
+        'is_active' => true,
+    ]);
+    $orphanRoomType->forceFill(['hotel_id' => null])->saveQuietly();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
@@ -1631,11 +1586,35 @@ test('historical form options include inactive vessel rank and client while live
                     && str_contains((string) $inactive['name'], 'Inactive')
                     && ($inactive['is_active'] ?? true) === false;
             })
+            ->where('historical_form_options.hotels', function ($hotels) use ($inactiveHotel, $activeHotel) {
+                $inactive = collect($hotels)->firstWhere('id', $inactiveHotel->id);
+                $active = collect($hotels)->firstWhere('id', $activeHotel->id);
+
+                return $inactive !== null
+                    && $active !== null
+                    && str_contains((string) $inactive['name'], 'Inactive')
+                    && ($inactive['is_active'] ?? true) === false
+                    && ($active['is_active'] ?? false) === true;
+            })
+            ->where('historical_form_options.room_types', function ($roomTypes) use ($inactiveRoomType, $orphanRoomType) {
+                $inactive = collect($roomTypes)->firstWhere('id', $inactiveRoomType->id);
+                $orphan = collect($roomTypes)->firstWhere('id', $orphanRoomType->id);
+
+                return $inactive !== null
+                    && str_contains((string) $inactive['name'], 'Inactive')
+                    && $orphan === null;
+            })
             ->where('form_options.vessels', function ($vessels) use ($inactiveVessel, $activeVessel) {
                 $ids = collect($vessels)->pluck('id')->all();
 
                 return ! in_array($inactiveVessel->id, $ids, true)
                     && in_array($activeVessel->id, $ids, true);
+            })
+            ->where('form_options.hotels', function ($hotels) use ($inactiveHotel, $activeHotel) {
+                $ids = collect($hotels)->pluck('id')->all();
+
+                return ! in_array($inactiveHotel->id, $ids, true)
+                    && in_array($activeHotel->id, $ids, true);
             })
             ->where('form_options.ranks', function ($ranks) use ($inactiveRank, $activeRank) {
                 $ids = collect($ranks)->pluck('id')->all();
@@ -1651,7 +1630,7 @@ test('historical form options include inactive vessel rank and client while live
         );
 });
 
-test('historical validation aliases training fields and surfaces sea service and overlap messages', function () {
+test('historical validation surfaces ambiguous state sea service and overlap messages', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Alias Vessel', $company);
     $otherRank = Rank::query()->create(['name' => 'Master Alias '.Str::random(4), 'is_active' => true]);
@@ -1662,34 +1641,30 @@ test('historical validation aliases training fields and surfaces sea service and
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    // Chronology: training_end before training_start → aliased form keys
     $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.preview'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-06-01',
-            'disembarked_at' => '2024-08-01',
-            'training_started_at' => '2024-05-20',
-            'training_ended_at' => '2024-05-10',
+            'onsite_from' => '2024-06-01',
+            'onsite_to' => '2024-08-01',
         ])
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['training_started_at', 'training_ended_at']);
+        ->assertJsonValidationErrors(['dates']);
 
-    // Legacy demob field remains prohibited
     $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.preview'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-06-01',
-            'disembarked_at' => '2024-08-01',
+            'onsite_from' => '2024-06-01',
+            'onsite_to' => '2024-08-01',
+            'sign_off_standby_from' => '2024-08-01',
             'post_signoff_standby_at' => '2024-07-01',
         ])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['post_signoff_standby_at']);
 
-    // Persist a sea service conflict for overlap/conflict messaging
     EmployeeSeaService::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
@@ -1699,7 +1674,7 @@ test('historical validation aliases training fields and surfaces sea service and
         'end_date' => '2023-06-30',
         'total_days' => 181,
         'total_months' => 6,
-        'sort_order' => 0,
+        'crew_assignment_phase_id' => null,
     ]);
 
     $this->actingAs($user)
@@ -1707,69 +1682,15 @@ test('historical validation aliases training fields and surfaces sea service and
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2023-01-01',
-            'disembarked_at' => '2023-06-30',
+            'onsite_from' => '2023-01-01',
+            'onsite_to' => '2023-06-30',
+            'home_available_from' => '2023-06-30',
         ])
         ->assertStatus(422)
         ->assertJsonValidationErrors(['sea_service']);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2022-01-01',
-            'disembarked_at' => '2022-06-30',
-            'travel_home_at' => '2022-06-30',
-        ])
-        ->assertRedirect();
-
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2022-03-01',
-            'disembarked_at' => '2022-08-01',
-            'travel_home_at' => '2022-08-01',
-        ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['overlap']);
 });
 
-test('manual historical entry rejects legacy removed movement inputs', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Legacy Reject Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'arrival_at' => '2024-01-10',
-            'ready_to_join_at' => '2024-01-14',
-            'post_training_join_standby_at' => '2024-01-14',
-            'demob_standby_at' => '2024-07-21',
-            'assignment_closed_at' => '2024-07-23',
-        ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors([
-            'arrival_at',
-            'ready_to_join_at',
-            'post_training_join_standby_at',
-            'demob_standby_at',
-            'assignment_closed_at',
-        ]);
-});
-
-test('modern full lifecycle creates only P0 P2A P4 P5 P6 without P1 or P3', function () {
+test('simplified lifecycle creates only known P2A P4 P5 P6 phases', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Modern Lifecycle Vessel', $company);
 
@@ -1783,11 +1704,13 @@ test('modern full lifecycle creates only P0 P2A P4 P5 P6 without P1 or P3', func
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'mobilisation_at' => '2024-01-01',
-            'join_standby_at' => '2024-01-05',
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
-            'travel_home_at' => '2024-07-22',
+            'sign_on_standby_from' => '2024-01-05',
+            'sign_on_standby_to' => '2024-01-15',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
+            'sign_off_standby_to' => '2024-07-22',
+            'home_available_from' => '2024-07-22',
         ])
         ->assertRedirect();
 
@@ -1803,19 +1726,20 @@ test('modern full lifecycle creates only P0 P2A P4 P5 P6 without P1 or P3', func
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Completed)
         ->and($phases->pluck('phase_code')->all())->toBe([
-            CrewPhaseCode::PreMobilisation,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::OnVessel,
             CrewPhaseCode::DemobStandby,
             CrewPhaseCode::HomeRedeploy,
         ])
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::TravelIn))->toBeFalse()
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::ReadyToJoin))->toBeFalse();
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::ReadyToJoin))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse();
 });
 
-test('phase inference: pre-mobilisation only creates active P0', function () {
+test('open sign-on standby bootstraps active P2A without fabricating earlier phases', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('P0 Only Vessel', $company);
+    $vessel = makeCrewMovementVessel('Open SignOn Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -1827,7 +1751,7 @@ test('phase inference: pre-mobilisation only creates active P0', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'mobilisation_at' => '2024-01-01',
+            'sign_on_standby_from' => '2024-09-20',
         ])
         ->assertRedirect();
 
@@ -1836,15 +1760,15 @@ test('phase inference: pre-mobilisation only creates active P0', function () {
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($phases)->toHaveCount(1)
-        ->and($phases[0]->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($phases[0]->phase_code)->toBe(CrewPhaseCode::JoinStandby)
         ->and($phases[0]->status)->toBe(CrewPhaseStatus::Active)
         ->and($phases[0]->actual_end_at)->toBeNull()
         ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
 });
 
-test('phase inference: pre-mobilisation plus join standby creates completed P0 and active P2A', function () {
+test('legacy detailed movement event fields are prohibited', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('P0 P2A Vessel', $company);
+    $vessel = makeCrewMovementVessel('Legacy Event Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -1852,240 +1776,20 @@ test('phase inference: pre-mobilisation plus join standby creates completed P0 a
     $user->update(['current_company_id' => $company->id]);
 
     $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'mobilisation_at' => '2024-01-01',
-            'join_standby_at' => '2024-01-05',
-        ])
-        ->assertRedirect();
-
-    $phases = CrewAssignmentPhase::query()
-        ->where('crew_assignment_id', CrewAssignment::query()->where('employee_id', $employee->id)->value('id'))
-        ->orderBy('sequence')
-        ->get();
-
-    expect($phases->pluck('phase_code')->all())->toBe([
-        CrewPhaseCode::PreMobilisation,
-        CrewPhaseCode::JoinStandby,
-    ])
-        ->and($phases[0]->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($phases[1]->status)->toBe(CrewPhaseStatus::Active)
-        ->and($phases[1]->actual_end_at)->toBeNull();
-});
-
-test('phase inference: join standby plus training start creates active P2B', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('P2B Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'join_standby_at' => '2024-01-05',
-            'training_started_at' => '2024-01-10',
-        ])
-        ->assertRedirect();
-
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
-    $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
-
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($phases->pluck('phase_code')->all())->toBe([
-            CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::Training,
-        ])
-        ->and($phases[1]->status)->toBe(CrewPhaseStatus::Active)
-        ->and($phases[1]->actual_end_at)->toBeNull();
-});
-
-test('phase inference: training start plus training end creates completed P2B and active P2A', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Training End Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'training_started_at' => '2024-01-10',
-            'training_ended_at' => '2024-01-14',
-        ])
-        ->assertRedirect();
-
-    $phases = CrewAssignmentPhase::query()
-        ->where('crew_assignment_id', CrewAssignment::query()->where('employee_id', $employee->id)->value('id'))
-        ->orderBy('sequence')
-        ->get();
-
-    expect($phases->pluck('phase_code')->all())->toBe([
-        CrewPhaseCode::Training,
-        CrewPhaseCode::JoinStandby,
-    ])
-        ->and($phases[0]->status)->toBe(CrewPhaseStatus::Completed)
-        ->and($phases[1]->status)->toBe(CrewPhaseStatus::Active)
-        ->and($phases[1]->actual_start_at->toDateString())->toBe('2024-01-14')
-        ->and($phases[1]->actual_end_at)->toBeNull();
-});
-
-test('phase inference: training end plus later on vessel closes P2A at on vessel and opens active P4', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Training To Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'training_started_at' => '2024-01-10',
-            'training_ended_at' => '2024-01-14',
-            'joined_vessel_at' => '2024-01-20',
-        ])
-        ->assertRedirect();
-
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
-    $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
-
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($phases->pluck('phase_code')->all())->toBe([
-            CrewPhaseCode::Training,
-            CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::OnVessel,
-        ])
-        ->and($phases[1]->actual_end_at->toDateString())->toBe('2024-01-20')
-        ->and($phases[2]->status)->toBe(CrewPhaseStatus::Active)
-        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
-
-    $sea = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
-    expect($sea->crew_assignment_phase_id)->toBe($phases[2]->id)
-        ->and($sea->start_date?->toDateString())->toBe('2024-01-20')
-        ->and($sea->end_date)->toBeNull()
-        ->and($sea->total_months)->toBe(0)
-        ->and($sea->total_days)->toBe(0);
-});
-
-test('training start only creates active P2B without inventing a training end', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Training Start Only Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'training_started_at' => '2024-06-01',
-        ])
-        ->assertRedirect();
-
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
-    $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
-
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::Training)
-        ->and($phases)->toHaveCount(1)
-        ->and($phases[0]->phase_code)->toBe(CrewPhaseCode::Training)
-        ->and($phases[0]->actual_start_at->toDateString())->toBe('2024-06-01')
-        ->and($phases[0]->actual_end_at)->toBeNull()
-        ->and($phases[0]->status)->toBe(CrewPhaseStatus::Active);
-});
-
-test('training start plus later on vessel without training end is blocked', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Missing Training End Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $response = $this->actingAs($user)
         ->postJson(route('organization.crew-assignments.historical.preview'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'training_started_at' => '2024-06-01',
-            'joined_vessel_at' => '2024-06-15',
+            'onsite_from' => '2024-01-15',
+            'joined_vessel_at' => '2024-01-15',
+            'mobilisation_at' => '2024-01-01',
+            'training_started_at' => '2024-01-05',
         ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['training_ended_at']);
-
-    expect($response->json('errors.training_ended_at.0'))
-        ->toContain('Training End is required before On Vessel');
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'training_started_at' => '2024-06-01',
-            'joined_vessel_at' => '2024-06-15',
-        ])
-        ->assertSessionHasErrors(['training_ended_at']);
-
-    expect(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(0);
+        ->assertJsonValidationErrors(['joined_vessel_at', 'mobilisation_at', 'training_started_at']);
 });
 
-test('training start end and later on vessel reconstructs P2B then P2A then active P4', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Complete Training Then Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'training_started_at' => '2024-06-01',
-            'training_ended_at' => '2024-06-05',
-            'joined_vessel_at' => '2024-06-15',
-        ])
-        ->assertRedirect();
-
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
-    $phases = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->orderBy('sequence')->get();
-
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($phases->pluck('phase_code')->all())->toBe([
-            CrewPhaseCode::Training,
-            CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::OnVessel,
-        ])
-        ->and($phases[0]->actual_start_at->toDateString())->toBe('2024-06-01')
-        ->and($phases[0]->actual_end_at->toDateString())->toBe('2024-06-05')
-        ->and($phases[1]->actual_start_at->toDateString())->toBe('2024-06-05')
-        ->and($phases[1]->actual_end_at->toDateString())->toBe('2024-06-15')
-        ->and($phases[2]->actual_start_at->toDateString())->toBe('2024-06-15')
-        ->and($phases[2]->actual_end_at)->toBeNull()
-        ->and($phases[2]->status)->toBe(CrewPhaseStatus::Active);
-});
-
-test('on vessel only creates active P4 without sea service', function () {
+test('on vessel only creates active P4 with ongoing synchronized sea service', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('On Vessel Only', $company);
 
@@ -2095,11 +1799,22 @@ test('on vessel only creates active P4 without sea service', function () {
     $user->update(['current_company_id' => $company->id]);
 
     $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-01-15',
+        ])
+        ->assertOk()
+        ->assertJsonPath('sea_service.status', 'will_create_ongoing')
+        ->assertJsonPath('sea_service.end_date', null);
+
+    $this->actingAs($user)
         ->post(route('organization.crew-assignments.historical.store'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
+            'onsite_from' => '2024-01-15',
         ])
         ->assertRedirect();
 
@@ -2134,7 +1849,7 @@ test('existing active oms assignment blocks another active historical bootstrap'
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'join_standby_at' => '2024-01-05',
+            'sign_on_standby_from' => '2024-01-05',
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['assignment']);
@@ -2147,8 +1862,9 @@ test('existing active oms assignment blocks another active historical bootstrap'
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertSessionHasErrors(['assignment']);
 
@@ -2161,6 +1877,7 @@ test('imported active P2A can continue with send to training', function () {
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
+        'crew_operations.assignments.update',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
@@ -2169,7 +1886,7 @@ test('imported active P2A can continue with send to training', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'join_standby_at' => '2024-01-05',
+            'sign_on_standby_from' => '2024-01-05',
         ])
         ->assertRedirect();
 
@@ -2180,48 +1897,14 @@ test('imported active P2A can continue with send to training', function () {
         $company->id,
         $assignment->id,
         CrewMovementAction::SendToTraining,
-        ['occurred_at' => '2024-01-10 08:00:00'],
-        $user->id,
-    );
-
-    expect($updated->currentPhase?->phase_code)->toBe(CrewPhaseCode::Training)
-        ->and($updated->status)->toBe(CrewAssignmentStatus::Active);
-});
-
-test('imported active P2B can continue with complete training', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Live P2B Vessel', $company);
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.historical.store'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'training_started_at' => '2024-01-10',
-        ])
-        ->assertRedirect();
-
-    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::Training);
-
-    $updated = app(CrewMovementService::class)->perform(
-        $company->id,
-        $assignment->id,
-        CrewMovementAction::CompleteTraining,
         [
-            'occurred_at' => '2024-01-14 16:00:00',
-            'next_phase' => CrewPhaseCode::JoinStandby->value,
+            'occurred_at' => '2024-01-06 10:00:00',
         ],
         $user->id,
     );
 
-    expect($updated->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
-        ->and($updated->status)->toBe(CrewAssignmentStatus::Active);
+    expect($updated->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($updated->currentPhase?->phase_code)->toBe(CrewPhaseCode::Training);
 });
 
 test('imported active P4 can continue with confirm disembarkation', function () {
@@ -2230,6 +1913,7 @@ test('imported active P4 can continue with confirm disembarkation', function () 
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
+        'crew_operations.assignments.update',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
@@ -2238,7 +1922,7 @@ test('imported active P4 can continue with confirm disembarkation', function () 
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
+            'onsite_from' => '2024-01-15',
         ])
         ->assertRedirect();
 
@@ -2250,14 +1934,14 @@ test('imported active P4 can continue with confirm disembarkation', function () 
         $assignment->id,
         CrewMovementAction::ConfirmDisembarkation,
         [
-            'occurred_at' => '2024-07-20 09:00:00',
+            'occurred_at' => '2024-07-20 12:00:00',
             'next_phase' => CrewPhaseCode::DemobStandby->value,
         ],
         $user->id,
     );
 
-    expect($updated->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
-        ->and($updated->status)->toBe(CrewAssignmentStatus::Active);
+    expect($updated->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($updated->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby);
 });
 
 test('imported active P5 can continue with travel home', function () {
@@ -2266,6 +1950,7 @@ test('imported active P5 can continue with travel home', function () {
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
+        'crew_operations.assignments.update',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
@@ -2274,8 +1959,9 @@ test('imported active P5 can continue with travel home', function () {
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'joined_vessel_at' => '2024-01-15',
-            'disembarked_at' => '2024-07-20',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'sign_off_standby_from' => '2024-07-20',
         ])
         ->assertRedirect();
 
@@ -2297,9 +1983,9 @@ test('imported active P5 can continue with travel home', function () {
         ->and($updated->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy);
 });
 
-test('at least one movement date is required', function () {
+test('at least one movement period is required', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('No Dates Vessel', $company);
+    $vessel = makeCrewMovementVessel('Empty Periods Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -2314,4 +2000,463 @@ test('at least one movement date is required', function () {
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['dates']);
+});
+
+test('sign-on hotel creates closed pre-join stay and open standby leaves checkout open', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Hotel Past Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'City Seasons']);
+    $roomType = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Twin',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-01',
+            'sign_on_standby_to' => '2024-09-05',
+            'onsite_from' => '2024-09-05',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+            'sign_on_room_type_id' => $roomType->id,
+            'sign_on_hotel_check_in' => '2024-09-01',
+            'sign_on_hotel_check_out' => '2024-09-05',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+
+    expect($stay->stay_type)->toBe(CrewAccommodationStayType::PreJoin)
+        ->and($stay->accommodation_status)->toBe(CrewAccommodationStatus::Hotel)
+        ->and($stay->hotel_id)->toBe($hotel->id)
+        ->and($stay->check_out_date?->toDateString())->toBe('2024-09-05');
+
+    $employeeB = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employeeB->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-20',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+            'sign_on_hotel_check_in' => '2024-09-20',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $openAssignment = CrewAssignment::query()->where('employee_id', $employeeB->id)->latest('id')->firstOrFail();
+    $openStay = CrewAccommodationStay::query()->where('crew_assignment_id', $openAssignment->id)->firstOrFail();
+
+    expect($openStay->check_out_date)->toBeNull()
+        ->and($openAssignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($openAssignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
+});
+
+test('sign-off hotel creates post-signoff stay and no accommodation creates explicit record', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Post Hotel Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Grand Millennium']);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+            'onsite_to' => '2024-08-20',
+            'sign_off_standby_from' => '2024-08-20',
+            'sign_off_standby_to' => '2024-08-25',
+            'home_available_from' => '2024-08-25',
+            'sign_off_accommodation' => 'hotel',
+            'sign_off_hotel_id' => $hotel->id,
+            'sign_off_hotel_check_in' => '2024-08-20',
+            'sign_off_hotel_check_out' => '2024-08-25',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+
+    expect($stay->stay_type)->toBe(CrewAccommodationStayType::PostSignoff)
+        ->and($stay->accommodation_status)->toBe(CrewAccommodationStatus::Hotel);
+
+    $employeeB = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employeeB->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-01',
+            'sign_on_standby_to' => '2024-09-03',
+            'onsite_from' => '2024-09-03',
+            'sign_on_accommodation' => 'no_accommodation',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignmentB = CrewAssignment::query()->where('employee_id', $employeeB->id)->latest('id')->firstOrFail();
+    $noHotel = CrewAccommodationStay::query()->where('crew_assignment_id', $assignmentB->id)->firstOrFail();
+
+    expect($noHotel->accommodation_status)->toBe(CrewAccommodationStatus::NoAccommodation)
+        ->and($noHotel->hotel_id)->toBeNull();
+});
+
+test('not recorded accommodation creates no stay and cross-company hotel is rejected', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('No Stay Vessel', $company);
+    $otherCompany = makeOtherCompany();
+    $foreignHotel = Hotel::factory()->create(['company_id' => $otherCompany->id, 'name' => 'Foreign Hotel']);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-01',
+            'sign_on_accommodation' => 'not_recorded',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    expect(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+
+    $employeeB = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employeeB->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-10',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $foreignHotel->id,
+            'sign_on_hotel_check_in' => '2024-09-10',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_hotel_id']);
+});
+
+test('non-blank invalid accommodation values are rejected and not silently discarded', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Invalid Acc Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-01',
+            'sign_on_accommodation' => 'Hotle',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_accommodation']);
+
+    expect(fn () => HistoricalCrewAssignmentData::normalizeAccommodationChoice('Unknown'))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+test('null hotel_id room type is rejected for new historical hotel stays and preview matches store', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Orphan Room Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Bound Hotel']);
+    $orphanRoom = RoomType::factory()->create([
+        'company_id' => $company->id,
+        'hotel_id' => $hotel->id,
+        'name' => 'Company-wide Twin',
+        'is_active' => true,
+    ]);
+    $orphanRoom->forceFill(['hotel_id' => null])->saveQuietly();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $payload = [
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'sign_on_standby_from' => '2024-09-01',
+        'sign_on_standby_to' => '2024-09-05',
+        'onsite_from' => '2024-09-05',
+        'sign_on_accommodation' => 'hotel',
+        'sign_on_hotel_id' => $hotel->id,
+        'sign_on_room_type_id' => $orphanRoom->id,
+        'sign_on_hotel_check_in' => '2024-09-01',
+        'sign_on_hotel_check_out' => '2024-09-05',
+    ];
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), $payload)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_room_type_id']);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), $payload)
+        ->assertSessionHasErrors(['sign_on_room_type_id']);
+
+    expect(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('hotel dates outside the related standby period are rejected', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Hotel Date Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-10',
+            'sign_on_standby_to' => '2024-09-15',
+            'onsite_from' => '2024-09-15',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+            'sign_on_hotel_check_in' => '2024-09-08',
+            'sign_on_hotel_check_out' => '2024-09-15',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_hotel_check_in']);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-10',
+            'sign_on_standby_to' => '2024-09-15',
+            'onsite_from' => '2024-09-15',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+            'sign_on_hotel_check_in' => '2024-09-10',
+            'sign_on_hotel_check_out' => '2024-09-16',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_hotel_check_out']);
+});
+
+test('open P4 links exact unlinked ongoing sea service without duplicating', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Open Link Vessel', $company);
+
+    $existing = EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-08-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertOk()
+        ->assertJsonPath('sea_service.status', 'will_link')
+        ->assertJsonPath('sea_service.existing_id', $existing->id);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertRedirect();
+
+    expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
+
+    $phase = CrewAssignmentPhase::query()
+        ->where('phase_code', CrewPhaseCode::OnVessel)
+        ->whereHas('assignment', fn ($q) => $q->where('employee_id', $employee->id))
+        ->firstOrFail();
+
+    expect($existing->fresh()->crew_assignment_phase_id)->toBe($phase->id)
+        ->and($existing->fresh()->end_date)->toBeNull();
+});
+
+test('open P4 is blocked when exact ongoing sea service is already linked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Linked Ongoing Vessel', $company);
+    $other = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-08-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => $other->current_phase_id,
+    ]);
+
+    // Close the active assignment so bootstrap itself is allowed; keep the linked open sea service.
+    $other->update([
+        'status' => CrewAssignmentStatus::Completed,
+        'closed_at' => now(),
+    ]);
+    $other->currentPhase?->update([
+        'status' => CrewPhaseStatus::Completed,
+        'actual_end_at' => now(),
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
+});
+
+test('open P4 is blocked by overlapping open sea service on a different interval', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Overlap Open Vessel', $company);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-06-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
+});
+
+test('completed P4 is blocked by overlapping open-ended sea service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Completed Vs Open Vessel', $company);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2024-01-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-03-01',
+            'onsite_to' => '2024-06-01',
+            'sign_off_standby_from' => '2024-06-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
+});
+
+test('open P4 exact match with conflicting rank is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Rank Conflict Open Vessel', $company);
+    $otherRank = Rank::query()->create(['name' => 'Other Rank '.Str::random(5), 'is_active' => true]);
+
+    EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $otherRank->id,
+        'start_date' => '2024-08-01',
+        'end_date' => null,
+        'total_days' => 0,
+        'total_months' => 0,
+        'crew_assignment_phase_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-08-01',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sea_service']);
 });

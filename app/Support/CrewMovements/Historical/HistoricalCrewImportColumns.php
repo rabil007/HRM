@@ -3,7 +3,7 @@
 namespace App\Support\CrewMovements\Historical;
 
 /**
- * Historical Assignments sheet columns.
+ * Historical Assignments sheet columns for simplified operational periods.
  *
  * Template headers are product-facing labels; {@see self::normalizeHeader()}
  * maps them to stable internal keys used by the parser and preview service.
@@ -20,19 +20,39 @@ final class HistoricalCrewImportColumns
 
     public const CLIENT = 'client';
 
-    public const MOBILISATION_DATE = 'mobilisation_date';
+    public const SIGN_ON_STANDBY_FROM = 'sign_on_standby_from';
 
-    public const JOIN_STANDBY_DATE = 'join_standby_date';
+    public const SIGN_ON_STANDBY_TO = 'sign_on_standby_to';
 
-    public const TRAINING_START_DATE = 'training_start_date';
+    public const PRE_JOIN_ACCOMMODATION = 'pre_join_accommodation';
 
-    public const TRAINING_END_DATE = 'training_end_date';
+    public const PRE_JOIN_HOTEL = 'pre_join_hotel';
 
-    public const VESSEL_JOIN_DATE = 'vessel_join_date';
+    public const PRE_JOIN_ROOM_TYPE = 'pre_join_room_type';
 
-    public const DISEMBARK_DATE = 'disembark_date';
+    public const PRE_JOIN_HOTEL_CHECK_IN = 'pre_join_hotel_check_in';
 
-    public const TRAVEL_HOME_DATE = 'travel_home_date';
+    public const PRE_JOIN_HOTEL_CHECK_OUT = 'pre_join_hotel_check_out';
+
+    public const ONSITE_FROM = 'onsite_from';
+
+    public const ONSITE_TO = 'onsite_to';
+
+    public const SIGN_OFF_STANDBY_FROM = 'sign_off_standby_from';
+
+    public const SIGN_OFF_STANDBY_TO = 'sign_off_standby_to';
+
+    public const POST_SIGNOFF_ACCOMMODATION = 'post_signoff_accommodation';
+
+    public const POST_SIGNOFF_HOTEL = 'post_signoff_hotel';
+
+    public const POST_SIGNOFF_ROOM_TYPE = 'post_signoff_room_type';
+
+    public const POST_SIGNOFF_HOTEL_CHECK_IN = 'post_signoff_hotel_check_in';
+
+    public const POST_SIGNOFF_HOTEL_CHECK_OUT = 'post_signoff_hotel_check_out';
+
+    public const HOME_AVAILABLE_FROM = 'home_available_from';
 
     public const REMARKS = 'remarks';
 
@@ -44,48 +64,63 @@ final class HistoricalCrewImportColumns
         return [
             self::EMPLOYEE_NO,
             self::EMPLOYEE,
-            self::VESSEL,
             self::RANK,
+            self::VESSEL,
             self::CLIENT,
-            self::MOBILISATION_DATE,
-            self::JOIN_STANDBY_DATE,
-            self::TRAINING_START_DATE,
-            self::TRAINING_END_DATE,
-            self::VESSEL_JOIN_DATE,
-            self::DISEMBARK_DATE,
-            self::TRAVEL_HOME_DATE,
+            self::SIGN_ON_STANDBY_FROM,
+            self::SIGN_ON_STANDBY_TO,
+            self::PRE_JOIN_ACCOMMODATION,
+            self::PRE_JOIN_HOTEL,
+            self::PRE_JOIN_ROOM_TYPE,
+            self::PRE_JOIN_HOTEL_CHECK_IN,
+            self::PRE_JOIN_HOTEL_CHECK_OUT,
+            self::ONSITE_FROM,
+            self::ONSITE_TO,
+            self::SIGN_OFF_STANDBY_FROM,
+            self::SIGN_OFF_STANDBY_TO,
+            self::POST_SIGNOFF_ACCOMMODATION,
+            self::POST_SIGNOFF_HOTEL,
+            self::POST_SIGNOFF_ROOM_TYPE,
+            self::POST_SIGNOFF_HOTEL_CHECK_IN,
+            self::POST_SIGNOFF_HOTEL_CHECK_OUT,
+            self::HOME_AVAILABLE_FROM,
             self::REMARKS,
         ];
     }
 
     /**
-     * Product-facing template labels keyed by internal header.
-     *
      * @return array<string, string>
      */
     public static function labels(): array
     {
         return [
             self::EMPLOYEE_NO => 'Employee No',
-            self::EMPLOYEE => 'Employee',
-            self::VESSEL => 'Vessel',
+            self::EMPLOYEE => 'Employee Name',
             self::RANK => 'Rank',
+            self::VESSEL => 'Vessel',
             self::CLIENT => 'Client',
-            self::MOBILISATION_DATE => 'Pre-Mobilisation',
-            self::JOIN_STANDBY_DATE => 'Join Standby',
-            self::TRAINING_START_DATE => 'Training Start',
-            self::TRAINING_END_DATE => 'Training End',
-            self::VESSEL_JOIN_DATE => 'On Vessel',
-            self::DISEMBARK_DATE => 'Disembarked',
-            self::TRAVEL_HOME_DATE => 'Home / Redeployment',
+            self::SIGN_ON_STANDBY_FROM => 'Sign-On Standby From',
+            self::SIGN_ON_STANDBY_TO => 'Sign-On Standby To',
+            self::PRE_JOIN_ACCOMMODATION => 'Pre-Join Accommodation',
+            self::PRE_JOIN_HOTEL => 'Pre-Join Hotel',
+            self::PRE_JOIN_ROOM_TYPE => 'Pre-Join Room Type',
+            self::PRE_JOIN_HOTEL_CHECK_IN => 'Pre-Join Hotel Check-In',
+            self::PRE_JOIN_HOTEL_CHECK_OUT => 'Pre-Join Hotel Check-Out',
+            self::ONSITE_FROM => 'Onsite From',
+            self::ONSITE_TO => 'Onsite To',
+            self::SIGN_OFF_STANDBY_FROM => 'Sign-Off Standby From',
+            self::SIGN_OFF_STANDBY_TO => 'Sign-Off Standby To',
+            self::POST_SIGNOFF_ACCOMMODATION => 'Post-Sign-Off Accommodation',
+            self::POST_SIGNOFF_HOTEL => 'Post-Sign-Off Hotel',
+            self::POST_SIGNOFF_ROOM_TYPE => 'Post-Sign-Off Room Type',
+            self::POST_SIGNOFF_HOTEL_CHECK_IN => 'Post-Sign-Off Hotel Check-In',
+            self::POST_SIGNOFF_HOTEL_CHECK_OUT => 'Post-Sign-Off Hotel Check-Out',
+            self::HOME_AVAILABLE_FROM => 'Home / Available From',
             self::REMARKS => 'Remarks',
         ];
     }
 
     /**
-     * Identity columns required on every row. Movement dates are validated separately
-     * (at least one meaningful movement date).
-     *
      * @return list<string>
      */
     public static function requiredHeaders(): array
@@ -103,19 +138,36 @@ final class HistoricalCrewImportColumns
     public static function dateHeaders(): array
     {
         return [
-            self::MOBILISATION_DATE,
-            self::JOIN_STANDBY_DATE,
-            self::TRAINING_START_DATE,
-            self::TRAINING_END_DATE,
-            self::VESSEL_JOIN_DATE,
-            self::DISEMBARK_DATE,
-            self::TRAVEL_HOME_DATE,
+            self::SIGN_ON_STANDBY_FROM,
+            self::SIGN_ON_STANDBY_TO,
+            self::PRE_JOIN_HOTEL_CHECK_IN,
+            self::PRE_JOIN_HOTEL_CHECK_OUT,
+            self::ONSITE_FROM,
+            self::ONSITE_TO,
+            self::SIGN_OFF_STANDBY_FROM,
+            self::SIGN_OFF_STANDBY_TO,
+            self::POST_SIGNOFF_HOTEL_CHECK_IN,
+            self::POST_SIGNOFF_HOTEL_CHECK_OUT,
+            self::HOME_AVAILABLE_FROM,
         ];
     }
 
     /**
-     * Display headers with required markers for the template.
+     * Period starts (and Home) that count as meaningful movement input.
      *
+     * @return list<string>
+     */
+    public static function movementPeriodHeaders(): array
+    {
+        return [
+            self::SIGN_ON_STANDBY_FROM,
+            self::ONSITE_FROM,
+            self::SIGN_OFF_STANDBY_FROM,
+            self::HOME_AVAILABLE_FROM,
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public static function displayHeaders(): array
@@ -133,9 +185,6 @@ final class HistoricalCrewImportColumns
         );
     }
 
-    /**
-     * Normalize a spreadsheet header to an internal column key, or '' if unknown.
-     */
     public static function normalizeHeader(string $header): string
     {
         $normalized = mb_strtolower(trim($header));
@@ -148,7 +197,7 @@ final class HistoricalCrewImportColumns
 
         if (self::isRejectedLegacyHeader($normalized)) {
             throw new \InvalidArgumentException(
-                'This workbook uses an outdated Historical Crew template. Columns such as Travel In, Ready to Join, Post-Training Join Standby, Demobilisation Standby, and Assignment Closed are no longer supported. Download a fresh template and try again.',
+                'This workbook uses an outdated Past Crew Data template. Columns such as Pre-Mobilisation, Training Start/End, Travel In, Ready to Join, and editable Days totals are no longer supported. Download a fresh template and try again.',
             );
         }
 
@@ -160,6 +209,26 @@ final class HistoricalCrewImportColumns
     public static function isRejectedLegacyHeader(string $normalizedHeader): bool
     {
         return in_array($normalizedHeader, [
+            'pre-mobilisation',
+            'pre mobilisation',
+            'mobilisation',
+            'mobilisation_date',
+            'join standby',
+            'join_standby',
+            'join_standby_date',
+            'training start',
+            'training_start',
+            'training_start_date',
+            'training end',
+            'training_end',
+            'training_end_date',
+            'on vessel',
+            'vessel_join_date',
+            'disembarked',
+            'disembark_date',
+            'home / redeployment',
+            'home/redeployment',
+            'travel_home_date',
             'travel in',
             'travel_in',
             'travel_in_date',
@@ -185,12 +254,14 @@ final class HistoricalCrewImportColumns
             'assignment_closed',
             'assignment_close_date',
             'assignment_closed_at',
+            'standby days',
+            'onsite days',
+            'sign-on standby days',
+            'sign-off standby days',
         ], true);
     }
 
     /**
-     * Accepted spreadsheet headers → internal keys.
-     *
      * @return array<string, string>
      */
     private static function headerAliases(): array
@@ -203,15 +274,12 @@ final class HistoricalCrewImportColumns
         }
 
         $aliases['employee number'] = self::EMPLOYEE_NO;
+        $aliases['employee'] = self::EMPLOYEE;
         $aliases['employee name'] = self::EMPLOYEE;
-        $aliases['pre mobilisation'] = self::MOBILISATION_DATE;
-        $aliases['pre-mobilisation'] = self::MOBILISATION_DATE;
-        $aliases['mobilisation'] = self::MOBILISATION_DATE;
-        $aliases['mobilisation_date'] = self::MOBILISATION_DATE;
-        $aliases['home / redeployment'] = self::TRAVEL_HOME_DATE;
-        $aliases['home/redeployment'] = self::TRAVEL_HOME_DATE;
-        $aliases['on vessel'] = self::VESSEL_JOIN_DATE;
-        $aliases['disembarked'] = self::DISEMBARK_DATE;
+        $aliases['onsite / on vessel from'] = self::ONSITE_FROM;
+        $aliases['onsite / on vessel to'] = self::ONSITE_TO;
+        $aliases['home / available'] = self::HOME_AVAILABLE_FROM;
+        $aliases['home available from'] = self::HOME_AVAILABLE_FROM;
 
         return $aliases;
     }

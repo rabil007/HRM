@@ -3,7 +3,6 @@ import {
     AlertTriangle,
     ArrowLeft,
     CheckCircle2,
-    Clock,
     FileSpreadsheet,
     History,
     Link as LinkIcon,
@@ -27,7 +26,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,15 +33,14 @@ import {
     formatCompanyTimezoneLabel,
     useCompanyTimezone,
 } from '@/lib/company-timezone';
-import { formatDisplayDate } from '@/lib/format-date';
 import { mapHistoricalValidationErrors } from '../lib/historical-validation-errors';
 import type {
     HistoricalCrewAssignmentFormData,
     HistoricalCrewAssignmentPreviewData,
     HistoricalFormOptions,
-    HistoricalPreviewTimelineItem,
 } from '../types';
 import { HistoricalImportExcelPanel } from './historical-import-excel-panel';
+import { PastCrewPeriodFields } from './past-crew-period-fields';
 
 interface AddPastDataDialogProps {
     open: boolean;
@@ -52,30 +49,11 @@ interface AddPastDataDialogProps {
 }
 
 const MOVEMENT_DATE_KEYS = [
-    'mobilisation_at',
-    'join_standby_at',
-    'training_started_at',
-    'training_ended_at',
-    'joined_vessel_at',
-    'disembarked_at',
-    'travel_home_at',
+    'sign_on_standby_from',
+    'onsite_from',
+    'sign_off_standby_from',
+    'home_available_from',
 ] as const;
-
-function timelineEndLabel(item: HistoricalPreviewTimelineItem): string | null {
-    if (item.end_display) {
-        return item.end_display;
-    }
-
-    if (item.is_open) {
-        return 'Current';
-    }
-
-    if (item.end) {
-        return formatDisplayDate(item.end);
-    }
-
-    return null;
-}
 
 function seaServiceStatusLabel(status: string): string {
     if (status === 'will_link') {
@@ -84,6 +62,10 @@ function seaServiceStatusLabel(status: string): string {
 
     if (status === 'will_create') {
         return 'Will Create Record';
+    }
+
+    if (status === 'will_create_ongoing') {
+        return 'Will Create Ongoing';
     }
 
     if (status === 'not_applicable') {
@@ -113,13 +95,23 @@ export function AddPastDataDialog({
         vessel_id: '',
         rank_id: '',
         client_id: '',
-        mobilisation_at: '',
-        join_standby_at: '',
-        training_started_at: '',
-        training_ended_at: '',
-        joined_vessel_at: '',
-        disembarked_at: '',
-        travel_home_at: '',
+        sign_on_standby_from: '',
+        sign_on_standby_to: '',
+        onsite_from: '',
+        onsite_to: '',
+        sign_off_standby_from: '',
+        sign_off_standby_to: '',
+        home_available_from: '',
+        sign_on_accommodation: 'not_recorded',
+        sign_on_hotel_id: '',
+        sign_on_room_type_id: '',
+        sign_on_hotel_check_in: '',
+        sign_on_hotel_check_out: '',
+        sign_off_accommodation: 'not_recorded',
+        sign_off_hotel_id: '',
+        sign_off_room_type_id: '',
+        sign_off_hotel_check_in: '',
+        sign_off_hotel_check_out: '',
         remarks: '',
     });
 
@@ -199,7 +191,7 @@ export function AddPastDataDialog({
 
         if (!hasMovementDate) {
             setValidationError(
-                'Enter at least one movement date to reconstruct history.',
+                'Enter at least one movement period (Sign-On, Onsite, Sign-Off, or Home).',
             );
         }
 
@@ -218,13 +210,34 @@ export function AddPastDataDialog({
             vessel_id: Number(form.data.vessel_id),
             rank_id: Number(form.data.rank_id),
             client_id: form.data.client_id ? Number(form.data.client_id) : null,
-            mobilisation_at: form.data.mobilisation_at || null,
-            join_standby_at: form.data.join_standby_at || null,
-            training_started_at: form.data.training_started_at || null,
-            training_ended_at: form.data.training_ended_at || null,
-            joined_vessel_at: form.data.joined_vessel_at || null,
-            disembarked_at: form.data.disembarked_at || null,
-            travel_home_at: form.data.travel_home_at || null,
+            sign_on_standby_from: form.data.sign_on_standby_from || null,
+            sign_on_standby_to: form.data.sign_on_standby_to || null,
+            onsite_from: form.data.onsite_from || null,
+            onsite_to: form.data.onsite_to || null,
+            sign_off_standby_from: form.data.sign_off_standby_from || null,
+            sign_off_standby_to: form.data.sign_off_standby_to || null,
+            home_available_from: form.data.home_available_from || null,
+            sign_on_accommodation:
+                form.data.sign_on_accommodation || 'not_recorded',
+            sign_on_hotel_id: form.data.sign_on_hotel_id
+                ? Number(form.data.sign_on_hotel_id)
+                : null,
+            sign_on_room_type_id: form.data.sign_on_room_type_id
+                ? Number(form.data.sign_on_room_type_id)
+                : null,
+            sign_on_hotel_check_in: form.data.sign_on_hotel_check_in || null,
+            sign_on_hotel_check_out: form.data.sign_on_hotel_check_out || null,
+            sign_off_accommodation:
+                form.data.sign_off_accommodation || 'not_recorded',
+            sign_off_hotel_id: form.data.sign_off_hotel_id
+                ? Number(form.data.sign_off_hotel_id)
+                : null,
+            sign_off_room_type_id: form.data.sign_off_room_type_id
+                ? Number(form.data.sign_off_room_type_id)
+                : null,
+            sign_off_hotel_check_in: form.data.sign_off_hotel_check_in || null,
+            sign_off_hotel_check_out:
+                form.data.sign_off_hotel_check_out || null,
             remarks: form.data.remarks || null,
         };
 
@@ -571,227 +584,11 @@ export function AddPastDataDialog({
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
-                                        <div className="text-sm font-semibold text-foreground">
-                                            Before Vessel
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Optional movement dates are recorded
-                                            only when known. Missing dates are
-                                            never guessed.
-                                        </p>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="historical-mobilisation">
-                                                    Pre-Mobilisation
-                                                </Label>
-                                                <Input
-                                                    id="historical-mobilisation"
-                                                    type="date"
-                                                    value={
-                                                        form.data
-                                                            .mobilisation_at ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'mobilisation_at',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        form.errors
-                                                            .mobilisation_at
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="historical-join-standby">
-                                                    Join Standby
-                                                </Label>
-                                                <Input
-                                                    id="historical-join-standby"
-                                                    type="date"
-                                                    value={
-                                                        form.data
-                                                            .join_standby_at ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'join_standby_at',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        form.errors
-                                                            .join_standby_at
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="historical-training-start">
-                                                    Training Start
-                                                </Label>
-                                                <Input
-                                                    id="historical-training-start"
-                                                    type="date"
-                                                    value={
-                                                        form.data
-                                                            .training_started_at ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'training_started_at',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        form.errors
-                                                            .training_started_at
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="historical-training-end">
-                                                    Training End
-                                                </Label>
-                                                <Input
-                                                    id="historical-training-end"
-                                                    type="date"
-                                                    value={
-                                                        form.data
-                                                            .training_ended_at ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'training_ended_at',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        form.errors
-                                                            .training_ended_at
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
-                                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                                            <Ship className="h-4 w-4 text-primary" />
-                                            <span>Vessel</span>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="historical-joined-vessel">
-                                                    On Vessel
-                                                </Label>
-                                                <Input
-                                                    id="historical-joined-vessel"
-                                                    type="date"
-                                                    value={
-                                                        form.data
-                                                            .joined_vessel_at ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'joined_vessel_at',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        form.errors
-                                                            .joined_vessel_at
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="historical-disembarked">
-                                                    Disembarked
-                                                </Label>
-                                                <Input
-                                                    id="historical-disembarked"
-                                                    type="date"
-                                                    value={
-                                                        form.data
-                                                            .disembarked_at ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'disembarked_at',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        form.errors
-                                                            .disembarked_at
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                                            <Clock className="h-3.5 w-3.5" />
-                                            Recorded in company time:{' '}
-                                            {timezoneLabel}. Dates must be in
-                                            the past.
-                                        </p>
-                                    </div>
-
-                                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
-                                        <div className="text-sm font-semibold text-foreground">
-                                            After Vessel
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="historical-travel-home">
-                                                    Home / Redeployment
-                                                </Label>
-                                                <Input
-                                                    id="historical-travel-home"
-                                                    type="date"
-                                                    value={
-                                                        form.data
-                                                            .travel_home_at ??
-                                                        ''
-                                                    }
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'travel_home_at',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <InputError
-                                                    message={
-                                                        form.errors
-                                                            .travel_home_at
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <PastCrewPeriodFields
+                                        form={form}
+                                        formOptions={formOptions}
+                                        timezoneLabel={timezoneLabel}
+                                    />
 
                                     <div className="space-y-1.5">
                                         <Label htmlFor="historical-remarks">
@@ -842,14 +639,12 @@ export function AddPastDataDialog({
                                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                                     <div className="space-y-1">
                                         <h4 className="text-sm font-semibold text-foreground">
-                                            Authoritative Validation Succeeded
+                                            Ready to save
                                         </h4>
                                         <p className="text-xs text-muted-foreground">
-                                            The proposed historical record has
-                                            been verified against chronological,
-                                            tenancy, and overlap rules. Review
-                                            the inferred state and timeline
-                                            below before persisting.
+                                            Review the known periods and
+                                            inferred current state before saving
+                                            past crew data.
                                         </p>
                                     </div>
                                 </div>
@@ -857,7 +652,7 @@ export function AddPastDataDialog({
                                 {previewData.inferred_state ? (
                                     <div className="space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
                                         <p className="text-xs font-semibold tracking-wider text-sky-700 uppercase dark:text-sky-300">
-                                            Inferred Current State /{' '}
+                                            Current State —{' '}
                                             {previewData.inferred_state.label}
                                         </p>
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -985,139 +780,121 @@ export function AddPastDataDialog({
 
                                 <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
                                     <h5 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                        Historical Movement Timeline
+                                        Known Periods
                                     </h5>
-                                    <div className="relative space-y-4 pl-6 before:absolute before:top-2 before:bottom-2 before:left-2.5 before:w-0.5 before:bg-border">
-                                        {previewData.timeline.map(
-                                            (item, idx) => {
-                                                const endLabel =
-                                                    timelineEndLabel(item);
-
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className="relative flex items-start justify-between gap-4"
-                                                    >
-                                                        <div className="absolute top-1 -left-6 h-3 w-3 rounded-full border-2 border-background bg-primary" />
-                                                        <div>
-                                                            <span className="block text-xs font-semibold text-foreground">
-                                                                {
-                                                                    item.phase_label
-                                                                }
-                                                                {item.is_open ? (
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="ml-2 text-[10px]"
-                                                                    >
-                                                                        Current
-                                                                    </Badge>
-                                                                ) : null}
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {formatDisplayDate(
-                                                                    item.start,
-                                                                )}
-                                                                {endLabel
-                                                                    ? ` → ${endLabel}`
-                                                                    : ''}
-                                                            </span>
-                                                        </div>
-                                                        {item.duration_days !=
-                                                            null && (
-                                                            <Badge
-                                                                variant="secondary"
-                                                                className="text-xs"
-                                                            >
-                                                                {
-                                                                    item.duration_days
-                                                                }{' '}
-                                                                {item.duration_days ===
-                                                                1
-                                                                    ? 'day'
-                                                                    : 'days'}
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                );
-                                            },
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2.5 rounded-xl border border-border/60 bg-card p-4">
-                                    <h5 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                        Authoritative Verification Checks
-                                    </h5>
-                                    <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                                        {previewData.checks.map(
-                                            (check, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="flex items-center gap-2"
-                                                >
-                                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                                                    <span className="text-muted-foreground">
-                                                        {check.message}
-                                                    </span>
-                                                </div>
-                                            ),
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div
-                                    className={`flex items-start gap-3 rounded-xl border p-4 ${
-                                        previewData.sea_service.status ===
-                                        'will_link'
-                                            ? 'border-sky-500/20 bg-sky-500/5'
-                                            : previewData.sea_service.status ===
-                                                'will_create'
-                                              ? 'border-emerald-500/20 bg-emerald-500/5'
-                                              : previewData.sea_service
-                                                      .status ===
-                                                  'not_applicable'
-                                                ? 'border-border/60 bg-muted/20'
-                                                : 'border-amber-500/20 bg-amber-500/5'
-                                    }`}
-                                >
-                                    {previewData.sea_service.status ===
-                                    'will_link' ? (
-                                        <LinkIcon className="mt-0.5 h-5 w-5 shrink-0 text-sky-600 dark:text-sky-400" />
-                                    ) : (
-                                        <Ship className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                                    )}
-                                    <div className="space-y-1 text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <h5 className="font-semibold text-foreground">
-                                                Sea Service Impact
-                                            </h5>
-                                            <Badge
-                                                variant={
-                                                    previewData.sea_service
-                                                        .status === 'will_link'
-                                                        ? 'secondary'
-                                                        : previewData
-                                                                .sea_service
-                                                                .status ===
-                                                            'not_applicable'
-                                                          ? 'outline'
-                                                          : 'default'
-                                                }
-                                                className="text-[10px]"
+                                    <div className="space-y-2">
+                                        {(
+                                            previewData.summary.known_periods ??
+                                            previewData.timeline.map(
+                                                (item) => ({
+                                                    key: item.phase_code,
+                                                    label: item.phase_label,
+                                                    from: item.start,
+                                                    to: item.end,
+                                                    to_display:
+                                                        item.end_display ??
+                                                        (item.is_open
+                                                            ? 'Current'
+                                                            : (item.end ??
+                                                              '—')),
+                                                    days: item.duration_days,
+                                                    is_open: item.is_open,
+                                                }),
+                                            )
+                                        ).map((period) => (
+                                            <div
+                                                key={period.key}
+                                                className="flex items-center justify-between gap-3 text-sm"
                                             >
-                                                {seaServiceStatusLabel(
-                                                    previewData.sea_service
-                                                        .status,
-                                                )}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            {previewData.sea_service.message}
-                                        </p>
+                                                <span className="font-medium text-foreground">
+                                                    {period.label}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {period.from} →{' '}
+                                                    {period.to_display}
+                                                    {period.days != null
+                                                        ? ` (${period.days}d)`
+                                                        : ''}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
+                                    {(previewData.summary.accommodation ?? [])
+                                        .length > 0 ? (
+                                        <div className="space-y-1 border-t border-border/50 pt-3">
+                                            <h6 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                                Accommodation
+                                            </h6>
+                                            {previewData.summary.accommodation?.map(
+                                                (item) => (
+                                                    <p
+                                                        key={`${item.label}-${item.detail}`}
+                                                        className="text-xs text-muted-foreground"
+                                                    >
+                                                        {item.label} —{' '}
+                                                        {item.detail}
+                                                    </p>
+                                                ),
+                                            )}
+                                        </div>
+                                    ) : null}
                                 </div>
 
-                                {previewData.warnings.length > 0 && (
+                                {previewData.sea_service.status !==
+                                'not_applicable' ? (
+                                    <div
+                                        className={`flex items-start gap-3 rounded-xl border p-4 ${
+                                            previewData.sea_service.status ===
+                                            'will_link'
+                                                ? 'border-sky-500/20 bg-sky-500/5'
+                                                : previewData.sea_service
+                                                        .status ===
+                                                        'will_create' ||
+                                                    previewData.sea_service
+                                                        .status ===
+                                                        'will_create_ongoing'
+                                                  ? 'border-emerald-500/20 bg-emerald-500/5'
+                                                  : 'border-amber-500/20 bg-amber-500/5'
+                                        }`}
+                                    >
+                                        {previewData.sea_service.status ===
+                                        'will_link' ? (
+                                            <LinkIcon className="mt-0.5 h-5 w-5 shrink-0 text-sky-600 dark:text-sky-400" />
+                                        ) : (
+                                            <Ship className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                        )}
+                                        <div className="space-y-1 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <h5 className="font-semibold text-foreground">
+                                                    Sea Service Impact
+                                                </h5>
+                                                <Badge
+                                                    variant={
+                                                        previewData.sea_service
+                                                            .status ===
+                                                        'will_link'
+                                                            ? 'secondary'
+                                                            : 'default'
+                                                    }
+                                                    className="text-[10px]"
+                                                >
+                                                    {seaServiceStatusLabel(
+                                                        previewData.sea_service
+                                                            .status,
+                                                    )}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                {
+                                                    previewData.sea_service
+                                                        .message
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {previewData.warnings.length > 0 ? (
                                     <div className="space-y-1 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
                                         <div className="flex items-center gap-2 text-sm font-semibold text-amber-600 dark:text-amber-400">
                                             <AlertTriangle className="h-4 w-4" />
@@ -1125,13 +902,13 @@ export function AddPastDataDialog({
                                         </div>
                                         <ul className="list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
                                             {previewData.warnings.map(
-                                                (w, idx) => (
-                                                    <li key={idx}>{w}</li>
+                                                (warning, idx) => (
+                                                    <li key={idx}>{warning}</li>
                                                 ),
                                             )}
                                         </ul>
                                     </div>
-                                )}
+                                ) : null}
 
                                 <DialogFooter className="mt-6 flex items-center justify-between sm:justify-between">
                                     <Button
@@ -1153,7 +930,7 @@ export function AddPastDataDialog({
                                         {form.processing && (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         )}
-                                        Add Historical Assignment
+                                        Save Past Crew Data
                                     </Button>
                                 </DialogFooter>
                             </div>

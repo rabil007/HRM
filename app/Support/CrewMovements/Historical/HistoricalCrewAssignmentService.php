@@ -2,16 +2,21 @@
 
 namespace App\Support\CrewMovements\Historical;
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\User;
+use App\Support\CrewAccommodation\CrewAccommodationStayIntegrity;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewMovements\SeaServiceSyncService;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -116,63 +121,20 @@ final class HistoricalCrewAssignmentService
                 $assignment->update(['current_phase_id' => $currentPhaseId]);
             }
 
+            $accommodationCreated = $this->createAccommodationStays($assignment, $data, $createdPhases, $actorId);
+
             $this->guard->assertValid($assignment->fresh(['phases', 'currentPhase']));
 
-            if ($data->hasCompletedSeaServicePeriod() && $this->seaServiceSync->isEnabled($data->companyId)) {
-                $p4Phase = collect($createdPhases)->first(
-                    fn (CrewAssignmentPhase $p): bool => $p->phase_code === CrewPhaseCode::OnVessel
-                        && $p->status === CrewPhaseStatus::Completed
-                        && $p->actual_end_at !== null
+            $joinedVesselAt = $data->joinedVesselAt();
+            $disembarkedAt = $data->disembarkedAt();
+
+            if ($this->seaServiceSync->isEnabled($data->companyId) && $joinedVesselAt !== null) {
+                $this->syncSeaServiceForHistoricalP4(
+                    data: $data,
+                    createdPhases: $createdPhases,
+                    joinedVesselAt: $joinedVesselAt,
+                    disembarkedAt: $disembarkedAt,
                 );
-
-                if ($p4Phase !== null) {
-                    $seaDuration = $data->seaServiceDuration();
-                    $startDate = $data->joinedVesselAt->toDateString();
-                    $endDate = $data->disembarkedAt->toDateString();
-
-                    $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
-                        data: $data,
-                        seaStartDate: $startDate,
-                        seaEndDate: $endDate,
-                        seaDays: $seaDuration['days'],
-                        lockForUpdate: true,
-                    );
-
-                    if ($exactMatch['status'] === 'conflict') {
-                        throw ValidationException::withMessages([
-                            'sea_service' => [$exactMatch['error'] ?? $exactMatch['message']],
-                        ]);
-                    }
-
-                    if ($exactMatch['status'] === 'will_link' && $exactMatch['existing_id'] !== null) {
-                        $matchingUnlinked = EmployeeSeaService::query()
-                            ->whereKey($exactMatch['existing_id'])
-                            ->lockForUpdate()
-                            ->firstOrFail();
-
-                        $matchingUnlinked->crew_assignment_phase_id = $p4Phase->id;
-                        if ($matchingUnlinked->rank_id === null) {
-                            $matchingUnlinked->rank_id = $data->rankId;
-                        }
-                        if ($matchingUnlinked->client_id === null && $data->clientId !== null) {
-                            $matchingUnlinked->client_id = $data->clientId;
-                        }
-                        $matchingUnlinked->save();
-                    } else {
-                        $this->seaServiceSync->syncFromPhase($p4Phase);
-                    }
-                }
-            } elseif ($data->joinedVesselAt !== null && $data->disembarkedAt === null && $this->seaServiceSync->isEnabled($data->companyId)) {
-                $openP4Phase = collect($createdPhases)->first(
-                    fn (CrewAssignmentPhase $p): bool => $p->phase_code === CrewPhaseCode::OnVessel
-                        && $p->status === CrewPhaseStatus::Active
-                        && $p->actual_start_at !== null
-                        && $p->actual_end_at === null
-                );
-
-                if ($openP4Phase !== null) {
-                    $this->seaServiceSync->syncFromPhase($openP4Phase);
-                }
             }
 
             activity()
@@ -188,19 +150,237 @@ final class HistoricalCrewAssignmentService
                     'rank_id' => $data->rankId,
                     'historical_start' => $assignment->started_at?->toIso8601String(),
                     'historical_end' => $assignment->closed_at?->toIso8601String(),
-                    'historical_joined_vessel_at' => $data->joinedVesselAt?->toDateString(),
-                    'historical_disembarked_at' => $data->disembarkedAt?->toDateString(),
+                    'sign_on_standby_from' => $data->signOnStandbyFrom?->toDateString(),
+                    'sign_on_standby_to' => $data->signOnStandbyTo?->toDateString(),
+                    'onsite_from' => $data->onsiteFrom?->toDateString(),
+                    'onsite_to' => $data->onsiteTo?->toDateString(),
+                    'sign_off_standby_from' => $data->signOffStandbyFrom?->toDateString(),
+                    'sign_off_standby_to' => $data->signOffStandbyTo?->toDateString(),
+                    'home_available_from' => $data->homeAvailableFrom?->toDateString(),
                     'inferred_phase' => $reconstruction['inferred_state']['phase_code']->value,
                     'assignment_status' => $reconstruction['assignment_status']->value,
+                    'accommodation_created' => $accommodationCreated,
                     'source' => $data->source,
                 ])
                 ->tap(function ($activity) use ($assignment): void {
                     $activity->company_id = $assignment->company_id;
                 })
-                ->log('Historical crew assignment created');
+                ->log('Past crew data saved');
 
-            return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'rank', 'client']);
+            return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'rank', 'client', 'accommodationStays']);
         });
+    }
+
+    /**
+     * @param  list<CrewAssignmentPhase>  $createdPhases
+     * @return list<array{stay_type: string, accommodation_status: string}>
+     */
+    private function createAccommodationStays(
+        CrewAssignment $assignment,
+        HistoricalCrewAssignmentData $data,
+        array $createdPhases,
+        ?int $actorId,
+    ): array {
+        $created = [];
+
+        $p2a = collect($createdPhases)->first(
+            fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::JoinStandby
+        );
+        $p5 = collect($createdPhases)->first(
+            fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::DemobStandby
+        );
+
+        if ($p2a !== null) {
+            $stay = $this->createStandbyStay(
+                assignment: $assignment,
+                phase: $p2a,
+                stayType: CrewAccommodationStayType::PreJoin,
+                choice: $data->signOnAccommodation,
+                hotelId: $data->signOnHotelId,
+                roomTypeId: $data->signOnRoomTypeId,
+                checkIn: $data->signOnHotelCheckIn ?? $data->signOnStandbyFrom,
+                checkOut: $data->signOnHotelCheckOut ?? $data->signOnStandbyTo,
+                actorId: $actorId,
+            );
+
+            if ($stay !== null) {
+                $created[] = [
+                    'stay_type' => $stay->stay_type->value,
+                    'accommodation_status' => $stay->accommodation_status->value,
+                ];
+            }
+        }
+
+        if ($p5 !== null) {
+            $stay = $this->createStandbyStay(
+                assignment: $assignment,
+                phase: $p5,
+                stayType: CrewAccommodationStayType::PostSignoff,
+                choice: $data->signOffAccommodation,
+                hotelId: $data->signOffHotelId,
+                roomTypeId: $data->signOffRoomTypeId,
+                checkIn: $data->signOffHotelCheckIn ?? $data->signOffStandbyFrom,
+                checkOut: $data->signOffHotelCheckOut ?? $data->signOffStandbyTo,
+                actorId: $actorId,
+            );
+
+            if ($stay !== null) {
+                $created[] = [
+                    'stay_type' => $stay->stay_type->value,
+                    'accommodation_status' => $stay->accommodation_status->value,
+                ];
+            }
+        }
+
+        return $created;
+    }
+
+    private function createStandbyStay(
+        CrewAssignment $assignment,
+        CrewAssignmentPhase $phase,
+        CrewAccommodationStayType $stayType,
+        string $choice,
+        ?int $hotelId,
+        ?int $roomTypeId,
+        mixed $checkIn,
+        mixed $checkOut,
+        ?int $actorId,
+    ): ?CrewAccommodationStay {
+        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED) {
+            return null;
+        }
+
+        $companyId = (int) $assignment->company_id;
+
+        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
+            $stay = CrewAccommodationStay::query()->create([
+                'company_id' => $companyId,
+                'crew_assignment_id' => $assignment->id,
+                'stay_type' => $stayType,
+                'accommodation_status' => CrewAccommodationStatus::NoAccommodation,
+                'started_from_phase_id' => $phase->id,
+                'created_by' => $actorId,
+                'updated_by' => $actorId,
+            ]);
+
+            CrewAccommodationStayIntegrity::assertValid($stay);
+
+            return $stay;
+        }
+
+        $stay = CrewAccommodationStay::query()->create([
+            'company_id' => $companyId,
+            'crew_assignment_id' => $assignment->id,
+            'hotel_id' => $hotelId,
+            'room_type_id' => $roomTypeId,
+            'stay_type' => $stayType,
+            'accommodation_status' => CrewAccommodationStatus::Hotel,
+            'check_in_date' => $checkIn,
+            'check_out_date' => $checkOut,
+            'started_from_phase_id' => $phase->id,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+        ]);
+
+        CrewAccommodationStayIntegrity::assertValid($stay);
+
+        return $stay;
+    }
+
+    /**
+     * @param  list<CrewAssignmentPhase>  $createdPhases
+     */
+    private function syncSeaServiceForHistoricalP4(
+        HistoricalCrewAssignmentData $data,
+        array $createdPhases,
+        CarbonInterface $joinedVesselAt,
+        ?CarbonInterface $disembarkedAt,
+    ): void {
+        $isOpen = $disembarkedAt === null;
+
+        $p4Phase = collect($createdPhases)->first(
+            function (CrewAssignmentPhase $phase) use ($isOpen): bool {
+                if ($phase->phase_code !== CrewPhaseCode::OnVessel || $phase->actual_start_at === null) {
+                    return false;
+                }
+
+                if ($isOpen) {
+                    return $phase->status === CrewPhaseStatus::Active && $phase->actual_end_at === null;
+                }
+
+                return $phase->status === CrewPhaseStatus::Completed && $phase->actual_end_at !== null;
+            }
+        );
+
+        if ($p4Phase === null) {
+            return;
+        }
+
+        $startDate = $joinedVesselAt->toDateString();
+        $endDate = $disembarkedAt?->toDateString();
+        $seaDays = $isOpen ? 0 : $data->seaServiceDuration()['days'];
+
+        EmployeeSeaService::query()
+            ->where('company_id', $data->companyId)
+            ->where('employee_id', $data->employeeId)
+            ->lockForUpdate()
+            ->get(['id']);
+
+        $existingSeaServices = EmployeeSeaService::query()
+            ->where('company_id', $data->companyId)
+            ->where('employee_id', $data->employeeId)
+            ->with(['vessel'])
+            ->lockForUpdate()
+            ->get();
+
+        $exactMatch = $this->seaServiceMatchResolver->resolveExactMatch(
+            data: $data,
+            seaStartDate: $startDate,
+            seaEndDate: $endDate,
+            seaDays: $seaDays,
+            existingForEmployee: $existingSeaServices,
+            lockForUpdate: true,
+        );
+
+        if ($exactMatch['status'] === 'conflict') {
+            throw ValidationException::withMessages([
+                'sea_service' => [$exactMatch['error'] ?? $exactMatch['message']],
+            ]);
+        }
+
+        $overlapMessage = $this->seaServiceMatchResolver->firstOverlappingConflictMessage(
+            existingForEmployee: $existingSeaServices,
+            data: $data,
+            seaStartDate: $startDate,
+            seaEndDate: $endDate,
+            exactMatchIdToIgnore: $exactMatch['existing_id'],
+        );
+
+        if ($overlapMessage !== null) {
+            throw ValidationException::withMessages([
+                'sea_service' => [$overlapMessage],
+            ]);
+        }
+
+        if ($exactMatch['status'] === 'will_link' && $exactMatch['existing_id'] !== null) {
+            $matchingUnlinked = EmployeeSeaService::query()
+                ->whereKey($exactMatch['existing_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $matchingUnlinked->crew_assignment_phase_id = $p4Phase->id;
+            if ($matchingUnlinked->rank_id === null) {
+                $matchingUnlinked->rank_id = $data->rankId;
+            }
+            if ($matchingUnlinked->client_id === null && $data->clientId !== null) {
+                $matchingUnlinked->client_id = $data->clientId;
+            }
+            $matchingUnlinked->save();
+
+            return;
+        }
+
+        $this->seaServiceSync->syncFromPhase($p4Phase);
     }
 
     private function resolveChronologicalPreviousId(HistoricalCrewAssignmentData $data): ?int

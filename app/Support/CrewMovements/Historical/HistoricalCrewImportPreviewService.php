@@ -6,7 +6,9 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Hotel;
 use App\Models\Rank;
+use App\Models\RoomType;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\SeaServiceSyncService;
@@ -110,7 +112,9 @@ final class HistoricalCrewImportPreviewService
      *     employeesByNo: array<string, Employee>,
      *     vesselsByName: array<string, list<Vessel>>,
      *     ranksByName: array<string, list<Rank>>,
-     *     clientsByName: array<string, list<Client>>
+     *     clientsByName: array<string, list<Client>>,
+     *     hotelsByName: array<string, list<Hotel>>,
+     *     roomTypesByHotelAndName: array<string, list<RoomType>>
      * }
      */
     private function buildLookups(int $companyId, User $actor): array
@@ -157,11 +161,32 @@ final class HistoricalCrewImportPreviewService
             $clientsByName[$key][] = $client;
         }
 
+        $hotelsByName = [];
+
+        foreach (Hotel::query()->where('company_id', $companyId)->get(['id', 'name', 'is_active', 'company_id']) as $hotel) {
+            $key = mb_strtolower(trim((string) $hotel->name));
+            $hotelsByName[$key] ??= [];
+            $hotelsByName[$key][] = $hotel;
+        }
+
+        $roomTypesByHotelAndName = [];
+
+        foreach (RoomType::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('hotel_id')
+            ->get(['id', 'name', 'hotel_id', 'company_id', 'is_active']) as $roomType) {
+            $key = ((int) $roomType->hotel_id).'|'.mb_strtolower(trim((string) $roomType->name));
+            $roomTypesByHotelAndName[$key] ??= [];
+            $roomTypesByHotelAndName[$key][] = $roomType;
+        }
+
         return [
             'employeesByNo' => $employeesByNo,
             'vesselsByName' => $vesselsByName,
             'ranksByName' => $ranksByName,
             'clientsByName' => $clientsByName,
+            'hotelsByName' => $hotelsByName,
+            'roomTypesByHotelAndName' => $roomTypesByHotelAndName,
         ];
     }
 
@@ -286,7 +311,7 @@ final class HistoricalCrewImportPreviewService
         }
 
         $hasMovementDate = false;
-        foreach (HistoricalCrewImportColumns::dateHeaders() as $dateHeader) {
+        foreach (HistoricalCrewImportColumns::movementPeriodHeaders() as $dateHeader) {
             $value = $parsedRow->raw[$dateHeader] ?? null;
             if ($value !== null && $value !== '') {
                 $hasMovementDate = true;
@@ -295,7 +320,7 @@ final class HistoricalCrewImportPreviewService
         }
 
         if (! $hasMovementDate) {
-            $resolveErrors['dates'] = 'At least one meaningful movement date must be supplied.';
+            $resolveErrors['dates'] = 'At least one meaningful movement period must be supplied.';
         }
 
         $employee = null;
@@ -364,6 +389,35 @@ final class HistoricalCrewImportPreviewService
         $domainResult = null;
         $data = null;
 
+        $signOnHotelId = null;
+        $signOnRoomTypeId = null;
+        $signOffHotelId = null;
+        $signOffRoomTypeId = null;
+
+        if ($errors === [] && $employee !== null && $vessel !== null && $rank !== null) {
+            [$signOnHotelId, $signOnRoomTypeId, $hotelErrors] = $this->resolveHotelSelection(
+                lookups: $lookups,
+                accommodationRaw: $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION] ?? null,
+                hotelName: $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_HOTEL] ?? null,
+                roomTypeName: $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_ROOM_TYPE] ?? null,
+                accommodationField: 'sign_on_accommodation',
+                hotelField: 'sign_on_hotel_id',
+                roomTypeField: 'sign_on_room_type_id',
+            );
+            $errors = array_merge($errors, $hotelErrors);
+
+            [$signOffHotelId, $signOffRoomTypeId, $hotelErrors] = $this->resolveHotelSelection(
+                lookups: $lookups,
+                accommodationRaw: $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_ACCOMMODATION] ?? null,
+                hotelName: $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL] ?? null,
+                roomTypeName: $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_ROOM_TYPE] ?? null,
+                accommodationField: 'sign_off_accommodation',
+                hotelField: 'sign_off_hotel_id',
+                roomTypeField: 'sign_off_room_type_id',
+            );
+            $errors = array_merge($errors, $hotelErrors);
+        }
+
         if ($errors === [] && $employee !== null && $vessel !== null && $rank !== null) {
             try {
                 $data = HistoricalCrewAssignmentData::fromArray(
@@ -372,13 +426,27 @@ final class HistoricalCrewImportPreviewService
                         'vessel_id' => (int) $vessel->id,
                         'rank_id' => (int) $rank->id,
                         'client_id' => $client?->id,
-                        'joined_vessel_at' => $parsedRow->vesselJoinDate(),
-                        'disembarked_at' => $parsedRow->disembarkDate(),
-                        'mobilisation_start_at' => $parsedRow->raw[HistoricalCrewImportColumns::MOBILISATION_DATE] ?? null,
-                        'join_standby_at' => $parsedRow->raw[HistoricalCrewImportColumns::JOIN_STANDBY_DATE] ?? null,
-                        'training_start_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAINING_START_DATE] ?? null,
-                        'training_end_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAINING_END_DATE] ?? null,
-                        'travel_home_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAVEL_HOME_DATE] ?? null,
+                        'sign_on_standby_from' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM] ?? null,
+                        'sign_on_standby_to' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO] ?? null,
+                        'onsite_from' => $parsedRow->onsiteFrom(),
+                        'onsite_to' => $parsedRow->onsiteTo(),
+                        'sign_off_standby_from' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM] ?? null,
+                        'sign_off_standby_to' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_TO] ?? null,
+                        'home_available_from' => $parsedRow->raw[HistoricalCrewImportColumns::HOME_AVAILABLE_FROM] ?? null,
+                        'sign_on_accommodation' => HistoricalCrewAssignmentData::normalizeAccommodationChoice(
+                            $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION] ?? null,
+                        ),
+                        'sign_on_hotel_id' => $signOnHotelId,
+                        'sign_on_room_type_id' => $signOnRoomTypeId,
+                        'sign_on_hotel_check_in' => $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_IN] ?? null,
+                        'sign_on_hotel_check_out' => $parsedRow->raw[HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_OUT] ?? null,
+                        'sign_off_accommodation' => HistoricalCrewAssignmentData::normalizeAccommodationChoice(
+                            $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_ACCOMMODATION] ?? null,
+                        ),
+                        'sign_off_hotel_id' => $signOffHotelId,
+                        'sign_off_room_type_id' => $signOffRoomTypeId,
+                        'sign_off_hotel_check_in' => $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL_CHECK_IN] ?? null,
+                        'sign_off_hotel_check_out' => $parsedRow->raw[HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL_CHECK_OUT] ?? null,
                         'remarks' => $parsedRow->remarks(),
                     ],
                     companyId: $companyId,
@@ -435,8 +503,10 @@ final class HistoricalCrewImportPreviewService
             'rank_name' => $rank?->name ?? $rankName,
             'client_id' => $client?->id,
             'client_name' => $client?->name ?? $clientName,
-            'joined_vessel_at' => $parsedRow->vesselJoinDate(),
-            'disembarked_at' => $parsedRow->disembarkDate(),
+            'joined_vessel_at' => $parsedRow->onsiteFrom(),
+            'disembarked_at' => $parsedRow->onsiteTo(),
+            'onsite_from' => $parsedRow->onsiteFrom(),
+            'onsite_to' => $parsedRow->onsiteTo(),
             'interval_start' => $intervalStart,
             'interval_end' => $intervalEnd,
             'is_open' => $isOpen,
@@ -590,6 +660,88 @@ final class HistoricalCrewImportPreviewService
                 }
             }
         }
+    }
+
+    /**
+     * @param  array{
+     *     hotelsByName: array<string, list<Hotel>>,
+     *     roomTypesByHotelAndName: array<string, list<RoomType>>
+     * }  $lookups
+     * @return array{0: ?int, 1: ?int, 2: array<string, string>}
+     */
+    private function resolveHotelSelection(
+        array $lookups,
+        mixed $accommodationRaw,
+        mixed $hotelName,
+        mixed $roomTypeName,
+        string $accommodationField,
+        string $hotelField,
+        string $roomTypeField,
+    ): array {
+        $errors = [];
+
+        try {
+            $choice = HistoricalCrewAssignmentData::normalizeAccommodationChoice($accommodationRaw);
+        } catch (\InvalidArgumentException $exception) {
+            $errors[$accommodationField] = $exception->getMessage();
+
+            return [null, null, $errors];
+        }
+
+        if ($choice !== HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL) {
+            $hotelLabel = is_string($hotelName) ? trim($hotelName) : '';
+            $roomLabel = is_string($roomTypeName) ? trim($roomTypeName) : '';
+            $choiceLabel = $choice === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION
+                ? 'No accommodation'
+                : 'Not recorded';
+
+            if ($hotelLabel !== '') {
+                $errors[$hotelField] = "Hotel must be empty when Accommodation is {$choiceLabel}.";
+            }
+
+            if ($roomLabel !== '') {
+                $errors[$roomTypeField] = "Room type must be empty when Accommodation is {$choiceLabel}.";
+            }
+
+            return [null, null, $errors];
+        }
+
+        $hotelId = null;
+        $roomTypeId = null;
+        $hotelLabel = is_string($hotelName) ? trim($hotelName) : '';
+
+        if ($hotelLabel === '') {
+            $errors[$hotelField] = 'Hotel is required when Accommodation is Hotel.';
+        } else {
+            $matches = $lookups['hotelsByName'][mb_strtolower($hotelLabel)] ?? [];
+
+            if ($matches === []) {
+                $errors[$hotelField] = "Hotel \"{$hotelLabel}\" was not found in the active company.";
+            } elseif (count($matches) > 1) {
+                $ids = collect($matches)->map(fn (Hotel $hotel) => '#'.$hotel->id)->implode(', ');
+                $errors[$hotelField] = "Hotel \"{$hotelLabel}\" is ambiguous ({$ids}).";
+            } else {
+                $hotelId = (int) $matches[0]->id;
+            }
+        }
+
+        $roomLabel = is_string($roomTypeName) ? trim($roomTypeName) : '';
+
+        if ($roomLabel !== '' && $hotelId !== null) {
+            $key = $hotelId.'|'.mb_strtolower($roomLabel);
+            $matches = $lookups['roomTypesByHotelAndName'][$key] ?? [];
+
+            if ($matches === []) {
+                $errors[$roomTypeField] = "Room type \"{$roomLabel}\" was not found for the selected hotel.";
+            } elseif (count($matches) > 1) {
+                $ids = collect($matches)->map(fn (RoomType $roomType) => '#'.$roomType->id)->implode(', ');
+                $errors[$roomTypeField] = "Room type \"{$roomLabel}\" is ambiguous ({$ids}).";
+            } else {
+                $roomTypeId = (int) $matches[0]->id;
+            }
+        }
+
+        return [$hotelId, $roomTypeId, $errors];
     }
 
     /**

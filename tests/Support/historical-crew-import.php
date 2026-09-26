@@ -54,6 +54,8 @@ function makeHistoricalCrewImportFile(array $rows, ?string $sheetName = null): U
     $rowNumber = HistoricalCrewImportParser::DATA_START_ROW;
 
     foreach ($rows as $row) {
+        $row = normalizeHistoricalCrewImportTestRow($row);
+
         foreach ($row as $header => $value) {
             if (! isset($headerIndex[$header])) {
                 continue;
@@ -91,6 +93,57 @@ function makeHistoricalCrewImportFile(array $rows, ?string $sheetName = null): U
         null,
         true,
     );
+}
+
+/**
+ * Map legacy event-column fixtures onto simplified period columns for tests.
+ *
+ * @param  array<string, mixed>  $row
+ * @return array<string, mixed>
+ */
+function normalizeHistoricalCrewImportTestRow(array $row): array
+{
+    $aliases = [
+        'vessel_join_date' => HistoricalCrewImportColumns::ONSITE_FROM,
+        'disembark_date' => HistoricalCrewImportColumns::ONSITE_TO,
+        'travel_home_date' => HistoricalCrewImportColumns::HOME_AVAILABLE_FROM,
+        'join_standby_date' => HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM,
+        'employee' => HistoricalCrewImportColumns::EMPLOYEE,
+    ];
+
+    $normalized = [];
+
+    foreach ($row as $key => $value) {
+        if (in_array($key, [
+            'mobilisation_date',
+            'training_start_date',
+            'training_end_date',
+        ], true)) {
+            continue;
+        }
+
+        $canonical = $aliases[$key] ?? $key;
+        $normalized[$canonical] = $value;
+    }
+
+    $hasOnsiteFrom = filled($normalized[HistoricalCrewImportColumns::ONSITE_FROM] ?? null);
+    $hasOnsiteTo = filled($normalized[HistoricalCrewImportColumns::ONSITE_TO] ?? null);
+    $hasHome = filled($normalized[HistoricalCrewImportColumns::HOME_AVAILABLE_FROM] ?? null);
+    $hasSignOffFrom = filled($normalized[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM] ?? null);
+
+    // Closed onsite without Home previously implied open Demob Standby.
+    if ($hasOnsiteFrom && $hasOnsiteTo && ! $hasHome && ! $hasSignOffFrom) {
+        $normalized[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM] = $normalized[HistoricalCrewImportColumns::ONSITE_TO];
+    }
+
+    $hasSignOnFrom = filled($normalized[HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM] ?? null);
+    $hasSignOnTo = filled($normalized[HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO] ?? null);
+
+    if ($hasSignOnFrom && ! $hasSignOnTo && $hasOnsiteFrom) {
+        $normalized[HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO] = $normalized[HistoricalCrewImportColumns::ONSITE_FROM];
+    }
+
+    return $normalized;
 }
 
 /**
