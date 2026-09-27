@@ -106,13 +106,13 @@ final class HistoricalCrewImportParser
 
         if ($count === 0) {
             throw new \InvalidArgumentException(
-                'No historical assignment rows were found in the workbook.',
+                'No Past Crew Data rows were found in the workbook.',
             );
         }
 
         if ($count > self::MAX_ROWS) {
             throw new \InvalidArgumentException(sprintf(
-                'This workbook contains %s historical assignment rows. The maximum supported per upload is %s. Split the workbook into smaller files and upload them separately.',
+                'This workbook contains %s Past Crew Data rows. The maximum supported per upload is %s. Split the workbook into smaller files and upload them separately.',
                 number_format($count),
                 number_format(self::MAX_ROWS),
             ));
@@ -126,9 +126,22 @@ final class HistoricalCrewImportParser
         $employeeNo = mb_strtoupper(trim((string) ($row->employeeNo() ?? '')));
         $remarks = mb_strtoupper(trim((string) ($row->remarks() ?? '')));
 
-        return $employeeNo === self::SAMPLE_EMPLOYEE_NO
-            || str_contains($remarks, 'SAMPLE — REPLACE')
+        if ($employeeNo !== self::SAMPLE_EMPLOYEE_NO) {
+            return false;
+        }
+
+        $hasSampleRemarks = str_contains($remarks, 'SAMPLE — REPLACE')
             || str_contains($remarks, 'SAMPLE - REPLACE');
+
+        if (! $hasSampleRemarks) {
+            return false;
+        }
+
+        $vessel = mb_strtolower(trim((string) ($row->vesselName() ?? '')));
+        $rank = mb_strtolower(trim((string) ($row->rankName() ?? '')));
+
+        return in_array($vessel, ['example vessel', 'sample vessel'], true)
+            && in_array($rank, ['example rank', 'sample rank'], true);
     }
 
     /**

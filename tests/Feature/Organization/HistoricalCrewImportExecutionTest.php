@@ -555,7 +555,7 @@ test('batch detail and result workbook download work for company actor', functio
         ->get(route('organization.crew-assignments.historical.import.batches.result', $batchId));
 
     $download->assertOk();
-    expect($download->headers->get('content-disposition'))->toContain('Historical_Import_');
+    expect($download->headers->get('content-disposition'))->toContain('Past_Crew_Data_Import_');
 
     $tempPath = tempnam(sys_get_temp_dir(), 'hist-result-').'.xlsx';
     file_put_contents($tempPath, $download->streamedContent());

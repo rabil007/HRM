@@ -20,6 +20,8 @@ describe('Past Crew Data form contract', () => {
         assert.doesNotMatch(dialog, /Training End/);
         assert.doesNotMatch(dialog, /Ready to Join/);
         assert.doesNotMatch(dialog, /Add Historical Assignment/);
+        assert.doesNotMatch(dialog, /Crew \/ Assignment Details/);
+        assert.match(dialog, /Crew Details/);
         assert.match(dialog, /Save Past Crew Data/);
 
         assert.match(periodFields, /Sign-On Standby/);

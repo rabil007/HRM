@@ -584,9 +584,9 @@ final class HistoricalCrewImportPreviewService
                         fn (int $idx): string => (string) $evaluated[$idx]['row_number'],
                         array_values(array_filter($openIndexes, fn (int $idx): bool => $idx !== $openIndex)),
                     );
-                    $message = 'Multiple open assignments for the same employee in this workbook (rows '
+                    $message = 'Multiple current/open Past Crew Data rows were found for the same employee in this workbook (rows '
                         .implode(', ', $others)
-                        .'). At most one open/current assignment is allowed per employee.';
+                        .'). At most one open/current Past Crew Data row is allowed per employee.';
                     $evaluated[$openIndex]['workbook_messages'][] = $message;
                     $evaluated[$openIndex]['errors']['workbook'] = $message;
                     $evaluated[$openIndex]['status'] = 'blocked';
@@ -609,7 +609,7 @@ final class HistoricalCrewImportPreviewService
                     $laterIndexes,
                 );
                 $message = sprintf(
-                    'Row %d remains open at %s, but Row %s contains a later assignment for the same employee. Complete Row %d\'s later movements before importing Row %s.',
+                    'Row %d remains open at %s, but Row %s contains a later Past Crew Data row for the same employee. Complete Row %d\'s later movements before importing Row %s.',
                     $evaluated[$index]['row_number'],
                     $evaluated[$index]['inferred_state']['label'] ?? 'an open phase',
                     $laterRows[0],

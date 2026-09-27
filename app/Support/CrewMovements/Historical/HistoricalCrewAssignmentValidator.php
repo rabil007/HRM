@@ -146,10 +146,6 @@ final class HistoricalCrewAssignmentValidator
             'sign_off_standby_from' => $data->signOffStandbyFrom,
             'sign_off_standby_to' => $data->signOffStandbyTo,
             'home_available_from' => $data->homeAvailableFrom,
-            'sign_on_hotel_check_in' => $data->signOnHotelCheckIn,
-            'sign_on_hotel_check_out' => $data->signOnHotelCheckOut,
-            'sign_off_hotel_check_in' => $data->signOffHotelCheckIn,
-            'sign_off_hotel_check_out' => $data->signOffHotelCheckOut,
         ];
 
         foreach ($allSuppliedTimestamps as $field => $ts) {
@@ -706,21 +702,23 @@ final class HistoricalCrewAssignmentValidator
             }
         }
 
+        $displayPrefix = $prefix === 'sign_on' ? 'Sign-On' : 'Sign-Off';
+
         $effectiveCheckIn = $checkIn ?? $standbyFrom;
 
         if ($effectiveCheckIn === null) {
-            $errors[$prefix.'_hotel_check_in'] = 'Hotel check-in is required when Accommodation is Hotel.';
+            $errors[$prefix.'_accommodation'] = "{$displayPrefix} accommodation requires a {$displayPrefix} Standby From date.";
         }
 
         $standbyIsOpen = $standbyFrom !== null && $standbyTo === null;
         $effectiveCheckOut = $checkOut ?? ($standbyIsOpen ? null : $standbyTo);
 
-        if (! $standbyIsOpen && $effectiveCheckOut === null) {
-            $errors[$prefix.'_hotel_check_out'] = 'Hotel check-out is required for a closed standby period.';
+        if (! $standbyIsOpen && $effectiveCheckOut === null && $standbyFrom !== null) {
+            $errors[$prefix.'_standby_to'] = "{$displayPrefix} Standby To date is required for a closed accommodation stay.";
         }
 
         if ($effectiveCheckIn !== null && $effectiveCheckOut !== null && $effectiveCheckOut->lt($effectiveCheckIn)) {
-            $errors[$prefix.'_hotel_check_out'] = 'Check-out date cannot be before check-in date.';
+            $errors[$prefix.'_standby_to'] = "{$displayPrefix} Standby From must not be after To.";
         }
 
         if ($standbyFrom !== null && $effectiveCheckIn !== null) {
@@ -728,7 +726,7 @@ final class HistoricalCrewAssignmentValidator
             $standbyFromDate = $standbyFrom->copy()->timezone($timezone)->toDateString();
 
             if ($checkInDate < $standbyFromDate) {
-                $errors[$prefix.'_hotel_check_in'] = "{$label} hotel check-in cannot be before the standby From date.";
+                $errors[$prefix.'_standby_from'] = "{$displayPrefix} accommodation stay cannot start before {$displayPrefix} Standby From date.";
             }
         }
 
@@ -737,7 +735,7 @@ final class HistoricalCrewAssignmentValidator
             $standbyToDate = $standbyTo->copy()->timezone($timezone)->toDateString();
 
             if ($checkOutDate > $standbyToDate) {
-                $errors[$prefix.'_hotel_check_out'] = "{$label} hotel check-out cannot be after the standby To date.";
+                $errors[$prefix.'_standby_to'] = "{$displayPrefix} accommodation stay cannot end after {$displayPrefix} Standby To date.";
             }
         }
     }

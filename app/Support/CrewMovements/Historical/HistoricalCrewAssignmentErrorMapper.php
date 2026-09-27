@@ -13,7 +13,12 @@ final class HistoricalCrewAssignmentErrorMapper
      *
      * @var array<string, string>
      */
-    public const FORM_ALIASES = [];
+    public const FORM_ALIASES = [
+        'sign_on_hotel_check_in' => 'sign_on_standby_from',
+        'sign_on_hotel_check_out' => 'sign_on_standby_to',
+        'sign_off_hotel_check_in' => 'sign_off_standby_from',
+        'sign_off_hotel_check_out' => 'sign_off_standby_to',
+    ];
 
     /**
      * Domain-level keys that should appear in the top-level validation alert.
@@ -44,13 +49,17 @@ final class HistoricalCrewAssignmentErrorMapper
                 continue;
             }
 
-            $mapped[$key] = $text;
-
             $alias = self::FORM_ALIASES[$key] ?? null;
 
-            if ($alias !== null && ! isset($mapped[$alias])) {
-                $mapped[$alias] = $text;
+            if ($alias !== null) {
+                if (! isset($mapped[$alias])) {
+                    $mapped[$alias] = $text;
+                }
+
+                continue;
             }
+
+            $mapped[$key] = $text;
         }
 
         return $mapped;

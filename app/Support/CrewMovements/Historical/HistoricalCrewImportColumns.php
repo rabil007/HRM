@@ -169,7 +169,13 @@ final class HistoricalCrewImportColumns
 
     public static function normalizeHeader(string $header): string
     {
-        $normalized = mb_strtolower(trim($header));
+        $trimmed = trim($header);
+
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $normalized = mb_strtolower($trimmed);
         $normalized = preg_replace('/\s*\*+\s*$/', '', $normalized) ?? $normalized;
         $normalized = trim(preg_replace('/\s+/', ' ', $normalized) ?? $normalized);
 
@@ -183,7 +189,19 @@ final class HistoricalCrewImportColumns
 
         $aliases = self::headerAliases();
 
-        return $aliases[$normalized] ?? '';
+        if (isset($aliases[$normalized])) {
+            return $aliases[$normalized];
+        }
+
+        $display = preg_replace('/\s*\*+\s*$/', '', $trimmed) ?? $trimmed;
+        $display = trim(preg_replace('/\s+/', ' ', $display) ?? $display);
+        if ($display === '') {
+            $display = $trimmed;
+        }
+
+        throw new \InvalidArgumentException(
+            "Unknown Past Crew Data column '{$display}'. Do not rename template columns. Download the latest template if needed."
+        );
     }
 
     public static function isRejectedLegacyHeader(string $normalizedHeader): bool

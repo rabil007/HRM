@@ -2473,3 +2473,100 @@ test('open P4 exact match with conflicting rank is blocked', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['sea_service']);
 });
+
+test('manual preview does not surface hidden hotel check-in or check-out errors when standby from is blank', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Hotel Dates Test Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-09-15',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_on_accommodation'])
+        ->assertJsonMissingValidationErrors([
+            'sign_on_hotel_check_in',
+            'sign_on_hotel_check_out',
+            'sign_off_hotel_check_in',
+            'sign_off_hotel_check_out',
+        ]);
+
+    $errors = $response->json('errors');
+    expect($errors['sign_on_accommodation'])->toContain('Sign-On accommodation requires a Sign-On Standby From date.');
+
+    $allErrorText = implode(' ', array_merge(...array_values($errors)));
+    expect($allErrorText)->not->toMatch('/check-in|check-out/i');
+});
+
+test('manual preview for sign-off hotel accommodation without sign-off standby from surfaces visible error without check-in/out', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Sign Off Hotel Test Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.preview'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-09-01',
+            'onsite_to' => '2024-09-15',
+            'home_available_from' => '2024-09-20',
+            'sign_off_accommodation' => 'hotel',
+            'sign_off_hotel_id' => $hotel->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sign_off_accommodation'])
+        ->assertJsonMissingValidationErrors([
+            'sign_on_hotel_check_in',
+            'sign_on_hotel_check_out',
+            'sign_off_hotel_check_in',
+            'sign_off_hotel_check_out',
+        ]);
+
+    $errors = $response->json('errors');
+    expect($errors['sign_off_accommodation'])->toContain('Sign-Off accommodation requires a Sign-Off Standby From date.');
+
+    $allErrorText = implode(' ', array_merge(...array_values($errors)));
+    expect($allErrorText)->not->toMatch('/check-in|check-out/i');
+});
+
+test('manual store records past crew data with updated success message terminology', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Manual Terminology Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'onsite_from' => '2024-07-01',
+            'onsite_to' => '2024-08-01',
+            'home_available_from' => '2024-08-01',
+        ]);
+
+    $response->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    $response->assertSessionHas('success', "Past Crew Data recorded successfully. Assignment {$assignment->assignment_no} was created.");
+});

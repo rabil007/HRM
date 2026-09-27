@@ -362,7 +362,7 @@ export function AddPastDataDialog({
                                 <div className="space-y-4">
                                     <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
                                         <div className="text-sm font-semibold text-foreground">
-                                            Crew / Assignment Details
+                                            Crew Details
                                         </div>
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <div className="space-y-1.5">
