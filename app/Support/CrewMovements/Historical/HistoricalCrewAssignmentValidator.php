@@ -23,7 +23,7 @@ final class HistoricalCrewAssignmentValidator
 {
     public const ACTIVE_ASSIGNMENT_CONFLICT_MESSAGE = 'This employee already has an active Crew Assignment in OMS-HRM. Historical records before the active assignment may still be imported, but this row cannot become another current assignment.';
 
-    public const OPEN_BOOTSTRAP_REQUIRES_ACTIVE_EMPLOYEE_MESSAGE = 'This historical record would become the employee\'s current active Crew Assignment, but the employee is not currently Active. Complete the historical movement through Home / Available, or reactivate the employee before using this record to establish their current Crew state.';
+    public const OPEN_BOOTSTRAP_REQUIRES_ACTIVE_EMPLOYEE_MESSAGE = 'This historical record would become the employee\'s current active Crew Assignment, but the employee is not currently Active. Complete the historical movement through Home Date, or reactivate the employee before using this record to establish their current Crew state.';
 
     public function __construct(
         private readonly SeaServiceSyncService $seaServiceSync,
@@ -504,12 +504,12 @@ final class HistoricalCrewAssignmentValidator
 
         if ($data->signOnAccommodation !== HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED
             && $data->signOnStandbyFrom === null) {
-            $errors['sign_on_accommodation'] = 'Sign-On Standby period is required when accommodation is recorded.';
+            $errors['sign_on_accommodation'] = 'Sign-On accommodation requires a Sign-On Standby From date.';
         }
 
         if ($data->signOffAccommodation !== HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED
             && $data->signOffStandbyFrom === null) {
-            $errors['sign_off_accommodation'] = 'Sign-Off Standby period is required when accommodation is recorded.';
+            $errors['sign_off_accommodation'] = 'Sign-Off accommodation requires a Sign-Off Standby From date.';
         }
     }
 
@@ -540,12 +540,12 @@ final class HistoricalCrewAssignmentValidator
             foreach ($ordered as $period) {
                 if ($period['from']->gt($data->homeAvailableFrom)) {
                     $datesValid = false;
-                    $errors['home_available_from'] = 'Home / Available From cannot precede known movement periods.';
+                    $errors['home_available_from'] = 'Home Date cannot precede known movement periods.';
                 }
 
                 if ($period['to'] !== null && $period['to']->gt($data->homeAvailableFrom)) {
                     $datesValid = false;
-                    $errors['home_available_from'] = 'Home / Available From cannot precede known movement periods.';
+                    $errors['home_available_from'] = 'Home Date cannot precede known movement periods.';
                 }
             }
         }
@@ -573,7 +573,7 @@ final class HistoricalCrewAssignmentValidator
         if ($data->homeAvailableFrom !== null) {
             if ($openIndexes !== []) {
                 $datesValid = false;
-                $errors['dates'] = 'Close every movement period before Home / Available From, or leave Home empty for an open current period.';
+                $errors['dates'] = 'Close every movement period before Home Date, or leave Home empty for an open current period.';
             }
 
             return;
@@ -754,12 +754,12 @@ final class HistoricalCrewAssignmentValidator
                 ? (Hotel::query()->find($data->signOnHotelId)?->name ?? 'Hotel')
                 : 'Hotel';
             $summary[] = [
-                'label' => 'Pre-Join Hotel',
+                'label' => 'Sign-On Hotel',
                 'detail' => $hotelName,
             ];
         } elseif ($data->signOnAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
             $summary[] = [
-                'label' => 'Pre-Join',
+                'label' => 'Sign-On Accommodation',
                 'detail' => CrewAccommodationStatus::NoAccommodation->label(),
             ];
         }
@@ -769,12 +769,12 @@ final class HistoricalCrewAssignmentValidator
                 ? (Hotel::query()->find($data->signOffHotelId)?->name ?? 'Hotel')
                 : 'Hotel';
             $summary[] = [
-                'label' => 'Post-Sign-Off Hotel',
+                'label' => 'Sign-Off Hotel',
                 'detail' => $hotelName,
             ];
         } elseif ($data->signOffAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
             $summary[] = [
-                'label' => 'Post-Sign-Off',
+                'label' => 'Sign-Off Accommodation',
                 'detail' => CrewAccommodationStatus::NoAccommodation->label(),
             ];
         }

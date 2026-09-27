@@ -105,13 +105,9 @@ export function AddPastDataDialog({
         sign_on_accommodation: 'not_recorded',
         sign_on_hotel_id: '',
         sign_on_room_type_id: '',
-        sign_on_hotel_check_in: '',
-        sign_on_hotel_check_out: '',
         sign_off_accommodation: 'not_recorded',
         sign_off_hotel_id: '',
         sign_off_room_type_id: '',
-        sign_off_hotel_check_in: '',
-        sign_off_hotel_check_out: '',
         remarks: '',
     });
 
@@ -225,8 +221,6 @@ export function AddPastDataDialog({
             sign_on_room_type_id: form.data.sign_on_room_type_id
                 ? Number(form.data.sign_on_room_type_id)
                 : null,
-            sign_on_hotel_check_in: form.data.sign_on_hotel_check_in || null,
-            sign_on_hotel_check_out: form.data.sign_on_hotel_check_out || null,
             sign_off_accommodation:
                 form.data.sign_off_accommodation || 'not_recorded',
             sign_off_hotel_id: form.data.sign_off_hotel_id
@@ -235,9 +229,6 @@ export function AddPastDataDialog({
             sign_off_room_type_id: form.data.sign_off_room_type_id
                 ? Number(form.data.sign_off_room_type_id)
                 : null,
-            sign_off_hotel_check_in: form.data.sign_off_hotel_check_in || null,
-            sign_off_hotel_check_out:
-                form.data.sign_off_hotel_check_out || null,
             remarks: form.data.remarks || null,
         };
 

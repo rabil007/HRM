@@ -25,8 +25,13 @@ describe('Past Crew Data form contract', () => {
         assert.match(periodFields, /Sign-On Standby/);
         assert.match(periodFields, /Onsite \/ On Vessel/);
         assert.match(periodFields, /Sign-Off Standby/);
-        assert.match(periodFields, /Home \/ Available From/);
+        assert.match(periodFields, /Home Date/);
         assert.match(periodFields, /Accommodation/);
+        assert.doesNotMatch(periodFields, /Check-In/);
+        assert.doesNotMatch(periodFields, /Check-Out/);
+        assert.doesNotMatch(periodFields, /hotel_check_in/);
+        assert.doesNotMatch(periodFields, /hotel_check_out/);
+        assert.doesNotMatch(periodFields, /Home \/ Available From/);
         assert.doesNotMatch(periodFields, /Pre-Mobilisation/);
         assert.doesNotMatch(periodFields, /Training Start/);
     });
@@ -37,6 +42,8 @@ describe('Past Crew Data form contract', () => {
         assert.match(periodFields, /choice === 'hotel'/);
         assert.match(periodFields, /prefix="sign_on"/);
         assert.match(periodFields, /prefix="sign_off"/);
+        assert.match(periodFields, /Hotel \*/);
+        assert.match(periodFields, /Room Type/);
         assert.match(periodFields, /room\.hotel_id === Number\(hotelId\)/);
         assert.doesNotMatch(periodFields, /room\.hotel_id === null/);
 
@@ -47,5 +54,19 @@ describe('Past Crew Data form contract', () => {
 
         assert.doesNotMatch(onsiteSection, /AccommodationFields/);
         assert.doesNotMatch(onsiteSection, /Accommodation/);
+    });
+
+    it('uses simplified Import Past Crew Data wording', () => {
+        const panel = readFeature('actions/historical-import-excel-panel.tsx');
+
+        assert.match(panel, /Import Past Crew Data/);
+        assert.match(panel, /Enter Past Crew Data/);
+        assert.match(panel, /Check File/);
+        assert.match(panel, /Review Past Crew Data/);
+        assert.match(panel, /Importing Past Crew Data/);
+        assert.doesNotMatch(panel, /Import Historical Crew Data/);
+        assert.doesNotMatch(panel, /Validate File/);
+        assert.doesNotMatch(panel, /Historical Import Validation/);
+        assert.doesNotMatch(panel, /historical assignments using Reference/);
     });
 });

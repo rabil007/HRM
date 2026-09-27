@@ -74,20 +74,14 @@ function AccommodationFields({
     prefix,
     form,
     formOptions,
-    fromDate,
-    toDate,
 }: {
     prefix: 'sign_on' | 'sign_off';
     form: InertiaFormProps<HistoricalCrewAssignmentFormData>;
     formOptions: HistoricalFormOptions;
-    fromDate: string;
-    toDate: string;
 }): ReactElement {
     const choiceKey = `${prefix}_accommodation` as const;
     const hotelKey = `${prefix}_hotel_id` as const;
     const roomKey = `${prefix}_room_type_id` as const;
-    const checkInKey = `${prefix}_hotel_check_in` as const;
-    const checkOutKey = `${prefix}_hotel_check_out` as const;
 
     const choice = (form.data[choiceKey] ??
         'not_recorded') as HistoricalAccommodationChoice;
@@ -107,13 +101,8 @@ function AccommodationFields({
                 ? {
                       [hotelKey]: '',
                       [roomKey]: '',
-                      [checkInKey]: '',
-                      [checkOutKey]: '',
                   }
-                : {
-                      [checkInKey]: prev[checkInKey] || fromDate || '',
-                      [checkOutKey]: prev[checkOutKey] || toDate || '',
-                  }),
+                : {}),
         }));
     };
 
@@ -188,28 +177,6 @@ function AccommodationFields({
                         </AppSelect>
                         <InputError message={form.errors[roomKey]} />
                     </div>
-                    <div className="space-y-1.5">
-                        <Label>Check-In</Label>
-                        <Input
-                            type="date"
-                            value={String(form.data[checkInKey] || '')}
-                            onChange={(e) =>
-                                form.setData(checkInKey, e.target.value)
-                            }
-                        />
-                        <InputError message={form.errors[checkInKey]} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Check-Out</Label>
-                        <Input
-                            type="date"
-                            value={String(form.data[checkOutKey] || '')}
-                            onChange={(e) =>
-                                form.setData(checkOutKey, e.target.value)
-                            }
-                        />
-                        <InputError message={form.errors[checkOutKey]} />
-                    </div>
                 </div>
             ) : null}
         </div>
@@ -232,8 +199,9 @@ export function PastCrewPeriodFields({
             </div>
             <p className="text-xs text-muted-foreground">
                 Enter known periods only. Leave the current period&apos;s To
-                date empty. Days are calculated automatically. Dates use company
-                timezone ({timezoneLabel}).
+                date empty. Days are calculated automatically. Hotel stay dates
+                use the related Standby From/To. Dates use company timezone (
+                {timezoneLabel}).
             </p>
 
             <PeriodSection
@@ -255,8 +223,6 @@ export function PastCrewPeriodFields({
                     prefix="sign_on"
                     form={form}
                     formOptions={formOptions}
-                    fromDate={form.data.sign_on_standby_from ?? ''}
-                    toDate={form.data.sign_on_standby_to ?? ''}
                 />
             </PeriodSection>
 
@@ -291,17 +257,15 @@ export function PastCrewPeriodFields({
                     prefix="sign_off"
                     form={form}
                     formOptions={formOptions}
-                    fromDate={form.data.sign_off_standby_from ?? ''}
-                    toDate={form.data.sign_off_standby_to ?? ''}
                 />
             </PeriodSection>
 
             <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
                 <div className="text-sm font-semibold text-foreground">
-                    Home / Available From
+                    Home Date
                 </div>
                 <div className="max-w-xs space-y-1.5">
-                    <Label htmlFor="past-home-from">Date</Label>
+                    <Label htmlFor="past-home-from">Home Date</Label>
                     <Input
                         id="past-home-from"
                         type="date"
@@ -310,6 +274,10 @@ export function PastCrewPeriodFields({
                             form.setData('home_available_from', e.target.value)
                         }
                     />
+                    <p className="text-xs text-muted-foreground">
+                        Enter the date the crew member reached home / became
+                        available.
+                    </p>
                     <InputError message={form.errors.home_available_from} />
                 </div>
             </div>

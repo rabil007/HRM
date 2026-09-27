@@ -886,7 +886,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-foreground">
-                    Importing historical assignments…
+                    Importing Past Crew Data…
                 </p>
             </div>
         );
@@ -897,7 +897,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="space-y-4 pt-2">
                 <div className="space-y-1">
                     <h3 className="text-base font-semibold text-foreground">
-                        Historical Import Validation
+                        Review Past Crew Data
                     </h3>
                     <p className="text-sm text-muted-foreground">
                         {preview.summary.total} rows detected
@@ -1121,7 +1121,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
         <div className="space-y-5 pt-2">
             <div>
                 <h3 className="text-base font-semibold text-foreground">
-                    Import Historical Crew Data
+                    Import Past Crew Data
                 </h3>
                 <div className="mt-1 h-px w-full bg-border" />
             </div>
@@ -1129,7 +1129,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">Step 1</p>
                 <p className="text-sm text-muted-foreground">
-                    Download our Excel template.
+                    Download Template
                 </p>
                 <Button variant="outline" size="sm" className="gap-2" asChild>
                     <a
@@ -1144,16 +1144,22 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">Step 2</p>
                 <p className="text-sm text-muted-foreground">
-                    Fill the file with historical assignments using Reference
-                    Data values.
+                    Enter Past Crew Data
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Enter the crew member’s known Standby, Onsite and Home
+                    dates. Leave unknown information blank.
                 </p>
             </div>
 
             <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">Step 3</p>
                 <p className="text-sm text-muted-foreground">
-                    Upload and validate your workbook. After review, import
-                    Ready and Warning rows.
+                    Upload &amp; Check
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Upload your workbook. After review, import Ready and Warning
+                    rows.
                 </p>
 
                 <div
@@ -1228,7 +1234,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
                     {isValidating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                     ) : null}
-                    Validate File
+                    Check File
                 </Button>
             </div>
 

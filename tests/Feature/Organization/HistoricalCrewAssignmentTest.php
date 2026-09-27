@@ -2224,9 +2224,42 @@ test('null hotel_id room type is rejected for new historical hotel stays and pre
     expect(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(0);
 });
 
-test('hotel dates outside the related standby period are rejected', function () {
+test('hotel stay dates are derived from standby and user check-in fields are ignored', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Hotel Date Vessel', $company);
+    $vessel = makeCrewMovementVessel('Hotel Derive Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.historical.store'), [
+            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'sign_on_standby_from' => '2024-09-10',
+            'sign_on_standby_to' => '2024-09-15',
+            'onsite_from' => '2024-09-15',
+            'sign_on_accommodation' => 'hotel',
+            'sign_on_hotel_id' => $hotel->id,
+            // Stale/outdated client payloads with independent hotel dates must be ignored.
+            'sign_on_hotel_check_in' => '2024-09-01',
+            'sign_on_hotel_check_out' => '2024-09-30',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+
+    expect($stay->check_in_date?->toDateString())->toBe('2024-09-10')
+        ->and($stay->check_out_date?->toDateString())->toBe('2024-09-15');
+});
+
+test('sign-on accommodation without sign-on standby from is blocked', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Acc Requires Standby Vessel', $company);
     $hotel = Hotel::factory()->create(['company_id' => $company->id]);
 
     grantCompanyPermissions($user, $company, [
@@ -2239,32 +2272,12 @@ test('hotel dates outside the related standby period are rejected', function () 
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
-            'sign_on_standby_from' => '2024-09-10',
-            'sign_on_standby_to' => '2024-09-15',
             'onsite_from' => '2024-09-15',
             'sign_on_accommodation' => 'hotel',
             'sign_on_hotel_id' => $hotel->id,
-            'sign_on_hotel_check_in' => '2024-09-08',
-            'sign_on_hotel_check_out' => '2024-09-15',
         ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['sign_on_hotel_check_in']);
-
-    $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'sign_on_standby_from' => '2024-09-10',
-            'sign_on_standby_to' => '2024-09-15',
-            'onsite_from' => '2024-09-15',
-            'sign_on_accommodation' => 'hotel',
-            'sign_on_hotel_id' => $hotel->id,
-            'sign_on_hotel_check_in' => '2024-09-10',
-            'sign_on_hotel_check_out' => '2024-09-16',
-        ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['sign_on_hotel_check_out']);
+        ->assertJsonValidationErrors(['sign_on_accommodation']);
 });
 
 test('open P4 links exact unlinked ongoing sea service without duplicating', function () {

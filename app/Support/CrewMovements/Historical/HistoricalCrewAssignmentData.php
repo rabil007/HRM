@@ -27,7 +27,7 @@ final class HistoricalCrewAssignmentData
 
     public const ACCOMMODATION_HOTEL = 'hotel';
 
-    public const AMBIGUOUS_CURRENT_STATE_MESSAGE = 'All entered movement periods are closed. Enter Home / Available From, or leave the employee’s current movement period open.';
+    public const AMBIGUOUS_CURRENT_STATE_MESSAGE = 'All entered movement periods are closed. Enter Home Date, or leave the employee’s current movement period open.';
 
     public function __construct(
         public readonly int $companyId,
@@ -63,6 +63,28 @@ final class HistoricalCrewAssignmentData
         string $timezone,
         string $source = self::SOURCE_MANUAL,
     ): self {
+        $signOnStandbyFrom = self::parseTimestamp($data['sign_on_standby_from'] ?? null, $timezone);
+        $signOnStandbyTo = self::parseTimestamp($data['sign_on_standby_to'] ?? null, $timezone);
+        $signOffStandbyFrom = self::parseTimestamp($data['sign_off_standby_from'] ?? null, $timezone);
+        $signOffStandbyTo = self::parseTimestamp($data['sign_off_standby_to'] ?? null, $timezone);
+        $signOnAccommodation = self::normalizeAccommodationChoice($data['sign_on_accommodation'] ?? null);
+        $signOffAccommodation = self::normalizeAccommodationChoice($data['sign_off_accommodation'] ?? null);
+
+        // Hotel stay dates are always derived from the related standby period.
+        // User-facing Past Crew Data no longer accepts independent check-in/out.
+        $signOnHotelCheckIn = $signOnAccommodation === self::ACCOMMODATION_HOTEL
+            ? $signOnStandbyFrom
+            : null;
+        $signOnHotelCheckOut = $signOnAccommodation === self::ACCOMMODATION_HOTEL
+            ? $signOnStandbyTo
+            : null;
+        $signOffHotelCheckIn = $signOffAccommodation === self::ACCOMMODATION_HOTEL
+            ? $signOffStandbyFrom
+            : null;
+        $signOffHotelCheckOut = $signOffAccommodation === self::ACCOMMODATION_HOTEL
+            ? $signOffStandbyTo
+            : null;
+
         return new self(
             companyId: $companyId,
             employeeId: (int) ($data['employee_id'] ?? 0),
@@ -72,26 +94,26 @@ final class HistoricalCrewAssignmentData
                 ? (int) $data['client_id']
                 : null,
             timezone: $timezone,
-            signOnStandbyFrom: self::parseTimestamp($data['sign_on_standby_from'] ?? null, $timezone),
-            signOnStandbyTo: self::parseTimestamp($data['sign_on_standby_to'] ?? null, $timezone),
+            signOnStandbyFrom: $signOnStandbyFrom,
+            signOnStandbyTo: $signOnStandbyTo,
             onsiteFrom: self::parseTimestamp($data['onsite_from'] ?? null, $timezone),
             onsiteTo: self::parseTimestamp($data['onsite_to'] ?? null, $timezone),
-            signOffStandbyFrom: self::parseTimestamp($data['sign_off_standby_from'] ?? null, $timezone),
-            signOffStandbyTo: self::parseTimestamp($data['sign_off_standby_to'] ?? null, $timezone),
+            signOffStandbyFrom: $signOffStandbyFrom,
+            signOffStandbyTo: $signOffStandbyTo,
             homeAvailableFrom: self::parseTimestamp($data['home_available_from'] ?? null, $timezone),
             remarks: isset($data['remarks']) && is_string($data['remarks']) && trim($data['remarks']) !== ''
                 ? trim($data['remarks'])
                 : null,
-            signOnAccommodation: self::normalizeAccommodationChoice($data['sign_on_accommodation'] ?? null),
+            signOnAccommodation: $signOnAccommodation,
             signOnHotelId: self::nullableInt($data['sign_on_hotel_id'] ?? null),
             signOnRoomTypeId: self::nullableInt($data['sign_on_room_type_id'] ?? null),
-            signOnHotelCheckIn: self::parseTimestamp($data['sign_on_hotel_check_in'] ?? null, $timezone),
-            signOnHotelCheckOut: self::parseTimestamp($data['sign_on_hotel_check_out'] ?? null, $timezone),
-            signOffAccommodation: self::normalizeAccommodationChoice($data['sign_off_accommodation'] ?? null),
+            signOnHotelCheckIn: $signOnHotelCheckIn,
+            signOnHotelCheckOut: $signOnHotelCheckOut,
+            signOffAccommodation: $signOffAccommodation,
             signOffHotelId: self::nullableInt($data['sign_off_hotel_id'] ?? null),
             signOffRoomTypeId: self::nullableInt($data['sign_off_room_type_id'] ?? null),
-            signOffHotelCheckIn: self::parseTimestamp($data['sign_off_hotel_check_in'] ?? null, $timezone),
-            signOffHotelCheckOut: self::parseTimestamp($data['sign_off_hotel_check_out'] ?? null, $timezone),
+            signOffHotelCheckIn: $signOffHotelCheckIn,
+            signOffHotelCheckOut: $signOffHotelCheckOut,
             source: $source,
         );
     }

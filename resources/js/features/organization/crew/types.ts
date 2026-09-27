@@ -842,13 +842,9 @@ export interface HistoricalCrewAssignmentFormData {
     sign_on_accommodation?: HistoricalAccommodationChoice;
     sign_on_hotel_id?: string | number;
     sign_on_room_type_id?: string | number;
-    sign_on_hotel_check_in?: string;
-    sign_on_hotel_check_out?: string;
     sign_off_accommodation?: HistoricalAccommodationChoice;
     sign_off_hotel_id?: string | number;
     sign_off_room_type_id?: string | number;
-    sign_off_hotel_check_in?: string;
-    sign_off_hotel_check_out?: string;
     remarks?: string;
 }
 

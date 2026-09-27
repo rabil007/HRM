@@ -24,11 +24,13 @@ final class HistoricalCrewImportTemplate
 {
     public const INSTRUCTIONS_SHEET = 'Instructions';
 
-    public const ASSIGNMENTS_SHEET = 'Historical Assignments';
+    public const ASSIGNMENTS_SHEET = 'Past Crew Data';
+
+    public const LEGACY_ASSIGNMENTS_SHEET = 'Historical Assignments';
 
     public const REFERENCE_SHEET = 'Reference Data';
 
-    public const FILENAME = 'Historical_Crew_Import_Template.xlsx';
+    public const FILENAME = 'Past_Crew_Data_Import_Template.xlsx';
 
     /**
      * @return array{path: string, filename: string}
@@ -64,44 +66,40 @@ final class HistoricalCrewImportTemplate
     private function writeInstructions(Worksheet $sheet): void
     {
         $lines = [
-            ['Past Crew Data Import — Instructions'],
+            ['PAST CREW DATA IMPORT'],
             [''],
             ['Purpose'],
-            ['Enter known operational periods to bootstrap where the employee currently is and preserve enough history for Crew status, manning, Sea Service, accommodation, and payroll timesheet population.'],
-            ['Do not reconstruct every historical mobilisation or training event.'],
+            ['Enter the movement dates you know so OMS-HRM can determine where each crew member currently is.'],
             [''],
-            ['Workflow'],
-            ['1. Fill the Historical Assignments sheet using values from Reference Data.'],
-            ['2. Upload the completed workbook in Add Past Crew Data → Import Excel.'],
-            ['3. Validate File runs authoritative past-data rules (no records are written yet).'],
-            ['4. Review Ready / Warning / Blocked rows, including inferred current state.'],
-            ['5. Confirm import to revalidate and persist Ready + Warning rows (Blocked rows are skipped).'],
+            ['HOW TO FILL'],
+            ['1. Enter Employee No, Rank and Vessel.'],
+            ['2. Enter the known Sign-On Standby dates.'],
+            ['3. Enter the known Onsite / On Vessel dates.'],
+            ['4. Enter the known Sign-Off Standby dates.'],
+            ['5. If the crew reached home, enter Home Date.'],
+            ['6. Accommodation is optional: Not recorded | No accommodation | Hotel.'],
+            ['7. If Hotel is selected, enter the Hotel and optionally Room Type.'],
+            ['8. Leave the current movement “To” date blank.'],
             [''],
-            ['Movement periods'],
-            ['Sign-On Standby, Onsite / On Vessel, Sign-Off Standby, and Home / Available From.'],
-            ['Enter From/To dates only. Days are calculated automatically — never enter day totals.'],
-            ['Leave the current period To date empty when that period is still open.'],
-            ['If every entered period is closed, supply Home / Available From or leave the current period open.'],
-            ['Do not guess unknown historical dates. Missing phases are not fabricated.'],
+            ['Examples'],
+            ['CURRENT ON VESSEL — Onsite From filled, Onsite To blank → Current State = On Vessel'],
+            ['CURRENT SIGN-OFF STANDBY — closed Onsite + Sign-Off Standby From, Sign-Off To blank → Sign-Off Standby'],
+            ['CURRENT HOME — closed Onsite + closed Sign-Off + Home Date → Home'],
             [''],
-            ['Accommodation (optional)'],
-            ['Pre-Join Accommodation and Post-Sign-Off Accommodation accept: Not recorded | No accommodation | Hotel.'],
-            ['Hotel fields are only used when Accommodation = Hotel.'],
-            [''],
-            ['Important'],
+            ['IMPORTANT'],
             ['- Do not enter future dates.'],
-            ['- Employee, Vessel, and Rank are required. At least one movement period is required.'],
-            ['- Sea Service is created only for a completed Onsite period.'],
-            ['- An employee may have at most one open/current assignment in the workbook, and it must be the chronologically latest row.'],
-            ['- If the employee already has an active Crew Assignment in OMS-HRM, this import will not create another current assignment.'],
+            ['- Do not guess unknown dates.'],
+            ['- Leave unknown information blank.'],
+            ['- Only the latest movement may remain open.'],
+            ['- If all movement periods are closed, enter Home Date.'],
+            ['- Use names from Reference Data for Vessel, Rank, Client, Hotel and Room Type.'],
+            ['- Hotel stay dates are derived automatically from the related Standby From/To dates.'],
             ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
-            ['- Maximum 5,000 historical assignment rows per workbook.'],
-            ['- Vessel, Rank, Client, Hotel and Room Type values must exactly match Reference Data.'],
+            ['- Maximum 5,000 Past Crew Data rows per workbook.'],
             [''],
             ['Accepted date format'],
-            ['Prefer YYYY-MM-DD (example: 2024-01-15).'],
-            ['Excel date cells are also accepted and normalized to company calendar dates.'],
+            ['Prefer YYYY-MM-DD (example: 2024-01-15). Excel date cells are also accepted.'],
         ];
 
         foreach ($lines as $index => $line) {
@@ -110,11 +108,10 @@ final class HistoricalCrewImportTemplate
 
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A3')->getFont()->setBold(true);
-        $sheet->getStyle('A7')->getFont()->setBold(true);
-        $sheet->getStyle('A14')->getFont()->setBold(true);
+        $sheet->getStyle('A6')->getFont()->setBold(true);
+        $sheet->getStyle('A16')->getFont()->setBold(true);
         $sheet->getStyle('A21')->getFont()->setBold(true);
-        $sheet->getStyle('A25')->getFont()->setBold(true);
-        $sheet->getStyle('A39')->getFont()->setBold(true);
+        $sheet->getStyle('A34')->getFont()->setBold(true);
         $sheet->getColumnDimension('A')->setWidth(110);
     }
 
@@ -150,20 +147,16 @@ final class HistoricalCrewImportTemplate
             HistoricalCrewImportColumns::CLIENT => '',
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-01-05',
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-01-14',
-            HistoricalCrewImportColumns::PRE_JOIN_ACCOMMODATION => 'Not recorded',
-            HistoricalCrewImportColumns::PRE_JOIN_HOTEL => '',
-            HistoricalCrewImportColumns::PRE_JOIN_ROOM_TYPE => '',
-            HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_IN => '',
-            HistoricalCrewImportColumns::PRE_JOIN_HOTEL_CHECK_OUT => '',
+            HistoricalCrewImportColumns::SIGN_ON_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::SIGN_ON_HOTEL => '',
+            HistoricalCrewImportColumns::SIGN_ON_ROOM_TYPE => '',
             HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
             HistoricalCrewImportColumns::ONSITE_TO => '',
             HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '',
             HistoricalCrewImportColumns::SIGN_OFF_STANDBY_TO => '',
-            HistoricalCrewImportColumns::POST_SIGNOFF_ACCOMMODATION => 'Not recorded',
-            HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL => '',
-            HistoricalCrewImportColumns::POST_SIGNOFF_ROOM_TYPE => '',
-            HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL_CHECK_IN => '',
-            HistoricalCrewImportColumns::POST_SIGNOFF_HOTEL_CHECK_OUT => '',
+            HistoricalCrewImportColumns::SIGN_OFF_ACCOMMODATION => 'Not recorded',
+            HistoricalCrewImportColumns::SIGN_OFF_HOTEL => '',
+            HistoricalCrewImportColumns::SIGN_OFF_ROOM_TYPE => '',
             HistoricalCrewImportColumns::HOME_AVAILABLE_FROM => '',
             HistoricalCrewImportColumns::REMARKS => 'SAMPLE — replace with real past crew data rows before upload',
         ];

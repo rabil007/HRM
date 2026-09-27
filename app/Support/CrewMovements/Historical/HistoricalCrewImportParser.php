@@ -38,6 +38,12 @@ final class HistoricalCrewImportParser
         $sheet = $spreadsheet->getSheetByName(HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET);
 
         if ($sheet === null) {
+            $legacySheet = $spreadsheet->getSheetByName(HistoricalCrewImportTemplate::LEGACY_ASSIGNMENTS_SHEET);
+
+            if ($legacySheet !== null) {
+                throw new \InvalidArgumentException(HistoricalCrewImportColumns::OUTDATED_TEMPLATE_MESSAGE);
+            }
+
             throw new \InvalidArgumentException(
                 'The workbook must contain a sheet named "'.HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET.'".',
             );
@@ -147,7 +153,7 @@ final class HistoricalCrewImportParser
             if (isset($map[$header])) {
                 $label = HistoricalCrewImportColumns::labels()[$header] ?? $header;
 
-                throw new \InvalidArgumentException("Duplicate column header \"{$label}\" in Historical Assignments.");
+                throw new \InvalidArgumentException("Duplicate column header \"{$label}\" in Past Crew Data.");
             }
 
             $map[$header] = $column;
@@ -171,7 +177,7 @@ final class HistoricalCrewImportParser
 
         if ($missing !== []) {
             throw new \InvalidArgumentException(
-                'Historical Assignments is missing required column(s): '.implode(', ', $missing).'.',
+                'Past Crew Data is missing required column(s): '.implode(', ', $missing).'.',
             );
         }
     }

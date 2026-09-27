@@ -64,8 +64,6 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
                 'integer',
                 Rule::exists('room_types', 'id')->where('company_id', $companyId),
             ],
-            'sign_on_hotel_check_in' => ['nullable', 'date'],
-            'sign_on_hotel_check_out' => ['nullable', 'date'],
             'sign_off_accommodation' => ['nullable', 'string', Rule::in($accommodationChoices)],
             'sign_off_hotel_id' => [
                 'nullable',
@@ -77,8 +75,6 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
                 'integer',
                 Rule::exists('room_types', 'id')->where('company_id', $companyId),
             ],
-            'sign_off_hotel_check_in' => ['nullable', 'date'],
-            'sign_off_hotel_check_out' => ['nullable', 'date'],
             // Legacy detailed movement events are no longer accepted.
             'mobilisation_at' => ['prohibited'],
             'mobilisation_start_at' => ['prohibited'],

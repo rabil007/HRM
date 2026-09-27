@@ -24,7 +24,7 @@ describe('mapHistoricalValidationErrors', () => {
         const result = mapHistoricalValidationErrors({
             overlap: ['Overlaps CA-2024-000031'],
             dates: [
-                'All entered movement periods are closed. Enter Home / Available From, or leave the employee’s current movement period open.',
+                'All entered movement periods are closed. Enter Home Date, or leave the employee’s current movement period open.',
             ],
             sea_service: [
                 'Matches existing Sea Service record #52 with conflicting rank.',

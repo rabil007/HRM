@@ -1247,12 +1247,14 @@ Operators enter:
 
 | Period | Maps to |
 | --- | --- |
-| Sign-On Standby (From / To) | P2A Join Standby |
+| Sign-On Standby (From / To) | P2A Join Standby — optional Accommodation (Not recorded / No accommodation / Hotel + optional Room Type) |
 | Onsite / On Vessel (From / To) | P4 On Vessel |
-| Sign-Off Standby (From / To) | P5 Demobilisation Standby |
-| Home / Available From | P6 Home / Redeployment + completed assignment |
+| Sign-Off Standby (From / To) | P5 Demobilisation Standby — optional Accommodation (same choices as Sign-On) |
+| Home Date | P6 Home / Redeployment + completed assignment |
 
 Dates are authoritative. Days are calculated and read-only — never typed as standalone day totals.
+
+Hotel stay dates are **derived automatically** from the corresponding standby period in the simplified Past Crew Data UI/import (`check_in = Standby From`, `check_out = Standby To` or null when the standby period is open). Operators do not enter Hotel Check-In / Check-Out. Live movement accommodation behavior is unchanged.
 
 Current-state rules:
 
@@ -1291,12 +1293,12 @@ Backend historical validation already allows inactive Vessel / Rank / Client wit
 
 #### Optional accommodation
 
-Hotel is **not** another movement phase. Accommodation belongs to standby:
+Hotel is **not** another movement phase. Accommodation belongs inside each standby section:
 
 - Sign-On Standby → optional Pre-Join stay (`stay_type = pre_join`)
 - Sign-Off Standby → optional Post-Sign-Off stay (`stay_type = post_signoff`)
 
-Choices: **Not recorded** (default, no row), **No accommodation** (explicit `CrewAccommodationStatus::NoAccommodation`), **Hotel** (hotel required; check-in/out validated via `CrewAccommodationStayIntegrity`).
+Choices: **Not recorded** (default, no row), **No accommodation** (explicit `CrewAccommodationStatus::NoAccommodation`), **Hotel** (hotel required; room type optional; stay dates derived from standby From/To).
 
 #### 2-Step Authoritative Flow: Enter → Validate → Preview → Confirm → Persist
 
@@ -1337,7 +1339,7 @@ Completed non-overlapping history may still be imported. Current OMS Active assi
 
 ### Excel import
 
-One row per historical crew assignment/cycle. Columns match the simplified periods (From/To, optional accommodation fields, Home / Available From, Remarks). No editable Days columns. Outdated templates with Pre-Mobilisation / Training / Travel In / Ready to Join / day-total columns are rejected.
+Sheet name: **Past Crew Data**. Columns match the manual form (Sign-On / Onsite / Sign-Off / Home Date, optional Sign-On and Sign-Off Accommodation / Hotel / Room Type, Remarks). Hotel Check-In / Check-Out columns are not accepted — stay dates derive from standby From/To. No editable Days columns. Workbooks using the older **Historical Assignments** sheet name or Hotel Check-In/Out columns are rejected with a clear outdated-template error.
 
 ### Legacy data / backward compatibility
 
