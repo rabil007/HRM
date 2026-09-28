@@ -4,9 +4,7 @@ namespace App\Support\CrewMovements\Historical;
 
 use App\Models\Client;
 use App\Models\Employee;
-use App\Models\Hotel;
 use App\Models\Rank;
-use App\Models\RoomType;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -77,9 +75,7 @@ final class HistoricalCrewImportTemplate
             ['3. Enter the known Onsite / On Vessel dates.'],
             ['4. Enter the known Sign-Off Standby dates.'],
             ['5. If the crew reached home, enter Home Date.'],
-            ['6. Accommodation is optional: Not recorded | No accommodation | Hotel.'],
-            ['7. If Hotel is selected, enter the Hotel and optionally Room Type.'],
-            ['8. Leave the current movement “To” date blank.'],
+            ['6. Leave the current movement “To” date blank.'],
             [''],
             ['Examples'],
             ['CURRENT ON VESSEL — Onsite From filled, Onsite To blank → Current State = On Vessel'],
@@ -92,8 +88,7 @@ final class HistoricalCrewImportTemplate
             ['- Leave unknown information blank.'],
             ['- Only the latest movement may remain open.'],
             ['- If all movement periods are closed, enter Home Date.'],
-            ['- Use names from Reference Data for Vessel, Rank, Client, Hotel and Room Type.'],
-            ['- Hotel stay dates are derived automatically from the related Standby From/To dates.'],
+            ['- Use names from Reference Data for Vessel, Rank and Client.'],
             ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
             ['- Maximum 5,000 Past Crew Data rows per workbook.'],
@@ -109,9 +104,9 @@ final class HistoricalCrewImportTemplate
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A3')->getFont()->setBold(true);
         $sheet->getStyle('A6')->getFont()->setBold(true);
-        $sheet->getStyle('A16')->getFont()->setBold(true);
-        $sheet->getStyle('A21')->getFont()->setBold(true);
-        $sheet->getStyle('A34')->getFont()->setBold(true);
+        $sheet->getStyle('A14')->getFont()->setBold(true);
+        $sheet->getStyle('A19')->getFont()->setBold(true);
+        $sheet->getStyle('A30')->getFont()->setBold(true);
         $sheet->getColumnDimension('A')->setWidth(110);
     }
 
@@ -147,16 +142,10 @@ final class HistoricalCrewImportTemplate
             HistoricalCrewImportColumns::CLIENT => '',
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-01-05',
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-01-14',
-            HistoricalCrewImportColumns::SIGN_ON_ACCOMMODATION => 'Not recorded',
-            HistoricalCrewImportColumns::SIGN_ON_HOTEL => '',
-            HistoricalCrewImportColumns::SIGN_ON_ROOM_TYPE => '',
             HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
             HistoricalCrewImportColumns::ONSITE_TO => '',
             HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '',
             HistoricalCrewImportColumns::SIGN_OFF_STANDBY_TO => '',
-            HistoricalCrewImportColumns::SIGN_OFF_ACCOMMODATION => 'Not recorded',
-            HistoricalCrewImportColumns::SIGN_OFF_HOTEL => '',
-            HistoricalCrewImportColumns::SIGN_OFF_ROOM_TYPE => '',
             HistoricalCrewImportColumns::HOME_AVAILABLE_FROM => '',
             HistoricalCrewImportColumns::REMARKS => 'SAMPLE — replace with real past crew data rows before upload',
         ];
@@ -205,13 +194,9 @@ final class HistoricalCrewImportTemplate
         $row += 2;
         $row = $this->writeRankReference($sheet, $row);
         $row += 2;
-        $row = $this->writeClientReference($sheet, $row);
-        $row += 2;
-        $row = $this->writeHotelReference($sheet, $companyId, $row);
-        $row += 2;
-        $this->writeRoomTypeReference($sheet, $companyId, $row);
+        $this->writeClientReference($sheet, $row);
 
-        foreach (range(1, 5) as $column) {
+        foreach (range(1, 4) as $column) {
             $sheet->getColumnDimensionByColumn($column)->setWidth(24);
         }
     }
@@ -316,65 +301,6 @@ final class HistoricalCrewImportTemplate
         foreach (Client::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $client) {
             $this->writeSafeString($sheet, 1, $row, (string) $client->name);
             $this->writeSafeString($sheet, 2, $row, $client->is_active ? 'Active' : 'Inactive');
-            $row++;
-        }
-
-        return $row - 1;
-    }
-
-    private function writeHotelReference(Worksheet $sheet, int $companyId, int $startRow): int
-    {
-        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Hotels');
-        $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
-
-        $headerRow = $startRow + 1;
-        foreach (['Hotel', 'Status'] as $index => $header) {
-            $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
-            $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
-        }
-
-        $row = $headerRow + 1;
-
-        foreach (
-            Hotel::query()
-                ->forCompany($companyId)
-                ->orderByDesc('is_active')
-                ->orderBy('name')
-                ->get(['id', 'name', 'is_active']) as $hotel
-        ) {
-            $this->writeSafeString($sheet, 1, $row, (string) $hotel->name);
-            $this->writeSafeString($sheet, 2, $row, $hotel->is_active ? 'Active' : 'Inactive');
-            $row++;
-        }
-
-        return $row - 1;
-    }
-
-    private function writeRoomTypeReference(Worksheet $sheet, int $companyId, int $startRow): int
-    {
-        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Room Types');
-        $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
-
-        $headerRow = $startRow + 1;
-        foreach (['Room Type', 'Hotel', 'Status'] as $index => $header) {
-            $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
-            $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
-        }
-
-        $row = $headerRow + 1;
-
-        foreach (
-            RoomType::query()
-                ->forCompany($companyId)
-                ->whereNotNull('hotel_id')
-                ->with(['hotel:id,name'])
-                ->orderByDesc('is_active')
-                ->orderBy('name')
-                ->get(['id', 'name', 'hotel_id', 'is_active']) as $roomType
-        ) {
-            $this->writeSafeString($sheet, 1, $row, (string) $roomType->name);
-            $this->writeSafeString($sheet, 2, $row, (string) ($roomType->hotel?->name ?? ''));
-            $this->writeSafeString($sheet, 3, $row, $roomType->is_active ? 'Active' : 'Inactive');
             $row++;
         }
 

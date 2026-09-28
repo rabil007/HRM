@@ -2,17 +2,13 @@
 
 namespace App\Support\CrewMovements\Historical;
 
-use App\Enums\CrewAccommodationStatus;
-use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
-use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\User;
-use App\Support\CrewAccommodation\CrewAccommodationStayIntegrity;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewMovements\SeaServiceSyncService;
@@ -172,6 +168,9 @@ final class HistoricalCrewAssignmentService
     }
 
     /**
+     * Past Crew Data no longer creates CrewAccommodationStay records.
+     * Accommodation is managed separately through normal Crew Operations.
+     *
      * @param  list<CrewAssignmentPhase>  $createdPhases
      * @return list<array{stay_type: string, accommodation_status: string}>
      */
@@ -181,110 +180,7 @@ final class HistoricalCrewAssignmentService
         array $createdPhases,
         ?int $actorId,
     ): array {
-        $created = [];
-
-        $p2a = collect($createdPhases)->first(
-            fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::JoinStandby
-        );
-        $p5 = collect($createdPhases)->first(
-            fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::DemobStandby
-        );
-
-        if ($p2a !== null) {
-            $stay = $this->createStandbyStay(
-                assignment: $assignment,
-                phase: $p2a,
-                stayType: CrewAccommodationStayType::PreJoin,
-                choice: $data->signOnAccommodation,
-                hotelId: $data->signOnHotelId,
-                roomTypeId: $data->signOnRoomTypeId,
-                checkIn: $data->signOnHotelCheckIn ?? $data->signOnStandbyFrom,
-                checkOut: $data->signOnHotelCheckOut ?? $data->signOnStandbyTo,
-                actorId: $actorId,
-            );
-
-            if ($stay !== null) {
-                $created[] = [
-                    'stay_type' => $stay->stay_type->value,
-                    'accommodation_status' => $stay->accommodation_status->value,
-                ];
-            }
-        }
-
-        if ($p5 !== null) {
-            $stay = $this->createStandbyStay(
-                assignment: $assignment,
-                phase: $p5,
-                stayType: CrewAccommodationStayType::PostSignoff,
-                choice: $data->signOffAccommodation,
-                hotelId: $data->signOffHotelId,
-                roomTypeId: $data->signOffRoomTypeId,
-                checkIn: $data->signOffHotelCheckIn ?? $data->signOffStandbyFrom,
-                checkOut: $data->signOffHotelCheckOut ?? $data->signOffStandbyTo,
-                actorId: $actorId,
-            );
-
-            if ($stay !== null) {
-                $created[] = [
-                    'stay_type' => $stay->stay_type->value,
-                    'accommodation_status' => $stay->accommodation_status->value,
-                ];
-            }
-        }
-
-        return $created;
-    }
-
-    private function createStandbyStay(
-        CrewAssignment $assignment,
-        CrewAssignmentPhase $phase,
-        CrewAccommodationStayType $stayType,
-        string $choice,
-        ?int $hotelId,
-        ?int $roomTypeId,
-        mixed $checkIn,
-        mixed $checkOut,
-        ?int $actorId,
-    ): ?CrewAccommodationStay {
-        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED) {
-            return null;
-        }
-
-        $companyId = (int) $assignment->company_id;
-
-        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
-            $stay = CrewAccommodationStay::query()->create([
-                'company_id' => $companyId,
-                'crew_assignment_id' => $assignment->id,
-                'stay_type' => $stayType,
-                'accommodation_status' => CrewAccommodationStatus::NoAccommodation,
-                'started_from_phase_id' => $phase->id,
-                'created_by' => $actorId,
-                'updated_by' => $actorId,
-            ]);
-
-            CrewAccommodationStayIntegrity::assertValid($stay);
-
-            return $stay;
-        }
-
-        $stay = CrewAccommodationStay::query()->create([
-            'company_id' => $companyId,
-            'crew_assignment_id' => $assignment->id,
-            'hotel_id' => $hotelId,
-            'room_type_id' => $roomTypeId,
-            'stay_type' => $stayType,
-            'accommodation_status' => CrewAccommodationStatus::Hotel,
-            'check_in_date' => $checkIn,
-            'check_out_date' => $checkOut,
-            'started_from_phase_id' => $phase->id,
-            'created_by' => $actorId,
-            'updated_by' => $actorId,
-        ]);
-
-        CrewAccommodationStayIntegrity::assertValid($stay);
-
-        return $stay;
+        return [];
     }
 
     /**

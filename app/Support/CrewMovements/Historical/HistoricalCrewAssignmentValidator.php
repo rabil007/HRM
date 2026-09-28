@@ -2,7 +2,6 @@
 
 namespace App\Support\CrewMovements\Historical;
 
-use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Models\Client;
@@ -745,38 +744,6 @@ final class HistoricalCrewAssignmentValidator
      */
     private function accommodationPreviewSummary(HistoricalCrewAssignmentData $data): array
     {
-        $summary = [];
-
-        if ($data->signOnAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL) {
-            $hotelName = $data->signOnHotelId !== null
-                ? (Hotel::query()->find($data->signOnHotelId)?->name ?? 'Hotel')
-                : 'Hotel';
-            $summary[] = [
-                'label' => 'Sign-On Hotel',
-                'detail' => $hotelName,
-            ];
-        } elseif ($data->signOnAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
-            $summary[] = [
-                'label' => 'Sign-On Accommodation',
-                'detail' => CrewAccommodationStatus::NoAccommodation->label(),
-            ];
-        }
-
-        if ($data->signOffAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_HOTEL) {
-            $hotelName = $data->signOffHotelId !== null
-                ? (Hotel::query()->find($data->signOffHotelId)?->name ?? 'Hotel')
-                : 'Hotel';
-            $summary[] = [
-                'label' => 'Sign-Off Hotel',
-                'detail' => $hotelName,
-            ];
-        } elseif ($data->signOffAccommodation === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
-            $summary[] = [
-                'label' => 'Sign-Off Accommodation',
-                'detail' => CrewAccommodationStatus::NoAccommodation->label(),
-            ];
-        }
-
-        return $summary;
+        return [];
     }
 }

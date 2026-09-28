@@ -30,7 +30,6 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
-        $accommodationChoices = HistoricalCrewAssignmentData::accommodationChoices();
 
         return [
             'employee_id' => [
@@ -53,28 +52,24 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             'sign_off_standby_to' => ['nullable', 'date'],
             'home_available_from' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
-            'sign_on_accommodation' => ['nullable', 'string', Rule::in($accommodationChoices)],
-            'sign_on_hotel_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('hotels', 'id')->where('company_id', $companyId),
-            ],
-            'sign_on_room_type_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('room_types', 'id')->where('company_id', $companyId),
-            ],
-            'sign_off_accommodation' => ['nullable', 'string', Rule::in($accommodationChoices)],
-            'sign_off_hotel_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('hotels', 'id')->where('company_id', $companyId),
-            ],
-            'sign_off_room_type_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('room_types', 'id')->where('company_id', $companyId),
-            ],
+            // Accommodation is no longer part of Past Crew Data.
+            'sign_on_accommodation' => ['prohibited'],
+            'sign_on_hotel_id' => ['prohibited'],
+            'sign_on_room_type_id' => ['prohibited'],
+            'sign_on_hotel_check_in' => ['prohibited'],
+            'sign_on_hotel_check_out' => ['prohibited'],
+            'sign_off_accommodation' => ['prohibited'],
+            'sign_off_hotel_id' => ['prohibited'],
+            'sign_off_room_type_id' => ['prohibited'],
+            'sign_off_hotel_check_in' => ['prohibited'],
+            'sign_off_hotel_check_out' => ['prohibited'],
+            'pre_join_accommodation' => ['prohibited'],
+            'pre_join_hotel_id' => ['prohibited'],
+            'pre_join_room_type_id' => ['prohibited'],
+            'post_sign_off_accommodation' => ['prohibited'],
+            'post_signoff_accommodation' => ['prohibited'],
+            'post_sign_off_hotel_id' => ['prohibited'],
+            'post_sign_off_room_type_id' => ['prohibited'],
             // Legacy detailed movement events are no longer accepted.
             'mobilisation_at' => ['prohibited'],
             'mobilisation_start_at' => ['prohibited'],
@@ -123,18 +118,6 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
                 );
             }
         });
-    }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'sign_on_accommodation' => HistoricalCrewAssignmentData::canonicalizeAccommodationInput(
-                $this->input('sign_on_accommodation'),
-            ),
-            'sign_off_accommodation' => HistoricalCrewAssignmentData::canonicalizeAccommodationInput(
-                $this->input('sign_off_accommodation'),
-            ),
-        ]);
     }
 
     public function toData(): HistoricalCrewAssignmentData

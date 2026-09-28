@@ -215,21 +215,6 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                 </div>
             ) : null}
 
-            {(row.summary.accommodation ?? []).length > 0 ? (
-                <div className="space-y-1">
-                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                        Accommodation
-                    </span>
-                    <ul className="space-y-1 text-xs text-muted-foreground">
-                        {row.summary.accommodation?.map((item) => (
-                            <li key={`${item.label}-${item.detail}`}>
-                                {item.label} — {item.detail}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ) : null}
-
             {row.sea_service && (
                 <div className="rounded-lg border border-border/60 bg-card p-3 text-xs">
                     <p className="font-semibold text-foreground">Sea Service</p>

@@ -839,12 +839,6 @@ export interface HistoricalCrewAssignmentFormData {
     sign_off_standby_from?: string;
     sign_off_standby_to?: string;
     home_available_from?: string;
-    sign_on_accommodation?: HistoricalAccommodationChoice;
-    sign_on_hotel_id?: string | number;
-    sign_on_room_type_id?: string | number;
-    sign_off_accommodation?: HistoricalAccommodationChoice;
-    sign_off_hotel_id?: string | number;
-    sign_off_room_type_id?: string | number;
     remarks?: string;
 }
 
@@ -877,13 +871,13 @@ export interface HistoricalFormOptions {
         is_active?: boolean;
         [key: string]: unknown;
     }>;
-    hotels: Array<{
+    hotels?: Array<{
         id: number;
         name: string;
         is_active?: boolean;
         [key: string]: unknown;
     }>;
-    room_types: Array<{
+    room_types?: Array<{
         id: number;
         name: string;
         hotel_id: number | null;

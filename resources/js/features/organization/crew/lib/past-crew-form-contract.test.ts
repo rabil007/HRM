@@ -11,7 +11,7 @@ function readFeature(relativePath: string): string {
 }
 
 describe('Past Crew Data form contract', () => {
-    it('removes legacy detailed phase fields from the Add Past Data dialog', () => {
+    it('removes legacy detailed phase fields and accommodation from the Add Past Data dialog', () => {
         const dialog = readFeature('actions/add-past-data-dialog.tsx');
         const periodFields = readFeature('actions/past-crew-period-fields.tsx');
 
@@ -21,6 +21,8 @@ describe('Past Crew Data form contract', () => {
         assert.doesNotMatch(dialog, /Ready to Join/);
         assert.doesNotMatch(dialog, /Add Historical Assignment/);
         assert.doesNotMatch(dialog, /Crew \/ Assignment Details/);
+        assert.doesNotMatch(dialog, /sign_on_accommodation/);
+        assert.doesNotMatch(dialog, /sign_off_accommodation/);
         assert.match(dialog, /Crew Details/);
         assert.match(dialog, /Save Past Crew Data/);
 
@@ -28,7 +30,9 @@ describe('Past Crew Data form contract', () => {
         assert.match(periodFields, /Onsite \/ On Vessel/);
         assert.match(periodFields, /Sign-Off Standby/);
         assert.match(periodFields, /Home Date/);
-        assert.match(periodFields, /Accommodation/);
+        assert.doesNotMatch(periodFields, /Accommodation/);
+        assert.doesNotMatch(periodFields, /Hotel/);
+        assert.doesNotMatch(periodFields, /Room Type/);
         assert.doesNotMatch(periodFields, /Check-In/);
         assert.doesNotMatch(periodFields, /Check-Out/);
         assert.doesNotMatch(periodFields, /hotel_check_in/);
@@ -38,24 +42,15 @@ describe('Past Crew Data form contract', () => {
         assert.doesNotMatch(periodFields, /Training Start/);
     });
 
-    it('keeps hotel controls behind Accommodation = Hotel on standby only', () => {
+    it('has no accommodation, hotel, or room type controls anywhere in period fields', () => {
         const periodFields = readFeature('actions/past-crew-period-fields.tsx');
 
-        assert.match(periodFields, /choice === 'hotel'/);
-        assert.match(periodFields, /prefix="sign_on"/);
-        assert.match(periodFields, /prefix="sign_off"/);
-        assert.match(periodFields, /Hotel \*/);
-        assert.match(periodFields, /Room Type/);
-        assert.match(periodFields, /room\.hotel_id === Number\(hotelId\)/);
-        assert.doesNotMatch(periodFields, /room\.hotel_id === null/);
-
-        const onsiteSection = periodFields.slice(
-            periodFields.indexOf('title="Onsite / On Vessel"'),
-            periodFields.indexOf('title="Sign-Off Standby"'),
-        );
-
-        assert.doesNotMatch(onsiteSection, /AccommodationFields/);
-        assert.doesNotMatch(onsiteSection, /Accommodation/);
+        assert.doesNotMatch(periodFields, /AccommodationFields/);
+        assert.doesNotMatch(periodFields, /Accommodation/);
+        assert.doesNotMatch(periodFields, /Hotel/);
+        assert.doesNotMatch(periodFields, /Room Type/);
+        assert.doesNotMatch(periodFields, /not_recorded/);
+        assert.doesNotMatch(periodFields, /no_accommodation/);
     });
 
     it('uses simplified Import Past Crew Data wording', () => {

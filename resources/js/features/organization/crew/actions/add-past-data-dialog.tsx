@@ -102,12 +102,6 @@ export function AddPastDataDialog({
         sign_off_standby_from: '',
         sign_off_standby_to: '',
         home_available_from: '',
-        sign_on_accommodation: 'not_recorded',
-        sign_on_hotel_id: '',
-        sign_on_room_type_id: '',
-        sign_off_accommodation: 'not_recorded',
-        sign_off_hotel_id: '',
-        sign_off_room_type_id: '',
         remarks: '',
     });
 
@@ -213,22 +207,6 @@ export function AddPastDataDialog({
             sign_off_standby_from: form.data.sign_off_standby_from || null,
             sign_off_standby_to: form.data.sign_off_standby_to || null,
             home_available_from: form.data.home_available_from || null,
-            sign_on_accommodation:
-                form.data.sign_on_accommodation || 'not_recorded',
-            sign_on_hotel_id: form.data.sign_on_hotel_id
-                ? Number(form.data.sign_on_hotel_id)
-                : null,
-            sign_on_room_type_id: form.data.sign_on_room_type_id
-                ? Number(form.data.sign_on_room_type_id)
-                : null,
-            sign_off_accommodation:
-                form.data.sign_off_accommodation || 'not_recorded',
-            sign_off_hotel_id: form.data.sign_off_hotel_id
-                ? Number(form.data.sign_off_hotel_id)
-                : null,
-            sign_off_room_type_id: form.data.sign_off_room_type_id
-                ? Number(form.data.sign_off_room_type_id)
-                : null,
             remarks: form.data.remarks || null,
         };
 
@@ -810,25 +788,6 @@ export function AddPastDataDialog({
                                             </div>
                                         ))}
                                     </div>
-                                    {(previewData.summary.accommodation ?? [])
-                                        .length > 0 ? (
-                                        <div className="space-y-1 border-t border-border/50 pt-3">
-                                            <h6 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                                                Accommodation
-                                            </h6>
-                                            {previewData.summary.accommodation?.map(
-                                                (item) => (
-                                                    <p
-                                                        key={`${item.label}-${item.detail}`}
-                                                        className="text-xs text-muted-foreground"
-                                                    >
-                                                        {item.label} —{' '}
-                                                        {item.detail}
-                                                    </p>
-                                                ),
-                                            )}
-                                        </div>
-                                    ) : null}
                                 </div>
 
                                 {previewData.sea_service.status !==

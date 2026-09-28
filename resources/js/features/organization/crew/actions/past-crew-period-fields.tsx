@@ -1,12 +1,10 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { inclusivePeriodDays } from '../lib/past-crew-period-days';
 import type {
-    HistoricalAccommodationChoice,
     HistoricalCrewAssignmentFormData,
     HistoricalFormOptions,
 } from '../types';
@@ -21,7 +19,6 @@ function PeriodSection({
     toError,
     onFromChange,
     onToChange,
-    children,
 }: {
     title: string;
     fromId: string;
@@ -32,7 +29,6 @@ function PeriodSection({
     toError?: string;
     onFromChange: (value: string) => void;
     onToChange: (value: string) => void;
-    children?: ReactElement | null;
 }): ReactElement {
     const days = inclusivePeriodDays(fromValue, toValue);
 
@@ -65,131 +61,16 @@ function PeriodSection({
                     <Input value={days} readOnly placeholder="—" />
                 </div>
             </div>
-            {children}
-        </div>
-    );
-}
-
-function AccommodationFields({
-    prefix,
-    form,
-    formOptions,
-}: {
-    prefix: 'sign_on' | 'sign_off';
-    form: InertiaFormProps<HistoricalCrewAssignmentFormData>;
-    formOptions: HistoricalFormOptions;
-}): ReactElement {
-    const choiceKey = `${prefix}_accommodation` as const;
-    const hotelKey = `${prefix}_hotel_id` as const;
-    const roomKey = `${prefix}_room_type_id` as const;
-
-    const choice = (form.data[choiceKey] ??
-        'not_recorded') as HistoricalAccommodationChoice;
-    const hotelId = form.data[hotelKey];
-    const roomTypes = (formOptions.room_types ?? []).filter(
-        (room) =>
-            hotelId !== '' &&
-            hotelId != null &&
-            room.hotel_id === Number(hotelId),
-    );
-
-    const setChoice = (next: HistoricalAccommodationChoice) => {
-        form.setData((prev) => ({
-            ...prev,
-            [choiceKey]: next,
-            ...(next !== 'hotel'
-                ? {
-                      [hotelKey]: '',
-                      [roomKey]: '',
-                  }
-                : {}),
-        }));
-    };
-
-    return (
-        <div className="space-y-3 border-t border-border/60 pt-3">
-            <div className="space-y-1.5">
-                <Label>Accommodation</Label>
-                <AppSelect
-                    value={choice}
-                    onValueChange={(val) =>
-                        setChoice(val as HistoricalAccommodationChoice)
-                    }
-                    placeholder="Accommodation..."
-                >
-                    <AppSelectItem value="not_recorded">
-                        Not recorded
-                    </AppSelectItem>
-                    <AppSelectItem value="no_accommodation">
-                        No accommodation
-                    </AppSelectItem>
-                    <AppSelectItem value="hotel">Hotel</AppSelectItem>
-                </AppSelect>
-                <InputError message={form.errors[choiceKey]} />
-            </div>
-
-            {choice === 'hotel' ? (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                        <Label>Hotel *</Label>
-                        <AppSelect
-                            value={String(form.data[hotelKey] || '')}
-                            onValueChange={(val) =>
-                                form.setData((prev) => ({
-                                    ...prev,
-                                    [hotelKey]: val ? Number(val) : '',
-                                    [roomKey]: '',
-                                }))
-                            }
-                            placeholder="Select hotel..."
-                            searchPlaceholder="Search hotel..."
-                        >
-                            {(formOptions.hotels ?? []).map((hotel) => (
-                                <AppSelectItem
-                                    key={hotel.id}
-                                    value={String(hotel.id)}
-                                >
-                                    {hotel.name}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                        <InputError message={form.errors[hotelKey]} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label>Room Type</Label>
-                        <AppSelect
-                            value={String(form.data[roomKey] || '')}
-                            onValueChange={(val) =>
-                                form.setData(roomKey, val ? Number(val) : '')
-                            }
-                            placeholder="Optional room type..."
-                            searchPlaceholder="Search room type..."
-                        >
-                            <AppSelectItem value="">None</AppSelectItem>
-                            {roomTypes.map((room) => (
-                                <AppSelectItem
-                                    key={room.id}
-                                    value={String(room.id)}
-                                >
-                                    {room.name}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                        <InputError message={form.errors[roomKey]} />
-                    </div>
-                </div>
-            ) : null}
         </div>
     );
 }
 
 export function PastCrewPeriodFields({
     form,
-    formOptions,
     timezoneLabel,
 }: {
     form: InertiaFormProps<HistoricalCrewAssignmentFormData>;
-    formOptions: HistoricalFormOptions;
+    formOptions?: HistoricalFormOptions;
     timezoneLabel: string;
 }): ReactElement {
     return (
@@ -199,9 +80,8 @@ export function PastCrewPeriodFields({
             </div>
             <p className="text-xs text-muted-foreground">
                 Enter known periods only. Leave the current period&apos;s To
-                date empty. Days are calculated automatically. Hotel stay dates
-                use the related Standby From/To. Dates use company timezone (
-                {timezoneLabel}).
+                date empty. Days are calculated automatically. Dates use company
+                timezone ({timezoneLabel}).
             </p>
 
             <PeriodSection
@@ -218,13 +98,7 @@ export function PastCrewPeriodFields({
                 onToChange={(value) =>
                     form.setData('sign_on_standby_to', value)
                 }
-            >
-                <AccommodationFields
-                    prefix="sign_on"
-                    form={form}
-                    formOptions={formOptions}
-                />
-            </PeriodSection>
+            />
 
             <PeriodSection
                 title="Onsite / On Vessel"
@@ -252,13 +126,7 @@ export function PastCrewPeriodFields({
                 onToChange={(value) =>
                     form.setData('sign_off_standby_to', value)
                 }
-            >
-                <AccommodationFields
-                    prefix="sign_off"
-                    form={form}
-                    formOptions={formOptions}
-                />
-            </PeriodSection>
+            />
 
             <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
                 <div className="text-sm font-semibold text-foreground">

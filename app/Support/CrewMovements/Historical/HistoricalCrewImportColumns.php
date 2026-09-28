@@ -63,16 +63,10 @@ final class HistoricalCrewImportColumns
             self::CLIENT,
             self::SIGN_ON_STANDBY_FROM,
             self::SIGN_ON_STANDBY_TO,
-            self::SIGN_ON_ACCOMMODATION,
-            self::SIGN_ON_HOTEL,
-            self::SIGN_ON_ROOM_TYPE,
             self::ONSITE_FROM,
             self::ONSITE_TO,
             self::SIGN_OFF_STANDBY_FROM,
             self::SIGN_OFF_STANDBY_TO,
-            self::SIGN_OFF_ACCOMMODATION,
-            self::SIGN_OFF_HOTEL,
-            self::SIGN_OFF_ROOM_TYPE,
             self::HOME_AVAILABLE_FROM,
             self::REMARKS,
         ];
@@ -91,16 +85,10 @@ final class HistoricalCrewImportColumns
             self::CLIENT => 'Client',
             self::SIGN_ON_STANDBY_FROM => 'Sign-On Standby From',
             self::SIGN_ON_STANDBY_TO => 'Sign-On Standby To',
-            self::SIGN_ON_ACCOMMODATION => 'Sign-On Accommodation',
-            self::SIGN_ON_HOTEL => 'Sign-On Hotel',
-            self::SIGN_ON_ROOM_TYPE => 'Sign-On Room Type',
             self::ONSITE_FROM => 'Onsite From',
             self::ONSITE_TO => 'Onsite To',
             self::SIGN_OFF_STANDBY_FROM => 'Sign-Off Standby From',
             self::SIGN_OFF_STANDBY_TO => 'Sign-Off Standby To',
-            self::SIGN_OFF_ACCOMMODATION => 'Sign-Off Accommodation',
-            self::SIGN_OFF_HOTEL => 'Sign-Off Hotel',
-            self::SIGN_OFF_ROOM_TYPE => 'Sign-Off Room Type',
             self::HOME_AVAILABLE_FROM => 'Home Date',
             self::REMARKS => 'Remarks',
         ];
@@ -256,6 +244,50 @@ final class HistoricalCrewImportColumns
             'onsite days',
             'sign-on standby days',
             'sign-off standby days',
+            // Accommodation and hotel columns removed from Past Crew Data.
+            'sign-on accommodation',
+            'sign_on_accommodation',
+            'sign on accommodation',
+            'sign-on hotel',
+            'sign_on_hotel',
+            'sign on hotel',
+            'sign-on room type',
+            'sign_on_room_type',
+            'sign on room type',
+            'sign-off accommodation',
+            'sign_off_accommodation',
+            'sign off accommodation',
+            'sign-off hotel',
+            'sign_off_hotel',
+            'sign off hotel',
+            'sign-off room type',
+            'sign_off_room_type',
+            'sign off room type',
+            'pre-join accommodation',
+            'pre join accommodation',
+            'pre_join_accommodation',
+            'pre-join hotel',
+            'pre join hotel',
+            'pre_join_hotel',
+            'pre-join room type',
+            'pre join room type',
+            'pre_join_room_type',
+            'post-sign-off accommodation',
+            'post sign-off accommodation',
+            'post_signoff_accommodation',
+            'post_sign_off_accommodation',
+            'post-sign-off hotel',
+            'post sign-off hotel',
+            'post_signoff_hotel',
+            'post_sign_off_hotel',
+            'post-sign-off room type',
+            'post sign-off room type',
+            'post_signoff_room_type',
+            'post_sign_off_room_type',
+            'accommodation',
+            'hotel',
+            'room type',
+            'room_type',
             // Hotel check-in/out were removed from user input; dates derive from standby.
             'pre-join hotel check-in',
             'pre join hotel check-in',
@@ -297,26 +329,6 @@ final class HistoricalCrewImportColumns
         $aliases['home / available from'] = self::HOME_AVAILABLE_FROM;
         $aliases['home available from'] = self::HOME_AVAILABLE_FROM;
         $aliases['home date'] = self::HOME_AVAILABLE_FROM;
-
-        // Friendly aliases for accommodation fields (not outdated check-in/out columns).
-        $aliases['pre-join accommodation'] = self::SIGN_ON_ACCOMMODATION;
-        $aliases['pre join accommodation'] = self::SIGN_ON_ACCOMMODATION;
-        $aliases['pre_join_accommodation'] = self::SIGN_ON_ACCOMMODATION;
-        $aliases['pre-join hotel'] = self::SIGN_ON_HOTEL;
-        $aliases['pre join hotel'] = self::SIGN_ON_HOTEL;
-        $aliases['pre_join_hotel'] = self::SIGN_ON_HOTEL;
-        $aliases['pre-join room type'] = self::SIGN_ON_ROOM_TYPE;
-        $aliases['pre join room type'] = self::SIGN_ON_ROOM_TYPE;
-        $aliases['pre_join_room_type'] = self::SIGN_ON_ROOM_TYPE;
-        $aliases['post-sign-off accommodation'] = self::SIGN_OFF_ACCOMMODATION;
-        $aliases['post sign-off accommodation'] = self::SIGN_OFF_ACCOMMODATION;
-        $aliases['post_signoff_accommodation'] = self::SIGN_OFF_ACCOMMODATION;
-        $aliases['post-sign-off hotel'] = self::SIGN_OFF_HOTEL;
-        $aliases['post sign-off hotel'] = self::SIGN_OFF_HOTEL;
-        $aliases['post_signoff_hotel'] = self::SIGN_OFF_HOTEL;
-        $aliases['post-sign-off room type'] = self::SIGN_OFF_ROOM_TYPE;
-        $aliases['post sign-off room type'] = self::SIGN_OFF_ROOM_TYPE;
-        $aliases['post_signoff_room_type'] = self::SIGN_OFF_ROOM_TYPE;
 
         return $aliases;
     }

@@ -67,23 +67,6 @@ final class HistoricalCrewAssignmentData
         $signOnStandbyTo = self::parseTimestamp($data['sign_on_standby_to'] ?? null, $timezone);
         $signOffStandbyFrom = self::parseTimestamp($data['sign_off_standby_from'] ?? null, $timezone);
         $signOffStandbyTo = self::parseTimestamp($data['sign_off_standby_to'] ?? null, $timezone);
-        $signOnAccommodation = self::normalizeAccommodationChoice($data['sign_on_accommodation'] ?? null);
-        $signOffAccommodation = self::normalizeAccommodationChoice($data['sign_off_accommodation'] ?? null);
-
-        // Hotel stay dates are always derived from the related standby period.
-        // User-facing Past Crew Data no longer accepts independent check-in/out.
-        $signOnHotelCheckIn = $signOnAccommodation === self::ACCOMMODATION_HOTEL
-            ? $signOnStandbyFrom
-            : null;
-        $signOnHotelCheckOut = $signOnAccommodation === self::ACCOMMODATION_HOTEL
-            ? $signOnStandbyTo
-            : null;
-        $signOffHotelCheckIn = $signOffAccommodation === self::ACCOMMODATION_HOTEL
-            ? $signOffStandbyFrom
-            : null;
-        $signOffHotelCheckOut = $signOffAccommodation === self::ACCOMMODATION_HOTEL
-            ? $signOffStandbyTo
-            : null;
 
         return new self(
             companyId: $companyId,
@@ -104,16 +87,16 @@ final class HistoricalCrewAssignmentData
             remarks: isset($data['remarks']) && is_string($data['remarks']) && trim($data['remarks']) !== ''
                 ? trim($data['remarks'])
                 : null,
-            signOnAccommodation: $signOnAccommodation,
-            signOnHotelId: self::nullableInt($data['sign_on_hotel_id'] ?? null),
-            signOnRoomTypeId: self::nullableInt($data['sign_on_room_type_id'] ?? null),
-            signOnHotelCheckIn: $signOnHotelCheckIn,
-            signOnHotelCheckOut: $signOnHotelCheckOut,
-            signOffAccommodation: $signOffAccommodation,
-            signOffHotelId: self::nullableInt($data['sign_off_hotel_id'] ?? null),
-            signOffRoomTypeId: self::nullableInt($data['sign_off_room_type_id'] ?? null),
-            signOffHotelCheckIn: $signOffHotelCheckIn,
-            signOffHotelCheckOut: $signOffHotelCheckOut,
+            signOnAccommodation: self::ACCOMMODATION_NOT_RECORDED,
+            signOnHotelId: null,
+            signOnRoomTypeId: null,
+            signOnHotelCheckIn: null,
+            signOnHotelCheckOut: null,
+            signOffAccommodation: self::ACCOMMODATION_NOT_RECORDED,
+            signOffHotelId: null,
+            signOffRoomTypeId: null,
+            signOffHotelCheckIn: null,
+            signOffHotelCheckOut: null,
             source: $source,
         );
     }

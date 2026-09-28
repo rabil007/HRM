@@ -78,8 +78,12 @@ test('authorized user can download historical import template with required shee
         ->and($headerRow)->toContain('Onsite From')
         ->and($headerRow)->toContain('Sign-Off Standby From')
         ->and($headerRow)->toContain('Home Date')
-        ->and($headerRow)->toContain('Sign-On Accommodation')
-        ->and($headerRow)->toContain('Sign-Off Accommodation')
+        ->and($headerRow)->not->toContain('Sign-On Accommodation')
+        ->and($headerRow)->not->toContain('Sign-Off Accommodation')
+        ->and($headerRow)->not->toContain('Sign-On Hotel')
+        ->and($headerRow)->not->toContain('Sign-Off Hotel')
+        ->and($headerRow)->not->toContain('Sign-On Room Type')
+        ->and($headerRow)->not->toContain('Sign-Off Room Type')
         ->and($headerRow)->not->toContain('Home / Available From')
         ->and($headerRow)->not->toContain('Pre-Join Hotel Check-In')
         ->and($headerRow)->not->toContain('Pre-Join Hotel Check-Out')
@@ -103,7 +107,10 @@ test('authorized user can download historical import template with required shee
 
     expect($instructionText)->toContain('Enter the movement dates you know')
         ->and($instructionText)->toContain('Home Date')
-        ->and($instructionText)->toContain('Hotel stay dates are derived automatically')
+        ->and($instructionText)->not->toContain('Hotel stay dates are derived automatically')
+        ->and($instructionText)->not->toContain('Hotel')
+        ->and($instructionText)->not->toContain('Room Type')
+        ->and($instructionText)->not->toContain('Accommodation')
         ->and($instructionText)->not->toContain('Training End')
         ->and($instructionText)->not->toContain('Travel In')
         ->and($instructionText)->not->toContain('Ready to Join')
@@ -125,10 +132,10 @@ test('authorized user can download historical import template with required shee
         ->and($referenceValues)->toContain($inactiveVessel->name)
         ->and($referenceValues)->toContain($inactiveRank->name)
         ->and($referenceValues)->toContain($inactiveClient->name)
-        ->and($referenceValues)->toContain($inactiveHotel->name)
-        ->and($referenceValues)->toContain($inactiveRoomType->name)
-        ->and($referenceValues)->toContain('Hotels')
-        ->and($referenceValues)->toContain('Room Types')
+        ->and($referenceValues)->not->toContain($inactiveHotel->name)
+        ->and($referenceValues)->not->toContain($inactiveRoomType->name)
+        ->and($referenceValues)->not->toContain('Hotels')
+        ->and($referenceValues)->not->toContain('Room Types')
         ->and($referenceValues)->toContain('Inactive')
         ->and($referenceValues)->toContain('Current Client');
 
@@ -1377,115 +1384,109 @@ test('excel sign-on onsite and open sign-off is ready with P2A P4 P5 timeline', 
         ->and($row['is_open'] ?? false)->toBeTrue();
 });
 
-test('excel not recorded accommodation with hotel populated is blocked', function () {
+test('outdated workbook with sign-on accommodation column is rejected', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $vessel = makeCrewMovementVessel('Excel Not Recorded Hotel Vessel', $company);
+    $vessel = makeCrewMovementVessel('Outdated Acc Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $file = makeHistoricalCrewImportFile([
-        [
-            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
-            HistoricalCrewImportColumns::VESSEL => $vessel->name,
-            HistoricalCrewImportColumns::RANK => $rank->name,
-            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
-            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
-            HistoricalCrewImportColumns::SIGN_ON_ACCOMMODATION => 'Not recorded',
-            HistoricalCrewImportColumns::SIGN_ON_HOTEL => 'City Seasons',
-            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
-            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
-            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
-        ],
-    ]);
+    $spreadsheet = new Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle(HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET);
+    $sheet->setCellValueByColumnAndRow(1, 1, 'Employee No *');
+    $sheet->setCellValueByColumnAndRow(2, 1, 'Vessel *');
+    $sheet->setCellValueByColumnAndRow(3, 1, 'Rank *');
+    $sheet->setCellValueByColumnAndRow(4, 1, 'Onsite From');
+    $sheet->setCellValueByColumnAndRow(5, 1, 'Sign-On Accommodation');
+    $sheet->setCellValueByColumnAndRow(1, 2, '3119');
+    $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-15');
+    $sheet->setCellValueByColumnAndRow(5, 2, 'Hotel');
 
-    $response = $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
-            'file' => $file,
-        ])
-        ->assertOk();
+    $path = tempnam(sys_get_temp_dir(), 'outdated-acc-').'.xlsx';
+    (new Xlsx($spreadsheet))->save($path);
+    $file = new UploadedFile($path, 'outdated-acc.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
-    $row = collect($response->json('rows'))->first();
-    $errors = implode(' ', $row['errors'] ?? []);
-
-    expect($row['status'])->toBe('blocked')
-        ->and($errors)->toContain('Hotel must be empty when Accommodation is Not recorded');
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), ['file' => $file])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file'])
+        ->assertJsonFragment(['file' => [HistoricalCrewImportColumns::OUTDATED_TEMPLATE_MESSAGE]]);
 });
 
-test('excel no accommodation with room type populated is blocked', function () {
+test('outdated workbook with sign-off hotel column is rejected', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $vessel = makeCrewMovementVessel('Excel No Acc Room Vessel', $company);
+    $vessel = makeCrewMovementVessel('Outdated Hotel Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $file = makeHistoricalCrewImportFile([
-        [
-            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
-            HistoricalCrewImportColumns::VESSEL => $vessel->name,
-            HistoricalCrewImportColumns::RANK => $rank->name,
-            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
-            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
-            HistoricalCrewImportColumns::SIGN_ON_ACCOMMODATION => 'No accommodation',
-            HistoricalCrewImportColumns::SIGN_ON_ROOM_TYPE => 'Twin',
-            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
-            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
-            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
-        ],
-    ]);
+    $spreadsheet = new Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle(HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET);
+    $sheet->setCellValueByColumnAndRow(1, 1, 'Employee No *');
+    $sheet->setCellValueByColumnAndRow(2, 1, 'Vessel *');
+    $sheet->setCellValueByColumnAndRow(3, 1, 'Rank *');
+    $sheet->setCellValueByColumnAndRow(4, 1, 'Onsite From');
+    $sheet->setCellValueByColumnAndRow(5, 1, 'Sign-Off Hotel');
+    $sheet->setCellValueByColumnAndRow(1, 2, '3119');
+    $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-15');
+    $sheet->setCellValueByColumnAndRow(5, 2, 'Grand Hotel');
 
-    $response = $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
-            'file' => $file,
-        ])
-        ->assertOk();
+    $path = tempnam(sys_get_temp_dir(), 'outdated-hotel-').'.xlsx';
+    (new Xlsx($spreadsheet))->save($path);
+    $file = new UploadedFile($path, 'outdated-hotel.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
-    $row = collect($response->json('rows'))->first();
-    $errors = implode(' ', $row['errors'] ?? []);
-
-    expect($row['status'])->toBe('blocked')
-        ->and($errors)->toContain('Room type must be empty when Accommodation is No accommodation');
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), ['file' => $file])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file'])
+        ->assertJsonFragment(['file' => [HistoricalCrewImportColumns::OUTDATED_TEMPLATE_MESSAGE]]);
 });
 
-test('excel blank not recorded accommodation remains valid', function () {
+test('outdated workbook with room type column is rejected', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $vessel = makeCrewMovementVessel('Excel Blank Acc Vessel', $company);
+    $vessel = makeCrewMovementVessel('Outdated Room Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $file = makeHistoricalCrewImportFile([
-        [
-            HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
-            HistoricalCrewImportColumns::VESSEL => $vessel->name,
-            HistoricalCrewImportColumns::RANK => $rank->name,
-            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-06-01',
-            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-06-05',
-            HistoricalCrewImportColumns::SIGN_ON_ACCOMMODATION => 'Not recorded',
-            HistoricalCrewImportColumns::ONSITE_FROM => '2024-06-05',
-            HistoricalCrewImportColumns::ONSITE_TO => '2024-06-15',
-            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '2024-06-15',
-        ],
-    ]);
+    $spreadsheet = new Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle(HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET);
+    $sheet->setCellValueByColumnAndRow(1, 1, 'Employee No *');
+    $sheet->setCellValueByColumnAndRow(2, 1, 'Vessel *');
+    $sheet->setCellValueByColumnAndRow(3, 1, 'Rank *');
+    $sheet->setCellValueByColumnAndRow(4, 1, 'Onsite From');
+    $sheet->setCellValueByColumnAndRow(5, 1, 'Sign-On Room Type');
+    $sheet->setCellValueByColumnAndRow(1, 2, '3119');
+    $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-15');
+    $sheet->setCellValueByColumnAndRow(5, 2, 'Deluxe');
 
-    $response = $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
-            'file' => $file,
-        ])
-        ->assertOk();
+    $path = tempnam(sys_get_temp_dir(), 'outdated-room-').'.xlsx';
+    (new Xlsx($spreadsheet))->save($path);
+    $file = new UploadedFile($path, 'outdated-room.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
-    $row = collect($response->json('rows'))->first();
-
-    expect($row['status'])->toBeIn(['ready', 'warning']);
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), ['file' => $file])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file'])
+        ->assertJsonFragment(['file' => [HistoricalCrewImportColumns::OUTDATED_TEMPLATE_MESSAGE]]);
 });
 
 test('outdated workbook with hotel check-in columns is rejected', function () {
@@ -1754,11 +1755,10 @@ test('blank header cells in workbook are ignored and do not fail import', functi
         ->and($response->json('rows.0.status'))->toBe('ready');
 });
 
-test('excel import preview does not surface hotel check-in or check-out errors or wording', function () {
+test('excel import preview and execution do not create crew accommodation stay records', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $vessel = makeCrewMovementVessel('Excel Hotel Wording Vessel', $company);
-    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'City Seasons']);
+    $vessel = makeCrewMovementVessel('Excel No Stay Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.create_historical',
@@ -1770,9 +1770,13 @@ test('excel import preview does not surface hotel check-in or check-out errors o
             'employee_no' => '3119',
             'vessel' => $vessel->name,
             'rank' => $rank->name,
-            HistoricalCrewImportColumns::SIGN_ON_ACCOMMODATION => 'Hotel',
-            HistoricalCrewImportColumns::SIGN_ON_HOTEL => $hotel->name,
-            HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
+            'sign_on_standby_from' => '2024-01-05',
+            'sign_on_standby_to' => '2024-01-15',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-05-15',
+            'sign_off_standby_from' => '2024-05-15',
+            'sign_off_standby_to' => '2024-05-20',
+            'home_available_from' => '2024-05-20',
         ],
     ]);
 
@@ -1783,20 +1787,33 @@ test('excel import preview does not surface hotel check-in or check-out errors o
         ->assertOk();
 
     $row = $response->json('rows.0');
-    expect($row['status'])->toBe('blocked');
+    expect($row['status'])->toBe('ready');
 
-    $errors = $row['errors'];
-    $errorFields = $row['error_fields'];
+    $importFile = makeHistoricalCrewImportFile([
+        [
+            'employee_no' => '3119',
+            'vessel' => $vessel->name,
+            'rank' => $rank->name,
+            'sign_on_standby_from' => '2024-01-05',
+            'sign_on_standby_to' => '2024-01-15',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-05-15',
+            'sign_off_standby_from' => '2024-05-15',
+            'sign_off_standby_to' => '2024-05-20',
+            'home_available_from' => '2024-05-20',
+        ],
+    ]);
 
-    expect(array_keys($errorFields))->not->toContain('sign_on_hotel_check_in')
-        ->and(array_keys($errorFields))->not->toContain('sign_on_hotel_check_out')
-        ->and(array_keys($errorFields))->not->toContain('sign_off_hotel_check_in')
-        ->and(array_keys($errorFields))->not->toContain('sign_off_hotel_check_out');
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => $importFile,
+            'confirmed' => true,
+            'idempotency_key' => historicalImportIdempotencyKey('-no-acc'),
+        ])
+        ->assertOk();
 
-    expect($errorFields['sign_on_accommodation'])->toBe('Sign-On accommodation requires a Sign-On Standby From date.');
-
-    $allErrorText = implode(' ', $errors);
-    expect($allErrorText)->not->toMatch('/check-in|check-out/i');
+    $assignment = CrewAssignment::query()->where('employee_id', $employee->id)->latest('id')->firstOrFail();
+    expect(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 });
 
 test('open past crew data row followed by later past crew data row uses updated terminology', function () {
