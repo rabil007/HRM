@@ -39,26 +39,28 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
 };
 
 export function filterProjectsByClient(
-    projects: ProjectOption[],
+    projects: ProjectOption[] | undefined,
     clientId: string,
 ): ProjectOption[] {
+    const list = projects ?? [];
+
     if (!clientId) {
-        return projects;
+        return list;
     }
 
-    return projects.filter((project) => String(project.client_id) === clientId);
+    return list.filter((project) => String(project.client_id) === clientId);
 }
 
 export function resolveProjectOnClientChange(
     currentProjectId: string,
     nextClientId: string,
-    projects: ProjectOption[],
+    projects: ProjectOption[] | undefined,
 ): string {
     if (nextClientId === '' || currentProjectId === '') {
         return currentProjectId;
     }
 
-    const selectedProject = projects.find(
+    const selectedProject = (projects ?? []).find(
         (project) => String(project.id) === currentProjectId,
     );
 

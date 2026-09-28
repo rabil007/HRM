@@ -385,7 +385,7 @@ export function EmployeesContent({
                                 className="max-h-[min(80vh,520px)] w-80 overflow-y-auto rounded-xl border-border bg-popover p-3 text-popover-foreground shadow-xl dark:border-white/10"
                             >
                                 <DepartmentEmployeeTree
-                                    nodes={department_tree}
+                                    nodes={department_tree ?? []}
                                     selectedDepartmentId={
                                         department_tree_selected_id
                                     }
@@ -753,7 +753,7 @@ export function EmployeesContent({
                     </SheetHeader>
                     <div className="overflow-y-auto p-4">
                         <DepartmentEmployeeTree
-                            nodes={department_tree}
+                            nodes={department_tree ?? []}
                             selectedDepartmentId={department_tree_selected_id}
                             selectedPositionId={
                                 department_tree_selected_position_id

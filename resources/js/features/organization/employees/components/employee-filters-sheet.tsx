@@ -67,36 +67,36 @@ export function EmployeeFiltersSheet({
     value,
     onChange,
     onReset,
-    positions,
-    managers,
-    genders,
-    countries,
-    visaTypes,
-    companyVisaTypes,
-    approvalLocations,
-    sssaOptions,
-    ranks,
-    clients,
-    projects,
-    roles,
+    positions = [],
+    managers = [],
+    genders = [],
+    countries = [],
+    visaTypes = [],
+    companyVisaTypes = [],
+    approvalLocations = [],
+    sssaOptions = [],
+    ranks = [],
+    clients = [],
+    projects = [],
+    roles = [],
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     value: EmployeeFilters;
     onChange: (next: EmployeeFilters) => void;
     onReset: () => void;
-    positions: PositionOption[];
-    managers: ManagerOption[];
-    genders: GenderOption[];
-    countries: CountryOption[];
-    visaTypes: VisaTypeOption[];
-    companyVisaTypes: CompanyVisaTypeOption[];
-    approvalLocations: ApprovalLocationOption[];
-    sssaOptions: SssaOption[];
-    ranks: RankOption[];
-    clients: ClientOption[];
-    projects: ProjectOption[];
-    roles: RoleOption[];
+    positions?: PositionOption[];
+    managers?: ManagerOption[];
+    genders?: GenderOption[];
+    countries?: CountryOption[];
+    visaTypes?: VisaTypeOption[];
+    companyVisaTypes?: CompanyVisaTypeOption[];
+    approvalLocations?: ApprovalLocationOption[];
+    sssaOptions?: SssaOption[];
+    ranks?: RankOption[];
+    clients?: ClientOption[];
+    projects?: ProjectOption[];
+    roles?: RoleOption[];
 }) {
     const selectedApprovalLocationIds = csvIdSet(value.approval_location_id);
     const selectedSssaOptionIds = csvIdSet(value.sssa_option_id);

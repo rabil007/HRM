@@ -22,6 +22,12 @@ describe('employee client-project filter behavior', () => {
         assert.deepEqual(result, mockProjects);
     });
 
+    it('treats missing projects as an empty list', () => {
+        assert.deepEqual(filterProjectsByClient(undefined, ''), []);
+        assert.deepEqual(filterProjectsByClient(undefined, '1'), []);
+        assert.equal(resolveProjectOnClientChange('10', '1', undefined), '');
+    });
+
     it('returns only projects belonging to the selected client', () => {
         const client1Projects = filterProjectsByClient(mockProjects, '1');
 
