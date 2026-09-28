@@ -4,10 +4,7 @@ import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { inclusivePeriodDays } from '../lib/past-crew-period-days';
-import type {
-    HistoricalCrewAssignmentFormData,
-    HistoricalFormOptions,
-} from '../types';
+import type { HistoricalCrewAssignmentFormData } from '../types';
 
 function PeriodSection({
     title,
@@ -70,7 +67,6 @@ export function PastCrewPeriodFields({
     timezoneLabel,
 }: {
     form: InertiaFormProps<HistoricalCrewAssignmentFormData>;
-    formOptions?: HistoricalFormOptions;
     timezoneLabel: string;
 }): ReactElement {
     return (

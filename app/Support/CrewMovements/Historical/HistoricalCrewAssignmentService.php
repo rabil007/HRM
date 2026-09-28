@@ -117,8 +117,6 @@ final class HistoricalCrewAssignmentService
                 $assignment->update(['current_phase_id' => $currentPhaseId]);
             }
 
-            $accommodationCreated = $this->createAccommodationStays($assignment, $data, $createdPhases, $actorId);
-
             $this->guard->assertValid($assignment->fresh(['phases', 'currentPhase']));
 
             $joinedVesselAt = $data->joinedVesselAt();
@@ -155,7 +153,6 @@ final class HistoricalCrewAssignmentService
                     'home_available_from' => $data->homeAvailableFrom?->toDateString(),
                     'inferred_phase' => $reconstruction['inferred_state']['phase_code']->value,
                     'assignment_status' => $reconstruction['assignment_status']->value,
-                    'accommodation_created' => $accommodationCreated,
                     'source' => $data->source,
                 ])
                 ->tap(function ($activity) use ($assignment): void {
@@ -163,24 +160,8 @@ final class HistoricalCrewAssignmentService
                 })
                 ->log('Past crew data saved');
 
-            return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'rank', 'client', 'accommodationStays']);
+            return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'rank', 'client']);
         });
-    }
-
-    /**
-     * Past Crew Data no longer creates CrewAccommodationStay records.
-     * Accommodation is managed separately through normal Crew Operations.
-     *
-     * @param  list<CrewAssignmentPhase>  $createdPhases
-     * @return list<array{stay_type: string, accommodation_status: string}>
-     */
-    private function createAccommodationStays(
-        CrewAssignment $assignment,
-        HistoricalCrewAssignmentData $data,
-        array $createdPhases,
-        ?int $actorId,
-    ): array {
-        return [];
     }
 
     /**

@@ -6,19 +6,18 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Company;
 use App\Models\CrewAccommodationStay;
 use App\Models\Employee;
-use App\Models\Hotel;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CurrentCrewHomeQuery;
-use App\Support\CrewMovements\CurrentCrewQuery;
-use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use App\Support\CrewMovements\CurrentOnboardCrewQuery;
 use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
 use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentService;
+use App\Support\Reports\HotelCheckInCheckoutFilters;
+use App\Support\Reports\HotelCheckInCheckoutQuery;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 
@@ -66,44 +65,36 @@ test('open P4 past crew bootstrap appears in current onboard and vessel manning 
     expect($summary['crew_on_site'])->toBeGreaterThanOrEqual(1);
 });
 
-test('open P2A past crew with pre-join hotel appears in pre-join hotel operational scope', function () {
+test('open P2A past crew bootstrap establishes join standby without creating stay or appearing in pre-join hotel view', function () {
     $fixtures = makePastCrewOperationalFixtures('Past PreJoin Vessel');
-    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Past PreJoin Hotel']);
+    $timezone = CompanyTimezone::forCompanyId((int) $fixtures['company']->id);
 
     $data = HistoricalCrewAssignmentData::fromArray([
         'employee_id' => $fixtures['employee']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'rank_id' => $fixtures['rank']->id,
         'sign_on_standby_from' => '2024-09-20',
-        'sign_on_accommodation' => 'hotel',
-        'sign_on_hotel_id' => $hotel->id,
-        'sign_on_hotel_check_in' => '2024-09-20',
-    ], (int) $fixtures['company']->id, CompanyTimezone::forCompanyId((int) $fixtures['company']->id));
+    ], (int) $fixtures['company']->id, $timezone);
 
     $assignment = app(HistoricalCrewAssignmentService::class)->create($data, (int) $fixtures['user']->id);
-    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
-        ->and($stay->stay_type)->toBe(CrewAccommodationStayType::PreJoin)
-        ->and($stay->check_out_date)->toBeNull();
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 
-    $paginator = CurrentCrewQuery::paginate(
-        (int) $fixtures['company']->id,
-        [],
-        CurrentCrewRequestFilters::VIEW_PRE_JOIN_HOTEL,
+    $hotelQuery = new HotelCheckInCheckoutQuery(
+        companyId: (int) $fixtures['company']->id,
+        filters: new HotelCheckInCheckoutFilters(stayType: CrewAccommodationStayType::PreJoin->value),
+        timezone: $timezone,
     );
 
-    expect($paginator->total())->toBeGreaterThanOrEqual(1)
-        ->and(collect($paginator->items())->pluck('employee_id')->all())->toContain($fixtures['employee']->id);
-
-    $summary = CrewMovementAttentionQuery::summaryCounts((int) $fixtures['company']->id);
-    expect($summary['pre_join_hotel'])->toBeGreaterThanOrEqual(1);
+    $stays = collect($hotelQuery->paginate()->items());
+    expect($stays->pluck('assignment.employee_id')->all())->not->toContain($fixtures['employee']->id);
 });
 
-test('open P5 past crew with post-signoff hotel appears in post-signoff hotel operational scope', function () {
+test('open P5 past crew bootstrap establishes demob standby without creating stay or appearing in post-signoff hotel view', function () {
     $fixtures = makePastCrewOperationalFixtures('Past PostSignoff Vessel');
-    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Past Post Hotel']);
+    $timezone = CompanyTimezone::forCompanyId((int) $fixtures['company']->id);
 
     $data = HistoricalCrewAssignmentData::fromArray([
         'employee_id' => $fixtures['employee']->id,
@@ -112,29 +103,22 @@ test('open P5 past crew with post-signoff hotel appears in post-signoff hotel op
         'onsite_from' => '2024-08-01',
         'onsite_to' => '2024-09-10',
         'sign_off_standby_from' => '2024-09-10',
-        'sign_off_accommodation' => 'hotel',
-        'sign_off_hotel_id' => $hotel->id,
-        'sign_off_hotel_check_in' => '2024-09-10',
-    ], (int) $fixtures['company']->id, CompanyTimezone::forCompanyId((int) $fixtures['company']->id));
+    ], (int) $fixtures['company']->id, $timezone);
 
     $assignment = app(HistoricalCrewAssignmentService::class)->create($data, (int) $fixtures['user']->id);
-    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
-        ->and($stay->stay_type)->toBe(CrewAccommodationStayType::PostSignoff)
-        ->and($stay->check_out_date)->toBeNull();
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 
-    $paginator = CurrentCrewQuery::paginate(
-        (int) $fixtures['company']->id,
-        [],
-        CurrentCrewRequestFilters::VIEW_POST_SIGNOFF_HOTEL,
+    $hotelQuery = new HotelCheckInCheckoutQuery(
+        companyId: (int) $fixtures['company']->id,
+        filters: new HotelCheckInCheckoutFilters(stayType: CrewAccommodationStayType::PostSignoff->value),
+        timezone: $timezone,
     );
 
-    expect(collect($paginator->items())->pluck('employee_id')->all())->toContain($fixtures['employee']->id);
-
-    $summary = CrewMovementAttentionQuery::summaryCounts((int) $fixtures['company']->id);
-    expect($summary['post_signoff_hotel'])->toBeGreaterThanOrEqual(1);
+    $stays = collect($hotelQuery->paginate()->items());
+    expect($stays->pluck('assignment.employee_id')->all())->not->toContain($fixtures['employee']->id);
 });
 
 test('completed past crew home bootstrap feeds in-home status and home query days', function () {

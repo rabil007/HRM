@@ -66,4 +66,20 @@ describe('Past Crew Data form contract', () => {
         assert.doesNotMatch(panel, /Historical Import Validation/);
         assert.doesNotMatch(panel, /historical assignments using Reference/);
     });
+
+    it('does not expose hotels or room types in HistoricalFormOptions', () => {
+        const types = readFeature('types.ts');
+        const optionsBlock = types.slice(
+            types.indexOf('export interface HistoricalFormOptions {'),
+            types.indexOf('export type HistoricalImportRowStatus'),
+        );
+
+        assert.match(optionsBlock, /employees:/);
+        assert.match(optionsBlock, /ranks:/);
+        assert.match(optionsBlock, /vessels:/);
+        assert.match(optionsBlock, /clients:/);
+        assert.match(optionsBlock, /company_timezone:/);
+        assert.doesNotMatch(optionsBlock, /hotels/);
+        assert.doesNotMatch(optionsBlock, /room_types/);
+    });
 });

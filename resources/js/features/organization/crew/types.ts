@@ -871,19 +871,6 @@ export interface HistoricalFormOptions {
         is_active?: boolean;
         [key: string]: unknown;
     }>;
-    hotels?: Array<{
-        id: number;
-        name: string;
-        is_active?: boolean;
-        [key: string]: unknown;
-    }>;
-    room_types?: Array<{
-        id: number;
-        name: string;
-        hotel_id: number | null;
-        is_active?: boolean;
-        [key: string]: unknown;
-    }>;
     company_timezone: string;
 }
 

@@ -8,15 +8,12 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Hotel;
 use App\Models\Rank;
-use App\Models\RoomType;
 use App\Models\User;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
 use Carbon\Carbon;
-use Carbon\CarbonInterface;
 
 final class HistoricalCrewAssignmentValidator
 {
@@ -157,7 +154,6 @@ final class HistoricalCrewAssignmentValidator
         $this->validatePeriodBounds($data, $errors, $datesValid);
         $this->validatePeriodSequence($data, $errors, $datesValid);
         $this->validateOpenCurrentState($data, $errors, $datesValid);
-        $this->validateAccommodation($data, $errors, $warnings);
 
         if ($datesValid && $data->hasAnyMovementPeriod() && empty(array_intersect_key($errors, array_flip([
             'dates',
@@ -395,7 +391,6 @@ final class HistoricalCrewAssignmentValidator
                 'display' => $last['event_label'].' — '.$last['event_at']->copy()->timezone($timezone)->format('d M Y'),
             ];
             $knownPeriods = $reconstruction['known_periods'];
-            $accommodationSummary = $this->accommodationPreviewSummary($data);
         }
 
         $summary = [
@@ -408,7 +403,7 @@ final class HistoricalCrewAssignmentValidator
             'assignment_status' => $reconstruction['assignment_status']->value ?? null,
             'is_open' => $reconstruction['is_open'] ?? null,
             'known_periods' => $knownPeriods,
-            'accommodation' => $accommodationSummary,
+            'accommodation' => [],
         ];
 
         $timeline = [];
@@ -495,16 +490,6 @@ final class HistoricalCrewAssignmentValidator
 
         if ($data->signOnStandbyTo !== null && $data->signOnStandbyFrom === null) {
             // already covered
-        }
-
-        if ($data->signOnAccommodation !== HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED
-            && $data->signOnStandbyFrom === null) {
-            $errors['sign_on_accommodation'] = 'Sign-On accommodation requires a Sign-On Standby From date.';
-        }
-
-        if ($data->signOffAccommodation !== HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED
-            && $data->signOffStandbyFrom === null) {
-            $errors['sign_off_accommodation'] = 'Sign-Off accommodation requires a Sign-Off Standby From date.';
         }
     }
 
@@ -595,155 +580,5 @@ final class HistoricalCrewAssignmentValidator
             $datesValid = false;
             $errors['dates'] = 'Only the latest chronological movement period may remain open.';
         }
-    }
-
-    /**
-     * @param  array<string, string>  $errors
-     * @param  list<string>  $warnings
-     */
-    private function validateAccommodation(HistoricalCrewAssignmentData $data, array &$errors, array &$warnings): void
-    {
-        $this->validateStandbyAccommodation(
-            choice: $data->signOnAccommodation,
-            standbyFrom: $data->signOnStandbyFrom,
-            standbyTo: $data->signOnStandbyTo,
-            hotelId: $data->signOnHotelId,
-            roomTypeId: $data->signOnRoomTypeId,
-            checkIn: $data->signOnHotelCheckIn,
-            checkOut: $data->signOnHotelCheckOut,
-            prefix: 'sign_on',
-            label: 'Sign-On Standby',
-            companyId: $data->companyId,
-            timezone: $data->timezone,
-            errors: $errors,
-            warnings: $warnings,
-        );
-
-        $this->validateStandbyAccommodation(
-            choice: $data->signOffAccommodation,
-            standbyFrom: $data->signOffStandbyFrom,
-            standbyTo: $data->signOffStandbyTo,
-            hotelId: $data->signOffHotelId,
-            roomTypeId: $data->signOffRoomTypeId,
-            checkIn: $data->signOffHotelCheckIn,
-            checkOut: $data->signOffHotelCheckOut,
-            prefix: 'sign_off',
-            label: 'Sign-Off Standby',
-            companyId: $data->companyId,
-            timezone: $data->timezone,
-            errors: $errors,
-            warnings: $warnings,
-        );
-    }
-
-    /**
-     * @param  array<string, string>  $errors
-     * @param  list<string>  $warnings
-     */
-    private function validateStandbyAccommodation(
-        string $choice,
-        ?CarbonInterface $standbyFrom,
-        ?CarbonInterface $standbyTo,
-        ?int $hotelId,
-        ?int $roomTypeId,
-        ?CarbonInterface $checkIn,
-        ?CarbonInterface $checkOut,
-        string $prefix,
-        string $label,
-        int $companyId,
-        string $timezone,
-        array &$errors,
-        array &$warnings,
-    ): void {
-        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NOT_RECORDED) {
-            if ($hotelId !== null || $roomTypeId !== null || $checkIn !== null || $checkOut !== null) {
-                $errors[$prefix.'_accommodation'] = "{$label} hotel fields must be empty when Accommodation is Not recorded.";
-            }
-
-            return;
-        }
-
-        if ($choice === HistoricalCrewAssignmentData::ACCOMMODATION_NO_ACCOMMODATION) {
-            if ($hotelId !== null || $roomTypeId !== null || $checkIn !== null || $checkOut !== null) {
-                $errors[$prefix.'_accommodation'] = "{$label} hotel fields must be empty when Accommodation is No accommodation.";
-            }
-
-            return;
-        }
-
-        if ($hotelId === null) {
-            $errors[$prefix.'_hotel_id'] = 'Hotel is required when Accommodation is Hotel.';
-        } else {
-            $hotel = Hotel::query()
-                ->where('company_id', $companyId)
-                ->whereKey($hotelId)
-                ->first();
-
-            if ($hotel === null) {
-                $errors[$prefix.'_hotel_id'] = 'Hotel must belong to the current company.';
-            } elseif (! $hotel->is_active) {
-                $warnings[] = "{$label} hotel '{$hotel->name}' is currently inactive in master data.";
-            }
-        }
-
-        if ($roomTypeId !== null) {
-            $roomType = RoomType::query()
-                ->where('company_id', $companyId)
-                ->whereKey($roomTypeId)
-                ->first();
-
-            if ($roomType === null) {
-                $errors[$prefix.'_room_type_id'] = 'Room type must belong to the current company.';
-            } elseif ($hotelId === null || $roomType->hotel_id === null || (int) $roomType->hotel_id !== $hotelId) {
-                $errors[$prefix.'_room_type_id'] = 'Room type must belong to the selected hotel.';
-            } elseif (! $roomType->is_active) {
-                $warnings[] = "{$label} room type '{$roomType->name}' is currently inactive in master data.";
-            }
-        }
-
-        $displayPrefix = $prefix === 'sign_on' ? 'Sign-On' : 'Sign-Off';
-
-        $effectiveCheckIn = $checkIn ?? $standbyFrom;
-
-        if ($effectiveCheckIn === null) {
-            $errors[$prefix.'_accommodation'] = "{$displayPrefix} accommodation requires a {$displayPrefix} Standby From date.";
-        }
-
-        $standbyIsOpen = $standbyFrom !== null && $standbyTo === null;
-        $effectiveCheckOut = $checkOut ?? ($standbyIsOpen ? null : $standbyTo);
-
-        if (! $standbyIsOpen && $effectiveCheckOut === null && $standbyFrom !== null) {
-            $errors[$prefix.'_standby_to'] = "{$displayPrefix} Standby To date is required for a closed accommodation stay.";
-        }
-
-        if ($effectiveCheckIn !== null && $effectiveCheckOut !== null && $effectiveCheckOut->lt($effectiveCheckIn)) {
-            $errors[$prefix.'_standby_to'] = "{$displayPrefix} Standby From must not be after To.";
-        }
-
-        if ($standbyFrom !== null && $effectiveCheckIn !== null) {
-            $checkInDate = $effectiveCheckIn->copy()->timezone($timezone)->toDateString();
-            $standbyFromDate = $standbyFrom->copy()->timezone($timezone)->toDateString();
-
-            if ($checkInDate < $standbyFromDate) {
-                $errors[$prefix.'_standby_from'] = "{$displayPrefix} accommodation stay cannot start before {$displayPrefix} Standby From date.";
-            }
-        }
-
-        if ($standbyTo !== null && $effectiveCheckOut !== null) {
-            $checkOutDate = $effectiveCheckOut->copy()->timezone($timezone)->toDateString();
-            $standbyToDate = $standbyTo->copy()->timezone($timezone)->toDateString();
-
-            if ($checkOutDate > $standbyToDate) {
-                $errors[$prefix.'_standby_to'] = "{$displayPrefix} accommodation stay cannot end after {$displayPrefix} Standby To date.";
-            }
-        }
-    }
-
-    /**
-     * @return list<array{label: string, detail: string}>
-     */
-    private function accommodationPreviewSummary(HistoricalCrewAssignmentData $data): array
-    {
-        return [];
     }
 }

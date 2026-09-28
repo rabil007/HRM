@@ -1234,7 +1234,7 @@ What the user sees = What the company timezone means = What the backend stores/i
 
 ## Historical Crew Data Management (Add Past Crew Data)
 
-High-trust maritime operators need to **bootstrap where the employee currently is** and preserve enough known operational history for Crew status, vessel manning, Sea Service, accommodation, movement history, and later Crew payroll timesheet population.
+Past Crew Data reconstructs movement/current state, Sea Service inputs, movement history and payroll-source phases. Accommodation/Hotel history is managed separately by normal Crew Operations.
 
 ### Distinction: Live vs Past Data Workflows
 

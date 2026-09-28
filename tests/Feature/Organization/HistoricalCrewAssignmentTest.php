@@ -1585,24 +1585,8 @@ test('historical form options include inactive vessel rank and client while live
                     && str_contains((string) $inactive['name'], 'Inactive')
                     && ($inactive['is_active'] ?? true) === false;
             })
-            ->where('historical_form_options.hotels', function ($hotels) use ($inactiveHotel, $activeHotel) {
-                $inactive = collect($hotels)->firstWhere('id', $inactiveHotel->id);
-                $active = collect($hotels)->firstWhere('id', $activeHotel->id);
-
-                return $inactive !== null
-                    && $active !== null
-                    && str_contains((string) $inactive['name'], 'Inactive')
-                    && ($inactive['is_active'] ?? true) === false
-                    && ($active['is_active'] ?? false) === true;
-            })
-            ->where('historical_form_options.room_types', function ($roomTypes) use ($inactiveRoomType, $orphanRoomType) {
-                $inactive = collect($roomTypes)->firstWhere('id', $inactiveRoomType->id);
-                $orphan = collect($roomTypes)->firstWhere('id', $orphanRoomType->id);
-
-                return $inactive !== null
-                    && str_contains((string) $inactive['name'], 'Inactive')
-                    && $orphan === null;
-            })
+            ->missing('historical_form_options.hotels')
+            ->missing('historical_form_options.room_types')
             ->where('form_options.vessels', function ($vessels) use ($inactiveVessel, $activeVessel) {
                 $ids = collect($vessels)->pluck('id')->all();
 

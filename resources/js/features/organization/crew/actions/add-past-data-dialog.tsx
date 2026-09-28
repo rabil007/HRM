@@ -555,7 +555,6 @@ export function AddPastDataDialog({
 
                                     <PastCrewPeriodFields
                                         form={form}
-                                        formOptions={formOptions}
                                         timezoneLabel={timezoneLabel}
                                     />
 
