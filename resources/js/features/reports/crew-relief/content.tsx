@@ -1,14 +1,13 @@
 import { Filter, Loader2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ExportMenu } from '@/components/export-menu';
 import type { ExportFormat } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { exportMethod } from '@/routes/organization/reports/crew-relief';
 import { CrewReliefFiltersSheet } from './filters-sheet';
 import { CrewReliefReportTable } from './report-table';
@@ -26,7 +25,7 @@ const PRESETS = [
     { key: 'all', label: 'All Onboard' },
 ];
 
-const CHIP_EXCLUDED = new Set(['per_page', 'search']);
+const CHIP_EXCLUDED = new Set(['per_page', 'search', 'preset']);
 
 function chipValueLabel(
     key: keyof CrewReliefFilters,
@@ -67,12 +66,6 @@ function chipValueLabel(
         return match ? match.label : value;
     }
 
-    if (key === 'preset') {
-        const match = PRESETS.find((p) => p.key === value);
-
-        return match ? match.label : value;
-    }
-
     return value;
 }
 
@@ -84,7 +77,6 @@ const FILTER_LABELS: Partial<Record<keyof CrewReliefFilters, string>> = {
     attention: 'Attention',
     planned_signoff_from: 'Sign-off from',
     planned_signoff_to: 'Sign-off to',
-    preset: 'Preset',
 };
 
 export function CrewReliefContent(props: CrewReliefProps) {
@@ -119,7 +111,10 @@ export function CrewReliefContent(props: CrewReliefProps) {
             ([key, value]) =>
                 !CHIP_EXCLUDED.has(key) &&
                 value !== '' &&
-                !(key === 'preset' && value === 'next_30_days'),
+                value !== null &&
+                value !== undefined &&
+                !(key === 'readiness' && value === 'all') &&
+                !(key === 'attention' && value === 'all'),
         );
     }, [filters]);
 
@@ -127,35 +122,43 @@ export function CrewReliefContent(props: CrewReliefProps) {
         let count = 0;
 
         if (filters.vessel_id) {
-count++;
-}
+            count++;
+        }
 
         if (filters.client_id) {
-count++;
-}
+            count++;
+        }
 
         if (filters.rank_id) {
-count++;
-}
+            count++;
+        }
 
         if (filters.planned_signoff_from) {
-count++;
-}
+            count++;
+        }
 
         if (filters.planned_signoff_to) {
-count++;
-}
+            count++;
+        }
 
         if (filters.readiness && filters.readiness !== 'all') {
-count++;
-}
+            count++;
+        }
 
         if (filters.attention && filters.attention !== 'all') {
-count++;
-}
+            count++;
+        }
 
         return count;
     }, [filters]);
+
+    const hasActiveFilters = useMemo(() => {
+        return (
+            activeChips.length > 0 ||
+            Boolean(filters.search) ||
+            (Boolean(filters.preset) && filters.preset !== 'next_30_days')
+        );
+    }, [activeChips.length, filters.search, filters.preset]);
 
     const exportUrl = (format: ExportFormat): string => {
         const params: Record<string, string> = { format };
@@ -195,188 +198,99 @@ count++;
                     onSelectPreset={applyPreset}
                 />
 
-                {/* Quick Presets Strip */}
-                <div className="flex flex-wrap items-center gap-1.5 border-y border-border/60 py-2.5">
-                    <span className="mr-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                        Quick Views:
-                    </span>
+                {/* Operational Presets */}
+                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border/50 bg-muted/20 p-1">
                     {PRESETS.map((preset) => {
                         const isActive = filters.preset === preset.key;
 
                         return (
-                            <Button
+                            <button
                                 key={preset.key}
                                 type="button"
-                                variant={isActive ? 'default' : 'outline'}
-                                size="sm"
-                                className="h-7 text-xs font-medium"
                                 onClick={() => applyPreset(preset.key)}
+                                className={cn(
+                                    'inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150',
+                                    isActive
+                                        ? 'bg-background font-semibold text-foreground shadow-xs ring-1 ring-border/60'
+                                        : 'text-muted-foreground hover:bg-background/40 hover:text-foreground',
+                                )}
                             >
                                 {preset.label}
-                            </Button>
+                            </button>
                         );
                     })}
                 </div>
 
-                {/* Filters Row */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="w-full sm:w-64">
-                        <SearchBar
-                            value={searchInput}
-                            onChange={changeSearch}
-                            placeholder="Search crew, vessel, rank..."
-                        />
-                    </div>
+                {/* Search & Granular Filters */}
+                <div className="space-y-3">
+                    <SearchBar
+                        className="mb-0"
+                        value={searchInput}
+                        onChange={changeSearch}
+                        placeholder="Search crew name, staff ID, vessel, rank, client, or remarks..."
+                        right={
+                            <div className="flex items-center gap-2">
+                                {isLoading && (
+                                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                                )}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="h-11 rounded-xl px-4 font-medium"
+                                    onClick={() => setSheetOpen(true)}
+                                >
+                                    <Filter className="mr-2 size-4" />
+                                    Filters
+                                    {activeFilterCount > 0 && (
+                                        <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                                            {activeFilterCount}
+                                        </span>
+                                    )}
+                                </Button>
+                                {hasActiveFilters && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="h-11 rounded-xl px-3 text-xs text-muted-foreground hover:text-foreground"
+                                        onClick={clear}
+                                    >
+                                        Clear filters
+                                    </Button>
+                                )}
+                            </div>
+                        }
+                    />
 
-                    <div className="w-36">
-                        <AppSelect
-                            value={filters.vessel_id}
-                            onValueChange={(vessel_id) => apply({ vessel_id })}
-                            placeholder="All vessels"
-                            searchPlaceholder="Search vessel..."
-                        >
-                            <AppSelectItem value="">All vessels</AppSelectItem>
-                            {filterOptions.vessels.map((v) => (
-                                <AppSelectItem key={v.id} value={String(v.id)}>
-                                    {v.name}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                    </div>
-
-                    <div className="w-36">
-                        <AppSelect
-                            value={filters.client_id}
-                            onValueChange={(client_id) => apply({ client_id })}
-                            placeholder="All clients"
-                            searchPlaceholder="Search client..."
-                        >
-                            <AppSelectItem value="">All clients</AppSelectItem>
-                            {filterOptions.clients.map((c) => (
-                                <AppSelectItem key={c.id} value={String(c.id)}>
-                                    {c.name}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                    </div>
-
-                    <div className="w-36">
-                        <AppSelect
-                            value={filters.rank_id}
-                            onValueChange={(rank_id) => apply({ rank_id })}
-                            placeholder="All ranks"
-                            searchPlaceholder="Search rank..."
-                        >
-                            <AppSelectItem value="">All ranks</AppSelectItem>
-                            {filterOptions.ranks.map((r) => (
-                                <AppSelectItem key={r.id} value={String(r.id)}>
-                                    {r.name}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                    </div>
-
-                    <div className="w-36">
-                        <AppSelect
-                            value={filters.readiness}
-                            onValueChange={(readiness) => apply({ readiness })}
-                            placeholder="All readiness"
-                        >
-                            {filterOptions.readiness_options.map((ro) => (
-                                <AppSelectItem key={ro.value} value={ro.value}>
-                                    {ro.label}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                    </div>
-
-                    <div className="w-36">
-                        <AppSelect
-                            value={filters.attention}
-                            onValueChange={(attention) => apply({ attention })}
-                            placeholder="All attention"
-                        >
-                            {filterOptions.attention_options.map((ao) => (
-                                <AppSelectItem key={ao.value} value={ao.value}>
-                                    {ao.label}
-                                </AppSelectItem>
-                            ))}
-                        </AppSelect>
-                    </div>
-
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="relative h-9 gap-1.5"
-                        onClick={() => setSheetOpen(true)}
-                    >
-                        <Filter className="h-3.5 w-3.5" />
-                        <span>Filters</span>
-                        {activeFilterCount > 0 && (
-                            <Badge
-                                variant="secondary"
-                                className="ml-1 h-4 min-w-4 rounded-full px-1 text-[10px]"
-                            >
-                                {activeFilterCount}
-                            </Badge>
-                        )}
-                    </Button>
-
+                    {/* Active Filter Chips */}
                     {activeChips.length > 0 && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={clear}
-                        >
-                            Reset filters
-                        </Button>
-                    )}
-
-                    {isLoading && (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            <span className="text-xs text-muted-foreground">
+                                Active filters:
+                            </span>
+                            {activeChips.map(([key, value]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => apply({ [key]: '' })}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs transition-colors hover:border-primary/50 hover:bg-primary/5"
+                                    aria-label={`Remove ${FILTER_LABELS[key] ?? key} filter`}
+                                >
+                                    <span className="text-muted-foreground">
+                                        {FILTER_LABELS[key] ?? key}:
+                                    </span>
+                                    <span className="font-medium text-foreground">
+                                        {chipValueLabel(
+                                            key,
+                                            String(value),
+                                            filterOptions,
+                                        )}
+                                    </span>
+                                    <X className="size-3 text-muted-foreground hover:text-foreground" />
+                                </button>
+                            ))}
+                        </div>
                     )}
                 </div>
-
-                {/* Active Filter Chips */}
-                {activeChips.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">
-                            Active:
-                        </span>
-                        {activeChips.map(([key, value]) => (
-                            <Badge
-                                key={key}
-                                variant="secondary"
-                                className="gap-1 text-xs font-normal"
-                            >
-                                <span className="text-muted-foreground">
-                                    {FILTER_LABELS[key] ?? key}:
-                                </span>
-                                <span>
-                                    {chipValueLabel(
-                                        key,
-                                        String(value),
-                                        filterOptions,
-                                    )}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        key === 'preset'
-                                            ? applyPreset('next_30_days')
-                                            : apply({ [key]: '' })
-                                    }
-                                    className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
-                    </div>
-                )}
 
                 {/* Table */}
                 <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
