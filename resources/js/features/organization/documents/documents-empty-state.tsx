@@ -53,9 +53,9 @@ function resolveEmptyCopy(
     if (context === 'employee-files') {
         if (expiryFilter === 'all') {
             return {
-                title: 'No documents in this folder.',
+                title: 'No documents yet',
                 description:
-                    'Upload files from the employee profile to see them here.',
+                    'This employee does not have any uploaded documents.',
             };
         }
 
@@ -94,11 +94,15 @@ export function DocumentsEmptyState({
     expiryFilter,
     hasSearch,
     action,
+    title,
+    description,
 }: {
     context: EmptyStateContext;
     expiryFilter: ExpiryFilter;
     hasSearch: boolean;
     action?: ReactNode;
+    title?: string;
+    description?: string;
 }) {
     const copy = resolveEmptyCopy(context, expiryFilter, hasSearch);
     const Icon =
@@ -108,12 +112,14 @@ export function DocumentsEmptyState({
               ? FolderOpen
               : ShieldAlert;
     const showSearchHints = context === 'index-search';
+    const resolvedTitle = title ?? copy.title;
+    const resolvedDescription = description ?? copy.description;
 
     return (
         <EmptyState
-            title={copy.title}
+            title={resolvedTitle}
             description={
-                showSearchHints ? undefined : copy.description || undefined
+                showSearchHints ? undefined : resolvedDescription || undefined
             }
             action={action}
             icon={

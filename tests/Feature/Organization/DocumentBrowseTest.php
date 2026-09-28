@@ -2,7 +2,9 @@
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\EmployeeProfileTemplate;
 use App\Models\User;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -193,6 +195,51 @@ test('employee documents browse inertia page returns files with document type la
             ->where('can.email_templates.0.slug', 'document_share')
             ->where('can.email_templates.0.to_preset', null)
             ->where('can.email_templates.0.cc_preset', null)
+        );
+});
+
+test('employee documents folder page exposes upload permission when granted', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.upload']);
+
+    $this->get("/organization/documents/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/employee')
+            ->where('employee.id', $employee->id)
+            ->where('can.upload', true)
+        );
+});
+
+test('employee documents folder page returns employee document template field configuration', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Custom Document Template',
+        'description' => null,
+        'is_active' => true,
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.upload']);
+
+    $this->get("/organization/documents/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/employee')
+            ->has('template_fields')
+            ->where('template_fields.document_type_id.visible', true)
+            ->where('template_fields.document_type_id.required', true)
         );
 });
 

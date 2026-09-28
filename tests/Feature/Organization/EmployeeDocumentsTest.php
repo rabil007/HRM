@@ -1,8 +1,11 @@
 <?php
 
+use App\Models\Department;
 use App\Models\EmployeeDocument;
+use App\Models\EmployeeProfileTemplate;
 use App\Models\User;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -858,4 +861,152 @@ test('employee profile documents include unified expiry serialization fields', f
         ));
 
     Carbon::setTestNow();
+});
+
+test('bulk upload creates documents strictly belonging to route employee', function () {
+    fakeEmployeeFileDisks();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+
+    $this->post("/organization/employees/{$employee->id}/documents/bulk", [
+        'documents' => [
+            [
+                'document_type_id' => $passportType->id,
+                'title' => 'Passport 1',
+                'file' => UploadedFile::fake()->create('passport-1.pdf', 100, 'application/pdf'),
+            ],
+            [
+                'document_type_id' => $passportType->id,
+                'title' => 'Passport 2',
+                'file' => UploadedFile::fake()->create('passport-2.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertRedirect();
+
+    $docs = EmployeeDocument::query()->where('employee_id', $employee->id)->get();
+    expect($docs)->toHaveCount(2);
+    foreach ($docs as $doc) {
+        expect($doc->employee_id)->toBe($employee->id)
+            ->and($doc->company_id)->toBe($company->id);
+    }
+});
+
+test('users without permission cannot bulk upload documents', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $this->post("/organization/employees/{$employee->id}/documents/bulk", [
+        'documents' => [
+            [
+                'document_type_id' => $passportType->id,
+                'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertForbidden();
+});
+
+test('cross-company employee bulk upload is blocked', function () {
+    fakeEmployeeFileDisks();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $companyA] = makeDocumentFixtures();
+    ['company' => $companyB, 'employee' => $employeeB, 'passportType' => $passportTypeB] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $companyA, ['documents.upload']);
+
+    $this->post("/organization/employees/{$employeeB->id}/documents/bulk", [
+        'documents' => [
+            [
+                'document_type_id' => $passportTypeB->id,
+                'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertForbidden();
+});
+
+test('employee bulk upload enforces employee visibility scope', function () {
+    fakeEmployeeFileDisks();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $otherDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Restricted Dept',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+    restrictUserToDepartments($user, $company, [$otherDept->id]);
+
+    $this->post("/organization/employees/{$employee->id}/documents/bulk", [
+        'documents' => [
+            [
+                'document_type_id' => $passportType->id,
+                'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertNotFound();
+});
+
+test('bulk upload enforces employee document profile-template required rules', function () {
+    fakeEmployeeFileDisks();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $config = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $config['fields']['employee_documents']['document_number']['required'] = true;
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Strict Document Requirements',
+        'description' => null,
+        'is_active' => true,
+        'configuration_json' => $config,
+    ]);
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+
+    // Fails when required document_number is missing
+    $this->post("/organization/employees/{$employee->id}/documents/bulk", [
+        'documents' => [
+            [
+                'document_type_id' => $passportType->id,
+                'title' => 'Passport Without Number',
+                'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertSessionHasErrors('documents.0.document_number');
+
+    // Succeeds when required document_number is supplied
+    $this->post("/organization/employees/{$employee->id}/documents/bulk", [
+        'documents' => [
+            [
+                'document_type_id' => $passportType->id,
+                'title' => 'Passport With Number',
+                'document_number' => 'DOC-REQ-123',
+                'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('employee_documents', [
+        'employee_id' => $employee->id,
+        'document_number' => 'DOC-REQ-123',
+    ]);
 });

@@ -7,6 +7,7 @@ import {
     Loader2,
     Mail,
     MessageCircle,
+    Plus,
     Send,
     Trash2,
 } from 'lucide-react';
@@ -33,6 +34,7 @@ import { EmployeeDocumentMobileCard } from '@/features/organization/documents/em
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
+import { resolveEmployeeFolderUploadConfig } from '@/features/organization/documents/lib/employee-folder-upload';
 import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge/types';
 
 const PdfMergeModal = lazy(() =>
@@ -65,6 +67,8 @@ import type { WhatsAppTemplateOption } from '@/features/organization/documents/w
 import { buildListExportUrl } from '@/lib/build-list-export-url';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
+import { UploadDocumentDialog } from '@/pages/organization/_components/documents/upload-dialog';
+import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
 import documentRoutes from '@/routes/organization/documents';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
 import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
@@ -76,6 +80,7 @@ type Props = {
     summary: DocumentExpirySummary;
     countries: PhoneCountryOption[];
     document_types: DocumentTypeOption[];
+    template_fields?: Record<string, TemplateFieldConfig> | null;
     can: {
         download: boolean;
         share: boolean;
@@ -93,6 +98,7 @@ export default function EmployeeDocumentsBrowse({
     summary,
     countries,
     document_types,
+    template_fields = null,
     can,
 }: Props) {
     const { company_switcher_companies, current_company_id } = usePage()
@@ -116,6 +122,7 @@ export default function EmployeeDocumentsBrowse({
     const defaultWhatsappTemplate =
         resolveDefaultWhatsAppTemplate(whatsappTemplates);
 
+    const [uploadOpen, setUploadOpen] = useState(false);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
         null,
@@ -141,6 +148,11 @@ export default function EmployeeDocumentsBrowse({
         name: string;
         document_type: string;
     } | null>(null);
+
+    const uploadConfig = useMemo(
+        () => resolveEmployeeFolderUploadConfig(employee, canUploadDocuments),
+        [employee, canUploadDocuments],
+    );
 
     const filteredDocuments = useMemo(() => {
         const byExpiry = filterDocumentsByExpiry(allDocuments, expiryFilter);
@@ -318,12 +330,28 @@ export default function EmployeeDocumentsBrowse({
         <Main>
             <Head title={`${employee.name} — Documents`} />
 
-            <DocumentsBreadcrumbs
-                items={[
-                    { title: 'Documents', href: documentRoutes.library.url() },
-                    { title: employee.name },
-                ]}
-            />
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <DocumentsBreadcrumbs
+                    className="mb-0"
+                    items={[
+                        {
+                            title: 'Documents',
+                            href: documentRoutes.library.url(),
+                        },
+                        { title: employee.name },
+                    ]}
+                />
+                {uploadConfig.canShowAddDocument ? (
+                    <Button
+                        type="button"
+                        onClick={() => setUploadOpen(true)}
+                        className="h-9 gap-1.5"
+                    >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Document</span>
+                    </Button>
+                ) : null}
+            </div>
 
             <DocumentsSummaryCards
                 summary={summary}
@@ -492,6 +520,12 @@ export default function EmployeeDocumentsBrowse({
                     context="employee-files"
                     expiryFilter="all"
                     hasSearch={false}
+                    title="No documents yet"
+                    description={
+                        canUploadDocuments
+                            ? 'This employee does not have any uploaded documents. Use Add Document to upload the first file.'
+                            : 'This employee does not have any uploaded documents.'
+                    }
                     action={
                         <Button
                             variant="outline"
@@ -723,6 +757,14 @@ export default function EmployeeDocumentsBrowse({
                 </Suspense>
             ) : null}
 
+            <UploadDocumentDialog
+                open={uploadOpen}
+                onOpenChange={setUploadOpen}
+                documentTypes={document_types}
+                templateFields={template_fields}
+                {...uploadConfig.dialogProps}
+            />
+
             <DocumentManagementDialogs
                 employeeId={employee.id}
                 editDoc={editDoc}
@@ -732,6 +774,7 @@ export default function EmployeeDocumentsBrowse({
                 deleteDocId={deleteDocId}
                 onDeleteDocIdChange={setDeleteDocId}
                 documentTypes={document_types}
+                templateFields={template_fields}
             />
         </Main>
     );

@@ -45,6 +45,7 @@ const DOCUMENTS_RELOAD = {
 export type EmployeeDocumentsTabProps = {
     employee: Pick<EmployeeDetails, 'id' | 'name'> & {
         id: number | null;
+        employee_no?: string | null;
     };
     documents: DocumentProfileItem[];
     document_types: DocumentTypeOption[];
@@ -422,6 +423,7 @@ export function EmployeeDocumentsTab({
                 onOpenChange={setUploadOpen}
                 employeeId={employeeId}
                 employeeName={employee.name}
+                employeeNo={employee.employee_no}
                 documentTypes={document_types}
                 ensureEmployee={ensureEmployee}
                 templateFields={templateFields}

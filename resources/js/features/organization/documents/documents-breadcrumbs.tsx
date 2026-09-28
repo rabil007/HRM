@@ -9,6 +9,7 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { cn } from '@/lib/utils';
 
 export type DocumentsBreadcrumbItem = {
     title: string;
@@ -17,15 +18,17 @@ export type DocumentsBreadcrumbItem = {
 
 export function DocumentsBreadcrumbs({
     items,
+    className,
 }: {
     items: DocumentsBreadcrumbItem[];
+    className?: string;
 }) {
     if (items.length === 0) {
         return null;
     }
 
     return (
-        <Breadcrumb className="mb-5">
+        <Breadcrumb className={cn('mb-5', className)}>
             <BreadcrumbList>
                 <BreadcrumbItem>
                     <Folder

@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeFormOptions;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,9 +18,12 @@ class EmployeeDocumentsBrowseController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
+        DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404, $request->user());
+
+        $employee->loadMissing('employeeProfileTemplate:id,name,configuration_json');
 
         $result = $browse->documentsForEmployee($companyId, $employee);
+        $resolved = EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate);
 
         return Inertia::render('organization/documents/employee', [
             'employee' => $result['employee'],
@@ -27,6 +31,7 @@ class EmployeeDocumentsBrowseController extends Controller
             'summary' => $browse->expirySummary($companyId, $employee->id),
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'document_types' => EmployeeFormOptions::documentTypes(),
+            'template_fields' => $resolved['fields']['employee_documents'] ?? null,
             'can' => DocumentPagePermissions::for($request->user()),
         ]);
     }

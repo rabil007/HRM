@@ -12,6 +12,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { resolveUploadDialogHeading } from '@/features/organization/documents/lib/employee-folder-upload';
 import type { DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import {
     isSupportedUploadFile,
@@ -73,6 +74,7 @@ export function UploadDocumentDialog({
     onOpenChange,
     employeeId,
     employeeName,
+    employeeNo,
     documentTypes,
     ensureEmployee,
     templateFields = null,
@@ -84,6 +86,7 @@ export function UploadDocumentDialog({
     onOpenChange: (open: boolean) => void;
     employeeId: number | null;
     employeeName: string;
+    employeeNo?: string | null;
     documentTypes: DocumentTypeOption[];
     ensureEmployee?: () => Promise<number>;
     templateFields?: Record<string, TemplateFieldConfig> | null;
@@ -496,20 +499,23 @@ export function UploadDocumentDialog({
                                   : null
                         }
                     />
-                    <DialogHeader>
-                        <DialogTitle>
-                            {allowEmployeeSelection
-                                ? 'Add Document to Library'
-                                : 'Upload Employee Documents'}
-                        </DialogTitle>
-                        <p className="text-sm text-muted-foreground">
-                            {allowEmployeeSelection
-                                ? selectedEmployee
-                                    ? `Uploading documents for ${selectedEmployee.name}${selectedEmployee.employee_no ? ` (#${selectedEmployee.employee_no})` : ''}. Select a file on the left, then enter its details on the right.`
-                                    : 'Select an active employee, then add and configure files to upload to their document profile.'
-                                : `Add one or many files for ${employeeName}. Select a file on the left, then enter its details on the right.`}
-                        </p>
-                    </DialogHeader>
+                    {(() => {
+                        const heading = resolveUploadDialogHeading({
+                            allowEmployeeSelection,
+                            selectedEmployee,
+                            employeeName,
+                            employeeNo,
+                        });
+
+                        return (
+                            <DialogHeader>
+                                <DialogTitle>{heading.title}</DialogTitle>
+                                <p className="text-sm text-muted-foreground">
+                                    {heading.description}
+                                </p>
+                            </DialogHeader>
+                        );
+                    })()}
 
                     {allowEmployeeSelection ? (
                         <div className="pt-2">

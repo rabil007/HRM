@@ -1152,6 +1152,8 @@ function EmployeeDetailsPage({
                                             employee={{
                                                 id: localEmployee.id as number,
                                                 name: localEmployee.name,
+                                                employee_no:
+                                                    localEmployee.employee_no,
                                             }}
                                             documents={documents ?? []}
                                             document_types={
