@@ -82,6 +82,7 @@ use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
+use App\Http\Controllers\Organization\CrewReliefReportController;
 use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
@@ -589,6 +590,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/reports/crew-movement-history/export', [CrewMovementHistoryController::class, 'export'])
         ->middleware('can:reports.crew_movement_history.export')
         ->name('organization.reports.crew-movement-history.export');
+
+    Route::get('organization/reports/crew-relief', [CrewReliefReportController::class, 'index'])
+        ->middleware('can:reports.crew_relief.view')
+        ->name('organization.reports.crew-relief.index');
+    Route::get('organization/reports/crew-relief/export', [CrewReliefReportController::class, 'export'])
+        ->middleware('can:reports.crew_relief.export')
+        ->name('organization.reports.crew-relief.export');
 
     Route::get('organization/reports/hotel-checkin-checkout', [HotelCheckInCheckoutReportController::class, 'index'])
         ->middleware('can:reports.hotel_checkin_checkout.view')

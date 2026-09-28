@@ -37,6 +37,7 @@ import {
     Hotel,
     ListTodo,
     ScrollText,
+    UserCheck,
 } from 'lucide-react';
 import { isSidebarUrlVisible, NO_PLATFORM_ACCESS } from '@/lib/nav-visibility';
 import type { NavPlatformAccess } from '@/lib/nav-visibility';
@@ -61,6 +62,7 @@ import {
     configuration as documentsConfiguration,
 } from '@/routes/organization/documents';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
+import { index as crewReliefReport } from '@/routes/organization/reports/crew-relief';
 import { index as hotelCheckInCheckout } from '@/routes/organization/reports/hotel-checkin-checkout';
 import { index as leaveReport } from '@/routes/organization/reports/leave';
 import type { SidebarData } from '../types';
@@ -240,6 +242,11 @@ const baseSidebarData: SidebarData = {
                     title: 'Crew Movement History',
                     url: crewMovementHistory.url(),
                     icon: BarChart3,
+                },
+                {
+                    title: 'Relief Report',
+                    url: crewReliefReport.url(),
+                    icon: UserCheck,
                 },
                 {
                     title: 'Hotel Stays',
