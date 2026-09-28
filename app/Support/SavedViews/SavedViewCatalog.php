@@ -11,7 +11,6 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SavedViewPage;
 use App\Models\ApprovalLocation;
-use App\Models\Branch;
 use App\Models\Client;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
@@ -28,7 +27,6 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VisaType;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
-use App\Support\Employees\EmployeeCrewStatusFilter;
 use App\Support\Employees\EmployeeDirectoryCompleteness;
 use App\Support\Employees\EmployeeSmartSearchResolver;
 use DateTimeImmutable;
@@ -163,7 +161,6 @@ final class SavedViewCatalog
             SavedViewPage::Employees => [
                 'search' => ['type' => 'search'],
                 'status' => ['type' => 'enum', 'values' => EmployeeSmartSearchResolver::STATUSES],
-                'branch_id' => ['type' => 'id', 'model' => Branch::class, 'company' => true],
                 'department_id' => ['type' => 'id', 'model' => Department::class, 'company' => true],
                 'position_id' => ['type' => 'id', 'model' => Position::class, 'company' => true],
                 'manager_id' => ['type' => 'id', 'model' => Employee::class, 'company' => true],
@@ -176,7 +173,6 @@ final class SavedViewCatalog
                 'project_id' => ['type' => 'id', 'model' => Project::class, 'company' => false],
                 'approval_location_id' => ['type' => 'id', 'model' => ApprovalLocation::class, 'company' => false],
                 'sssa_option_id' => ['type' => 'id', 'model' => SssaOption::class, 'company' => false],
-                'crew_status' => ['type' => 'enum', 'values' => array_keys(EmployeeCrewStatusFilter::options())],
                 'role_id' => ['type' => 'id', 'model' => Role::class, 'company' => true],
                 EmployeeDirectoryCompleteness::MISSING_QUERY_KEY => ['type' => 'completeness'],
                 EmployeeDirectoryCompleteness::PRESENT_QUERY_KEY => ['type' => 'completeness'],
@@ -271,6 +267,8 @@ final class SavedViewCatalog
      */
     private static function migrateLegacyEmployeeFilters(array $raw, bool $rejectInvalid): array
     {
+        unset($raw['branch_id'], $raw['crew_status']);
+
         if (! array_key_exists('emirates_id_presence', $raw)) {
             return $raw;
         }

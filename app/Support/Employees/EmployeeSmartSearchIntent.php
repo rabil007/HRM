@@ -50,16 +50,20 @@ final class EmployeeSmartSearchIntent
         $criteria = [];
 
         foreach ($value as $item) {
-            $criteria[] = self::criterion($item);
+            $criterion = self::criterion($item);
+
+            if ($criterion !== null) {
+                $criteria[] = $criterion;
+            }
         }
 
         return self::deduplicate($criteria);
     }
 
     /**
-     * @return array{concept: string, operator: string, value: string|null}
+     * @return array{concept: string, operator: string, value: string|null}|null
      */
-    private static function criterion(mixed $item): array
+    private static function criterion(mixed $item): ?array
     {
         if (! is_array($item) || $item === [] || array_is_list($item)) {
             throw EmployeeSmartSearchUnavailableException::providerFailed();
@@ -74,6 +78,10 @@ final class EmployeeSmartSearchIntent
         $concept = self::requiredToken($item['concept']);
         $operator = self::requiredToken($item['operator']);
         $value = self::nullableString($item['value']);
+
+        if ($concept === 'crew_status' || ($concept === 'branch' && $operator === EmployeeSmartSearchConceptRegistry::OPERATOR_EQUALS)) {
+            return null;
+        }
 
         if (! EmployeeSmartSearchConceptRegistry::has($concept)
             || ! EmployeeSmartSearchConceptRegistry::allows($concept, $operator)) {

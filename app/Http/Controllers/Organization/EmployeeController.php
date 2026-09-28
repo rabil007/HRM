@@ -74,7 +74,7 @@ class EmployeeController extends Controller
                 ]),
             )
             ->paginate($perPage)
-            ->withQueryString();
+            ->appends($directoryFilters->toQueryArray());
 
         $pageEmployees = $paginator->getCollection();
         $crewStatusByEmployeeId = [];
@@ -104,7 +104,6 @@ class EmployeeController extends Controller
             'pagination' => $this->paginationMeta($paginator),
             'search' => $directoryFilters->search,
             'filters' => $directoryFilters->toInertiaFilters(),
-            'branches' => fn () => $formOptions()['branches'],
             'departments' => fn () => $formOptions()['departments'],
             'positions' => fn () => $formOptions()['positions'],
             'managers' => fn () => EmployeeFormOptions::departmentManagersForFilter($companyId, request()->user()),

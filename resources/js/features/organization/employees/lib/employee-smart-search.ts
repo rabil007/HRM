@@ -1,6 +1,5 @@
 export const SMART_SEARCH_FILTER_KEYS = [
     'status',
-    'branch_id',
     'department_id',
     'position_id',
     'nationality_id',
@@ -11,7 +10,6 @@ export const SMART_SEARCH_FILTER_KEYS = [
     'role_id',
     'approval_location_id',
     'sssa_option_id',
-    'crew_status',
     'missing_fields',
     'present_fields',
 ] as const;
@@ -96,7 +94,6 @@ export const COMPLETENESS_LABELS: Record<string, string> = {
 
 export const SMART_SEARCH_LABEL_TITLES: Record<string, string> = {
     status: 'HR status',
-    branch: 'Branch',
     department: 'Department',
     position: 'Position',
     nationality: 'Nationality',
@@ -107,7 +104,6 @@ export const SMART_SEARCH_LABEL_TITLES: Record<string, string> = {
     role: 'Role',
     approval_location: 'Approval location',
     sssa_option: 'SSSA option',
-    crew_status: 'Crew status',
     ...COMPLETENESS_LABELS,
 };
 
@@ -701,7 +697,6 @@ function appliedKeyToFilterKey(key: string): SmartSearchFilterKey | null {
 
     const mapped: Record<string, SmartSearchFilterKey> = {
         status: 'status',
-        branch: 'branch_id',
         department: 'department_id',
         position: 'position_id',
         nationality: 'nationality_id',
@@ -712,7 +707,6 @@ function appliedKeyToFilterKey(key: string): SmartSearchFilterKey | null {
         role: 'role_id',
         approval_location: 'approval_location_id',
         sssa_option: 'sssa_option_id',
-        crew_status: 'crew_status',
     };
 
     return mapped[concept] ?? null;

@@ -3,7 +3,6 @@
 namespace App\Support\Employees;
 
 use App\Models\ApprovalLocation;
-use App\Models\Branch;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Department;
@@ -102,12 +101,6 @@ final class EmployeeSmartSearchResolver
 
             if ($concept === 'status') {
                 $this->resolveStatus($value, $filters, $applied, $unresolved);
-
-                continue;
-            }
-
-            if ($concept === 'crew_status') {
-                $this->resolveCrewStatus($value, $filters, $applied, $unresolved);
 
                 continue;
             }
@@ -308,58 +301,6 @@ final class EmployeeSmartSearchResolver
     }
 
     /**
-     * @param  array<string, string>  $filters
-     * @param  list<array{key: string, label: string, value: string}>  $applied
-     * @param  list<array{field: string, term: string, reason: string}>  $unresolved
-     */
-    private function resolveCrewStatus(?string $term, array &$filters, array &$applied, array &$unresolved): void
-    {
-        if ($term === null) {
-            $unresolved[] = [
-                'field' => 'crew_status',
-                'term' => '',
-                'reason' => 'not_found',
-            ];
-
-            return;
-        }
-
-        $options = EmployeeCrewStatusFilter::selectableOptions();
-        $normalized = $this->normalize($term);
-        $aliases = EmployeeSmartSearchConceptRegistry::definition('crew_status')['aliases'] ?? [];
-        $aliasTargets = $aliases[$normalized] ?? [];
-        $matches = [];
-
-        foreach ($options as $value => $label) {
-            if (
-                $this->normalize($value) === $normalized
-                || $this->normalize($label) === $normalized
-                || in_array($value, $aliasTargets, true)
-            ) {
-                $matches[$value] = $label;
-            }
-        }
-
-        if (count($matches) === 1) {
-            $value = (string) array_key_first($matches);
-            $filters['crew_status'] = $value;
-            $applied[] = $this->appliedItem(
-                'crew_status',
-                EmployeeSmartSearchConceptRegistry::OPERATOR_EQUALS,
-                $matches[$value],
-            );
-
-            return;
-        }
-
-        $unresolved[] = [
-            'field' => 'crew_status',
-            'term' => $term,
-            'reason' => $matches === [] ? 'not_found' : 'ambiguous',
-        ];
-    }
-
-    /**
      * @param  list<array{id: int, label: string, codes: list<string>}>  $candidates
      * @param  array<string, string>  $filters
      * @param  list<array{key: string, label: string, value: string}>  $applied
@@ -459,7 +400,6 @@ final class EmployeeSmartSearchResolver
             'position' => $this->positions($companyId, $departmentId),
             'nationality' => $this->countries(),
             'rank' => $this->ranks(),
-            'branch' => $this->branches($companyId),
             'gender' => $this->genders(),
             'visa_type' => $this->visaTypes(),
             'sponsor' => $this->companyVisaTypes(),
@@ -538,23 +478,6 @@ final class EmployeeSmartSearchResolver
                 'id' => (int) $rank->id,
                 'label' => (string) $rank->name,
                 'codes' => [],
-            ])
-            ->all();
-    }
-
-    /**
-     * @return list<array{id: int, label: string, codes: list<string>}>
-     */
-    private function branches(int $companyId): array
-    {
-        return Branch::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->get(['id', 'name', 'code'])
-            ->map(fn (Branch $branch): array => [
-                'id' => (int) $branch->id,
-                'label' => (string) $branch->name,
-                'codes' => array_values(array_filter([(string) $branch->code])),
             ])
             ->all();
     }

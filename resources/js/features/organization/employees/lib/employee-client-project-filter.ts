@@ -1,7 +1,6 @@
 import type { ProjectOption } from '../types';
 
 export type EmployeeFilters = {
-    branch_id: string;
     department_id: string;
     position_id: string;
     status: string;
@@ -15,14 +14,12 @@ export type EmployeeFilters = {
     project_id: string;
     approval_location_id: string;
     sssa_option_id: string;
-    crew_status: string;
     role_id: string;
     missing_fields: string;
     present_fields: string;
 };
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
-    branch_id: '',
     department_id: '',
     position_id: '',
     status: '',
@@ -36,7 +33,6 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     project_id: '',
     approval_location_id: '',
     sssa_option_id: '',
-    crew_status: '',
     role_id: '',
     missing_fields: '',
     present_fields: '',

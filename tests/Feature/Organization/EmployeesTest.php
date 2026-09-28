@@ -3478,7 +3478,7 @@ test('employee show navigation orders by name not id', function () {
             ->where('employee_navigation.next_id', null));
 });
 
-test('employee show navigation respects branch filter', function () {
+test('employee show navigation ignores obsolete branch filter', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -3523,11 +3523,13 @@ test('employee show navigation respects branch filter', function () {
 
     $onlyOfficeEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'BF001',
+        'name' => 'Alice Office',
         'branch_id' => $officeBranch->id,
     ]);
 
-    Employee::factory()->forCompany($company)->create([
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'BF002',
+        'name' => 'Bob Remote',
         'branch_id' => $otherBranch->id,
     ]);
 
@@ -3540,10 +3542,10 @@ test('employee show navigation respects branch filter', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('employee_navigation.position', 1)
-            ->where('employee_navigation.total', 1)
+            ->where('employee_navigation.total', 2)
             ->where('employee_navigation.previous_id', null)
-            ->where('employee_navigation.next_id', null)
-            ->where('employee_navigation.list_query.branch_id', (string) $officeBranch->id));
+            ->where('employee_navigation.next_id', $otherEmployee->id)
+            ->missing('employee_navigation.list_query.branch_id'));
 });
 
 test('employee profile save keeps directory filters on navigation', function () {
@@ -3657,28 +3659,40 @@ test('employee show navigation is hidden when employee is outside filtered set',
         'status' => 'active',
     ]);
 
-    $officeBranch = Branch::query()->create([
+    $department = Department::query()->create([
         'company_id' => $company->id,
-        'name' => 'Office',
-        'code' => 'OFF2',
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'status' => 'active',
+    ]);
+    $officePosition = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $department->id,
+        'title' => 'Office Lead',
+        'status' => 'active',
+    ]);
+    $otherPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $department->id,
+        'title' => 'Remote Lead',
         'status' => 'active',
     ]);
 
     $remoteEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'EX001',
-        'branch_id' => null,
+        'position_id' => $otherPosition->id,
     ]);
 
     Employee::factory()->forCompany($company)->create([
         'employee_no' => 'EX002',
-        'branch_id' => $officeBranch->id,
+        'position_id' => $officePosition->id,
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
     $this->get(route('organization.employees.show', [
         'employee' => $remoteEmployee,
-        'branch_id' => $officeBranch->id,
+        'position_id' => $officePosition->id,
     ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page

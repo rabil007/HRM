@@ -126,6 +126,32 @@ test('employee saved views accept client_id and project_id together', function (
     ]);
 });
 
+test('employee saved views drop obsolete branch_id and crew_status on apply and save', function () {
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'status' => 'active',
+        'branch_id' => '2',
+        'crew_status' => 'on_vessel',
+        'missing_fields' => 'emirates_id',
+    ]))->toBe([
+        'status' => 'active',
+        'missing_fields' => 'emirates_id',
+    ]);
+
+    expect(SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        [
+            'status' => 'active',
+            'branch_id' => '2',
+            'crew_status' => 'on_vessel',
+            'missing_fields' => 'emirates_id',
+        ],
+        1,
+    ))->toBe([
+        'status' => 'active',
+        'missing_fields' => 'emirates_id',
+    ]);
+});
+
 test('empty and default values are omitted', function () {
     expect(SavedViewCatalog::forApply(SavedViewPage::Documents, [
         'expiry' => 'all',

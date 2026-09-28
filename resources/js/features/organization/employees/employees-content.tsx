@@ -85,7 +85,6 @@ import type { EmployeeFilters } from './components/employee-filters-sheet';
 import { EmployeeMobileCard } from './components/employee-mobile-card';
 import type {
     BankOption,
-    BranchOption,
     CompanyVisaTypeOption,
     CountryOption,
     DepartmentTreeNode,
@@ -114,7 +113,6 @@ export function EmployeesContent({
     department_tree,
     department_tree_selected_id,
     department_tree_selected_position_id,
-    branches,
     positions,
     managers,
     users: _users,
@@ -142,7 +140,6 @@ export function EmployeesContent({
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     department_tree_selected_position_id: number | null;
-    branches: BranchOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];
@@ -187,7 +184,6 @@ export function EmployeesContent({
 
     const filters = useMemo<EmployeeFilters>(
         () => ({
-            branch_id: initialFilters.branch_id ?? '',
             department_id: initialFilters.department_id ?? '',
             position_id: initialFilters.position_id ?? '',
             status: initialFilters.status ?? '',
@@ -201,7 +197,6 @@ export function EmployeesContent({
             project_id: initialFilters.project_id ?? '',
             approval_location_id: initialFilters.approval_location_id ?? '',
             sssa_option_id: initialFilters.sssa_option_id ?? '',
-            crew_status: initialFilters.crew_status ?? '',
             role_id: initialFilters.role_id ?? '',
             missing_fields: initialFilters.missing_fields ?? '',
             present_fields: initialFilters.present_fields ?? '',
@@ -779,7 +774,6 @@ export function EmployeesContent({
                     smartSearch.resetSmartSearch();
                     smartSearch.onManualFiltersChange(EMPTY_EMPLOYEE_FILTERS);
                 }}
-                branches={branches}
                 positions={positions}
                 managers={managers}
                 genders={genders}

@@ -44,7 +44,6 @@ final class EmployeeDirectoryQuery
         }
 
         $query
-            ->when($filters->branchId, fn (Builder $q) => $q->where('branch_id', $filters->branchId))
             ->when(! $exceptDepartment && $filters->departmentId, function (Builder $q) use ($companyId, $filters): void {
                 $departmentId = (int) $filters->departmentId;
 
@@ -144,26 +143,6 @@ final class EmployeeDirectoryQuery
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
             })
-            ->when(
-                $filters->crewStatus !== '',
-                function (Builder $q) use ($companyId, $filters): void {
-                    if (! EmployeeCrewStatusFilter::isValid($filters->crewStatus)) {
-                        $q->whereRaw('1 = 0');
-
-                        return;
-                    }
-
-                    $matchingIds = EmployeeCrewStatusFilter::matchingEmployeeIds($companyId, $filters->crewStatus);
-
-                    if ($matchingIds === []) {
-                        $q->whereRaw('1 = 0');
-
-                        return;
-                    }
-
-                    $q->whereIn('id', $matchingIds);
-                },
-            )
             ->when($filters->roleId, function (Builder $q) use ($filters): void {
                 $q->whereHas('user', function (Builder $inner) use ($filters): void {
                     $inner->whereHas('roles', function (Builder $r) use ($filters): void {

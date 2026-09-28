@@ -92,4 +92,24 @@ describe('employee client-project filter behavior', () => {
         assert.equal(EMPTY_EMPLOYEE_FILTERS.client_id, '');
         assert.equal(EMPTY_EMPLOYEE_FILTERS.project_id, '');
     });
+
+    it('verifies EMPTY_EMPLOYEE_FILTERS does not contain branch_id or crew_status', () => {
+        assert.equal('branch_id' in EMPTY_EMPLOYEE_FILTERS, false);
+        assert.equal('crew_status' in EMPTY_EMPLOYEE_FILTERS, false);
+    });
+
+    it('verifies reset filters restores all fields to empty string', () => {
+        const reset = { ...EMPTY_EMPLOYEE_FILTERS };
+
+        for (const [key, value] of Object.entries(reset)) {
+            assert.equal(
+                value,
+                '',
+                `Expected ${key} to be empty string after reset`,
+            );
+        }
+
+        assert.equal('branch_id' in reset, false);
+        assert.equal('crew_status' in reset, false);
+    });
 });

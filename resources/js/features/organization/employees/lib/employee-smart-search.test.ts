@@ -36,7 +36,6 @@ import {
 } from './employee-smart-search.ts';
 
 const emptyFilters = {
-    branch_id: '',
     department_id: '',
     position_id: '',
     status: '',
@@ -50,7 +49,6 @@ const emptyFilters = {
     project_id: '',
     approval_location_id: '',
     sssa_option_id: '',
-    crew_status: '',
     role_id: '',
     missing_fields: '',
     present_fields: '',
@@ -118,7 +116,6 @@ describe('employee smart search filter allowlist', () => {
     it('includes directory and completeness keys only', () => {
         assert.deepEqual(SMART_SEARCH_FILTER_KEYS, [
             'status',
-            'branch_id',
             'department_id',
             'position_id',
             'nationality_id',
@@ -129,7 +126,6 @@ describe('employee smart search filter allowlist', () => {
             'role_id',
             'approval_location_id',
             'sssa_option_id',
-            'crew_status',
             'missing_fields',
             'present_fields',
         ]);
@@ -139,6 +135,8 @@ describe('employee smart search filter allowlist', () => {
         const picked = pickAllowlistedSmartSearchFilters({
             status: 'active',
             nationality_id: '5',
+            branch_id: '2',
+            crew_status: 'on_vessel',
             manager_id: '10',
             company_id: '99',
             search: 'secret employee',
@@ -150,6 +148,8 @@ describe('employee smart search filter allowlist', () => {
             status: 'active',
             nationality_id: '5',
         });
+        assert.equal('branch_id' in picked, false);
+        assert.equal('crew_status' in picked, false);
         assert.equal('manager_id' in picked, false);
         assert.equal('company_id' in picked, false);
         assert.equal('emirates_id' in picked, false);

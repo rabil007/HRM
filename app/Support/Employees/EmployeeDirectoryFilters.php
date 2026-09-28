@@ -19,7 +19,6 @@ final class EmployeeDirectoryFilters
 
     public function __construct(
         public readonly string $search = '',
-        public readonly string $branchId = '',
         public readonly string $departmentId = '',
         public readonly string $positionId = '',
         public readonly string $status = '',
@@ -33,7 +32,6 @@ final class EmployeeDirectoryFilters
         public readonly string $projectId = '',
         public readonly string $approvalLocationId = '',
         public readonly string $sssaOptionId = '',
-        public readonly string $crewStatus = '',
         public readonly string $roleId = '',
         public readonly string $missingFields = '',
         public readonly string $presentFields = '',
@@ -52,7 +50,6 @@ final class EmployeeDirectoryFilters
 
         return new self(
             search: trim((string) ($data['search'] ?? '')),
-            branchId: trim((string) ($data['branch_id'] ?? '')),
             departmentId: trim((string) ($data['department_id'] ?? '')),
             positionId: trim((string) ($data['position_id'] ?? '')),
             status: self::normalizeStatus($data['status'] ?? ''),
@@ -66,7 +63,6 @@ final class EmployeeDirectoryFilters
             projectId: trim((string) ($data['project_id'] ?? '')),
             approvalLocationId: trim((string) ($data['approval_location_id'] ?? '')),
             sssaOptionId: trim((string) ($data['sssa_option_id'] ?? '')),
-            crewStatus: trim((string) ($data['crew_status'] ?? '')),
             roleId: trim((string) ($data['role_id'] ?? '')),
             missingFields: $missing,
             presentFields: $present,
@@ -141,10 +137,6 @@ final class EmployeeDirectoryFilters
             $query['search'] = $this->search;
         }
 
-        if ($this->branchId !== '') {
-            $query['branch_id'] = $this->branchId;
-        }
-
         if ($this->departmentId !== '') {
             $query['department_id'] = $this->departmentId;
         }
@@ -197,10 +189,6 @@ final class EmployeeDirectoryFilters
             $query['sssa_option_id'] = $this->sssaOptionId;
         }
 
-        if ($this->crewStatus !== '') {
-            $query['crew_status'] = $this->crewStatus;
-        }
-
         if ($this->roleId !== '') {
             $query['role_id'] = $this->roleId;
         }
@@ -222,7 +210,6 @@ final class EmployeeDirectoryFilters
     public function toInertiaFilters(): array
     {
         return [
-            'branch_id' => $this->branchId,
             'department_id' => $this->departmentId,
             'position_id' => $this->positionId,
             'status' => $this->status,
@@ -236,7 +223,6 @@ final class EmployeeDirectoryFilters
             'project_id' => $this->projectId,
             'approval_location_id' => $this->approvalLocationId,
             'sssa_option_id' => $this->sssaOptionId,
-            'crew_status' => $this->crewStatus,
             'role_id' => $this->roleId,
             'missing_fields' => $this->missingFields,
             'present_fields' => $this->presentFields,

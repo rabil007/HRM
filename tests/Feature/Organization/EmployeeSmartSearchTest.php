@@ -292,29 +292,23 @@ test('canonical HR status is returned correctly', function () {
         ->assertJsonPath('applied.0.value', 'On leave');
 });
 
-test('canonical crew status is validated using existing crew-status rules', function () {
+test('obsolete crew status and branch returned by AI interpreter are discarded and not applied to directory filters', function () {
     enableEmployeeSmartSearch();
     $fixtures = makeEmployeeSmartSearchFixtures();
 
     EmployeeSmartSearchInterpreter::fake([
-        fakeSmartSearchIntent(['crew_status' => 'on_vessel']),
+        fakeSmartSearchIntent([
+            'status' => 'active',
+            'crew_status' => 'on_vessel',
+            'branch' => 'Main Office',
+        ]),
     ]);
 
-    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'crew on vessel')
+    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'active crew on vessel at main office')
         ->assertOk()
-        ->assertJsonPath('filters.crew_status', 'on_vessel')
-        ->assertJsonPath('applied.0.key', 'crew_status:equals')
-        ->assertJsonPath('applied.0.value', 'On vessel');
-
-    EmployeeSmartSearchInterpreter::fake([
-        fakeSmartSearchIntent(['crew_status' => 'at_sea']),
-    ]);
-
-    interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'crew at sea')
-        ->assertOk()
+        ->assertJsonPath('filters.status', 'active')
         ->assertJsonMissingPath('filters.crew_status')
-        ->assertJsonPath('unresolved.0.field', 'crew_status')
-        ->assertJsonPath('unresolved.0.reason', 'not_found');
+        ->assertJsonMissingPath('filters.branch_id');
 });
 
 test('unresolved supported values are not silently applied', function () {

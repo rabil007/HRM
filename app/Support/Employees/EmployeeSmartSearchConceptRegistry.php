@@ -65,9 +65,9 @@ final class EmployeeSmartSearchConceptRegistry
             ],
             'branch' => [
                 'label' => 'Branch',
-                'operators' => [self::OPERATOR_EQUALS, self::OPERATOR_MISSING, self::OPERATOR_PRESENT],
-                'lookup' => self::LOOKUP_NAMED,
-                'filter_key' => 'branch_id',
+                'operators' => [self::OPERATOR_MISSING, self::OPERATOR_PRESENT],
+                'lookup' => self::LOOKUP_NONE,
+                'filter_key' => null,
                 'presence' => self::PRESENCE_FOREIGN_KEY,
                 'column' => 'branch_id',
                 'composite' => false,
@@ -183,17 +183,6 @@ final class EmployeeSmartSearchConceptRegistry
                 'composite' => false,
                 'single_valued' => false,
                 'aliases' => [],
-            ],
-            'crew_status' => [
-                'label' => 'Crew status',
-                'operators' => [self::OPERATOR_EQUALS],
-                'lookup' => self::LOOKUP_ENUM,
-                'filter_key' => 'crew_status',
-                'presence' => null,
-                'column' => null,
-                'composite' => false,
-                'single_valued' => true,
-                'aliases' => self::crewStatusAliases(),
             ],
             'emirates_id' => [
                 'label' => 'Emirates ID',
@@ -450,27 +439,6 @@ final class EmployeeSmartSearchConceptRegistry
             'ordinary seaman' => ['OS', 'Ordinary Seaman'],
             'master' => ['Master'],
             'captain' => ['Master'],
-        ];
-    }
-
-    /**
-     * Extra phrases for current EmployeeCrewStatusFilter values.
-     *
-     * @return array<string, list<string>>
-     */
-    private static function crewStatusAliases(): array
-    {
-        return [
-            'onboard' => ['on_vessel'],
-            'on board' => ['on_vessel'],
-            'on vessel' => ['on_vessel'],
-            'at home' => ['in_home'],
-            'in home' => ['in_home'],
-            'available' => ['available'],
-            'pre-mobilisation' => ['pre_mobilisation'],
-            'pre mobilisation' => ['pre_mobilisation'],
-            'training' => ['training'],
-            'demob standby' => ['demob_standby'],
         ];
     }
 }

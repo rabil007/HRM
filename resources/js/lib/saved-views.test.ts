@@ -138,6 +138,14 @@ describe('saved view catalog', () => {
         );
         assert.equal(
             savedViewFilterKeys('employees').includes('branch_id'),
+            false,
+        );
+        assert.equal(
+            savedViewFilterKeys('employees').includes('crew_status'),
+            false,
+        );
+        assert.equal(
+            savedViewFilterKeys('employees').includes('client_id'),
             true,
         );
         assert.equal(savedViewFilterKeys('employees').includes('status'), true);

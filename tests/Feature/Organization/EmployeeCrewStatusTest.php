@@ -343,7 +343,7 @@ test('employee directory omits crew status when disabled in profile template', f
             ->missing('employees.0.crew_status'));
 });
 
-test('employee directory can filter by crew status', function () {
+test('employee directory ignores crew status filter parameter', function () {
     ['user' => $user, 'company' => $company, 'employee' => $onVesselEmployee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
     $availableEmployee = Employee::factory()
@@ -364,20 +364,18 @@ test('employee directory can filter by crew status', function () {
         ->get(route('organization.employees', ['crew_status' => 'in_home']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('employees', 1)
-            ->where('employees.0.id', $availableEmployee->id)
-            ->where('filters.crew_status', 'in_home'));
+            ->has('employees', 2)
+            ->missing('filters.crew_status'));
 
     $this->actingAs($user)
         ->get(route('organization.employees', ['crew_status' => 'on_vessel']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('employees', 1)
-            ->where('employees.0.id', $onVesselEmployee->id)
-            ->where('filters.crew_status', 'on_vessel'));
+            ->has('employees', 2)
+            ->missing('filters.crew_status'));
 });
 
-test('legacy crew status filter values do not match employees', function () {
+test('legacy crew status filter values are ignored and do not filter employees', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
     $vessel = makeEmployeeCrewStatusVessel('Legacy Filter Vessel', $company);
@@ -389,14 +387,15 @@ test('legacy crew status filter values do not match employees', function () {
         ->get(route('organization.employees', ['crew_status' => 'disembarked']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('employees', 0)
-            ->where('filters.crew_status', 'disembarked'));
+            ->has('employees', 1)
+            ->missing('filters.crew_status'));
 
     $this->actingAs($user)
         ->get(route('organization.employees', ['crew_status' => 'leave_standby']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('employees', 0));
+            ->has('employees', 1)
+            ->missing('filters.crew_status'));
 });
 
 test('soft-deleted active assignment does not block available filter', function () {

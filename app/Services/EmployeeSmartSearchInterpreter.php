@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Exceptions\EmployeeSmartSearchUnavailableException;
 use App\Services\Settings\AiSettingsService;
 use App\Support\Ai\StructuredAgentOutput;
-use App\Support\Employees\EmployeeCrewStatusFilter;
 use App\Support\Employees\EmployeeSmartSearchConceptRegistry;
 use App\Support\Employees\EmployeeSmartSearchIntent;
 use App\Support\Employees\EmployeeSmartSearchResolver;
@@ -61,7 +60,6 @@ final class EmployeeSmartSearchInterpreter implements Agent, HasStructuredOutput
     {
         $concepts = implode(', ', EmployeeSmartSearchConceptRegistry::keys());
         $statuses = implode(', ', EmployeeSmartSearchResolver::STATUSES);
-        $crewStatuses = implode(', ', array_keys(EmployeeCrewStatusFilter::selectableOptions()));
         $operators = implode(', ', EmployeeSmartSearchConceptRegistry::OPERATORS);
 
         $operatorLines = [];
@@ -116,8 +114,6 @@ Department / position / rank:
 - department, dept, and clear organizational wording (division, section, team) map to department. Prefer the department name or code (HR, CRW).
 - position, job, job title, and designation map to position. Example: electricians -> position Electrician.
 - Rank abbreviations such as AB, OS, Master, Captain may be returned as rank equals that term. Laravel resolves trusted names, codes, and approved aliases.
-
-Crew status is not HR status. Canonical crew_status keys: {$crewStatuses}. Also understand onboard / on board / on vessel, available, at home, pre-mobilisation, join standby, training, demob standby. Legacy travel in and ready to join are not normal search targets. The word "crew" by itself is not a crew status.
 
 Email:
 - "without work email" / "missing work email" -> work_email missing

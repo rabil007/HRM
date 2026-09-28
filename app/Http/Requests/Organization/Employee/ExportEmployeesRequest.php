@@ -33,6 +33,8 @@ class ExportEmployeesRequest extends FormRequest
             'visa_type_id' => ['nullable', 'string', 'max:20'],
             'company_visa_type_id' => ['nullable', 'string', 'max:20'],
             'rank_id' => ['nullable', 'string', 'max:20'],
+            'client_id' => ['nullable', 'string', 'max:20'],
+            'project_id' => ['nullable', 'string', 'max:20'],
             'approval_location_id' => ['nullable', 'string', 'max:255'],
             'sssa_option_id' => ['nullable', 'string', 'max:255'],
             'crew_status' => ['nullable', 'string', 'max:50'],
