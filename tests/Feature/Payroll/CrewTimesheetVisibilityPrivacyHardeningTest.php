@@ -303,6 +303,40 @@ test('crew timesheet-only user does not receive salary rate bank or payroll sens
         );
 });
 
+test('crew timesheet-only user can load an approved period without payroll financial data', function () {
+    $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
+    $fixtures['period']->update(['status' => PayrollPeriodStatus::Approved]);
+
+    PayrollRecord::factory()->for($fixtures['company'])->create([
+        'period_id' => $fixtures['period']->id,
+        'employee_id' => $fixtures['visibleEmployee']->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'approved',
+        'payslip_path' => null,
+    ]);
+
+    expect($fixtures['opsUser']->can('payroll.crew_timesheets.view'))->toBeTrue()
+        ->and($fixtures['opsUser']->can('payroll.crew_timesheets.create'))->toBeTrue()
+        ->and($fixtures['opsUser']->can('payroll.crew_timesheets.update'))->toBeTrue()
+        ->and($fixtures['opsUser']->can('payroll.periods.view'))->toBeFalse();
+
+    $this->actingAs($fixtures['opsUser'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('permissions.view_financial', false)
+            ->where('payslip_summary', null)
+            ->where('wps_preview', null)
+            ->where('payroll_records', [])
+            ->where('payroll_records_monthly', [])
+            ->where('all_payroll_record_ids', [])
+            ->where('payroll_records_summary', null)
+            ->where('period.payroll_records_count', 0)
+        );
+});
+
 test('payroll-authorized user still receives required financial props', function () {
     $fixtures = makeCrewTimesheetVisibilityHardeningFixtures();
 

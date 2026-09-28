@@ -570,7 +570,7 @@ export type PayrollShowProps = {
     department_tree_selected_id: number | null;
     department_tree_selected_position_id: number | null;
     permissions: CrewPayrollPermissions;
-    payslip_summary: PayslipSummary;
+    payslip_summary: PayslipSummary | null;
     wps_preview: WpsPreview | null;
     timesheet_draft: CrewTimesheetFormData | null;
     employee_stats: EmployeeStats | null;

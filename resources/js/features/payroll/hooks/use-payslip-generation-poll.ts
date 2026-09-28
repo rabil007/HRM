@@ -17,16 +17,20 @@ export function usePayslipGenerationPoll({
     payslipSummary,
 }: {
     periodStatus: PayrollPeriodStatus;
-    payslipSummary: PayslipSummary;
+    payslipSummary: PayslipSummary | null;
 }): { isLiveUpdating: boolean } {
-    const previousPending = useRef(payslipSummary.pending);
+    const pendingCount = payslipSummary?.pending;
+    const totalCount = payslipSummary?.total;
+    const previousPending = useRef(pendingCount);
 
     const isFinalizedPeriod =
         periodStatus === 'approved' || periodStatus === 'paid';
     const shouldPoll =
         isFinalizedPeriod &&
-        payslipSummary.total > 0 &&
-        payslipSummary.pending > 0;
+        totalCount !== undefined &&
+        pendingCount !== undefined &&
+        totalCount > 0 &&
+        pendingCount > 0;
 
     const { start, stop } = usePoll(
         2500,
@@ -56,15 +60,17 @@ export function usePayslipGenerationPoll({
         const previousPendingCount = previousPending.current;
 
         if (
+            previousPendingCount !== undefined &&
             previousPendingCount > 0 &&
-            payslipSummary.pending === 0 &&
-            payslipSummary.total > 0
+            pendingCount === 0 &&
+            totalCount !== undefined &&
+            totalCount > 0
         ) {
             toast.success('All payslips generated.');
         }
 
-        previousPending.current = payslipSummary.pending;
-    }, [payslipSummary.pending, payslipSummary.total]);
+        previousPending.current = pendingCount;
+    }, [pendingCount, totalCount]);
 
     return {
         isLiveUpdating: shouldPoll,

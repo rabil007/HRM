@@ -1061,112 +1061,124 @@ export function PayrollShowContent({
             )}
 
             {/* ── Section 2: Payroll Records ──────────────── */}
-            {period.status !== 'draft' && (
-                <section className="space-y-4">
-                    <div className="flex items-center gap-3">
-                        <div className="h-px flex-1 bg-border/60" />
-                        <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
-                            Payroll Records
-                        </span>
-                        <div className="h-px flex-1 bg-border/60" />
-                    </div>
-                    <SearchBar
-                        value={list.searchInput}
-                        onChange={list.onSearchChange}
-                        placeholder="Search payroll records..."
-                        className="mb-4"
-                        right={
-                            <div className="flex shrink-0 flex-wrap items-center gap-3">
-                                <DepartmentFilterControls
-                                    department_tree={department_tree}
-                                    department_tree_selected_id={
-                                        department_tree_selected_id
-                                    }
-                                    department_tree_selected_position_id={
-                                        department_tree_selected_position_id
-                                    }
-                                    selectionCount={
-                                        departmentTreeSelectionCount
-                                    }
-                                    onSelectDepartment={handleDepartmentSelect}
-                                    onSelectPosition={handlePositionSelect}
-                                />
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                                    onClick={() => setIsFiltersOpen(true)}
-                                >
-                                    <Filter className="mr-2 h-4 w-4" />
-                                    Filters
-                                    {activeSheetFiltersCount > 0 ? (
-                                        <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                            {activeSheetFiltersCount}
-                                        </span>
-                                    ) : null}
-                                </Button>
-                                {period.supports_timesheets ? (
-                                    <CrewSalaryStructureToggle
-                                        value={activeCrewSalaryStructure}
-                                        onChange={
-                                            handleCrewSalaryStructureChange
+            {period.status !== 'draft' &&
+                permissions.view_financial &&
+                payslip_summary !== null && (
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="h-px flex-1 bg-border/60" />
+                            <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
+                                Payroll Records
+                            </span>
+                            <div className="h-px flex-1 bg-border/60" />
+                        </div>
+                        <SearchBar
+                            value={list.searchInput}
+                            onChange={list.onSearchChange}
+                            placeholder="Search payroll records..."
+                            className="mb-4"
+                            right={
+                                <div className="flex shrink-0 flex-wrap items-center gap-3">
+                                    <DepartmentFilterControls
+                                        department_tree={department_tree}
+                                        department_tree_selected_id={
+                                            department_tree_selected_id
                                         }
+                                        department_tree_selected_position_id={
+                                            department_tree_selected_position_id
+                                        }
+                                        selectionCount={
+                                            departmentTreeSelectionCount
+                                        }
+                                        onSelectDepartment={
+                                            handleDepartmentSelect
+                                        }
+                                        onSelectPosition={handlePositionSelect}
                                     />
-                                ) : null}
-                            </div>
-                        }
-                    />
-                    <PayrollSkippedBanner summary={generation_summary} />
-                    <PayrollPeriodDeliveryPanel
-                        period={period}
-                        payslip_summary={payslip_summary}
-                        wps_preview={wps_preview}
-                        permissions={permissions}
-                        selectedWpsRecordIds={
-                            canSelectForWpsExport ? selectedWpsRecordIds : null
-                        }
-                        isPayslipGenerationLive={isPayslipGenerationLive}
-                    />
-                    {payroll_records_summary ? (
-                        <PayrollRecordsSummaryCards
-                            summary={payroll_records_summary}
-                            activeCrewSalaryStructure={
-                                period.supports_timesheets
-                                    ? activeCrewSalaryStructure
-                                    : null
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                                        onClick={() => setIsFiltersOpen(true)}
+                                    >
+                                        <Filter className="mr-2 h-4 w-4" />
+                                        Filters
+                                        {activeSheetFiltersCount > 0 ? (
+                                            <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                                {activeSheetFiltersCount}
+                                            </span>
+                                        ) : null}
+                                    </Button>
+                                    {period.supports_timesheets ? (
+                                        <CrewSalaryStructureToggle
+                                            value={activeCrewSalaryStructure}
+                                            onChange={
+                                                handleCrewSalaryStructureChange
+                                            }
+                                        />
+                                    ) : null}
+                                </div>
                             }
                         />
-                    ) : null}
-                    <PayrollRecordsBoard
-                        period={period}
-                        hasPayrollRecords={hasPayrollRecords}
-                        canGenerate={canGenerate}
-                        isGenerationBlocked={isGenerationBlocked}
-                        generationBlockingReason={generationBlockingReason}
-                        onOpenGenerateDialog={() =>
-                            setIsGenerateDialogOpen(true)
-                        }
-                        payroll_records={payroll_records}
-                        payroll_records_monthly={payroll_records_monthly}
-                        activeCrewSalaryStructure={activeCrewSalaryStructure}
-                        salary_inputs_by_employee={salary_inputs_by_employee}
-                        canManageSalaryInputs={canManageSalaryInputs}
-                        wpsSelection={wpsSelection}
-                        onManageSalaryInputs={setSalaryInputsRecord}
-                        onRemove={setRemoveRecord}
-                        isPayslipGenerationLive={isPayslipGenerationLive}
-                        recordsPagination={recordsPagination}
-                        monthlyRecordsPagination={monthlyRecordsPagination}
-                        onDailyRecordsPageChange={handleDailyRecordsPageChange}
-                        onMonthlyRecordsPageChange={
-                            handleMonthlyRecordsPageChange
-                        }
-                        onOfficeRecordsPageChange={
-                            handleOfficeRecordsPageChange
-                        }
-                    />
-                </section>
-            )}
+                        <PayrollSkippedBanner summary={generation_summary} />
+                        <PayrollPeriodDeliveryPanel
+                            period={period}
+                            payslip_summary={payslip_summary}
+                            wps_preview={wps_preview}
+                            permissions={permissions}
+                            selectedWpsRecordIds={
+                                canSelectForWpsExport
+                                    ? selectedWpsRecordIds
+                                    : null
+                            }
+                            isPayslipGenerationLive={isPayslipGenerationLive}
+                        />
+                        {payroll_records_summary ? (
+                            <PayrollRecordsSummaryCards
+                                summary={payroll_records_summary}
+                                activeCrewSalaryStructure={
+                                    period.supports_timesheets
+                                        ? activeCrewSalaryStructure
+                                        : null
+                                }
+                            />
+                        ) : null}
+                        <PayrollRecordsBoard
+                            period={period}
+                            hasPayrollRecords={hasPayrollRecords}
+                            canGenerate={canGenerate}
+                            isGenerationBlocked={isGenerationBlocked}
+                            generationBlockingReason={generationBlockingReason}
+                            onOpenGenerateDialog={() =>
+                                setIsGenerateDialogOpen(true)
+                            }
+                            payroll_records={payroll_records}
+                            payroll_records_monthly={payroll_records_monthly}
+                            activeCrewSalaryStructure={
+                                activeCrewSalaryStructure
+                            }
+                            salary_inputs_by_employee={
+                                salary_inputs_by_employee
+                            }
+                            canManageSalaryInputs={canManageSalaryInputs}
+                            wpsSelection={wpsSelection}
+                            onManageSalaryInputs={setSalaryInputsRecord}
+                            onRemove={setRemoveRecord}
+                            isPayslipGenerationLive={isPayslipGenerationLive}
+                            recordsPagination={recordsPagination}
+                            monthlyRecordsPagination={monthlyRecordsPagination}
+                            onDailyRecordsPageChange={
+                                handleDailyRecordsPageChange
+                            }
+                            onMonthlyRecordsPageChange={
+                                handleMonthlyRecordsPageChange
+                            }
+                            onOfficeRecordsPageChange={
+                                handleOfficeRecordsPageChange
+                            }
+                        />
+                    </section>
+                )}
 
             {period.supports_timesheets && isImportDialogOpen ? (
                 <CrewTimesheetImportDialog
@@ -1231,7 +1243,9 @@ export function PayrollShowContent({
                 />
             ) : null}
 
-            {salaryInputsRecord !== null ? (
+            {permissions.view_financial &&
+            payslip_summary !== null &&
+            salaryInputsRecord !== null ? (
                 <OfficeSalaryInputsSheet
                     open={salaryInputsRecord !== null}
                     onOpenChange={(open) => {
