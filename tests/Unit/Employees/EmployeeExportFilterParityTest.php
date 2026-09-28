@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -104,5 +105,77 @@ test('employee export query uses the same directory filters as the index', funct
         ->all();
 
     expect($exportIds)->toBe([$parentEmployee->id, $childEmployee->id])
+        ->and($indexIds)->toBe($exportIds);
+});
+
+test('employee export query and index query match when filtered by client_id', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->firstOrCreate(
+        ['code' => 'EXP'],
+        ['name' => 'Exportland', 'dial_code' => '+971', 'is_active' => true],
+    );
+
+    $currency = Currency::query()->firstOrCreate(
+        ['code' => 'EXP'],
+        ['name' => 'Export Currency', 'symbol' => 'E$', 'is_active' => true],
+    );
+
+    $company = Company::query()->create([
+        'name' => 'Client Export Co',
+        'slug' => 'client-export-co-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Export Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Export Client B', 'is_active' => true]);
+
+    $empA = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EXP-CL-A',
+        'client_id' => $clientA->id,
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EXP-CL-B',
+        'client_id' => $clientB->id,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.export']);
+
+    $request = Request::create(
+        '/organization/employees/export',
+        'GET',
+        ['client_id' => (string) $clientA->id, 'format' => 'csv'],
+    );
+    $request->attributes->set('current_company_id', $company->id);
+
+    $directoryFilters = EmployeeDirectoryFilters::fromRequest($request);
+
+    $exportIds = (new EmployeeDirectoryQuery($company->id, $directoryFilters))
+        ->apply(Employee::query())
+        ->pluck('id')
+        ->sort()
+        ->values()
+        ->all();
+
+    $indexResponse = $this->withSession(['current_company_id' => $company->id])
+        ->get('/organization/employees?client_id='.$clientA->id)
+        ->assertOk();
+
+    $indexIds = collect($indexResponse->viewData('page')['props']['employees'])
+        ->pluck('id')
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($exportIds)->toBe([$empA->id])
         ->and($indexIds)->toBe($exportIds);
 });

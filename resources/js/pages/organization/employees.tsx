@@ -3,6 +3,7 @@ import { EmployeesContent } from '@/features/organization/employees';
 import type {
     BankOption,
     BranchOption,
+    ClientOption,
     CompanyVisaTypeOption,
     CountryOption,
     DepartmentTreeNode,
@@ -44,6 +45,7 @@ export default function Employees({
     approval_locations,
     sssa_options,
     ranks,
+    clients,
     projects,
     banks,
     roles,
@@ -66,6 +68,7 @@ export default function Employees({
         visa_type_id: string;
         company_visa_type_id: string;
         rank_id: string;
+        client_id: string;
         project_id: string;
         approval_location_id: string;
         sssa_option_id: string;
@@ -86,9 +89,11 @@ export default function Employees({
     genders: GenderOption[];
     visa_types: VisaTypeOption[];
     company_visa_types: CompanyVisaTypeOption[];
+    approvalLocations?: never;
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
     ranks: RankOption[];
+    clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];
     roles: RoleOption[];
@@ -122,6 +127,7 @@ export default function Employees({
                 approval_locations={approval_locations}
                 sssa_options={sssa_options}
                 ranks={ranks}
+                clients={clients}
                 projects={projects}
                 banks={banks}
                 roles={roles}

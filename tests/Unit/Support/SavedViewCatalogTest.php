@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\SavedViewPage;
+use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\SavedViews\SavedViewCatalog;
@@ -90,6 +91,39 @@ test('employee saved views accept project_id', function () {
         ['project_id' => (string) $project->id],
         1,
     ))->toBe(['project_id' => (string) $project->id]);
+});
+
+test('employee saved views accept client_id and project_id together', function () {
+    $client = Client::query()->create([
+        'name' => 'Saved View Client',
+        'is_active' => true,
+    ]);
+
+    $project = Project::query()->create([
+        'title' => 'Saved View Project',
+        'client_id' => $client->id,
+        'is_active' => true,
+    ]);
+
+    expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
+        'client_id' => (string) $client->id,
+        'project_id' => (string) $project->id,
+    ]))->toBe([
+        'client_id' => (string) $client->id,
+        'project_id' => (string) $project->id,
+    ]);
+
+    expect(SavedViewCatalog::normalizeForSave(
+        SavedViewPage::Employees,
+        [
+            'client_id' => (string) $client->id,
+            'project_id' => (string) $project->id,
+        ],
+        1,
+    ))->toBe([
+        'client_id' => (string) $client->id,
+        'project_id' => (string) $project->id,
+    ]);
 });
 
 test('empty and default values are omitted', function () {

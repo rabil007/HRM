@@ -172,6 +172,7 @@ final class SavedViewCatalog
                 'visa_type_id' => ['type' => 'id', 'model' => VisaType::class, 'company' => false],
                 'company_visa_type_id' => ['type' => 'id', 'model' => CompanyVisaType::class, 'company' => false],
                 'rank_id' => ['type' => 'id', 'model' => Rank::class, 'company' => false],
+                'client_id' => ['type' => 'id', 'model' => Client::class, 'company' => false],
                 'project_id' => ['type' => 'id', 'model' => Project::class, 'company' => false],
                 'approval_location_id' => ['type' => 'id', 'model' => ApprovalLocation::class, 'company' => false],
                 'sssa_option_id' => ['type' => 'id', 'model' => SssaOption::class, 'company' => false],

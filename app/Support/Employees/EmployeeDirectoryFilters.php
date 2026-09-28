@@ -29,6 +29,7 @@ final class EmployeeDirectoryFilters
         public readonly string $visaTypeId = '',
         public readonly string $companyVisaTypeId = '',
         public readonly string $rankId = '',
+        public readonly string $clientId = '',
         public readonly string $projectId = '',
         public readonly string $approvalLocationId = '',
         public readonly string $sssaOptionId = '',
@@ -61,6 +62,7 @@ final class EmployeeDirectoryFilters
             visaTypeId: trim((string) ($data['visa_type_id'] ?? '')),
             companyVisaTypeId: trim((string) ($data['company_visa_type_id'] ?? '')),
             rankId: trim((string) ($data['rank_id'] ?? '')),
+            clientId: trim((string) ($data['client_id'] ?? '')),
             projectId: trim((string) ($data['project_id'] ?? '')),
             approvalLocationId: trim((string) ($data['approval_location_id'] ?? '')),
             sssaOptionId: trim((string) ($data['sssa_option_id'] ?? '')),
@@ -179,6 +181,10 @@ final class EmployeeDirectoryFilters
             $query['rank_id'] = $this->rankId;
         }
 
+        if ($this->clientId !== '') {
+            $query['client_id'] = $this->clientId;
+        }
+
         if ($this->projectId !== '') {
             $query['project_id'] = $this->projectId;
         }
@@ -226,6 +232,7 @@ final class EmployeeDirectoryFilters
             'visa_type_id' => $this->visaTypeId,
             'company_visa_type_id' => $this->companyVisaTypeId,
             'rank_id' => $this->rankId,
+            'client_id' => $this->clientId,
             'project_id' => $this->projectId,
             'approval_location_id' => $this->approvalLocationId,
             'sssa_option_id' => $this->sssaOptionId,

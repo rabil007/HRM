@@ -41,6 +41,7 @@ final class EmployeeFormOptions
      *     approval_locations: Collection,
      *     sssa_options: Collection,
      *     ranks: Collection,
+     *     clients: Collection,
      *     projects: Collection,
      *     banks: Collection,
      *     roles: Collection
@@ -61,6 +62,7 @@ final class EmployeeFormOptions
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
             'ranks' => self::activeRanks(),
+            'clients' => self::clientsForDirectory($companyId, $user),
             'projects' => self::activeProjects(),
             'banks' => self::banks(),
             'roles' => self::roles($companyId),
@@ -321,6 +323,34 @@ final class EmployeeFormOptions
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']));
+    }
+
+    private static function clientsForDirectory(int $companyId, ?User $user = null)
+    {
+        $employeeQuery = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('client_id');
+
+        if ($user !== null) {
+            EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
+        }
+
+        $referencedClientIds = $employeeQuery
+            ->pluck('client_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        return Client::query()
+            ->where(function (Builder $query) use ($referencedClientIds): void {
+                $query->where('is_active', true);
+
+                if ($referencedClientIds !== []) {
+                    $query->orWhereIn('id', $referencedClientIds);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     public static function documentTypes(): Collection

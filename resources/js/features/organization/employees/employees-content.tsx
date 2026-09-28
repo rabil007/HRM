@@ -94,6 +94,7 @@ import type {
     EmployeePageCan,
     GenderOption,
     ApprovalLocationOption,
+    ClientOption,
     ManagerOption,
     PositionOption,
     ProjectOption,
@@ -125,6 +126,7 @@ export function EmployeesContent({
     approval_locations,
     sssa_options,
     ranks,
+    clients,
     projects,
     banks: _banks,
     roles,
@@ -152,6 +154,7 @@ export function EmployeesContent({
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
     ranks: RankOption[];
+    clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];
     roles: RoleOption[];
@@ -194,6 +197,7 @@ export function EmployeesContent({
             visa_type_id: initialFilters.visa_type_id ?? '',
             company_visa_type_id: initialFilters.company_visa_type_id ?? '',
             rank_id: initialFilters.rank_id ?? '',
+            client_id: initialFilters.client_id ?? '',
             project_id: initialFilters.project_id ?? '',
             approval_location_id: initialFilters.approval_location_id ?? '',
             sssa_option_id: initialFilters.sssa_option_id ?? '',
@@ -785,6 +789,7 @@ export function EmployeesContent({
                 approvalLocations={approval_locations}
                 sssaOptions={sssa_options}
                 ranks={ranks}
+                clients={clients}
                 projects={projects}
                 roles={roles}
             />

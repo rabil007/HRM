@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,12 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+    EMPTY_EMPLOYEE_FILTERS,
+    filterProjectsByClient,
+    resolveProjectOnClientChange,
+} from '@/features/organization/employees/lib/employee-client-project-filter';
+import type { EmployeeFilters } from '@/features/organization/employees/lib/employee-client-project-filter';
+import {
     applyEmiratesIdPresence,
     completenessChips,
     emiratesIdPresenceValue,
@@ -17,6 +24,7 @@ import {
 } from '@/features/organization/employees/lib/employee-smart-search';
 import type {
     BranchOption,
+    ClientOption,
     CompanyVisaTypeOption,
     CountryOption,
     GenderOption,
@@ -30,45 +38,7 @@ import type {
     VisaTypeOption,
 } from '../types';
 
-export type EmployeeFilters = {
-    branch_id: string;
-    department_id: string;
-    position_id: string;
-    status: string;
-    manager_id: string;
-    gender_id: string;
-    nationality_id: string;
-    visa_type_id: string;
-    company_visa_type_id: string;
-    rank_id: string;
-    project_id: string;
-    approval_location_id: string;
-    sssa_option_id: string;
-    crew_status: string;
-    role_id: string;
-    missing_fields: string;
-    present_fields: string;
-};
-
-export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
-    branch_id: '',
-    department_id: '',
-    position_id: '',
-    status: '',
-    manager_id: '',
-    gender_id: '',
-    nationality_id: '',
-    visa_type_id: '',
-    company_visa_type_id: '',
-    rank_id: '',
-    project_id: '',
-    approval_location_id: '',
-    sssa_option_id: '',
-    crew_status: '',
-    role_id: '',
-    missing_fields: '',
-    present_fields: '',
-};
+export { EMPTY_EMPLOYEE_FILTERS, type EmployeeFilters };
 
 function csvIdSet(csv: string): Set<string> {
     return new Set(
@@ -108,6 +78,7 @@ export function EmployeeFiltersSheet({
     approvalLocations,
     sssaOptions,
     ranks,
+    clients,
     projects,
     roles,
 }: {
@@ -126,11 +97,31 @@ export function EmployeeFiltersSheet({
     approvalLocations: ApprovalLocationOption[];
     sssaOptions: SssaOption[];
     ranks: RankOption[];
+    clients: ClientOption[];
     projects: ProjectOption[];
     roles: RoleOption[];
 }) {
     const selectedApprovalLocationIds = csvIdSet(value.approval_location_id);
     const selectedSssaOptionIds = csvIdSet(value.sssa_option_id);
+
+    const filteredProjects = useMemo(
+        () => filterProjectsByClient(projects, value.client_id),
+        [projects, value.client_id],
+    );
+
+    const handleClientChange = (nextClientId: string) => {
+        const nextProjectId = resolveProjectOnClientChange(
+            value.project_id,
+            nextClientId,
+            projects,
+        );
+
+        onChange({
+            ...value,
+            client_id: nextClientId,
+            project_id: nextProjectId,
+        });
+    };
 
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
@@ -231,6 +222,28 @@ export function EmployeeFiltersSheet({
 
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        Client
+                    </Label>
+                    <AppSelect
+                        value={value.client_id}
+                        onValueChange={handleClientChange}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        {clients.map((client) => (
+                            <AppSelectItem
+                                key={client.id}
+                                value={String(client.id)}
+                            >
+                                {client.name}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Project
                     </Label>
                     <AppSelect
@@ -242,7 +255,7 @@ export function EmployeeFiltersSheet({
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
-                        {projects.map((project) => (
+                        {filteredProjects.map((project) => (
                             <AppSelectItem
                                 key={project.id}
                                 value={String(project.id)}
