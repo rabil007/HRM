@@ -20,8 +20,11 @@ final class ContractDirectoryEmployeeScope
         ContractDirectoryFilters $filters,
         ?User $user = null,
     ): void {
+        if ($filters->branchId !== '') {
+            $employeeQuery->where('branch_id', $filters->branchId);
+        }
+
         $directoryFilters = new EmployeeDirectoryFilters(
-            branchId: $filters->branchId,
             departmentId: $filters->departmentId,
         );
 

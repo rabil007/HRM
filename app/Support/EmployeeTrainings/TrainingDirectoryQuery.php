@@ -132,8 +132,11 @@ final class TrainingDirectoryQuery
                 });
             })
             ->whereHas('employee', function (Builder $employeeQuery): void {
+                if ($this->filters->branchId !== '') {
+                    $employeeQuery->where('branch_id', $this->filters->branchId);
+                }
+
                 $directoryFilters = new EmployeeDirectoryFilters(
-                    branchId: $this->filters->branchId,
                     departmentId: $this->filters->departmentId,
                 );
 
