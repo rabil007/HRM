@@ -35,12 +35,11 @@ export function PersonalSection({ data }: PersonalSectionProps) {
                         <User className="h-5 w-5" />
                     </div>
                     <h3 className="text-sm font-semibold text-foreground">
-                        No linked employee record
+                        Your account is not linked to an employee record.
                     </h3>
                     <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">
-                        Your user account is not linked to an employee profile
-                        in this company. If you are an employee, contact HR to
-                        associate your account.
+                        Ask HR or an administrator to link your user account to
+                        your employee profile before requesting leave.
                     </p>
                 </div>
             </DashboardSection>
@@ -81,7 +80,14 @@ export function PersonalSection({ data }: PersonalSectionProps) {
                 )}
                 {is_active_workforce && !attendance_leave_enabled && (
                     <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-                        Attendance & Leave is not enabled for your department.
+                        <p className="font-medium text-foreground">
+                            Attendance & Leave is not enabled for your
+                            department.
+                        </p>
+                        <p className="mt-1">
+                            Your current department is excluded from Attendance
+                            and Leave. Contact HR if this should be enabled.
+                        </p>
                     </div>
                 )}
                 <div

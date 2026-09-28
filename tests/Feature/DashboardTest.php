@@ -4,6 +4,7 @@ use App\Enums\AnnouncementCategory;
 use App\Enums\AnnouncementStatus;
 use App\Models\Announcement;
 use App\Models\AttendanceRecord;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\PayrollPeriod;
@@ -339,6 +340,33 @@ test('personal dashboard returns linked employee info and isolates cross user or
         ->assertInertia(fn ($page) => $page
             ->where('personal_dashboard.has_linked_employee', false)
             ->where('personal_dashboard.employee', null)
+            ->where('personal_dashboard.attendance_leave_enabled', false)
+            ->where('personal_dashboard.my_leave_balances', [])
+        );
+});
+
+test('personal dashboard hides leave balances for a linked employee in an excluded department', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Excluded Operations',
+        'code' => 'EX'.fake()->unique()->numerify('##'),
+        'status' => 'active',
+        'include_in_attendance_leave' => false,
+    ]);
+    $employee->update(['user_id' => $user->id, 'department_id' => $department->id]);
+    grantCompanyPermissions($user, $company, []);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('personal_dashboard.has_linked_employee', true)
+            ->where('personal_dashboard.employee.id', $employee->id)
+            ->where('personal_dashboard.attendance_leave_enabled', false)
+            ->where('personal_dashboard.my_leave_balances', [])
         );
 });
 

@@ -59,6 +59,7 @@ import {
     MyLeaveOverview,
     MyLeaveStatusFilters,
 } from './components/my-leave-overview';
+import { myLeaveState } from './lib/my-leave-state';
 import { defaultLeaveRequestFormData, leaveRequestToFormData } from './types';
 import type {
     LeaveRequest,
@@ -109,6 +110,11 @@ export function LeaveRequestsContent({
     saved_views?: SavedView[];
 }) {
     const isMine = listMode === 'mine';
+    const selfService = myLeaveState(
+        linkedEmployeeId,
+        linkedEmployeeAttendanceLeaveEnabled,
+        can.create,
+    );
     const indexUrl = isMine ? leaveMyLeave.url() : leaveApprovals.url();
     const savedViewPageKey: SavedViewPageKey = isMine
         ? 'leave'
@@ -256,16 +262,10 @@ export function LeaveRequestsContent({
     };
 
     const emptyTitle = isMine
-        ? linkedEmployeeAttendanceLeaveEnabled
-            ? 'You have no leave requests yet.'
-            : 'Attendance & Leave is not enabled for your department.'
+        ? selfService.title
         : 'No leave requests need your approval.';
 
-    const emptyDescription = isMine
-        ? linkedEmployeeAttendanceLeaveEnabled
-            ? undefined
-            : 'Your current department is excluded from Attendance and Leave. Contact HR if this should be enabled.'
-        : undefined;
+    const emptyDescription = isMine ? selfService.description : undefined;
 
     return (
         <Main>
@@ -277,7 +277,7 @@ export function LeaveRequestsContent({
                         : 'Review leave requests that need your decision.'
                 }
                 right={
-                    isMine && can.create ? (
+                    isMine && selfService.canRequestLeave ? (
                         <Button
                             onClick={handleAdd}
                             className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
@@ -293,7 +293,7 @@ export function LeaveRequestsContent({
                 <MyLeaveOverview
                     balances={leaveBalances}
                     year={leaveBalanceYear}
-                    showBalances={linkedEmployeeAttendanceLeaveEnabled}
+                    showBalances={selfService.showBalances}
                 />
             ) : (
                 <p className="mb-4 text-sm font-medium text-muted-foreground">
@@ -365,7 +365,7 @@ export function LeaveRequestsContent({
                     title={emptyTitle}
                     description={emptyDescription}
                     action={
-                        isMine && can.create ? (
+                        isMine && selfService.canRequestLeave ? (
                             <Button
                                 onClick={handleAdd}
                                 className="h-11 rounded-xl px-5"

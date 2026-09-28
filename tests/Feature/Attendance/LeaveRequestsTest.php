@@ -736,6 +736,23 @@ test('users without approve permission cannot manage other employees leave reque
         ->assertNotFound();
 });
 
+test('unlinked self-service users cannot submit leave for another employee', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $otherEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($otherEmployee, $leaveType))
+        ->assertSessionHasErrors('employee_id');
+
+    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
 /**
  * @param  array<string, mixed>  $overrides
  */

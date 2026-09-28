@@ -94,6 +94,8 @@ test('my leave exposes personal leave balances matching LeaveTypeYearBalance', f
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('attendance/my-leave')
+            ->where('linked_employee_id', $employee->id)
+            ->where('linked_employee_attendance_leave_enabled', true)
             ->where('leave_balance_year', $year)
             ->has('leave_balances', count($expected))
             ->where('leave_balances', function ($balances) use ($annual) {
@@ -112,6 +114,27 @@ test('my leave exposes personal leave balances matching LeaveTypeYearBalance', f
             ->where('status_counts.rejected', 0)
             ->where('status_counts.cancelled', 0)
             ->has('status_counts.all'));
+});
+
+test('unlinked users have no personal leave balances or self-service create action', function () {
+    ['user' => $user, 'company' => $company] = makeMyLeaveBalancesFixtures();
+    LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/my-leave')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', null)
+            ->where('linked_employee_attendance_leave_enabled', false)
+            ->where('can.create', false)
+            ->where('leave_balances', [])
+            ->where('leave_balance_year', null)
+            ->has('leave_requests', 0));
 });
 
 test('my leave status filter returns matching personal requests and empty status returns all', function () {
@@ -301,7 +324,9 @@ test('excluded attendance leave departments do not provision my leave balances',
         ->get('/attendance/my-leave')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', $employee->id)
             ->where('linked_employee_attendance_leave_enabled', false)
+            ->where('can.create', false)
             ->where('leave_balances', [])
             ->where('leave_balance_year', null));
 
