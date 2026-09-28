@@ -51,8 +51,6 @@ import { TemplateDeleteDialog } from './components/template-delete-dialog';
 import { TemplateReplacePdfDialog } from './components/template-replace-pdf-dialog';
 import type {
     CustomTemplate,
-    DocumentTypeOption,
-    MergeField,
     SystemTemplate,
     TemplatesPermissions,
     TemplateVersionSummary,
@@ -82,8 +80,6 @@ export function DocumentsTemplatesContent({
     can,
 }: {
     customTemplates: CustomTemplate[];
-    mergeFields: MergeField[];
-    documentTypes: DocumentTypeOption[];
     systemTemplates: SystemTemplate[];
     can: TemplatesPermissions;
 }) {

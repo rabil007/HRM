@@ -53,7 +53,7 @@ test('requests access follows current document request permissions', function ()
     expect(DocumentsModuleAccess::canViewRequests($responder))->toBeTrue();
 });
 
-test('templates is visible for any exposed bridge resource', function (array $permissions, bool $platform, bool $expected) {
+test('templates is visible for bulk and custom template view, but NOT for document-types-only', function (array $permissions, bool $platform, bool $expectedTemplates, bool $expectedConfig) {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
 
@@ -65,16 +65,14 @@ test('templates is visible for any exposed bridge resource', function (array $pe
         grantPlatformAccess($user);
     }
 
-    expect(DocumentsModuleAccess::canViewTemplates($user))->toBe($expected)
-        ->and(DocumentsModuleAccess::canViewConfiguration($user))->toBe(
-            $permissions === ['settings.master-data.document-types.view'],
-        );
+    expect(DocumentsModuleAccess::canViewTemplates($user))->toBe($expectedTemplates)
+        ->and(DocumentsModuleAccess::canViewConfiguration($user))->toBe($expectedConfig);
 })->with([
-    'documents view only' => [['documents.view'], false, false],
-    'bulk documents view' => [['bulk_documents.view'], false, true],
-    'document types view' => [['settings.master-data.document-types.view'], false, true],
-    'templates view' => [['documents.templates.view'], false, true],
-    'platform view' => [[], true, false],
+    'documents view only' => [['documents.view'], false, false, false],
+    'bulk documents view' => [['bulk_documents.view'], false, true, false],
+    'document types view' => [['settings.master-data.document-types.view'], false, false, true],
+    'templates view' => [['documents.templates.view'], false, true, false],
+    'platform view' => [[], true, false, false],
 ]);
 
 test('bulk generate does not imply bulk view', function () {
@@ -84,6 +82,30 @@ test('bulk generate does not imply bulk view', function () {
     grantCompanyPermissions($user, $company, ['bulk_documents.generate']);
 
     expect(DocumentsModuleAccess::canViewGenerate($user))->toBeFalse();
+});
+
+test('document-types-only user can enter the module and open configuration but not templates', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['settings.master-data.document-types.view']);
+
+    expect(DocumentsModuleAccess::canEnter($user))->toBeTrue()
+        ->and(DocumentsModuleAccess::canViewConfiguration($user))->toBeTrue()
+        ->and(DocumentsModuleAccess::canViewDocumentTypes($user))->toBeTrue()
+        ->and(DocumentsModuleAccess::canViewTemplates($user))->toBeFalse()
+        ->and(DocumentsModuleAccess::canViewOverview($user))->toBeFalse()
+        ->and(DocumentsModuleAccess::canViewGenerate($user))->toBeFalse();
+});
+
+test('documents view alone does not grant templates access', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    expect(DocumentsModuleAccess::canViewTemplates($user))->toBeFalse()
+        ->and(DocumentsModuleAccess::canEnter($user))->toBeTrue();
 });
 
 test('resolve bulk view prefers the module route default over the query string', function () {

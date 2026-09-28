@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
-use App\Models\DocumentType;
 use App\Support\Documents\DocumentsModuleAccess;
-use App\Support\Documents\DocumentTemplateMergeFields;
 use App\Support\Documents\Queries\DocumentGenerationTemplateQuery;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -26,28 +24,10 @@ class DocumentsTemplatesController extends Controller
             ? DocumentGenerationTemplateQuery::forCompany($companyId)
             : [];
 
-        $mergeFields = ($canViewCustom || DocumentsModuleAccess::canCreateCustomTemplates($user))
-            ? DocumentTemplateMergeFields::definitions()
-            : [];
-
-        $documentTypes = ($canViewCustom || DocumentsModuleAccess::canCreateCustomTemplates($user))
-            ? DocumentType::query()
-                ->where('is_active', true)
-                ->orderBy('title')
-                ->get(['id', 'title'])
-                ->map(fn (DocumentType $type): array => [
-                    'id' => $type->id,
-                    'title' => $type->title,
-                ])
-                ->all()
-            : [];
-
         $canUpdateTemplates = DocumentsModuleAccess::canUpdateCustomTemplates($user);
 
         return Inertia::render('organization/documents/templates', [
             'custom_templates' => $customTemplates,
-            'merge_fields' => $mergeFields,
-            'document_types' => $documentTypes,
             'system_templates' => DocumentsModuleAccess::systemGenerationTemplates($user),
             'can' => [
                 'view_templates' => $canViewCustom,

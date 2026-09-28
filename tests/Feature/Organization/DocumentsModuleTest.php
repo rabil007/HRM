@@ -200,7 +200,7 @@ test('approval viewers can open requests without recipient permissions', functio
         ->assertRedirect(route('organization.documents.requests', ['tab' => 'review']));
 });
 
-test('template bridge only exposes links the user can access', function () {
+test('document-types-only user cannot open templates but can open configuration', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -208,12 +208,10 @@ test('template bridge only exposes links the user can access', function () {
     grantCompanyPermissions($user, $company, ['settings.master-data.document-types.view']);
 
     $this->get(route('organization.documents.templates'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/templates')
-            ->where('system_templates', [])
-            ->where('can.document_types', true)
-            ->where('can.generate', false));
+        ->assertForbidden();
+
+    $this->get(route('organization.documents.configuration'))
+        ->assertOk();
 });
 
 test('platform-view-only users cannot open the template bridge', function () {

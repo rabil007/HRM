@@ -228,8 +228,7 @@ export function canViewDocumentsModuleSection(
 
     return (
         permissions.includes('documents.templates.view') ||
-        permissions.includes('bulk_documents.view') ||
-        permissions.includes('settings.master-data.document-types.view')
+        permissions.includes('bulk_documents.view')
     );
 }
 

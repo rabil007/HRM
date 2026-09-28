@@ -53,7 +53,7 @@ test('permission metadata follows current module categories without changing nam
         'settings.master-data.banks.view' => 'Master Data',
         'settings.master-data.clients.update' => 'Master Data',
         'settings.master-data.company-visa-types.view' => 'Master Data',
-        'settings.master-data.document-types.view' => 'Employee Documents',
+        'settings.master-data.document-types.view' => 'Documents',
         'settings.master-data.vessels.view' => 'Settings',
         'settings.security.view' => 'Settings',
         'settings.appearance.view' => 'Settings',
@@ -74,7 +74,7 @@ test('permission metadata follows current module categories without changing nam
 
         $area = explode('.', $definition['name'])[2];
         $expectedGroup = match ($area) {
-            'document-types' => 'Employee Documents',
+            'document-types' => 'Documents',
             'vessels' => 'Settings',
             default => 'Master Data',
         };
@@ -144,7 +144,7 @@ test('roles page does not expose a platform or rank policies permission group af
                     && $names->contains('settings.application.update')
                     && $names->contains('settings.master-data.vessels.view')
                     && $options->get('settings.master-data.countries.view')['group'] === 'Master Data'
-                    && $options->get('settings.master-data.document-types.view')['group'] === 'Employee Documents'
+                    && $options->get('settings.master-data.document-types.view')['group'] === 'Documents'
                     && $options->get('settings.integrations.hikvision.view')['group'] === 'Integrations'
                     && ! $names->contains('platform.settings.view')
                     && ! $names->contains('platform.settings.update')

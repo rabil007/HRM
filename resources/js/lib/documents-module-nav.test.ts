@@ -233,22 +233,41 @@ describe('documents module visibility', () => {
         );
     });
 
-    it('shows templates for document types or custom templates view', () => {
+    it('shows templates for custom templates view or bulk documents view', () => {
         assert.deepEqual(
             visibleDocumentsModuleSections(['documents.templates.view']),
             ['templates'],
         );
         assert.deepEqual(
+            visibleDocumentsModuleSections(['bulk_documents.view']),
+            ['templates', 'generate', 'activity'],
+        );
+        assert.deepEqual(visibleDocumentsModuleSections([]), []);
+    });
+
+    it('shows only configuration for document-types-only users, not templates', () => {
+        assert.deepEqual(
             visibleDocumentsModuleSections([
                 'settings.master-data.document-types.view',
             ]),
-            ['templates', 'configuration'],
+            ['configuration'],
+        );
+        assert.equal(
+            canViewDocumentsModuleSection('templates', [
+                'settings.master-data.document-types.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            canViewDocumentsModuleSection('configuration', [
+                'settings.master-data.document-types.view',
+            ]),
+            true,
         );
         assert.equal(
             canViewDocumentsModuleSection('configuration', ['documents.view']),
             false,
         );
-        assert.deepEqual(visibleDocumentsModuleSections([]), []);
     });
 
     it('does not treat bulk generate as bulk view', () => {

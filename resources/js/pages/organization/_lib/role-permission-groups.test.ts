@@ -9,10 +9,10 @@ import {
 describe('role permission grouping', () => {
     it('uses registry group as the authoritative main category', () => {
         assert.deepEqual(
-            resolvePermissionGroups('documents.view', 'Employee Documents'),
+            resolvePermissionGroups('documents.view', 'Documents'),
             {
-                mainGroup: 'Employee Documents',
-                subGroup: 'General',
+                mainGroup: 'Documents',
+                subGroup: 'Library',
             },
         );
         assert.deepEqual(
@@ -34,19 +34,57 @@ describe('role permission grouping', () => {
         );
     });
 
-    it('places library document permissions under Employee Documents / General', () => {
+    it('places library document permissions under Documents / Library', () => {
         assert.deepEqual(
-            resolvePermissionGroups('documents.view', 'Employee Documents'),
+            resolvePermissionGroups('documents.view', 'Documents'),
             {
-                mainGroup: 'Employee Documents',
-                subGroup: 'General',
+                mainGroup: 'Documents',
+                subGroup: 'Library',
             },
         );
         assert.deepEqual(
-            resolvePermissionGroups('documents.upload', 'Employee Documents'),
+            resolvePermissionGroups('documents.upload', 'Documents'),
             {
-                mainGroup: 'Employee Documents',
-                subGroup: 'General',
+                mainGroup: 'Documents',
+                subGroup: 'Library',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('documents.download', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Library',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('documents.share', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Library',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('documents.delete', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Library',
+            },
+        );
+    });
+
+    it('places document templates permissions under Documents / Templates', () => {
+        assert.deepEqual(
+            resolvePermissionGroups('documents.templates.view', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Templates',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups('documents.templates.create', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Templates',
             },
         );
     });
@@ -68,11 +106,130 @@ describe('role permission grouping', () => {
         );
     });
 
+    it('places document requests permissions under Documents / Requests', () => {
+        assert.deepEqual(
+            resolvePermissionGroups('documents.requests.view', 'Documents'),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Requests',
+            },
+        );
+    });
+
+    it('places recipient-requests permissions under Documents / Recipient Requests', () => {
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'documents.recipient-requests.view',
+                'Documents',
+            ),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Recipient Requests',
+            },
+        );
+    });
+
+    it('places signing-presets permissions under Documents / Signing Presets', () => {
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'documents.signing-presets.view',
+                'Documents',
+            ),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Signing Presets',
+            },
+        );
+    });
+
+    it('places workflow-presets permissions under Documents / Workflow Presets', () => {
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'documents.workflow-presets.view',
+                'Documents',
+            ),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Workflow Presets',
+            },
+        );
+    });
+
+    it('places recipient-automation permissions under Documents / Recipient Automation', () => {
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'documents.recipient-automation.view',
+                'Documents',
+            ),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Recipient Automation',
+            },
+        );
+    });
+
+    it('places document-types permissions under Documents / Document Types', () => {
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'settings.master-data.document-types.view',
+                'Documents',
+            ),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Document Types',
+            },
+        );
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'settings.master-data.document-types.create',
+                'Documents',
+            ),
+            {
+                mainGroup: 'Documents',
+                subGroup: 'Document Types',
+            },
+        );
+    });
+
+    it('does not produce a top-level Employee Documents category', () => {
+        const documentPermissions = [
+            ['documents.view', 'Documents'],
+            ['documents.upload', 'Documents'],
+            ['documents.download', 'Documents'],
+            ['documents.share', 'Documents'],
+            ['documents.delete', 'Documents'],
+            ['documents.templates.view', 'Documents'],
+            ['documents.templates.create', 'Documents'],
+            ['documents.requests.view', 'Documents'],
+            ['documents.recipient-requests.view', 'Documents'],
+            ['documents.signing-presets.view', 'Documents'],
+            ['documents.workflow-presets.view', 'Documents'],
+            ['documents.recipient-automation.view', 'Documents'],
+            ['bulk_documents.view', 'Documents'],
+            ['bulk_documents.generate', 'Documents'],
+            ['bulk_documents.delete', 'Documents'],
+            ['bulk_documents.email', 'Documents'],
+            ['settings.master-data.document-types.view', 'Documents'],
+        ] as const;
+
+        const mainGroups = new Set(
+            documentPermissions.map(
+                ([permission, group]) =>
+                    resolvePermissionGroups(permission, group).mainGroup,
+            ),
+        );
+
+        assert.equal(mainGroups.size, 1);
+        assert.equal([...mainGroups][0], 'Documents');
+        assert.equal(mainGroups.has('Employee Documents'), false);
+        assert.equal(mainGroups.has('Bulk Documents'), false);
+    });
+
     it('does not produce Bulk Documents as a top-level category', () => {
         const mainGroups = new Set(
             [
-                ['documents.view', 'Employee Documents'],
-                ['documents.templates.view', 'Employee Documents'],
+                ['documents.view', 'Documents'],
+                ['documents.templates.view', 'Documents'],
                 ['bulk_documents.view', 'Documents'],
                 ['bulk_documents.generate', 'Documents'],
                 ['bulk_documents.delete', 'Documents'],
@@ -83,41 +240,8 @@ describe('role permission grouping', () => {
             ),
         );
 
-        assert.deepEqual([...mainGroups], ['Employee Documents', 'Documents']);
+        assert.deepEqual([...mainGroups], ['Documents']);
         assert.equal(mainGroups.has('Bulk Documents'), false);
-    });
-
-    it('keeps nested document subgroups from permission names', () => {
-        assert.deepEqual(
-            resolvePermissionGroups(
-                'documents.templates.view',
-                'Employee Documents',
-            ),
-            {
-                mainGroup: 'Employee Documents',
-                subGroup: 'Templates',
-            },
-        );
-        assert.deepEqual(
-            resolvePermissionGroups(
-                'documents.requests.view',
-                'Employee Documents',
-            ),
-            {
-                mainGroup: 'Employee Documents',
-                subGroup: 'Requests',
-            },
-        );
-        assert.deepEqual(
-            resolvePermissionGroups(
-                'documents.recipient-requests.view',
-                'Employee Documents',
-            ),
-            {
-                mainGroup: 'Employee Documents',
-                subGroup: 'Recipient Requests',
-            },
-        );
     });
 
     it('derives subgroups from permission names while preserving registry main groups', () => {
@@ -203,7 +327,7 @@ describe('role permission grouping', () => {
             ],
             [
                 'settings.master-data.document-types.view',
-                'Employee Documents',
+                'Documents',
                 'Document Types',
             ],
             ['crew_operations.vessels.view', 'Crew Operations', 'Vessels'],

@@ -82,8 +82,7 @@ final class DocumentsModuleAccess
     public static function canViewTemplates(?User $user): bool
     {
         return self::canViewCustomTemplates($user)
-            || self::canViewSystemTemplates($user)
-            || self::canViewDocumentTypes($user);
+            || self::canViewSystemTemplates($user);
     }
 
     public static function canEnter(?User $user): bool
@@ -91,7 +90,8 @@ final class DocumentsModuleAccess
         return self::canViewOverview($user)
             || self::canViewGenerate($user)
             || self::canViewRequests($user)
-            || self::canViewTemplates($user);
+            || self::canViewTemplates($user)
+            || self::canViewConfiguration($user);
     }
 
     /**

@@ -50,6 +50,12 @@ export function resolvePermissionSubGroup(
         return 'Core';
     }
 
+    // Top-level documents permissions (documents.view, documents.upload, etc.)
+    // belong to the Library section of the Documents module.
+    if (parts.length === 2 && root === 'documents') {
+        return 'Library';
+    }
+
     return 'General';
 }
 
