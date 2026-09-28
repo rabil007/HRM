@@ -97,7 +97,7 @@ test('user without templates access receives 403 on templates route', function (
         ->assertForbidden();
 });
 
-test('user with only document types view sees empty custom templates without permissions', function () {
+test('user with only document types view receives 403 on templates route', function () {
     $user = User::factory()->create();
     $company = createDocTemplatesTestCompany();
     grantCompanyPermissions($user, $company, ['settings.master-data.document-types.view']);
@@ -107,12 +107,7 @@ test('user with only document types view sees empty custom templates without per
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->get(route('organization.documents.templates'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/templates')
-            ->has('custom_templates', 0)
-            ->where('can.view_templates', false)
-            ->where('can.create_templates', false));
+        ->assertForbidden();
 });
 
 test('templates index excludes legacy content templates and only lists pdf overlay templates', function () {
