@@ -9,6 +9,7 @@ import {
     canViewRecruitment,
     crewOperationsHref,
     hasSettingsAccess,
+    hasMasterDataAccess,
     isSidebarUrlVisible,
     NO_PLATFORM_ACCESS,
     payrollHref,
@@ -260,6 +261,25 @@ describe('Attendance top-nav landing', () => {
 });
 
 describe('Settings navigation', () => {
+    it('shows Master Data only for viewers of its resources or platform viewers', () => {
+        assert.equal(
+            hasMasterDataAccess(['settings.master-data.countries.view']),
+            true,
+        );
+        assert.equal(hasMasterDataAccess(['settings.security.view']), false);
+        assert.equal(
+            hasMasterDataAccess(['settings.master-data.vessels.view']),
+            false,
+        );
+        assert.equal(
+            hasMasterDataAccess([], {
+                view: true,
+                manage: false,
+                database: false,
+            }),
+            true,
+        );
+    });
     it('lets platform viewers open Application settings', () => {
         assert.equal(
             canOpenApplicationSettings([], {

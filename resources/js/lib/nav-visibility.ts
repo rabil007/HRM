@@ -89,6 +89,21 @@ export function hasSettingsAccess(
     );
 }
 
+export function hasMasterDataAccess(
+    permissions: string[],
+    platform: NavPlatformAccess = NO_PLATFORM_ACCESS,
+): boolean {
+    return (
+        platform.view ||
+        SETTINGS_HUB_VIEW_PERMISSIONS.some(
+            (permission) =>
+                permission.startsWith('settings.master-data.') &&
+                permission !== 'settings.master-data.vessels.view' &&
+                has(permissions, permission),
+        )
+    );
+}
+
 function permissionNames(permission?: string | readonly string[]): string[] {
     if (!permission) {
         return [];

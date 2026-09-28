@@ -969,6 +969,8 @@ Public signing uses `/document-action/{token}` (token-bound). Administrative gen
 
 Manage security and appearance preferences, application/email/integration configuration, message templates, and reusable master-data catalogs. Document Types remain a master-data resource (`settings.master-data.document-types.*`) but are administered in **Documents → Configuration**; `/settings/master-data/document-types` redirects there.
 
+The Settings sidebar starts with **Master Data**, linking to `/settings/master-data`, followed by Application, WhatsApp templates, Email templates, Security, Appearance, and Hikvision according to access. The Master Data landing page lists only catalogs the current user can view. `/settings` remains available as the combined Settings hub for existing links but is not listed in the sidebar.
+
 ### Main artifacts
 
 - Routes in `routes/settings.php`

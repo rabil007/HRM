@@ -54,4 +54,30 @@ final class SettingsHubAccess
 
         return false;
     }
+
+    public function allowsMasterData(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        if (PlatformAuthorization::canView($user)) {
+            return true;
+        }
+
+        foreach (self::viewPermissions() as $permission) {
+            if (
+                str_starts_with($permission, 'settings.master-data.')
+                && ! in_array($permission, [
+                    'settings.master-data.vessels.view',
+                    'settings.master-data.document-types.view',
+                ], true)
+                && $user->can($permission)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

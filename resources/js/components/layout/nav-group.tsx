@@ -233,13 +233,6 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
             return false;
         }
 
-        if (item.url === '/settings') {
-            return (
-                path === '/settings' ||
-                path.startsWith('/settings/master-data/')
-            );
-        }
-
         if (item.url === '/settings/application') {
             return path === '/settings/application';
         }

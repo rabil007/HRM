@@ -122,7 +122,7 @@ CI uses `contents: read`. Deploy uses `contents: read` plus `actions: read`.
 - **Exact SHA**: `workflow_run.head_sha` then `git reset --hard` on the server. Never `git pull` latest main.
 - If `frontend_build_required=true`, the exact CI Vite artifact is required. Missing artifact **fails** deploy (no production rebuild).
 - If `frontend_build_required=false`, production keeps the existing gitignored `public/build` directory (`git reset --hard` does not delete it). No Vite, no rsync of frontend assets.
-- Production Node/Puppeteer: skip `npm ci` when `storage/app/deploy/npm-lock.sha256` matches `package-lock.json` and `browsershot:doctor` passes. Otherwise `npm ci --omit=dev` then a single Browsershot install, then write the stamp.
+- Production Node/Puppeteer: deploy selects Node.js and passes that same Node/npm pair explicitly to Browsershot, `npm ci`, install, and doctor checks. This prevents `.env` binary overrides from making Puppeteer install under one Node runtime and execute under another. Skip `npm ci` when `storage/app/deploy/npm-lock.sha256` matches `package-lock.json` and `browsershot:doctor` passes. Otherwise `npm ci --omit=dev` then a single Browsershot install, then write the stamp.
 - Deploy concurrency: `deploy-main`, `cancel-in-progress: false`.
 
 ## GitHub vs local

@@ -9,7 +9,6 @@ import {
     GraduationCap,
     Handshake,
     IdCard,
-    LayoutGrid,
     MapPin,
     Mail,
     MessageCircle,
@@ -21,9 +20,11 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
+import { index as masterDataIndex } from '@/routes/settings/master-data';
 import { excludeOccupiedCommandGroups } from './global-search';
 import {
     filterSettingsNavItems,
+    hasMasterDataAccess,
     hasSettingsAccess,
     NO_PLATFORM_ACCESS,
     SETTINGS_HUB_VIEW_PERMISSIONS,
@@ -283,11 +284,15 @@ export function getSettingsSidebarSubItems(
     }
 
     return [
-        {
-            title: 'Overview',
-            url: '/settings',
-            icon: LayoutGrid,
-        },
+        ...(hasMasterDataAccess(permissions, platform)
+            ? [
+                  {
+                      title: 'Master Data',
+                      url: masterDataIndex.url(),
+                      icon: FolderKanban,
+                  },
+              ]
+            : []),
         ...systemItems.map((item) => ({
             title: item.title,
             url: item.href,

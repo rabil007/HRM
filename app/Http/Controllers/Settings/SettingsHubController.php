@@ -15,4 +15,11 @@ final class SettingsHubController
 
         return Inertia::render('settings/index');
     }
+
+    public function masterData(Request $request, SettingsHubAccess $settingsHubAccess): Response
+    {
+        abort_unless($settingsHubAccess->allowsMasterData($request->user()), 403);
+
+        return Inertia::render('settings/master-data/index');
+    }
 }

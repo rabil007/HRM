@@ -29,6 +29,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('settings', SettingsHubController::class)->name('settings.index');
+    Route::get('settings/master-data', [SettingsHubController::class, 'masterData'])
+        ->name('settings.master-data.index');
     Route::get('settings/security', [SecurityController::class, 'edit'])
         ->name('security.edit');
 
