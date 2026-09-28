@@ -15,14 +15,16 @@ Example:
 
 ```php
 [
-    'name' => 'projects.create',
+    'name' => 'settings.master-data.projects.create',
     'label' => 'Create Projects',
     'description' => 'Allows the user to create new project records for the active company.',
-    'group' => 'Settings',
+    'group' => 'Master Data',
 ]
 ```
 
 Add new permissions to `ApplicationPermissionDefinitions.php` first, then re-seed. Frontend hiding is not authorization. Descriptions explain a permission but do not replace backend permission enforcement.
+
+The role editor groups active `settings.master-data.*` permissions under **Master Data** with area subgroups. Historical names remain stable: Document Types is shown under **Employee Documents**, Hikvision settings under **Integrations**, and the legacy Settings vessel permissions remain assigned where present but are hidden from normal role selection. Current vessel permissions appear under **Crew Operations → Vessels**.
 
 ## Enforcement rules
 

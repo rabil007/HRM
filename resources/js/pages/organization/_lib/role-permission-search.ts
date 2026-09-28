@@ -1,4 +1,5 @@
 import type { PermissionOption } from '@/features/organization/roles/types';
+import { resolvePermissionGroups } from './role-permission-groups.ts';
 
 export function permissionMatchesQuery(
     permission: PermissionOption,
@@ -15,5 +16,6 @@ export function permissionMatchesQuery(
         permission.name,
         permission.description ?? '',
         permission.group,
+        resolvePermissionGroups(permission.name, permission.group).subGroup,
     ].some((value) => value.toLowerCase().includes(normalized));
 }

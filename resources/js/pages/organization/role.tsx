@@ -44,7 +44,11 @@ import type {
 } from '@/features/organization/roles/types';
 import { cn } from '@/lib/utils';
 import { resolveEffectiveActiveGroup } from '@/pages/organization/_lib/role-permission-active-group';
-import { resolvePermissionGroups } from '@/pages/organization/_lib/role-permission-groups';
+import {
+    isVisibleRolePermission,
+    preserveHiddenRolePermissions,
+    resolvePermissionGroups,
+} from '@/pages/organization/_lib/role-permission-groups';
 import { permissionMatchesQuery } from '@/pages/organization/_lib/role-permission-search';
 
 function normalizePermissions(value: string[]): string[] {
@@ -206,14 +210,18 @@ export default function RoleDetails({
         'all' | 'selected' | 'unselected'
     >('all');
     const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
-        normalizePermissions(role.permissions ?? []),
+        normalizePermissions(
+            (role.permissions ?? []).filter(isVisibleRolePermission),
+        ),
     );
 
     const availablePermissions = useMemo(
         () =>
-            [...permissions].sort((left, right) =>
-                left.label.localeCompare(right.label),
-            ),
+            permissions
+                .filter((permission) =>
+                    isVisibleRolePermission(permission.name),
+                )
+                .sort((left, right) => left.label.localeCompare(right.label)),
         [permissions],
     );
 
@@ -312,8 +320,11 @@ export default function RoleDetails({
     const submit = (): void => {
         form.transform(() => ({
             name: form.data.name,
-            permissions: selectedPermissions.filter((permission) =>
-                availablePermissionNames.includes(permission),
+            permissions: preserveHiddenRolePermissions(
+                selectedPermissions.filter((permission) =>
+                    availablePermissionNames.includes(permission),
+                ),
+                role.permissions ?? [],
             ),
             employee_visibility_scope: isOwner ? 'all' : visibilityScope,
             department_ids:

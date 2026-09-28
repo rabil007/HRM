@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolvePermissionGroups } from './role-permission-groups.ts';
+import {
+    isVisibleRolePermission,
+    preserveHiddenRolePermissions,
+    resolvePermissionGroups,
+} from './role-permission-groups.ts';
 
 describe('role permission grouping', () => {
     it('uses registry group as the authoritative main category', () => {
@@ -148,5 +152,83 @@ describe('role permission grouping', () => {
             mainGroup: 'Employees',
             subGroup: 'General',
         });
+    });
+
+    it('uses current Master Data names without repeating the main category', () => {
+        const areas = {
+            countries: 'Countries',
+            currencies: 'Currencies',
+            'visa-types': 'Visa Types',
+            'company-visa-types': 'Sponsors',
+            'approval-locations': 'Approval Locations',
+            'sssa-options': 'SSSA Options',
+            religions: 'Religions',
+            genders: 'Genders',
+            courses: 'Courses',
+            banks: 'Banks',
+            'vessel-types': 'Vessel Types',
+            ranks: 'Ranks',
+            clients: 'Clients',
+            projects: 'Projects',
+            hotels: 'Hotels',
+        };
+
+        for (const [area, subGroup] of Object.entries(areas)) {
+            assert.deepEqual(
+                resolvePermissionGroups(
+                    `settings.master-data.${area}.view`,
+                    'Master Data',
+                ),
+                { mainGroup: 'Master Data', subGroup },
+            );
+        }
+
+        assert.deepEqual(
+            resolvePermissionGroups(
+                'settings.master-data.clients.update',
+                'Master Data',
+            ),
+            { mainGroup: 'Master Data', subGroup: 'Clients' },
+        );
+    });
+
+    it('keeps Settings, Integrations, Documents and Crew Operations distinct', () => {
+        const cases = [
+            ['settings.security.view', 'Settings', 'Security'],
+            ['settings.appearance.view', 'Settings', 'Appearance'],
+            [
+                'settings.integrations.hikvision.view',
+                'Integrations',
+                'Hikvision',
+            ],
+            [
+                'settings.master-data.document-types.view',
+                'Employee Documents',
+                'Document Types',
+            ],
+            ['crew_operations.vessels.view', 'Crew Operations', 'Vessels'],
+        ];
+
+        for (const [name, mainGroup, subGroup] of cases) {
+            assert.deepEqual(resolvePermissionGroups(name, mainGroup), {
+                mainGroup,
+                subGroup,
+            });
+        }
+    });
+
+    it('hides legacy Settings vessel choices while preserving existing assignments', () => {
+        const legacy = 'settings.master-data.vessels.view';
+        const current = 'crew_operations.vessels.view';
+
+        assert.equal(isVisibleRolePermission(legacy), false);
+        assert.equal(isVisibleRolePermission(current), true);
+        assert.deepEqual(
+            preserveHiddenRolePermissions([current], [legacy, current]),
+            [current, legacy],
+        );
+        assert.deepEqual(preserveHiddenRolePermissions([], [legacy, current]), [
+            legacy,
+        ]);
     });
 });

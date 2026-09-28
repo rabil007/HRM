@@ -1,10 +1,21 @@
 export function formatPermissionGroupLabel(segment: string): string {
+    if (segment === 'company-visa-types') {
+        return 'Sponsors';
+    }
+
+    if (segment === 'sssa-options') {
+        return 'SSSA Options';
+    }
+
     return segment
         .replace(/[-_]/g, ' ')
         .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-export function resolvePermissionSubGroup(permissionName: string): string {
+export function resolvePermissionSubGroup(
+    permissionName: string,
+    registryGroup?: string | null,
+): string {
     const parts = permissionName.split('.');
     const root = parts[0] || 'other';
 
@@ -14,6 +25,18 @@ export function resolvePermissionSubGroup(permissionName: string): string {
 
     if (root === 'bulk_documents') {
         return 'Generate & Track';
+    }
+
+    if (
+        root === 'settings' &&
+        parts.length > 3 &&
+        registryGroup?.trim() !== 'Settings' &&
+        registryGroup?.trim()
+    ) {
+        return parts
+            .slice(2, -1)
+            .map((part) => formatPermissionGroupLabel(part))
+            .join(' • ');
     }
 
     if (parts.length > 2) {
@@ -43,6 +66,24 @@ export function resolvePermissionGroups(
 
     return {
         mainGroup,
-        subGroup: resolvePermissionSubGroup(permissionName),
+        subGroup: resolvePermissionSubGroup(permissionName, registryGroup),
     };
+}
+
+export function isVisibleRolePermission(permissionName: string): boolean {
+    return !permissionName.startsWith('settings.master-data.vessels.');
+}
+
+export function preserveHiddenRolePermissions(
+    selectedPermissions: string[],
+    originalPermissions: string[],
+): string[] {
+    return [
+        ...new Set([
+            ...selectedPermissions,
+            ...originalPermissions.filter(
+                (permission) => !isVisibleRolePermission(permission),
+            ),
+        ]),
+    ];
 }

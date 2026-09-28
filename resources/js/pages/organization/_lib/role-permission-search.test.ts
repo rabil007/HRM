@@ -35,3 +35,84 @@ test('permission search treats empty query as match-all', () => {
     assert.equal(permissionMatchesQuery(samplePermission, ''), true);
     assert.equal(permissionMatchesQuery(samplePermission, '   '), true);
 });
+
+test('permission search finds regrouped modules and user-facing subgroup names', () => {
+    const permission = (
+        name: string,
+        label: string,
+        group: string,
+    ): PermissionOption => ({
+        id: 2,
+        name,
+        label,
+        description: '',
+        group,
+    });
+
+    assert.equal(
+        permissionMatchesQuery(
+            permission(
+                'settings.master-data.countries.view',
+                'View Countries',
+                'Master Data',
+            ),
+            'Master Data',
+        ),
+        true,
+    );
+    assert.equal(
+        permissionMatchesQuery(
+            permission(
+                'settings.master-data.countries.view',
+                'View Countries',
+                'Master Data',
+            ),
+            'Countries',
+        ),
+        true,
+    );
+    assert.equal(
+        permissionMatchesQuery(
+            permission(
+                'settings.master-data.company-visa-types.view',
+                'View Company visa types',
+                'Master Data',
+            ),
+            'Sponsors',
+        ),
+        true,
+    );
+    assert.equal(
+        permissionMatchesQuery(
+            permission(
+                'settings.integrations.hikvision.view',
+                'View Hikvision Integration',
+                'Integrations',
+            ),
+            'Hikvision',
+        ),
+        true,
+    );
+    assert.equal(
+        permissionMatchesQuery(
+            permission(
+                'settings.master-data.document-types.view',
+                'View Document types',
+                'Employee Documents',
+            ),
+            'Document Types',
+        ),
+        true,
+    );
+    assert.equal(
+        permissionMatchesQuery(
+            permission(
+                'crew_operations.vessels.view',
+                'View Vessels',
+                'Crew Operations',
+            ),
+            'Vessels',
+        ),
+        true,
+    );
+});

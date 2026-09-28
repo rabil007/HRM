@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use App\Support\Authorization\ApplicationPermissionRegistry;
 use Illuminate\Support\Facades\Artisan;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
@@ -46,6 +47,42 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'bulk_documents.signatures.review')->exists())->toBeFalse();
 });
 
+test('permission metadata follows current module categories without changing names', function () {
+    $groups = [
+        'settings.master-data.countries.view' => 'Master Data',
+        'settings.master-data.banks.view' => 'Master Data',
+        'settings.master-data.clients.update' => 'Master Data',
+        'settings.master-data.company-visa-types.view' => 'Master Data',
+        'settings.master-data.document-types.view' => 'Employee Documents',
+        'settings.master-data.vessels.view' => 'Settings',
+        'settings.security.view' => 'Settings',
+        'settings.appearance.view' => 'Settings',
+        'settings.integrations.hikvision.view' => 'Integrations',
+        'crew_operations.vessels.view' => 'Crew Operations',
+    ];
+
+    foreach ($groups as $name => $group) {
+        expect(ApplicationPermissionRegistry::find($name)['group'] ?? null)->toBe($group);
+    }
+
+    expect(ApplicationPermissionRegistry::names())->toContain(...array_keys($groups));
+
+    foreach (ApplicationPermissionRegistry::definitions() as $definition) {
+        if (! str_starts_with($definition['name'], 'settings.master-data.')) {
+            continue;
+        }
+
+        $area = explode('.', $definition['name'])[2];
+        $expectedGroup = match ($area) {
+            'document-types' => 'Employee Documents',
+            'vessels' => 'Settings',
+            default => 'Master Data',
+        };
+
+        expect($definition['group'])->toBe($expectedGroup);
+    }
+});
+
 test('roles page does not expose a platform or rank policies permission group after seeding', function () {
     Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
 
@@ -80,7 +117,15 @@ test('roles page does not expose a platform or rank policies permission group af
         'name' => 'Viewer',
         'guard_name' => 'web',
     ]);
-    $role->syncPermissions(['settings.application.view', 'settings.application.update']);
+    $role->syncPermissions([
+        'settings.application.view',
+        'settings.application.update',
+        'settings.master-data.vessels.view',
+    ]);
+
+    $assignedBefore = $role->permissions()->pluck('name')->sort()->values()->all();
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+    expect($role->fresh()->permissions()->pluck('name')->sort()->values()->all())->toBe($assignedBefore);
 
     grantCompanyPermissions($user, $company, ['roles.view']);
 
@@ -92,10 +137,15 @@ test('roles page does not expose a platform or rank policies permission group af
             ->component('organization/role')
             ->has('permissions')
             ->where('permissions', function ($permissions) {
-                $names = collect($permissions)->pluck('name');
+                $options = collect($permissions)->keyBy('name');
+                $names = $options->keys();
 
                 return $names->contains('settings.application.view')
                     && $names->contains('settings.application.update')
+                    && $names->contains('settings.master-data.vessels.view')
+                    && $options->get('settings.master-data.countries.view')['group'] === 'Master Data'
+                    && $options->get('settings.master-data.document-types.view')['group'] === 'Employee Documents'
+                    && $options->get('settings.integrations.hikvision.view')['group'] === 'Integrations'
                     && ! $names->contains('platform.settings.view')
                     && ! $names->contains('platform.settings.update')
                     && ! $names->contains('crew_operations.rank_policies.view')
