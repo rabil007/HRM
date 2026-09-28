@@ -32,6 +32,7 @@ final class ConfiguresBrowsershotPdf
             ->setNodeBinary($binaries['node'])
             ->setNpmBinary($binaries['npm'])
             ->noSandbox()
+            ->usePipe()
             ->addChromiumArguments(self::chromiumArguments());
 
         if ($binaries['chrome'] !== null) {
