@@ -33,7 +33,7 @@ import type {
     LeaveReassignmentApproverCandidate,
 } from '@/features/attendance/leave-requests/types';
 import { firstValidationError } from '@/lib/first-validation-error';
-import { formatDisplayDate } from '@/lib/format-date';
+import { useFormatDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +75,8 @@ function ApprovalTimeline({
     canReassignCurrentApproval: boolean;
     onReassign: (approval: LeaveRequestApproval) => void;
 }) {
+    const formatDate = useFormatDate();
+
     if (approvals.length === 0) {
         return (
             <div className="px-6 py-8 text-sm text-muted-foreground">
@@ -161,7 +163,7 @@ function ApprovalTimeline({
                         </div>
                         <div className="shrink-0 text-xs text-muted-foreground/60">
                             {approval.acted_at
-                                ? formatDisplayDate(approval.acted_at)
+                                ? formatDate(approval.acted_at)
                                 : 'Awaiting action'}
                         </div>
                     </div>
@@ -190,6 +192,7 @@ export default function LeaveRequestDetails({
     can: LeaveRequestPermissions;
     linked_employee_id: number | null;
 }) {
+    const formatDate = useFormatDate();
     const [editOpen, setEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isAdministrativeDeleteOpen, setIsAdministrativeDeleteOpen] =
@@ -262,7 +265,7 @@ export default function LeaveRequestDetails({
             <DetailsHeader
                 kicker="Attendance"
                 title={leave_request.employee?.name ?? 'Leave request'}
-                description={`${leave_request.leave_type?.name ?? '—'} • ${formatDisplayDate(leave_request.start_date)} — ${formatDisplayDate(leave_request.end_date)}`}
+                description={`${leave_request.leave_type?.name ?? '—'} • ${formatDate(leave_request.start_date)} — ${formatDate(leave_request.end_date)}`}
                 backHref={leaveMyLeave.url()}
                 backLabel="Back to my leave"
                 actions={
@@ -333,15 +336,11 @@ export default function LeaveRequestDetails({
                             />
                             <Field
                                 label="Start date"
-                                value={formatDisplayDate(
-                                    leave_request.start_date,
-                                )}
+                                value={formatDate(leave_request.start_date)}
                             />
                             <Field
                                 label="End date"
-                                value={formatDisplayDate(
-                                    leave_request.end_date,
-                                )}
+                                value={formatDate(leave_request.end_date)}
                             />
                             <Field
                                 label="Total days"
@@ -383,9 +382,7 @@ export default function LeaveRequestDetails({
                                 label="Decided at"
                                 value={
                                     leave_request.decided_at
-                                        ? formatDisplayDate(
-                                              leave_request.decided_at,
-                                          )
+                                        ? formatDate(leave_request.decided_at)
                                         : '—'
                                 }
                             />
@@ -409,9 +406,7 @@ export default function LeaveRequestDetails({
                                 label="Created"
                                 value={
                                     leave_request.created_at
-                                        ? formatDisplayDate(
-                                              leave_request.created_at,
-                                          )
+                                        ? formatDate(leave_request.created_at)
                                         : '—'
                                 }
                             />

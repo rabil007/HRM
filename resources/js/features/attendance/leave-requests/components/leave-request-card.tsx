@@ -7,7 +7,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { formatDisplayDate } from '@/lib/format-date';
+import { useFormatDate } from '@/lib/format-date';
 import type { LeaveRequest, LeaveRequestPermissions } from '../types';
 import { LeaveRequestRowActions } from './leave-request-row-actions';
 import { LeaveRequestStatusBadge } from './leave-request-status-badge';
@@ -31,6 +31,8 @@ export function LeaveRequestCard({
     onReject: (leaveRequest: LeaveRequest) => void;
     onCancel: (leaveRequest: LeaveRequest) => void;
 }) {
+    const formatDate = useFormatDate();
+
     return (
         <Card className="group relative overflow-hidden glass-card transition-all duration-300 dark:bg-linear-to-br dark:from-white/6 dark:to-white/3 dark:hover:from-white/8 dark:hover:to-white/4">
             <CardHeader className="pb-3">
@@ -40,8 +42,8 @@ export function LeaveRequestCard({
                             {leaveRequest.employee?.name ?? 'Unknown employee'}
                         </CardTitle>
                         <CardDescription className="mt-2 text-sm font-medium text-muted-foreground/85">
-                            {formatDisplayDate(leaveRequest.start_date)} —{' '}
-                            {formatDisplayDate(leaveRequest.end_date)}
+                            {formatDate(leaveRequest.start_date)} —{' '}
+                            {formatDate(leaveRequest.end_date)}
                         </CardDescription>
                         <div className="mt-3 flex flex-wrap gap-2">
                             {leaveRequest.leave_type ? (

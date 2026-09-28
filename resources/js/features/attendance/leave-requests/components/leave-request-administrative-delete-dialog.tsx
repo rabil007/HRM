@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { formatDisplayDate } from '@/lib/format-date';
+import { useFormatDate } from '@/lib/format-date';
 import type { LeaveRequest } from '../types';
 
 export function LeaveRequestAdministrativeDeleteDialog({
@@ -26,6 +26,7 @@ export function LeaveRequestAdministrativeDeleteDialog({
     leaveRequest: LeaveRequest | null;
     onSuccess: () => void;
 }) {
+    const formatDate = useFormatDate();
     const form = useForm<{
         administrative_deletion_reason: string;
     }>({
@@ -96,8 +97,8 @@ export function LeaveRequestAdministrativeDeleteDialog({
                         <div className="flex justify-between gap-3">
                             <span className="text-muted-foreground">Dates</span>
                             <span className="text-right font-semibold">
-                                {formatDisplayDate(leaveRequest.start_date)} —{' '}
-                                {formatDisplayDate(leaveRequest.end_date)}
+                                {formatDate(leaveRequest.start_date)} —{' '}
+                                {formatDate(leaveRequest.end_date)}
                             </span>
                         </div>
                         <div className="flex justify-between gap-3">

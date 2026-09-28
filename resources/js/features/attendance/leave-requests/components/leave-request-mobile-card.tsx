@@ -3,7 +3,7 @@ import { MobileRecordCard } from '@/components/mobile-record-list';
 import type { MobileRecordOverflowAction } from '@/components/mobile-record-list';
 import { LeaveRequestStatusBadge } from '@/features/attendance/leave-requests/components/leave-request-status-badge';
 import { leaveRequestMobileCardModel } from '@/features/attendance/leave-requests/lib/leave-request-mobile-card';
-import { formatDisplayDate } from '@/lib/format-date';
+import { useFormatDate } from '@/lib/format-date';
 import type { LeaveRequest } from '../types';
 
 export function LeaveRequestMobileCard({
@@ -23,6 +23,7 @@ export function LeaveRequestMobileCard({
     onReject: (leaveRequest: LeaveRequest) => void;
     onCancel: (leaveRequest: LeaveRequest) => void;
 }) {
+    const formatDate = useFormatDate();
     const model = leaveRequestMobileCardModel(leaveRequest);
     const viewHref = leaveRequestShow.url(leaveRequest.id);
     const overflowActions: MobileRecordOverflowAction[] = [];
@@ -75,7 +76,7 @@ export function LeaveRequestMobileCard({
             title={model.title}
             subtitle={model.subtitle}
             meta={[
-                `${formatDisplayDate(model.startDate)} – ${formatDisplayDate(model.endDate)}`,
+                `${formatDate(model.startDate)} – ${formatDate(model.endDate)}`,
                 model.duration,
             ]}
             status={<LeaveRequestStatusBadge status={model.status} />}

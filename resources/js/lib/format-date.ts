@@ -1,15 +1,52 @@
+import { usePage } from '@inertiajs/react';
+
 const ISO_DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})/;
+
+export const SUPPORTED_DATE_FORMATS = [
+    'Y-m-d',
+    'd/m/Y',
+    'm/d/Y',
+    'd-m-Y',
+    'M d, Y',
+] as const;
+
+export type PlatformDateFormat = (typeof SUPPORTED_DATE_FORMATS)[number];
+
+export const DEFAULT_DATE_FORMAT: PlatformDateFormat = 'd-m-Y';
+
+const SHORT_MONTH_NAMES: Record<string, string> = {
+    '01': 'Jan',
+    '02': 'Feb',
+    '03': 'Mar',
+    '04': 'Apr',
+    '05': 'May',
+    '06': 'Jun',
+    '07': 'Jul',
+    '08': 'Aug',
+    '09': 'Sep',
+    '10': 'Oct',
+    '11': 'Nov',
+    '12': 'Dec',
+};
 
 export function isIsoDateString(value: string): boolean {
     return ISO_DATE_PREFIX.test(value.trim());
 }
 
-export function formatDisplayDate(value: string | null | undefined): string {
-    if (value === null || value === undefined || value === '') {
+export function formatDisplayDate(
+    value: string | null | undefined,
+    format?: string | null,
+): string {
+    if (value === null || value === undefined) {
         return '—';
     }
 
     const trimmed = value.trim();
+
+    if (trimmed === '') {
+        return '—';
+    }
+
     const match = ISO_DATE_PREFIX.exec(trimmed);
 
     if (!match) {
@@ -18,7 +55,55 @@ export function formatDisplayDate(value: string | null | undefined): string {
 
     const [, year, month, day] = match;
 
-    return `${day}-${month}-${year}`;
+    switch (format) {
+        case 'Y-m-d':
+            return `${year}-${month}-${day}`;
+        case 'd/m/Y':
+            return `${day}/${month}/${year}`;
+        case 'm/d/Y':
+            return `${month}/${day}/${year}`;
+        case 'M d, Y': {
+            const monthName = SHORT_MONTH_NAMES[month] ?? month;
+
+            return `${monthName} ${day}, ${year}`;
+        }
+        case 'd-m-Y':
+        default:
+            return `${day}-${month}-${year}`;
+    }
+}
+
+export function useDateFormat(overrideFormat?: string | null): string {
+    const page = usePage();
+
+    if (
+        overrideFormat &&
+        typeof overrideFormat === 'string' &&
+        overrideFormat.trim() !== ''
+    ) {
+        return overrideFormat.trim();
+    }
+
+    const settings = page?.props?.settings as
+        | {
+              platform?: { default_date_format?: string | null } | null;
+              date_format?: string | null;
+          }
+        | undefined;
+
+    const platformFormat = settings?.platform?.default_date_format;
+    const flatFormat = settings?.date_format;
+
+    return platformFormat || flatFormat || DEFAULT_DATE_FORMAT;
+}
+
+export function useFormatDate(
+    overrideFormat?: string | null,
+): (value: string | null | undefined) => string {
+    const dateFormat = useDateFormat(overrideFormat);
+
+    return (value: string | null | undefined) =>
+        formatDisplayDate(value, dateFormat);
 }
 
 export function formatDisplayDateTime(
@@ -120,7 +205,10 @@ export function formatDisplayDateTime12h(
     return `${day}-${month}-${year} ${format12HourClock(parsed)}`;
 }
 
-export function formatDisplayValue(value: unknown): string {
+export function formatDisplayValue(
+    value: unknown,
+    format?: string | null,
+): string {
     if (value === null || value === undefined || value === '') {
         return '—';
     }
@@ -134,7 +222,7 @@ export function formatDisplayValue(value: unknown): string {
     }
 
     if (typeof value === 'string' && isIsoDateString(value)) {
-        return formatDisplayDate(value);
+        return formatDisplayDate(value, format);
     }
 
     if (typeof value === 'string') {
@@ -165,4 +253,4 @@ export {
     toCompanyDateLocal,
     toCompanyDateTimeLocal,
     useCompanyTimezone,
-} from './company-timezone';
+} from './company-timezone.ts';

@@ -37,7 +37,7 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { firstValidationError } from '@/lib/first-validation-error';
-import { formatDisplayDate } from '@/lib/format-date';
+import { useFormatDate } from '@/lib/format-date';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
@@ -110,6 +110,7 @@ export function LeaveRequestsContent({
     saved_views?: SavedView[];
 }) {
     const isMine = listMode === 'mine';
+    const formatDate = useFormatDate();
     const selfService = myLeaveState(
         linkedEmployeeId,
         linkedEmployeeAttendanceLeaveEnabled,
@@ -484,14 +485,14 @@ export function LeaveRequestsContent({
                                             <TableCell
                                                 className={dataTableCellClass()}
                                             >
-                                                {formatDisplayDate(
+                                                {formatDate(
                                                     leaveRequest.start_date,
                                                 )}
                                             </TableCell>
                                             <TableCell
                                                 className={dataTableCellClass()}
                                             >
-                                                {formatDisplayDate(
+                                                {formatDate(
                                                     leaveRequest.end_date,
                                                 )}
                                             </TableCell>

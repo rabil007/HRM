@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import type { InertiaFormProps } from '@inertiajs/react';
 import { AlertCircle, FileText, Trash2, Upload } from 'lucide-react';
 import { useId } from 'react';
+import { AppDateField } from '@/components/app-date-field';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -215,9 +216,8 @@ export function LeaveRequestFormSheet({
                                     Start date{' '}
                                     <span className="text-destructive">*</span>
                                 </Label>
-                                <Input
+                                <AppDateField
                                     id="start_date"
-                                    type="date"
                                     className={inputClass}
                                     value={form.data.start_date}
                                     onChange={(e) =>
@@ -226,6 +226,9 @@ export function LeaveRequestFormSheet({
                                             e.target.value,
                                         )
                                     }
+                                    aria-invalid={Boolean(
+                                        form.errors.start_date,
+                                    )}
                                 />
                                 {form.errors.start_date ? (
                                     <div className="text-xs font-medium text-destructive">
@@ -242,14 +245,15 @@ export function LeaveRequestFormSheet({
                                     End date{' '}
                                     <span className="text-destructive">*</span>
                                 </Label>
-                                <Input
+                                <AppDateField
                                     id="end_date"
-                                    type="date"
                                     className={inputClass}
                                     value={form.data.end_date}
+                                    min={form.data.start_date || undefined}
                                     onChange={(e) =>
                                         form.setData('end_date', e.target.value)
                                     }
+                                    aria-invalid={Boolean(form.errors.end_date)}
                                 />
                                 {form.errors.end_date ? (
                                     <div className="text-xs font-medium text-destructive">
