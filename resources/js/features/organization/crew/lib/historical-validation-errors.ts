@@ -1,7 +1,15 @@
 const FORM_ALIASES: Record<string, string> = {
-    training_start_at: 'training_started_at',
-    training_end_at: 'training_ended_at',
-    mobilisation_start_at: 'mobilisation_at',
+    // Legacy event keys → simplified period fields (compat for older payloads)
+    training_start_at: 'sign_on_standby_from',
+    training_end_at: 'sign_on_standby_to',
+    mobilisation_start_at: 'sign_on_standby_from',
+    mobilisation_at: 'sign_on_standby_from',
+    join_standby_at: 'sign_on_standby_from',
+    demob_standby_at: 'sign_off_standby_from',
+    post_signoff_standby_at: 'sign_off_standby_from',
+    joined_vessel_at: 'onsite_from',
+    disembarked_at: 'onsite_to',
+    home_redeploy_at: 'home_available_from',
 };
 
 const ALERT_KEYS = [

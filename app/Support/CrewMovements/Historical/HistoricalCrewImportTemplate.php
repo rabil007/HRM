@@ -22,11 +22,13 @@ final class HistoricalCrewImportTemplate
 {
     public const INSTRUCTIONS_SHEET = 'Instructions';
 
-    public const ASSIGNMENTS_SHEET = 'Historical Assignments';
+    public const ASSIGNMENTS_SHEET = 'Past Crew Data';
+
+    public const LEGACY_ASSIGNMENTS_SHEET = 'Historical Assignments';
 
     public const REFERENCE_SHEET = 'Reference Data';
 
-    public const FILENAME = 'Historical_Crew_Import_Template.xlsx';
+    public const FILENAME = 'Past_Crew_Data_Import_Template.xlsx';
 
     /**
      * @return array{path: string, filename: string}
@@ -62,49 +64,37 @@ final class HistoricalCrewImportTemplate
     private function writeInstructions(Worksheet $sheet): void
     {
         $lines = [
-            ['Historical Crew Import — Instructions'],
+            ['PAST CREW DATA IMPORT'],
             [''],
             ['Purpose'],
-            ['Reconstruct historical crew movements and, when safe, bootstrap where the employee currently is in OMS-HRM.'],
-            ['Sea Service is a downstream result of a completed On Vessel → Disembarked period — not the main reason for this import.'],
+            ['Enter the movement dates you know so OMS-HRM can determine where each crew member currently is.'],
             [''],
-            ['Workflow'],
-            ['1. Fill the Historical Assignments sheet using values from Reference Data.'],
-            ['2. Upload the completed workbook in Add Past Data → Import Excel.'],
-            ['3. Validate File runs authoritative historical rules (no records are written yet).'],
-            ['4. Review Ready / Warning / Blocked rows, including Inferred State.'],
-            ['5. Confirm import to revalidate and persist Ready + Warning rows (Blocked rows are skipped).'],
+            ['HOW TO FILL'],
+            ['1. Enter Employee No, Rank and Vessel.'],
+            ['2. Enter the known Sign-On Standby dates.'],
+            ['3. Enter the known Onsite / On Vessel dates.'],
+            ['4. Enter the known Sign-Off Standby dates.'],
+            ['5. If the crew reached home, enter Home Date.'],
+            ['6. Leave the current movement “To” date blank.'],
             [''],
-            ['How movement dates work'],
-            ['Enter the employee\'s known movement dates in sequence.'],
-            ['OMS-HRM reconstructs the movement timeline automatically.'],
-            ['The last valid movement determines the employee\'s current operational state when no newer active OMS assignment exists.'],
-            ['Do not guess unknown historical dates.'],
+            ['Examples'],
+            ['CURRENT ON VESSEL — Onsite From filled, Onsite To blank → Current State = On Vessel'],
+            ['CURRENT SIGN-OFF STANDBY — closed Onsite + Sign-Off Standby From, Sign-Off To blank → Sign-Off Standby'],
+            ['CURRENT HOME — closed Onsite + closed Sign-Off + Home Date → Home'],
             [''],
-            ['Important'],
+            ['IMPORTANT'],
             ['- Do not enter future dates.'],
-            ['- Employee, Vessel, and Rank are required. At least one movement date is required.'],
-            ['- On Vessel and Disembarked are optional — a row may end at Pre-Mobilisation, Join Standby, Training, On Vessel, Demobilisation Standby, or Home.'],
-            ['- Training End automatically returns the employee to Join Standby.'],
-            ['- Disembarked automatically moves the employee to Demobilisation Standby until Home / Redeployment is recorded.'],
-            ['- Sea Service is created only for a completed On Vessel → Disembarked period.'],
-            ['- An employee may have at most one open/current assignment in the workbook, and it must be the chronologically latest row.'],
-            ['- If the employee already has an active Crew Assignment in OMS-HRM, this import will not create another current assignment.'],
+            ['- Do not guess unknown dates.'],
+            ['- Leave unknown information blank.'],
+            ['- Only the latest movement may remain open.'],
+            ['- If all movement periods are closed, enter Home Date.'],
+            ['- Use names from Reference Data for Vessel, Rank and Client.'],
             ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
-            ['- Maximum 5,000 historical assignment rows per workbook.'],
-            ['- Vessel, Rank and Client values must exactly match a value in Reference Data.'],
-            ['- Ambiguous duplicate names are blocked during validation.'],
-            ['- Inactive Vessel / Rank / Client values are allowed for historical backfill (shown as warnings).'],
-            ['- Historical Client may differ from the Vessel\'s Current Client in Reference Data.'],
+            ['- Maximum 5,000 Past Crew Data rows per workbook.'],
             [''],
             ['Accepted date format'],
-            ['Prefer YYYY-MM-DD (example: 2024-01-15).'],
-            ['Excel date cells are also accepted and normalized to company calendar dates.'],
-            [''],
-            ['Movement sequence'],
-            ['Pre-Mobilisation → Join Standby → Training Start → Training End → On Vessel → Disembarked → Home / Redeployment'],
-            ['Only enter dates you know. OMS derives phases from those events.'],
+            ['Prefer YYYY-MM-DD (example: 2024-01-15). Excel date cells are also accepted.'],
         ];
 
         foreach ($lines as $index => $line) {
@@ -113,11 +103,10 @@ final class HistoricalCrewImportTemplate
 
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A3')->getFont()->setBold(true);
-        $sheet->getStyle('A7')->getFont()->setBold(true);
+        $sheet->getStyle('A6')->getFont()->setBold(true);
         $sheet->getStyle('A14')->getFont()->setBold(true);
-        $sheet->getStyle('A20')->getFont()->setBold(true);
-        $sheet->getStyle('A37')->getFont()->setBold(true);
-        $sheet->getStyle('A41')->getFont()->setBold(true);
+        $sheet->getStyle('A19')->getFont()->setBold(true);
+        $sheet->getStyle('A30')->getFont()->setBold(true);
         $sheet->getColumnDimension('A')->setWidth(110);
     }
 
@@ -151,14 +140,14 @@ final class HistoricalCrewImportTemplate
             HistoricalCrewImportColumns::VESSEL => 'Example Vessel',
             HistoricalCrewImportColumns::RANK => 'Example Rank',
             HistoricalCrewImportColumns::CLIENT => '',
-            HistoricalCrewImportColumns::MOBILISATION_DATE => '2024-01-01',
-            HistoricalCrewImportColumns::JOIN_STANDBY_DATE => '2024-01-05',
-            HistoricalCrewImportColumns::TRAINING_START_DATE => '',
-            HistoricalCrewImportColumns::TRAINING_END_DATE => '',
-            HistoricalCrewImportColumns::VESSEL_JOIN_DATE => '2024-01-15',
-            HistoricalCrewImportColumns::DISEMBARK_DATE => '',
-            HistoricalCrewImportColumns::TRAVEL_HOME_DATE => '',
-            HistoricalCrewImportColumns::REMARKS => 'SAMPLE — replace with real historical rows before upload',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-01-05',
+            HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-01-14',
+            HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
+            HistoricalCrewImportColumns::ONSITE_TO => '',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM => '',
+            HistoricalCrewImportColumns::SIGN_OFF_STANDBY_TO => '',
+            HistoricalCrewImportColumns::HOME_AVAILABLE_FROM => '',
+            HistoricalCrewImportColumns::REMARKS => 'SAMPLE — replace with real past crew data rows before upload',
         ];
 
         foreach (HistoricalCrewImportColumns::headers() as $columnIndex => $header) {
@@ -207,7 +196,7 @@ final class HistoricalCrewImportTemplate
         $row += 2;
         $this->writeClientReference($sheet, $row);
 
-        foreach (range(1, 5) as $column) {
+        foreach (range(1, 4) as $column) {
             $sheet->getColumnDimensionByColumn($column)->setWidth(24);
         }
     }

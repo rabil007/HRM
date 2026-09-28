@@ -53,7 +53,7 @@ class HistoricalCrewAssignmentController extends Controller
 
         return redirect()
             ->route('organization.crew-assignments.index')
-            ->with('success', "Historical assignment {$assignment->assignment_no} recorded successfully.");
+            ->with('success', "Past Crew Data recorded successfully. Assignment {$assignment->assignment_no} was created.");
     }
 
     public function importTemplate(Request $request): BinaryFileResponse

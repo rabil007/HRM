@@ -286,7 +286,7 @@ final class HistoricalCrewImportPreviewService
         }
 
         $hasMovementDate = false;
-        foreach (HistoricalCrewImportColumns::dateHeaders() as $dateHeader) {
+        foreach (HistoricalCrewImportColumns::movementPeriodHeaders() as $dateHeader) {
             $value = $parsedRow->raw[$dateHeader] ?? null;
             if ($value !== null && $value !== '') {
                 $hasMovementDate = true;
@@ -295,7 +295,7 @@ final class HistoricalCrewImportPreviewService
         }
 
         if (! $hasMovementDate) {
-            $resolveErrors['dates'] = 'At least one meaningful movement date must be supplied.';
+            $resolveErrors['dates'] = 'At least one meaningful movement period must be supplied.';
         }
 
         $employee = null;
@@ -372,13 +372,13 @@ final class HistoricalCrewImportPreviewService
                         'vessel_id' => (int) $vessel->id,
                         'rank_id' => (int) $rank->id,
                         'client_id' => $client?->id,
-                        'joined_vessel_at' => $parsedRow->vesselJoinDate(),
-                        'disembarked_at' => $parsedRow->disembarkDate(),
-                        'mobilisation_start_at' => $parsedRow->raw[HistoricalCrewImportColumns::MOBILISATION_DATE] ?? null,
-                        'join_standby_at' => $parsedRow->raw[HistoricalCrewImportColumns::JOIN_STANDBY_DATE] ?? null,
-                        'training_start_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAINING_START_DATE] ?? null,
-                        'training_end_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAINING_END_DATE] ?? null,
-                        'travel_home_at' => $parsedRow->raw[HistoricalCrewImportColumns::TRAVEL_HOME_DATE] ?? null,
+                        'sign_on_standby_from' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM] ?? null,
+                        'sign_on_standby_to' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO] ?? null,
+                        'onsite_from' => $parsedRow->onsiteFrom(),
+                        'onsite_to' => $parsedRow->onsiteTo(),
+                        'sign_off_standby_from' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_FROM] ?? null,
+                        'sign_off_standby_to' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_OFF_STANDBY_TO] ?? null,
+                        'home_available_from' => $parsedRow->raw[HistoricalCrewImportColumns::HOME_AVAILABLE_FROM] ?? null,
                         'remarks' => $parsedRow->remarks(),
                     ],
                     companyId: $companyId,
@@ -435,8 +435,10 @@ final class HistoricalCrewImportPreviewService
             'rank_name' => $rank?->name ?? $rankName,
             'client_id' => $client?->id,
             'client_name' => $client?->name ?? $clientName,
-            'joined_vessel_at' => $parsedRow->vesselJoinDate(),
-            'disembarked_at' => $parsedRow->disembarkDate(),
+            'joined_vessel_at' => $parsedRow->onsiteFrom(),
+            'disembarked_at' => $parsedRow->onsiteTo(),
+            'onsite_from' => $parsedRow->onsiteFrom(),
+            'onsite_to' => $parsedRow->onsiteTo(),
             'interval_start' => $intervalStart,
             'interval_end' => $intervalEnd,
             'is_open' => $isOpen,
@@ -518,9 +520,9 @@ final class HistoricalCrewImportPreviewService
                         fn (int $idx): string => (string) $evaluated[$idx]['row_number'],
                         array_values(array_filter($openIndexes, fn (int $idx): bool => $idx !== $openIndex)),
                     );
-                    $message = 'Multiple open assignments for the same employee in this workbook (rows '
+                    $message = 'Multiple current/open Past Crew Data rows were found for the same employee in this workbook (rows '
                         .implode(', ', $others)
-                        .'). At most one open/current assignment is allowed per employee.';
+                        .'). At most one open/current Past Crew Data row is allowed per employee.';
                     $evaluated[$openIndex]['workbook_messages'][] = $message;
                     $evaluated[$openIndex]['errors']['workbook'] = $message;
                     $evaluated[$openIndex]['status'] = 'blocked';
@@ -543,7 +545,7 @@ final class HistoricalCrewImportPreviewService
                     $laterIndexes,
                 );
                 $message = sprintf(
-                    'Row %d remains open at %s, but Row %s contains a later assignment for the same employee. Complete Row %d\'s later movements before importing Row %s.',
+                    'Row %d remains open at %s, but Row %s contains a later Past Crew Data row for the same employee. Complete Row %d\'s later movements before importing Row %s.',
                     $evaluated[$index]['row_number'],
                     $evaluated[$index]['inferred_state']['label'] ?? 'an open phase',
                     $laterRows[0],

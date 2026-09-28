@@ -38,6 +38,12 @@ final class HistoricalCrewImportParser
         $sheet = $spreadsheet->getSheetByName(HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET);
 
         if ($sheet === null) {
+            $legacySheet = $spreadsheet->getSheetByName(HistoricalCrewImportTemplate::LEGACY_ASSIGNMENTS_SHEET);
+
+            if ($legacySheet !== null) {
+                throw new \InvalidArgumentException(HistoricalCrewImportColumns::OUTDATED_TEMPLATE_MESSAGE);
+            }
+
             throw new \InvalidArgumentException(
                 'The workbook must contain a sheet named "'.HistoricalCrewImportTemplate::ASSIGNMENTS_SHEET.'".',
             );
@@ -100,13 +106,13 @@ final class HistoricalCrewImportParser
 
         if ($count === 0) {
             throw new \InvalidArgumentException(
-                'No historical assignment rows were found in the workbook.',
+                'No Past Crew Data rows were found in the workbook.',
             );
         }
 
         if ($count > self::MAX_ROWS) {
             throw new \InvalidArgumentException(sprintf(
-                'This workbook contains %s historical assignment rows. The maximum supported per upload is %s. Split the workbook into smaller files and upload them separately.',
+                'This workbook contains %s Past Crew Data rows. The maximum supported per upload is %s. Split the workbook into smaller files and upload them separately.',
                 number_format($count),
                 number_format(self::MAX_ROWS),
             ));
@@ -120,9 +126,22 @@ final class HistoricalCrewImportParser
         $employeeNo = mb_strtoupper(trim((string) ($row->employeeNo() ?? '')));
         $remarks = mb_strtoupper(trim((string) ($row->remarks() ?? '')));
 
-        return $employeeNo === self::SAMPLE_EMPLOYEE_NO
-            || str_contains($remarks, 'SAMPLE — REPLACE')
+        if ($employeeNo !== self::SAMPLE_EMPLOYEE_NO) {
+            return false;
+        }
+
+        $hasSampleRemarks = str_contains($remarks, 'SAMPLE — REPLACE')
             || str_contains($remarks, 'SAMPLE - REPLACE');
+
+        if (! $hasSampleRemarks) {
+            return false;
+        }
+
+        $vessel = mb_strtolower(trim((string) ($row->vesselName() ?? '')));
+        $rank = mb_strtolower(trim((string) ($row->rankName() ?? '')));
+
+        return in_array($vessel, ['example vessel', 'sample vessel'], true)
+            && in_array($rank, ['example rank', 'sample rank'], true);
     }
 
     /**
@@ -147,7 +166,7 @@ final class HistoricalCrewImportParser
             if (isset($map[$header])) {
                 $label = HistoricalCrewImportColumns::labels()[$header] ?? $header;
 
-                throw new \InvalidArgumentException("Duplicate column header \"{$label}\" in Historical Assignments.");
+                throw new \InvalidArgumentException("Duplicate column header \"{$label}\" in Past Crew Data.");
             }
 
             $map[$header] = $column;
@@ -171,7 +190,7 @@ final class HistoricalCrewImportParser
 
         if ($missing !== []) {
             throw new \InvalidArgumentException(
-                'Historical Assignments is missing required column(s): '.implode(', ', $missing).'.',
+                'Past Crew Data is missing required column(s): '.implode(', ', $missing).'.',
             );
         }
     }

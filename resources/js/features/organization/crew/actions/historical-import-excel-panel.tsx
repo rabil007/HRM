@@ -6,7 +6,6 @@ import {
     FileSpreadsheet,
     Loader2,
     Upload,
-    XCircle,
 } from 'lucide-react';
 import type { DragEvent, ReactElement } from 'react';
 import {
@@ -172,10 +171,27 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                 </div>
             ) : null}
 
-            {row.timeline.length > 0 && (
+            {(row.summary.known_periods ?? []).length > 0 ? (
                 <div className="space-y-1">
                     <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                        Timeline
+                        Known Periods
+                    </span>
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                        {row.summary.known_periods?.map((period) => (
+                            <li key={period.key}>
+                                {period.label}: {period.from} →{' '}
+                                {period.to_display}
+                                {period.days != null
+                                    ? ` (${period.days}d)`
+                                    : ''}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : row.timeline.length > 0 ? (
+                <div className="space-y-1">
+                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                        Known Periods
                     </span>
                     <ul className="space-y-1 text-xs text-muted-foreground">
                         {row.timeline.map((item, idx) => {
@@ -197,24 +213,7 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                         })}
                     </ul>
                 </div>
-            )}
-
-            {row.checks.length > 0 && (
-                <ul className="space-y-1 text-xs">
-                    {row.checks.map((check, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                            {check.passed ? (
-                                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                            ) : (
-                                <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
-                            )}
-                            <span className="text-muted-foreground">
-                                {check.message}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+            ) : null}
 
             {row.sea_service && (
                 <div className="rounded-lg border border-border/60 bg-card p-3 text-xs">
@@ -872,7 +871,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium text-foreground">
-                    Importing historical assignments…
+                    Importing Past Crew Data…
                 </p>
             </div>
         );
@@ -883,7 +882,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="space-y-4 pt-2">
                 <div className="space-y-1">
                     <h3 className="text-base font-semibold text-foreground">
-                        Historical Import Validation
+                        Review Past Crew Data
                     </h3>
                     <p className="text-sm text-muted-foreground">
                         {preview.summary.total} rows detected
@@ -1107,7 +1106,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
         <div className="space-y-5 pt-2">
             <div>
                 <h3 className="text-base font-semibold text-foreground">
-                    Import Historical Crew Data
+                    Import Past Crew Data
                 </h3>
                 <div className="mt-1 h-px w-full bg-border" />
             </div>
@@ -1115,7 +1114,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">Step 1</p>
                 <p className="text-sm text-muted-foreground">
-                    Download our Excel template.
+                    Download Template
                 </p>
                 <Button variant="outline" size="sm" className="gap-2" asChild>
                     <a
@@ -1130,16 +1129,22 @@ export function HistoricalImportExcelPanel(): ReactElement {
             <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">Step 2</p>
                 <p className="text-sm text-muted-foreground">
-                    Fill the file with historical assignments using Reference
-                    Data values.
+                    Enter Past Crew Data
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Enter the crew member’s known Standby, Onsite and Home
+                    dates. Leave unknown information blank.
                 </p>
             </div>
 
             <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">Step 3</p>
                 <p className="text-sm text-muted-foreground">
-                    Upload and validate your workbook. After review, import
-                    Ready and Warning rows.
+                    Upload &amp; Check
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Upload your workbook. After review, import Ready and Warning
+                    rows.
                 </p>
 
                 <div
@@ -1214,7 +1219,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
                     {isValidating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                     ) : null}
-                    Validate File
+                    Check File
                 </Button>
             </div>
 

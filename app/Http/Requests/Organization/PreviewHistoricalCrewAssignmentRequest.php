@@ -44,18 +44,43 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             ],
             'rank_id' => ['required', 'integer', Rule::exists('ranks', 'id')],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
-            'joined_vessel_at' => ['nullable', 'date'],
-            'disembarked_at' => ['nullable', 'date'],
-            'mobilisation_at' => ['nullable', 'date'],
-            'mobilisation_start_at' => ['nullable', 'date'],
-            'join_standby_at' => ['nullable', 'date'],
-            'training_start_at' => ['nullable', 'date'],
-            'training_started_at' => ['nullable', 'date'],
-            'training_end_at' => ['nullable', 'date'],
-            'training_ended_at' => ['nullable', 'date'],
-            'travel_home_at' => ['nullable', 'date'],
+            'sign_on_standby_from' => ['nullable', 'date'],
+            'sign_on_standby_to' => ['nullable', 'date'],
+            'onsite_from' => ['nullable', 'date'],
+            'onsite_to' => ['nullable', 'date'],
+            'sign_off_standby_from' => ['nullable', 'date'],
+            'sign_off_standby_to' => ['nullable', 'date'],
+            'home_available_from' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
-            // Legacy / removed historical inputs are no longer accepted.
+            // Accommodation is no longer part of Past Crew Data.
+            'sign_on_accommodation' => ['prohibited'],
+            'sign_on_hotel_id' => ['prohibited'],
+            'sign_on_room_type_id' => ['prohibited'],
+            'sign_on_hotel_check_in' => ['prohibited'],
+            'sign_on_hotel_check_out' => ['prohibited'],
+            'sign_off_accommodation' => ['prohibited'],
+            'sign_off_hotel_id' => ['prohibited'],
+            'sign_off_room_type_id' => ['prohibited'],
+            'sign_off_hotel_check_in' => ['prohibited'],
+            'sign_off_hotel_check_out' => ['prohibited'],
+            'pre_join_accommodation' => ['prohibited'],
+            'pre_join_hotel_id' => ['prohibited'],
+            'pre_join_room_type_id' => ['prohibited'],
+            'post_sign_off_accommodation' => ['prohibited'],
+            'post_signoff_accommodation' => ['prohibited'],
+            'post_sign_off_hotel_id' => ['prohibited'],
+            'post_sign_off_room_type_id' => ['prohibited'],
+            // Legacy detailed movement events are no longer accepted.
+            'mobilisation_at' => ['prohibited'],
+            'mobilisation_start_at' => ['prohibited'],
+            'join_standby_at' => ['prohibited'],
+            'training_start_at' => ['prohibited'],
+            'training_started_at' => ['prohibited'],
+            'training_end_at' => ['prohibited'],
+            'training_ended_at' => ['prohibited'],
+            'joined_vessel_at' => ['prohibited'],
+            'disembarked_at' => ['prohibited'],
+            'travel_home_at' => ['prohibited'],
             'arrival_at' => ['prohibited'],
             'ready_to_join_at' => ['prohibited'],
             'post_training_join_standby_at' => ['prohibited'],
@@ -69,16 +94,10 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $movementFields = [
-                'mobilisation_at',
-                'mobilisation_start_at',
-                'join_standby_at',
-                'training_start_at',
-                'training_started_at',
-                'training_end_at',
-                'training_ended_at',
-                'joined_vessel_at',
-                'disembarked_at',
-                'travel_home_at',
+                'sign_on_standby_from',
+                'onsite_from',
+                'sign_off_standby_from',
+                'home_available_from',
             ];
 
             $hasMovement = false;
@@ -95,7 +114,7 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
             if (! $hasMovement) {
                 $validator->errors()->add(
                     'dates',
-                    'At least one meaningful movement date must be supplied.',
+                    'At least one meaningful movement period must be supplied.',
                 );
             }
         });

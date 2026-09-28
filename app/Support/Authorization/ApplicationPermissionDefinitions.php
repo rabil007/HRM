@@ -1871,8 +1871,8 @@ final class ApplicationPermissionDefinitions
             ],
             314 => [
                 'name' => 'crew_operations.assignments.create_historical',
-                'label' => 'Create Historical Crew Assignments',
-                'description' => 'Allows the user to record completed past crew movements without affecting current operations.',
+                'label' => 'Record Past Crew Data',
+                'description' => 'Allows the user to record known past operational periods and bootstrap current crew state without replaying live movement side effects.',
                 'group' => 'Crew Operations',
             ],
             315 => [
