@@ -1935,6 +1935,18 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to view the crew hotel check-in and check-out report for the active company.',
                 'group' => 'Reports',
             ],
+            325 => [
+                'name' => 'reports.crew_relief.export',
+                'label' => 'Export Crew Relief Report',
+                'description' => 'Allows the user to export crew relief and replacement readiness data for the active company.',
+                'group' => 'Reports',
+            ],
+            326 => [
+                'name' => 'reports.crew_relief.view',
+                'label' => 'View Crew Relief Report',
+                'description' => 'Allows the user to view the crew relief and replacement readiness report for the active company.',
+                'group' => 'Reports',
+            ],
         ];
     }
 }

@@ -547,6 +547,21 @@ describe('Report navigation permissions', () => {
         );
     });
 
+    it('gates Relief Report by reports.crew_relief.view', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/crew-relief', [
+                'crew_operations.overview.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/reports/crew-relief', [
+                'reports.crew_relief.view',
+            ]),
+            true,
+        );
+    });
+
     it('gates Hotel Stays by reports.hotel_checkin_checkout.view', () => {
         assert.equal(
             isSidebarUrlVisible(
