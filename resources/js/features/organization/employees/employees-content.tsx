@@ -45,19 +45,19 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { EmployeeActiveFilters } from '@/features/organization/employees/components/employee-active-filters';
 import { EmployeeDeleteDialog } from '@/features/organization/employees/components/employee-delete-dialog';
 import {
     EMPTY_EMPLOYEE_FILTERS,
     EmployeeFiltersSheet,
 } from '@/features/organization/employees/components/employee-filters-sheet';
 import { EmployeeSmartSearch } from '@/features/organization/employees/components/employee-smart-search';
+import { hasActiveEmployeeFilters } from '@/features/organization/employees/lib/employee-active-filters';
 import {
     EMPLOYEE_DIRECTORY_PARTIAL_RELOAD_KEYS,
-    completenessChips,
     employeeActiveFilterCount,
     employeeDirectoryEmptyStateTitle,
     hasActiveSmartSearchOwnedFilters,
-    removeCompletenessKey,
 } from '@/features/organization/employees/lib/employee-smart-search';
 import { useEmployeeSmartSearch } from '@/features/organization/employees/use-employee-smart-search';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
@@ -351,7 +351,12 @@ export function EmployeesContent({
             />
 
             <SearchBar
-                className={smart_search_available ? 'mb-4' : undefined}
+                className={
+                    smart_search_available ||
+                    hasActiveEmployeeFilters(filters, list.searchInput)
+                        ? 'mb-4'
+                        : undefined
+                }
                 placeholder="Search employees by name, employee no, email, or phone..."
                 value={list.searchInput}
                 onChange={list.onSearchChange}
@@ -446,37 +451,28 @@ export function EmployeesContent({
                 />
             ) : null}
 
-            {completenessChips(filters).length > 0 ? (
-                <div className="mb-4 flex flex-wrap gap-2">
-                    {completenessChips(filters).map((chip) => {
-                        const [concept, operator] = chip.key.split(':');
-
-                        return (
-                            <Button
-                                key={chip.key}
-                                type="button"
-                                variant="outline"
-                                className="h-8 rounded-full px-3 text-xs font-normal"
-                                onClick={() =>
-                                    handleFiltersChange(
-                                        removeCompletenessKey(
-                                            filters,
-                                            operator === 'present'
-                                                ? 'present'
-                                                : 'missing',
-                                            concept,
-                                        ),
-                                    )
-                                }
-                                aria-label={`Remove ${chip.label} ${chip.title}`}
-                            >
-                                {chip.label} · {chip.title}
-                                <span aria-hidden="true">×</span>
-                            </Button>
-                        );
-                    })}
-                </div>
-            ) : null}
+            <EmployeeActiveFilters
+                filters={filters}
+                search={list.searchInput}
+                options={{
+                    department_tree,
+                    positions,
+                    managers,
+                    genders,
+                    countries,
+                    visaTypes: visa_types,
+                    companyVisaTypes: company_visa_types,
+                    approvalLocations: approval_locations,
+                    sssaOptions: sssa_options,
+                    ranks,
+                    clients,
+                    projects,
+                    roles,
+                }}
+                onClearSearch={() => list.onSearchChange('')}
+                onChange={handleFiltersChange}
+                className="mb-6"
+            />
 
             {employees.length === 0 ? (
                 <EmptyState
