@@ -444,10 +444,23 @@ describe('Documents navigation', () => {
         );
     });
 
-    it('shows templates for document types or custom templates view, not platform access', () => {
+    it('shows templates only for bulk or custom template view, not document-types or platform access', () => {
+        // Document Types permission no longer exposes Templates — only Configuration
         assert.equal(
             isSidebarUrlVisible('/organization/documents/templates', [
                 'settings.master-data.document-types.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/templates', [
+                'documents.templates.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/documents/templates', [
+                'bulk_documents.view',
             ]),
             true,
         );
