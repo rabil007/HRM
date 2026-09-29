@@ -101,9 +101,9 @@ test('employee saved views accept client_id and project_id together', function (
 
     $project = Project::query()->create([
         'title' => 'Saved View Project',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     expect(SavedViewCatalog::forApply(SavedViewPage::Employees, [
         'client_id' => (string) $client->id,
