@@ -715,14 +715,14 @@ Tour resolution uses `CrewTourOfDutyResolver` / `CrewTourOfDutyCalculator`. Prog
 
 ```text
 Client
-├── Projects          (current Project → Client; re-parenting blocked when Employees conflict)
+├── Projects          (many-to-many via client_project; protected Client↔Project pair removal)
 └── Vessels           (Vessel.client_id = current/default operational Client)
 
 CrewAssignment.client_id      = Client during that mobilisation cycle (snapshot)
 EmployeeSeaService.client_id  = Client during that service period (from assignment snapshot)
 ```
 
-`projects.client_id` / `vessels.client_id` stay nullable only for legacy unassigned rows. Mapped records cannot clear Client back to null in normal editing. Project Client changes (including first-time `null` → Client) that would leave Employees with a mismatched Client are rejected.
+Projects are global master records assigned to Clients through `client_project`; removing a Client from a Project is blocked while Employees or Recruitment Requirements still use that Client/Project pair. `vessels.client_id` stays nullable only for legacy unassigned rows. Mapped Vessels cannot clear Client back to null in normal editing.
 
 New operational Crew activity cannot use a legacy-unassigned Vessel, an inactive Vessel, or an active Vessel whose assigned Client is inactive. When `CrewMovementService::createDraft()` or `startAssignment()` receives a `vessel_id`, it asserts the Vessel is company-owned and active, then snapshots that Vessel’s current **active** Client (and rejects null-client / inactive-client / mismatched Client). Crew Planning create/update vessel options and validation require an active company Vessel with an assigned active Client; Planning → Assignment conversion relies on the same draft invariant.
 

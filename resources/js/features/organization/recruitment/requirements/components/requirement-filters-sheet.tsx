@@ -10,6 +10,10 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import {
+    filterProjectsByClient,
+    resolveProjectOnClientChange,
+} from '@/features/organization/employees/lib/employee-client-project-filter';
 import type {
     ClientOption,
     PositionOption,
@@ -52,13 +56,7 @@ export function RequirementFiltersSheet({
     }
 
     const filteredProjects = useMemo(() => {
-        if (!draft.client_id) {
-            return options.projects;
-        }
-
-        return options.projects.filter(
-            (p) => String(p.client_id) === String(draft.client_id),
-        );
+        return filterProjectsByClient(options.projects, draft.client_id);
     }, [draft.client_id, options.projects]);
 
     const activeFilterCount = useMemo(() => {
@@ -92,21 +90,20 @@ export function RequirementFiltersSheet({
     }, [draft]);
 
     const handleClientChange = (val: string) => {
-        setDraft((prev) => ({
-            ...prev,
-            client_id: val === 'all' ? null : val,
-            // Reset project if it no longer belongs to selected client
-            project_id:
-                val !== 'all' && prev.project_id
-                    ? options.projects.some(
-                          (p) =>
-                              String(p.id) === String(prev.project_id) &&
-                              String(p.client_id) === val,
-                      )
-                        ? prev.project_id
-                        : null
-                    : prev.project_id,
-        }));
+        setDraft((prev) => {
+            const nextClientId = val === 'all' ? null : val;
+            const nextProjectId = resolveProjectOnClientChange(
+                prev.project_id,
+                nextClientId,
+                options.projects,
+            );
+
+            return {
+                ...prev,
+                client_id: nextClientId,
+                project_id: nextProjectId || null,
+            };
+        });
     };
 
     return (

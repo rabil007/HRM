@@ -21,11 +21,11 @@ test('client usage metadata does not expose cross-domain relationship details', 
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Hidden Usage Project',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'Usage Test Vessel Type '.Str::random(4),
@@ -83,11 +83,11 @@ test('client usage metadata remains generic even when related domains are visibl
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Visible Usage Project',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $this->get(route('settings.master-data.clients.index', ['search' => $client->name]))
         ->assertOk()

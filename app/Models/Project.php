@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -19,7 +19,6 @@ class Project extends Model
     {
         return LogOptions::defaults()
             ->logOnly([
-                'client_id',
                 'title',
                 'is_active',
             ])
@@ -29,13 +28,14 @@ class Project extends Model
     protected function casts(): array
     {
         return [
-            'client_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }
 
-    public function client(): BelongsTo
+    public function clients(): BelongsToMany
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsToMany(Client::class, 'client_project')
+            ->orderBy('clients.name')
+            ->withTimestamps();
     }
 }

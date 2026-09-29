@@ -45,15 +45,15 @@ test('authorized users can view client operations show page with project and com
 
     $project1 = Project::query()->create([
         'title' => 'Campaign Alpha',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project1->clients()->sync([$client->id]);
 
     $project2 = Project::query()->create([
         'title' => 'Maintenance Beta',
-        'client_id' => $client->id,
         'is_active' => false,
     ]);
+    $project2->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'AHTS '.Str::random(4),
@@ -94,6 +94,46 @@ test('authorized users can view client operations show page with project and com
             ->where('can.view_projects', true)
             ->where('can.view_vessels', true)
         );
+});
+
+test('client operations show page counts projects assigned through pivot membership', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+        'settings.master-data.projects.view',
+    ]);
+
+    $clientA = Client::query()->create([
+        'name' => 'Pivot Hub A',
+        'is_active' => true,
+    ]);
+    $clientB = Client::query()->create([
+        'name' => 'Pivot Hub B',
+        'is_active' => true,
+    ]);
+
+    $shared = Project::query()->create([
+        'title' => 'Shared Hub Project',
+        'is_active' => true,
+    ]);
+    $shared->clients()->sync([$clientA->id, $clientB->id]);
+
+    $clientBOnly = Project::query()->create([
+        'title' => 'Client B Only Hub Project',
+        'is_active' => false,
+    ]);
+    $clientBOnly->clients()->sync([$clientB->id]);
+
+    $this->get(route('settings.master-data.clients.show', $clientB))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/client-show')
+            ->where('operations.projects.total_count', 2)
+            ->where('operations.projects.active_count', 1)
+            ->where('operations.projects.preview.0.title', 'Client B Only Hub Project')
+            ->where('operations.projects.preview.1.title', 'Shared Hub Project'));
 });
 
 test('tenancy isolation: client show and index pages only expose vessels for the active company', function () {
@@ -258,11 +298,11 @@ test('project data and counts are hidden when user lacks projects view permissio
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Secret Project Alpha',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'Tug '.Str::random(4),
@@ -314,11 +354,11 @@ test('vessel data and counts are hidden when user lacks vessels view permission'
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Visible Project',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'Barge '.Str::random(4),
@@ -369,11 +409,11 @@ test('all operations data is hidden when user only has clients view permission',
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Unseen Project',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'Support Vessel '.Str::random(4),

@@ -2,9 +2,8 @@
 
 namespace App\Http\Requests\Settings\MasterData;
 
+use App\Models\Client;
 use App\Models\Project;
-use App\Support\MasterData\ClientAssignmentRules;
-use App\Support\MasterData\GuardProjectClientChange;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -17,13 +16,6 @@ class UpdateProjectRequest extends FormRequest
         return true;
     }
 
-    protected function prepareForValidation(): void
-    {
-        if ($this->exists('client_id') && $this->input('client_id') === '') {
-            $this->merge(['client_id' => null]);
-        }
-    }
-
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -31,11 +23,15 @@ class UpdateProjectRequest extends FormRequest
     {
         /** @var Project|null $project */
         $project = $this->route('project');
-        $existingClientId = $project?->client_id !== null ? (int) $project->client_id : null;
+        $existingClientIds = $project instanceof Project
+            ? $project->clients()
+                ->pluck('clients.id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all()
+            : [];
 
         return [
-            // Uniqueness remains global on title (DB: uq_projects_title) until a
-            // soft-delete-safe (client_id, title) unique index can be introduced.
+            // Project titles remain globally unique; Client assignment lives in client_project.
             'title' => [
                 'required',
                 'string',
@@ -44,10 +40,30 @@ class UpdateProjectRequest extends FormRequest
                     ->ignore($project)
                     ->whereNull('deleted_at'),
             ],
-            'client_id' => ClientAssignmentRules::assignableClientIdRules(
-                existingClientId: $existingClientId,
-                required: false,
-            ),
+            'client_ids' => ['required', 'array', 'min:1'],
+            'client_ids.*' => [
+                'required',
+                'integer',
+                'distinct',
+                function (string $attribute, mixed $value, \Closure $fail) use ($existingClientIds): void {
+                    $clientId = (int) $value;
+                    $client = Client::query()->find($clientId);
+
+                    if ($client === null) {
+                        $fail('The selected client is invalid.');
+
+                        return;
+                    }
+
+                    if (in_array($clientId, $existingClientIds, true)) {
+                        return;
+                    }
+
+                    if (! $client->is_active) {
+                        $fail('The selected client is inactive.');
+                    }
+                },
+            ],
             'is_active' => ['nullable', 'boolean'],
         ];
     }
@@ -55,28 +71,22 @@ class UpdateProjectRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if ($validator->errors()->isNotEmpty()) {
+            $clientErrors = collect($validator->errors()->messages())
+                ->filter(fn (array $messages, string $key): bool => $key === 'client_ids' || str_starts_with($key, 'client_ids.'))
+                ->flatten()
+                ->filter()
+                ->values();
+
+            if ($clientErrors->isEmpty()) {
                 return;
             }
 
-            /** @var Project|null $project */
-            $project = $this->route('project');
+            $firstClientError = (string) $clientErrors->first();
 
-            if (! $project instanceof Project) {
-                return;
+            if (! $validator->errors()->has('client_ids')) {
+                $validator->errors()->add('client_ids', $firstClientError);
             }
 
-            $newClientId = $this->input('client_id');
-            $resolvedNewClientId = $newClientId !== null && $newClientId !== ''
-                ? (int) $newClientId
-                : null;
-
-            if (GuardProjectClientChange::wouldBreakEmployeeConsistency($project, $resolvedNewClientId)) {
-                $validator->errors()->add(
-                    'client_id',
-                    'This project cannot be moved to another client because employees are currently assigned to it.',
-                );
-            }
         });
     }
 }

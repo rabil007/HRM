@@ -58,14 +58,23 @@ class RequirementController extends Controller
             ->all();
 
         $projects = Project::query()
+            ->with('clients:id')
             ->orderBy('title')
-            ->get(['id', 'client_id', 'title', 'is_active'])
-            ->map(fn (Project $p): array => [
-                'id' => (int) $p->id,
-                'client_id' => (int) $p->client_id,
-                'title' => (string) $p->title,
-                'is_active' => (bool) $p->is_active,
-            ])
+            ->get(['id', 'title', 'is_active'])
+            ->map(function (Project $p): array {
+                $clientIds = $p->clients
+                    ->pluck('id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => (int) $p->id,
+                    'client_ids' => $clientIds,
+                    'title' => (string) $p->title,
+                    'is_active' => (bool) $p->is_active,
+                ];
+            })
             ->all();
 
         $positions = Position::query()
@@ -152,14 +161,23 @@ class RequirementController extends Controller
             ->all();
 
         $projects = Project::query()
+            ->with('clients:id')
             ->orderBy('title')
-            ->get(['id', 'client_id', 'title', 'is_active'])
-            ->map(fn (Project $p): array => [
-                'id' => (int) $p->id,
-                'client_id' => (int) $p->client_id,
-                'title' => (string) $p->title,
-                'is_active' => (bool) $p->is_active,
-            ])
+            ->get(['id', 'title', 'is_active'])
+            ->map(function (Project $p): array {
+                $clientIds = $p->clients
+                    ->pluck('id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => (int) $p->id,
+                    'client_ids' => $clientIds,
+                    'title' => (string) $p->title,
+                    'is_active' => (bool) $p->is_active,
+                ];
+            })
             ->all();
 
         $positions = Position::query()

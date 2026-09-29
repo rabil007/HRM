@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Vessel;
+use App\Models\VesselType;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\MasterData\MasterDataUsage;
 
@@ -51,11 +52,22 @@ final class ClientShowQuery
      *             }>
      *         }|null
      *     },
+     *     attachable_projects: list<array{
+     *         id: int,
+     *         title: string,
+     *         is_active: bool,
+     *         is_already_assigned: bool
+     *     }>,
+     *     vessel_types: list<array{
+     *         id: int,
+     *         name: string
+     *     }>,
      *     can: array{
      *         update: bool,
      *         delete: bool,
      *         view_projects: bool,
      *         create_project: bool,
+     *         attach_project: bool,
      *         view_vessels: bool,
      *         create_vessel: bool,
      *         view_audit: bool
@@ -68,7 +80,10 @@ final class ClientShowQuery
     {
         $canDeletePermission = (bool) ($user?->can('settings.master-data.clients.delete'));
         $canViewProjects = (bool) ($user?->can('settings.master-data.projects.view'));
+        $canCreateProject = (bool) ($user?->can('settings.master-data.projects.create'));
+        $canAttachProject = $canViewProjects && (bool) ($user?->can('settings.master-data.projects.update'));
         $canViewVessels = (bool) ($user?->can('crew_operations.vessels.view'));
+        $canCreateVessel = (bool) ($user?->can('crew_operations.vessels.create'));
         $canViewAudit = (bool) ($user?->can('audit.view'));
 
         $summary = MasterDataUsage::summary($client, $companyId > 0 ? $companyId : null);
@@ -84,7 +99,7 @@ final class ClientShowQuery
             $projectPreview = (clone $projectBaseQuery)
                 ->orderBy('title')
                 ->limit(5)
-                ->get(['id', 'client_id', 'title', 'is_active', 'created_at'])
+                ->get(['projects.id', 'projects.title', 'projects.is_active', 'projects.created_at'])
                 ->map(fn (Project $project): array => [
                     'id' => (int) $project->id,
                     'title' => (string) $project->title,
@@ -152,6 +167,37 @@ final class ClientShowQuery
             ? RecentActivityQuery::for($user, $companyId, Client::class, (int) $client->id, 5)
             : [];
 
+        $attachableProjects = [];
+        if ($canViewProjects && $canAttachProject) {
+            $attachableProjects = Project::query()
+                ->where('is_active', true)
+                ->orderBy('title')
+                ->with('clients:id')
+                ->get(['id', 'title', 'is_active'])
+                ->map(fn (Project $project): array => [
+                    'id' => (int) $project->id,
+                    'title' => (string) $project->title,
+                    'is_active' => (bool) $project->is_active,
+                    'is_already_assigned' => $project->clients->contains('id', $client->id),
+                ])
+                ->values()
+                ->all();
+        }
+
+        $vesselTypes = [];
+        if ($canCreateVessel) {
+            $vesselTypes = VesselType::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (VesselType $type): array => [
+                    'id' => (int) $type->id,
+                    'name' => (string) $type->name,
+                ])
+                ->values()
+                ->all();
+        }
+
         return [
             'client' => [
                 'id' => (int) $client->id,
@@ -170,13 +216,16 @@ final class ClientShowQuery
                 'projects' => $projectsData,
                 'vessels' => $vesselsData,
             ],
+            'attachable_projects' => $attachableProjects,
+            'vessel_types' => $vesselTypes,
             'can' => [
                 'update' => (bool) ($user?->can('settings.master-data.clients.update')),
                 'delete' => $canDeletePermission,
                 'view_projects' => $canViewProjects,
-                'create_project' => (bool) ($user?->can('settings.master-data.projects.create')),
+                'create_project' => $canCreateProject,
+                'attach_project' => $canAttachProject,
                 'view_vessels' => $canViewVessels,
-                'create_vessel' => (bool) ($user?->can('crew_operations.vessels.create')),
+                'create_vessel' => $canCreateVessel,
                 'view_audit' => $canViewAudit,
             ],
             'recent_activity' => $recentActivity,

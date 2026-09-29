@@ -33,6 +33,7 @@ use App\Models\Hotel;
 use App\Models\PayrollRecord;
 use App\Models\Project;
 use App\Models\Rank;
+use App\Models\RecruitmentRequirement;
 use App\Models\Religion;
 use App\Models\RoomType;
 use App\Models\SssaOption;
@@ -334,8 +335,8 @@ final class MasterDataUsage
                 MasterDataUsageSource::model('employees', Employee::class, 'client_id', 'company_id'),
                 MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
-                // Projects are global master data (no company_id); counts contribute to global usage only.
-                MasterDataUsageSource::model('projects', Project::class, 'client_id', includeSoftDeletedReferences: true),
+                // Projects are global master data (no company_id); pivot counts contribute to global usage only.
+                MasterDataUsageSource::table('projects', 'client_project', 'client_id'),
                 // Vessels are company-scoped; scoped metadata stays tenant-safe via company_id.
                 MasterDataUsageSource::model('vessels', Vessel::class, 'client_id', 'company_id', includeSoftDeletedReferences: true),
             ],
@@ -348,6 +349,7 @@ final class MasterDataUsage
             ],
             Project::class => [
                 MasterDataUsageSource::model('employees', Employee::class, 'project_id', 'company_id'),
+                MasterDataUsageSource::model('recruitment requirements', RecruitmentRequirement::class, 'project_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::pivot(
                     'document requirements',
                     $requirement->projects()->getTable(),

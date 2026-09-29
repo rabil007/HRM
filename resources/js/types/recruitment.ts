@@ -123,9 +123,9 @@ export type ClientOption = {
 
 export type ProjectOption = {
     id: number;
-    client_id: number;
     title: string;
-    is_active: boolean;
+    client_ids: number[];
+    is_active?: boolean;
 };
 
 export type PositionOption = {

@@ -10,11 +10,12 @@ use App\Http\Requests\Settings\MasterData\StoreProjectRequest;
 use App\Http\Requests\Settings\MasterData\UpdateProjectRequest;
 use App\Models\Client;
 use App\Models\Project;
-use App\Support\MasterData\GuardProjectClientChange;
 use App\Support\MasterData\MasterDataUsage;
+use App\Support\MasterData\SyncProjectClients;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Inertia\Inertia;
 
 class ProjectController extends Controller
@@ -29,19 +30,19 @@ class ProjectController extends Controller
         $clientId = $clientId !== null && $clientId !== '' ? (int) $clientId : null;
 
         $query = Project::query()
-            ->with('client:id,name')
+            ->with('clients:id,name,is_active')
             ->orderBy('title')
-            ->select(['id', 'client_id', 'title', 'is_active']);
+            ->select(['id', 'title', 'is_active']);
 
         if ($clientId !== null) {
-            $query->where('client_id', $clientId);
+            $query->whereHas('clients', fn ($clientQuery) => $clientQuery->whereKey($clientId));
         }
 
         $page = $this->withMasterDataUsage(
             $this->paginateMasterDataIndex(
                 $request,
                 $query,
-                ['title', 'client.name'],
+                ['title', 'clients.name'],
             ),
             'settings.master-data.projects.delete',
         );
@@ -49,8 +50,19 @@ class ProjectController extends Controller
         $page['items'] = collect($page['items'])->map(function (Project $project): array {
             return [
                 'id' => $project->id,
-                'client_id' => $project->client_id,
-                'client_name' => $project->client?->name,
+                'client_ids' => $project->clients
+                    ->pluck('id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->values()
+                    ->all(),
+                'clients' => $project->clients
+                    ->map(fn (Client $client): array => [
+                        'id' => (int) $client->id,
+                        'name' => (string) $client->name,
+                        'is_active' => (bool) $client->is_active,
+                    ])
+                    ->values()
+                    ->all(),
                 'title' => $project->title,
                 'is_active' => (bool) $project->is_active,
                 'is_in_use' => (bool) $project->getAttribute('is_in_use'),
@@ -79,23 +91,64 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function store(StoreProjectRequest $request): JsonResponse|RedirectResponse
+    public function store(StoreProjectRequest $request, SyncProjectClients $syncProjectClients): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
-        $data['is_active'] = $data['is_active'] ?? true;
+        $clientIds = $data['client_ids'];
+        $attributes = Arr::only($data, ['title', 'is_active']);
+        $attributes['is_active'] = $attributes['is_active'] ?? true;
 
-        return $this->createOrReturnExistingQuickCreate(
-            $request,
+        $existing = $this->findExistingQuickCreate(
             Project::class,
-            $data,
+            'title',
+            (string) $attributes['title'],
+        );
+
+        if ($existing instanceof Project) {
+            $normalizedClientIds = $syncProjectClients->normalizeClientIds($clientIds);
+            $existingClientIds = $syncProjectClients->currentClientIds($existing);
+
+            $missingClientIds = array_values(array_diff($normalizedClientIds, $existingClientIds));
+
+            if ($missingClientIds === []) {
+                return $this->storeRedirectOrQuickCreateJson(
+                    $request,
+                    $existing,
+                    redirect()->route('settings.master-data.projects.index'),
+                    'title',
+                );
+            }
+
+            abort_unless($request->user()?->can('settings.master-data.projects.update'), 403);
+
+            $syncProjectClients->attach($existing, $clientIds);
+
+            return $this->storeRedirectOrQuickCreateJson(
+                $request,
+                $existing,
+                redirect()->route('settings.master-data.projects.index'),
+                'title',
+            );
+        }
+
+        $project = $syncProjectClients->create($attributes, $clientIds);
+
+        return $this->storeRedirectOrQuickCreateJson(
+            $request,
+            $project,
             redirect()->route('settings.master-data.projects.index'),
             'title',
         );
     }
 
-    public function update(UpdateProjectRequest $request, Project $project)
+    public function update(UpdateProjectRequest $request, Project $project, SyncProjectClients $syncProjectClients)
     {
-        $project->update($request->validated());
+        $data = $request->validated();
+        $syncProjectClients->update(
+            $project,
+            Arr::only($data, ['title', 'is_active']),
+            $data['client_ids'] ?? [],
+        );
 
         return redirect()->route('settings.master-data.projects.index');
     }
@@ -121,7 +174,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function import(ImportProjectsRequest $request)
+    public function import(ImportProjectsRequest $request, SyncProjectClients $syncProjectClients)
     {
         $uploaded = $request->file('file');
         $path = $uploaded->getRealPath() ?: $uploaded->path();
@@ -177,18 +230,61 @@ class ProjectController extends Controller
             ->get(['id', 'name'])
             ->keyBy(fn (Client $client): string => mb_strtolower(trim($client->name)));
 
+        $canUpdate = (bool) $request->user()?->can('settings.master-data.projects.update');
+
         $imported = 0;
         $emptyTitles = 0;
         $unknownClients = 0;
         $unknownClientNames = [];
-        $blockedReparent = 0;
-        $blockedTitles = [];
+        $permissionDenied = 0;
+        $permissionDeniedTitles = [];
+        $failedRows = 0;
+
+        $rawRows = [];
+        $statusByTitle = [];
+        $displayTitleByNormalized = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
                 continue;
             }
 
+            $rawRows[] = $row;
+            if (count($rawRows) > 2000) {
+                break;
+            }
+
+            $title = trim((string) ($row[$map['title']] ?? ''));
+            if ($title === '') {
+                continue;
+            }
+
+            $active = true;
+            if (isset($map['active'])) {
+                $v = mb_strtolower(trim((string) ($row[$map['active']] ?? '')));
+                $active = $v === '' || in_array($v, ['1', 'yes', 'true', 'y', 'active'], true);
+            }
+
+            $normalizedTitle = mb_strtolower($title);
+            $statusByTitle[$normalizedTitle][] = $active;
+            if (! isset($displayTitleByNormalized[$normalizedTitle])) {
+                $displayTitleByNormalized[$normalizedTitle] = $title;
+            }
+        }
+
+        fclose($handle);
+
+        foreach ($statusByTitle as $normalizedTitle => $statuses) {
+            if (count(array_unique($statuses, SORT_REGULAR)) > 1) {
+                $conflictingTitle = $displayTitleByNormalized[$normalizedTitle] ?? $normalizedTitle;
+
+                return redirect()
+                    ->route('settings.master-data.projects.index')
+                    ->withErrors(['file' => "Project \"{$conflictingTitle}\" has conflicting is_active values in the import file. Use the same status for every row of the same project."]);
+            }
+        }
+
+        foreach ($rawRows as $row) {
             $title = trim((string) ($row[$map['title']] ?? ''));
             if ($title === '') {
                 $emptyTitles++;
@@ -218,49 +314,55 @@ class ProjectController extends Controller
             }
 
             $existing = Project::query()->where('title', $title)->first();
+            try {
+                if ($existing instanceof Project) {
+                    $currentClientIds = $syncProjectClients->currentClientIds($existing);
+                    $needsClientAttach = ! in_array((int) $client->id, $currentClientIds, true);
+                    $needsActiveChange = (bool) $existing->is_active !== (bool) $active;
 
-            if ($existing instanceof Project
-                && GuardProjectClientChange::wouldBreakEmployeeConsistency($existing, (int) $client->id)) {
-                $blockedReparent++;
-                $blockedTitles[$title] = true;
+                    if (! $needsClientAttach && ! $needsActiveChange) {
+                        $imported++;
 
-                continue;
-            }
+                        continue;
+                    }
 
-            if ($existing instanceof Project) {
-                $existing->update([
-                    'client_id' => $client->id,
-                    'is_active' => $active,
-                ]);
-            } else {
-                Project::query()->create([
-                    'title' => $title,
-                    'client_id' => $client->id,
-                    'is_active' => $active,
-                ]);
-            }
+                    if (! $canUpdate) {
+                        $permissionDenied++;
+                        $permissionDeniedTitles[$title] = true;
 
-            $imported++;
+                        continue;
+                    }
 
-            if ($imported > 2000) {
-                break;
+                    $attributes = $needsActiveChange ? ['is_active' => $active] : [];
+                    $clientsToAttach = $needsClientAttach ? [(int) $client->id] : [];
+
+                    $syncProjectClients->updateAndAttach($existing, $attributes, $clientsToAttach);
+                } else {
+                    $syncProjectClients->create([
+                        'title' => $title,
+                        'is_active' => $active,
+                    ], [(int) $client->id]);
+                }
+
+                $imported++;
+            } catch (\Throwable) {
+                $failedRows++;
             }
         }
 
-        fclose($handle);
-
         if ($imported === 0) {
             $unknownList = implode(', ', array_keys($unknownClientNames));
-            $blockedList = implode(', ', array_keys($blockedTitles));
+            $permissionDeniedList = implode(', ', array_keys($permissionDeniedTitles));
 
             return redirect()
                 ->route('settings.master-data.projects.index')
                 ->withErrors([
                     'file' => match (true) {
-                        $blockedReparent > 0 && $blockedList !== '' => "No rows were imported. Project(s) cannot change client because employees are assigned: {$blockedList}.",
+                        $permissionDenied > 0 && $permissionDeniedList !== '' => "No rows were imported. Updating existing project(s) or attaching new clients requires update permission: {$permissionDeniedList}.",
                         $unknownClients > 0 && $unknownList !== '' => "No rows were imported. Unknown or inactive client(s): {$unknownList}.",
                         $unknownClients > 0 => 'No rows were imported. One or more rows had a missing or unknown client.',
                         $emptyTitles > 0 => "No rows were imported. {$emptyTitles} row(s) had an empty project title.",
+                        $failedRows > 0 => 'No rows were imported due to processing errors.',
                         default => 'No rows were imported. Ensure each row has a client and project title.',
                     },
                 ]);
@@ -273,11 +375,14 @@ class ProjectController extends Controller
                 ? " Skipped {$unknownClients} row(s) with unknown/inactive client(s): {$unknownList}."
                 : " Skipped {$unknownClients} row(s) with missing or unknown clients.";
         }
-        if ($blockedReparent > 0) {
-            $blockedList = implode(', ', array_keys($blockedTitles));
-            $message .= $blockedList !== ''
-                ? " Skipped {$blockedReparent} row(s) that cannot change client because employees are assigned: {$blockedList}."
-                : " Skipped {$blockedReparent} row(s) that cannot change client because employees are assigned.";
+        if ($permissionDenied > 0) {
+            $permissionDeniedList = implode(', ', array_keys($permissionDeniedTitles));
+            $message .= $permissionDeniedList !== ''
+                ? " Skipped {$permissionDenied} row(s) requiring update permission to mutate project or attach new client: {$permissionDeniedList}."
+                : " Skipped {$permissionDenied} row(s) requiring update permission.";
+        }
+        if ($failedRows > 0) {
+            $message .= " Skipped {$failedRows} row(s) due to processing errors.";
         }
 
         return redirect()

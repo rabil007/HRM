@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Settings\MasterData;
 
-use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Projects\ProjectValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreProjectRequest extends FormRequest
 {
@@ -19,17 +19,28 @@ class StoreProjectRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            // Uniqueness remains global on title (DB: uq_projects_title) until a
-            // soft-delete-safe (client_id, title) unique index can be introduced.
-            'title' => [
-                'required',
-                'string',
-                'max:200',
-                Rule::unique('projects', 'title')->whereNull('deleted_at'),
-            ],
-            'client_id' => ClientAssignmentRules::activeClientIdRules(required: true),
-            'is_active' => ['nullable', 'boolean'],
-        ];
+        return ProjectValidationRules::storeRules($this->wantsJson());
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $clientErrors = collect($validator->errors()->messages())
+                ->filter(fn (array $messages, string $key): bool => $key === 'client_ids' || str_starts_with($key, 'client_ids.'))
+                ->flatten()
+                ->filter()
+                ->values();
+
+            if ($clientErrors->isEmpty()) {
+                return;
+            }
+
+            $firstClientError = (string) $clientErrors->first();
+
+            if (! $validator->errors()->has('client_ids')) {
+                $validator->errors()->add('client_ids', $firstClientError);
+            }
+
+        });
     }
 }

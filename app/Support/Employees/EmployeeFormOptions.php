@@ -312,9 +312,24 @@ final class EmployeeFormOptions
     private static function activeProjects()
     {
         return once(fn () => Project::query()
+            ->with('clients:id')
             ->where('is_active', true)
             ->orderBy('title')
-            ->get(['id', 'title', 'client_id']));
+            ->get(['id', 'title', 'client_id', 'is_active'])
+            ->map(function (Project $project): array {
+                $clientIds = $project->clients
+                    ->pluck('id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => (int) $project->id,
+                    'title' => (string) $project->title,
+                    'client_ids' => $clientIds,
+                    'is_active' => (bool) $project->is_active,
+                ];
+            }));
     }
 
     private static function activeClients()
@@ -395,6 +410,7 @@ final class EmployeeFormOptions
     private static function projectsForProfile(Employee $employee)
     {
         return Project::query()
+            ->with('clients:id')
             ->where(function ($query) use ($employee): void {
                 $query->where('is_active', true);
 
@@ -403,7 +419,21 @@ final class EmployeeFormOptions
                 }
             })
             ->orderBy('title')
-            ->get(['id', 'title', 'client_id']);
+            ->get(['id', 'title', 'client_id', 'is_active'])
+            ->map(function (Project $project): array {
+                $clientIds = $project->clients
+                    ->pluck('id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => (int) $project->id,
+                    'title' => (string) $project->title,
+                    'client_ids' => $clientIds,
+                    'is_active' => (bool) $project->is_active,
+                ];
+            });
     }
 
     private static function clientsForProfile(Employee $employee)

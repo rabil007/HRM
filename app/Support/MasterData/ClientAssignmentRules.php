@@ -17,6 +17,8 @@ final class ClientAssignmentRules
 
     public const VESSEL_INACTIVE_CLIENT_MESSAGE = 'The selected vessel\'s client is inactive. Activate or reassign the vessel\'s client before using it for crew operations.';
 
+    public const PROJECT_MISSING_CLIENT_MESSAGE = 'The selected project is not assigned to a client. Assign a client to the project before using it.';
+
     /**
      * Active, non-deleted Client for new business assignments.
      *
@@ -131,17 +133,21 @@ final class ClientAssignmentRules
             return 'The selected project is invalid.';
         }
 
-        // Legacy unassigned projects remain assignable until mapped.
-        if ($project->client_id === null) {
-            return null;
+        $clientIds = $project->clients()
+            ->pluck('clients.id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        if ($clientIds === []) {
+            return self::PROJECT_MISSING_CLIENT_MESSAGE;
         }
 
         if ($clientId === null || $clientId === 0) {
             return 'Select a client before assigning a project.';
         }
 
-        if ((int) $project->client_id !== (int) $clientId) {
-            return 'The selected project does not belong to the selected client.';
+        if (! in_array((int) $clientId, $clientIds, true)) {
+            return 'The selected project is not assigned to the selected client.';
         }
 
         return null;

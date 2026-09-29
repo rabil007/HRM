@@ -25,6 +25,10 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    filterProjectsByClient,
+    resolveProjectOnClientChange,
+} from '@/features/organization/employees/lib/employee-client-project-filter';
 import { toast } from '@/lib/toast';
 import type {
     ClientOption,
@@ -165,13 +169,7 @@ export function RequirementFormSheet({
     }, [open, initialRequirement]);
 
     const filteredProjects = useMemo(() => {
-        if (!data.client_id) {
-            return options.projects;
-        }
-
-        return options.projects.filter(
-            (p) => String(p.client_id) === String(data.client_id),
-        );
+        return filterProjectsByClient(options.projects, data.client_id);
     }, [data.client_id, options.projects]);
 
     const totalHeadcount = useMemo(() => {
@@ -430,10 +428,16 @@ export function RequirementFormSheet({
                                             onValueChange={(val) => {
                                                 const clientId =
                                                     val === 'none' ? '' : val;
+
                                                 setData((prev) => ({
                                                     ...prev,
                                                     client_id: clientId,
-                                                    project_id: '',
+                                                    project_id:
+                                                        resolveProjectOnClientChange(
+                                                            prev.project_id,
+                                                            clientId,
+                                                            options.projects,
+                                                        ),
                                                 }));
                                             }}
                                         >

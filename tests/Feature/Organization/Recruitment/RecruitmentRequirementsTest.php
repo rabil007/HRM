@@ -98,10 +98,10 @@ beforeEach(function () {
     ]);
 
     $this->project = Project::query()->create([
-        'client_id' => $this->client->id,
         'title' => 'Safaniya Rig 4',
         'is_active' => true,
     ]);
+    $this->project->clients()->sync([$this->client->id]);
 
     $this->positionChiefEng = Position::query()->create([
         'company_id' => $this->companyA->id,

@@ -4,14 +4,15 @@ import type { ProjectOption } from '../types.ts';
 import {
     EMPTY_EMPLOYEE_FILTERS,
     filterProjectsByClient,
+    projectHasClient,
     resolveProjectOnClientChange,
 } from './employee-client-project-filter.ts';
 
 const mockProjects: ProjectOption[] = [
-    { id: 10, title: 'Project A', client_id: 1 },
-    { id: 20, title: 'Project B', client_id: 1 },
-    { id: 30, title: 'Project C', client_id: 2 },
-    { id: 40, title: 'Project D', client_id: null },
+    { id: 10, title: 'Project A', client_ids: [1] },
+    { id: 20, title: 'Project B', client_ids: [1] },
+    { id: 30, title: 'Project C', client_ids: [2] },
+    { id: 40, title: 'Project D', client_ids: [] },
 ];
 
 describe('employee client-project filter behavior', () => {
@@ -58,7 +59,7 @@ describe('employee client-project filter behavior', () => {
     });
 
     it('preserves project when changing to the client that owns the project', () => {
-        // Project A (id: 10) belongs to Client 1. Re-selecting or selecting Client 1 keeps it.
+        // Project A (id: 10) is assigned to Client 1. Re-selecting or selecting Client 1 keeps it.
         const nextProject = resolveProjectOnClientChange(
             '10',
             '1',
@@ -69,7 +70,7 @@ describe('employee client-project filter behavior', () => {
     });
 
     it('clears unmapped project when selecting any specific client', () => {
-        // Project D (id: 40) has client_id: null. Selecting Client 1 clears it.
+        // Project D (id: 40) has no client assignments. Selecting Client 1 clears it.
         const nextProject = resolveProjectOnClientChange(
             '40',
             '1',
@@ -117,5 +118,107 @@ describe('employee client-project filter behavior', () => {
 
         assert.equal('branch_id' in reset, false);
         assert.equal('crew_status' in reset, false);
+    });
+
+    it('supports multi-client projects filtering and client switching', () => {
+        const clientAId = '100';
+        const clientBId = '200';
+        const clientCId = '300';
+
+        const multiProjects: ProjectOption[] = [
+            { id: 1, title: 'Project 1', client_ids: [100, 200] },
+            { id: 2, title: 'Project 2', client_ids: [100] },
+            { id: 3, title: 'Project 3', client_ids: [200] },
+        ];
+
+        // Selecting Client A: Project 1, Project 2
+        const clientAProjects = filterProjectsByClient(
+            multiProjects,
+            clientAId,
+        );
+        assert.deepEqual(
+            clientAProjects.map((p) => p.title),
+            ['Project 1', 'Project 2'],
+        );
+
+        // Selecting Client B: Project 1, Project 3
+        const clientBProjects = filterProjectsByClient(
+            multiProjects,
+            clientBId,
+        );
+        assert.deepEqual(
+            clientBProjects.map((p) => p.title),
+            ['Project 1', 'Project 3'],
+        );
+
+        // Client A + Project 1 -> switch Client to B: Project 1 remains selected
+        const switchAToB = resolveProjectOnClientChange(
+            '1',
+            clientBId,
+            multiProjects,
+        );
+        assert.equal(switchAToB, '1');
+
+        // Client A + Project 1 -> switch to unrelated Client C: Project cleared
+        const switchAToC = resolveProjectOnClientChange(
+            '1',
+            clientCId,
+            multiProjects,
+        );
+        assert.equal(switchAToC, '');
+
+        // Client A + Project 2 -> switch Client to B: Project 2 is not mapped to B, so cleared
+        const switchProject2ToB = resolveProjectOnClientChange(
+            '2',
+            clientBId,
+            multiProjects,
+        );
+        assert.equal(switchProject2ToB, '');
+    });
+
+    it('filters projects strictly by client_ids membership with no legacy fallback', () => {
+        const projects: ProjectOption[] = [
+            {
+                id: 1,
+                title: 'Project 1',
+                client_ids: [200], // Client B
+            },
+            {
+                id: 2,
+                title: 'Project 2',
+                client_ids: [100, 200], // Client A and B
+            },
+            {
+                id: 3,
+                title: 'Unassigned Project 3',
+                client_ids: [],
+            },
+        ];
+
+        // Client A (100) -> only Project 2
+        const forClientA = filterProjectsByClient(projects, '100');
+        assert.deepEqual(
+            forClientA.map((p) => p.title),
+            ['Project 2'],
+        );
+
+        // Client B (200) -> Project 1 and Project 2
+        const forClientB = filterProjectsByClient(projects, '200');
+        assert.deepEqual(
+            forClientB.map((p) => p.title),
+            ['Project 1', 'Project 2'],
+        );
+
+        assert.equal(projectHasClient(projects[0], '100'), false);
+        assert.equal(projectHasClient(projects[0], '200'), true);
+        assert.equal(projectHasClient(projects[2], '100'), false);
+
+        // Resolve project on client change:
+        // Switching to Client A clears Project 1 because Client A is not in client_ids
+        assert.equal(resolveProjectOnClientChange('1', '100', projects), '');
+        // Switching to Client B keeps Project 1
+        assert.equal(resolveProjectOnClientChange('1', '200', projects), '1');
+        // Switching from Client A to Client B preserves Project 2 because it belongs to both
+        assert.equal(resolveProjectOnClientChange('2', '200', projects), '2');
     });
 });

@@ -92,6 +92,8 @@ class ClientController extends Controller
         return Inertia::render('settings/master-data/client-show', [
             'client' => $overview['client'],
             'operations' => $overview['operations'],
+            'attachable_projects' => $overview['attachable_projects'],
+            'vessel_types' => $overview['vessel_types'],
             'can' => $overview['can'],
             'recent_activity' => $overview['recent_activity'],
             'can_view_audit' => $overview['can_view_audit'],

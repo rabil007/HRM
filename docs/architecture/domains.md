@@ -38,7 +38,8 @@ erDiagram
     CrewAssignment }o--o| CrewPlanningAssignment : "optional vacant link"
     CrewAssignmentPhase ||--o| EmployeeSeaService : completed_P4
 
-    Client ||--o{ Project : has
+    Client ||--o{ ClientProject : assigned
+    Project ||--o{ ClientProject : assigned
     Client ||--o{ Vessel : "current/default"
     Vessel }o--|| Company : owned_by
 ```
@@ -656,12 +657,12 @@ VesselType (global) → Vessel (company + optional client_id) → VesselManning 
 
 `vessels` and `vessel_manning` remain separate tables. Existing vessel rows were backfilled to `company_id = 1` in a one-time migration (no permanent DB default of `1`). Vessel IDs were preserved in place.
 
-`projects.client_id` and `vessels.client_id` are nullable for **legacy compatibility** only.
+Projects are global master records. Client↔Project assignment is many-to-many through `client_project`; `vessels.client_id` remains nullable for **legacy compatibility** only.
 
-- New Projects and Vessels require an assigned Client.
-- Already-mapped records cannot return to `Unassigned` (`client_id = null`) through normal Master Data editing.
-- Legacy-null records may remain null while other fields are edited, or be assigned a Client for the first time.
-- Project Client reassignment (including first-time `null` → Client) is blocked when Employees already reference the Project with a conflicting non-null Client. Employees with `project_id` set and `client_id` null do not block mapping. Import uses the same guard.
+- New Projects require at least one assigned Client; new Vessels require an assigned Client.
+- Project Client removal is blocked when Employees or Recruitment Requirements still reference that Client/Project pair. Employees with `project_id` set and `client_id` null do not block mapping. Import uses the same guard.
+- Already-mapped Vessel records cannot return to `Unassigned` (`client_id = null`) through normal Master Data editing.
+- Legacy-null Vessel records may remain null while other fields are edited, or be assigned a Client for the first time.
 - New operational Crew activity (assignments, Join/Transfer/Redeploy, Planning) requires an active company Vessel with an assigned **active** Client. Legacy-unassigned (`vessel.client_id = null`), inactive Vessels, and active Vessels whose Client is inactive are rejected. When a draft/assignment includes a Vessel, `CrewAssignment.client_id` is snapshotted from that Vessel’s current Client after those checks.
 - Editable pre-P4 Crew Assignments may keep an unchanged legacy/inactive Vessel or Client snapshot during unrelated edits; selecting a new Vessel/Client (or changing only one of the pair) must satisfy today’s operational rules.
 - Current Crew / Relief Desk Client→Vessel filter options prefer historical assignment pairs (`crew_assignments.client_id` + `vessel_id`), not today’s `Vessel.client_id`.
@@ -993,7 +994,7 @@ Master-data catalogs and company vessels block deletion when a record is still r
 - UI shows a small **In use** badge beside the name and keeps Delete visible but disabled with an explanation.
 - `destroy` actions call `MasterDataUsage::denyDeleteRedirect()` and return a validation error such as `“Captain” cannot be deleted because it is currently in use.` or, when usage is safely scoped to the active company, `“MV Ocean” cannot be deleted because it is used by crew assignments.`
 - **Global masters** (countries, ranks, banks, courses, clients, projects, …) evaluate deletion protection across all companies, but **must not expose cross-tenant usage counts or source labels** in Inertia payloads. When another company still references the record, the UI receives `is_in_use: true`, `can_delete: false`, and `usage_count` / `usage_label` omitted (`null`).
-- **Clients** are also protected by `projects.client_id` (global) and `vessels.client_id` (company-scoped). Vessel usage metadata for a Client remains tenant-safe: another company’s vessels can block delete without exposing vessel counts/names to the active company.
+- **Clients** are also protected by `client_project` (global Project assignments) and `vessels.client_id` (company-scoped). Vessel usage metadata for a Client remains tenant-safe: another company’s vessels can block delete without exposing vessel counts/names to the active company.
 - **Tenant-owned vessels** scope usage to trusted `current_company_id` and may expose counts/labels when useful. Frontend metadata always uses company-scoped counts, never cross-tenant totals.
 - **Document Requirement rank/project pivots** resolve tenancy through `document_requirements.company_id` (the pivot tables themselves have no `company_id`).
 - **Soft-delete policy is explicit per usage source** in `MasterDataUsage::sourcesFor()`. Profile-style employee references ignore soft-deleted employees; historical/operational records such as sea service, crew assignments/phases, payroll records, and employee trainings continue to protect referenced master data even when soft-deleted, so restored history does not point at deleted masters.

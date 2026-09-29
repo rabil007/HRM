@@ -27,6 +27,7 @@ use App\Support\VesselManning\SyncVesselManning;
 use App\Support\VesselManning\VesselManningHealthQuery;
 use App\Support\VesselManning\VesselManningIndexQuery;
 use App\Support\VesselManning\VesselManningPagePermissions;
+use App\Support\Vessels\CreateVesselAction;
 use App\Support\Vessels\StoresVesselCertificate;
 use App\Support\Vessels\VesselCsvExporter;
 use App\Support\Vessels\VesselImportOrchestrator;
@@ -194,7 +195,7 @@ class VesselController extends Controller
         ]);
     }
 
-    public function store(StoreVesselRequest $request): JsonResponse|RedirectResponse
+    public function store(StoreVesselRequest $request, CreateVesselAction $createVessel): JsonResponse|RedirectResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $data = $request->safe()->except(['certificate']);
@@ -214,16 +215,7 @@ class VesselController extends Controller
             );
         }
 
-        $vessel = Vessel::query()->create($data);
-
-        if ($request->hasFile('certificate')) {
-            $vessel->update(
-                $this->certificateStore->store(
-                    $request->file('certificate'),
-                    (int) $vessel->id,
-                ),
-            );
-        }
+        $createVessel->execute($data, $request->file('certificate'));
 
         return redirect()
             ->route('organization.vessels.index')
