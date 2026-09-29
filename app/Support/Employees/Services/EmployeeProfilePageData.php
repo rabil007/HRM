@@ -634,8 +634,7 @@ final class EmployeeProfilePageData
                     'rank:id,name',
                     'client:id,name',
                 ])
-                ->orderBy('sort_order')
-                ->orderByDesc('id')
+                ->latestServiceFirst()
                 ->get();
 
             $referencedVesselTypeIds = $seaServiceModels->pluck('vessel_type_id')->unique()->filter()->values()->all();

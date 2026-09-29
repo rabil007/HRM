@@ -77,9 +77,7 @@ final class AdnocSeafarerCvData
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
             ->with(['vessel:id,name,grt,bhp', 'vesselType:id,name', 'rank:id,name', 'client:id,name'])
-            ->orderBy('sort_order')
-            ->orderByDesc('start_date')
-            ->orderByDesc('id')
+            ->latestServiceFirst()
             ->get();
 
         $rankApplied = $employee->rank?->name ?? $employee->position?->title ?? '';

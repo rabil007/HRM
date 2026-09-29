@@ -785,6 +785,8 @@ Manage employee training records and files both from the organization-wide train
 
 Manage employee sea service history from the organization-wide sea services browser and from an employee profile. The browser includes inactive and terminated employees because sea service is historical. Completed P4 crew assignments continue to sync into `EmployeeSeaService`. See [Active employee visibility](./active-employee-visibility.md).
 
+Sea service history is presented newest first using the effective service date: `end_date` when present, otherwise `start_date`. Ties fall back to `start_date DESC` and then record ID descending. Stored `sort_order` values remain available for compatibility but do not override chronological display in employee/profile lists, the Sea Services directory/export, or generated CV histories.
+
 ### Main artifacts
 
 - `EmployeeSeaService`
