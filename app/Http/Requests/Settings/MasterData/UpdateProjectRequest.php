@@ -30,10 +30,6 @@ class UpdateProjectRequest extends FormRequest
                 ->all()
             : [];
 
-        $clientIdsRules = $existingClientIds === []
-            ? ['nullable', 'array']
-            : ['required', 'array', 'min:1'];
-
         return [
             // Project titles remain globally unique; Client assignment lives in client_project.
             'title' => [
@@ -44,7 +40,7 @@ class UpdateProjectRequest extends FormRequest
                     ->ignore($project)
                     ->whereNull('deleted_at'),
             ],
-            'client_ids' => $clientIdsRules,
+            'client_ids' => ['required', 'array', 'min:1'],
             'client_ids.*' => [
                 'required',
                 'integer',

@@ -1112,6 +1112,11 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'title' => 'North Field',
         'is_active' => true,
     ]);
+    $client = Client::query()->create([
+        'name' => 'North Client',
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$client->id]);
 
     $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
@@ -1179,6 +1184,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'department_id' => $department->id,
         'position_id' => $position->id,
         'rank_id' => $rank->id,
+        'client_id' => $client->id,
         'project_id' => $project->id,
         'work_email' => 'janet@example.com',
         'phone' => '+971511111111',
@@ -1189,6 +1195,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'name' => 'Janet Smith',
         'status' => 'inactive',
         'rank_id' => $rank->id,
+        'client_id' => $client->id,
         'project_id' => $project->id,
     ]);
 
@@ -1946,6 +1953,11 @@ test('employee import resolves project name when project_id is enabled in templa
         'title' => 'North Field',
         'is_active' => true,
     ]);
+    $client = Client::query()->create([
+        'name' => 'North Client',
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$client->id]);
 
     $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
@@ -1955,8 +1967,8 @@ test('employee import resolves project name when project_id is enabled in templa
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
 
-    $csv = "employee_no,name,project\n"
-        ."EMP-PRJ-1,Project Employee,North Field\n";
+    $csv = "employee_no,name,client,project\n"
+        ."EMP-PRJ-1,Project Employee,North Client,North Field\n";
 
     $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
@@ -1969,6 +1981,7 @@ test('employee import resolves project name when project_id is enabled in templa
         'company_id' => $company->id,
         'employee_no' => 'EMP-PRJ-1',
         'name' => 'Project Employee',
+        'client_id' => $client->id,
         'project_id' => $project->id,
     ]);
 });

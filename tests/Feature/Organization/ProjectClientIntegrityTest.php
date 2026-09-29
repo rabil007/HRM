@@ -12,6 +12,7 @@ use App\Models\RecruitmentRequirementLine;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Http\UploadedFile;
 
 test('legacy null project can be assigned a client', function () {
@@ -136,7 +137,7 @@ test('mapped project and vessel cannot return to unassigned', function () {
     expect((int) $vessel->fresh()->client_id)->toBe((int) $client->id);
 });
 
-test('legacy null project and vessel can remain null while editing other fields', function () {
+test('zero-client project cannot remain unassigned through edit but legacy null vessel can remain null', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
 
@@ -154,10 +155,10 @@ test('legacy null project and vessel can remain null while editing other fields'
         'title' => $project->title.' Updated',
         'client_ids' => [],
         'is_active' => false,
-    ])->assertRedirect(route('settings.master-data.projects.index'));
+    ])->assertSessionHasErrors('client_ids');
 
     expect($project->fresh()->clients()->count())->toBe(0)
-        ->and($project->fresh()->is_active)->toBeFalse();
+        ->and($project->fresh()->is_active)->toBeTrue();
 
     $vessel = Vessel::query()->create([
         'company_id' => $company->id,
@@ -227,7 +228,7 @@ test('project import requires update permission to attach new clients to existin
         ->toBe([$clientA->id, $clientB->id]);
 });
 
-test('employee update can assign legacy null project without client', function () {
+test('employee update rejects zero-client project', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
 
@@ -244,9 +245,11 @@ test('employee update can assign legacy null project without client', function (
     $this->put("/organization/employees/{$employee->id}", [
         'name' => $employee->name,
         'project_id' => $project->id,
-    ])->assertRedirect();
+    ])->assertSessionHasErrors([
+        'project_id' => ClientAssignmentRules::PROJECT_MISSING_CLIENT_MESSAGE,
+    ]);
 
-    expect((int) $employee->fresh()->project_id)->toBe((int) $project->id)
+    expect($employee->fresh()->project_id)->toBeNull()
         ->and($employee->fresh()->client_id)->toBeNull();
 });
 
@@ -443,10 +446,28 @@ test('employee backend create and update allow multi-client project and reject u
     ]);
     $project2->clients()->sync([$clientA->id]);
 
+    $zeroClientProject = Project::query()->create([
+        'title' => 'Zero Client Employee Project '.uniqid(),
+        'is_active' => true,
+    ]);
+
     $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Emp Template '.uniqid(),
         'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    // 0. Employee A + zero-client Project fails validation
+    $this->post('/organization/employees', [
+        'employee_profile_template_id' => $template->id,
+        'employee_no' => 'EMP-TEST-ZERO',
+        'name' => 'Employee Zero',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'client_id' => $clientA->id,
+        'project_id' => $zeroClientProject->id,
+    ])->assertSessionHasErrors([
+        'project_id' => ClientAssignmentRules::PROJECT_MISSING_CLIENT_MESSAGE,
     ]);
 
     // 1. Employee A + Project 1 succeeds
@@ -581,6 +602,26 @@ test('employee csv import allows shared project for mapped clients and rejects u
     ]);
     $sharedProject->clients()->sync([$clientA->id, $clientB->id]);
 
+    $zeroClientProject = Project::query()->create([
+        'title' => 'Zero Client Import Proj',
+        'is_active' => true,
+    ]);
+
+    // 0. Preview with client A + zero-client project is rejected
+    $zeroClientCsv = "employee_no,name,client,project\nEMP-IMP-Z,Zero,Shared Imp Client A,Zero Client Import Proj\n";
+    $zeroClientFile = UploadedFile::fake()->createWithContent('zero-client.csv', $zeroClientCsv);
+
+    $zeroClientPreview = $this->post('/organization/employees/import/preview', [
+        'file' => $zeroClientFile,
+        'employee_profile_template_id' => $template->id,
+    ])->assertOk()->json();
+
+    expect(collect($zeroClientPreview['errors'])->pluck('message')->implode(' '))
+        ->toContain(ClientAssignmentRules::PROJECT_MISSING_CLIENT_MESSAGE);
+
+    expect(Employee::query()->where('company_id', $company->id)->where('employee_no', 'EMP-IMP-Z')->exists())->toBeFalse()
+        ->and($zeroClientProject->clients()->count())->toBe(0);
+
     // 1. Preview with unmapped client C + shared project is rejected
     $invalidCsv = "employee_no,name,client,project\nEMP-IMP-C,Sam,Shared Imp Client C,Shared Imp Proj\n";
     $invalidFile = UploadedFile::fake()->createWithContent('invalid.csv', $invalidCsv);
@@ -634,6 +675,11 @@ test('recruitment requirement create and update allow multi-client project and r
     ]);
     $project1->clients()->sync([$clientA->id, $clientB->id]);
 
+    $zeroClientProject = Project::query()->create([
+        'title' => 'Recruit Zero Client Proj '.uniqid(),
+        'is_active' => true,
+    ]);
+
     $position = Position::query()->create([
         'company_id' => $company->id,
         'title' => 'Rigger '.uniqid(),
@@ -654,6 +700,13 @@ test('recruitment requirement create and update allow multi-client project and r
             ],
         ],
     ])->assertRedirect('/organization/recruitment/requirements');
+
+    $requirementA = RecruitmentRequirement::query()
+        ->where('company_id', $company->id)
+        ->where('client_id', $clientA->id)
+        ->where('project_id', $project1->id)
+        ->latest('id')
+        ->firstOrFail();
 
     // 2. Create with Client B + Project 1 succeeds
     $this->post('/organization/recruitment/requirements', [
@@ -684,6 +737,33 @@ test('recruitment requirement create and update allow multi-client project and r
             ],
         ],
     ])->assertSessionHasErrors(['project_id' => 'The selected project is not assigned to the selected client.']);
+
+    // 4. Create with Client A + zero-client Project fails validation
+    $this->post('/organization/recruitment/requirements', [
+        'client_id' => $clientA->id,
+        'project_id' => $zeroClientProject->id,
+        'priority' => 'normal',
+        'request_received_date' => now()->toDateString(),
+        'required_by_date' => now()->addMonth()->toDateString(),
+        'lines' => [
+            [
+                'position_id' => $position->id,
+                'required_headcount' => 1,
+            ],
+        ],
+    ])->assertSessionHasErrors([
+        'project_id' => ClientAssignmentRules::PROJECT_MISSING_CLIENT_MESSAGE,
+    ]);
+
+    // 5. Update with Client A + zero-client Project fails validation
+    $this->put("/organization/recruitment/requirements/{$requirementA->id}", [
+        'client_id' => $clientA->id,
+        'project_id' => $zeroClientProject->id,
+        'priority' => 'normal',
+        'request_received_date' => now()->toDateString(),
+    ])->assertSessionHasErrors([
+        'project_id' => ClientAssignmentRules::PROJECT_MISSING_CLIENT_MESSAGE,
+    ]);
 });
 
 test('recruitment duplicate detection treats shared project under different clients as distinct', function () {
