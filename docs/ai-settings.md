@@ -42,6 +42,8 @@ Smart Search is a fast, automatic filter box. Interpretation runs after a short 
 
 Announcement **AI Assist** is a separate product capability. It reuses the same Application AI provider credentials via `AiSettingsService::isProviderConfigured()` / `applySelectedProviderToRuntime()`, and does **not** require Smart Employee Search to be enabled. See [Announcements](./announcements.md#ai-assist).
 
+**Document AI** also reuses these installation-wide provider credentials independently of the Smart Employee Search enable switch. Each company owns only its Document AI mode (`off`, `optional`, or `automatic`) in `document_ai_settings`; provider credentials and models remain platform-global. `off` is the default and preserves the existing manual Documents workflow. `documents.ai.manage` changes the company mode, while `documents.ai.use` is the future extraction capability permission. Phase 1 establishes this foundation only and does not send employee documents to an AI provider.
+
 Architecture:
 
 ```text

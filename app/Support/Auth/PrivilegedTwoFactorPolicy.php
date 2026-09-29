@@ -29,6 +29,7 @@ final class PrivilegedTwoFactorPolicy
         'settings.integrations.whatsapp.update',
         'settings.integrations.hikvision.update',
         'hikvision.webhook.manage',
+        'documents.ai.manage',
         'payroll.periods.approve',
         'payroll.periods.mark_paid',
         'payroll.wps.export',

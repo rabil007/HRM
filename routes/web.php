@@ -136,6 +136,7 @@ use App\Http\Controllers\Organization\Documents\StoreDocumentWorkflowPresetContr
 use App\Http\Controllers\Organization\Documents\SubmitDocumentRecipientRequestSignController;
 use App\Http\Controllers\Organization\Documents\UpdateDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\UpdateDocumentWorkflowPresetController;
+use App\Http\Controllers\Organization\DocumentAiSettingsController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\DocumentsOverviewController;
@@ -976,6 +977,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/configuration/{documentType}', [DocumentTypeController::class, 'show'])
         ->middleware('can:settings.master-data.document-types.view')
         ->name('organization.documents.configuration.show');
+    Route::put('organization/documents/ai-settings', [DocumentAiSettingsController::class, 'update'])
+        ->middleware(['can:documents.ai.manage', 'privileged.2fa'])
+        ->name('organization.documents.ai-settings.update');
     Route::get('organization/documents/templates', DocumentsTemplatesController::class)
         ->name('organization.documents.templates');
     Route::get('organization/documents/templates/create', [DocumentGenerationTemplateController::class, 'create'])

@@ -44,6 +44,20 @@ Old filtered Overview bookmarks such as `/organization/documents?search=`, `?exp
 
 Authorized users with `documents.upload` permission see a primary **+ Add Document** action in Library next to Search and Saved Views.
 
+### Document AI foundation
+
+Document AI is an optional company-scoped enhancement to employee document intake. `document_ai_settings` stores one mode per company:
+
+- `off` — default; existing manual upload behavior only and no Document AI provider calls.
+- `optional` — users with `documents.ai.use` may request AI assistance once extraction is wired.
+- `automatic` — eligible uploads may start AI extraction automatically once extraction is wired.
+
+Changing the company mode requires `documents.ai.manage` plus `privileged.2fa`. The trusted tenant is always `current_company_id`; the settings endpoint rejects a client-supplied `company_id`.
+
+Document AI reuses the installation-wide AI provider and encrypted credentials configured in **Settings → Application → AI**. Company settings never contain provider keys or model secrets, and the Documents UI receives only provider availability, not credentials. The Smart Employee Search enable switch is unrelated to Document AI availability.
+
+Phase 1 deliberately does **not** call an AI provider or alter the existing single/bulk upload pipeline. It establishes the tenant setting, permissions, provider-availability bridge, UI control, and audit-backed settings record so extraction can be added safely in the next phase.
+
 1. **Target Employee Selection**:
    - The user opens `UploadDocumentDialog` in employee selection mode (`allowEmployeeSelection`).
    - Active employees are searched via debounced endpoint `/organization/documents/employees/search?q={query}` (`DocumentUploadEmployeeSearchController`).

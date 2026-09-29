@@ -1947,6 +1947,18 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to view the crew relief and replacement readiness report for the active company.',
                 'group' => 'Reports',
             ],
+            327 => [
+                'name' => 'documents.ai.use',
+                'label' => 'Use Document AI',
+                'description' => 'Allows the user to use enabled Document AI assistance for employee document intake in the active company.',
+                'group' => 'Documents',
+            ],
+            328 => [
+                'name' => 'documents.ai.manage',
+                'label' => 'Manage Document AI',
+                'description' => 'Allows the user to configure the company Document AI mode without changing platform AI provider credentials.',
+                'group' => 'Documents',
+            ],
         ];
     }
 }
