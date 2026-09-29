@@ -16,8 +16,12 @@ const mockEmployee: EmployeeSummary = {
 };
 
 describe('employee-folder upload configuration', () => {
-    it('enables Add Document action when canUpload is true', () => {
-        const config = resolveEmployeeFolderUploadConfig(mockEmployee, true);
+    it('enables Add Document action when canUpload is true and documentsTabVisible is true', () => {
+        const config = resolveEmployeeFolderUploadConfig(
+            mockEmployee,
+            true,
+            true,
+        );
 
         assert.equal(config.canShowAddDocument, true);
         assert.equal(config.dialogProps.employeeId, 204);
@@ -30,11 +34,32 @@ describe('employee-folder upload configuration', () => {
         ]);
     });
 
-    it('hides Add Document action when canUpload is false', () => {
-        const config = resolveEmployeeFolderUploadConfig(mockEmployee, false);
+    it('hides Add Document action when canUpload is true and documentsTabVisible is false', () => {
+        const config = resolveEmployeeFolderUploadConfig(
+            mockEmployee,
+            true,
+            false,
+        );
 
         assert.equal(config.canShowAddDocument, false);
         assert.equal(config.dialogProps.allowEmployeeSelection, false);
+    });
+
+    it('hides Add Document action when canUpload is false and documentsTabVisible is true', () => {
+        const config = resolveEmployeeFolderUploadConfig(
+            mockEmployee,
+            false,
+            true,
+        );
+
+        assert.equal(config.canShowAddDocument, false);
+        assert.equal(config.dialogProps.allowEmployeeSelection, false);
+    });
+
+    it('defaults documentsTabVisible to true when omitted', () => {
+        const config = resolveEmployeeFolderUploadConfig(mockEmployee, true);
+
+        assert.equal(config.canShowAddDocument, true);
     });
 
     it('library mode allows employee selection and has no pre-selected employee', () => {

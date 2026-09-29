@@ -1010,3 +1010,41 @@ test('bulk upload enforces employee document profile-template required rules', f
         'document_number' => 'DOC-REQ-123',
     ]);
 });
+
+test('document replacement fails when employee template disables documents tab', function () {
+    fakeEmployeeFileDisks();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $doc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/passport.pdf',
+        'status' => 'valid',
+    ]);
+
+    $config = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $config['tabs']['documents']['visible'] = false;
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Hidden Documents Template',
+        'description' => null,
+        'is_active' => true,
+        'configuration_json' => $config,
+    ]);
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+
+    $this->post("/organization/employees/{$employee->id}/documents/{$doc->id}/replace", [
+        'file' => UploadedFile::fake()->create('passport-v2.pdf', 100, 'application/pdf'),
+    ])->assertSessionHasErrors('_');
+});

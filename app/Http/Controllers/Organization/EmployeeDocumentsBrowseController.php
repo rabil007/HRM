@@ -24,6 +24,7 @@ class EmployeeDocumentsBrowseController extends Controller
 
         $result = $browse->documentsForEmployee($companyId, $employee);
         $resolved = EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate);
+        $documentsTabVisible = (bool) ($resolved['tabs']['documents']['visible'] ?? true);
 
         return Inertia::render('organization/documents/employee', [
             'employee' => $result['employee'],
@@ -32,6 +33,7 @@ class EmployeeDocumentsBrowseController extends Controller
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'document_types' => EmployeeFormOptions::documentTypes(),
             'template_fields' => $resolved['fields']['employee_documents'] ?? null,
+            'documents_tab_visible' => $documentsTabVisible,
             'can' => DocumentPagePermissions::for($request->user()),
         ]);
     }

@@ -81,6 +81,7 @@ type Props = {
     countries: PhoneCountryOption[];
     document_types: DocumentTypeOption[];
     template_fields?: Record<string, TemplateFieldConfig> | null;
+    documents_tab_visible?: boolean;
     can: {
         download: boolean;
         share: boolean;
@@ -99,6 +100,7 @@ export default function EmployeeDocumentsBrowse({
     countries,
     document_types,
     template_fields = null,
+    documents_tab_visible = true,
     can,
 }: Props) {
     const { company_switcher_companies, current_company_id } = usePage()
@@ -115,6 +117,7 @@ export default function EmployeeDocumentsBrowse({
     const canDeleteDocuments = can.delete;
     const canDownloadDocuments = can.download;
     const canUploadDocuments = can.upload;
+    const canModifyDocuments = can.upload && documents_tab_visible;
     const canShareDocuments = can.share;
     const canSendWhatsAppTemplate = can.whatsapp_template;
     const whatsappTemplates = can.whatsapp_templates ?? [];
@@ -150,8 +153,13 @@ export default function EmployeeDocumentsBrowse({
     } | null>(null);
 
     const uploadConfig = useMemo(
-        () => resolveEmployeeFolderUploadConfig(employee, canUploadDocuments),
-        [employee, canUploadDocuments],
+        () =>
+            resolveEmployeeFolderUploadConfig(
+                employee,
+                canUploadDocuments,
+                documents_tab_visible,
+            ),
+        [employee, canUploadDocuments, documents_tab_visible],
     );
 
     const filteredDocuments = useMemo(() => {
@@ -522,7 +530,7 @@ export default function EmployeeDocumentsBrowse({
                     hasSearch={false}
                     title="No documents yet"
                     description={
-                        canUploadDocuments
+                        canModifyDocuments
                             ? 'This employee does not have any uploaded documents. Use Add Document to upload the first file.'
                             : 'This employee does not have any uploaded documents.'
                     }
@@ -581,7 +589,7 @@ export default function EmployeeDocumentsBrowse({
                                     { from: 'employee-browse' },
                                 )}
                                 canDownload={canDownloadDocuments}
-                                canUpload={canUploadDocuments}
+                                canUpload={canModifyDocuments}
                                 canDelete={canDeleteDocuments}
                                 selectionMode
                                 selected={isDocumentSelected(doc.id)}
@@ -651,7 +659,7 @@ export default function EmployeeDocumentsBrowse({
                                             },
                                         )}
                                         canDownload={canDownloadDocuments}
-                                        canUpload={canUploadDocuments}
+                                        canUpload={canModifyDocuments}
                                         canDelete={canDeleteDocuments}
                                         onEdit={(document) =>
                                             setEditDoc(

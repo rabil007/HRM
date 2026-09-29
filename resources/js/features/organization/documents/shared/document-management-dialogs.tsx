@@ -53,6 +53,7 @@ export function DocumentManagementDialogs({
                 document={replaceDoc}
                 employeeId={employeeId}
                 onOpenChange={(open) => !open && onReplaceDocChange(null)}
+                templateFields={templateFields}
                 partialReloadKeys={partialReloadKeys}
             />
 

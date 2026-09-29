@@ -243,6 +243,67 @@ test('employee documents folder page returns employee document template field co
         );
 });
 
+test('employee documents folder exposes documents tab visible when template allows documents', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    $config = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $config['tabs']['documents']['visible'] = true;
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Visible Documents Template',
+        'description' => null,
+        'is_active' => true,
+        'configuration_json' => $config,
+    ]);
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.upload']);
+
+    $this->get("/organization/documents/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/employee')
+            ->where('can.upload', true)
+            ->where('documents_tab_visible', true)
+        );
+});
+
+test('employee documents folder exposes documents tab hidden when template disables documents', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    $config = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $config['tabs']['documents']['visible'] = false;
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Hidden Documents Template',
+        'description' => null,
+        'is_active' => true,
+        'configuration_json' => $config,
+    ]);
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.upload']);
+
+    // Folder page remains accessible (read-only for existing documents)
+    $this->get("/organization/documents/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/employee')
+            ->where('can.upload', true)
+            ->where('documents_tab_visible', false)
+        );
+});
+
 test('documents folder index expiry summary counts only tracked documents', function () {
     Carbon::setTestNow('2026-05-20');
 

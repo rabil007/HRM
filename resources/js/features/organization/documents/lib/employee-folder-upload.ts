@@ -55,9 +55,10 @@ export function resolveUploadDialogHeading({
 export function resolveEmployeeFolderUploadConfig(
     employee: EmployeeSummary,
     canUpload: boolean,
+    documentsTabVisible: boolean = true,
 ): EmployeeFolderUploadConfig {
     return {
-        canShowAddDocument: Boolean(canUpload),
+        canShowAddDocument: Boolean(canUpload && documentsTabVisible),
         dialogProps: {
             employeeId: employee.id,
             employeeName: employee.name,

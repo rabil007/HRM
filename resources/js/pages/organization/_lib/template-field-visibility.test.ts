@@ -44,6 +44,37 @@ describe('replace document required-field validation', () => {
 
         assert.deepEqual(missing, []);
     });
+
+    it('enforces required fields configured by employee profile template during replacement', () => {
+        const customTemplate = {
+            document_type_id: { visible: true, required: true },
+            document_number: { visible: true, required: true },
+            issue_date: { visible: false, required: false },
+            expiry_date: { visible: true, required: false },
+        };
+
+        const missing = collectMissingRequiredTemplateFields(
+            {
+                document_type_id: 12,
+                issue_date: '2026-08-01',
+            },
+            customTemplate,
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
+        );
+
+        assert.deepEqual(missing, ['document_number']);
+
+        const complete = collectMissingRequiredTemplateFields(
+            {
+                document_type_id: 12,
+                document_number: 'DOC-123',
+            },
+            customTemplate,
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
+        );
+
+        assert.deepEqual(complete, []);
+    });
 });
 
 describe('replace training required-field validation', () => {
