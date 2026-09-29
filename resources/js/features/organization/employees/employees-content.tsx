@@ -112,6 +112,7 @@ export function EmployeesContent({
     filters: initialFilters,
     department_tree,
     department_tree_selected_id,
+    department_tree_selected_ids = [],
     department_tree_selected_position_id,
     positions,
     managers,
@@ -139,6 +140,7 @@ export function EmployeesContent({
     filters: EmployeeFilters;
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
+    department_tree_selected_ids?: number[];
     department_tree_selected_position_id: number | null;
     positions: PositionOption[];
     managers: ManagerOption[];
@@ -185,6 +187,7 @@ export function EmployeesContent({
     const filters = useMemo<EmployeeFilters>(
         () => ({
             department_id: initialFilters.department_id ?? '',
+            department_ids: initialFilters.department_ids ?? '',
             position_id: initialFilters.position_id ?? '',
             status: initialFilters.status ?? '',
             manager_id: initialFilters.manager_id ?? '',
@@ -224,16 +227,40 @@ export function EmployeesContent({
         handleFiltersChange({
             ...filters,
             department_id: id !== null ? String(id) : '',
+            department_ids: '',
             position_id: '',
         });
         setIsDepartmentsOpen(false);
         setIsDepartmentsPopoverOpen(false);
     };
 
+    const selectedDepartmentIds = useMemo(
+        () =>
+            (filters.department_ids || filters.department_id)
+                .split(',')
+                .map((id) => Number(id.trim()))
+                .filter((id) => Number.isInteger(id) && id > 0),
+        [filters.department_id, filters.department_ids],
+    );
+
+    const handleDepartmentToggle = (id: number) => {
+        const nextIds = selectedDepartmentIds.includes(id)
+            ? selectedDepartmentIds.filter((selectedId) => selectedId !== id)
+            : [...selectedDepartmentIds, id];
+
+        handleFiltersChange({
+            ...filters,
+            department_id: '',
+            department_ids: nextIds.join(','),
+            position_id: '',
+        });
+    };
+
     const handlePositionSelect = (positionId: number, departmentId: number) => {
         handleFiltersChange({
             ...filters,
             department_id: String(departmentId),
+            department_ids: '',
             position_id: String(positionId),
         });
         setIsDepartmentsOpen(false);
@@ -241,7 +268,11 @@ export function EmployeesContent({
     };
 
     const departmentTreeSelectionCount =
-        initialFilters.department_id || initialFilters.position_id ? 1 : 0;
+        selectedDepartmentIds.length > 0
+            ? selectedDepartmentIds.length
+            : filters.position_id
+              ? 1
+              : department_tree_selected_ids.length;
 
     const handleAdd = () => {
         router.visit('/organization/employees/create');
@@ -394,11 +425,16 @@ export function EmployeesContent({
                                     selectedDepartmentId={
                                         department_tree_selected_id
                                     }
+                                    selectedDepartmentIds={
+                                        selectedDepartmentIds
+                                    }
                                     selectedPositionId={
                                         department_tree_selected_position_id
                                     }
                                     onSelectDepartment={handleDepartmentSelect}
+                                    onToggleDepartment={handleDepartmentToggle}
                                     onSelectPosition={handlePositionSelect}
+                                    multipleDepartments
                                 />
                             </PopoverContent>
                         </Popover>
@@ -751,11 +787,14 @@ export function EmployeesContent({
                         <DepartmentEmployeeTree
                             nodes={department_tree ?? []}
                             selectedDepartmentId={department_tree_selected_id}
+                            selectedDepartmentIds={selectedDepartmentIds}
                             selectedPositionId={
                                 department_tree_selected_position_id
                             }
                             onSelectDepartment={handleDepartmentSelect}
+                            onToggleDepartment={handleDepartmentToggle}
                             onSelectPosition={handlePositionSelect}
+                            multipleDepartments
                         />
                     </div>
                 </SheetContent>

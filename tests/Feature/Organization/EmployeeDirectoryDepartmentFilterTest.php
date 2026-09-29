@@ -92,6 +92,104 @@ test('employees index filters by department subtree', function () {
         );
 });
 
+test('employees index filters by multiple department subtrees', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'DMT',
+        'name' => 'Multi Deptland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'DMT',
+        'name' => 'Multi Dept Currency',
+        'symbol' => 'M$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Multi Dept Co',
+        'slug' => 'multi-dept-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'parent_id' => null,
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $deckDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck',
+        'parent_id' => $marineDepartment->id,
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $financeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Finance',
+        'parent_id' => null,
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $hrDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR',
+        'parent_id' => null,
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $marineEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DMT-MAR',
+        'name' => 'Marine Employee',
+        'department_id' => $marineDepartment->id,
+    ]);
+
+    $deckEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DMT-DECK',
+        'name' => 'Deck Employee',
+        'department_id' => $deckDepartment->id,
+    ]);
+
+    $financeEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DMT-FIN',
+        'name' => 'Finance Employee',
+        'department_id' => $financeDepartment->id,
+    ]);
+
+    $hrEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DMT-HR',
+        'name' => 'HR Employee',
+        'department_id' => $hrDepartment->id,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/organization/employees?department_ids='.$marineDepartment->id.','.$financeDepartment->id)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.department_ids', $marineDepartment->id.','.$financeDepartment->id)
+            ->where('department_tree_selected_ids', [$marineDepartment->id, $financeDepartment->id])
+            ->where('department_tree_selected_id', null)
+            ->has('employees', 3)
+            ->where('employees', fn ($employees) => collect($employees)->pluck('id')->contains($marineEmployee->id)
+                && collect($employees)->pluck('id')->contains($deckEmployee->id)
+                && collect($employees)->pluck('id')->contains($financeEmployee->id)
+                && ! collect($employees)->pluck('id')->contains($hrEmployee->id))
+        );
+});
+
 test('employees index department tree rolls up employee counts', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

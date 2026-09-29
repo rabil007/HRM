@@ -84,8 +84,16 @@ export function clearDepartmentFilter(
     return {
         ...filters,
         department_id: '',
+        department_ids: '',
         position_id: '',
     };
+}
+
+function csvIds(csv: string): string[] {
+    return csv
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id !== '');
 }
 
 export function clearPositionFilter(filters: EmployeeFilters): EmployeeFilters {
@@ -194,16 +202,29 @@ export function buildEmployeeActiveFilterChips({
     }
 
     // 2. Department
-    if (filters.department_id && filters.department_id.trim() !== '') {
-        const deptName =
-            findDepartmentName(
-                options.department_tree,
-                filters.department_id,
-            )?.trim() || 'Unknown';
-        const label = `Department: ${deptName}`;
+    const selectedDepartmentIds = filters.department_ids
+        ? csvIds(filters.department_ids)
+        : filters.department_id && filters.department_id.trim() !== ''
+          ? [filters.department_id]
+          : [];
+
+    if (selectedDepartmentIds.length > 0) {
+        const departmentNames = selectedDepartmentIds.map(
+            (id) =>
+                findDepartmentName(options.department_tree, id)?.trim() ||
+                'Unknown',
+        );
+        const label =
+            departmentNames.length === 1
+                ? `Department: ${departmentNames[0]}`
+                : `Departments: ${departmentNames.slice(0, 2).join(', ')}${
+                      departmentNames.length > 2
+                          ? ` +${departmentNames.length - 2}`
+                          : ''
+                  }`;
 
         chips.push({
-            key: 'department_id',
+            key: 'department_ids',
             label,
             ariaLabel: `Remove ${label} filter`,
             onClear: () => onApplyFilters(clearDepartmentFilter(filters)),

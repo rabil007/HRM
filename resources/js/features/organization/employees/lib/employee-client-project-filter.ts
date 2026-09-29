@@ -2,6 +2,7 @@ import type { ProjectOption } from '../types';
 
 export type EmployeeFilters = {
     department_id: string;
+    department_ids: string;
     position_id: string;
     status: string;
     manager_id: string;
@@ -21,6 +22,7 @@ export type EmployeeFilters = {
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     department_id: '',
+    department_ids: '',
     position_id: '',
     status: '',
     manager_id: '',

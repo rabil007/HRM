@@ -149,9 +149,29 @@ describe('employee active filters - chip generation & label resolution', () => {
         });
 
         assert.equal(chips.length, 1);
-        assert.equal(chips[0].key, 'department_id');
+        assert.equal(chips[0].key, 'department_ids');
         assert.equal(chips[0].label, 'Department: Office');
         assert.equal(chips[0].ariaLabel, 'Remove Department: Office filter');
+    });
+
+    it('resolves multiple Department filter labels from recursive tree', () => {
+        const filters: EmployeeFilters = {
+            ...EMPTY_EMPLOYEE_FILTERS,
+            department_ids: '10,11',
+        };
+        const chips = buildEmployeeActiveFilterChips({
+            filters,
+            options: mockOptions,
+            onApplyFilters: () => {},
+        });
+
+        assert.equal(chips.length, 1);
+        assert.equal(chips[0].key, 'department_ids');
+        assert.equal(chips[0].label, 'Departments: Office, Finance');
+        assert.equal(
+            chips[0].ariaLabel,
+            'Remove Departments: Office, Finance filter',
+        );
     });
 
     it('resolves Position filter label', () => {
@@ -516,13 +536,17 @@ describe('employee active filters - clearing behavior', () => {
             },
         });
 
-        const deptChip = chips.find((c) => c.key === 'department_id');
+        const deptChip = chips.find((c) => c.key === 'department_ids');
         assert.notEqual(deptChip, undefined);
 
         deptChip?.onClear();
         assert.notEqual(appliedFilters, null);
         assert.equal(
             (appliedFilters as unknown as EmployeeFilters).department_id,
+            '',
+        );
+        assert.equal(
+            (appliedFilters as unknown as EmployeeFilters).department_ids,
             '',
         );
         assert.equal(
@@ -553,6 +577,13 @@ describe('employee active filters - hasActiveEmployeeFilters', () => {
             hasActiveEmployeeFilters({
                 ...EMPTY_EMPLOYEE_FILTERS,
                 department_id: '10',
+            }),
+            true,
+        );
+        assert.equal(
+            hasActiveEmployeeFilters({
+                ...EMPTY_EMPLOYEE_FILTERS,
+                department_ids: '10,11',
             }),
             true,
         );

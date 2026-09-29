@@ -31,6 +31,7 @@ export default function Employees({
     filters,
     department_tree,
     department_tree_selected_id,
+    department_tree_selected_ids,
     department_tree_selected_position_id,
     positions,
     managers,
@@ -57,6 +58,7 @@ export default function Employees({
     search: string;
     filters: {
         department_id: string;
+        department_ids: string;
         position_id: string;
         status: string;
         manager_id: string;
@@ -75,6 +77,7 @@ export default function Employees({
     };
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
+    department_tree_selected_ids: number[];
     department_tree_selected_position_id: number | null;
     positions: PositionOption[];
     managers: ManagerOption[];
@@ -107,6 +110,7 @@ export default function Employees({
                 filters={filters}
                 department_tree={department_tree}
                 department_tree_selected_id={department_tree_selected_id}
+                department_tree_selected_ids={department_tree_selected_ids}
                 department_tree_selected_position_id={
                     department_tree_selected_position_id
                 }

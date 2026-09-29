@@ -101,36 +101,57 @@ function DepartmentTreeNodeRow({
     node,
     depth,
     selectedDepartmentId,
+    selectedDepartmentIds,
     selectedPositionId,
     expandedIds,
     onToggleExpand,
     onSelectDepartment,
+    onToggleDepartment,
     onSelectPosition,
     showPositions,
+    multipleDepartments,
 }: {
     node: DepartmentTreeNode;
     depth: number;
     selectedDepartmentId: number | null;
+    selectedDepartmentIds: Set<number>;
     selectedPositionId: number | null;
     expandedIds: Set<number>;
     onToggleExpand: (id: number, open: boolean) => void;
     onSelectDepartment: (id: number | null) => void;
+    onToggleDepartment?: (id: number) => void;
     onSelectPosition: (positionId: number, departmentId: number) => void;
     showPositions: boolean;
+    multipleDepartments: boolean;
 }) {
     const hasChildDepartments = node.children.length > 0;
     const hasPositions = showPositions && node.positions.length > 0;
     const hasExpandableContent = hasChildDepartments || hasPositions;
     const isAllNode = node.id === null;
-    const isSelected = isAllNode
-        ? selectedDepartmentId === null && selectedPositionId === null
-        : selectedDepartmentId === node.id && selectedPositionId === null;
+    const isSelected = multipleDepartments
+        ? isAllNode
+            ? selectedDepartmentIds.size === 0 && selectedPositionId === null
+            : node.id !== null &&
+              selectedDepartmentIds.has(node.id) &&
+              selectedPositionId === null
+        : isAllNode
+          ? selectedDepartmentId === null && selectedPositionId === null
+          : selectedDepartmentId === node.id && selectedPositionId === null;
     const isExpanded = node.id !== null && expandedIds.has(node.id);
+    const handleDepartmentClick = () => {
+        if (multipleDepartments && node.id !== null) {
+            onToggleDepartment?.(node.id);
+
+            return;
+        }
+
+        onSelectDepartment(node.id);
+    };
 
     const rowButton = (
         <button
             type="button"
-            onClick={() => onSelectDepartment(node.id)}
+            onClick={handleDepartmentClick}
             className={cn(
                 'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
                 isSelected
@@ -189,12 +210,15 @@ function DepartmentTreeNodeRow({
                         node={child}
                         depth={depth + 1}
                         selectedDepartmentId={selectedDepartmentId}
+                        selectedDepartmentIds={selectedDepartmentIds}
                         selectedPositionId={selectedPositionId}
                         expandedIds={expandedIds}
                         onToggleExpand={onToggleExpand}
                         onSelectDepartment={onSelectDepartment}
+                        onToggleDepartment={onToggleDepartment}
                         onSelectPosition={onSelectPosition}
                         showPositions={showPositions}
+                        multipleDepartments={multipleDepartments}
                     />
                 ))}
                 {hasPositions
@@ -221,20 +245,30 @@ function DepartmentTreeNodeRow({
 export function DepartmentEmployeeTree({
     nodes,
     selectedDepartmentId,
+    selectedDepartmentIds = [],
     selectedPositionId,
     onSelectDepartment,
+    onToggleDepartment,
     onSelectPosition,
     showPositions = true,
+    multipleDepartments = false,
     className,
 }: {
     nodes: DepartmentTreeNode[];
     selectedDepartmentId: number | null;
+    selectedDepartmentIds?: number[];
     selectedPositionId: number | null;
     onSelectDepartment: (id: number | null) => void;
+    onToggleDepartment?: (id: number) => void;
     onSelectPosition: (positionId: number, departmentId: number) => void;
     showPositions?: boolean;
+    multipleDepartments?: boolean;
     className?: string;
 }) {
+    const selectedDepartmentIdSet = useMemo(
+        () => new Set(selectedDepartmentIds),
+        [selectedDepartmentIds],
+    );
     const departmentRoots = useMemo(
         () => nodes.filter((node) => node.id !== null),
         [nodes],
@@ -256,6 +290,14 @@ export function DepartmentEmployeeTree({
             expanded.add(selectedDepartmentId);
         }
 
+        selectedDepartmentIds.forEach((selectedId) => {
+            const ancestors =
+                findAncestorIds(departmentRoots, selectedId) ?? [];
+
+            ancestors.forEach((id) => expanded.add(id));
+            expanded.add(selectedId);
+        });
+
         if (selectedPositionId !== null) {
             const departmentId = findDepartmentIdForPosition(
                 departmentRoots,
@@ -272,7 +314,12 @@ export function DepartmentEmployeeTree({
         }
 
         return expanded;
-    }, [departmentRoots, selectedDepartmentId, selectedPositionId]);
+    }, [
+        departmentRoots,
+        selectedDepartmentId,
+        selectedDepartmentIds,
+        selectedPositionId,
+    ]);
 
     const [expandedIds, setExpandedIds] = useState<Set<number>>(
         () => initialExpandedIds,
@@ -309,12 +356,15 @@ export function DepartmentEmployeeTree({
                         node={allNode}
                         depth={0}
                         selectedDepartmentId={selectedDepartmentId}
+                        selectedDepartmentIds={selectedDepartmentIdSet}
                         selectedPositionId={selectedPositionId}
                         expandedIds={expandedIds}
                         onToggleExpand={handleToggleExpand}
                         onSelectDepartment={onSelectDepartment}
+                        onToggleDepartment={onToggleDepartment}
                         onSelectPosition={onSelectPosition}
                         showPositions={showPositions}
+                        multipleDepartments={multipleDepartments}
                     />
                 ) : null}
 
@@ -324,12 +374,15 @@ export function DepartmentEmployeeTree({
                         node={node}
                         depth={0}
                         selectedDepartmentId={selectedDepartmentId}
+                        selectedDepartmentIds={selectedDepartmentIdSet}
                         selectedPositionId={selectedPositionId}
                         expandedIds={expandedIds}
                         onToggleExpand={handleToggleExpand}
                         onSelectDepartment={onSelectDepartment}
+                        onToggleDepartment={onToggleDepartment}
                         onSelectPosition={onSelectPosition}
                         showPositions={showPositions}
+                        multipleDepartments={multipleDepartments}
                     />
                 ))}
             </div>

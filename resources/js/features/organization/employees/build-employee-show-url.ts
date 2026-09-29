@@ -3,6 +3,7 @@ import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeContro
 export type EmployeeListQuery = {
     search?: string;
     department_id?: string;
+    department_ids?: string;
     position_id?: string;
     status?: string;
     manager_id?: string;
@@ -30,7 +31,9 @@ export function buildEmployeeListQuery(
         query.search = search.trim();
     }
 
-    if (filters.department_id) {
+    if (filters.department_ids) {
+        query.department_ids = filters.department_ids;
+    } else if (filters.department_id) {
         query.department_id = filters.department_id;
     }
 

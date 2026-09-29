@@ -268,6 +268,7 @@ export function mergeSmartSearchFilters<T extends Record<string, string>>(
     if (resolvedDepartment && !resolvedPosition) {
         return {
             ...merged,
+            department_ids: '',
             position_id: '',
         };
     }
@@ -276,6 +277,7 @@ export function mergeSmartSearchFilters<T extends Record<string, string>>(
         return {
             ...merged,
             department_id: '',
+            department_ids: '',
         };
     }
 

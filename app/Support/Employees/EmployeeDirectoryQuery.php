@@ -44,8 +44,8 @@ final class EmployeeDirectoryQuery
         }
 
         $query
-            ->when(! $exceptDepartment && $filters->departmentId, function (Builder $q) use ($companyId, $filters): void {
-                $departmentId = (int) $filters->departmentId;
+            ->when(! $exceptDepartment && $filters->departmentIdList() !== [], function (Builder $q) use ($companyId, $filters): void {
+                $selectedDepartmentIds = $filters->departmentIdList();
 
                 $departments = Department::query()
                     ->where('company_id', $companyId)
@@ -55,7 +55,11 @@ final class EmployeeDirectoryQuery
                         'parent_id' => $department->parent_id,
                     ]);
 
-                $departmentIds = DepartmentDescendantIds::includingSelf($departmentId, $departments);
+                $departmentIds = collect($selectedDepartmentIds)
+                    ->flatMap(fn (int $departmentId): array => DepartmentDescendantIds::includingSelf($departmentId, $departments))
+                    ->unique()
+                    ->values()
+                    ->all();
 
                 $q->whereIn('department_id', $departmentIds);
             })

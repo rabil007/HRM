@@ -37,6 +37,7 @@ import {
 
 const emptyFilters = {
     department_id: '',
+    department_ids: '',
     position_id: '',
     status: '',
     manager_id: '',

@@ -20,6 +20,7 @@ final class EmployeeDirectoryFilters
     public function __construct(
         public readonly string $search = '',
         public readonly string $departmentId = '',
+        public readonly string $departmentIds = '',
         public readonly string $positionId = '',
         public readonly string $status = '',
         public readonly string $managerId = '',
@@ -51,6 +52,7 @@ final class EmployeeDirectoryFilters
         return new self(
             search: trim((string) ($data['search'] ?? '')),
             departmentId: trim((string) ($data['department_id'] ?? '')),
+            departmentIds: self::normalizeCsvIds($data['department_ids'] ?? ''),
             positionId: trim((string) ($data['position_id'] ?? '')),
             status: self::normalizeStatus($data['status'] ?? ''),
             managerId: trim((string) ($data['manager_id'] ?? '')),
@@ -127,6 +129,22 @@ final class EmployeeDirectoryFilters
     }
 
     /**
+     * @return list<int>
+     */
+    public function departmentIdList(): array
+    {
+        if ($this->departmentIds !== '') {
+            return self::csvIdsToIntList($this->departmentIds);
+        }
+
+        if ($this->departmentId !== '' && ctype_digit($this->departmentId)) {
+            return [(int) $this->departmentId];
+        }
+
+        return [];
+    }
+
+    /**
      * @return array<string, string>
      */
     public function toQueryArray(): array
@@ -137,7 +155,9 @@ final class EmployeeDirectoryFilters
             $query['search'] = $this->search;
         }
 
-        if ($this->departmentId !== '') {
+        if ($this->departmentIds !== '') {
+            $query['department_ids'] = $this->departmentIds;
+        } elseif ($this->departmentId !== '') {
             $query['department_id'] = $this->departmentId;
         }
 
@@ -211,6 +231,7 @@ final class EmployeeDirectoryFilters
     {
         return [
             'department_id' => $this->departmentId,
+            'department_ids' => $this->departmentIds,
             'position_id' => $this->positionId,
             'status' => $this->status,
             'manager_id' => $this->managerId,
@@ -232,6 +253,31 @@ final class EmployeeDirectoryFilters
     private static function normalizeStatus(mixed $value): string
     {
         return strtolower(trim((string) $value));
+    }
+
+    private static function normalizeCsvIds(mixed $value): string
+    {
+        $parts = is_array($value) ? $value : explode(',', (string) $value);
+
+        return collect($parts)
+            ->map(fn (mixed $id): string => trim((string) $id))
+            ->filter(fn (string $id): bool => ctype_digit($id) && (int) $id > 0)
+            ->unique()
+            ->values()
+            ->implode(',');
+    }
+
+    /**
+     * @return list<int>
+     */
+    private static function csvIdsToIntList(string $csv): array
+    {
+        return collect(explode(',', $csv))
+            ->map(fn (string $id): int => (int) trim($id))
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
