@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\RecruitmentRequirement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 
 final class SyncProjectClients
 {
@@ -27,6 +28,8 @@ final class SyncProjectClients
             ]);
 
             $project->clients()->sync($normalizedClientIds);
+
+            $this->logRelationshipChanges($project, [], $normalizedClientIds);
 
             return $project->refresh();
         });
@@ -50,11 +53,15 @@ final class SyncProjectClients
             $this->assertReferencedPairsRemainCovered($locked, $normalizedClientIds);
             $this->assertRemovalsAreSafe($locked, $normalizedClientIds);
 
+            $beforeClientIds = $this->currentClientIds($locked);
+
             $locked->fill($attributes);
             $locked->client_id = $this->legacyClientIdFor($locked, $normalizedClientIds);
             $locked->save();
 
             $locked->clients()->sync($normalizedClientIds);
+
+            $this->logRelationshipChanges($locked, $beforeClientIds, $normalizedClientIds);
 
             return $locked->refresh();
         });
@@ -73,6 +80,12 @@ final class SyncProjectClients
                 ->firstOrFail();
 
             $normalizedClientIds = $this->normalizeClientIds($clientIds);
+            if ($normalizedClientIds === []) {
+                return $locked;
+            }
+
+            $beforeClientIds = $this->currentClientIds($locked);
+
             $locked->clients()->syncWithoutDetaching($normalizedClientIds);
 
             $allClientIds = $locked->clients()
@@ -82,8 +95,13 @@ final class SyncProjectClients
                 ->values()
                 ->all();
 
-            $locked->client_id = $this->legacyClientIdFor($locked, $allClientIds);
-            $locked->save();
+            $legacyClientId = $this->legacyClientIdFor($locked, $allClientIds);
+            if ($locked->client_id !== $legacyClientId) {
+                $locked->client_id = $legacyClientId;
+                $locked->save();
+            }
+
+            $this->logRelationshipChanges($locked, $beforeClientIds, $allClientIds);
 
             return $locked->refresh();
         });
@@ -103,6 +121,23 @@ final class SyncProjectClients
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function currentClientIds(Project $project): array
+    {
+        $clientIds = $project->clients()
+            ->pluck('clients.id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        if ($clientIds === [] && $project->client_id !== null) {
+            $clientIds[] = (int) $project->client_id;
+        }
+
+        return collect($clientIds)->unique()->sort()->values()->all();
     }
 
     /**
@@ -126,8 +161,11 @@ final class SyncProjectClients
             $this->throwRemovalException($project, (int) $employeeClientId, 'employees are currently using');
         }
 
+        // Active business requirements across all lifecycle statuses (Draft, Open, On Hold,
+        // Completed, Cancelled) retain client_id + project_id and can be reopened or repeated,
+        // so they block unlinking. Soft-deleted requirements represent intentional removal
+        // from operational history and do not block relationship modifications.
         $requirementClientId = RecruitmentRequirement::query()
-            ->withTrashed()
             ->where('project_id', $project->id)
             ->whereIn('client_id', $removedClientIds)
             ->value('client_id');
@@ -156,8 +194,11 @@ final class SyncProjectClients
             $this->throwRemovalException($project, (int) $employeeClientId, 'employees are currently using');
         }
 
+        // Active business requirements across all lifecycle statuses (Draft, Open, On Hold,
+        // Completed, Cancelled) retain client_id + project_id and can be reopened or repeated,
+        // so they block unlinking. Soft-deleted requirements represent intentional removal
+        // from operational history and do not block relationship modifications.
         $requirementClientId = RecruitmentRequirement::query()
-            ->withTrashed()
             ->where('project_id', $project->id)
             ->whereNotIn('client_id', $nextClientIds)
             ->value('client_id');
@@ -168,20 +209,72 @@ final class SyncProjectClients
     }
 
     /**
-     * @return list<int>
+     * @param  list<int>  $beforeClientIds
+     * @param  list<int>  $afterClientIds
      */
-    private function currentClientIds(Project $project): array
+    private function logRelationshipChanges(Project $project, array $beforeClientIds, array $afterClientIds): void
     {
-        $clientIds = $project->clients()
-            ->pluck('clients.id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
+        $addedClientIds = array_values(array_diff($afterClientIds, $beforeClientIds));
+        $removedClientIds = array_values(array_diff($beforeClientIds, $afterClientIds));
 
-        if ($clientIds === [] && $project->client_id !== null) {
-            $clientIds[] = (int) $project->client_id;
+        if ($addedClientIds === [] && $removedClientIds === []) {
+            return;
         }
 
-        return collect($clientIds)->unique()->sort()->values()->all();
+        $allClientIds = array_values(array_unique(array_merge($addedClientIds, $removedClientIds)));
+        $clientNames = Client::query()
+            ->whereIn('id', $allClientIds)
+            ->pluck('name', 'id')
+            ->all();
+
+        $addedClientNames = array_values(array_filter(array_map(
+            fn (int $id): ?string => $clientNames[$id] ?? null,
+            $addedClientIds,
+        )));
+
+        $removedClientNames = array_values(array_filter(array_map(
+            fn (int $id): ?string => $clientNames[$id] ?? null,
+            $removedClientIds,
+        )));
+
+        $companyId = request()->attributes->get('current_company_id');
+        if (! $companyId && auth()->check()) {
+            $companyId = auth()->user()->current_company_id ?? null;
+        }
+
+        $description = match (true) {
+            $addedClientIds !== [] && $removedClientIds !== [] => "Synced client assignments for project '{$project->title}'",
+            $addedClientIds !== [] => "Attached client(s) to project '{$project->title}'",
+            default => "Removed client(s) from project '{$project->title}'",
+        };
+
+        $activity = activity()
+            ->performedOn($project)
+            ->event('updated')
+            ->withProperties([
+                'project_id' => (int) $project->id,
+                'project_title' => (string) $project->title,
+                'added_client_ids' => $addedClientIds,
+                'removed_client_ids' => $removedClientIds,
+                'before_client_ids' => $beforeClientIds,
+                'after_client_ids' => $afterClientIds,
+                'added_client_names' => $addedClientNames,
+                'removed_client_names' => $removedClientNames,
+                'old' => ['client_ids' => $beforeClientIds],
+                'attributes' => ['client_ids' => $afterClientIds],
+            ]);
+
+        if (auth()->check()) {
+            $activity->causedBy(auth()->user());
+        }
+
+        if ($companyId) {
+            $activity->tap(function (Activity $act) use ($companyId): void {
+                $act->company_id = (int) $companyId;
+            });
+        }
+
+        $activity->log($description);
     }
 
     /**

@@ -323,6 +323,14 @@ export default function Projects({
         );
     };
 
+    const errors = form.errors as Record<string, string | undefined>;
+    const clientError =
+        form.errors.client_ids ||
+        errors.client_id ||
+        Object.entries(form.errors).find(([key]) =>
+            key.startsWith('client_ids.'),
+        )?.[1];
+
     return (
         <>
             <Head title="Projects" />
@@ -820,9 +828,9 @@ export default function Projects({
                                     })
                                 )}
                             </div>
-                            {form.errors.client_ids ? (
+                            {clientError ? (
                                 <div className="text-xs font-medium text-destructive">
-                                    {form.errors.client_ids}
+                                    {clientError}
                                 </div>
                             ) : null}
                         </div>

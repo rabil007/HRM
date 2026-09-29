@@ -107,6 +107,22 @@ class ProjectController extends Controller
         );
 
         if ($existing instanceof Project) {
+            $normalizedClientIds = $syncProjectClients->normalizeClientIds($clientIds);
+            $existingClientIds = $syncProjectClients->currentClientIds($existing);
+
+            $missingClientIds = array_values(array_diff($normalizedClientIds, $existingClientIds));
+
+            if ($missingClientIds === []) {
+                return $this->storeRedirectOrQuickCreateJson(
+                    $request,
+                    $existing,
+                    redirect()->route('settings.master-data.projects.index'),
+                    'title',
+                );
+            }
+
+            abort_unless($request->user()?->can('settings.master-data.projects.update'), 403);
+
             $syncProjectClients->attach($existing, $clientIds);
 
             return $this->storeRedirectOrQuickCreateJson(

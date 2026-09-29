@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\Recruitment\RequirementStatus;
 use App\Models\Client;
 use App\Models\Employee;
 use App\Models\Project;
+use App\Models\RecruitmentRequirement;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use Illuminate\Http\UploadedFile;
@@ -326,4 +328,85 @@ test('legacy null project with only null-client employees can map to a client', 
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
     expect((int) $project->fresh()->client_id)->toBe((int) $clientA->id);
+});
+
+test('recruitment requirement lifecycle guard blocks unlink across draft open completed cancelled but allows soft deleted', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Recruit Guard Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Recruit Guard Client B', 'is_active' => true]);
+
+    $project = Project::query()->create([
+        'title' => 'Recruit Guarded Project '.uniqid(),
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id, $clientB->id]);
+
+    $requirement = RecruitmentRequirement::query()->create([
+        'company_id' => $company->id,
+        'requirement_number' => 'REQ-GUARD-LIFECYCLE',
+        'client_id' => $clientA->id,
+        'project_id' => $project->id,
+        'request_received_date' => now()->toDateString(),
+        'required_by_date' => now()->addWeek()->toDateString(),
+        'priority' => 'normal',
+        'status' => RequirementStatus::Draft,
+    ]);
+
+    // 1. Draft blocks unlinking Client A
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertSessionHasErrors('client_ids');
+
+    expect($project->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
+        ->toBe([$clientA->id, $clientB->id]);
+
+    // 2. Open blocks unlinking Client A
+    $requirement->update(['status' => RequirementStatus::Open]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertSessionHasErrors('client_ids');
+
+    // 3. Completed blocks unlinking Client A (retained business history)
+    $requirement->update(['status' => RequirementStatus::Completed]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertSessionHasErrors('client_ids');
+
+    // 4. Cancelled blocks unlinking Client A (retained business history and can be reopened)
+    $requirement->update(['status' => RequirementStatus::Cancelled]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertSessionHasErrors('client_ids');
+
+    // 5. Soft-deleted requirement intentionally removed from operational integrity -> unlinking allowed
+    $requirement->delete();
+    expect($requirement->fresh()->trashed())->toBeTrue();
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    expect($project->fresh()->clients()->pluck('clients.id')->all())
+        ->toBe([$clientB->id]);
 });

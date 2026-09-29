@@ -92,17 +92,25 @@ class UpdateProjectRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if (
-                ! $validator->errors()->has('client_ids')
-                && ! $validator->errors()->has('client_ids.0')
-            ) {
+            $clientErrors = collect($validator->errors()->messages())
+                ->filter(fn (array $messages, string $key): bool => $key === 'client_ids' || str_starts_with($key, 'client_ids.'))
+                ->flatten()
+                ->filter()
+                ->values();
+
+            if ($clientErrors->isEmpty()) {
                 return;
             }
 
-            $validator->errors()->add(
-                'client_id',
-                $validator->errors()->first('client_ids') ?: $validator->errors()->first('client_ids.0'),
-            );
+            $firstClientError = (string) $clientErrors->first();
+
+            if (! $validator->errors()->has('client_ids')) {
+                $validator->errors()->add('client_ids', $firstClientError);
+            }
+
+            if (! $validator->errors()->has('client_id')) {
+                $validator->errors()->add('client_id', $firstClientError);
+            }
         });
     }
 }

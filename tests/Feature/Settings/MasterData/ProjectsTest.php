@@ -11,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Activitylog\Models\Activity;
 
 test('guests cannot access projects page', function () {
     $this->get('/settings/master-data/projects')->assertRedirect(route('login'));
@@ -234,7 +235,7 @@ test('legacy client_id payload normalizes to client_ids during project create an
         ->and($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientB->id]);
 });
 
-test('quick create reuses existing project and attaches contextual client without removing others', function () {
+test('create-only user is rejected with 403 when quick creating existing project with new client', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
 
@@ -242,17 +243,73 @@ test('quick create reuses existing project and attaches contextual client withou
         'settings.master-data.projects.create',
     ]);
 
-    $clientA = Client::query()->create(['name' => 'Quick Client A', 'is_active' => true]);
-    $clientB = Client::query()->create(['name' => 'Quick Client B', 'is_active' => true]);
+    $clientA = Client::query()->create(['name' => 'Quick Auth Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Quick Auth Client B', 'is_active' => true]);
     $project = Project::query()->create([
-        'title' => 'Quick Shared Project',
+        'title' => 'Quick Auth Project',
         'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id]);
 
     $this->postJson('/settings/master-data/projects', [
-        'title' => 'Quick Shared Project',
+        'title' => 'Quick Auth Project',
+        'client_id' => $clientB->id,
+        'is_active' => true,
+    ])->assertForbidden();
+
+    expect($project->fresh()->clients()->pluck('clients.id')->all())
+        ->toBe([$clientA->id])
+        ->and($project->fresh()->client_id)->toBe($clientA->id);
+});
+
+test('create-only user can quick create existing project when requested client is already attached', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Quick Existing Client A', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Quick Reuse Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Quick Reuse Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ])->assertOk()
+        ->assertJsonPath('id', $project->id);
+
+    expect($project->fresh()->clients()->pluck('clients.id')->all())
+        ->toBe([$clientA->id]);
+});
+
+test('user with update permission can quick create existing project to attach new client', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Quick Multi Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Quick Multi Client B', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Quick Update Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Quick Update Project',
         'client_id' => $clientB->id,
         'is_active' => true,
     ])->assertOk()
@@ -312,4 +369,163 @@ test('project client removal is blocked while employees or recruitment requireme
 
     expect($project->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
         ->toBe([$clientA->id, $clientB->id]);
+});
+
+test('attaching client to project produces structured audit log entry', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.update',
+        'audit.view',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Audit Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Audit Client B', 'is_active' => true]);
+
+    $project = Project::query()->create([
+        'title' => 'Audit Attach Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientA->id, $clientB->id],
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    $activity = Activity::query()
+        ->where('subject_type', Project::class)
+        ->where('subject_id', $project->id)
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->causer_id)->toBe($user->id)
+        ->and($activity->company_id)->toBe($company->id)
+        ->and($activity->properties['added_client_ids'])->toBe([$clientB->id])
+        ->and($activity->properties['removed_client_ids'])->toBe([])
+        ->and($activity->properties['before_client_ids'])->toBe([$clientA->id])
+        ->and($activity->properties['after_client_ids'])->toBe([$clientA->id, $clientB->id])
+        ->and($activity->properties['added_client_names'])->toContain('Audit Client B');
+});
+
+test('removing client from project produces structured audit log entry', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.update',
+        'audit.view',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Audit Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Audit Client B', 'is_active' => true]);
+
+    $project = Project::query()->create([
+        'title' => 'Audit Remove Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id, $clientB->id]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientA->id],
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    $activity = Activity::query()
+        ->where('subject_type', Project::class)
+        ->where('subject_id', $project->id)
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->causer_id)->toBe($user->id)
+        ->and($activity->company_id)->toBe($company->id)
+        ->and($activity->properties['added_client_ids'])->toBe([])
+        ->and($activity->properties['removed_client_ids'])->toBe([$clientB->id])
+        ->and($activity->properties['before_client_ids'])->toBe([$clientA->id, $clientB->id])
+        ->and($activity->properties['after_client_ids'])->toBe([$clientA->id])
+        ->and($activity->properties['removed_client_names'])->toContain('Audit Client B');
+});
+
+test('synchronizing the same clients without relationship changes does not create relationship audit entry', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Noop Client A', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Noop Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id]);
+
+    $beforeCount = Activity::query()->where('subject_type', Project::class)->count();
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientA->id],
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    $afterCount = Activity::query()->where('subject_type', Project::class)->count();
+    expect($afterCount)->toBe($beforeCount);
+});
+
+test('invalid inactive client later in client_ids array surfaces top-level client_ids validation error', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Active A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Active B', 'is_active' => true]);
+    $clientC = Client::query()->create(['name' => 'Inactive C', 'is_active' => false]);
+
+    $this->post('/settings/master-data/projects', [
+        'title' => 'Invalid Index Project',
+        'client_ids' => [$clientA->id, $clientB->id, $clientC->id],
+        'is_active' => true,
+    ])->assertSessionHasErrors([
+        'client_ids' => 'The selected client is inactive.',
+        'client_id' => 'The selected client is inactive.',
+    ]);
+
+    expect(Project::query()->where('title', 'Invalid Index Project')->exists())->toBeFalse();
+});
+
+test('nonexistent client id later in client_ids array surfaces top-level client_ids validation error', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Active A', 'is_active' => true]);
+
+    $this->post('/settings/master-data/projects', [
+        'title' => 'Nonexistent Client Project',
+        'client_ids' => [$clientA->id, 999999],
+        'is_active' => true,
+    ])->assertSessionHasErrors([
+        'client_ids' => 'The selected client is invalid.',
+        'client_id' => 'The selected client is invalid.',
+    ]);
+
+    expect(Project::query()->where('title', 'Nonexistent Client Project')->exists())->toBeFalse();
 });
