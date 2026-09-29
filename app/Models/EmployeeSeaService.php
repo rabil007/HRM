@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\EmployeeSeaServiceFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -59,6 +60,23 @@ class EmployeeSeaService extends Model
             'total_months' => 'integer',
             'total_days' => 'integer',
         ];
+    }
+
+    /**
+     * @param  Builder<EmployeeSeaService>  $query
+     * @return Builder<EmployeeSeaService>
+     */
+    public function scopeLatestServiceFirst(Builder $query): Builder
+    {
+        $model = $query->getModel();
+        $endDate = $model->qualifyColumn('end_date');
+        $startDate = $model->qualifyColumn('start_date');
+        $id = $model->qualifyColumn('id');
+
+        return $query
+            ->orderByRaw("COALESCE({$endDate}, {$startDate}) DESC")
+            ->orderByDesc($startDate)
+            ->orderByDesc($id);
     }
 
     public function employee(): BelongsTo

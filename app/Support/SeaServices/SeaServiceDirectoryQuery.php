@@ -28,8 +28,7 @@ final class SeaServiceDirectoryQuery
         $this->applyFilters($query);
 
         return $query
-            ->orderByDesc('employee_sea_services.start_date')
-            ->orderByDesc('employee_sea_services.id')
+            ->latestServiceFirst()
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (EmployeeSeaService $seaService) => SeaServiceListResource::toArray($seaService));
@@ -45,8 +44,7 @@ final class SeaServiceDirectoryQuery
         $this->applyFilters($query);
 
         return $query
-            ->orderByDesc('employee_sea_services.start_date')
-            ->orderByDesc('employee_sea_services.id');
+            ->latestServiceFirst();
     }
 
     /**
