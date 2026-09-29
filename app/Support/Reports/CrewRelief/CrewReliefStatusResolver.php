@@ -291,7 +291,7 @@ final class CrewReliefStatusResolver
             $assignedPlans = $planByEmployee[$empId] ?? [];
             $competing = $otherAssignments->get($empId, collect());
 
-            if ($competing->isEmpty()) {
+            if ($competing->isEmpty() && count($assignedPlans) <= 1) {
                 continue;
             }
 
@@ -309,6 +309,42 @@ final class CrewReliefStatusResolver
                     continue;
                 }
 
+                // 1. Detect internal conflicts with other relief plans in the same batch
+                $internalConflictFound = false;
+                foreach ($assignedPlans as $otherPlan) {
+                    if ($otherPlan === $plan) {
+                        continue;
+                    }
+
+                    $otherWindow = $this->overlapDetector->dateWindowForPlan($otherPlan, $timezone);
+                    $otherStart = $otherWindow['start'];
+                    $otherEnd = $otherWindow['end'];
+
+                    if ($otherStart === null) {
+                        continue;
+                    }
+
+                    if ($this->overlapDetector->windowsOverlap($planStart, $planEnd, $otherStart, $otherEnd)) {
+                        $otherVessel = 'another vessel';
+                        if ($otherPlan->relationLoaded('vessel') && $otherPlan->vessel !== null) {
+                            $otherVessel = (string) $otherPlan->vessel->name;
+                        } elseif ($otherPlan->relationLoaded('relievedAssignment')
+                            && $otherPlan->relievedAssignment?->relationLoaded('vessel')
+                            && $otherPlan->relievedAssignment->vessel !== null) {
+                            $otherVessel = (string) $otherPlan->relievedAssignment->vessel->name;
+                        }
+
+                        $conflicts[$planKey] = "Employee has overlapping planned assignment on {$otherVessel}.";
+                        $internalConflictFound = true;
+                        break;
+                    }
+                }
+
+                if ($internalConflictFound) {
+                    continue;
+                }
+
+                // 2. Detect external conflicts with competing assignments
                 foreach ($competing as $other) {
                     $otherVessel = $other->vessel?->name ?? 'another vessel';
 

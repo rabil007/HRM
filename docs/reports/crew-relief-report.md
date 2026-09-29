@@ -80,7 +80,7 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
     - `relief_phase_code`: `null`
     - `relief_planned_join`: `null`
     - `readiness`: `restricted`
-    - Attention displays a neutral, high-level indicator (e.g., `Relief assigned`, `Relief requires attention`, or `Relief ready`) without leaking the relief employee's exact phase or travel schedule.
+    - Attention displays a neutral, privacy-safe indicator (`Relief assigned`, or `Sign-off overdue by X days` when outgoing sign-off is overdue), preventing status inference or probing via readiness/attention filters.
   - Summary counts reflect only the records accessible to the authenticated user.
 
 ---
@@ -92,8 +92,9 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
 - **Lightweight Candidate Query & Pagination:**
   - Pushes company scoping, current P4 active constraint, employee visibility, search, vessel, client, rank, signoff date ranges, date presets, and base ordering to SQL before hydration.
   - Batch-resolves relief plans and conflicts on lightweight candidate summaries (`['id', 'planned_signoff_at']`).
-  - Summary cards represent the full filtered candidate scope, not merely the paginated page.
-  - Hydrates complete `CrewAssignment` models and related entities (phases, next assignments, employees, vessels, ranks, clients) only for the 25 rows on the active page.
+  - Normalizes restricted relief rows prior to in-memory filtering and summary calculations so hidden relief status cannot be probed.
+  - Summary cards represent the final filtered candidate scope across all pages.
+  - Hydrates complete `CrewAssignment` models and related entities (phases, next assignments, employees, vessels, ranks, clients) only for the rows on the active page, while preserving total and last_page on empty out-of-range requests.
 - **Quick Presets:**
   - `Next 7 Days`: Sign-offs due within the next 7 days (plus all overdue).
   - `Next 14 Days`: Sign-offs due within the next 14 days (plus all overdue).

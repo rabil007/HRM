@@ -975,7 +975,7 @@ test('hidden relief employee operational metadata is privacy safe in screen payl
             ->where('rows.0.relief_planned_join', null)
             ->where('rows.0.readiness', 'restricted')
             ->where('rows.0.readiness_label', 'Restricted')
-            ->where('rows.0.attention.badge', 'Relief requires attention')
+            ->where('rows.0.attention.badge', 'Relief assigned')
         );
 
     // 2. Search verification: searching for hidden relief employee does not leak record
@@ -1006,9 +1006,313 @@ test('hidden relief employee operational metadata is privacy safe in screen payl
         expect($mapped[11])->toBe('—');
         // Readiness is 'Restricted'
         expect($mapped[12])->toBe('Restricted');
-        // Attention is 'Relief requires attention'
-        expect($mapped[14])->toBe('Relief requires attention');
+        // Attention is neutral 'Relief assigned'
+        expect($mapped[14])->toBe('Relief assigned');
 
         return true;
     });
+});
+
+test('summary reflects readiness and attention filters for the filtered report scope', function () {
+    CarbonImmutable::setTestNow('2026-10-10 12:00:00');
+
+    ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
+
+    // 1. Ready relief row: signing off in 5 days (signing_off_next_7_days: 1)
+    $outgoingReady = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+        'assignment_no' => 'CA-SUMMARY-READY',
+        'planned_signoff_at' => '2026-10-15 00:00:00',
+    ]);
+    $reliefReady = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    makeCurrentCrewPhaseAssignment($company, $reliefReady, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+        'assignment_no' => 'CA-RELIEF-READY',
+        'relieves_crew_assignment_id' => $outgoingReady->id,
+        'planned_join_at' => '2026-10-15 00:00:00',
+    ]);
+
+    // 2. No relief row: signing off in 10 days (no_relief_assigned: 1)
+    makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+        'assignment_no' => 'CA-SUMMARY-NORELIEF',
+        'planned_signoff_at' => '2026-10-20 00:00:00',
+    ]);
+
+    // 3. At risk relief row: signing off in 12 days (relief_not_ready: 1, attention: critical conflict)
+    $outgoingConflict = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+        'assignment_no' => 'CA-SUMMARY-CONFLICT',
+        'planned_signoff_at' => '2026-10-22 00:00:00',
+    ]);
+    $reliefConflict = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    makeCurrentCrewPhaseAssignment($company, $reliefConflict, $rank, $vessel, CrewPhaseCode::PreMobilisation, [
+        'assignment_no' => 'CA-RELIEF-CONFLICT',
+        'relieves_crew_assignment_id' => $outgoingConflict->id,
+        'planned_join_at' => '2026-10-22 00:00:00',
+    ]);
+    $otherVessel = makeCrewMovementVessel('Conflict Other Vessel', $company);
+    makeActiveOnVesselAssignment($company, $reliefConflict, $rank, $otherVessel, [
+        'assignment_no' => 'CA-OTHER-ACTIVE',
+    ]);
+
+    // Unfiltered request: summary includes all 3 candidates
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 3)
+            ->where('summary.signing_off_next_7_days', 1)
+            ->where('summary.no_relief_assigned', 1)
+            ->where('summary.relief_not_ready', 1)
+        );
+
+    // Filter by readiness=ready: summary counts ONLY the ready filtered scope (no unrelated unready or no-relief counts)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['readiness' => 'ready']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.assignment_no', 'CA-SUMMARY-READY')
+            ->where('summary.signing_off_next_7_days', 1)
+            ->where('summary.no_relief_assigned', 0)
+            ->where('summary.relief_not_ready', 0)
+        );
+
+    // Filter by readiness=not_assigned: summary counts ONLY the not_assigned filtered scope
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['readiness' => 'not_assigned']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.assignment_no', 'CA-SUMMARY-NORELIEF')
+            ->where('summary.signing_off_next_7_days', 0)
+            ->where('summary.no_relief_assigned', 1)
+            ->where('summary.relief_not_ready', 0)
+        );
+
+    // Filter by attention=critical: summary counts ONLY the critical filtered scope
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['attention' => 'critical']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.assignment_no', 'CA-SUMMARY-CONFLICT')
+            ->where('summary.signing_off_next_7_days', 0)
+            ->where('summary.no_relief_assigned', 0)
+            ->where('summary.relief_not_ready', 1)
+        );
+});
+
+test('restricted relief cannot be inferred using readiness filters', function () {
+    CarbonImmutable::setTestNow('2026-10-10 12:00:00');
+
+    ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
+
+    $deptAllowed = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck Dept', 'code' => 'DCK1', 'status' => 'active']);
+    $deptHidden = Department::query()->create(['company_id' => $company->id, 'name' => 'Secret Dept', 'code' => 'SCR1', 'status' => 'active']);
+
+    $outgoingEmp = Employee::factory()->forCompany($company)->create([
+        'name' => 'Visible Outgoing',
+        'rank_id' => $rank->id,
+        'department_id' => $deptAllowed->id,
+        'status' => 'active',
+    ]);
+
+    $hiddenReliefEmp = Employee::factory()->forCompany($company)->create([
+        'name' => 'Secret Relief',
+        'rank_id' => $rank->id,
+        'department_id' => $deptHidden->id,
+        'status' => 'active',
+    ]);
+
+    $outgoing = makeActiveOnVesselAssignment($company, $outgoingEmp, $rank, $vessel, [
+        'assignment_no' => 'CA-PROBE-READINESS',
+        'planned_signoff_at' => '2026-10-25 00:00:00',
+    ]);
+
+    // Secret relief has an active conflict -> real readiness would be 'at_risk'
+    makeCurrentCrewPhaseAssignment($company, $hiddenReliefEmp, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+        'assignment_no' => 'CA-SECRET-RELIEF-1',
+        'relieves_crew_assignment_id' => $outgoing->id,
+        'planned_join_at' => '2026-10-25 00:00:00',
+    ]);
+    $otherVessel = makeCrewMovementVessel('Other Secret Vessel', $company);
+    makeActiveOnVesselAssignment($company, $hiddenReliefEmp, $rank, $otherVessel, [
+        'assignment_no' => 'CA-SECRET-ACTIVE',
+    ]);
+
+    restrictUserToDepartments($user, $company, [$deptAllowed->id]);
+
+    // Probing with readiness=at_risk returns 0 rows (cannot infer real conflict)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['readiness' => 'at_risk']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+
+    // Probing with readiness=in_progress returns 0 rows
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['readiness' => 'in_progress']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+
+    // Probing with readiness=ready returns 0 rows
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['readiness' => 'ready']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+
+    // Default query without readiness filter returns the row with neutral restricted readiness
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.assignment_no', 'CA-PROBE-READINESS')
+            ->where('rows.0.readiness', 'restricted')
+            ->where('rows.0.readiness_label', 'Restricted')
+        );
+});
+
+test('restricted relief cannot be inferred using attention filters', function () {
+    CarbonImmutable::setTestNow('2026-10-10 12:00:00');
+
+    ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
+
+    $deptAllowed = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck Dept', 'code' => 'DCK2', 'status' => 'active']);
+    $deptHidden = Department::query()->create(['company_id' => $company->id, 'name' => 'Secret Dept', 'code' => 'SCR2', 'status' => 'active']);
+
+    $outgoingEmp = Employee::factory()->forCompany($company)->create([
+        'name' => 'Visible Outgoing 2',
+        'rank_id' => $rank->id,
+        'department_id' => $deptAllowed->id,
+        'status' => 'active',
+    ]);
+
+    $hiddenReliefEmp = Employee::factory()->forCompany($company)->create([
+        'name' => 'Secret Relief 2',
+        'rank_id' => $rank->id,
+        'department_id' => $deptHidden->id,
+        'status' => 'active',
+    ]);
+
+    $outgoing = makeActiveOnVesselAssignment($company, $outgoingEmp, $rank, $vessel, [
+        'assignment_no' => 'CA-PROBE-ATTENTION',
+        'planned_signoff_at' => '2026-10-25 00:00:00', // 15 days away, not overdue
+    ]);
+
+    // Secret relief has training phase and late arrival -> real attention would be 'warning'
+    makeCurrentCrewPhaseAssignment($company, $hiddenReliefEmp, $rank, $vessel, CrewPhaseCode::Training, [
+        'assignment_no' => 'CA-SECRET-RELIEF-2',
+        'relieves_crew_assignment_id' => $outgoing->id,
+        'planned_join_at' => '2026-10-28 00:00:00',
+    ]);
+
+    restrictUserToDepartments($user, $company, [$deptAllowed->id]);
+
+    // Probing with attention=warning returns 0 rows (cannot infer training/late status)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['attention' => 'warning']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+
+    // Probing with attention=critical returns 0 rows (outgoing is not overdue)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['attention' => 'critical']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+
+    // Probing with attention=healthy returns 0 rows
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['attention' => 'healthy']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+
+    // Unfiltered request returns row with neutral attention
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.assignment_no', 'CA-PROBE-ATTENTION')
+            ->where('rows.0.attention.level', 'neutral')
+            ->where('rows.0.attention.badge', 'Relief assigned')
+        );
+});
+
+test('out-of-range page preserves correct total and last_page when requested page is empty', function () {
+    CarbonImmutable::setTestNow('2026-10-10 12:00:00');
+
+    ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
+
+    // Create 30 assignments
+    for ($i = 0; $i < 30; $i++) {
+        $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+        makeActiveOnVesselAssignment($company, $emp, $rank, $vessel, [
+            'assignment_no' => sprintf('CA-OUTOFRANGE-%02d', $i),
+            'planned_signoff_at' => '2026-10-25 00:00:00',
+        ]);
+    }
+
+    // Request page 3 when per_page is 25 (last page is 2)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['page' => 3, 'per_page' => 25]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 0)
+            ->where('pagination.total', 30)
+            ->where('pagination.current_page', 3)
+            ->where('pagination.last_page', 2)
+            ->where('pagination.per_page', 25)
+            ->where('pagination.from', null)
+            ->where('pagination.to', null)
+        );
+});
+
+test('two overlapping relief plans for the same employee within the batch detect each other', function () {
+    CarbonImmutable::setTestNow('2026-10-10 12:00:00');
+
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = authorizeCrewReliefReport();
+
+    $vesselA = makeCrewMovementVessel('Vessel Alpha', $company);
+    $vesselB = makeCrewMovementVessel('Vessel Beta', $company);
+
+    $outgoingA = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vesselA, [
+        'assignment_no' => 'CA-BATCH-OUTGOING-A',
+        'planned_signoff_at' => '2026-10-25 00:00:00',
+    ]);
+
+    $outgoingB = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vesselB, [
+        'assignment_no' => 'CA-BATCH-OUTGOING-B',
+        'planned_signoff_at' => '2026-10-30 00:00:00',
+    ]);
+
+    // Single relief employee assigned to relief plans for BOTH outgoing assignments
+    $sharedReliefEmp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+
+    // Plan A: joins 2026-10-25, signs off 2026-11-25
+    makeCurrentCrewPhaseAssignment($company, $sharedReliefEmp, $rank, $vesselA, CrewPhaseCode::ReadyToJoin, [
+        'assignment_no' => 'CA-RELIEF-PLAN-A',
+        'relieves_crew_assignment_id' => $outgoingA->id,
+        'planned_join_at' => '2026-10-25 00:00:00',
+        'planned_signoff_at' => '2026-11-25 00:00:00',
+    ]);
+
+    // Plan B: joins 2026-11-01, signs off 2026-12-01 (overlaps with Plan A between Nov 1 and Nov 25)
+    makeCurrentCrewPhaseAssignment($company, $sharedReliefEmp, $rank, $vesselB, CrewPhaseCode::ReadyToJoin, [
+        'assignment_no' => 'CA-RELIEF-PLAN-B',
+        'relieves_crew_assignment_id' => $outgoingB->id,
+        'planned_join_at' => '2026-11-01 00:00:00',
+        'planned_signoff_at' => '2026-12-01 00:00:00',
+    ]);
+
+    // Both plans are in the relief batch and must detect each other as conflicts
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 2)
+            ->where('rows.0.readiness', 'at_risk')
+            ->where('rows.0.attention.level', 'critical')
+            ->where('rows.0.attention.label', 'Relief assignment conflict')
+            ->where('rows.1.readiness', 'at_risk')
+            ->where('rows.1.attention.level', 'critical')
+            ->where('rows.1.attention.label', 'Relief assignment conflict')
+        );
 });

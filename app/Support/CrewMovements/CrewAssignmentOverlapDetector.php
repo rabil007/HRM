@@ -76,4 +76,28 @@ final class CrewAssignmentOverlapDetector
 
         return ['start' => $start, 'end' => $end];
     }
+
+    /**
+     * Determine if two date windows overlap.
+     */
+    public function windowsOverlap(
+        string $startA,
+        ?string $endA,
+        string $startB,
+        ?string $endB,
+    ): bool {
+        if ($endA === null && $endB === null) {
+            return true;
+        }
+
+        if ($endA === null) {
+            return $startA <= $endB;
+        }
+
+        if ($endB === null) {
+            return $startB <= $endA;
+        }
+
+        return max($startA, $startB) <= min($endA, $endB);
+    }
 }

@@ -89,31 +89,9 @@ final class CrewReliefReportPresenter
             $reliefPlannedJoin = null;
             $readinessCode = 'restricted';
             $readinessLabel = 'Restricted';
-
-            if ($row['attention']['reason'] === CrewReliefAttentionResolver::REASON_OVERDUE) {
-                $attentionLevel = CrewReliefAttentionResolver::LEVEL_CRITICAL;
-                $attentionBadge = $row['attention']['badge'];
-                $attentionReason = CrewReliefAttentionResolver::REASON_OVERDUE;
-            } elseif (in_array($row['attention']['level'], [
-                CrewReliefAttentionResolver::LEVEL_CRITICAL,
-                CrewReliefAttentionResolver::LEVEL_WARNING,
-            ], true)) {
-                $attentionLevel = CrewReliefAttentionResolver::LEVEL_WARNING;
-                $attentionBadge = 'Relief requires attention';
-                $attentionReason = 'relief_requires_attention';
-            } elseif (($row['readiness']['code'] ?? '') === 'ready') {
-                $attentionLevel = CrewReliefAttentionResolver::LEVEL_HEALTHY;
-                $attentionBadge = 'Relief ready';
-                $attentionReason = 'relief_ready';
-            } elseif (($row['readiness']['code'] ?? '') === 'joined') {
-                $attentionLevel = CrewReliefAttentionResolver::LEVEL_HEALTHY;
-                $attentionBadge = 'Relief joined';
-                $attentionReason = 'relief_joined';
-            } else {
-                $attentionLevel = CrewReliefAttentionResolver::LEVEL_NEUTRAL;
-                $attentionBadge = 'Relief assigned';
-                $attentionReason = 'relief_assigned';
-            }
+            $attentionLevel = $row['attention']['level'];
+            $attentionBadge = $row['attention']['badge'];
+            $attentionReason = $row['attention']['reason'];
         } else {
             $reliefStatus = $row['relief_status'];
             $reliefPhaseCode = $row['relief_phase_code'];

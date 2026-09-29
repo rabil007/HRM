@@ -43,6 +43,7 @@ final class CrewReliefPlanningLoader
             ])
             ->with([
                 'employee:id,company_id,name,employee_no',
+                'vessel:id,company_id,name',
                 'currentPhase',
                 'relievedAssignment.employee:id,company_id,name,employee_no',
                 'relievedAssignment.vessel:id,company_id,name',
@@ -79,6 +80,7 @@ final class CrewReliefPlanningLoader
             ->whereIn('relieves_crew_assignment_id', $remainingIds)
             ->with([
                 'employee:id,company_id,name,employee_no',
+                'vessel:id,company_id,name',
                 'crewAssignment.currentPhase',
                 'crewAssignment.employee:id,company_id,name,employee_no',
                 'relievedAssignment.employee:id,company_id,name,employee_no',
