@@ -229,8 +229,7 @@ export function EmployeeHeaderCard({
     projects?: Array<{
         id: number;
         title: string | null;
-        client_ids?: number[];
-        client_id?: number | null;
+        client_ids: number[];
     }>;
     clients?: Array<{ id: number; name: string | null }>;
     form: any;

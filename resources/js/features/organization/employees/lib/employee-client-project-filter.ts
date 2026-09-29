@@ -38,21 +38,16 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
 
 export function getAssignedClientIds(project: {
     client_ids?: number[] | null;
-    client_id?: number | null;
 }): number[] {
     if (project.client_ids && project.client_ids.length > 0) {
         return project.client_ids.map(Number);
-    }
-
-    if (project.client_id != null) {
-        return [Number(project.client_id)];
     }
 
     return [];
 }
 
 export function projectHasClient(
-    project: { client_ids?: number[] | null; client_id?: number | null },
+    project: { client_ids?: number[] | null },
     clientId: string | number | null | undefined,
 ): boolean {
     const targetId = Number(clientId);
@@ -65,7 +60,7 @@ export function projectHasClient(
 }
 
 export function filterProjectsByClient<
-    T extends { client_ids?: number[] | null; client_id?: number | null },
+    T extends { client_ids?: number[] | null },
 >(
     projects: T[] | undefined,
     clientId: string | number | null | undefined,
@@ -83,7 +78,6 @@ export function resolveProjectOnClientChange<
     T extends {
         id: number;
         client_ids?: number[] | null;
-        client_id?: number | null;
     },
 >(
     currentProjectId: string | number | null | undefined,

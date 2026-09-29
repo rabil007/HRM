@@ -32,27 +32,28 @@ test('project create requires active client and rejects inactive client', functi
     $this->post('/settings/master-data/projects', [
         'title' => 'Needs Client',
         'is_active' => true,
-    ])->assertSessionHasErrors('client_id');
+    ])->assertSessionHasErrors('client_ids');
 
     $this->post('/settings/master-data/projects', [
-        'client_id' => $inactive->id,
+        'client_ids' => [$inactive->id],
         'title' => 'Inactive Project',
         'is_active' => true,
-    ])->assertSessionHasErrors('client_id');
+    ])->assertSessionHasErrors('client_ids');
 
     $this->post('/settings/master-data/projects', [
-        'client_id' => $active->id,
+        'client_ids' => [$active->id],
         'title' => 'Valid Project',
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
-    $this->assertDatabaseHas('projects', [
-        'title' => 'Valid Project',
+    $createdProject = Project::query()->where('title', 'Valid Project')->firstOrFail();
+    $this->assertDatabaseHas('client_project', [
+        'project_id' => $createdProject->id,
         'client_id' => $active->id,
     ]);
 });
 
-test('legacy project with null client remains readable and mappable', function () {
+test('project without client assignments remains readable and mappable', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
 
@@ -63,7 +64,6 @@ test('legacy project with null client remains readable and mappable', function (
 
     $legacy = Project::query()->create([
         'title' => 'Legacy Project '.uniqid(),
-        'client_id' => null,
         'is_active' => true,
     ]);
 
@@ -74,16 +74,15 @@ test('legacy project with null client remains readable and mappable', function (
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/master-data/projects')
             ->where('projects.0.id', $legacy->id)
-            ->where('projects.0.client_id', null)
-            ->where('projects.0.client_name', null));
+            ->where('projects.0.client_ids', []));
 
     $this->put("/settings/master-data/projects/{$legacy->id}", [
-        'client_id' => $client->id,
+        'client_ids' => [$client->id],
         'title' => $legacy->title,
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
-    expect((int) $legacy->fresh()->client_id)->toBe((int) $client->id);
+    expect($legacy->fresh()->clients()->pluck('clients.id')->all())->toBe([$client->id]);
 });
 
 test('client deletion is blocked when used by project or vessel', function () {
@@ -97,11 +96,11 @@ test('client deletion is blocked when used by project or vessel', function () {
 
     $client = Client::query()->create(['name' => 'In Use Client '.uniqid(), 'is_active' => true]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Client Project '.uniqid(),
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $this->from(route('settings.master-data.clients.index'))
         ->delete("/settings/master-data/clients/{$client->id}")
@@ -110,7 +109,7 @@ test('client deletion is blocked when used by project or vessel', function () {
 
     expect(Client::query()->whereKey($client->id)->exists())->toBeTrue();
 
-    Project::query()->where('client_id', $client->id)->forceDelete();
+    $project->forceDelete();
 
     $vessel = makeCrewMovementVessel('Client Vessel', $company);
     $vessel->update(['client_id' => $client->id]);
@@ -183,9 +182,9 @@ test('employee rejects mismatched client and project', function () {
     $nmdc = Client::query()->create(['name' => 'NMDC Emp', 'is_active' => true]);
     $adnocProject = Project::query()->create([
         'title' => 'ADNOC Only Project '.uniqid(),
-        'client_id' => $adnoc->id,
         'is_active' => true,
     ]);
+    $adnocProject->clients()->sync([$adnoc->id]);
 
     $this->put("/organization/employees/{$employee->id}", [
         'name' => $employee->name,
@@ -483,8 +482,10 @@ test('employee partial update compares project against persisted client', functi
 
     $clientA = Client::query()->create(['name' => 'Partial A', 'is_active' => true]);
     $clientB = Client::query()->create(['name' => 'Partial B', 'is_active' => true]);
-    $projectA = Project::query()->create(['title' => 'Partial Proj A', 'client_id' => $clientA->id, 'is_active' => true]);
-    $projectB = Project::query()->create(['title' => 'Partial Proj B', 'client_id' => $clientB->id, 'is_active' => true]);
+    $projectA = Project::query()->create(['title' => 'Partial Proj A', 'is_active' => true]);
+    $projectA->clients()->sync([$clientA->id]);
+    $projectB = Project::query()->create(['title' => 'Partial Proj B', 'is_active' => true]);
+    $projectB->clients()->sync([$clientB->id]);
 
     $employee->update([
         'client_id' => $clientA->id,
@@ -523,8 +524,10 @@ test('employee csv import rejects mismatched client and project pairs', function
 
     $clientA = Client::query()->create(['name' => 'Import Emp A', 'is_active' => true]);
     $clientB = Client::query()->create(['name' => 'Import Emp B', 'is_active' => true]);
-    $projectA = Project::query()->create(['title' => 'Import Emp Proj A', 'client_id' => $clientA->id, 'is_active' => true]);
-    $projectB = Project::query()->create(['title' => 'Import Emp Proj B', 'client_id' => $clientB->id, 'is_active' => true]);
+    $projectA = Project::query()->create(['title' => 'Import Emp Proj A', 'is_active' => true]);
+    $projectA->clients()->sync([$clientA->id]);
+    $projectB = Project::query()->create(['title' => 'Import Emp Proj B', 'is_active' => true]);
+    $projectB->clients()->sync([$clientB->id]);
 
     Employee::factory()->forCompany($company)->create([
         'employee_no' => 'EMP-CLI-1',

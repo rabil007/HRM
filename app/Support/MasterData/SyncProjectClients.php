@@ -22,10 +22,7 @@ final class SyncProjectClients
             $normalizedClientIds = $this->normalizeClientIds($clientIds);
 
             /** @var Project $project */
-            $project = Project::query()->create([
-                ...$attributes,
-                'client_id' => $normalizedClientIds[0] ?? null,
-            ]);
+            $project = Project::query()->create($attributes);
 
             $project->clients()->sync($normalizedClientIds);
 
@@ -56,7 +53,6 @@ final class SyncProjectClients
             $beforeClientIds = $this->currentClientIds($locked);
 
             $locked->fill($attributes);
-            $locked->client_id = $this->legacyClientIdFor($locked, $normalizedClientIds);
             $locked->save();
 
             $locked->clients()->sync($normalizedClientIds);
@@ -88,18 +84,7 @@ final class SyncProjectClients
 
             $locked->clients()->syncWithoutDetaching($normalizedClientIds);
 
-            $allClientIds = $locked->clients()
-                ->pluck('clients.id')
-                ->map(fn (mixed $id): int => (int) $id)
-                ->sort()
-                ->values()
-                ->all();
-
-            $legacyClientId = $this->legacyClientIdFor($locked, $allClientIds);
-            if ($locked->client_id !== $legacyClientId) {
-                $locked->client_id = $legacyClientId;
-                $locked->save();
-            }
+            $allClientIds = $this->currentClientIds($locked);
 
             $this->logRelationshipChanges($locked, $beforeClientIds, $allClientIds);
 
@@ -133,18 +118,7 @@ final class SyncProjectClients
 
                 $locked->clients()->syncWithoutDetaching($normalizedClientIds);
 
-                $allClientIds = $locked->clients()
-                    ->pluck('clients.id')
-                    ->map(fn (mixed $id): int => (int) $id)
-                    ->sort()
-                    ->values()
-                    ->all();
-
-                $legacyClientId = $this->legacyClientIdFor($locked, $allClientIds);
-                if ($locked->client_id !== $legacyClientId) {
-                    $locked->client_id = $legacyClientId;
-                    $locked->save();
-                }
+                $allClientIds = $this->currentClientIds($locked);
 
                 $this->logRelationshipChanges($locked, $beforeClientIds, $allClientIds);
             }
@@ -174,16 +148,13 @@ final class SyncProjectClients
      */
     public function currentClientIds(Project $project): array
     {
-        $clientIds = $project->clients()
+        return $project->clients()
             ->pluck('clients.id')
             ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values()
             ->all();
-
-        if ($clientIds === [] && $project->client_id !== null) {
-            $clientIds[] = (int) $project->client_id;
-        }
-
-        return collect($clientIds)->unique()->sort()->values()->all();
     }
 
     /**
@@ -323,22 +294,6 @@ final class SyncProjectClients
         $activity->log($description);
     }
 
-    /**
-     * @param  list<int>  $clientIds
-     */
-    private function legacyClientIdFor(Project $project, array $clientIds): ?int
-    {
-        $existingClientId = $project->client_id !== null ? (int) $project->client_id : null;
-
-        if ($existingClientId !== null && in_array($existingClientId, $clientIds, true)) {
-            return $existingClientId;
-        }
-
-        // Transitional compatibility for legacy `projects.client_id`.
-        // The `client_project` pivot is authoritative and this column is removed later.
-        return $clientIds[0] ?? null;
-    }
-
     private function throwRemovalException(Project $project, int $clientId, string $reason): never
     {
         $clientName = Client::query()->whereKey($clientId)->value('name') ?? "Client #{$clientId}";
@@ -346,7 +301,6 @@ final class SyncProjectClients
 
         throw ValidationException::withMessages([
             'client_ids' => "{$clientName} cannot be removed from {$projectTitle} because {$reason} this Client/Project combination.",
-            'client_id' => "{$clientName} cannot be removed from {$projectTitle} because {$reason} this Client/Project combination.",
         ]);
     }
 }

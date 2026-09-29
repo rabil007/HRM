@@ -102,7 +102,7 @@ export const creatableRegistry: Record<
             };
 
             if (context?.clientId) {
-                body.client_id = Number(context.clientId);
+                body.client_ids = [Number(context.clientId)];
             }
 
             return body;

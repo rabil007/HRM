@@ -8,11 +8,22 @@ function clientProjectPivotMigration()
     return require database_path('migrations/2026_09_29_000001_create_client_project_table.php');
 }
 
+function dropProjectIdMigration()
+{
+    return require database_path('migrations/2026_09_29_000002_drop_client_id_from_projects_table.php');
+}
+
 test('migration backfills legacy projects client_id to client_project pivot table', function () {
-    $migration = clientProjectPivotMigration();
+    $dropMigration = dropProjectIdMigration();
+    $pivotMigration = clientProjectPivotMigration();
+
+    // 0. Temporarily restore client_id column to test legacy 000001 migration
+    if (! Schema::hasColumn('projects', 'client_id')) {
+        $dropMigration->down();
+    }
 
     // 1. Simulate pre-migration state by dropping the pivot table
-    $migration->down();
+    $pivotMigration->down();
     expect(Schema::hasTable('client_project'))->toBeFalse();
 
     // 2. Insert clients directly into DB
@@ -60,7 +71,7 @@ test('migration backfills legacy projects client_id to client_project pivot tabl
     ]);
 
     // 4. Run the migration up()
-    $migration->up();
+    $pivotMigration->up();
 
     // 5. Assert pivot table exists and backfill completed correctly
     expect(Schema::hasTable('client_project'))->toBeTrue();
@@ -117,4 +128,60 @@ test('migration backfills legacy projects client_id to client_project pivot tabl
     expect(DB::table('client_project')->whereIn('project_id', [10, 20, 30])->count())->toBe(2)
         ->and(DB::table('client_project')->where('project_id', 10)->count())->toBe(1)
         ->and(DB::table('client_project')->where('project_id', 30)->count())->toBe(1);
+
+    // Re-apply drop migration so schema stays clean for following tests
+    $dropMigration->up();
+});
+
+test('drop client_id migration drops column on up and restores deterministically on down', function () {
+    $dropMigration = dropProjectIdMigration();
+
+    // Ensure initial state has column dropped
+    if (Schema::hasColumn('projects', 'client_id')) {
+        $dropMigration->up();
+    }
+    expect(Schema::hasColumn('projects', 'client_id'))->toBeFalse();
+
+    // Create clients and projects with pivot records
+    $clientAId = DB::table('clients')->insertGetId([
+        'name' => 'Drop Test Client A',
+        'is_active' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $clientBId = DB::table('clients')->insertGetId([
+        'name' => 'Drop Test Client B',
+        'is_active' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $projectId = DB::table('projects')->insertGetId([
+        'title' => 'Drop Test Project',
+        'is_active' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Attach both clients to the project
+    DB::table('client_project')->insert([
+        ['client_id' => $clientBId, 'project_id' => $projectId, 'created_at' => now(), 'updated_at' => now()],
+        ['client_id' => $clientAId, 'project_id' => $projectId, 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    // Run down() to roll back the drop
+    $dropMigration->down();
+
+    expect(Schema::hasColumn('projects', 'client_id'))->toBeTrue();
+
+    // Assert it backfills with the lowest client_id (min(clientAId, clientBId))
+    $restoredProject = DB::table('projects')->where('id', $projectId)->first();
+    $expectedLowestClientId = min($clientAId, $clientBId);
+    expect((int) $restoredProject->client_id)->toBe($expectedLowestClientId);
+
+    // Run up() to re-drop
+    $dropMigration->up();
+
+    expect(Schema::hasColumn('projects', 'client_id'))->toBeFalse();
 });

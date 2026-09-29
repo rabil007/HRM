@@ -63,8 +63,6 @@ type ClientOption = {
 
 type Project = {
     id: number;
-    client_id: number | null;
-    client_name: string | null;
     client_ids: number[];
     clients: ClientOption[];
     title: string;
@@ -323,10 +321,8 @@ export default function Projects({
         );
     };
 
-    const errors = form.errors as Record<string, string | undefined>;
     const clientError =
         form.errors.client_ids ||
-        errors.client_id ||
         Object.entries(form.errors).find(([key]) =>
             key.startsWith('client_ids.'),
         )?.[1];

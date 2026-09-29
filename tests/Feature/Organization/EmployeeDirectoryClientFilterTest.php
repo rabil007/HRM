@@ -138,9 +138,12 @@ test('client and project filters intersect naturally', function () {
     $adnoc = Client::query()->create(['name' => 'ADNOC', 'is_active' => true]);
     $npcc = Client::query()->create(['name' => 'NPCC', 'is_active' => true]);
 
-    $projectA = Project::query()->create(['title' => 'Project A', 'client_id' => $adnoc->id, 'is_active' => true]);
-    $projectB = Project::query()->create(['title' => 'Project B', 'client_id' => $adnoc->id, 'is_active' => true]);
-    $projectC = Project::query()->create(['title' => 'Project C', 'client_id' => $npcc->id, 'is_active' => true]);
+    $projectA = Project::query()->create(['title' => 'Project A', 'is_active' => true]);
+    $projectA->clients()->sync([$adnoc->id]);
+    $projectB = Project::query()->create(['title' => 'Project B', 'is_active' => true]);
+    $projectB->clients()->sync([$adnoc->id]);
+    $projectC = Project::query()->create(['title' => 'Project C', 'is_active' => true]);
+    $projectC->clients()->sync([$npcc->id]);
 
     $matched = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'INT-1',

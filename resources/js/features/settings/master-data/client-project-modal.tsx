@@ -260,7 +260,7 @@ export function ClientProjectModal({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => onOpenChange(false)}
+                                onClick={() => handleOpenChange(false)}
                             >
                                 Cancel
                             </Button>
@@ -371,7 +371,7 @@ export function ClientProjectModal({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => onOpenChange(false)}
+                                onClick={() => handleOpenChange(false)}
                             >
                                 Cancel
                             </Button>

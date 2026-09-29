@@ -101,9 +101,9 @@ function makeFilterCleanupFixtures(): array
 
     $project = Project::query()->create([
         'title' => 'Offshore Phase 1',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.export']);
 
@@ -364,7 +364,8 @@ test('client and project dependent filtering continues to work', function () {
     $company = $fixtures['company'];
 
     $otherClient = Client::query()->create(['name' => 'NPCC', 'is_active' => true]);
-    $otherProject = Project::query()->create(['title' => 'NPCC Yard', 'client_id' => $otherClient->id, 'is_active' => true]);
+    $otherProject = Project::query()->create(['title' => 'NPCC Yard', 'is_active' => true]);
+    $otherProject->clients()->sync([$otherClient->id]);
 
     $empAdnoc = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'DEP-001',

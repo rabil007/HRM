@@ -32,7 +32,7 @@ class ProjectController extends Controller
         $query = Project::query()
             ->with('clients:id,name,is_active')
             ->orderBy('title')
-            ->select(['id', 'client_id', 'title', 'is_active']);
+            ->select(['id', 'title', 'is_active']);
 
         if ($clientId !== null) {
             $query->whereHas('clients', fn ($clientQuery) => $clientQuery->whereKey($clientId));
@@ -50,8 +50,6 @@ class ProjectController extends Controller
         $page['items'] = collect($page['items'])->map(function (Project $project): array {
             return [
                 'id' => $project->id,
-                'client_id' => $project->client_id,
-                'client_name' => $project->clients->firstWhere('id', $project->client_id)?->name,
                 'client_ids' => $project->clients
                     ->pluck('id')
                     ->map(fn (mixed $id): int => (int) $id)
@@ -242,11 +240,51 @@ class ProjectController extends Controller
         $permissionDeniedTitles = [];
         $failedRows = 0;
 
+        $rawRows = [];
+        $statusByTitle = [];
+        $displayTitleByNormalized = [];
+
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
                 continue;
             }
 
+            $rawRows[] = $row;
+            if (count($rawRows) > 2000) {
+                break;
+            }
+
+            $title = trim((string) ($row[$map['title']] ?? ''));
+            if ($title === '') {
+                continue;
+            }
+
+            $active = true;
+            if (isset($map['active'])) {
+                $v = mb_strtolower(trim((string) ($row[$map['active']] ?? '')));
+                $active = $v === '' || in_array($v, ['1', 'yes', 'true', 'y', 'active'], true);
+            }
+
+            $normalizedTitle = mb_strtolower($title);
+            $statusByTitle[$normalizedTitle][] = $active;
+            if (! isset($displayTitleByNormalized[$normalizedTitle])) {
+                $displayTitleByNormalized[$normalizedTitle] = $title;
+            }
+        }
+
+        fclose($handle);
+
+        foreach ($statusByTitle as $normalizedTitle => $statuses) {
+            if (count(array_unique($statuses, SORT_REGULAR)) > 1) {
+                $conflictingTitle = $displayTitleByNormalized[$normalizedTitle] ?? $normalizedTitle;
+
+                return redirect()
+                    ->route('settings.master-data.projects.index')
+                    ->withErrors(['file' => "Project \"{$conflictingTitle}\" has conflicting is_active values in the import file. Use the same status for every row of the same project."]);
+            }
+        }
+
+        foreach ($rawRows as $row) {
             $title = trim((string) ($row[$map['title']] ?? ''));
             if ($title === '') {
                 $emptyTitles++;
@@ -285,10 +323,6 @@ class ProjectController extends Controller
                     if (! $needsClientAttach && ! $needsActiveChange) {
                         $imported++;
 
-                        if ($imported > 2000) {
-                            break;
-                        }
-
                         continue;
                     }
 
@@ -314,13 +348,7 @@ class ProjectController extends Controller
             } catch (\Throwable) {
                 $failedRows++;
             }
-
-            if ($imported > 2000) {
-                break;
-            }
         }
-
-        fclose($handle);
 
         if ($imported === 0) {
             $unknownList = implode(', ', array_keys($unknownClientNames));

@@ -60,7 +60,7 @@ class RequirementController extends Controller
         $projects = Project::query()
             ->with('clients:id')
             ->orderBy('title')
-            ->get(['id', 'client_id', 'title', 'is_active'])
+            ->get(['id', 'title', 'is_active'])
             ->map(function (Project $p): array {
                 $clientIds = $p->clients
                     ->pluck('id')
@@ -68,13 +68,8 @@ class RequirementController extends Controller
                     ->values()
                     ->all();
 
-                if ($clientIds === [] && $p->client_id !== null) {
-                    $clientIds[] = (int) $p->client_id;
-                }
-
                 return [
                     'id' => (int) $p->id,
-                    'client_id' => $p->client_id !== null ? (int) $p->client_id : null,
                     'client_ids' => $clientIds,
                     'title' => (string) $p->title,
                     'is_active' => (bool) $p->is_active,
@@ -168,7 +163,7 @@ class RequirementController extends Controller
         $projects = Project::query()
             ->with('clients:id')
             ->orderBy('title')
-            ->get(['id', 'client_id', 'title', 'is_active'])
+            ->get(['id', 'title', 'is_active'])
             ->map(function (Project $p): array {
                 $clientIds = $p->clients
                     ->pluck('id')
@@ -176,13 +171,8 @@ class RequirementController extends Controller
                     ->values()
                     ->all();
 
-                if ($clientIds === [] && $p->client_id !== null) {
-                    $clientIds[] = (int) $p->client_id;
-                }
-
                 return [
                     'id' => (int) $p->id,
-                    'client_id' => $p->client_id !== null ? (int) $p->client_id : null,
                     'client_ids' => $clientIds,
                     'title' => (string) $p->title,
                     'is_active' => (bool) $p->is_active,

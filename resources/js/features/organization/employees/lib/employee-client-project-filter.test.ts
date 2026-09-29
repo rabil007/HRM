@@ -9,10 +9,10 @@ import {
 } from './employee-client-project-filter.ts';
 
 const mockProjects: ProjectOption[] = [
-    { id: 10, title: 'Project A', client_id: 1 },
-    { id: 20, title: 'Project B', client_id: 1 },
-    { id: 30, title: 'Project C', client_id: 2 },
-    { id: 40, title: 'Project D', client_id: null },
+    { id: 10, title: 'Project A', client_ids: [1] },
+    { id: 20, title: 'Project B', client_ids: [1] },
+    { id: 30, title: 'Project C', client_ids: [2] },
+    { id: 40, title: 'Project D', client_ids: [] },
 ];
 
 describe('employee client-project filter behavior', () => {
@@ -59,7 +59,7 @@ describe('employee client-project filter behavior', () => {
     });
 
     it('preserves project when changing to the client that owns the project', () => {
-        // Project A (id: 10) belongs to Client 1. Re-selecting or selecting Client 1 keeps it.
+        // Project A (id: 10) is assigned to Client 1. Re-selecting or selecting Client 1 keeps it.
         const nextProject = resolveProjectOnClientChange(
             '10',
             '1',
@@ -70,7 +70,7 @@ describe('employee client-project filter behavior', () => {
     });
 
     it('clears unmapped project when selecting any specific client', () => {
-        // Project D (id: 40) has client_id: null. Selecting Client 1 clears it.
+        // Project D (id: 40) has no client assignments. Selecting Client 1 clears it.
         const nextProject = resolveProjectOnClientChange(
             '40',
             '1',
@@ -176,45 +176,49 @@ describe('employee client-project filter behavior', () => {
         assert.equal(switchProject2ToB, '');
     });
 
-    it('makes client_ids authoritative over legacy client_id when client_ids has entries', () => {
+    it('filters projects strictly by client_ids membership with no legacy fallback', () => {
         const projects: ProjectOption[] = [
             {
                 id: 1,
                 title: 'Project 1',
                 client_ids: [200], // Client B
-                client_id: 100, // Client A (legacy transitional)
             },
             {
                 id: 2,
-                title: 'Legacy Project 2',
+                title: 'Project 2',
+                client_ids: [100, 200], // Client A and B
+            },
+            {
+                id: 3,
+                title: 'Unassigned Project 3',
                 client_ids: [],
-                client_id: 100, // Client A (legacy compatibility)
             },
         ];
 
-        // client_ids = [B], client_id = A:
-        // Client A -> Project 1 hidden
+        // Client A (100) -> only Project 2
         const forClientA = filterProjectsByClient(projects, '100');
         assert.deepEqual(
             forClientA.map((p) => p.title),
-            ['Legacy Project 2'],
+            ['Project 2'],
         );
 
-        // Client B -> Project 1 available
+        // Client B (200) -> Project 1 and Project 2
         const forClientB = filterProjectsByClient(projects, '200');
         assert.deepEqual(
             forClientB.map((p) => p.title),
-            ['Project 1'],
+            ['Project 1', 'Project 2'],
         );
 
-        // Also preserve: client_ids = [], client_id = A -> Client A legacy Project available
-        assert.equal(projectHasClient(projects[1], '100'), true);
-        assert.equal(projectHasClient(projects[1], '200'), false);
+        assert.equal(projectHasClient(projects[0], '100'), false);
+        assert.equal(projectHasClient(projects[0], '200'), true);
+        assert.equal(projectHasClient(projects[2], '100'), false);
 
         // Resolve project on client change:
         // Switching to Client A clears Project 1 because Client A is not in client_ids
         assert.equal(resolveProjectOnClientChange('1', '100', projects), '');
         // Switching to Client B keeps Project 1
         assert.equal(resolveProjectOnClientChange('1', '200', projects), '1');
+        // Switching from Client A to Client B preserves Project 2 because it belongs to both
+        assert.equal(resolveProjectOnClientChange('2', '200', projects), '2');
     });
 });

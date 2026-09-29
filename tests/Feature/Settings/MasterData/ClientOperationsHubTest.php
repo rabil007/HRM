@@ -45,15 +45,15 @@ test('authorized users can view client operations show page with project and com
 
     $project1 = Project::query()->create([
         'title' => 'Campaign Alpha',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project1->clients()->sync([$client->id]);
 
     $project2 = Project::query()->create([
         'title' => 'Maintenance Beta',
-        'client_id' => $client->id,
         'is_active' => false,
     ]);
+    $project2->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'AHTS '.Str::random(4),
@@ -116,14 +116,12 @@ test('client operations show page counts projects assigned through pivot members
 
     $shared = Project::query()->create([
         'title' => 'Shared Hub Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $shared->clients()->sync([$clientA->id, $clientB->id]);
 
     $clientBOnly = Project::query()->create([
         'title' => 'Client B Only Hub Project',
-        'client_id' => $clientB->id,
         'is_active' => false,
     ]);
     $clientBOnly->clients()->sync([$clientB->id]);
@@ -300,11 +298,11 @@ test('project data and counts are hidden when user lacks projects view permissio
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Secret Project Alpha',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'Tug '.Str::random(4),
@@ -356,11 +354,11 @@ test('vessel data and counts are hidden when user lacks vessels view permission'
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Visible Project',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'Barge '.Str::random(4),
@@ -411,11 +409,11 @@ test('all operations data is hidden when user only has clients view permission',
         'is_active' => true,
     ]);
 
-    Project::query()->create([
+    $project = Project::query()->create([
         'title' => 'Unseen Project',
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $vesselType = VesselType::query()->create([
         'name' => 'Support Vessel '.Str::random(4),

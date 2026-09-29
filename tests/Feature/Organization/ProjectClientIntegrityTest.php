@@ -25,18 +25,17 @@ test('legacy null project can be assigned a client', function () {
 
     $project = Project::query()->create([
         'title' => 'Legacy Assignable '.uniqid(),
-        'client_id' => null,
         'is_active' => true,
     ]);
     $client = Client::query()->create(['name' => 'First Client', 'is_active' => true]);
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title,
-        'client_id' => $client->id,
+        'client_ids' => [$client->id],
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
-    expect((int) $project->fresh()->client_id)->toBe((int) $client->id);
+    expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$client->id]);
 });
 
 test('unused project can change client without employees', function () {
@@ -51,17 +50,17 @@ test('unused project can change client without employees', function () {
     $clientB = Client::query()->create(['name' => 'Client B Unused', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Unused Project '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$clientA->id]);
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title,
-        'client_id' => $clientB->id,
+        'client_ids' => [$clientB->id],
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
-    expect((int) $project->fresh()->client_id)->toBe((int) $clientB->id);
+    expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientB->id]);
 });
 
 test('project referenced by employee with conflicting client cannot be re-parented', function () {
@@ -76,9 +75,9 @@ test('project referenced by employee with conflicting client cannot be re-parent
     $clientB = Client::query()->create(['name' => 'Client B Locked', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Locked Project '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$clientA->id]);
 
     Employee::factory()->forCompany($company)->create([
         'client_id' => $clientA->id,
@@ -88,11 +87,11 @@ test('project referenced by employee with conflicting client cannot be re-parent
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title,
-        'client_id' => $clientB->id,
+        'client_ids' => [$clientB->id],
         'is_active' => true,
-    ])->assertSessionHasErrors('client_id');
+    ])->assertSessionHasErrors('client_ids');
 
-    expect((int) $project->fresh()->client_id)->toBe((int) $clientA->id);
+    expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
 });
 
 test('mapped project and vessel cannot return to unassigned', function () {
@@ -107,17 +106,17 @@ test('mapped project and vessel cannot return to unassigned', function () {
     $client = Client::query()->create(['name' => 'Mapped Client', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Mapped Project '.uniqid(),
-        'client_id' => $client->id,
         'is_active' => true,
     ]);
+    $project->clients()->sync([$client->id]);
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title,
-        'client_id' => '',
+        'client_ids' => [],
         'is_active' => true,
-    ])->assertSessionHasErrors('client_id');
+    ])->assertSessionHasErrors('client_ids');
 
-    expect((int) $project->fresh()->client_id)->toBe((int) $client->id);
+    expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$client->id]);
 
     $vessel = Vessel::query()->create([
         'company_id' => $company->id,
@@ -148,17 +147,16 @@ test('legacy null project and vessel can remain null while editing other fields'
 
     $project = Project::query()->create([
         'title' => 'Stay Null Project '.uniqid(),
-        'client_id' => null,
         'is_active' => true,
     ]);
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title.' Updated',
-        'client_id' => '',
+        'client_ids' => [],
         'is_active' => false,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
-    expect($project->fresh()->client_id)->toBeNull()
+    expect($project->fresh()->clients()->count())->toBe(0)
         ->and($project->fresh()->is_active)->toBeFalse();
 
     $vessel = Vessel::query()->create([
@@ -194,15 +192,14 @@ test('project import requires update permission to attach new clients to existin
 
     $legacy = Project::query()->create([
         'title' => 'Import Legacy',
-        'client_id' => null,
         'is_active' => true,
     ]);
 
     $existing = Project::query()->create([
         'title' => 'Import Existing',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
+    $existing->clients()->sync([$clientA->id]);
 
     // Create-only user cannot mutate existing projects
     $csv = "client,project,is_active\nImport Client A,Import Legacy,yes\nImport Client B,Import Existing,yes\n";
@@ -211,8 +208,7 @@ test('project import requires update permission to attach new clients to existin
         'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
     ])->assertRedirect('/settings/master-data/projects');
 
-    expect($legacy->fresh()->client_id)->toBeNull()
-        ->and((int) $existing->fresh()->client_id)->toBe((int) $clientA->id)
+    expect($legacy->fresh()->clients()->count())->toBe(0)
         ->and($existing->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
 
     // User with update permission can mutate existing projects and attach clients
@@ -226,7 +222,7 @@ test('project import requires update permission to attach new clients to existin
         'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
     ])->assertRedirect('/settings/master-data/projects');
 
-    expect((int) $legacy->fresh()->client_id)->toBe((int) $clientA->id)
+    expect($legacy->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id])
         ->and($existing->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
         ->toBe([$clientA->id, $clientB->id]);
 });
@@ -242,7 +238,6 @@ test('employee update can assign legacy null project without client', function (
 
     $project = Project::query()->create([
         'title' => 'Legacy Emp Project '.uniqid(),
-        'client_id' => null,
         'is_active' => true,
     ]);
 
@@ -266,7 +261,6 @@ test('legacy null project mapping succeeds when employee already has destination
     $clientA = Client::query()->create(['name' => 'Align Client A', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Align Project '.uniqid(),
-        'client_id' => null,
         'is_active' => true,
     ]);
 
@@ -278,11 +272,11 @@ test('legacy null project mapping succeeds when employee already has destination
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title,
-        'client_id' => $clientA->id,
+        'client_ids' => [$clientA->id],
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
-    expect((int) $project->fresh()->client_id)->toBe((int) $clientA->id);
+    expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
 });
 
 test('legacy null project mapping rejects when employee has conflicting client', function () {
@@ -297,7 +291,6 @@ test('legacy null project mapping rejects when employee has conflicting client',
     $clientB = Client::query()->create(['name' => 'Conflict Client B', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Conflict Project '.uniqid(),
-        'client_id' => null,
         'is_active' => true,
     ]);
 
@@ -309,11 +302,11 @@ test('legacy null project mapping rejects when employee has conflicting client',
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title,
-        'client_id' => $clientA->id,
+        'client_ids' => [$clientA->id],
         'is_active' => true,
-    ])->assertSessionHasErrors('client_id');
+    ])->assertSessionHasErrors('client_ids');
 
-    expect($project->fresh()->client_id)->toBeNull();
+    expect($project->fresh()->clients()->count())->toBe(0);
 });
 
 test('legacy null project with only null-client employees can map to a client', function () {
@@ -327,7 +320,6 @@ test('legacy null project with only null-client employees can map to a client', 
     $clientA = Client::query()->create(['name' => 'Null Emp Client', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Null Emp Project '.uniqid(),
-        'client_id' => null,
         'is_active' => true,
     ]);
 
@@ -339,11 +331,11 @@ test('legacy null project with only null-client employees can map to a client', 
 
     $this->put("/settings/master-data/projects/{$project->id}", [
         'title' => $project->title,
-        'client_id' => $clientA->id,
+        'client_ids' => [$clientA->id],
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
-    expect((int) $project->fresh()->client_id)->toBe((int) $clientA->id);
+    expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
 });
 
 test('recruitment requirement lifecycle guard blocks unlink across draft open completed cancelled but allows soft deleted', function () {
@@ -360,7 +352,6 @@ test('recruitment requirement lifecycle guard blocks unlink across draft open co
 
     $project = Project::query()->create([
         'title' => 'Recruit Guarded Project '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id, $clientB->id]);
@@ -442,14 +433,12 @@ test('employee backend create and update allow multi-client project and reject u
 
     $project1 = Project::query()->create([
         'title' => 'Shared Project 1 '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project1->clients()->sync([$clientA->id, $clientB->id]);
 
     $project2 = Project::query()->create([
         'title' => 'Exclusive Project 2 '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project2->clients()->sync([$clientA->id]);
@@ -535,7 +524,6 @@ test('employee client change preserves project when mapped to new client and rej
 
     $project1 = Project::query()->create([
         'title' => 'Switch Project 1 '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project1->clients()->sync([$clientA->id, $clientB->id]);
@@ -589,7 +577,6 @@ test('employee csv import allows shared project for mapped clients and rejects u
 
     $sharedProject = Project::query()->create([
         'title' => 'Shared Imp Proj',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $sharedProject->clients()->sync([$clientA->id, $clientB->id]);
@@ -643,7 +630,6 @@ test('recruitment requirement create and update allow multi-client project and r
 
     $project1 = Project::query()->create([
         'title' => 'Recruit Proj 1 '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project1->clients()->sync([$clientA->id, $clientB->id]);
@@ -714,7 +700,6 @@ test('recruitment duplicate detection treats shared project under different clie
 
     $project1 = Project::query()->create([
         'title' => 'Dup Shared Proj '.uniqid(),
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project1->clients()->sync([$clientA->id, $clientB->id]);

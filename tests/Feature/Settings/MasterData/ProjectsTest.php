@@ -67,26 +67,29 @@ test('authorized users can view, create, update, and delete projects', function 
             ->where('filters.client_id', null));
 
     $this->post('/settings/master-data/projects', [
-        'client_id' => $client->id,
+        'client_ids' => [$client->id],
         'title' => 'North Field',
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
     $id = Project::query()->where('title', 'North Field')->value('id');
     expect($id)->not->toBeNull();
-    expect(Project::query()->whereKey($id)->value('client_id'))->toBe($client->id);
+    expect(Project::query()->whereKey($id)->first()->clients()->pluck('clients.id')->all())->toBe([$client->id]);
 
     $this->put("/settings/master-data/projects/{$id}", [
-        'client_id' => $client->id,
+        'client_ids' => [$client->id],
         'title' => 'South Field',
         'is_active' => false,
     ])->assertRedirect(route('settings.master-data.projects.index'));
 
     $this->assertDatabaseHas('projects', [
         'id' => $id,
-        'client_id' => $client->id,
         'title' => 'South Field',
         'is_active' => 0,
+    ]);
+    $this->assertDatabaseHas('client_project', [
+        'project_id' => $id,
+        'client_id' => $client->id,
     ]);
 
     $this->delete("/settings/master-data/projects/{$id}")
@@ -148,8 +151,8 @@ test('authorized users can download csv template and import projects', function 
 
     expect(Project::query()->where('title', 'Alpha Platform')->value('is_active'))->toBe(false);
     expect(Project::query()->where('title', 'Beta Field')->value('is_active'))->toBe(true);
-    expect(Project::query()->where('title', 'Alpha Platform')->value('client_id'))->not->toBeNull();
-    expect(Project::query()->where('title', 'Beta Field')->value('client_id'))->not->toBeNull();
+    expect(Project::query()->where('title', 'Alpha Platform')->first()->clients()->count())->toBe(1);
+    expect(Project::query()->where('title', 'Beta Field')->first()->clients()->count())->toBe(1);
 });
 
 test('authorized users can create project with multiple clients', function () {
@@ -172,8 +175,7 @@ test('authorized users can create project with multiple clients', function () {
 
     $project = Project::query()->where('title', 'Shared Campaign')->firstOrFail();
 
-    expect($project->client_id)->toBe($clientA->id)
-        ->and($project->clients()->pluck('clients.id')->sort()->values()->all())
+    expect($project->clients()->pluck('clients.id')->sort()->values()->all())
         ->toBe([$clientA->id, $clientB->id]);
 });
 
@@ -189,9 +191,9 @@ test('project index exposes clients and filters by relationship membership', fun
     $clientB = Client::query()->create(['name' => 'Filter Client B', 'is_active' => true]);
     $clientC = Client::query()->create(['name' => 'Filter Client C', 'is_active' => true]);
 
-    $shared = Project::query()->create(['title' => 'Shared Filter Project', 'client_id' => $clientA->id, 'is_active' => true]);
+    $shared = Project::query()->create(['title' => 'Shared Filter Project', 'is_active' => true]);
     $shared->clients()->sync([$clientA->id, $clientB->id]);
-    $onlyC = Project::query()->create(['title' => 'Only C Project', 'client_id' => $clientC->id, 'is_active' => true]);
+    $onlyC = Project::query()->create(['title' => 'Only C Project', 'is_active' => true]);
     $onlyC->clients()->sync([$clientC->id]);
 
     $this->get('/settings/master-data/projects?client_id='.$clientB->id)
@@ -205,7 +207,7 @@ test('project index exposes clients and filters by relationship membership', fun
             ->where('projects.0.clients.1.name', 'Filter Client B'));
 });
 
-test('legacy client_id payload normalizes to client_ids during project create and update', function () {
+test('singular client_id payload is not accepted for project create or update', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
 
@@ -214,26 +216,27 @@ test('legacy client_id payload normalizes to client_ids during project create an
         'settings.master-data.projects.update',
     ]);
 
-    $clientA = Client::query()->create(['name' => 'Legacy Payload A', 'is_active' => true]);
-    $clientB = Client::query()->create(['name' => 'Legacy Payload B', 'is_active' => true]);
+    $clientA = Client::query()->create(['name' => 'Singular Payload A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Singular Payload B', 'is_active' => true]);
 
     $this->post('/settings/master-data/projects', [
-        'title' => 'Legacy Payload Project',
+        'title' => 'Singular Payload Project',
         'client_id' => $clientA->id,
         'is_active' => true,
-    ])->assertRedirect(route('settings.master-data.projects.index'));
+    ])->assertSessionHasErrors('client_ids');
 
-    $project = Project::query()->where('title', 'Legacy Payload Project')->firstOrFail();
-    expect($project->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
+    expect(Project::query()->where('title', 'Singular Payload Project')->exists())->toBeFalse();
+
+    $project = Project::query()->create(['title' => 'Existing Singular Payload Project', 'is_active' => true]);
+    $project->clients()->sync([$clientA->id]);
 
     $this->put("/settings/master-data/projects/{$project->id}", [
-        'title' => 'Legacy Payload Project',
+        'title' => 'Existing Singular Payload Project',
         'client_id' => $clientB->id,
         'is_active' => true,
-    ])->assertRedirect(route('settings.master-data.projects.index'));
+    ])->assertSessionHasErrors('client_ids');
 
-    expect($project->fresh()->client_id)->toBe($clientB->id)
-        ->and($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientB->id]);
+    expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
 });
 
 test('create-only user is rejected with 403 when quick creating existing project with new client', function () {
@@ -248,20 +251,18 @@ test('create-only user is rejected with 403 when quick creating existing project
     $clientB = Client::query()->create(['name' => 'Quick Auth Client B', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Quick Auth Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id]);
 
     $this->postJson('/settings/master-data/projects', [
         'title' => 'Quick Auth Project',
-        'client_id' => $clientB->id,
+        'client_ids' => [$clientB->id],
         'is_active' => true,
     ])->assertForbidden();
 
     expect($project->fresh()->clients()->pluck('clients.id')->all())
-        ->toBe([$clientA->id])
-        ->and($project->fresh()->client_id)->toBe($clientA->id);
+        ->toBe([$clientA->id]);
 });
 
 test('create-only user can quick create existing project when requested client is already attached', function () {
@@ -275,14 +276,13 @@ test('create-only user can quick create existing project when requested client i
     $clientA = Client::query()->create(['name' => 'Quick Existing Client A', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Quick Reuse Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id]);
 
     $this->postJson('/settings/master-data/projects', [
         'title' => 'Quick Reuse Project',
-        'client_id' => $clientA->id,
+        'client_ids' => [$clientA->id],
         'is_active' => true,
     ])->assertOk()
         ->assertJsonPath('id', $project->id);
@@ -304,14 +304,13 @@ test('user with update permission can quick create existing project to attach ne
     $clientB = Client::query()->create(['name' => 'Quick Multi Client B', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Quick Update Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id]);
 
     $this->postJson('/settings/master-data/projects', [
         'title' => 'Quick Update Project',
-        'client_id' => $clientB->id,
+        'client_ids' => [$clientB->id],
         'is_active' => true,
     ])->assertOk()
         ->assertJsonPath('id', $project->id);
@@ -332,7 +331,6 @@ test('project client removal is blocked while employees or recruitment requireme
     $clientB = Client::query()->create(['name' => 'Guard Client B', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Guarded Multi Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id, $clientB->id]);
@@ -387,7 +385,6 @@ test('attaching client to project produces structured audit log entry', function
 
     $project = Project::query()->create([
         'title' => 'Audit Attach Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id]);
@@ -429,7 +426,6 @@ test('removing client from project produces structured audit log entry', functio
 
     $project = Project::query()->create([
         'title' => 'Audit Remove Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id, $clientB->id]);
@@ -468,7 +464,6 @@ test('synchronizing the same clients without relationship changes does not creat
     $clientA = Client::query()->create(['name' => 'Noop Client A', 'is_active' => true]);
     $project = Project::query()->create([
         'title' => 'Noop Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id]);
@@ -503,7 +498,6 @@ test('invalid inactive client later in client_ids array surfaces top-level clien
         'is_active' => true,
     ])->assertSessionHasErrors([
         'client_ids' => 'The selected client is inactive.',
-        'client_id' => 'The selected client is inactive.',
     ]);
 
     expect(Project::query()->where('title', 'Invalid Index Project')->exists())->toBeFalse();
@@ -525,7 +519,6 @@ test('nonexistent client id later in client_ids array surfaces top-level client_
         'is_active' => true,
     ])->assertSessionHasErrors([
         'client_ids' => 'The selected client is invalid.',
-        'client_id' => 'The selected client is invalid.',
     ]);
 
     expect(Project::query()->where('title', 'Nonexistent Client Project')->exists())->toBeFalse();
@@ -543,7 +536,6 @@ test('create-only user can import new projects and reuse existing matching proje
     $clientA = Client::query()->create(['name' => 'Import Client Alpha', 'is_active' => true]);
     $existing = Project::query()->create([
         'title' => 'Alpha Existing Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $existing->clients()->sync([$clientA->id]);
@@ -574,14 +566,12 @@ test('create-only user cannot attach new client or change is_active on existing 
 
     $existingActive = Project::query()->create([
         'title' => 'Existing Active Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $existingActive->clients()->sync([$clientA->id]);
 
     $existingStatus = Project::query()->create([
         'title' => 'Existing Status Project',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $existingStatus->clients()->sync([$clientA->id]);
@@ -595,7 +585,6 @@ test('create-only user cannot attach new client or change is_active on existing 
         ->assertSessionHasErrors('file');
 
     expect($existingActive->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id])
-        ->and($existingActive->fresh()->client_id)->toBe($clientA->id)
         ->and($existingStatus->fresh()->is_active)->toBeTrue();
 });
 
@@ -614,14 +603,12 @@ test('user with create and update permissions can attach new client and update s
 
     $existingActive = Project::query()->create([
         'title' => 'Updatable Project Attach',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $existingActive->clients()->sync([$clientA->id]);
 
     $existingStatus = Project::query()->create([
         'title' => 'Updatable Project Status',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $existingStatus->clients()->sync([$clientA->id]);
@@ -653,7 +640,6 @@ test('existing project import row cannot leave partial status change if client a
 
     $project = Project::query()->create([
         'title' => 'Atomic Project Test',
-        'client_id' => $clientA->id,
         'is_active' => true,
     ]);
     $project->clients()->sync([$clientA->id]);
@@ -684,4 +670,52 @@ test('existing project import row cannot leave partial status change if client a
     } finally {
         $failAttachment = false;
     }
+});
+
+test('repeated rows for the same project with matching is_active successfully import and attach clients', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.create',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Repeated Client Alpha', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Repeated Client Beta', 'is_active' => true]);
+
+    $csv = "client,project,is_active\nRepeated Client Alpha,Repeated Hub Project,yes\nRepeated Client Beta,Repeated Hub Project,yes\n";
+
+    $this->post('/settings/master-data/projects/import', [
+        'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
+    ])->assertRedirect('/settings/master-data/projects')
+        ->assertSessionHas('success');
+
+    $project = Project::query()->where('title', 'Repeated Hub Project')->firstOrFail();
+    expect($project->is_active)->toBeTrue()
+        ->and($project->clients()->pluck('clients.id')->sort()->values()->all())->toBe([$clientA->id, $clientB->id]);
+});
+
+test('repeated rows for the same project with conflicting is_active values are rejected without mutation', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.create',
+        'settings.master-data.projects.update',
+    ]);
+
+    Client::query()->create(['name' => 'Conflict Client Alpha', 'is_active' => true]);
+    Client::query()->create(['name' => 'Conflict Client Beta', 'is_active' => true]);
+
+    $csv = "client,project,is_active\nConflict Client Alpha,Conflicting Status Project,yes\nConflict Client Beta,Conflicting Status Project,no\n";
+
+    $this->post('/settings/master-data/projects/import', [
+        'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
+    ])->assertRedirect('/settings/master-data/projects')
+        ->assertSessionHasErrors(['file' => 'Project "Conflicting Status Project" has conflicting is_active values in the import file. Use the same status for every row of the same project.']);
+
+    expect(Project::query()->where('title', 'Conflicting Status Project')->exists())->toBeFalse();
 });

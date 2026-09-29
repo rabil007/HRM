@@ -137,16 +137,12 @@ final class ClientAssignmentRules
             ->all();
 
         // Legacy unassigned projects remain assignable until mapped.
-        if ($clientIds === [] && $project->client_id === null) {
+        if ($clientIds === []) {
             return null;
         }
 
         if ($clientId === null || $clientId === 0) {
             return 'Select a client before assigning a project.';
-        }
-
-        if ($clientIds === [] && $project->client_id !== null) {
-            $clientIds[] = (int) $project->client_id;
         }
 
         if (! in_array((int) $clientId, $clientIds, true)) {

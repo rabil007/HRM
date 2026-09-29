@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Project;
 use App\Support\MasterData\SyncProjectClients;
+use App\Support\Projects\ProjectValidationRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -23,8 +24,8 @@ class ClientProjectController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:200'],
-            'is_active' => ['nullable', 'boolean'],
+            'title' => ProjectValidationRules::titleRules(unique: false),
+            'is_active' => ProjectValidationRules::isActiveRules(),
         ]);
 
         $title = trim((string) $validated['title']);

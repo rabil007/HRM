@@ -81,7 +81,7 @@ final class ClientShowQuery
         $canDeletePermission = (bool) ($user?->can('settings.master-data.clients.delete'));
         $canViewProjects = (bool) ($user?->can('settings.master-data.projects.view'));
         $canCreateProject = (bool) ($user?->can('settings.master-data.projects.create'));
-        $canAttachProject = (bool) ($user?->can('settings.master-data.projects.update'));
+        $canAttachProject = $canViewProjects && (bool) ($user?->can('settings.master-data.projects.update'));
         $canViewVessels = (bool) ($user?->can('crew_operations.vessels.view'));
         $canCreateVessel = (bool) ($user?->can('crew_operations.vessels.create'));
         $canViewAudit = (bool) ($user?->can('audit.view'));
@@ -99,7 +99,7 @@ final class ClientShowQuery
             $projectPreview = (clone $projectBaseQuery)
                 ->orderBy('title')
                 ->limit(5)
-                ->get(['projects.id', 'projects.client_id', 'projects.title', 'projects.is_active', 'projects.created_at'])
+                ->get(['projects.id', 'projects.title', 'projects.is_active', 'projects.created_at'])
                 ->map(fn (Project $project): array => [
                     'id' => (int) $project->id,
                     'title' => (string) $project->title,

@@ -87,8 +87,7 @@ test('authorized user can create project from client operations hub', function (
     $project = Project::query()->where('title', 'Project Created From Hub')->first();
     expect($project)->not->toBeNull()
         ->and(Project::query()->where('title', 'Project Created From Hub')->count())->toBe(1)
-        ->and($project->clients()->where('clients.id', $client->id)->exists())->toBeTrue()
-        ->and((int) $project->client_id)->toBe((int) $client->id);
+        ->and($project->clients()->where('clients.id', $client->id)->exists())->toBeTrue();
 });
 
 test('cannot create project with duplicate title, guides user to attach existing', function () {
@@ -131,7 +130,6 @@ test('authorized user can attach existing active project to client', function ()
     $project = Project::query()->create([
         'title' => 'Cross Client Project',
         'is_active' => true,
-        'client_id' => $clientA->id,
     ]);
     $project->clients()->sync([$clientA->id]);
 
@@ -162,7 +160,6 @@ test('attaching already-attached project is idempotent and returns friendly mess
     $project = Project::query()->create([
         'title' => 'Already Attached Project',
         'is_active' => true,
-        'client_id' => $client->id,
     ]);
     $project->clients()->sync([$client->id]);
 
@@ -420,7 +417,6 @@ test('client show page provides attachable_projects with assignment state and ve
     $projectAttached = Project::query()->create([
         'title' => 'Attached Hub Proj',
         'is_active' => true,
-        'client_id' => $client->id,
     ]);
     $projectAttached->clients()->sync([$client->id]);
 
@@ -442,5 +438,28 @@ test('client show page provides attachable_projects with assignment state and ve
             ->where('attachable_projects.1.is_already_assigned', false)
             ->has('vessel_types', 1)
             ->where('vessel_types.0.id', $vesselType->id)
+        );
+});
+
+test('attach project permission is false and attachable_projects is empty when user has update but lacks view', function () {
+    ['user' => $user, 'company' => $company, 'client' => $client] = makeClientHubFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+        'settings.master-data.projects.update',
+    ]);
+
+    Project::query()->create([
+        'title' => 'Hidden From Attach Proj',
+        'is_active' => true,
+    ]);
+
+    $this->get(route('settings.master-data.clients.show', $client))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/client-show')
+            ->where('can.attach_project', false)
+            ->where('attachable_projects', [])
         );
 });

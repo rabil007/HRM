@@ -323,14 +323,9 @@ final class EmployeeFormOptions
                     ->values()
                     ->all();
 
-                if ($clientIds === [] && $project->client_id !== null) {
-                    $clientIds[] = (int) $project->client_id;
-                }
-
                 return [
                     'id' => (int) $project->id,
                     'title' => (string) $project->title,
-                    'client_id' => $project->client_id !== null ? (int) $project->client_id : null,
                     'client_ids' => $clientIds,
                     'is_active' => (bool) $project->is_active,
                 ];
@@ -432,14 +427,9 @@ final class EmployeeFormOptions
                     ->values()
                     ->all();
 
-                if ($clientIds === [] && $project->client_id !== null) {
-                    $clientIds[] = (int) $project->client_id;
-                }
-
                 return [
                     'id' => (int) $project->id,
                     'title' => (string) $project->title,
-                    'client_id' => $project->client_id !== null ? (int) $project->client_id : null,
                     'client_ids' => $clientIds,
                     'is_active' => (bool) $project->is_active,
                 ];
