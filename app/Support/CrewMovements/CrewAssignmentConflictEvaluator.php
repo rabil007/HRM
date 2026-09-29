@@ -18,6 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 final class CrewAssignmentConflictEvaluator
 {
+    public function __construct(
+        private readonly CrewAssignmentOverlapDetector $overlapDetector = new CrewAssignmentOverlapDetector,
+    ) {}
+
     /**
      * Evaluate availability and conflicts for a proposed assignment action.
      */
@@ -331,9 +335,12 @@ final class CrewAssignmentConflictEvaluator
                 $activeEnd = $active->planned_signoff_at?->copy()->timezone($timezone)->toDateString();
 
                 // If active assignment has no signoff, it is actively ongoing; any plan unconditionally conflicts.
-                $activeOverlaps = $activeEnd === null
-                    ? true
-                    : ($reqStart <= $activeEnd && $activeStart <= $reqEnd);
+                $activeOverlaps = $this->overlapDetector->overlapsActive(
+                    $reqStart,
+                    $reqEnd,
+                    $active,
+                    $timezone,
+                );
 
                 if ($activeOverlaps) {
                     $existingVessel = $active->vessel?->name ?? 'another vessel';
@@ -442,32 +449,21 @@ final class CrewAssignmentConflictEvaluator
         $forecastSignoff = $context->plannedSignoffAt?->copy()->timezone($timezone)->toDateString();
 
         foreach ($existingPlans as $plan) {
-            $pStart = ($plan->planned_arrival_at ?? $plan->planned_join_at)?->copy()->timezone($timezone)->toDateString();
-            $pEnd = $plan->planned_signoff_at?->copy()->timezone($timezone)->toDateString();
-
-            if ($pStart === null) {
+            if (! $this->overlapDetector->overlapsPlanned($reqStart, $reqEnd, $plan, $timezone)) {
                 continue;
             }
 
+            $pStart = ($plan->planned_arrival_at ?? $plan->planned_join_at)?->copy()->timezone($timezone)->toDateString();
+            $pEnd = $plan->planned_signoff_at?->copy()->timezone($timezone)->toDateString();
             $effectivePEnd = $pEnd ?? $pStart;
 
             if ($reqEnd === null) {
-                // Open-ended operational window from $reqStart: overlaps any plan ending on/after that day.
-                if ($effectivePEnd < $reqStart) {
-                    continue;
-                }
-
                 $overlapStart = max($reqStart, $pStart);
                 $overlapEnd = $effectivePEnd;
                 $reqEndLabel = 'open-ended';
             } else {
                 $overlapStart = max($reqStart, $pStart);
                 $overlapEnd = min($reqEnd, $effectivePEnd);
-
-                if ($overlapStart > $overlapEnd) {
-                    continue;
-                }
-
                 $reqEndLabel = $reqEnd;
             }
 

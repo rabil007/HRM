@@ -53,15 +53,25 @@ final class CrewReliefReportFilters
             $perPage = 25;
         }
 
+        $readiness = (string) $request->query('readiness', '');
+        if (! in_array($readiness, ['all', 'ready', 'in_progress', 'not_assigned', 'at_risk', 'joined'], true)) {
+            $readiness = '';
+        }
+
+        $attention = (string) $request->query('attention', '');
+        if (! in_array($attention, ['all', 'critical', 'warning', 'healthy'], true)) {
+            $attention = '';
+        }
+
         return new self(
             search: trim((string) $request->query('search', '')),
             vesselId: (string) $request->query('vessel_id', ''),
             clientId: (string) $request->query('client_id', ''),
             rankId: (string) $request->query('rank_id', ''),
-            plannedSignoffFrom: (string) $request->query('planned_signoff_from', ''),
-            plannedSignoffTo: (string) $request->query('planned_signoff_to', ''),
-            readiness: (string) $request->query('readiness', ''),
-            attention: (string) $request->query('attention', ''),
+            plannedSignoffFrom: trim((string) $request->query('planned_signoff_from', '')),
+            plannedSignoffTo: trim((string) $request->query('planned_signoff_to', '')),
+            readiness: $readiness,
+            attention: $attention,
             preset: $preset,
             perPage: $perPage,
         );

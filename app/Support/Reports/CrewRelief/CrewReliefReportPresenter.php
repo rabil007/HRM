@@ -46,6 +46,7 @@ final class CrewReliefReportPresenter
         // Relief employee visibility check
         $rawRelief = $row['relief_employee'];
         $visibleReliefEmployee = null;
+        $isReliefRestricted = false;
 
         if ($rawRelief !== null) {
             $reliefEmpId = (int) $rawRelief['id'];
@@ -62,6 +63,8 @@ final class CrewReliefReportPresenter
                         ? route('organization.employees.show', $reliefEmpId)
                         : null,
                 ];
+            } else {
+                $isReliefRestricted = true;
             }
         }
 
@@ -78,6 +81,48 @@ final class CrewReliefReportPresenter
                     ? route('organization.crew-assignments.show', $nextAssignment['id'])
                     : null,
             ];
+        }
+
+        if ($isReliefRestricted) {
+            $reliefStatus = 'Restricted';
+            $reliefPhaseCode = null;
+            $reliefPlannedJoin = null;
+            $readinessCode = 'restricted';
+            $readinessLabel = 'Restricted';
+
+            if ($row['attention']['reason'] === CrewReliefAttentionResolver::REASON_OVERDUE) {
+                $attentionLevel = CrewReliefAttentionResolver::LEVEL_CRITICAL;
+                $attentionBadge = $row['attention']['badge'];
+                $attentionReason = CrewReliefAttentionResolver::REASON_OVERDUE;
+            } elseif (in_array($row['attention']['level'], [
+                CrewReliefAttentionResolver::LEVEL_CRITICAL,
+                CrewReliefAttentionResolver::LEVEL_WARNING,
+            ], true)) {
+                $attentionLevel = CrewReliefAttentionResolver::LEVEL_WARNING;
+                $attentionBadge = 'Relief requires attention';
+                $attentionReason = 'relief_requires_attention';
+            } elseif (($row['readiness']['code'] ?? '') === 'ready') {
+                $attentionLevel = CrewReliefAttentionResolver::LEVEL_HEALTHY;
+                $attentionBadge = 'Relief ready';
+                $attentionReason = 'relief_ready';
+            } elseif (($row['readiness']['code'] ?? '') === 'joined') {
+                $attentionLevel = CrewReliefAttentionResolver::LEVEL_HEALTHY;
+                $attentionBadge = 'Relief joined';
+                $attentionReason = 'relief_joined';
+            } else {
+                $attentionLevel = CrewReliefAttentionResolver::LEVEL_NEUTRAL;
+                $attentionBadge = 'Relief assigned';
+                $attentionReason = 'relief_assigned';
+            }
+        } else {
+            $reliefStatus = $row['relief_status'];
+            $reliefPhaseCode = $row['relief_phase_code'];
+            $reliefPlannedJoin = $row['relief_planned_join'];
+            $readinessCode = $row['readiness']['code'];
+            $readinessLabel = $row['readiness']['label'];
+            $attentionLevel = $row['attention']['level'];
+            $attentionBadge = $row['attention']['badge'];
+            $attentionReason = $row['attention']['reason'];
         }
 
         return [
@@ -116,17 +161,17 @@ final class CrewReliefReportPresenter
             'days_to_signoff' => $row['days_until_signoff'],
             'days_to_signoff_label' => $row['days_to_signoff_label'],
             'relief_employee' => $visibleReliefEmployee,
-            'relief_status' => $row['relief_status'],
-            'relief_phase_code' => $row['relief_phase_code'],
-            'relief_planned_join' => $row['relief_planned_join'],
-            'readiness' => $row['readiness']['code'],
-            'readiness_label' => $row['readiness']['label'],
+            'relief_status' => $reliefStatus,
+            'relief_phase_code' => $reliefPhaseCode,
+            'relief_planned_join' => $reliefPlannedJoin,
+            'readiness' => $readinessCode,
+            'readiness_label' => $readinessLabel,
             'next_assignment' => $nextAssignmentPayload,
             'attention' => [
-                'level' => $row['attention']['level'],
-                'badge' => $row['attention']['badge'],
-                'label' => $row['attention']['badge'],
-                'reason' => $row['attention']['reason'],
+                'level' => $attentionLevel,
+                'badge' => $attentionBadge,
+                'label' => $attentionBadge,
+                'reason' => $attentionReason,
             ],
         ];
     }

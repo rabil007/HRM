@@ -5,6 +5,7 @@ namespace App\Support\Reports\CrewRelief;
 use App\Enums\CrewPhaseCode;
 use App\Models\Client;
 use App\Models\CrewAssignment;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Rank;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefPlanningLoader;
@@ -24,6 +25,11 @@ final class CrewReliefReportQuery
 
     private readonly CarbonImmutable $today;
 
+    /**
+     * @var Collection<int, CrewAssignment|CrewPlanningAssignment>
+     */
+    private Collection $cachedPlans;
+
     public function __construct(
         private readonly int $companyId,
         private readonly CrewReliefReportFilters $filters,
@@ -39,6 +45,7 @@ final class CrewReliefReportQuery
             ($asOf ?? now($this->timezone))->copy()->timezone($this->timezone)->toDateString(),
             $this->timezone,
         )->startOfDay();
+        $this->cachedPlans = collect();
     }
 
     /**
@@ -60,20 +67,60 @@ final class CrewReliefReportQuery
         string $path = '/organization/reports/crew-relief',
         array $queryString = [],
     ): array {
-        $candidates = $this->resolveCandidates();
+        $candidates = $this->resolveCandidateSummaries();
         $summary = $this->summarize($candidates);
         $filtered = $this->applyInMemoryFilters($candidates);
-        $sorted = $this->sortRows($filtered);
+        $sorted = $this->sortCandidateSummaries($filtered);
 
         $perPage = $this->filters->perPage;
         $page = max(1, $page);
         $total = $sorted->count();
         $slice = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
 
+        $pageIds = $slice->pluck('id')->all();
+
+        if ($pageIds === []) {
+            $paginator = new LengthAwarePaginator([], 0, $perPage, $page, [
+                'path' => $path,
+                'query' => $queryString,
+            ]);
+
+            return [
+                'rows' => [],
+                'pagination' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
+                ],
+                'summary' => $summary,
+                'filters' => $this->filters->toArray(),
+                'filter_options' => $this->filterOptions(),
+            ];
+        }
+
+        // Hydrate ONLY the assignments for the current page
+        $hydratedAssignments = CrewAssignment::query()
+            ->whereIn('id', $pageIds)
+            ->with([
+                'employee:id,company_id,name,employee_no,photo_url,department_id,user_id',
+                'rank:id,name',
+                'vessel:id,company_id,name',
+                'client:id,name',
+                'currentPhase',
+                'phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
+                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,status,started_at,planned_join_at',
+            ])
+            ->get()
+            ->keyBy('id');
+
         // Authorize relief employees for current page
         $reliefEmpIds = $slice
-            ->map(fn (array $item): ?int => isset($item['relief_employee']['id']) ? (int) $item['relief_employee']['id'] : null)
+            ->pluck('relief_employee_id')
             ->filter(fn (?int $id): bool => $id !== null && $id > 0)
+            ->unique()
             ->values()
             ->all();
 
@@ -83,12 +130,50 @@ final class CrewReliefReportQuery
             $reliefEmpIds,
         );
 
-        $rows = $slice->map(fn (array $item): array => $this->presenter->present(
-            $item,
-            $this->user,
-            $this->companyId,
-            $authorizedReliefEmployeeIds,
-        ))->all();
+        $rows = $slice->map(function (array $item) use ($hydratedAssignments, $authorizedReliefEmployeeIds): ?array {
+            $assignment = $hydratedAssignments->get($item['id']);
+            if ($assignment === null) {
+                return null;
+            }
+
+            $plan = $this->cachedPlans->get($item['id']);
+            $reliefEmployee = null;
+            if ($plan !== null && $plan->employee !== null) {
+                $reliefEmployee = [
+                    'id' => (int) $plan->employee->id,
+                    'name' => (string) $plan->employee->name,
+                    'employee_no' => $plan->employee->employee_no !== null ? (string) $plan->employee->employee_no : null,
+                ];
+            }
+
+            $actualJoinedDate = $this->statusResolver->actualJoinedDate($assignment, $this->timezone);
+            $daysOnboard = $this->statusResolver->daysOnboard($assignment, $this->timezone, $this->today);
+            $nextAssignment = $this->statusResolver->resolveNextAssignment($assignment);
+
+            $rowPayload = [
+                'assignment' => $assignment,
+                'actual_joined_date' => $actualJoinedDate,
+                'days_onboard' => $daysOnboard,
+                'planned_signoff_at' => $item['planned_signoff_at'],
+                'days_until_signoff' => $item['days_until_signoff'],
+                'days_to_signoff_label' => $this->statusResolver->daysToSignoffLabel($item['days_until_signoff']),
+                'has_relief' => $item['has_relief'],
+                'relief_employee' => $reliefEmployee,
+                'relief_status' => $item['relief_status_info']['display_label'],
+                'relief_phase_code' => $item['relief_status_info']['phase_code'],
+                'relief_planned_join' => $item['relief_planned_join'],
+                'readiness' => $item['readiness'],
+                'next_assignment' => $nextAssignment,
+                'attention' => $item['attention'],
+            ];
+
+            return $this->presenter->present(
+                $rowPayload,
+                $this->user,
+                $this->companyId,
+                $authorizedReliefEmployeeIds,
+            );
+        })->filter()->values()->all();
 
         $paginator = new LengthAwarePaginator(
             $rows,
@@ -122,13 +207,33 @@ final class CrewReliefReportQuery
      */
     public function exportCollection(): Collection
     {
-        $candidates = $this->resolveCandidates();
+        $candidates = $this->resolveCandidateSummaries();
         $filtered = $this->applyInMemoryFilters($candidates);
-        $sorted = $this->sortRows($filtered);
+        $sorted = $this->sortCandidateSummaries($filtered);
+
+        $allIds = $sorted->pluck('id')->all();
+        if ($allIds === []) {
+            return collect();
+        }
+
+        $assignments = CrewAssignment::query()
+            ->whereIn('id', $allIds)
+            ->with([
+                'employee:id,company_id,name,employee_no,photo_url,department_id,user_id',
+                'rank:id,name',
+                'vessel:id,company_id,name',
+                'client:id,name',
+                'currentPhase',
+                'phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
+                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,status,started_at,planned_join_at',
+            ])
+            ->get()
+            ->keyBy('id');
 
         $reliefEmpIds = $sorted
-            ->map(fn (array $item): ?int => isset($item['relief_employee']['id']) ? (int) $item['relief_employee']['id'] : null)
+            ->pluck('relief_employee_id')
             ->filter(fn (?int $id): bool => $id !== null && $id > 0)
+            ->unique()
             ->values()
             ->all();
 
@@ -138,18 +243,58 @@ final class CrewReliefReportQuery
             $reliefEmpIds,
         );
 
-        return $sorted->map(fn (array $item): array => $this->presenter->present(
-            $item,
-            $this->user,
-            $this->companyId,
-            $authorizedReliefEmployeeIds,
-        ));
+        return $sorted->map(function (array $item) use ($assignments, $authorizedReliefEmployeeIds): ?array {
+            $assignment = $assignments->get($item['id']);
+            if ($assignment === null) {
+                return null;
+            }
+
+            $plan = $this->cachedPlans->get($item['id']);
+            $reliefEmployee = null;
+            if ($plan !== null && $plan->employee !== null) {
+                $reliefEmployee = [
+                    'id' => (int) $plan->employee->id,
+                    'name' => (string) $plan->employee->name,
+                    'employee_no' => $plan->employee->employee_no !== null ? (string) $plan->employee->employee_no : null,
+                ];
+            }
+
+            $actualJoinedDate = $this->statusResolver->actualJoinedDate($assignment, $this->timezone);
+            $daysOnboard = $this->statusResolver->daysOnboard($assignment, $this->timezone, $this->today);
+            $nextAssignment = $this->statusResolver->resolveNextAssignment($assignment);
+
+            $rowPayload = [
+                'assignment' => $assignment,
+                'actual_joined_date' => $actualJoinedDate,
+                'days_onboard' => $daysOnboard,
+                'planned_signoff_at' => $item['planned_signoff_at'],
+                'days_until_signoff' => $item['days_until_signoff'],
+                'days_to_signoff_label' => $this->statusResolver->daysToSignoffLabel($item['days_until_signoff']),
+                'has_relief' => $item['has_relief'],
+                'relief_employee' => $reliefEmployee,
+                'relief_status' => $item['relief_status_info']['display_label'],
+                'relief_phase_code' => $item['relief_status_info']['phase_code'],
+                'relief_planned_join' => $item['relief_planned_join'],
+                'readiness' => $item['readiness'],
+                'next_assignment' => $nextAssignment,
+                'attention' => $item['attention'],
+            ];
+
+            return $this->presenter->present(
+                $rowPayload,
+                $this->user,
+                $this->companyId,
+                $authorizedReliefEmployeeIds,
+            );
+        })->filter()->values();
     }
 
     /**
+     * Resolve lightweight candidate summaries without hydrating complete relational models.
+     *
      * @return Collection<int, array<string, mixed>>
      */
-    private function resolveCandidates(): Collection
+    private function resolveCandidateSummaries(): Collection
     {
         $query = CrewAssignment::query();
 
@@ -162,40 +307,37 @@ final class CrewReliefReportQuery
         // 2. SQL filters
         $this->applySqlFilters($query);
 
-        // 3. Eager load
-        $assignments = $query
-            ->with([
-                'employee:id,company_id,name,employee_no,photo_url,department_id,user_id',
-                'rank:id,name',
-                'vessel:id,company_id,name',
-                'client:id,name',
-                'currentPhase',
-                'phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
-                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,status,started_at,planned_join_at',
-            ])
-            ->get();
+        // 3. Deterministic base ordering and lightweight select
+        $rawCandidates = $query
+            ->orderBy('planned_signoff_at')
+            ->orderBy('id')
+            ->get(['id', 'planned_signoff_at']);
 
-        if ($assignments->isEmpty()) {
+        if ($rawCandidates->isEmpty()) {
+            $this->cachedPlans = collect();
+
             return collect();
         }
 
+        $candidateIds = $rawCandidates->pluck('id')->all();
+
         // 4. Batch load relief plans
-        $plans = $this->loader->forSourceAssignmentIds(
+        $this->cachedPlans = $this->loader->forSourceAssignmentIds(
             $this->companyId,
-            $assignments->pluck('id')->all(),
+            $candidateIds,
         );
 
-        // 5. Batch detect relief conflicts
+        // 5. Batch detect relief conflicts using typed non-colliding keys
         $conflicts = $this->statusResolver->detectBatchConflicts(
             $this->companyId,
-            $plans,
+            $this->cachedPlans,
             $this->timezone,
         );
 
-        // 6. Map domain properties
-        return $assignments->map(function (CrewAssignment $assignment) use ($plans, $conflicts): array {
+        // 6. Map lightweight domain properties
+        return $rawCandidates->map(function (CrewAssignment $assignment) use ($conflicts): array {
             $sourceId = (int) $assignment->id;
-            $plan = $plans->get($sourceId);
+            $plan = $this->cachedPlans->get($sourceId);
             $hasRelief = $plan !== null;
 
             $signoffDate = $assignment->planned_signoff_at !== null
@@ -205,9 +347,6 @@ final class CrewReliefReportQuery
             $daysUntil = $signoffDate !== null
                 ? $this->statusResolver->daysUntilSignoff($signoffDate, $this->timezone, $this->today)
                 : null;
-
-            $actualJoinedDate = $this->statusResolver->actualJoinedDate($assignment, $this->timezone);
-            $daysOnboard = $this->statusResolver->daysOnboard($assignment, $this->timezone, $this->today);
 
             $reliefStatusInfo = $this->statusResolver->resolveReliefStatusInfo($plan, $this->timezone);
             $reliefPlannedJoin = $reliefStatusInfo['planned_join_date'];
@@ -223,9 +362,9 @@ final class CrewReliefReportQuery
                 );
             }
 
-            // Relief conflict
-            $planId = $plan !== null ? (int) $plan->id : null;
-            $reliefConflict = $planId !== null ? ($conflicts[$planId] ?? null) : null;
+            // Relief conflict using typed non-colliding key
+            $planKey = CrewReliefPlanKey::for($plan);
+            $reliefConflict = $planKey !== null ? ($conflicts[$planKey] ?? null) : null;
 
             $reliefPhaseCode = $reliefStatusInfo['phase_code'] !== null
                 ? CrewPhaseCode::tryFrom($reliefStatusInfo['phase_code'])
@@ -238,16 +377,9 @@ final class CrewReliefReportQuery
                 $joinsLate,
             );
 
-            $reliefEmployee = null;
-            if ($plan !== null && $plan->employee !== null) {
-                $reliefEmployee = [
-                    'id' => (int) $plan->employee->id,
-                    'name' => (string) $plan->employee->name,
-                    'employee_no' => $plan->employee->employee_no !== null ? (string) $plan->employee->employee_no : null,
-                ];
-            }
-
-            $nextAssignment = $this->statusResolver->resolveNextAssignment($assignment);
+            $reliefEmployeeId = ($plan !== null && $plan->employee_id !== null)
+                ? (int) $plan->employee_id
+                : null;
 
             $attention = $this->attentionResolver->resolve([
                 'days_until_signoff' => $daysUntil,
@@ -260,20 +392,17 @@ final class CrewReliefReportQuery
             ]);
 
             return [
-                'assignment' => $assignment,
-                'actual_joined_date' => $actualJoinedDate,
-                'days_onboard' => $daysOnboard,
+                'id' => $sourceId,
                 'planned_signoff_at' => $signoffDate,
                 'days_until_signoff' => $daysUntil,
-                'days_to_signoff_label' => $this->statusResolver->daysToSignoffLabel($daysUntil),
                 'has_relief' => $hasRelief,
-                'relief_employee' => $reliefEmployee,
-                'relief_status' => $reliefStatusInfo['display_label'],
-                'relief_phase_code' => $reliefStatusInfo['phase_code'],
+                'relief_status_info' => $reliefStatusInfo,
                 'relief_planned_join' => $reliefPlannedJoin,
+                'relief_conflict' => $reliefConflict,
+                'relief_phase_code' => $reliefPhaseCode,
                 'readiness' => $readiness,
-                'next_assignment' => $nextAssignment,
                 'attention' => $attention,
+                'relief_employee_id' => $reliefEmployeeId,
             ];
         })->values();
     }
@@ -291,6 +420,7 @@ final class CrewReliefReportQuery
 
             $query->where(function (Builder $q) use ($search, $companyId, $user): void {
                 $q->where('assignment_no', 'like', '%'.$search.'%')
+                    ->orWhere('remarks', 'like', '%'.$search.'%')
                     ->orWhereHas('employee', function (Builder $e) use ($search, $companyId, $user): void {
                         EmployeeVisibilityScope::apply($e, $user, $companyId);
                         $e->where(function (Builder $sub) use ($search): void {
@@ -332,13 +462,29 @@ final class CrewReliefReportQuery
             $query->where('rank_id', (int) $this->filters->rankId);
         }
 
-        $from = $this->filters->plannedSignoffFrom !== ''
-            ? CarbonImmutable::parse($this->filters->plannedSignoffFrom, $this->timezone)->startOfDay()
-            : null;
+        $from = null;
+        if ($this->filters->plannedSignoffFrom !== '') {
+            try {
+                $from = CarbonImmutable::parse($this->filters->plannedSignoffFrom, $this->timezone)->startOfDay();
+            } catch (\Throwable) {
+                $from = null;
+            }
+        }
 
-        $to = $this->filters->plannedSignoffTo !== ''
-            ? CarbonImmutable::parse($this->filters->plannedSignoffTo, $this->timezone)->endOfDay()
-            : null;
+        $to = null;
+        if ($this->filters->plannedSignoffTo !== '') {
+            try {
+                $to = CarbonImmutable::parse($this->filters->plannedSignoffTo, $this->timezone)->endOfDay();
+            } catch (\Throwable) {
+                $to = null;
+            }
+        }
+
+        if ($from !== null && $to !== null && $to < $from) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
 
         if ($from !== null || $to !== null) {
             if ($from !== null) {
@@ -447,7 +593,7 @@ final class CrewReliefReportQuery
      * @param  Collection<int, array<string, mixed>>  $candidates
      * @return Collection<int, array<string, mixed>>
      */
-    private function sortRows(Collection $candidates): Collection
+    private function sortCandidateSummaries(Collection $candidates): Collection
     {
         return $candidates->sort(function (array $left, array $right): int {
             // 1. Urgency rank
@@ -463,7 +609,7 @@ final class CrewReliefReportQuery
             $rightSignoff = $right['planned_signoff_at'];
 
             if ($leftSignoff === null && $rightSignoff === null) {
-                return $left['assignment']->id <=> $right['assignment']->id;
+                return $left['id'] <=> $right['id'];
             }
 
             if ($leftSignoff === null) {
@@ -478,7 +624,7 @@ final class CrewReliefReportQuery
                 return $leftSignoff <=> $rightSignoff;
             }
 
-            return $left['assignment']->id <=> $right['assignment']->id;
+            return $left['id'] <=> $right['id'];
         })->values();
     }
 

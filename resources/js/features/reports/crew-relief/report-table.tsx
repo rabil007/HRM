@@ -219,7 +219,9 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
                                     </div>
                                 ) : (
                                     <span className="text-muted-foreground italic">
-                                        Not Assigned
+                                        {row.readiness === 'restricted'
+                                            ? 'Restricted'
+                                            : 'Not Assigned'}
                                     </span>
                                 )}
                             </TableCell>
@@ -279,6 +281,14 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
                                         className="whitespace-nowrap text-muted-foreground"
                                     >
                                         Not Assigned
+                                    </Badge>
+                                )}
+                                {row.readiness === 'restricted' && (
+                                    <Badge
+                                        variant="outline"
+                                        className="whitespace-nowrap text-muted-foreground"
+                                    >
+                                        Restricted
                                     </Badge>
                                 )}
                             </TableCell>

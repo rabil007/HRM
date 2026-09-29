@@ -53,7 +53,13 @@ export interface CrewReliefRow {
     relief_status: string;
     relief_phase_code: string | null;
     relief_planned_join: string | null;
-    readiness: 'ready' | 'in_progress' | 'not_assigned' | 'at_risk' | 'joined';
+    readiness:
+        | 'ready'
+        | 'in_progress'
+        | 'not_assigned'
+        | 'at_risk'
+        | 'joined'
+        | 'restricted';
     readiness_label: string;
     next_assignment: CrewReliefNextAssignment | null;
     attention: CrewReliefAttention;

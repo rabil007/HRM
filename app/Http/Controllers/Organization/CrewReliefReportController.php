@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\CrewReliefExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\CrewReliefReportRequest;
 use App\Support\Reports\CrewRelief\CrewReliefReportFilters;
 use App\Support\Reports\CrewRelief\CrewReliefReportPagePermissions;
 use App\Support\Reports\CrewRelief\CrewReliefReportQuery;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class CrewReliefReportController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(CrewReliefReportRequest $request): Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = CrewReliefReportFilters::fromRequest($request);
@@ -35,7 +35,7 @@ class CrewReliefReportController extends Controller
         ]);
     }
 
-    public function export(Request $request): BinaryFileResponse
+    public function export(CrewReliefReportRequest $request): BinaryFileResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $filters = CrewReliefReportFilters::fromRequest($request);

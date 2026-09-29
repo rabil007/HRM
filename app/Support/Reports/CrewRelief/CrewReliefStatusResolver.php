@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewMovements\CrewAssignmentOverlapDetector;
 use App\Support\CrewMovements\CrewTourOfDutyCalculator;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -26,6 +27,7 @@ final class CrewReliefStatusResolver
 
     public function __construct(
         private readonly CrewTourOfDutyCalculator $calculator = new CrewTourOfDutyCalculator,
+        private readonly CrewAssignmentOverlapDetector $overlapDetector = new CrewAssignmentOverlapDetector,
     ) {}
 
     public function daysUntilSignoff(
@@ -242,7 +244,7 @@ final class CrewReliefStatusResolver
      * Detect assignment conflicts for relief plans in a single batch query.
      *
      * @param  Collection<int, CrewAssignment|CrewPlanningAssignment>  $plans
-     * @return array<int, string> map of plan id => conflict message
+     * @return array<string, string> map of CrewReliefPlanKey => conflict message
      */
     public function detectBatchConflicts(
         int $companyId,
@@ -294,35 +296,31 @@ final class CrewReliefStatusResolver
             }
 
             foreach ($assignedPlans as $plan) {
-                $planJoinDate = $plan instanceof CrewAssignment
-                    ? $plan->planned_join_at?->copy()->timezone($timezone)->toDateString()
-                    : $plan->planned_join_date?->toDateString();
+                $planKey = CrewReliefPlanKey::for($plan);
+                if ($planKey === null) {
+                    continue;
+                }
 
-                $planSignoffDate = $plan instanceof CrewAssignment
-                    ? $plan->planned_signoff_at?->copy()->timezone($timezone)->toDateString()
-                    : $plan->planned_signoff_date?->toDateString();
+                $window = $this->overlapDetector->dateWindowForPlan($plan, $timezone);
+                $planStart = $window['start'];
+                $planEnd = $window['end'];
+
+                if ($planStart === null) {
+                    continue;
+                }
 
                 foreach ($competing as $other) {
                     $otherVessel = $other->vessel?->name ?? 'another vessel';
-                    $otherSignoff = $other->planned_signoff_at?->copy()->timezone($timezone)->toDateString();
 
                     if ($other->status === CrewAssignmentStatus::Active) {
-                        // If active on another assignment with no signoff or signoff >= plan join date => conflict
-                        if ($planJoinDate === null || $otherSignoff === null || $otherSignoff >= $planJoinDate) {
-                            $conflicts[(int) $plan->id] = "Employee has competing active assignment on {$otherVessel}.";
-                            break 2;
+                        if ($this->overlapDetector->overlapsActive($planStart, $planEnd, $other, $timezone)) {
+                            $conflicts[$planKey] = "Employee has competing active assignment on {$otherVessel}.";
+                            break;
                         }
                     } elseif ($other->status === CrewAssignmentStatus::Planned) {
-                        $otherJoin = $other->planned_join_at?->copy()->timezone($timezone)->toDateString();
-
-                        if ($planJoinDate !== null && $otherJoin !== null) {
-                            $planEnd = $planSignoffDate ?? $planJoinDate;
-                            $otherEnd = $otherSignoff ?? $otherJoin;
-
-                            if ($planJoinDate <= $otherEnd && $otherJoin <= $planEnd) {
-                                $conflicts[(int) $plan->id] = "Employee has overlapping planned assignment on {$otherVessel}.";
-                                break 2;
-                            }
+                        if ($this->overlapDetector->overlapsPlanned($planStart, $planEnd, $other, $timezone)) {
+                            $conflicts[$planKey] = "Employee has overlapping planned assignment on {$otherVessel}.";
+                            break;
                         }
                     }
                 }

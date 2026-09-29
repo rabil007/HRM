@@ -56,6 +56,9 @@ final class CrewReliefExport implements FromCollection, WithHeadings, WithMappin
         $reliefEmployee = $row['relief_employee'] ?? null;
         $nextAssignment = $row['next_assignment'] ?? null;
 
+        $isRestricted = ($row['readiness'] ?? null) === 'restricted';
+        $reliefName = $reliefEmployee !== null ? $reliefEmployee['name'] : ($isRestricted ? 'Restricted' : '—');
+
         return [
             $employee !== null ? $employee['name'] : '—',
             $employee !== null ? ($employee['employee_no'] ?? '—') : '—',
@@ -66,7 +69,7 @@ final class CrewReliefExport implements FromCollection, WithHeadings, WithMappin
             $row['days_onboard'] ?? 0,
             $row['planned_signoff_at'] ?? '—',
             $row['days_to_signoff_label'] ?? '—',
-            $reliefEmployee !== null ? $reliefEmployee['name'] : '—',
+            $reliefName,
             $row['relief_status'] ?? '—',
             $row['relief_planned_join'] ?? '—',
             $row['readiness_label'] ?? '—',
