@@ -7,7 +7,7 @@ import {
     Loader2,
     Upload,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import Heading from '@/components/heading';
@@ -26,6 +26,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -64,6 +65,8 @@ type Project = {
     id: number;
     client_id: number | null;
     client_name: string | null;
+    client_ids: number[];
+    clients: ClientOption[];
     title: string;
     is_active: boolean;
 } & MasterDataUsageFlags;
@@ -106,37 +109,54 @@ export default function Projects({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm<{
-        client_id: number | '';
+        client_ids: number[];
         title: string;
         is_active: boolean;
     }>({
-        client_id: '',
+        client_ids: [],
         title: '',
         is_active: true,
     });
 
     const rows = projects;
     const activeClients = clients.filter((client) => client.is_active);
-    const formClients =
-        current?.client_id &&
-        !activeClients.some((client) => client.id === current.client_id)
-            ? [
-                  ...activeClients,
-                  {
-                      id: current.client_id,
-                      name:
-                          current.client_name ?? `Client #${current.client_id}`,
-                      is_active: false,
-                  },
-              ]
-            : activeClients;
+    const formClients = useMemo(() => {
+        const byId = new Map<number, ClientOption>();
+
+        activeClients.forEach((client) => byId.set(client.id, client));
+        current?.clients.forEach((client) => byId.set(client.id, client));
+
+        return Array.from(byId.values()).sort((a, b) =>
+            a.name.localeCompare(b.name),
+        );
+    }, [activeClients, current]);
+    const selectedClientIds = useMemo(
+        () => new Set(form.data.client_ids),
+        [form.data.client_ids],
+    );
+    const [clientQuery, setClientQuery] = useState('');
+    const filteredFormClients = useMemo(() => {
+        const term = clientQuery.trim().toLowerCase();
+
+        if (term === '') {
+            return formClients;
+        }
+
+        return formClients.filter((client) =>
+            client.name.toLowerCase().includes(term),
+        );
+    }, [clientQuery, formClients]);
+    const selectedClients = formClients.filter((client) =>
+        selectedClientIds.has(client.id),
+    );
 
     const openCreate = () => {
         setCurrent(null);
         form.reset();
         form.clearErrors();
+        setClientQuery('');
         form.setData({
-            client_id: '',
+            client_ids: [],
             title: '',
             is_active: true,
         });
@@ -147,8 +167,9 @@ export default function Projects({
         setCurrent(project);
         form.reset();
         form.clearErrors();
+        setClientQuery('');
         form.setData({
-            client_id: project.client_id ?? '',
+            client_ids: project.client_ids,
             title: project.title,
             is_active: project.is_active,
         });
@@ -156,11 +177,6 @@ export default function Projects({
     };
 
     const submit = () => {
-        form.transform((data) => ({
-            ...data,
-            client_id: data.client_id === '' ? null : data.client_id,
-        }));
-
         if (current) {
             form.put(`/settings/master-data/projects/${current.id}`, {
                 preserveScroll: true,
@@ -199,7 +215,7 @@ export default function Projects({
         router.put(
             `/settings/master-data/projects/${project.id}`,
             {
-                client_id: project.client_id,
+                client_ids: project.client_ids,
                 title: project.title,
                 is_active: !project.is_active,
             },
@@ -390,8 +406,35 @@ export default function Projects({
                                         </span>
                                         <MasterDataInUseBadge item={p} />
                                     </div>
-                                    <div className="col-span-3 truncate text-sm text-muted-foreground">
-                                        {p.client_name ?? 'Unassigned'}
+                                    <div className="col-span-3 min-w-0">
+                                        {p.clients.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {p.clients
+                                                    .slice(0, 2)
+                                                    .map((client) => (
+                                                        <span
+                                                            key={client.id}
+                                                            className={cn(
+                                                                'max-w-32 truncate rounded-md border border-border/70 bg-muted/40 px-2 py-0.5 text-xs font-medium text-foreground',
+                                                                !client.is_active &&
+                                                                    'text-muted-foreground',
+                                                            )}
+                                                            title={client.name}
+                                                        >
+                                                            {client.name}
+                                                        </span>
+                                                    ))}
+                                                {p.clients.length > 2 ? (
+                                                    <span className="rounded-md border border-border/70 bg-muted/30 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                                        +{p.clients.length - 2}
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        ) : (
+                                            <span className="text-sm text-muted-foreground">
+                                                Unassigned
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="col-span-2 flex items-center">
                                         <Switch
@@ -687,47 +730,99 @@ export default function Projects({
                     <div className="flex-1 space-y-5 overflow-y-auto p-8">
                         <div className="space-y-2">
                             <Label
-                                htmlFor="client_id"
+                                htmlFor="client-search"
                                 className={fieldLabelClass}
                             >
-                                Client
-                                {!current ? (
-                                    <span className="text-destructive"> *</span>
-                                ) : null}
+                                Clients{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
-                            <AppSelect
-                                value={
-                                    form.data.client_id === ''
-                                        ? ''
-                                        : String(form.data.client_id)
+                            <Input
+                                id="client-search"
+                                value={clientQuery}
+                                onChange={(event) =>
+                                    setClientQuery(event.target.value)
                                 }
-                                onValueChange={(value) =>
-                                    form.setData(
-                                        'client_id',
-                                        value ? Number(value) : '',
-                                    )
-                                }
-                                variant="dark"
-                                placeholder="Select client"
-                                className="h-11 rounded-xl"
-                            >
-                                {current && current.client_id === null ? (
-                                    <AppSelectItem value="">
-                                        Unassigned
-                                    </AppSelectItem>
-                                ) : null}
-                                {formClients.map((client) => (
-                                    <AppSelectItem
-                                        key={client.id}
-                                        value={String(client.id)}
-                                    >
-                                        {client.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                            {form.errors.client_id ? (
+                                placeholder="Search clients"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
+                            />
+                            {selectedClients.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {selectedClients.map((client) => (
+                                        <span
+                                            key={client.id}
+                                            className={cn(
+                                                'rounded-md border border-border/70 bg-muted/40 px-2 py-0.5 text-xs font-medium text-foreground',
+                                                !client.is_active &&
+                                                    'text-muted-foreground',
+                                            )}
+                                        >
+                                            {client.name}
+                                            {!client.is_active
+                                                ? ' (inactive)'
+                                                : ''}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
+                            <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border/70 bg-card p-2">
+                                {filteredFormClients.length === 0 ? (
+                                    <p className="px-2 py-3 text-sm text-muted-foreground">
+                                        No clients found.
+                                    </p>
+                                ) : (
+                                    filteredFormClients.map((client) => {
+                                        const checked = selectedClientIds.has(
+                                            client.id,
+                                        );
+
+                                        return (
+                                            <label
+                                                key={client.id}
+                                                className={cn(
+                                                    'flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/50',
+                                                    !client.is_active &&
+                                                        'text-muted-foreground',
+                                                )}
+                                            >
+                                                <Checkbox
+                                                    checked={checked}
+                                                    onCheckedChange={() => {
+                                                        form.setData(
+                                                            'client_ids',
+                                                            checked
+                                                                ? form.data.client_ids.filter(
+                                                                      (id) =>
+                                                                          id !==
+                                                                          client.id,
+                                                                  )
+                                                                : [
+                                                                      ...form
+                                                                          .data
+                                                                          .client_ids,
+                                                                      client.id,
+                                                                  ],
+                                                        );
+                                                    }}
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block truncate text-sm font-medium">
+                                                        {client.name}
+                                                    </span>
+                                                    {!client.is_active ? (
+                                                        <span className="block text-xs text-muted-foreground">
+                                                            Inactive existing
+                                                            relationship
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                            </label>
+                                        );
+                                    })
+                                )}
+                            </div>
+                            {form.errors.client_ids ? (
                                 <div className="text-xs font-medium text-destructive">
-                                    {form.errors.client_id}
+                                    {form.errors.client_ids}
                                 </div>
                             ) : null}
                         </div>

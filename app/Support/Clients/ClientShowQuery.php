@@ -84,7 +84,7 @@ final class ClientShowQuery
             $projectPreview = (clone $projectBaseQuery)
                 ->orderBy('title')
                 ->limit(5)
-                ->get(['id', 'client_id', 'title', 'is_active', 'created_at'])
+                ->get(['projects.id', 'projects.client_id', 'projects.title', 'projects.is_active', 'projects.created_at'])
                 ->map(fn (Project $project): array => [
                     'id' => (int) $project->id,
                     'title' => (string) $project->title,

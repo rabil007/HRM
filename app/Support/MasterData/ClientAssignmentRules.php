@@ -131,8 +131,13 @@ final class ClientAssignmentRules
             return 'The selected project is invalid.';
         }
 
+        $clientIds = $project->clients()
+            ->pluck('clients.id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
         // Legacy unassigned projects remain assignable until mapped.
-        if ($project->client_id === null) {
+        if ($clientIds === [] && $project->client_id === null) {
             return null;
         }
 
@@ -140,7 +145,11 @@ final class ClientAssignmentRules
             return 'Select a client before assigning a project.';
         }
 
-        if ((int) $project->client_id !== (int) $clientId) {
+        if ($clientIds === [] && $project->client_id !== null) {
+            $clientIds[] = (int) $project->client_id;
+        }
+
+        if (! in_array((int) $clientId, $clientIds, true)) {
             return 'The selected project does not belong to the selected client.';
         }
 

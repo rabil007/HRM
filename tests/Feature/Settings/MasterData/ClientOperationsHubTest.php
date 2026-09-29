@@ -96,6 +96,48 @@ test('authorized users can view client operations show page with project and com
         );
 });
 
+test('client operations show page counts projects assigned through pivot membership', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.view',
+        'settings.master-data.projects.view',
+    ]);
+
+    $clientA = Client::query()->create([
+        'name' => 'Pivot Hub A',
+        'is_active' => true,
+    ]);
+    $clientB = Client::query()->create([
+        'name' => 'Pivot Hub B',
+        'is_active' => true,
+    ]);
+
+    $shared = Project::query()->create([
+        'title' => 'Shared Hub Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $shared->clients()->sync([$clientA->id, $clientB->id]);
+
+    $clientBOnly = Project::query()->create([
+        'title' => 'Client B Only Hub Project',
+        'client_id' => $clientB->id,
+        'is_active' => false,
+    ]);
+    $clientBOnly->clients()->sync([$clientB->id]);
+
+    $this->get(route('settings.master-data.clients.show', $clientB))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/client-show')
+            ->where('operations.projects.total_count', 2)
+            ->where('operations.projects.active_count', 1)
+            ->where('operations.projects.preview.0.title', 'Client B Only Hub Project')
+            ->where('operations.projects.preview.1.title', 'Shared Hub Project'));
+});
+
 test('tenancy isolation: client show and index pages only expose vessels for the active company', function () {
     ['user' => $userA, 'company' => $companyA] = makeCrewAssignmentFixtures();
 

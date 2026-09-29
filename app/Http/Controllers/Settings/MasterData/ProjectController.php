@@ -10,11 +10,12 @@ use App\Http\Requests\Settings\MasterData\StoreProjectRequest;
 use App\Http\Requests\Settings\MasterData\UpdateProjectRequest;
 use App\Models\Client;
 use App\Models\Project;
-use App\Support\MasterData\GuardProjectClientChange;
 use App\Support\MasterData\MasterDataUsage;
+use App\Support\MasterData\SyncProjectClients;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Inertia\Inertia;
 
 class ProjectController extends Controller
@@ -29,19 +30,19 @@ class ProjectController extends Controller
         $clientId = $clientId !== null && $clientId !== '' ? (int) $clientId : null;
 
         $query = Project::query()
-            ->with('client:id,name')
+            ->with('clients:id,name,is_active')
             ->orderBy('title')
             ->select(['id', 'client_id', 'title', 'is_active']);
 
         if ($clientId !== null) {
-            $query->where('client_id', $clientId);
+            $query->whereHas('clients', fn ($clientQuery) => $clientQuery->whereKey($clientId));
         }
 
         $page = $this->withMasterDataUsage(
             $this->paginateMasterDataIndex(
                 $request,
                 $query,
-                ['title', 'client.name'],
+                ['title', 'clients.name'],
             ),
             'settings.master-data.projects.delete',
         );
@@ -50,7 +51,20 @@ class ProjectController extends Controller
             return [
                 'id' => $project->id,
                 'client_id' => $project->client_id,
-                'client_name' => $project->client?->name,
+                'client_name' => $project->clients->firstWhere('id', $project->client_id)?->name,
+                'client_ids' => $project->clients
+                    ->pluck('id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->values()
+                    ->all(),
+                'clients' => $project->clients
+                    ->map(fn (Client $client): array => [
+                        'id' => (int) $client->id,
+                        'name' => (string) $client->name,
+                        'is_active' => (bool) $client->is_active,
+                    ])
+                    ->values()
+                    ->all(),
                 'title' => $project->title,
                 'is_active' => (bool) $project->is_active,
                 'is_in_use' => (bool) $project->getAttribute('is_in_use'),
@@ -79,23 +93,48 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function store(StoreProjectRequest $request): JsonResponse|RedirectResponse
+    public function store(StoreProjectRequest $request, SyncProjectClients $syncProjectClients): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
-        $data['is_active'] = $data['is_active'] ?? true;
+        $clientIds = $data['client_ids'];
+        $attributes = Arr::only($data, ['title', 'is_active']);
+        $attributes['is_active'] = $attributes['is_active'] ?? true;
 
-        return $this->createOrReturnExistingQuickCreate(
-            $request,
+        $existing = $this->findExistingQuickCreate(
             Project::class,
-            $data,
+            'title',
+            (string) $attributes['title'],
+        );
+
+        if ($existing instanceof Project) {
+            $syncProjectClients->attach($existing, $clientIds);
+
+            return $this->storeRedirectOrQuickCreateJson(
+                $request,
+                $existing,
+                redirect()->route('settings.master-data.projects.index'),
+                'title',
+            );
+        }
+
+        $project = $syncProjectClients->create($attributes, $clientIds);
+
+        return $this->storeRedirectOrQuickCreateJson(
+            $request,
+            $project,
             redirect()->route('settings.master-data.projects.index'),
             'title',
         );
     }
 
-    public function update(UpdateProjectRequest $request, Project $project)
+    public function update(UpdateProjectRequest $request, Project $project, SyncProjectClients $syncProjectClients)
     {
-        $project->update($request->validated());
+        $data = $request->validated();
+        $syncProjectClients->update(
+            $project,
+            Arr::only($data, ['title', 'is_active']),
+            $data['client_ids'] ?? [],
+        );
 
         return redirect()->route('settings.master-data.projects.index');
     }
@@ -218,26 +257,14 @@ class ProjectController extends Controller
             }
 
             $existing = Project::query()->where('title', $title)->first();
-
-            if ($existing instanceof Project
-                && GuardProjectClientChange::wouldBreakEmployeeConsistency($existing, (int) $client->id)) {
-                $blockedReparent++;
-                $blockedTitles[$title] = true;
-
-                continue;
-            }
-
             if ($existing instanceof Project) {
-                $existing->update([
-                    'client_id' => $client->id,
-                    'is_active' => $active,
-                ]);
+                $existing->update(['is_active' => $active]);
+                app(SyncProjectClients::class)->attach($existing, [(int) $client->id]);
             } else {
-                Project::query()->create([
+                app(SyncProjectClients::class)->create([
                     'title' => $title,
-                    'client_id' => $client->id,
                     'is_active' => $active,
-                ]);
+                ], [(int) $client->id]);
             }
 
             $imported++;

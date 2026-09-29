@@ -4,7 +4,9 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Employee;
 use App\Models\Project;
+use App\Models\RecruitmentRequirement;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
@@ -146,4 +148,168 @@ test('authorized users can download csv template and import projects', function 
     expect(Project::query()->where('title', 'Beta Field')->value('is_active'))->toBe(true);
     expect(Project::query()->where('title', 'Alpha Platform')->value('client_id'))->not->toBeNull();
     expect(Project::query()->where('title', 'Beta Field')->value('client_id'))->not->toBeNull();
+});
+
+test('authorized users can create project with multiple clients', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Multi Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Multi Client B', 'is_active' => true]);
+
+    $this->post('/settings/master-data/projects', [
+        'title' => 'Shared Campaign',
+        'client_ids' => [$clientB->id, $clientA->id],
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    $project = Project::query()->where('title', 'Shared Campaign')->firstOrFail();
+
+    expect($project->client_id)->toBe($clientA->id)
+        ->and($project->clients()->pluck('clients.id')->sort()->values()->all())
+        ->toBe([$clientA->id, $clientB->id]);
+});
+
+test('project index exposes clients and filters by relationship membership', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Filter Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Filter Client B', 'is_active' => true]);
+    $clientC = Client::query()->create(['name' => 'Filter Client C', 'is_active' => true]);
+
+    $shared = Project::query()->create(['title' => 'Shared Filter Project', 'client_id' => $clientA->id, 'is_active' => true]);
+    $shared->clients()->sync([$clientA->id, $clientB->id]);
+    $onlyC = Project::query()->create(['title' => 'Only C Project', 'client_id' => $clientC->id, 'is_active' => true]);
+    $onlyC->clients()->sync([$clientC->id]);
+
+    $this->get('/settings/master-data/projects?client_id='.$clientB->id)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/master-data/projects')
+            ->has('projects', 1)
+            ->where('projects.0.id', $shared->id)
+            ->where('projects.0.client_ids', [$clientA->id, $clientB->id])
+            ->where('projects.0.clients.0.name', 'Filter Client A')
+            ->where('projects.0.clients.1.name', 'Filter Client B'));
+});
+
+test('legacy client_id payload normalizes to client_ids during project create and update', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Legacy Payload A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Legacy Payload B', 'is_active' => true]);
+
+    $this->post('/settings/master-data/projects', [
+        'title' => 'Legacy Payload Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    $project = Project::query()->where('title', 'Legacy Payload Project')->firstOrFail();
+    expect($project->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => 'Legacy Payload Project',
+        'client_id' => $clientB->id,
+        'is_active' => true,
+    ])->assertRedirect(route('settings.master-data.projects.index'));
+
+    expect($project->fresh()->client_id)->toBe($clientB->id)
+        ->and($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientB->id]);
+});
+
+test('quick create reuses existing project and attaches contextual client without removing others', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Quick Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Quick Client B', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Quick Shared Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Quick Shared Project',
+        'client_id' => $clientB->id,
+        'is_active' => true,
+    ])->assertOk()
+        ->assertJsonPath('id', $project->id);
+
+    expect($project->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
+        ->toBe([$clientA->id, $clientB->id]);
+});
+
+test('project client removal is blocked while employees or recruitment requirements use the pair', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Guard Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Guard Client B', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Guarded Multi Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id, $clientB->id]);
+
+    Employee::factory()->forCompany($company)->create([
+        'client_id' => $clientA->id,
+        'project_id' => $project->id,
+        'status' => 'active',
+    ]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertSessionHasErrors('client_ids');
+
+    Employee::query()->where('project_id', $project->id)->delete();
+
+    RecruitmentRequirement::query()->create([
+        'company_id' => $company->id,
+        'requirement_number' => 'REQ-GUARD-1',
+        'client_id' => $clientA->id,
+        'project_id' => $project->id,
+        'request_received_date' => now()->toDateString(),
+        'required_by_date' => now()->addWeek()->toDateString(),
+        'priority' => 'normal',
+        'status' => 'open',
+    ]);
+
+    $this->put("/settings/master-data/projects/{$project->id}", [
+        'title' => $project->title,
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertSessionHasErrors('client_ids');
+
+    expect($project->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
+        ->toBe([$clientA->id, $clientB->id]);
 });
