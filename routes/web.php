@@ -561,6 +561,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/roles/export', [RoleController::class, 'export'])->middleware('can:roles.export')->name('organization.roles.export');
     Route::get('organization/roles/{role}', [RoleController::class, 'show'])->middleware('can:roles.view')->name('organization.roles.show');
     Route::post('organization/roles', [RoleController::class, 'store'])->middleware(['can:roles.create', 'privileged.2fa'])->name('organization.roles.store');
+    Route::post('organization/roles/{role}/duplicate', [RoleController::class, 'duplicate'])->middleware(['can:roles.create', 'privileged.2fa'])->name('organization.roles.duplicate');
     Route::put('organization/roles/{role}', [RoleController::class, 'update'])->middleware(['can:roles.update', 'privileged.2fa'])->name('organization.roles.update');
     Route::delete('organization/roles/{role}', [RoleController::class, 'destroy'])->middleware(['can:roles.delete', 'privileged.2fa'])->name('organization.roles.destroy');
 

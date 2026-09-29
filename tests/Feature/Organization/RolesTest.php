@@ -3,10 +3,12 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
-use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 test('guests cannot access roles page', function () {
     $this->get('/organization/roles')->assertRedirect(route('login'));
@@ -948,4 +950,209 @@ test('roles index page does not expose full permission metadata payload', functi
     $this->get('/organization/roles')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->missing('permissions'));
+});
+
+test('authorized users can duplicate a normal role with permissions and employee scope without assigned users', function () {
+    $this->seed(PermissionsSeeder::class);
+
+    ['user' => $user, 'companyA' => $company, 'companyB' => $otherCompany] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $marineDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'status' => 'active',
+    ]);
+    $officeDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'status' => 'active',
+    ]);
+    $foreignDept = Department::query()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Foreign',
+        'status' => 'active',
+    ]);
+
+    Permission::findOrCreate('employees.view', 'web');
+    Permission::findOrCreate('employees.update', 'web');
+    $stalePermission = Permission::findOrCreate('legacy.stale.permission', 'web');
+
+    $source = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+        'employee_visibility_scope' => 'selected_departments',
+    ]);
+    $source->syncPermissions(['employees.view', 'employees.update', $stalePermission->name]);
+    $source->employeeVisibilityDepartments()->sync([
+        $marineDept->id => ['company_id' => $company->id],
+        $officeDept->id => ['company_id' => $company->id],
+        $foreignDept->id => ['company_id' => $otherCompany->id],
+    ]);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $assignedUser = User::factory()->create(['company_id' => $company->id]);
+    $assignedUser->assignRole($source);
+
+    grantCompanyPermissions($user, $company, ['roles.create', 'roles.view']);
+
+    $response = $this->post("/organization/roles/{$source->id}/duplicate", [
+        'name' => 'HR Manager - Assistant',
+    ]);
+
+    $duplicate = Role::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'HR Manager - Assistant')
+        ->first();
+
+    expect($duplicate)->not->toBeNull()
+        ->and($duplicate->id)->not->toBe($source->id)
+        ->and($duplicate->guard_name)->toBe($source->guard_name)
+        ->and($duplicate->employee_visibility_scope)->toBe('selected_departments')
+        ->and($duplicate->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+        ])
+        ->and($duplicate->employeeVisibilityDepartments->pluck('id')->sort()->values()->all())->toBe([
+            $marineDept->id,
+            $officeDept->id,
+        ]);
+
+    $response
+        ->assertRedirect("/organization/roles/{$duplicate->id}")
+        ->assertSessionHas('success', 'Role duplicated successfully.');
+
+    $source->refresh();
+
+    expect($source->name)->toBe('HR Manager')
+        ->and($source->permissions->pluck('name')->sort()->values()->all())->toBe([
+            'employees.update',
+            'employees.view',
+            'legacy.stale.permission',
+        ]);
+
+    $this->assertDatabaseHas('spatie_model_has_roles', [
+        'role_id' => $source->id,
+        'model_type' => User::class,
+        'model_id' => $assignedUser->id,
+        'company_id' => $company->id,
+    ]);
+    $this->assertDatabaseMissing('spatie_model_has_roles', [
+        'role_id' => $duplicate->id,
+        'model_type' => User::class,
+        'model_id' => $assignedUser->id,
+        'company_id' => $company->id,
+    ]);
+});
+
+test('role from another company cannot be duplicated', function () {
+    ['user' => $user, 'companyA' => $companyA, 'companyB' => $companyB] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $foreignRole = Role::query()->create([
+        'company_id' => $companyB->id,
+        'name' => 'Other Company Role',
+        'guard_name' => 'web',
+    ]);
+
+    grantCompanyPermissions($user, $companyA, ['roles.create', 'roles.view']);
+
+    $this->post("/organization/roles/{$foreignRole->id}/duplicate", [
+        'name' => 'Copied Role',
+    ])->assertNotFound();
+
+    expect(Role::query()->where('company_id', $companyA->id)->where('name', 'Copied Role')->exists())->toBeFalse();
+});
+
+test('user without roles create cannot duplicate a role', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.view']);
+
+    $this->post("/organization/roles/{$role->id}/duplicate", [
+        'name' => 'HR Manager Copy',
+    ])->assertForbidden();
+
+    expect(Role::query()->where('company_id', $company->id)->where('name', 'HR Manager Copy')->exists())->toBeFalse();
+});
+
+test('the Owner role cannot be duplicated', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $owner = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Owner',
+        'guard_name' => 'web',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.create', 'roles.view']);
+
+    $this->post("/organization/roles/{$owner->id}/duplicate", [
+        'name' => 'Owner Copy',
+    ])->assertSessionHasErrors([
+        'name' => 'The Owner role cannot be duplicated.',
+    ]);
+
+    expect(Role::query()->where('company_id', $company->id)->where('name', 'Owner Copy')->exists())->toBeFalse();
+});
+
+test('duplicate role name must be unique for the company and guard', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $source = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+    Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR Manager Copy',
+        'guard_name' => 'web',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.create', 'roles.view']);
+
+    $this->post("/organization/roles/{$source->id}/duplicate", [
+        'name' => 'HR Manager Copy',
+    ])->assertSessionHasErrors('name');
+
+    expect(Role::query()->where('company_id', $company->id)->where('name', 'HR Manager Copy')->count())->toBe(1);
+});
+
+test('role with zero permissions can be duplicated', function () {
+    ['user' => $user, 'companyA' => $company] = makeCompanyAuthorizationPair();
+    $this->actingAs($user);
+
+    $source = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Empty Role',
+        'guard_name' => 'web',
+        'employee_visibility_scope' => 'all',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.create', 'roles.view']);
+
+    $this->post("/organization/roles/{$source->id}/duplicate", [
+        'name' => 'Empty Role Copy',
+    ])->assertRedirect();
+
+    $duplicate = Role::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'Empty Role Copy')
+        ->first();
+
+    expect($duplicate)->not->toBeNull()
+        ->and($duplicate->id)->not->toBe($source->id)
+        ->and($duplicate->permissions)->toHaveCount(0)
+        ->and($duplicate->employee_visibility_scope)->toBe('all');
 });

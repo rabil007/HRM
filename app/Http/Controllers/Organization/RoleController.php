@@ -195,6 +195,69 @@ class RoleController extends Controller
             ->with('success', 'Role updated successfully.');
     }
 
+    public function duplicate(Request $request, Role $role)
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $role->company_id === $companyId, 404);
+
+        if ($role->name === 'Owner') {
+            throw ValidationException::withMessages([
+                'name' => 'The Owner role cannot be duplicated.',
+            ]);
+        }
+
+        $data = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique(config('permission.table_names.roles'), 'name')
+                    ->where('company_id', $companyId)
+                    ->where('guard_name', $role->guard_name),
+            ],
+        ]);
+
+        $newRole = DB::transaction(function () use ($role, $companyId, $data) {
+            $scope = $role->employee_visibility_scope ?? Role::SCOPE_ALL;
+
+            $newRole = Role::query()->create([
+                'company_id' => $companyId,
+                'name' => $data['name'],
+                'guard_name' => $role->guard_name,
+                'employee_visibility_scope' => $scope,
+            ]);
+
+            $registryPermissionNames = ApplicationPermissionRegistry::names();
+            $permissionNames = $role->permissions()
+                ->whereIn('name', $registryPermissionNames)
+                ->pluck('name')
+                ->all();
+
+            $newRole->syncPermissions($permissionNames);
+
+            if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS) {
+                $departmentIds = $role->employeeVisibilityDepartments()
+                    ->where('departments.company_id', $companyId)
+                    ->pluck('departments.id');
+
+                $syncData = [];
+                foreach ($departmentIds as $departmentId) {
+                    $syncData[(int) $departmentId] = ['company_id' => $companyId];
+                }
+
+                $newRole->employeeVisibilityDepartments()->sync($syncData);
+            }
+
+            EmployeeVisibilityScope::clearCache();
+
+            return $newRole;
+        });
+
+        return redirect()
+            ->route('organization.roles.show', $newRole)
+            ->with('success', 'Role duplicated successfully.');
+    }
+
     public function destroy(Role $role)
     {
         $companyId = (int) request()->attributes->get('current_company_id');

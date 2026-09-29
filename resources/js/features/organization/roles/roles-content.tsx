@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus, Users } from 'lucide-react';
+import { Copy, Plus, Users } from 'lucide-react';
+import { useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -25,9 +26,15 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
+import { duplicate as duplicateRoleRoute } from '@/routes/organization/roles';
 import type { PaginationMeta } from '@/types/pagination';
 import { RoleCard } from './components/role-card';
 import { RoleDeleteDialog } from './components/role-delete-dialog';
+import {
+    RoleDuplicateDialog,
+    suggestedDuplicateRoleName,
+} from './components/role-duplicate-dialog';
+import type { RoleDuplicateFormData } from './components/role-duplicate-dialog';
 import { RoleFiltersSheet } from './components/role-filters-sheet';
 import type { RoleFilters } from './components/role-filters-sheet';
 import { RoleFormSheet } from './components/role-form-sheet';
@@ -66,6 +73,10 @@ export function RolesContent({
     const form = useForm<RoleFormData>({
         name: '',
     });
+    const duplicateForm = useForm<RoleDuplicateFormData>({
+        name: '',
+    });
+    const [duplicateRole, setDuplicateRole] = useState<Role | null>(null);
 
     const handleAdd = () => {
         crud.openCreate(() => {
@@ -81,6 +92,13 @@ export function RolesContent({
             form.clearErrors();
             form.setData({ name: role.name ?? '' });
         });
+    };
+
+    const handleDuplicate = (role: Role) => {
+        duplicateForm.reset();
+        duplicateForm.clearErrors();
+        duplicateForm.setData({ name: suggestedDuplicateRoleName(role) });
+        setDuplicateRole(role);
     };
 
     const confirmDelete = () => {
@@ -106,6 +124,17 @@ export function RolesContent({
         form.post('/organization/roles', {
             preserveScroll: true,
             onSuccess: () => crud.setIsSheetOpen(false),
+        });
+    };
+
+    const submitDuplicate = () => {
+        if (!duplicateRole) {
+            return;
+        }
+
+        duplicateForm.post(duplicateRoleRoute.url(duplicateRole.id), {
+            preserveScroll: true,
+            onSuccess: () => setDuplicateRole(null),
         });
     };
 
@@ -167,6 +196,7 @@ export function RolesContent({
                             key={role.id}
                             role={role}
                             onEdit={handleEdit}
+                            onDuplicate={handleDuplicate}
                             onDelete={crud.openDelete}
                         />
                     ))}
@@ -228,6 +258,21 @@ export function RolesContent({
                                                 <Users className="h-4 w-4" />
                                             </a>
                                         </Button>
+                                        {role.name !== 'Owner' ? (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                                                title="Duplicate Role"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDuplicate(role);
+                                                }}
+                                            >
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
+                                        ) : null}
                                         <ListTableCrudActions
                                             viewHref={`/organization/roles/${role.id}`}
                                             onEdit={(e) => {
@@ -270,6 +315,18 @@ export function RolesContent({
                 onOpenChange={crud.setIsDeleteDialogOpen}
                 role={crud.currentEntity}
                 onConfirm={confirmDelete}
+            />
+
+            <RoleDuplicateDialog
+                open={duplicateRole !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDuplicateRole(null);
+                    }
+                }}
+                role={duplicateRole}
+                form={duplicateForm}
+                onSubmit={submitDuplicate}
             />
         </OrganizationListPageShell>
     );

@@ -8,6 +8,7 @@ import {
     Users,
     ChevronRight,
     Building2,
+    Copy,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
@@ -35,6 +36,11 @@ import {
     flattenDepartmentTreeIds,
     getDepartmentCheckState,
 } from '@/features/organization/crew-planning/lib/department-tree';
+import {
+    RoleDuplicateDialog,
+    suggestedDuplicateRoleName,
+} from '@/features/organization/roles/components/role-duplicate-dialog';
+import type { RoleDuplicateFormData } from '@/features/organization/roles/components/role-duplicate-dialog';
 import type {
     Company,
     PermissionOption,
@@ -50,6 +56,7 @@ import {
     resolvePermissionGroups,
 } from '@/pages/organization/_lib/role-permission-groups';
 import { permissionMatchesQuery } from '@/pages/organization/_lib/role-permission-search';
+import { duplicate as duplicateRoleRoute } from '@/routes/organization/roles';
 
 function normalizePermissions(value: string[]): string[] {
     return Array.from(
@@ -175,6 +182,10 @@ export default function RoleDetails({
             : (role.employee_visibility_scope ?? 'all'),
         department_ids: isOwner ? [] : (role.department_ids ?? []),
     });
+    const duplicateForm = useForm<RoleDuplicateFormData>({
+        name: suggestedDuplicateRoleName(role),
+    });
+    const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
 
     const [visibilityScope, setVisibilityScope] = useState<
         'all' | 'selected_departments'
@@ -338,6 +349,20 @@ export default function RoleDetails({
         });
     };
 
+    const openDuplicateDialog = (): void => {
+        duplicateForm.reset();
+        duplicateForm.clearErrors();
+        duplicateForm.setData('name', suggestedDuplicateRoleName(role));
+        setDuplicateDialogOpen(true);
+    };
+
+    const submitDuplicate = (): void => {
+        duplicateForm.post(duplicateRoleRoute.url(role.id), {
+            preserveScroll: true,
+            onSuccess: () => setDuplicateDialogOpen(false),
+        });
+    };
+
     return (
         <>
             <Head title={`Role • ${role.name}`} />
@@ -350,6 +375,17 @@ export default function RoleDetails({
                     backLabel="Back to roles"
                     actions={
                         <div className="flex items-center gap-3">
+                            {!isOwner ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-11 rounded-xl border-border bg-card px-5 dark:border-white/10 dark:bg-white/5"
+                                    onClick={openDuplicateDialog}
+                                >
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Duplicate Role
+                                </Button>
+                            ) : null}
                             <Button
                                 asChild
                                 variant="outline"
@@ -1044,6 +1080,14 @@ export default function RoleDetails({
                         </main>
                     </div>
                 </div>
+
+                <RoleDuplicateDialog
+                    open={duplicateDialogOpen}
+                    onOpenChange={setDuplicateDialogOpen}
+                    role={role}
+                    form={duplicateForm}
+                    onSubmit={submitDuplicate}
+                />
             </Main>
         </>
     );

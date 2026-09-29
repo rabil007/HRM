@@ -1,4 +1,4 @@
-import { Eye, Pencil, Shield, Trash2, Users } from 'lucide-react';
+import { Copy, Eye, Pencil, Shield, Trash2, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,10 +13,12 @@ import type { Role } from '../types';
 export function RoleCard({
     role,
     onEdit,
+    onDuplicate,
     onDelete,
 }: {
     role: Role;
     onEdit: (role: Role) => void;
+    onDuplicate: (role: Role) => void;
     onDelete: (role: Role) => void;
 }) {
     return (
@@ -109,6 +111,21 @@ export function RoleCard({
                     >
                         <Pencil className="h-4 w-4" />
                     </Button>
+                    {role.name !== 'Owner' ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDuplicate(role);
+                            }}
+                            title="Duplicate Role"
+                        >
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                    ) : null}
                     <Button
                         type="button"
                         variant="ghost"
