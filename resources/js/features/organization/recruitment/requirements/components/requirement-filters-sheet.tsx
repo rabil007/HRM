@@ -56,9 +56,19 @@ export function RequirementFiltersSheet({
             return options.projects;
         }
 
-        return options.projects.filter(
-            (p) => String(p.client_id) === String(draft.client_id),
-        );
+        const targetClientId = Number(draft.client_id);
+
+        return options.projects.filter((p) => {
+            if (Array.isArray(p.client_ids)) {
+                if (p.client_ids.some((id) => Number(id) === targetClientId)) {
+                    return true;
+                }
+            }
+
+            return (
+                p.client_id != null && Number(p.client_id) === targetClientId
+            );
+        });
     }, [draft.client_id, options.projects]);
 
     const activeFilterCount = useMemo(() => {
@@ -92,21 +102,36 @@ export function RequirementFiltersSheet({
     }, [draft]);
 
     const handleClientChange = (val: string) => {
-        setDraft((prev) => ({
-            ...prev,
-            client_id: val === 'all' ? null : val,
-            // Reset project if it no longer belongs to selected client
-            project_id:
-                val !== 'all' && prev.project_id
-                    ? options.projects.some(
-                          (p) =>
-                              String(p.id) === String(prev.project_id) &&
-                              String(p.client_id) === val,
-                      )
-                        ? prev.project_id
-                        : null
-                    : prev.project_id,
-        }));
+        setDraft((prev) => {
+            const nextClientId = val === 'all' ? null : val;
+            let nextProjectId = prev.project_id;
+
+            if (nextClientId !== null && prev.project_id) {
+                const targetClientId = Number(nextClientId);
+                const project = options.projects.find(
+                    (p) => String(p.id) === String(prev.project_id),
+                );
+
+                const isAssigned = project
+                    ? (Array.isArray(project.client_ids) &&
+                          project.client_ids.some(
+                              (id) => Number(id) === targetClientId,
+                          )) ||
+                      (project.client_id != null &&
+                          Number(project.client_id) === targetClientId)
+                    : false;
+
+                if (!isAssigned) {
+                    nextProjectId = null;
+                }
+            }
+
+            return {
+                ...prev,
+                client_id: nextClientId,
+                project_id: nextProjectId,
+            };
+        });
     };
 
     return (

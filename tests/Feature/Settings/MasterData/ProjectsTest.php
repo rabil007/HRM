@@ -529,3 +529,110 @@ test('nonexistent client id later in client_ids array surfaces top-level client_
 
     expect(Project::query()->where('title', 'Nonexistent Client Project')->exists())->toBeFalse();
 });
+
+test('create-only user can import new projects and reuse existing matching projects without mutation', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Import Client Alpha', 'is_active' => true]);
+    $existing = Project::query()->create([
+        'title' => 'Alpha Existing Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $existing->clients()->sync([$clientA->id]);
+
+    $csv = "client,project,is_active\nImport Client Alpha,Brand New Project,yes\nImport Client Alpha,Alpha Existing Project,yes\n";
+
+    $this->post('/settings/master-data/projects/import', [
+        'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
+    ])->assertRedirect('/settings/master-data/projects')
+        ->assertSessionHas('success');
+
+    $newProject = Project::query()->where('title', 'Brand New Project')->firstOrFail();
+    expect($newProject->clients()->pluck('clients.id')->all())->toBe([$clientA->id])
+        ->and($existing->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
+});
+
+test('create-only user cannot attach new client or change is_active on existing project via import', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Client One', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Client Two', 'is_active' => true]);
+
+    $existingActive = Project::query()->create([
+        'title' => 'Existing Active Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $existingActive->clients()->sync([$clientA->id]);
+
+    $existingStatus = Project::query()->create([
+        'title' => 'Existing Status Project',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $existingStatus->clients()->sync([$clientA->id]);
+
+    // Attempting to attach Client Two to Existing Active Project, and toggle Existing Status Project to no
+    $csv = "client,project,is_active\nClient Two,Existing Active Project,yes\nClient One,Existing Status Project,no\n";
+
+    $this->post('/settings/master-data/projects/import', [
+        'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
+    ])->assertRedirect('/settings/master-data/projects')
+        ->assertSessionHasErrors('file');
+
+    expect($existingActive->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id])
+        ->and($existingActive->fresh()->client_id)->toBe($clientA->id)
+        ->and($existingStatus->fresh()->is_active)->toBeTrue();
+});
+
+test('user with create and update permissions can attach new client and update status on existing project via import', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.create',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Client One Updatable', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Client Two Updatable', 'is_active' => true]);
+
+    $existingActive = Project::query()->create([
+        'title' => 'Updatable Project Attach',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $existingActive->clients()->sync([$clientA->id]);
+
+    $existingStatus = Project::query()->create([
+        'title' => 'Updatable Project Status',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $existingStatus->clients()->sync([$clientA->id]);
+
+    $csv = "client,project,is_active\nClient Two Updatable,Updatable Project Attach,yes\nClient One Updatable,Updatable Project Status,no\n";
+
+    $this->post('/settings/master-data/projects/import', [
+        'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
+    ])->assertRedirect('/settings/master-data/projects')
+        ->assertSessionHas('success');
+
+    expect($existingActive->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
+        ->toBe([$clientA->id, $clientB->id])
+        ->and($existingStatus->fresh()->is_active)->toBeFalse();
+});

@@ -225,6 +225,7 @@ export function EmployeeHeaderCard({
     projects?: Array<{
         id: number;
         title: string | null;
+        client_ids?: number[];
         client_id?: number | null;
     }>;
     clients?: Array<{ id: number; name: string | null }>;
@@ -320,10 +321,16 @@ export function EmployeeHeaderCard({
             (item) => String(item.id) === option.value,
         );
 
-        return (
-            project?.client_id != null &&
-            String(project.client_id) === selectedClientId
-        );
+        if (!project) {
+            return false;
+        }
+
+        const clientIds = (
+            project.client_ids ??
+            (project.client_id != null ? [project.client_id] : [])
+        ).map(String);
+
+        return clientIds.includes(selectedClientId);
     });
 
     const clearProjectIfMismatched = (nextClientId: string): void => {
@@ -333,15 +340,26 @@ export function EmployeeHeaderCard({
             return;
         }
 
+        if (!nextClientId) {
+            return;
+        }
+
         const project = projectItems.find(
             (item) => String(item.id) === currentProjectId,
         );
 
-        if (
-            !project ||
-            project.client_id == null ||
-            String(project.client_id) !== nextClientId
-        ) {
+        if (!project) {
+            form.setData('project_id', '');
+
+            return;
+        }
+
+        const clientIds = (
+            project.client_ids ??
+            (project.client_id != null ? [project.client_id] : [])
+        ).map(String);
+
+        if (!clientIds.includes(nextClientId)) {
             form.setData('project_id', '');
         }
     };

@@ -38,6 +38,29 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     present_fields: '',
 };
 
+function projectHasClient(
+    project: ProjectOption,
+    clientId: string | number,
+): boolean {
+    const targetId = Number(clientId);
+
+    if (!targetId) {
+        return false;
+    }
+
+    if (Array.isArray(project.client_ids)) {
+        if (project.client_ids.some((id) => Number(id) === targetId)) {
+            return true;
+        }
+    }
+
+    if (project.client_id != null && Number(project.client_id) === targetId) {
+        return true;
+    }
+
+    return false;
+}
+
 export function filterProjectsByClient(
     projects: ProjectOption[] | undefined,
     clientId: string,
@@ -48,7 +71,7 @@ export function filterProjectsByClient(
         return list;
     }
 
-    return list.filter((project) => String(project.client_id) === clientId);
+    return list.filter((project) => projectHasClient(project, clientId));
 }
 
 export function resolveProjectOnClientChange(
@@ -64,10 +87,7 @@ export function resolveProjectOnClientChange(
         (project) => String(project.id) === currentProjectId,
     );
 
-    if (
-        !selectedProject ||
-        String(selectedProject.client_id) !== nextClientId
-    ) {
+    if (!selectedProject || !projectHasClient(selectedProject, nextClientId)) {
         return '';
     }
 

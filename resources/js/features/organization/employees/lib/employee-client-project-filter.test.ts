@@ -118,4 +118,60 @@ describe('employee client-project filter behavior', () => {
         assert.equal('branch_id' in reset, false);
         assert.equal('crew_status' in reset, false);
     });
+
+    it('supports multi-client projects filtering and client switching', () => {
+        const clientAId = '100';
+        const clientBId = '200';
+        const clientCId = '300';
+
+        const multiProjects: ProjectOption[] = [
+            { id: 1, title: 'Project 1', client_ids: [100, 200] },
+            { id: 2, title: 'Project 2', client_ids: [100] },
+            { id: 3, title: 'Project 3', client_ids: [200] },
+        ];
+
+        // Selecting Client A: Project 1, Project 2
+        const clientAProjects = filterProjectsByClient(
+            multiProjects,
+            clientAId,
+        );
+        assert.deepEqual(
+            clientAProjects.map((p) => p.title),
+            ['Project 1', 'Project 2'],
+        );
+
+        // Selecting Client B: Project 1, Project 3
+        const clientBProjects = filterProjectsByClient(
+            multiProjects,
+            clientBId,
+        );
+        assert.deepEqual(
+            clientBProjects.map((p) => p.title),
+            ['Project 1', 'Project 3'],
+        );
+
+        // Client A + Project 1 -> switch Client to B: Project 1 remains selected
+        const switchAToB = resolveProjectOnClientChange(
+            '1',
+            clientBId,
+            multiProjects,
+        );
+        assert.equal(switchAToB, '1');
+
+        // Client A + Project 1 -> switch to unrelated Client C: Project cleared
+        const switchAToC = resolveProjectOnClientChange(
+            '1',
+            clientCId,
+            multiProjects,
+        );
+        assert.equal(switchAToC, '');
+
+        // Client A + Project 2 -> switch Client to B: Project 2 is not mapped to B, so cleared
+        const switchProject2ToB = resolveProjectOnClientChange(
+            '2',
+            clientBId,
+            multiProjects,
+        );
+        assert.equal(switchProject2ToB, '');
+    });
 });

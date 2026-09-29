@@ -232,12 +232,14 @@ class ProjectController extends Controller
             ->get(['id', 'name'])
             ->keyBy(fn (Client $client): string => mb_strtolower(trim($client->name)));
 
+        $canUpdate = (bool) $request->user()?->can('settings.master-data.projects.update');
+
         $imported = 0;
         $emptyTitles = 0;
         $unknownClients = 0;
         $unknownClientNames = [];
-        $blockedReparent = 0;
-        $blockedTitles = [];
+        $permissionDenied = 0;
+        $permissionDeniedTitles = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -274,8 +276,34 @@ class ProjectController extends Controller
 
             $existing = Project::query()->where('title', $title)->first();
             if ($existing instanceof Project) {
-                $existing->update(['is_active' => $active]);
-                app(SyncProjectClients::class)->attach($existing, [(int) $client->id]);
+                $currentClientIds = app(SyncProjectClients::class)->currentClientIds($existing);
+                $needsClientAttach = ! in_array((int) $client->id, $currentClientIds, true);
+                $needsActiveChange = (bool) $existing->is_active !== (bool) $active;
+
+                if (! $needsClientAttach && ! $needsActiveChange) {
+                    $imported++;
+
+                    if ($imported > 2000) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if (! $canUpdate) {
+                    $permissionDenied++;
+                    $permissionDeniedTitles[$title] = true;
+
+                    continue;
+                }
+
+                if ($needsActiveChange) {
+                    $existing->update(['is_active' => $active]);
+                }
+
+                if ($needsClientAttach) {
+                    app(SyncProjectClients::class)->attach($existing, [(int) $client->id]);
+                }
             } else {
                 app(SyncProjectClients::class)->create([
                     'title' => $title,
@@ -294,13 +322,13 @@ class ProjectController extends Controller
 
         if ($imported === 0) {
             $unknownList = implode(', ', array_keys($unknownClientNames));
-            $blockedList = implode(', ', array_keys($blockedTitles));
+            $permissionDeniedList = implode(', ', array_keys($permissionDeniedTitles));
 
             return redirect()
                 ->route('settings.master-data.projects.index')
                 ->withErrors([
                     'file' => match (true) {
-                        $blockedReparent > 0 && $blockedList !== '' => "No rows were imported. Project(s) cannot change client because employees are assigned: {$blockedList}.",
+                        $permissionDenied > 0 && $permissionDeniedList !== '' => "No rows were imported. Updating existing project(s) or attaching new clients requires update permission: {$permissionDeniedList}.",
                         $unknownClients > 0 && $unknownList !== '' => "No rows were imported. Unknown or inactive client(s): {$unknownList}.",
                         $unknownClients > 0 => 'No rows were imported. One or more rows had a missing or unknown client.',
                         $emptyTitles > 0 => "No rows were imported. {$emptyTitles} row(s) had an empty project title.",
@@ -316,11 +344,11 @@ class ProjectController extends Controller
                 ? " Skipped {$unknownClients} row(s) with unknown/inactive client(s): {$unknownList}."
                 : " Skipped {$unknownClients} row(s) with missing or unknown clients.";
         }
-        if ($blockedReparent > 0) {
-            $blockedList = implode(', ', array_keys($blockedTitles));
-            $message .= $blockedList !== ''
-                ? " Skipped {$blockedReparent} row(s) that cannot change client because employees are assigned: {$blockedList}."
-                : " Skipped {$blockedReparent} row(s) that cannot change client because employees are assigned.";
+        if ($permissionDenied > 0) {
+            $permissionDeniedList = implode(', ', array_keys($permissionDeniedTitles));
+            $message .= $permissionDeniedList !== ''
+                ? " Skipped {$permissionDenied} row(s) requiring update permission to mutate project or attach new client: {$permissionDeniedList}."
+                : " Skipped {$permissionDenied} row(s) requiring update permission.";
         }
 
         return redirect()

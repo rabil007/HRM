@@ -150,7 +150,7 @@ final class ClientAssignmentRules
         }
 
         if (! in_array((int) $clientId, $clientIds, true)) {
-            return 'The selected project does not belong to the selected client.';
+            return 'The selected project is not assigned to the selected client.';
         }
 
         return null;

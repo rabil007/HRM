@@ -83,7 +83,9 @@ export type ClientOption = {
 export type ProjectOption = {
     id: number;
     title: string;
-    client_id: number | null;
+    client_ids?: number[];
+    client_id?: number | null;
+    is_active?: boolean;
 };
 
 export type BankOption = {

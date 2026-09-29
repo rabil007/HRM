@@ -544,7 +544,7 @@ test('employee csv import rejects mismatched client and project pairs', function
     ])->assertOk()->json();
 
     expect(collect($preview['errors'])->pluck('message')->implode(' '))
-        ->toContain('does not belong to the selected client');
+        ->toContain('is not assigned to the selected client');
 
     $updateCsv = "employee_no,name,project\nEMP-CLI-1,Existing Import,Import Emp Proj B\n";
     $updateFile = UploadedFile::fake()->createWithContent('update.csv', $updateCsv);
@@ -555,7 +555,7 @@ test('employee csv import rejects mismatched client and project pairs', function
     ])->assertOk()->json();
 
     expect(collect($updatePreview['errors'])->pluck('message')->implode(' '))
-        ->toContain('does not belong to the selected client');
+        ->toContain('is not assigned to the selected client');
 
     $validCsv = "employee_no,name,client,project\nEMP-OK-1,Valid Pair,Import Emp A,Import Emp Proj A\n";
     $validFile = UploadedFile::fake()->createWithContent('valid.csv', $validCsv);
