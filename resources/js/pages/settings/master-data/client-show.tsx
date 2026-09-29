@@ -48,6 +48,13 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { VesselFormSheet } from '@/features/organization/vessels/components/vessel-form-sheet';
+import type {
+    VesselFormData,
+    VesselTypeOption,
+} from '@/features/organization/vessels/types';
+import { ClientProjectModal } from '@/features/settings/master-data/client-project-modal';
+import type { AttachableProject } from '@/features/settings/master-data/client-project-modal';
 import { formatDisplayDate } from '@/lib/format-date';
 import type { MasterDataUsageFlags } from '@/lib/master-data/usage';
 import { cn } from '@/lib/utils';
@@ -60,6 +67,7 @@ import {
     index as clientsIndex,
     update as clientUpdate,
 } from '@/routes/settings/master-data/clients';
+import { store as storeClientVessel } from '@/routes/settings/master-data/clients/vessels';
 import { index as projectsIndex } from '@/routes/settings/master-data/projects';
 
 type ClientDetails = {
@@ -107,6 +115,7 @@ type ClientShowPermissions = {
     delete: boolean;
     view_projects: boolean;
     create_project: boolean;
+    attach_project: boolean;
     view_vessels: boolean;
     create_vessel: boolean;
     view_audit: boolean;
@@ -115,24 +124,72 @@ type ClientShowPermissions = {
 export default function ClientShow({
     client,
     operations,
+    attachable_projects = [],
+    vessel_types = [],
     can,
     recent_activity = [],
     can_view_audit = false,
 }: {
     client: ClientDetails;
     operations: ClientOperations;
+    attachable_projects?: AttachableProject[];
+    vessel_types?: VesselTypeOption[];
     can: ClientShowPermissions;
     recent_activity?: RecentActivityItem[];
     can_view_audit?: boolean;
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [projectModalOpen, setProjectModalOpen] = useState(false);
+    const [vesselSheetOpen, setVesselSheetOpen] = useState(false);
 
     const form = useForm({
         name: client.name,
         is_active: client.is_active,
         redirect_to_show: true,
     });
+
+    const vesselForm = useForm<VesselFormData>({
+        name: '',
+        client_id: client.id,
+        vessel_type_id: '',
+        grt: '',
+        bhp: '',
+        official_no: '',
+        call_sign: '',
+        imo_no: '',
+        certificate: null,
+        is_active: true,
+    });
+
+    const openNewVesselSheet = () => {
+        vesselForm.setData({
+            name: '',
+            client_id: client.id,
+            vessel_type_id: '',
+            grt: '',
+            bhp: '',
+            official_no: '',
+            call_sign: '',
+            imo_no: '',
+            certificate: null,
+            is_active: true,
+        });
+        vesselForm.clearErrors();
+        setVesselSheetOpen(true);
+    };
+
+    const handleVesselSubmit = () => {
+        const hasCertificate = Boolean(vesselForm.data.certificate);
+        vesselForm.post(storeClientVessel.url(client.id), {
+            preserveScroll: true,
+            forceFormData: hasCertificate,
+            onSuccess: () => {
+                setVesselSheetOpen(false);
+                vesselForm.reset();
+            },
+        });
+    };
 
     const openEditSheet = () => {
         form.setData({
@@ -262,6 +319,15 @@ export default function ClientShow({
                         </div>
                     </div>
                 </div>
+
+                {!client.is_active ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+                        <span>
+                            Activate this client before adding new projects or
+                            vessels.
+                        </span>
+                    </div>
+                ) : null}
 
                 {/* KPI Summary Cards */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -405,7 +471,9 @@ export default function ClientShow({
                                         variant="secondary"
                                         className="ml-1 text-xs"
                                     >
-                                        {operations.projects.total_count}
+                                        {operations.projects.active_count}{' '}
+                                        active •{' '}
+                                        {operations.projects.total_count} total
                                     </Badge>
                                 ) : (
                                     <Badge
@@ -416,25 +484,46 @@ export default function ClientShow({
                                     </Badge>
                                 )}
                             </div>
-                            {can.view_projects &&
-                            operations.projects &&
-                            operations.projects.total_count > 0 ? (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs font-semibold text-primary"
-                                    asChild
-                                >
-                                    <Link
-                                        href={projectsIndex.url({
-                                            query: { client_id: client.id },
-                                        })}
+                            <div className="flex items-center gap-2">
+                                {can.view_projects &&
+                                operations.projects &&
+                                operations.projects.total_count > 0 ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs font-semibold text-primary"
+                                        asChild
                                     >
-                                        View all
-                                        <ArrowRight className="ml-1 size-3" />
-                                    </Link>
-                                </Button>
-                            ) : null}
+                                        <Link
+                                            href={projectsIndex.url({
+                                                query: { client_id: client.id },
+                                            })}
+                                        >
+                                            View all
+                                            <ArrowRight className="ml-1 size-3" />
+                                        </Link>
+                                    </Button>
+                                ) : null}
+
+                                {can.create_project || can.attach_project ? (
+                                    <Button
+                                        size="sm"
+                                        className="h-7 gap-1 text-xs font-semibold"
+                                        disabled={!client.is_active}
+                                        title={
+                                            !client.is_active
+                                                ? 'Activate this client before adding new projects or vessels.'
+                                                : undefined
+                                        }
+                                        onClick={() =>
+                                            setProjectModalOpen(true)
+                                        }
+                                    >
+                                        <Plus className="size-3.5" />
+                                        Add Project
+                                    </Button>
+                                ) : null}
+                            </div>
                         </CardHeader>
                         <CardContent className="flex-1 p-0">
                             {can.view_projects && operations.projects ? (
@@ -519,21 +608,50 @@ export default function ClientShow({
                                             Projects created for this client
                                             will appear here.
                                         </p>
-                                        {can.create_project ? (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="mt-4 gap-1.5 text-xs"
-                                                asChild
-                                            >
-                                                <Link
-                                                    href={projectsIndex.url()}
+                                        <div className="mt-4 flex flex-col items-center gap-2">
+                                            {can.create_project ||
+                                            can.attach_project ? (
+                                                <Button
+                                                    size="sm"
+                                                    className="gap-1.5 text-xs font-semibold"
+                                                    disabled={!client.is_active}
+                                                    title={
+                                                        !client.is_active
+                                                            ? 'Activate this client before adding new projects or vessels.'
+                                                            : undefined
+                                                    }
+                                                    onClick={() =>
+                                                        setProjectModalOpen(
+                                                            true,
+                                                        )
+                                                    }
                                                 >
                                                     <Plus className="size-3.5" />
-                                                    Manage Projects
-                                                </Link>
-                                            </Button>
-                                        ) : null}
+                                                    Add Project
+                                                </Button>
+                                            ) : null}
+                                            {can.create_project ? (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 text-xs text-muted-foreground"
+                                                    asChild
+                                                >
+                                                    <Link
+                                                        href={projectsIndex.url()}
+                                                    >
+                                                        Manage Projects module
+                                                    </Link>
+                                                </Button>
+                                            ) : null}
+                                            {!client.is_active ? (
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    Activate this client before
+                                                    adding new projects or
+                                                    vessels.
+                                                </span>
+                                            ) : null}
+                                        </div>
                                     </div>
                                 )
                             ) : (
@@ -566,7 +684,8 @@ export default function ClientShow({
                                         variant="secondary"
                                         className="ml-1 text-xs"
                                     >
-                                        {operations.vessels.total_count}
+                                        {operations.vessels.active_count} active
+                                        • {operations.vessels.total_count} total
                                     </Badge>
                                 ) : (
                                     <Badge
@@ -577,25 +696,44 @@ export default function ClientShow({
                                     </Badge>
                                 )}
                             </div>
-                            {can.view_vessels &&
-                            operations.vessels &&
-                            operations.vessels.total_count > 0 ? (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs font-semibold text-primary"
-                                    asChild
-                                >
-                                    <Link
-                                        href={vesselsIndex.url({
-                                            query: { client_id: client.id },
-                                        })}
+                            <div className="flex items-center gap-2">
+                                {can.view_vessels &&
+                                operations.vessels &&
+                                operations.vessels.total_count > 0 ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-xs font-semibold text-primary"
+                                        asChild
                                     >
-                                        View all
-                                        <ArrowRight className="ml-1 size-3" />
-                                    </Link>
-                                </Button>
-                            ) : null}
+                                        <Link
+                                            href={vesselsIndex.url({
+                                                query: { client_id: client.id },
+                                            })}
+                                        >
+                                            View all
+                                            <ArrowRight className="ml-1 size-3" />
+                                        </Link>
+                                    </Button>
+                                ) : null}
+
+                                {can.create_vessel ? (
+                                    <Button
+                                        size="sm"
+                                        className="h-7 gap-1 text-xs font-semibold"
+                                        disabled={!client.is_active}
+                                        title={
+                                            !client.is_active
+                                                ? 'Activate this client before adding new projects or vessels.'
+                                                : undefined
+                                        }
+                                        onClick={openNewVesselSheet}
+                                    >
+                                        <Plus className="size-3.5" />
+                                        Add Vessel
+                                    </Button>
+                                ) : null}
+                            </div>
                         </CardHeader>
                         <CardContent className="flex-1 p-0">
                             {can.view_vessels && operations.vessels ? (
@@ -681,19 +819,41 @@ export default function ClientShow({
                                             in the active company will appear
                                             here.
                                         </p>
-                                        {can.create_vessel ? (
+                                        <div className="mt-4 flex flex-col items-center gap-2">
+                                            {can.create_vessel ? (
+                                                <Button
+                                                    size="sm"
+                                                    className="gap-1.5 text-xs font-semibold"
+                                                    disabled={!client.is_active}
+                                                    title={
+                                                        !client.is_active
+                                                            ? 'Activate this client before adding new projects or vessels.'
+                                                            : undefined
+                                                    }
+                                                    onClick={openNewVesselSheet}
+                                                >
+                                                    <Plus className="size-3.5" />
+                                                    Add Vessel
+                                                </Button>
+                                            ) : null}
                                             <Button
                                                 size="sm"
-                                                variant="outline"
-                                                className="mt-4 gap-1.5 text-xs"
+                                                variant="ghost"
+                                                className="h-7 text-xs text-muted-foreground"
                                                 asChild
                                             >
                                                 <Link href={vesselsIndex.url()}>
-                                                    <Plus className="size-3.5" />
-                                                    Manage Vessels
+                                                    Manage Vessels module
                                                 </Link>
                                             </Button>
-                                        ) : null}
+                                            {!client.is_active ? (
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    Activate this client before
+                                                    adding new projects or
+                                                    vessels.
+                                                </span>
+                                            ) : null}
+                                        </div>
                                     </div>
                                 )
                             ) : (
@@ -854,6 +1014,34 @@ export default function ClientShow({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Contextual Add Project Modal */}
+            <ClientProjectModal
+                open={projectModalOpen}
+                onOpenChange={setProjectModalOpen}
+                client={client}
+                attachableProjects={attachable_projects}
+                canAttach={can.attach_project}
+                canCreate={can.create_project}
+            />
+
+            {/* Contextual Add Vessel Sheet */}
+            <VesselFormSheet
+                open={vesselSheetOpen}
+                onOpenChange={setVesselSheetOpen}
+                vessel={null}
+                clients={[
+                    {
+                        id: client.id,
+                        name: client.name,
+                        is_active: client.is_active,
+                    },
+                ]}
+                vesselTypes={vessel_types}
+                form={vesselForm}
+                onSubmit={handleVesselSubmit}
+                lockedClient={{ id: client.id, name: client.name }}
+            />
         </Main>
     );
 }

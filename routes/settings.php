@@ -7,6 +7,8 @@ use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
 use App\Http\Controllers\Settings\MasterData\ApprovalLocationController;
 use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\ClientController;
+use App\Http\Controllers\Settings\MasterData\ClientProjectController;
+use App\Http\Controllers\Settings\MasterData\ClientVesselController;
 use App\Http\Controllers\Settings\MasterData\CompanyVisaTypeController;
 use App\Http\Controllers\Settings\MasterData\CountryController;
 use App\Http\Controllers\Settings\MasterData\CourseController;
@@ -401,6 +403,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('clients/{client}', [ClientController::class, 'destroy'])
             ->middleware('can:settings.master-data.clients.delete')
             ->name('clients.destroy');
+        Route::post('clients/{client}/projects', [ClientProjectController::class, 'store'])
+            ->middleware('can:settings.master-data.projects.create')
+            ->name('clients.projects.store');
+        Route::post('clients/{client}/projects/attach', [ClientProjectController::class, 'attach'])
+            ->middleware('can:settings.master-data.projects.update')
+            ->name('clients.projects.attach');
+        Route::post('clients/{client}/projects/{project}/attach', [ClientProjectController::class, 'attach'])
+            ->middleware('can:settings.master-data.projects.update')
+            ->name('clients.projects.attach-item');
+        Route::post('clients/{client}/vessels', [ClientVesselController::class, 'store'])
+            ->middleware('can:crew_operations.vessels.create')
+            ->name('clients.vessels.store');
 
         Route::get('document-types/import/template', [DocumentTypeController::class, 'importTemplate'])
             ->middleware('can:settings.master-data.document-types.view')

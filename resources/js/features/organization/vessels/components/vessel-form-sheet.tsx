@@ -35,6 +35,7 @@ export function VesselFormSheet({
     vesselTypes,
     form,
     onSubmit,
+    lockedClient,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -43,6 +44,7 @@ export function VesselFormSheet({
     vesselTypes: VesselTypeOption[];
     form: InertiaFormProps<VesselFormData>;
     onSubmit: () => void;
+    lockedClient?: { id: number; name: string };
 }) {
     const certificateInputRef = useRef<HTMLInputElement>(null);
     const isEditing = vessel !== null;
@@ -98,36 +100,45 @@ export function VesselFormSheet({
                                     <span className="text-destructive"> *</span>
                                 ) : null}
                             </Label>
-                            <AppSelect
-                                value={
-                                    form.data.client_id === ''
-                                        ? ''
-                                        : String(form.data.client_id)
-                                }
-                                onValueChange={(v) =>
-                                    form.setData(
-                                        'client_id',
-                                        v ? Number(v) : '',
-                                    )
-                                }
-                                variant="dark"
-                                placeholder="Select client"
-                                className="h-11 rounded-xl"
-                            >
-                                {isEditing && vessel?.client_id == null ? (
-                                    <AppSelectItem value="">
-                                        Unassigned
-                                    </AppSelectItem>
-                                ) : null}
-                                {formClients.map((client) => (
-                                    <AppSelectItem
-                                        key={client.id}
-                                        value={String(client.id)}
-                                    >
-                                        {client.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
+                            {lockedClient ? (
+                                <div className="flex h-11 items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-3.5 text-sm font-medium text-foreground">
+                                    <span>{lockedClient.name}</span>
+                                    <span className="rounded-md border border-border/60 bg-background/80 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                        Contextual
+                                    </span>
+                                </div>
+                            ) : (
+                                <AppSelect
+                                    value={
+                                        form.data.client_id === ''
+                                            ? ''
+                                            : String(form.data.client_id)
+                                    }
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'client_id',
+                                            v ? Number(v) : '',
+                                        )
+                                    }
+                                    variant="dark"
+                                    placeholder="Select client"
+                                    className="h-11 rounded-xl"
+                                >
+                                    {isEditing && vessel?.client_id == null ? (
+                                        <AppSelectItem value="">
+                                            Unassigned
+                                        </AppSelectItem>
+                                    ) : null}
+                                    {formClients.map((client) => (
+                                        <AppSelectItem
+                                            key={client.id}
+                                            value={String(client.id)}
+                                        >
+                                            {client.name}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                            )}
                             {form.errors.client_id ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.client_id}
