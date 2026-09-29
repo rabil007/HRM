@@ -358,3 +358,57 @@ test('leave approvals page does not expose personal leave balances', function ()
             ->missing('leave_balances')
             ->missing('leave_balance_year'));
 });
+
+test('inactive linked employee is not eligible to create leave on my leave', function () {
+    ['user' => $user, 'company' => $company] = makeMyLeaveBalancesFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'user_id' => $user->id,
+        'status' => 'inactive',
+    ]);
+    LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/my-leave')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', $employee->id)
+            ->where('linked_employee_attendance_leave_enabled', false)
+            ->where('can.create', false)
+            ->where('leave_balances', [])
+            ->where('leave_balance_year', null));
+});
+
+test('soft-deleted linked employee is not eligible to create leave on my leave', function () {
+    ['user' => $user, 'company' => $company] = makeMyLeaveBalancesFixtures();
+    $employee = createAttendanceLeaveEmployee($company, ['user_id' => $user->id]);
+    $employee->delete();
+    LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/my-leave')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', null)
+            ->where('linked_employee_attendance_leave_enabled', false)
+            ->where('can.create', false)
+            ->where('leave_balances', [])
+            ->where('leave_balance_year', null));
+});

@@ -9,6 +9,10 @@ trait ValidatesOwnLeaveRequestEmployee
 {
     protected function validateOwnLeaveRequestEmployee(Validator $validator): void
     {
+        if ($validator->errors()->has('employee_id')) {
+            return;
+        }
+
         $visibility = app(LeaveRequestVisibility::class);
         $user = $this->user();
         $companyId = (int) $this->attributes->get('current_company_id');

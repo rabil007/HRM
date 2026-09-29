@@ -31,6 +31,7 @@ use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveApprovalApproverDuplicates;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestAuthorization;
+use App\Support\Attendance\LeaveRequestEligibleEmployeeRule;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\Attendance\PresentLeaveApproverOption;
@@ -206,8 +207,7 @@ class LeaveRequestController extends Controller
 
         $totalCount = array_sum($statusCounts);
 
-        $linkedEmployeeEligible = $linkedEmployeeId !== null
-            && AttendanceLeaveDepartmentScope::canAccessEmployeeId($linkedEmployeeId, $companyId);
+        $linkedEmployeeEligible = LeaveRequestEligibleEmployeeRule::canSelfService($user, $companyId);
 
         $canCreate = ($user?->can('attendance.leave-requests.create') ?? false)
             && ($canViewAll || $linkedEmployeeEligible);

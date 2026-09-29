@@ -813,7 +813,8 @@ test('self-service cannot submit another employee and receives ownership error',
             'employee_id' => 'You can only manage leave requests for your own employee record.',
         ]);
 
-    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+    expect(session('errors')->getBag('default')->get('employee_id'))->toHaveCount(1)
+        ->and(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
 test('self-service excluded attendance leave department uses department error and creates nothing', function () {
@@ -913,11 +914,41 @@ test('self-service cross-company employee is rejected without department message
         ->post('/attendance/leave-requests', validLeaveRequestPayload($foreignEmployee, $leaveType));
 
     $response->assertSessionHasErrors([
-        'employee_id' => 'The selected employee is invalid or inactive for this company.',
+        'employee_id' => 'You can only manage leave requests for your own employee record.',
     ]);
 
     expect(session('errors')->getBag('default')->first('employee_id'))
-        ->not->toBe(AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE);
+        ->not->toBe(AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE)
+        ->and(session('errors')->getBag('default')->get('employee_id'))->toHaveCount(1)
+        ->and(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('self-service nonexistent employee id is rejected with own employee error without probing', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $ownEmployee->update(['user_id' => $user->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $payload = validLeaveRequestPayload($ownEmployee, $leaveType);
+    $payload['employee_id'] = 999999;
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', $payload);
+
+    $response->assertSessionHasErrors([
+        'employee_id' => 'You can only manage leave requests for your own employee record.',
+    ]);
+
+    expect(session('errors')->getBag('default')->first('employee_id'))
+        ->toBe('You can only manage leave requests for your own employee record.')
+        ->and(session('errors')->getBag('default')->get('employee_id'))->toHaveCount(1)
+        ->and(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
 test('self-service employee without department is rejected with department message', function () {
