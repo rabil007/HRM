@@ -715,7 +715,7 @@ Tour resolution uses `CrewTourOfDutyResolver` / `CrewTourOfDutyCalculator`. Prog
 
 ```text
 Client
-├── Projects          (current Project → Client; re-parenting blocked when Employees conflict)
+├── Projects          (many-to-many via client_project; protected Client↔Project pair removal)
 └── Vessels           (Vessel.client_id = current/default operational Client)
 
 CrewAssignment.client_id      = Client during that mobilisation cycle (snapshot)

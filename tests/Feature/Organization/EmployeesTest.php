@@ -2186,6 +2186,12 @@ test('employee import updates existing employees when employee number matches', 
         'is_active' => true,
     ]);
 
+    $client = Client::query()->create([
+        'name' => 'Upsert Client',
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$client->id]);
+
     $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Upsert Template',
@@ -2200,7 +2206,7 @@ test('employee import updates existing employees when employee number matches', 
 
     grantCompanyPermissions($user, $company, ['employees.import', 'employees.update']);
 
-    $csv = "employee_no,project\n2025,CREWING\n";
+    $csv = "employee_no,client,project\n2025,Upsert Client,CREWING\n";
 
     $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
@@ -2222,6 +2228,7 @@ test('employee import updates existing employees when employee number matches', 
 
     expect($employee->fresh())
         ->name->toBe('VINOD MENON')
+        ->client_id->toBe($client->id)
         ->project_id->toBe($project->id);
 });
 

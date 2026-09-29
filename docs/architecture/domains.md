@@ -38,7 +38,8 @@ erDiagram
     CrewAssignment }o--o| CrewPlanningAssignment : "optional vacant link"
     CrewAssignmentPhase ||--o| EmployeeSeaService : completed_P4
 
-    Client ||--o{ Project : has
+    Client ||--o{ ClientProject : assigned
+    Project ||--o{ ClientProject : assigned
     Client ||--o{ Vessel : "current/default"
     Vessel }o--|| Company : owned_by
 ```
