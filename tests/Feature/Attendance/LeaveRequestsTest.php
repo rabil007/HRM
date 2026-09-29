@@ -7,12 +7,15 @@ use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
+use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\LeaveBalanceManager;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Http\UploadedFile;
@@ -751,6 +754,301 @@ test('unlinked self-service users cannot submit leave for another employee', fun
         ->assertSessionHasErrors('employee_id');
 
     expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('self-service can submit own leave when employee visibility excludes own department', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $managed = prepareLeaveRequestApprovalContext($company, $employee);
+    $employee->update(['user_id' => $user->id]);
+
+    $unrelatedDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Unrelated Leave Dept',
+        'code' => 'ULD',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+    restrictUserToDepartments($user, $company, [$unrelatedDepartment->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/my-leave')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', $employee->id)
+            ->where('linked_employee_attendance_leave_enabled', true)
+            ->where('can.create', true)
+            ->has('employees', 1)
+            ->where('employees.0.id', $employee->id));
+
+    $this->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertRedirect(route('attendance.my-leave.index'));
+
+    expect(LeaveRequest::query()->where('employee_id', $employee->id)->count())->toBe(1)
+        ->and(LeaveRequestApproval::query()->where('approver_user_id', $managed['managerUser']->id)->count())->toBe(1);
+});
+
+test('self-service cannot submit another employee and receives ownership error', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    ['employee' => $otherEmployee] = makeLeaveRequestActors($company);
+    $ownEmployee->update(['user_id' => $user->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($otherEmployee, $leaveType))
+        ->assertSessionHasErrors([
+            'employee_id' => 'You can only manage leave requests for your own employee record.',
+        ]);
+
+    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('self-service excluded attendance leave department uses department error and creates nothing', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $employee->department()->update(['include_in_attendance_leave' => false]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $pendingBefore = DB::table('leave_balances')->sum('pending_days');
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertSessionHasErrors([
+            'employee_id' => AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE,
+        ]);
+
+    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and(LeaveRequestApproval::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and((float) DB::table('leave_balances')->sum('pending_days'))->toEqual((float) $pendingBefore);
+});
+
+test('self-service inactive employee is rejected with invalid employee message', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id, 'status' => 'inactive']);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertSessionHasErrors([
+            'employee_id' => 'The selected employee is invalid or inactive for this company.',
+        ]);
+
+    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('self-service soft deleted employee is rejected with invalid employee message', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $employee->delete();
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertSessionHasErrors([
+            'employee_id' => 'The selected employee is invalid or inactive for this company.',
+        ]);
+
+    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('self-service cross-company employee is rejected without department message', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $ownEmployee->update(['user_id' => $user->id]);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Foreign Leave Co',
+        'slug' => 'foreign-leave-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+    ['employee' => $foreignEmployee] = makeLeaveRequestActors($otherCompany);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($foreignEmployee, $leaveType));
+
+    $response->assertSessionHasErrors([
+        'employee_id' => 'The selected employee is invalid or inactive for this company.',
+    ]);
+
+    expect(session('errors')->getBag('default')->first('employee_id'))
+        ->not->toBe(AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE);
+});
+
+test('self-service employee without department is rejected with department message', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id, 'department_id' => null]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertSessionHasErrors([
+            'employee_id' => AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE,
+        ]);
+
+    expect(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('view all actor cannot create for employee outside employee visibility scope', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $officeEmployee] = makeEmployeeVisibilityFixtures();
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $officeEmployee->id, 2026);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.view_all',
+    ]);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($officeEmployee, $leaveType));
+
+    $response->assertSessionHasErrors([
+        'employee_id' => 'The selected employee is invalid or inactive for this company.',
+    ]);
+
+    expect(session('errors')->getBag('default')->first('employee_id'))
+        ->not->toBe(AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE)
+        ->and(LeaveRequest::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('view all actor can create for employee inside employee visibility scope', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marineEmployee] = makeEmployeeVisibilityFixtures();
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $marineEmployee->id, 2026);
+    prepareLeaveRequestApprovalContext($company, $marineEmployee);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.view_all',
+    ]);
+    restrictUserToDepartments($user, $company, [(int) $marineEmployee->fresh()->department_id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($marineEmployee, $leaveType))
+        ->assertRedirect(route('attendance.my-leave.index'));
+
+    expect(LeaveRequest::query()->where('employee_id', $marineEmployee->id)->count())->toBe(1);
+});
+
+test('self-service update uses own linked employee eligibility instead of employee visibility scope', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    prepareLeaveRequestApprovalContext($company, $employee);
+    $employee->update(['user_id' => $user->id]);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        existing: null,
+        attributes: validLeaveRequestPayload($employee, $leaveType),
+        reserveBalance: true,
+        notify: false,
+    );
+
+    $unrelatedDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Unrelated Update Dept',
+        'code' => 'UUD',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.update',
+    ]);
+    restrictUserToDepartments($user, $company, [$unrelatedDepartment->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->put("/attendance/leave-requests/{$leaveRequest->id}", validLeaveRequestPayload($employee, $leaveType, [
+            'start_date' => '2026-06-13',
+            'end_date' => '2026-06-13',
+            'reason' => 'Updated under restricted visibility',
+        ]))
+        ->assertRedirect(route('attendance.my-leave.index'));
+
+    expect($leaveRequest->fresh()->reason)->toBe('Updated under restricted visibility');
+});
+
+test('employee visibility failure is not reported as attendance leave department exclusion', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $officeEmployee] = makeEmployeeVisibilityFixtures();
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $officeEmployee->id, 2026);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.view_all',
+    ]);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/my-leave')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($officeEmployee, $leaveType))
+        ->assertSessionHasErrors([
+            'employee_id' => 'The selected employee is invalid or inactive for this company.',
+        ]);
 });
 
 /**

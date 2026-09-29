@@ -2,8 +2,7 @@
 
 namespace App\Http\Requests\Attendance\Concerns;
 
-use App\Support\Attendance\AttendanceLeaveDepartmentScope;
-use App\Support\Employees\AttendanceLeaveEligibleEmployeeRule;
+use App\Support\Attendance\LeaveRequestEligibleEmployeeRule;
 use Illuminate\Validation\Rule;
 
 trait LeaveRequestValidationRules
@@ -19,7 +18,7 @@ trait LeaveRequestValidationRules
             'employee_id' => [
                 'required',
                 'integer',
-                AttendanceLeaveEligibleEmployeeRule::exists($companyId, $this->user()),
+                LeaveRequestEligibleEmployeeRule::make($companyId, $this->user()),
             ],
             'leave_type_id' => [
                 'required',
@@ -45,8 +44,6 @@ trait LeaveRequestValidationRules
      */
     protected function leaveRequestFieldMessages(): array
     {
-        return [
-            'employee_id.exists' => AttendanceLeaveDepartmentScope::EXCLUDED_EMPLOYEE_MESSAGE,
-        ];
+        return [];
     }
 }
