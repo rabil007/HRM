@@ -4,6 +4,7 @@ import type { ProjectOption } from '../types.ts';
 import {
     EMPTY_EMPLOYEE_FILTERS,
     filterProjectsByClient,
+    projectHasClient,
     resolveProjectOnClientChange,
 } from './employee-client-project-filter.ts';
 
@@ -173,5 +174,47 @@ describe('employee client-project filter behavior', () => {
             multiProjects,
         );
         assert.equal(switchProject2ToB, '');
+    });
+
+    it('makes client_ids authoritative over legacy client_id when client_ids has entries', () => {
+        const projects: ProjectOption[] = [
+            {
+                id: 1,
+                title: 'Project 1',
+                client_ids: [200], // Client B
+                client_id: 100, // Client A (legacy transitional)
+            },
+            {
+                id: 2,
+                title: 'Legacy Project 2',
+                client_ids: [],
+                client_id: 100, // Client A (legacy compatibility)
+            },
+        ];
+
+        // client_ids = [B], client_id = A:
+        // Client A -> Project 1 hidden
+        const forClientA = filterProjectsByClient(projects, '100');
+        assert.deepEqual(
+            forClientA.map((p) => p.title),
+            ['Legacy Project 2'],
+        );
+
+        // Client B -> Project 1 available
+        const forClientB = filterProjectsByClient(projects, '200');
+        assert.deepEqual(
+            forClientB.map((p) => p.title),
+            ['Project 1'],
+        );
+
+        // Also preserve: client_ids = [], client_id = A -> Client A legacy Project available
+        assert.equal(projectHasClient(projects[1], '100'), true);
+        assert.equal(projectHasClient(projects[1], '200'), false);
+
+        // Resolve project on client change:
+        // Switching to Client A clears Project 1 because Client A is not in client_ids
+        assert.equal(resolveProjectOnClientChange('1', '100', projects), '');
+        // Switching to Client B keeps Project 1
+        assert.equal(resolveProjectOnClientChange('1', '200', projects), '1');
     });
 });

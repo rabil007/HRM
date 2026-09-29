@@ -25,6 +25,10 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    filterProjectsByClient,
+    resolveProjectOnClientChange,
+} from '@/features/organization/employees/lib/employee-client-project-filter';
 import { toast } from '@/lib/toast';
 import type {
     ClientOption,
@@ -165,23 +169,7 @@ export function RequirementFormSheet({
     }, [open, initialRequirement]);
 
     const filteredProjects = useMemo(() => {
-        if (!data.client_id) {
-            return options.projects;
-        }
-
-        const targetClientId = Number(data.client_id);
-
-        return options.projects.filter((p) => {
-            if (Array.isArray(p.client_ids)) {
-                if (p.client_ids.some((id) => Number(id) === targetClientId)) {
-                    return true;
-                }
-            }
-
-            return (
-                p.client_id != null && Number(p.client_id) === targetClientId
-            );
-        });
+        return filterProjectsByClient(options.projects, data.client_id);
     }, [data.client_id, options.projects]);
 
     const totalHeadcount = useMemo(() => {
@@ -440,60 +428,17 @@ export function RequirementFormSheet({
                                             onValueChange={(val) => {
                                                 const clientId =
                                                     val === 'none' ? '' : val;
-                                                setData((prev) => {
-                                                    let nextProjectId =
-                                                        prev.project_id;
 
-                                                    if (
-                                                        clientId &&
-                                                        prev.project_id
-                                                    ) {
-                                                        const targetClientId =
-                                                            Number(clientId);
-                                                        const project =
-                                                            options.projects.find(
-                                                                (p) =>
-                                                                    String(
-                                                                        p.id,
-                                                                    ) ===
-                                                                    String(
-                                                                        prev.project_id,
-                                                                    ),
-                                                            );
-                                                        const isAssigned =
-                                                            project
-                                                                ? (Array.isArray(
-                                                                      project.client_ids,
-                                                                  ) &&
-                                                                      project.client_ids.some(
-                                                                          (
-                                                                              id,
-                                                                          ) =>
-                                                                              Number(
-                                                                                  id,
-                                                                              ) ===
-                                                                              targetClientId,
-                                                                      )) ||
-                                                                  (project.client_id !=
-                                                                      null &&
-                                                                      Number(
-                                                                          project.client_id,
-                                                                      ) ===
-                                                                          targetClientId)
-                                                                : false;
-
-                                                        if (!isAssigned) {
-                                                            nextProjectId = '';
-                                                        }
-                                                    }
-
-                                                    return {
-                                                        ...prev,
-                                                        client_id: clientId,
-                                                        project_id:
-                                                            nextProjectId,
-                                                    };
-                                                });
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    client_id: clientId,
+                                                    project_id:
+                                                        resolveProjectOnClientChange(
+                                                            prev.project_id,
+                                                            clientId,
+                                                            options.projects,
+                                                        ),
+                                                }));
                                             }}
                                         >
                                             <AppSelectItem value="none">

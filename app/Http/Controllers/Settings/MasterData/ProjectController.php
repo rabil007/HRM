@@ -176,7 +176,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function import(ImportProjectsRequest $request)
+    public function import(ImportProjectsRequest $request, SyncProjectClients $syncProjectClients)
     {
         $uploaded = $request->file('file');
         $path = $uploaded->getRealPath() ?: $uploaded->path();
@@ -240,6 +240,7 @@ class ProjectController extends Controller
         $unknownClientNames = [];
         $permissionDenied = 0;
         $permissionDeniedTitles = [];
+        $failedRows = 0;
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -275,43 +276,44 @@ class ProjectController extends Controller
             }
 
             $existing = Project::query()->where('title', $title)->first();
-            if ($existing instanceof Project) {
-                $currentClientIds = app(SyncProjectClients::class)->currentClientIds($existing);
-                $needsClientAttach = ! in_array((int) $client->id, $currentClientIds, true);
-                $needsActiveChange = (bool) $existing->is_active !== (bool) $active;
+            try {
+                if ($existing instanceof Project) {
+                    $currentClientIds = $syncProjectClients->currentClientIds($existing);
+                    $needsClientAttach = ! in_array((int) $client->id, $currentClientIds, true);
+                    $needsActiveChange = (bool) $existing->is_active !== (bool) $active;
 
-                if (! $needsClientAttach && ! $needsActiveChange) {
-                    $imported++;
+                    if (! $needsClientAttach && ! $needsActiveChange) {
+                        $imported++;
 
-                    if ($imported > 2000) {
-                        break;
+                        if ($imported > 2000) {
+                            break;
+                        }
+
+                        continue;
                     }
 
-                    continue;
+                    if (! $canUpdate) {
+                        $permissionDenied++;
+                        $permissionDeniedTitles[$title] = true;
+
+                        continue;
+                    }
+
+                    $attributes = $needsActiveChange ? ['is_active' => $active] : [];
+                    $clientsToAttach = $needsClientAttach ? [(int) $client->id] : [];
+
+                    $syncProjectClients->updateAndAttach($existing, $attributes, $clientsToAttach);
+                } else {
+                    $syncProjectClients->create([
+                        'title' => $title,
+                        'is_active' => $active,
+                    ], [(int) $client->id]);
                 }
 
-                if (! $canUpdate) {
-                    $permissionDenied++;
-                    $permissionDeniedTitles[$title] = true;
-
-                    continue;
-                }
-
-                if ($needsActiveChange) {
-                    $existing->update(['is_active' => $active]);
-                }
-
-                if ($needsClientAttach) {
-                    app(SyncProjectClients::class)->attach($existing, [(int) $client->id]);
-                }
-            } else {
-                app(SyncProjectClients::class)->create([
-                    'title' => $title,
-                    'is_active' => $active,
-                ], [(int) $client->id]);
+                $imported++;
+            } catch (\Throwable) {
+                $failedRows++;
             }
-
-            $imported++;
 
             if ($imported > 2000) {
                 break;
@@ -332,6 +334,7 @@ class ProjectController extends Controller
                         $unknownClients > 0 && $unknownList !== '' => "No rows were imported. Unknown or inactive client(s): {$unknownList}.",
                         $unknownClients > 0 => 'No rows were imported. One or more rows had a missing or unknown client.',
                         $emptyTitles > 0 => "No rows were imported. {$emptyTitles} row(s) had an empty project title.",
+                        $failedRows > 0 => 'No rows were imported due to processing errors.',
                         default => 'No rows were imported. Ensure each row has a client and project title.',
                     },
                 ]);
@@ -349,6 +352,9 @@ class ProjectController extends Controller
             $message .= $permissionDeniedList !== ''
                 ? " Skipped {$permissionDenied} row(s) requiring update permission to mutate project or attach new client: {$permissionDeniedList}."
                 : " Skipped {$permissionDenied} row(s) requiring update permission.";
+        }
+        if ($failedRows > 0) {
+            $message .= " Skipped {$failedRows} row(s) due to processing errors.";
         }
 
         return redirect()

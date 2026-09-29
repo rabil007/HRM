@@ -10,6 +10,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
@@ -635,4 +636,52 @@ test('user with create and update permissions can attach new client and update s
     expect($existingActive->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
         ->toBe([$clientA->id, $clientB->id])
         ->and($existingStatus->fresh()->is_active)->toBeFalse();
+});
+
+test('existing project import row cannot leave partial status change if client attachment fails', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.view',
+        'settings.master-data.projects.create',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Atomic Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Atomic Client B', 'is_active' => true]);
+
+    $project = Project::query()->create([
+        'title' => 'Atomic Project Test',
+        'client_id' => $clientA->id,
+        'is_active' => true,
+    ]);
+    $project->clients()->sync([$clientA->id]);
+
+    $failAttachment = true;
+    DB::listen(function ($query) use (&$failAttachment) {
+        if (! $failAttachment) {
+            return;
+        }
+
+        $sql = strtolower($query->sql);
+        if (str_contains($sql, 'insert into') && str_contains($sql, 'client_project')) {
+            throw new RuntimeException('Simulated failure during client attachment');
+        }
+    });
+
+    try {
+        $csv = "client,project,is_active\nAtomic Client B,Atomic Project Test,no\n";
+
+        $this->post('/settings/master-data/projects/import', [
+            'file' => UploadedFile::fake()->createWithContent('projects.csv', $csv),
+        ])->assertRedirect('/settings/master-data/projects');
+
+        // Project is_active MUST NOT have been updated to false, and client_project must be unchanged
+        $fresh = $project->fresh();
+        expect($fresh->is_active)->toBeTrue()
+            ->and($fresh->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
+    } finally {
+        $failAttachment = false;
+    }
 });

@@ -25,6 +25,10 @@ import {
 } from '@/components/ui/tooltip';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
+import {
+    projectHasClient,
+    resolveProjectOnClientChange,
+} from '@/features/organization/employees/lib/employee-client-project-filter';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
 import { EditableDetailTextField } from '@/features/organization/employees/profile/components/editable-detail-field';
 import { EditableDetailSelectField } from '@/features/organization/employees/profile/components/editable-detail-select-field';
@@ -321,46 +325,24 @@ export function EmployeeHeaderCard({
             (item) => String(item.id) === option.value,
         );
 
-        if (!project) {
-            return false;
-        }
-
-        const clientIds = (
-            project.client_ids ??
-            (project.client_id != null ? [project.client_id] : [])
-        ).map(String);
-
-        return clientIds.includes(selectedClientId);
+        return project ? projectHasClient(project, selectedClientId) : false;
     });
 
     const clearProjectIfMismatched = (nextClientId: string): void => {
         const currentProjectId = String(form.data.project_id || '');
 
-        if (!currentProjectId) {
+        if (!currentProjectId || !nextClientId) {
             return;
         }
 
-        if (!nextClientId) {
-            return;
-        }
-
-        const project = projectItems.find(
-            (item) => String(item.id) === currentProjectId,
+        const nextProjectId = resolveProjectOnClientChange(
+            currentProjectId,
+            nextClientId,
+            projectItems,
         );
 
-        if (!project) {
-            form.setData('project_id', '');
-
-            return;
-        }
-
-        const clientIds = (
-            project.client_ids ??
-            (project.client_id != null ? [project.client_id] : [])
-        ).map(String);
-
-        if (!clientIds.includes(nextClientId)) {
-            form.setData('project_id', '');
+        if (nextProjectId !== currentProjectId) {
+            form.setData('project_id', nextProjectId);
         }
     };
     const { selectOptions: genderOptions } = useMutableSelectOptions(genders);

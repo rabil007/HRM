@@ -1,5 +1,3 @@
-import type { ProjectOption } from '../types';
-
 export type EmployeeFilters = {
     department_id: string;
     position_id: string;
@@ -38,9 +36,24 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     present_fields: '',
 };
 
-function projectHasClient(
-    project: ProjectOption,
-    clientId: string | number,
+export function getAssignedClientIds(project: {
+    client_ids?: number[] | null;
+    client_id?: number | null;
+}): number[] {
+    if (project.client_ids && project.client_ids.length > 0) {
+        return project.client_ids.map(Number);
+    }
+
+    if (project.client_id != null) {
+        return [Number(project.client_id)];
+    }
+
+    return [];
+}
+
+export function projectHasClient(
+    project: { client_ids?: number[] | null; client_id?: number | null },
+    clientId: string | number | null | undefined,
 ): boolean {
     const targetId = Number(clientId);
 
@@ -48,23 +61,15 @@ function projectHasClient(
         return false;
     }
 
-    if (Array.isArray(project.client_ids)) {
-        if (project.client_ids.some((id) => Number(id) === targetId)) {
-            return true;
-        }
-    }
-
-    if (project.client_id != null && Number(project.client_id) === targetId) {
-        return true;
-    }
-
-    return false;
+    return getAssignedClientIds(project).includes(targetId);
 }
 
-export function filterProjectsByClient(
-    projects: ProjectOption[] | undefined,
-    clientId: string,
-): ProjectOption[] {
+export function filterProjectsByClient<
+    T extends { client_ids?: number[] | null; client_id?: number | null },
+>(
+    projects: T[] | undefined,
+    clientId: string | number | null | undefined,
+): T[] {
     const list = projects ?? [];
 
     if (!clientId) {
@@ -74,22 +79,31 @@ export function filterProjectsByClient(
     return list.filter((project) => projectHasClient(project, clientId));
 }
 
-export function resolveProjectOnClientChange(
-    currentProjectId: string,
-    nextClientId: string,
-    projects: ProjectOption[] | undefined,
+export function resolveProjectOnClientChange<
+    T extends {
+        id: number;
+        client_ids?: number[] | null;
+        client_id?: number | null;
+    },
+>(
+    currentProjectId: string | number | null | undefined,
+    nextClientId: string | number | null | undefined,
+    projects: T[] | undefined,
 ): string {
-    if (nextClientId === '' || currentProjectId === '') {
-        return currentProjectId;
+    const curIdStr = currentProjectId != null ? String(currentProjectId) : '';
+    const nextIdStr = nextClientId != null ? String(nextClientId) : '';
+
+    if (nextIdStr === '' || curIdStr === '') {
+        return curIdStr;
     }
 
     const selectedProject = (projects ?? []).find(
-        (project) => String(project.id) === currentProjectId,
+        (project) => String(project.id) === curIdStr,
     );
 
-    if (!selectedProject || !projectHasClient(selectedProject, nextClientId)) {
+    if (!selectedProject || !projectHasClient(selectedProject, nextIdStr)) {
         return '';
     }
 
-    return currentProjectId;
+    return curIdStr;
 }

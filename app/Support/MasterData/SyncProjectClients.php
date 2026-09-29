@@ -108,6 +108,52 @@ final class SyncProjectClients
     }
 
     /**
+     * Atomically mutate an existing project's attributes (e.g. is_active) and attach missing client(s).
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  list<int|string>  $clientIdsToAttach
+     */
+    public function updateAndAttach(Project $project, array $attributes, array $clientIdsToAttach): Project
+    {
+        return DB::transaction(function () use ($project, $attributes, $clientIdsToAttach): Project {
+            /** @var Project $locked */
+            $locked = Project::query()
+                ->whereKey($project->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($attributes !== []) {
+                $locked->fill($attributes);
+                $locked->save();
+            }
+
+            $normalizedClientIds = $this->normalizeClientIds($clientIdsToAttach);
+            if ($normalizedClientIds !== []) {
+                $beforeClientIds = $this->currentClientIds($locked);
+
+                $locked->clients()->syncWithoutDetaching($normalizedClientIds);
+
+                $allClientIds = $locked->clients()
+                    ->pluck('clients.id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->sort()
+                    ->values()
+                    ->all();
+
+                $legacyClientId = $this->legacyClientIdFor($locked, $allClientIds);
+                if ($locked->client_id !== $legacyClientId) {
+                    $locked->client_id = $legacyClientId;
+                    $locked->save();
+                }
+
+                $this->logRelationshipChanges($locked, $beforeClientIds, $allClientIds);
+            }
+
+            return $locked->refresh();
+        });
+    }
+
+    /**
      * @param  list<int|string>  $clientIds
      * @return list<int>
      */

@@ -10,6 +10,10 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import {
+    filterProjectsByClient,
+    resolveProjectOnClientChange,
+} from '@/features/organization/employees/lib/employee-client-project-filter';
 import type {
     ClientOption,
     PositionOption,
@@ -52,23 +56,7 @@ export function RequirementFiltersSheet({
     }
 
     const filteredProjects = useMemo(() => {
-        if (!draft.client_id) {
-            return options.projects;
-        }
-
-        const targetClientId = Number(draft.client_id);
-
-        return options.projects.filter((p) => {
-            if (Array.isArray(p.client_ids)) {
-                if (p.client_ids.some((id) => Number(id) === targetClientId)) {
-                    return true;
-                }
-            }
-
-            return (
-                p.client_id != null && Number(p.client_id) === targetClientId
-            );
-        });
+        return filterProjectsByClient(options.projects, draft.client_id);
     }, [draft.client_id, options.projects]);
 
     const activeFilterCount = useMemo(() => {
@@ -104,32 +92,16 @@ export function RequirementFiltersSheet({
     const handleClientChange = (val: string) => {
         setDraft((prev) => {
             const nextClientId = val === 'all' ? null : val;
-            let nextProjectId = prev.project_id;
-
-            if (nextClientId !== null && prev.project_id) {
-                const targetClientId = Number(nextClientId);
-                const project = options.projects.find(
-                    (p) => String(p.id) === String(prev.project_id),
-                );
-
-                const isAssigned = project
-                    ? (Array.isArray(project.client_ids) &&
-                          project.client_ids.some(
-                              (id) => Number(id) === targetClientId,
-                          )) ||
-                      (project.client_id != null &&
-                          Number(project.client_id) === targetClientId)
-                    : false;
-
-                if (!isAssigned) {
-                    nextProjectId = null;
-                }
-            }
+            const nextProjectId = resolveProjectOnClientChange(
+                prev.project_id,
+                nextClientId,
+                options.projects,
+            );
 
             return {
                 ...prev,
                 client_id: nextClientId,
-                project_id: nextProjectId,
+                project_id: nextProjectId || null,
             };
         });
     };
