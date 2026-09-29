@@ -315,7 +315,7 @@ final class EmployeeFormOptions
             ->with('clients:id')
             ->where('is_active', true)
             ->orderBy('title')
-            ->get(['id', 'title', 'client_id', 'is_active'])
+            ->get(['id', 'title', 'is_active'])
             ->map(function (Project $project): array {
                 $clientIds = $project->clients
                     ->pluck('id')
@@ -419,7 +419,7 @@ final class EmployeeFormOptions
                 }
             })
             ->orderBy('title')
-            ->get(['id', 'title', 'client_id', 'is_active'])
+            ->get(['id', 'title', 'is_active'])
             ->map(function (Project $project): array {
                 $clientIds = $project->clients
                     ->pluck('id')
