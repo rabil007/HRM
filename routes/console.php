@@ -66,6 +66,8 @@ Schedule::command('documents:reconcile-lifecycle-automations')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
+Schedule::command('documents:cleanup-ai-batches')->hourly()->withoutOverlapping();
+
 Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))

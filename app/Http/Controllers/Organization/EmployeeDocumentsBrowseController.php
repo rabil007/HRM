@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Support\EmployeeDocuments\DocumentAccess;
+use App\Support\EmployeeDocuments\DocumentAiSettings;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
@@ -14,7 +15,7 @@ use Inertia\Inertia;
 
 class EmployeeDocumentsBrowseController extends Controller
 {
-    public function __invoke(Request $request, Employee $employee, DocumentBrowseQuery $browse)
+    public function __invoke(Request $request, Employee $employee, DocumentBrowseQuery $browse, DocumentAiSettings $documentAiSettings)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
@@ -35,6 +36,7 @@ class EmployeeDocumentsBrowseController extends Controller
             'template_fields' => $resolved['fields']['employee_documents'] ?? null,
             'documents_tab_visible' => $documentsTabVisible,
             'can' => DocumentPagePermissions::for($request->user()),
+            'document_ai_settings' => $documentAiSettings->propsForCompany($companyId),
         ]);
     }
 }

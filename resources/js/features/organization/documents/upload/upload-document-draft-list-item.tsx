@@ -14,6 +14,8 @@ export type UploadDocumentDraftListItemProps = {
     hasErrors: boolean;
     onSelect: () => void;
     onRemove: () => void;
+    aiStatus?: string;
+    onRetryAi?: () => void;
 };
 
 export function UploadDocumentDraftListItem({
@@ -24,6 +26,8 @@ export function UploadDocumentDraftListItem({
     hasErrors,
     onSelect,
     onRemove,
+    aiStatus,
+    onRetryAi,
 }: UploadDocumentDraftListItemProps): ReactElement {
     const typeLabel = documentTypes.find(
         (type) => String(type.id) === draft.document_type_id,
@@ -73,6 +77,11 @@ export function UploadDocumentDraftListItem({
                                 Fix errors
                             </Badge>
                         ) : null}
+                        {aiStatus ? (
+                            <Badge variant="outline" className="text-[10px]">
+                                {aiStatus}
+                            </Badge>
+                        ) : null}
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
                         File {index + 1} · {draft.file.type || 'Unknown'} ·{' '}
@@ -80,6 +89,18 @@ export function UploadDocumentDraftListItem({
                     </div>
                 </div>
             </button>
+            {aiStatus === 'Failed' && onRetryAi ? (
+                <button
+                    type="button"
+                    className="text-xs text-primary"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onRetryAi();
+                    }}
+                >
+                    Retry
+                </button>
+            ) : null}
             <button
                 type="button"
                 className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

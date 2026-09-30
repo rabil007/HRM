@@ -44,6 +44,22 @@ Old filtered Overview bookmarks such as `/organization/documents?search=`, `?exp
 
 Authorized users with `documents.upload` permission see a primary **+ Add Document** action in Library next to Search and Saved Views.
 
+### Document AI
+
+Document AI is an optional company-scoped enhancement to employee document intake. `document_ai_settings` stores one mode per company:
+
+- `off` — default; existing manual upload behavior only and no Document AI provider calls.
+- `optional` — users with `documents.ai.use` may choose **Extract with AI** / **Extract all with AI**, then review before Upload.
+- `automatic` — eligible uploads auto-start extraction only; the user still reviews and presses Upload. Never auto-save.
+
+Changing the company mode requires `documents.ai.manage` plus `privileged.2fa`. The trusted tenant is always `current_company_id`; the settings endpoint rejects a client-supplied `company_id`.
+
+Document AI reuses the installation-wide AI provider and encrypted credentials configured in **Settings → Application → AI**. Company settings never contain provider keys or model secrets, and the Documents UI receives only provider availability, not credentials. The Smart Employee Search enable switch is unrelated to Document AI availability.
+
+Single-file extraction is synchronous (`POST .../ai-extract`). Multi-file extraction creates a tenant-owned batch with private temporary files and bounded queue jobs (`POST .../ai-batches`), with status/retry/cancel endpoints. Normalized results are closed structured suggestions (Passport / Emirates ID / UAE Visa / unknown). Extraction never creates `EmployeeDocument` rows, never updates employee master data, and never replaces the final Upload step. Temporary batches expire after 24 hours and are cleaned by `documents:cleanup-ai-batches`. Employee visibility continues to use `DocumentAccess` / `EmployeeVisibilityScope`; `documents.ai.use` alone is not a visibility bypass.
+
+See [AI settings](./ai-settings.md) for provider credentials, retention, queue/scheduler, and safe error categories.
+
 1. **Target Employee Selection**:
    - The user opens `UploadDocumentDialog` in employee selection mode (`allowEmployeeSelection`).
    - Active employees are searched via debounced endpoint `/organization/documents/employees/search?q={query}` (`DocumentUploadEmployeeSearchController`).

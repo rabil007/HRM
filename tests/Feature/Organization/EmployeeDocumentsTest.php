@@ -1,9 +1,11 @@
 <?php
 
+use App\Contracts\EmployeeDocuments\DocumentAiExtractor;
 use App\Models\Department;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\User;
+use App\Support\EmployeeDocuments\DocumentAiExtractionResult;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Carbon\Carbon;
@@ -11,6 +13,41 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+
+test('document AI extraction is forbidden without the use permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    ['employee' => $employee] = makeDocumentFixtures();
+
+    $this->post("/organization/employees/{$employee->id}/documents/ai-extract", [
+        'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+    ])->assertForbidden();
+});
+
+test('document AI extraction is disabled when company mode is off', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+
+    $called = false;
+    app()->instance(DocumentAiExtractor::class, new class($called) implements DocumentAiExtractor
+    {
+        public function __construct(private bool &$called) {}
+
+        public function extract(UploadedFile $file): DocumentAiExtractionResult
+        {
+            $this->called = true;
+            throw new RuntimeException('must not call');
+        }
+    });
+
+    $this->post("/organization/employees/{$employee->id}/documents/ai-extract", [
+        'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+    ])->assertServiceUnavailable();
+
+    expect($called)->toBeFalse();
+});
 
 test('users with permission can upload a document', function () {
     fakeEmployeeFileDisks();

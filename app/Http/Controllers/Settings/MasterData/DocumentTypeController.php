@@ -11,6 +11,7 @@ use App\Http\Requests\Settings\MasterData\UpdateDocumentTypeRequest;
 use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
 use App\Support\EmployeeDocuments\Actions\SyncDocumentRequirement;
+use App\Support\EmployeeDocuments\DocumentAiSettings;
 use App\Support\EmployeeDocuments\DocumentRequirementFormOptions;
 use App\Support\EmployeeDocuments\DocumentRequirementPresenter;
 use App\Support\EmployeeDocuments\DocumentTypeDetailPresenter;
@@ -31,7 +32,7 @@ class DocumentTypeController extends Controller
     use PaginatesMasterDataIndex;
     use ReturnsQuickCreateJson;
 
-    public function index(Request $request): InertiaResponse
+    public function index(Request $request, DocumentAiSettings $documentAiSettings): InertiaResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
@@ -54,6 +55,7 @@ class DocumentTypeController extends Controller
             'pagination' => $page['pagination'],
             'search' => $page['search'],
             'open_document_type' => $this->resolveOpenDocumentType($request, $companyId),
+            'document_ai_settings' => $documentAiSettings->propsForCompany($companyId),
             ...DocumentRequirementFormOptions::for($companyId),
         ]);
     }

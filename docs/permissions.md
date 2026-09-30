@@ -187,6 +187,8 @@ The request creator cannot review or approve their own workflow request (backend
 
 These flags do not authorize requests. Document routes enforce `documents.*` permissions and document support classes additionally verify company/employee ownership.
 
+Document AI uses two separate company-scoped permissions: `documents.ai.use` permits AI-assisted document intake when the active company has enabled it, while `documents.ai.manage` permits changing that company’s Document AI mode. New AI permissions are not implicitly copied to existing roles; assign them deliberately. `documents.ai.manage` is a privileged capability and its mutation route also requires `privileged.2fa`. Neither permission grants access to platform AI credentials. The mode is tenant-owned; OpenAI/OpenRouter provider keys and models remain platform-global and continue to require Platform Authority.
+
 Creating a login from an employee requires `users.create`. User–employee linking is otherwise managed through the user edit workflow.
 
 ## Audit
@@ -231,6 +233,7 @@ Tenant-specific configurations are scoped to `current_company_id` and use Spatie
 | Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS                                   | `companies` row                                                  | `companies.view\|update`                               |
 | Salary certificate signature/stamp/signatory                                                                                               | `company_document_settings`                                      | `companies.view\|update`                               |
 | Company & Branch Document expiry notification recipients (per company)                                                                     | `company_document_expiry_notification_settings` + recipient rows | `company_documents.manage_notifications`               |
+| Employee Document AI mode                                                                                                                   | `document_ai_settings`                                           | `documents.ai.manage`                                  |
 | Hikvision access control device integration                                                                                                | Company-scoped `hikvision_settings`                              | `settings.integrations.hikvision.*`                    |
 
 Credential permissions and platform access never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.

@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import type { DocumentAiSettingsProps } from '@/features/organization/documents/configuration/document-ai-settings-card';
 import { documentTypeSheetKey } from '@/features/organization/documents/configuration/document-type-sheet-key';
 import { DocumentTypesContent } from '@/features/organization/documents/configuration/document-types-content';
 import type {
@@ -19,6 +20,7 @@ export default function DocumentTypes({
     ranks = [],
     projects = [],
     open_document_type = null,
+    document_ai_settings,
 }: {
     document_types: DocumentTypeRow[];
     pagination: PaginationMeta;
@@ -28,6 +30,7 @@ export default function DocumentTypes({
     ranks?: RankOption[];
     projects?: ProjectOption[];
     open_document_type?: DocumentTypeRow | null;
+    document_ai_settings: DocumentAiSettingsProps;
 }) {
     return (
         <>
@@ -42,6 +45,7 @@ export default function DocumentTypes({
                 ranks={ranks}
                 projects={projects}
                 openDocumentType={open_document_type}
+                documentAiSettings={document_ai_settings}
             />
         </>
     );

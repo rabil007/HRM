@@ -86,6 +86,8 @@ use App\Http\Controllers\Organization\CrewReliefReportController;
 use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
+use App\Http\Controllers\Organization\DocumentAiBatchController;
+use App\Http\Controllers\Organization\DocumentAiSettingsController;
 use App\Http\Controllers\Organization\DocumentBulkCompanyFilesDeleteController;
 use App\Http\Controllers\Organization\DocumentBulkEmailController;
 use App\Http\Controllers\Organization\DocumentBulkFilesDeleteController;
@@ -976,6 +978,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/configuration/{documentType}', [DocumentTypeController::class, 'show'])
         ->middleware('can:settings.master-data.document-types.view')
         ->name('organization.documents.configuration.show');
+    Route::put('organization/documents/ai-settings', [DocumentAiSettingsController::class, 'update'])
+        ->middleware(['can:documents.ai.manage', 'privileged.2fa'])
+        ->name('organization.documents.ai-settings.update');
     Route::get('organization/documents/templates', DocumentsTemplatesController::class)
         ->name('organization.documents.templates');
     Route::get('organization/documents/templates/create', [DocumentGenerationTemplateController::class, 'create'])
@@ -1085,6 +1090,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:documents.delete')
         ->name('organization.documents.files.bulk-destroy');
     Route::post('organization/employees/{employee}/documents', [EmployeeDocumentController::class, 'store'])->middleware('can:documents.upload')->name('organization.employees.documents.store');
+    Route::post('organization/employees/{employee}/documents/ai-extract', [EmployeeDocumentController::class, 'extractWithAi'])
+        ->middleware(['can:documents.ai.use', 'throttle:20,1'])
+        ->name('organization.employees.documents.ai-extract');
+    Route::post('organization/employees/{employee}/documents/ai-batches', [DocumentAiBatchController::class, 'store'])
+        ->middleware(['can:documents.ai.use', 'throttle:10,1'])
+        ->name('organization.employees.documents.ai-batches.store');
+    Route::get('organization/documents/ai-batches/{batch}', [DocumentAiBatchController::class, 'show'])
+        ->middleware('can:documents.ai.use')
+        ->name('organization.documents.ai-batches.show');
+    Route::post('organization/documents/ai-batches/{batch}/items/{item}/retry', [DocumentAiBatchController::class, 'retry'])
+        ->middleware(['can:documents.ai.use', 'throttle:20,1'])
+        ->name('organization.documents.ai-batches.retry');
+    Route::post('organization/documents/ai-batches/{batch}/cancel', [DocumentAiBatchController::class, 'cancel'])
+        ->middleware('can:documents.ai.use')
+        ->name('organization.documents.ai-batches.cancel');
+    Route::delete('organization/documents/ai-batches/{batch}', [DocumentAiBatchController::class, 'destroy'])
+        ->middleware('can:documents.ai.use')
+        ->name('organization.documents.ai-batches.destroy');
     Route::post('organization/employees/{employee}/documents/bulk', [EmployeeDocumentController::class, 'bulkStore'])->middleware('can:documents.upload')->name('organization.employees.documents.bulk-store');
     Route::put('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'update'])->middleware('can:documents.upload')->name('organization.employees.documents.update');
     Route::post('organization/employees/{employee}/documents/{document}/replace', [EmployeeDocumentController::class, 'replace'])->middleware('can:documents.upload')->name('organization.employees.documents.replace');
