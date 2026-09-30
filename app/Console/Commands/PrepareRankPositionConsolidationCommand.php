@@ -96,13 +96,18 @@ class PrepareRankPositionConsolidationCommand extends Command
         $this->newLine();
         $this->line("Ambiguous normalized matches: {$report['ambiguous_normalized_matches']}");
         $this->line("TOD conflicts: {$report['tod_conflicts']}");
+        $this->line("Status conflicts (active Rank → inactive Position): {$report['status_conflicts']}");
+        $this->line("Mapped soft-deleted Positions: {$report['mapped_soft_deleted_positions']}");
         $this->line("Near-duplicate candidates (not merged): {$report['near_duplicate_count']}");
         $this->line("Unmapped references: {$report['unmapped_references']}");
+        $this->line('Integrity failures: '.count($report['integrity_failures'] ?? []));
 
         $this->renderDetails('Employee conflicts', $report['employee_conflict_details'] ?? []);
         $this->renderDetails('Ambiguous matches', $report['ambiguous_matches'] ?? []);
         $this->renderDetails('TOD conflicts', $report['tod_conflict_details'] ?? []);
-        $this->renderDetails('Near duplicates', $report['near_duplicates'] ?? []);
+        $this->renderDetails('Status conflicts', $report['status_conflict_details'] ?? []);
+        $this->renderDetails('Mapped soft-deleted Positions', $report['mapped_soft_deleted_details'] ?? []);
+        $this->renderDetails('Near-duplicate candidates', $report['near_duplicates'] ?? []);
         $this->renderDetails('Unmapped references', $report['unmapped_reference_details'] ?? []);
         $this->renderDetails('Other conflicts', $report['conflict_details'] ?? []);
         $this->renderDetails('Integrity failures', $report['integrity_failures'] ?? []);

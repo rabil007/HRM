@@ -1,10 +1,13 @@
 <?php
 
+use App\Enums\RankPositionMatchType;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Position;
+use App\Models\Rank;
+use App\Models\RankPositionMapping;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -602,4 +605,48 @@ test('position used by crew assignment cannot be deleted', function () {
         'id' => $position->id,
         'deleted_at' => null,
     ]);
+});
+
+test('position referenced only by rank consolidation mapping cannot be deleted', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('Mapped Position Co', 'MPC');
+    grantCompanyPermissions($user, $company, ['positions.delete', 'positions.view', 'positions.create']);
+
+    $mapped = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Mapped Only Position',
+        'status' => 'active',
+    ]);
+    $unused = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Unused Position',
+        'status' => 'active',
+    ]);
+    $rank = Rank::query()->create([
+        'name' => 'Mapped Only Rank '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    RankPositionMapping::query()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'position_id' => $mapped->id,
+        'match_type' => RankPositionMatchType::Exact,
+    ]);
+
+    $this->actingAs($user)
+        ->from('/organization/positions')
+        ->delete("/organization/positions/{$mapped->id}")
+        ->assertRedirect('/organization/positions')
+        ->assertSessionHasErrors('record');
+
+    $this->assertDatabaseHas('positions', [
+        'id' => $mapped->id,
+        'deleted_at' => null,
+    ]);
+
+    $this->delete("/organization/positions/{$unused->id}")
+        ->assertRedirect('/organization/positions');
+
+    $this->assertSoftDeleted('positions', ['id' => $unused->id]);
 });

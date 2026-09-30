@@ -66,7 +66,7 @@ final class PrepareRankPositionConsolidation
 
         $positions = Position::query()
             ->where('company_id', $companyId)
-            ->get(['id', 'company_id', 'title', 'status', 'is_crew_position', 'max_tour_of_duty_days']);
+            ->get(['id', 'company_id', 'title', 'status', 'is_crew_position', 'max_tour_of_duty_days', 'deleted_at']);
 
         $positionsByNormalized = $positions
             ->groupBy(fn (Position $position): string => $this->normalizeTitle((string) $position->title));
@@ -77,17 +77,53 @@ final class PrepareRankPositionConsolidation
 
         /** @var array<int, int> $rankToPosition */
         $rankToPosition = [];
+        /** @var array<int, true> $skipRecreationRankIds */
+        $skipRecreationRankIds = [];
 
         foreach ($existingMappings as $rankId => $mapping) {
-            $position = $positions->firstWhere('id', (int) $mapping->position_id);
+            $mappedPositionId = (int) $mapping->position_id;
+            $position = Position::withTrashed()
+                ->whereKey($mappedPositionId)
+                ->first(['id', 'company_id', 'title', 'status', 'is_crew_position', 'max_tour_of_duty_days', 'deleted_at']);
 
-            if ($position === null || (int) $position->company_id !== $companyId) {
+            if ($position === null) {
                 $report['integrity_failures'][] = [
-                    'type' => 'cross_company_or_missing_mapping_position',
+                    'type' => 'mapping_position_missing',
                     'company_id' => $companyId,
                     'rank_id' => (int) $rankId,
-                    'position_id' => (int) $mapping->position_id,
+                    'position_id' => $mappedPositionId,
                 ];
+                $skipRecreationRankIds[(int) $rankId] = true;
+
+                continue;
+            }
+
+            if ((int) $position->company_id !== $companyId) {
+                $report['integrity_failures'][] = [
+                    'type' => 'mapping_position_company_mismatch',
+                    'company_id' => $companyId,
+                    'rank_id' => (int) $rankId,
+                    'position_id' => (int) $position->id,
+                    'position_company_id' => (int) $position->company_id,
+                ];
+                $skipRecreationRankIds[(int) $rankId] = true;
+
+                continue;
+            }
+
+            if ($position->trashed()) {
+                $detail = [
+                    'type' => 'mapped_position_soft_deleted',
+                    'company_id' => $companyId,
+                    'rank_id' => (int) $rankId,
+                    'position_id' => (int) $position->id,
+                    'position_title' => $position->title,
+                ];
+                $report['integrity_failures'][] = $detail;
+                $report['mapped_soft_deleted_positions']++;
+                $report['mapped_soft_deleted_details'][] = $detail;
+                // Keep the mapped id for backfill continuity, but never create a replacement.
+                $rankToPosition[(int) $rankId] = (int) $position->id;
 
                 continue;
             }
@@ -98,8 +134,17 @@ final class PrepareRankPositionConsolidation
         foreach ($ranks as $rank) {
             $rankId = (int) $rank->id;
 
+            if (isset($skipRecreationRankIds[$rankId])) {
+                // Broken mapping already exists — never create a duplicate Position/mapping.
+                continue;
+            }
+
             if (isset($rankToPosition[$rankId])) {
                 $report['mappings_already_present']++;
+                $mappedPosition = Position::withTrashed()->find($rankToPosition[$rankId]);
+                if ($mappedPosition !== null && ! $mappedPosition->trashed()) {
+                    $this->recordStatusConflict($rank, $mappedPosition, $report);
+                }
 
                 continue;
             }
@@ -131,11 +176,13 @@ final class PrepareRankPositionConsolidation
                     $report['tod_conflict_details'][] = $todConflict;
                 }
 
+                $this->recordStatusConflict($rank, $position, $report);
+
                 if ($apply) {
                     $this->applyExactMatch($rank, $position, $todConflict === null);
                     $positionsByNormalized = $this->refreshNormalizedIndex($companyId);
                     $positions = Position::query()->where('company_id', $companyId)->get([
-                        'id', 'company_id', 'title', 'status', 'is_crew_position', 'max_tour_of_duty_days',
+                        'id', 'company_id', 'title', 'status', 'is_crew_position', 'max_tour_of_duty_days', 'deleted_at',
                     ]);
                 }
 
@@ -169,7 +216,7 @@ final class PrepareRankPositionConsolidation
         $this->backfillSeaServices($companyId, $rankToPosition, $apply, $report);
         $this->backfillVesselManning($companyId, $rankToPosition, $apply, $report);
         $this->backfillDocumentRequirements($companyId, $rankToPosition, $apply, $report);
-        $this->assertTenantIntegrity($companyId, $rankToPosition, $apply, $report);
+        $this->assertTenantIntegrity($companyId, $apply, $report);
 
         return $report;
     }
@@ -180,7 +227,7 @@ final class PrepareRankPositionConsolidation
     private function ranksForCompany(int $companyId): Collection
     {
         $referencedRankIds = collect()
-            ->merge(Employee::query()->where('company_id', $companyId)->whereNotNull('rank_id')->distinct()->pluck('rank_id'))
+            ->merge(Employee::withTrashed()->where('company_id', $companyId)->whereNotNull('rank_id')->distinct()->pluck('rank_id'))
             ->merge(CrewAssignment::withTrashed()->where('company_id', $companyId)->whereNotNull('rank_id')->distinct()->pluck('rank_id'))
             ->merge(CrewPlanningAssignment::withTrashed()->where('company_id', $companyId)->whereNotNull('rank_id')->distinct()->pluck('rank_id'))
             ->merge(EmployeeSeaService::withTrashed()->where('company_id', $companyId)->whereNotNull('rank_id')->distinct()->pluck('rank_id'))
@@ -267,10 +314,10 @@ final class PrepareRankPositionConsolidation
         bool $apply,
         array &$report,
     ): void {
-        $employees = Employee::query()
+        $employees = Employee::withTrashed()
             ->where('company_id', $companyId)
             ->whereNotNull('rank_id')
-            ->get(['id', 'company_id', 'employee_no', 'name', 'rank_id', 'position_id']);
+            ->get(['id', 'company_id', 'employee_no', 'name', 'rank_id', 'position_id', 'deleted_at']);
 
         $ranks = Rank::withTrashed()->whereIn('id', $employees->pluck('rank_id')->unique()->filter()->all())
             ->get(['id', 'name'])
@@ -549,27 +596,53 @@ final class PrepareRankPositionConsolidation
     }
 
     /**
-     * @param  array<int, int>  $rankToPosition
      * @param  array<string, mixed>  $report
      */
-    private function assertTenantIntegrity(int $companyId, array $rankToPosition, bool $apply, array &$report): void
+    private function assertTenantIntegrity(int $companyId, bool $apply, array &$report): void
     {
-        if (! $apply) {
-            return;
+        $mappings = RankPositionMapping::query()
+            ->where('company_id', $companyId)
+            ->get(['id', 'company_id', 'rank_id', 'position_id']);
+
+        foreach ($mappings as $mapping) {
+            $position = Position::withTrashed()->find((int) $mapping->position_id);
+
+            if ($position === null) {
+                $this->pushUniqueIntegrityFailure($report, [
+                    'type' => 'mapping_position_missing',
+                    'company_id' => $companyId,
+                    'rank_id' => (int) $mapping->rank_id,
+                    'position_id' => (int) $mapping->position_id,
+                ]);
+
+                continue;
+            }
+
+            if ((int) $position->company_id !== $companyId) {
+                $this->pushUniqueIntegrityFailure($report, [
+                    'type' => 'mapping_position_company_mismatch',
+                    'company_id' => $companyId,
+                    'rank_id' => (int) $mapping->rank_id,
+                    'position_id' => (int) $position->id,
+                    'position_company_id' => (int) $position->company_id,
+                ]);
+
+                continue;
+            }
+
+            if ($position->trashed()) {
+                $this->pushUniqueIntegrityFailure($report, [
+                    'type' => 'mapped_position_soft_deleted',
+                    'company_id' => $companyId,
+                    'rank_id' => (int) $mapping->rank_id,
+                    'position_id' => (int) $position->id,
+                    'position_title' => $position->title,
+                ]);
+            }
         }
 
-        $invalidMappings = RankPositionMapping::query()
-            ->where('rank_position_mappings.company_id', $companyId)
-            ->join('positions', 'positions.id', '=', 'rank_position_mappings.position_id')
-            ->whereColumn('positions.company_id', '!=', 'rank_position_mappings.company_id')
-            ->count();
-
-        if ($invalidMappings > 0) {
-            $report['integrity_failures'][] = [
-                'type' => 'mapping_position_company_mismatch',
-                'company_id' => $companyId,
-                'count' => $invalidMappings,
-            ];
+        if (! $apply) {
+            return;
         }
 
         foreach ([
@@ -593,23 +666,36 @@ final class PrepareRankPositionConsolidation
                 ];
             }
         }
+    }
 
-        foreach ($rankToPosition as $rankId => $positionId) {
-            if ($positionId < 1) {
-                continue;
+    /**
+     * @param  array<string, mixed>  $report
+     * @param  array<string, mixed>  $failure
+     */
+    private function pushUniqueIntegrityFailure(array &$report, array $failure): void
+    {
+        foreach ($report['integrity_failures'] as $existing) {
+            if (($existing['type'] ?? null) === ($failure['type'] ?? null)
+                && (int) ($existing['rank_id'] ?? 0) === (int) ($failure['rank_id'] ?? 0)
+                && (int) ($existing['position_id'] ?? 0) === (int) ($failure['position_id'] ?? 0)
+            ) {
+                return;
+            }
+        }
+
+        $report['integrity_failures'][] = $failure;
+
+        if (($failure['type'] ?? null) === 'mapped_position_soft_deleted') {
+            foreach ($report['mapped_soft_deleted_details'] as $existing) {
+                if ((int) ($existing['rank_id'] ?? 0) === (int) ($failure['rank_id'] ?? 0)
+                    && (int) ($existing['position_id'] ?? 0) === (int) ($failure['position_id'] ?? 0)
+                ) {
+                    return;
+                }
             }
 
-            $positionCompanyId = Position::query()->whereKey($positionId)->value('company_id');
-
-            if ((int) $positionCompanyId !== $companyId) {
-                $report['integrity_failures'][] = [
-                    'type' => 'resolved_position_company_mismatch',
-                    'company_id' => $companyId,
-                    'rank_id' => $rankId,
-                    'position_id' => $positionId,
-                    'position_company_id' => $positionCompanyId,
-                ];
-            }
+            $report['mapped_soft_deleted_positions']++;
+            $report['mapped_soft_deleted_details'][] = $failure;
         }
     }
 
@@ -621,6 +707,7 @@ final class PrepareRankPositionConsolidation
     private function nearDuplicateCandidates(Collection $ranks, Collection $positions): array
     {
         $candidates = [];
+        $seen = [];
 
         foreach ($ranks as $rank) {
             $rankNormalized = $this->normalizeTitle((string) $rank->name);
@@ -632,22 +719,212 @@ final class PrepareRankPositionConsolidation
                     continue;
                 }
 
-                if (
-                    str_contains($rankNormalized, $positionNormalized)
-                    || str_contains($positionNormalized, $rankNormalized)
-                ) {
-                    $candidates[] = [
-                        'rank_id' => (int) $rank->id,
-                        'rank_name' => $rank->name,
-                        'position_id' => (int) $position->id,
-                        'position_title' => $position->title,
-                        'note' => 'Possible near-duplicate (substring). Not auto-merged.',
-                    ];
+                if (! $this->looksLikeNearDuplicate($rankNormalized, $positionNormalized)) {
+                    continue;
                 }
+
+                $key = (int) $rank->id.':'.(int) $position->id;
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+
+                $candidates[] = [
+                    'rank_id' => (int) $rank->id,
+                    'rank_name' => $rank->name,
+                    'position_id' => (int) $position->id,
+                    'position_title' => $position->title,
+                    'note' => 'Possible near-duplicate — manual review required',
+                ];
             }
         }
 
         return $candidates;
+    }
+
+    private function looksLikeNearDuplicate(string $left, string $right): bool
+    {
+        if ($left === '' || $right === '') {
+            return false;
+        }
+
+        if (str_contains($left, $right) || str_contains($right, $left)) {
+            return true;
+        }
+
+        $leftTokens = $this->tokens($left);
+        $rightTokens = $this->tokens($right);
+
+        if ($leftTokens === [] || $rightTokens === []) {
+            return false;
+        }
+
+        if ($this->tokenJaccard($leftTokens, $rightTokens) >= 0.5) {
+            return true;
+        }
+
+        if ($this->abbreviationMatch($left, $leftTokens, $right, $rightTokens)
+            || $this->abbreviationMatch($right, $rightTokens, $left, $leftTokens)) {
+            return true;
+        }
+
+        return $this->similarTokenSets($leftTokens, $rightTokens);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function tokens(string $normalized): array
+    {
+        $parts = preg_split('/[\s\-_\/]+/u', $normalized) ?: [];
+
+        return array_values(array_filter(
+            array_map(static fn (string $part): string => trim($part), $parts),
+            static fn (string $part): bool => $part !== '',
+        ));
+    }
+
+    /**
+     * @param  list<string>  $left
+     * @param  list<string>  $right
+     */
+    private function tokenJaccard(array $left, array $right): float
+    {
+        $leftSet = array_values(array_unique($left));
+        $rightSet = array_values(array_unique($right));
+        $intersection = count(array_intersect($leftSet, $rightSet));
+        $union = count(array_unique([...$leftSet, ...$rightSet]));
+
+        return $union === 0 ? 0.0 : $intersection / $union;
+    }
+
+    /**
+     * @param  list<string>  $shortTokens
+     * @param  list<string>  $longTokens
+     */
+    private function abbreviationMatch(string $short, array $shortTokens, string $long, array $longTokens): bool
+    {
+        if (count($longTokens) < 2) {
+            return false;
+        }
+
+        $compactShort = str_replace([' ', '-', '_', '/'], '', $short);
+        if (mb_strlen($compactShort) < 3) {
+            return false;
+        }
+
+        $initials = implode('', array_map(
+            static fn (string $token): string => mb_substr($token, 0, 1),
+            $longTokens,
+        ));
+
+        $firstPlusRestInitials = $longTokens[0].implode('', array_map(
+            static fn (string $token): string => mb_substr($token, 0, 1),
+            array_slice($longTokens, 1),
+        ));
+
+        $compactLong = str_replace([' ', '-', '_', '/'], '', $long);
+
+        return $compactShort === $initials
+            || $compactShort === $firstPlusRestInitials
+            || (
+                count($shortTokens) === 1
+                && str_starts_with($longTokens[0], $compactShort)
+            )
+            || (
+                count($shortTokens) === 1
+                && str_starts_with($compactLong, $compactShort)
+                && mb_strlen($compactShort) >= 3
+                && mb_strlen($compactShort) <= mb_strlen($longTokens[0]) + 1
+            );
+    }
+
+    /**
+     * @param  list<string>  $left
+     * @param  list<string>  $right
+     */
+    private function similarTokenSets(array $left, array $right): bool
+    {
+        if (count($left) !== count($right) || count($left) < 2) {
+            return false;
+        }
+
+        $remainingRight = $right;
+        $fuzzyPairs = 0;
+        $exactPairs = 0;
+
+        foreach ($left as $leftToken) {
+            $bestIndex = null;
+            $bestDistance = PHP_INT_MAX;
+
+            foreach ($remainingRight as $index => $rightToken) {
+                if ($leftToken === $rightToken) {
+                    $bestIndex = $index;
+                    $bestDistance = 0;
+                    break;
+                }
+
+                $distance = levenshtein($leftToken, $rightToken);
+                if ($distance < $bestDistance) {
+                    $bestDistance = $distance;
+                    $bestIndex = $index;
+                }
+            }
+
+            if ($bestIndex === null) {
+                return false;
+            }
+
+            $matched = $remainingRight[$bestIndex];
+            unset($remainingRight[$bestIndex]);
+
+            if ($leftToken === $matched) {
+                $exactPairs++;
+
+                continue;
+            }
+
+            $minLen = min(mb_strlen($leftToken), mb_strlen($matched));
+            $maxAllowed = $minLen >= 6 ? 3 : 2;
+            if ($minLen < 5 || $bestDistance > $maxAllowed) {
+                return false;
+            }
+
+            $fuzzyPairs++;
+        }
+
+        return $exactPairs >= 1 && $fuzzyPairs >= 1;
+    }
+
+    /**
+     * @param  array<string, mixed>  $report
+     */
+    private function recordStatusConflict(Rank $rank, Position $position, array &$report): void
+    {
+        $rankActive = $rank->deleted_at === null && (bool) $rank->is_active;
+        $positionActive = $position->deleted_at === null && $position->status === 'active';
+
+        if (! $rankActive || $positionActive) {
+            return;
+        }
+
+        foreach ($report['status_conflict_details'] as $existing) {
+            if ((int) ($existing['rank_id'] ?? 0) === (int) $rank->id
+                && (int) ($existing['position_id'] ?? 0) === (int) $position->id
+            ) {
+                return;
+            }
+        }
+
+        $report['status_conflicts']++;
+        $report['status_conflict_details'][] = [
+            'rank_id' => (int) $rank->id,
+            'rank_name' => $rank->name,
+            'rank_active' => true,
+            'position_id' => (int) $position->id,
+            'position_title' => $position->title,
+            'position_status' => $position->status,
+        ];
     }
 
     private function tourOfDutyConflict(Rank $rank, Position $position): ?array
@@ -677,7 +954,7 @@ final class PrepareRankPositionConsolidation
     {
         return Position::query()
             ->where('company_id', $companyId)
-            ->get(['id', 'company_id', 'title', 'status', 'is_crew_position', 'max_tour_of_duty_days'])
+            ->get(['id', 'company_id', 'title', 'status', 'is_crew_position', 'max_tour_of_duty_days', 'deleted_at'])
             ->groupBy(fn (Position $position): string => $this->normalizeTitle((string) $position->title));
     }
 
@@ -719,6 +996,10 @@ final class PrepareRankPositionConsolidation
             'ambiguous_matches' => [],
             'tod_conflicts' => 0,
             'tod_conflict_details' => [],
+            'status_conflicts' => 0,
+            'status_conflict_details' => [],
+            'mapped_soft_deleted_positions' => 0,
+            'mapped_soft_deleted_details' => [],
             'near_duplicate_count' => 0,
             'near_duplicates' => [],
             'unmapped_references' => 0,

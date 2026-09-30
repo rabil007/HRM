@@ -34,6 +34,7 @@ use App\Models\PayrollRecord;
 use App\Models\Position;
 use App\Models\Project;
 use App\Models\Rank;
+use App\Models\RankPositionMapping;
 use App\Models\RecruitmentRequirement;
 use App\Models\Religion;
 use App\Models\RoomType;
@@ -338,6 +339,12 @@ final class MasterDataUsage
                 MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('vessel manning', VesselManning::class, 'position_id', 'company_id'),
+                MasterDataUsageSource::model(
+                    'Rank consolidation mappings',
+                    RankPositionMapping::class,
+                    'position_id',
+                    'company_id',
+                ),
                 MasterDataUsageSource::pivot(
                     'document requirements',
                     $requirement->positions()->getTable(),

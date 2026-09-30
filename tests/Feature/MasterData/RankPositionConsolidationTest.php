@@ -413,3 +413,219 @@ test('inactive referenced ranks create inactive positions for historical continu
     expect($position->status)->toBe('inactive')
         ->and($position->is_crew_position)->toBeTrue();
 });
+
+test('near aliases are reported but never auto-mapped', function () {
+    $company = makeRankPositionCompany('Near Dup Co');
+
+    $ptwc = Rank::query()->create(['name' => 'PTWC', 'is_active' => true]);
+    $ptwPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'PTW Coordinator',
+        'status' => 'active',
+    ]);
+
+    $rigger = Rank::query()->create(['name' => 'Rigger Leaderman', 'is_active' => true]);
+    $riggingPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Rigging Leaderman',
+        'status' => 'active',
+    ]);
+
+    $exactRank = Rank::query()->create(['name' => 'Chief Engineer', 'is_active' => true]);
+    $exactPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Engineer',
+        'status' => 'active',
+    ]);
+
+    $report = app(PrepareRankPositionConsolidation::class)->run($company->id, true)[0];
+
+    $ptwcMappedPositionId = RankPositionMapping::query()
+        ->where('company_id', $company->id)
+        ->where('rank_id', $ptwc->id)
+        ->value('position_id');
+    $riggerMappedPositionId = RankPositionMapping::query()
+        ->where('company_id', $company->id)
+        ->where('rank_id', $rigger->id)
+        ->value('position_id');
+
+    expect($ptwcMappedPositionId)->not->toBeNull()
+        ->and($ptwcMappedPositionId)->not->toBe($ptwPosition->id)
+        ->and($riggerMappedPositionId)->not->toBeNull()
+        ->and($riggerMappedPositionId)->not->toBe($riggingPosition->id)
+        ->and(RankPositionMapping::query()->where('company_id', $company->id)->where('rank_id', $exactRank->id)->value('position_id'))
+        ->toBe($exactPosition->id)
+        ->and(RankPositionMapping::query()->where('company_id', $company->id)->where('rank_id', $ptwc->id)->value('match_type'))
+        ->toBe(RankPositionMatchType::Created)
+        ->and(RankPositionMapping::query()->where('company_id', $company->id)->where('rank_id', $rigger->id)->value('match_type'))
+        ->toBe(RankPositionMatchType::Created);
+
+    $nearTitles = collect($report['near_duplicates'])
+        ->map(fn (array $row): string => $row['rank_name'].'|'.$row['position_title'])
+        ->all();
+
+    expect($nearTitles)->toContain('PTWC|PTW Coordinator')
+        ->and($nearTitles)->toContain('Rigger Leaderman|Rigging Leaderman')
+        ->and($report['near_duplicate_count'])->toBeGreaterThanOrEqual(2);
+
+    // Alias ranks get created Positions; they are not remapped to the near-duplicate titles.
+    expect(Position::query()->where('company_id', $company->id)->where('title', 'PTWC')->exists())->toBeTrue()
+        ->and(Position::query()->where('company_id', $company->id)->where('title', 'Rigger Leaderman')->exists())->toBeTrue()
+        ->and(Position::query()->whereKey($ptwPosition->id)->exists())->toBeTrue()
+        ->and(Position::query()->whereKey($riggingPosition->id)->exists())->toBeTrue();
+});
+
+test('active rank mapped to inactive position is reported without changing status', function () {
+    $company = makeRankPositionCompany('Status Conflict Co');
+    $rank = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Master',
+        'status' => 'inactive',
+    ]);
+
+    $report = app(PrepareRankPositionConsolidation::class)->run($company->id, true)[0];
+
+    expect(RankPositionMapping::query()->where('company_id', $company->id)->where('rank_id', $rank->id)->value('position_id'))
+        ->toBe($position->id)
+        ->and($position->fresh()->status)->toBe('inactive')
+        ->and($report['status_conflicts'])->toBe(1)
+        ->and($report['status_conflict_details'][0]['rank_id'])->toBe($rank->id)
+        ->and($report['status_conflict_details'][0]['position_status'])->toBe('inactive');
+});
+
+test('soft-deleted mapped position is reported and not replaced', function () {
+    $company = makeRankPositionCompany('Soft Mapped Co');
+    $rank = Rank::query()->create(['name' => 'Deck Cadet', 'is_active' => true]);
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Deck Cadet',
+        'status' => 'active',
+    ]);
+
+    RankPositionMapping::query()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'position_id' => $position->id,
+        'match_type' => RankPositionMatchType::Exact,
+    ]);
+
+    $position->delete();
+
+    $exit = Artisan::call('master-data:prepare-rank-position-consolidation', [
+        '--company' => (string) $company->id,
+        '--apply' => true,
+    ]);
+
+    expect($exit)->toBe(1)
+        ->and(RankPositionMapping::query()->where('company_id', $company->id)->where('rank_id', $rank->id)->count())->toBe(1)
+        ->and(Position::withTrashed()->where('company_id', $company->id)->where('title', 'Deck Cadet')->count())->toBe(1)
+        ->and(Position::query()->where('company_id', $company->id)->where('title', 'Deck Cadet')->exists())->toBeFalse();
+
+    $report = app(PrepareRankPositionConsolidation::class)->run($company->id, false)[0];
+    expect($report['mapped_soft_deleted_positions'])->toBe(1)
+        ->and($report['integrity_failures'][0]['type'])->toBe('mapped_position_soft_deleted')
+        ->and($report['integrity_failures'][0]['position_id'])->toBe($position->id);
+});
+
+test('soft-deleted employees are reconciled without restoring them', function () {
+    $company = makeRankPositionCompany('Archived Employee Co');
+    $rank = Rank::query()->create(['name' => 'Able Seaman', 'is_active' => true]);
+    $mappedPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Able Seaman',
+        'status' => 'active',
+    ]);
+    $otherPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Clerk',
+        'status' => 'active',
+    ]);
+
+    $archivedNeedsBackfill = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'position_id' => null,
+        'status' => 'active',
+        'employee_no' => 'ARCH-1',
+    ]);
+    $archivedNeedsBackfill->delete();
+    $deletedAt = $archivedNeedsBackfill->fresh()->deleted_at;
+
+    $archivedConflict = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'position_id' => $otherPosition->id,
+        'status' => 'active',
+        'employee_no' => 'ARCH-2',
+        'name' => 'Archived Conflict',
+    ]);
+    $archivedConflict->delete();
+    $conflictDeletedAt = $archivedConflict->fresh()->deleted_at;
+
+    $report = app(PrepareRankPositionConsolidation::class)->run($company->id, true)[0];
+
+    expect($archivedNeedsBackfill->fresh()->position_id)->toBe($mappedPosition->id)
+        ->and($archivedNeedsBackfill->fresh()->deleted_at?->eq($deletedAt))->toBeTrue()
+        ->and($archivedConflict->fresh()->position_id)->toBe($otherPosition->id)
+        ->and($archivedConflict->fresh()->deleted_at?->eq($conflictDeletedAt))->toBeTrue()
+        ->and($report['employees_backfilled'])->toBe(1)
+        ->and($report['employee_conflicts'])->toBe(1);
+});
+
+test('apply remains idempotent including soft-deleted mapping targets', function () {
+    $company = makeRankPositionCompany('Idempotent Soft Co');
+    $rank = Rank::query()->create(['name' => 'Bosun', 'is_active' => true]);
+    $exact = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Bosun',
+        'status' => 'active',
+    ]);
+
+    $documentType = DocumentType::query()->create(['title' => 'Safety Card', 'is_active' => true]);
+    $requirement = DocumentRequirement::factory()
+        ->forCompany($company)
+        ->forDocumentType($documentType)
+        ->create();
+    $requirement->ranks()->attach($rank->id);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'position_id' => null,
+        'status' => 'active',
+    ]);
+
+    app(PrepareRankPositionConsolidation::class)->run($company->id, true);
+    $mappingCount = RankPositionMapping::query()->where('company_id', $company->id)->count();
+    $positionCount = Position::query()->where('company_id', $company->id)->count();
+    $pivotCount = DB::table('document_requirement_position')->where('document_requirement_id', $requirement->id)->count();
+    $employeePositionId = $employee->fresh()->position_id;
+
+    expect($mappingCount)->toBe(1)
+        ->and($employeePositionId)->toBe($exact->id)
+        ->and($pivotCount)->toBe(1);
+
+    $softRank = Rank::query()->create(['name' => 'Pumpman', 'is_active' => true]);
+    $softPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Pumpman',
+        'status' => 'active',
+    ]);
+    RankPositionMapping::query()->create([
+        'company_id' => $company->id,
+        'rank_id' => $softRank->id,
+        'position_id' => $softPosition->id,
+        'match_type' => RankPositionMatchType::Exact,
+    ]);
+    $softPosition->delete();
+
+    $first = app(PrepareRankPositionConsolidation::class)->run($company->id, true)[0];
+    $second = app(PrepareRankPositionConsolidation::class)->run($company->id, true)[0];
+
+    expect(RankPositionMapping::query()->where('company_id', $company->id)->count())->toBe(2)
+        ->and(Position::withTrashed()->where('company_id', $company->id)->where('title', 'Pumpman')->count())->toBe(1)
+        ->and(Position::query()->where('company_id', $company->id)->count())->toBe($positionCount)
+        ->and(DB::table('document_requirement_position')->where('document_requirement_id', $requirement->id)->count())->toBe(1)
+        ->and($employee->fresh()->position_id)->toBe($employeePositionId)
+        ->and($first['mapped_soft_deleted_positions'])->toBe(1)
+        ->and($second['mapped_soft_deleted_positions'])->toBe(1)
+        ->and($first['employee_conflicts'])->toBe($second['employee_conflicts']);
+});
