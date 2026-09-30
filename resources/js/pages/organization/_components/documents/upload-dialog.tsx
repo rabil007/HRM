@@ -51,6 +51,7 @@ import type {
 } from '@/features/organization/documents/upload/upload-draft';
 import { UploadEmployeeSelector } from '@/features/organization/documents/upload/upload-employee-selector';
 import type { DocumentUploadEmployeeOption } from '@/features/organization/documents/upload/upload-employee-selector';
+import { useDocumentAiBatch } from '@/features/organization/documents/upload/use-document-ai-batch';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
@@ -237,6 +238,54 @@ export function UploadDocumentDialog({
         documentTypes,
     );
     const aiWarnings = uniqueReviewWarnings(aiReview, mismatchWarning);
+    const {
+        state: bulkAiState,
+        start: startBulkAi,
+        retry: retryBulkAi,
+        cancel: cancelBulkAi,
+        reset: resetBulkAi,
+        purge: purgeBulkAi,
+    } = useDocumentAiBatch(drafts, effectiveEmployeeId);
+    const bulkAiAvailable =
+        canUseDocumentAi &&
+        !!documentAiSettings &&
+        documentAiSettings.mode !== 'off' &&
+        documentAiSettings.provider_available &&
+        drafts.length > 1 &&
+        !!effectiveEmployeeId;
+
+    useEffect(() => {
+        if (drafts.length > 1 && aiReview.status !== 'idle') {
+            setAiReview(idleDocumentAiReview());
+        }
+    }, [aiReview.status, drafts.length]);
+
+    useEffect(() => {
+        setDrafts((current) =>
+            current.map((draft) => {
+                const item = bulkAiState.items[draft.id];
+
+                return item?.status === 'ready' && item.review
+                    ? applyAiFieldsWithoutOverwrite(draft, item.review.fields)
+                    : draft;
+            }),
+        );
+    }, [bulkAiState.items]);
+
+    useEffect(() => {
+        if (
+            bulkAiAvailable &&
+            documentAiSettings?.mode === 'automatic' &&
+            bulkAiState.status === 'idle'
+        ) {
+            void startBulkAi();
+        }
+    }, [
+        bulkAiAvailable,
+        bulkAiState.status,
+        startBulkAi,
+        documentAiSettings?.mode,
+    ]);
 
     useEffect(() => {
         aiContextRef.current = aiContextKey;
@@ -649,6 +698,7 @@ export function UploadDocumentDialog({
                     });
                 },
                 onSuccess: () => {
+                    void purgeBulkAi();
                     onOpenChange(false);
                     resetUploadDialog();
                 },
@@ -679,6 +729,7 @@ export function UploadDocumentDialog({
         onOpenChange,
         partialReloadKeys,
         resetUploadDialog,
+        purgeBulkAi,
         templateFields,
         validateRequired,
     ]);
@@ -734,7 +785,11 @@ export function UploadDocumentDialog({
                         <div className="pt-2">
                             <UploadEmployeeSelector
                                 selectedEmployee={selectedEmployee}
-                                onSelect={setSelectedEmployee}
+                                onSelect={(employee) => {
+                                    resetBulkAi();
+                                    setAiReview(idleDocumentAiReview());
+                                    setSelectedEmployee(employee);
+                                }}
                                 disabled={isBusy}
                             />
                         </div>
@@ -834,12 +889,60 @@ export function UploadDocumentDialog({
                                                 setFieldErrorsByIndex(
                                                     new Map(),
                                                 );
+                                                resetBulkAi();
                                             }}
                                         >
                                             Clear
                                         </Button>
                                     ) : null}
+                                    {bulkAiAvailable &&
+                                    documentAiSettings?.mode === 'optional' &&
+                                    bulkAiState.status === 'idle' ? (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => void startBulkAi()}
+                                        >
+                                            Extract all with AI
+                                        </Button>
+                                    ) : null}
                                 </div>
+                                {bulkAiState.id ? (
+                                    <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+                                        AI extraction ·{' '}
+                                        {
+                                            Object.values(
+                                                bulkAiState.items,
+                                            ).filter(
+                                                (item) =>
+                                                    item.status === 'ready',
+                                            ).length
+                                        }{' '}
+                                        of {drafts.length} complete ·{' '}
+                                        {
+                                            Object.values(
+                                                bulkAiState.items,
+                                            ).filter(
+                                                (item) =>
+                                                    item.status === 'failed',
+                                            ).length
+                                        }{' '}
+                                        failed{' '}
+                                        {['pending', 'processing'].includes(
+                                            bulkAiState.status,
+                                        ) ? (
+                                            <button
+                                                type="button"
+                                                className="ml-2 text-primary"
+                                                onClick={() =>
+                                                    void cancelBulkAi()
+                                                }
+                                            >
+                                                Cancel AI extraction
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="max-h-56 space-y-2 overflow-y-auto p-3">
                                     {drafts.length === 0 ? (
                                         <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
@@ -864,6 +967,28 @@ export function UploadDocumentDialog({
                                                 onRemove={() =>
                                                     removeDraft(draft.id)
                                                 }
+                                                aiStatus={
+                                                    bulkAiState.items[draft.id]
+                                                        ? (
+                                                              {
+                                                                  queued: 'Queued',
+                                                                  processing:
+                                                                      'Extracting…',
+                                                                  ready: 'Needs review',
+                                                                  failed: 'Failed',
+                                                                  cancelled:
+                                                                      'Manual',
+                                                              } as const
+                                                          )[
+                                                              bulkAiState.items[
+                                                                  draft.id
+                                                              ].status
+                                                          ]
+                                                        : undefined
+                                                }
+                                                onRetryAi={() =>
+                                                    void retryBulkAi(draft.id)
+                                                }
                                             />
                                         ))
                                     )}
@@ -882,11 +1007,35 @@ export function UploadDocumentDialog({
                                     aiAvailable={aiAvailable}
                                     aiBusy={aiBusy}
                                     aiReview={
-                                        aiReview.contextKey === aiContextKey
-                                            ? aiReview
-                                            : idleDocumentAiReview()
+                                        drafts.length > 1
+                                            ? (bulkAiState.items[
+                                                  selectedDraft.id
+                                              ]?.review ??
+                                              idleDocumentAiReview())
+                                            : aiReview.contextKey ===
+                                                aiContextKey
+                                              ? aiReview
+                                              : idleDocumentAiReview()
                                     }
-                                    aiWarnings={aiWarnings}
+                                    aiWarnings={
+                                        drafts.length > 1
+                                            ? uniqueReviewWarnings(
+                                                  bulkAiState.items[
+                                                      selectedDraft.id
+                                                  ]?.review ??
+                                                      idleDocumentAiReview(),
+                                                  documentTypeMismatch(
+                                                      bulkAiState.items[
+                                                          selectedDraft.id
+                                                      ]?.review
+                                                          ?.detectedDocumentType ??
+                                                          null,
+                                                      selectedDraft.document_type_id,
+                                                      documentTypes,
+                                                  ),
+                                              )
+                                            : aiWarnings
+                                    }
                                     onApplyAiSuggestion={applyAiSuggestion}
                                     onExtractWithAi={extractWithAi}
                                     fieldErrors={

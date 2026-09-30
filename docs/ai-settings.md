@@ -52,6 +52,10 @@ The upload experience depends on company mode:
 
 AI-filled document number and date fields are visibly marked until the user edits them. Existing user values are never overwritten; conflicting suggestions remain available through **Use suggestion**. Confidence is review guidance only, and low-confidence or document-type mismatch warnings do not silently change the selected type or block manual upload. AI suggestions can be incorrect. Document AI does not update employee master data, perform bulk extraction, or automatically save/upload documents.
 
+For multi-file uploads, Optional mode exposes **Extract all with AI** and Automatic mode starts eligible extraction automatically. Each file is copied to private temporary storage and processed by its own bounded background job. The dialog polls for per-file progress, keeps completed suggestions independently reviewable, and allows failed items to be retried or completed manually without affecting successful files. Cancelling AI extraction does not remove upload drafts or block the existing Upload action.
+
+Bulk extraction batches belong to the active company, employee, and initiating user. Temporary files and normalized results expire after 24 hours and are removed by the hourly `documents:cleanup-ai-batches` task. Provider credentials, raw responses, OCR text, and document PII are never stored in queued payloads or operational logs. Bulk extraction never creates `EmployeeDocument` rows, updates employee master data, or performs the final upload automatically.
+
 Architecture:
 
 ```text
