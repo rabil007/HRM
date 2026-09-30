@@ -1,6 +1,5 @@
 import { useForm } from '@inertiajs/react';
 import { Sparkles } from 'lucide-react';
-import { update as updateDocumentAiSettings } from '@/actions/App/Http/Controllers/Organization/DocumentAiSettingsController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useHasPermission } from '@/hooks/use-has-permission';
+import { update as updateDocumentAiSettings } from '@/actions/App/Http/Controllers/Organization/DocumentAiSettingsController';
 
 export type DocumentAiMode = 'off' | 'optional' | 'automatic';
 
