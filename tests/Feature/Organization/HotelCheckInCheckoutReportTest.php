@@ -11,6 +11,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Hotel;
 use App\Models\RoomType;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Reports\HotelCheckInCheckoutFilters;
 use App\Support\Reports\HotelCheckInCheckoutQuery;
 use Carbon\CarbonImmutable;
@@ -492,6 +493,7 @@ test('query relationship loading does not scale with row count (N+1 regression)'
     $filters = new HotelCheckInCheckoutFilters;
     $query = new HotelCheckInCheckoutQuery($company->id, $filters, 'UTC', $user);
 
+    RankPositionBridge::clearCache();
     DB::enableQueryLog();
     DB::flushQueryLog();
     $query->paginate(25);
@@ -516,6 +518,7 @@ test('query relationship loading does not scale with row count (N+1 regression)'
         ]);
     }
 
+    RankPositionBridge::clearCache();
     DB::flushQueryLog();
     $query->paginate(25);
     $queriesForTwelve = count(DB::getQueryLog());

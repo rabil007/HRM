@@ -48,7 +48,8 @@ test('hidden employee planned assignment show returns 404 for planning viewer', 
         'name' => 'Access Order Rank '.uniqid(),
         'is_active' => true,
     ]);
-    $officeEmployee->update(['rank_id' => $rank->id]);
+    $position = ensureRankMappedPosition($company, $rank);
+    $officeEmployee->update(['rank_id' => $rank->id, 'position_id' => $position->id]);
     $vessel = makeCrewMovementVessel('Hidden Plan Vessel', $company);
 
     grantCompanyPermissions($user, $company, [

@@ -351,6 +351,7 @@ test('inactive master data rows return warning when domain rules allow them', fu
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119', 'status' => 'terminated']);
     $inactiveRank = Rank::query()->create(['name' => 'Chief Eng Inactive '.uniqid(), 'is_active' => false]);
+    ensureRankMappedPosition($company, $inactiveRank);
     $inactiveClient = Client::factory()->create(['name' => 'Old Client '.uniqid(), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('OMS Pearl Inactive '.uniqid(), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);

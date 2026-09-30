@@ -130,7 +130,7 @@ test('selected groups document type detail shows company targets and matching ru
             ->where('document_type.requirement.matching_rule_applies', true)
             ->where('document_type.requirement.targets.departments.0.name', 'Crew')
             ->has('document_type.requirement.targets.ranks', 2)
-            ->where('document_type.requirement.targets.positions', [])
+            ->has('document_type.requirement.targets.positions', 2)
             ->where('document_type.requirement.targets.projects', [])
             ->where('document_type.compliance_links', []));
 });
