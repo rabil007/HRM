@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Contracts\EmployeeDocuments\DocumentAiExtractor;
 use App\Models\EmailTemplate;
 use App\Models\User;
+use App\Services\DocumentAiProviderExtractor;
 use App\Services\SalaryDeclaration\RendersSalaryDeclarationPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Services\Settings\MailSettingsService;
@@ -57,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(DocumentAiExtractor::class, DocumentAiProviderExtractor::class);
         $this->app->singleton(RendersSalaryDeclarationPdf::class, SalaryDeclarationPdfRenderer::class);
     }
 

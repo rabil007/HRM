@@ -1,9 +1,11 @@
-import { Copy, Sparkles } from 'lucide-react';
+import { AlertTriangle, Copy, Sparkles } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { confidenceLabel } from '@/features/organization/documents/lib/document-ai-review';
+import type { DocumentAiReviewState } from '@/features/organization/documents/lib/document-ai-review';
 import type { DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import type {
     UploadDraft,
@@ -32,8 +34,13 @@ export type UploadDocumentDraftFormProps = {
     isMissingRequired?: (fieldKey: string) => boolean;
     aiAvailable?: boolean;
     aiBusy?: boolean;
-    aiStatus?: string | null;
+    aiReview?: DocumentAiReviewState;
+    aiWarnings?: string[];
     onExtractWithAi?: () => void;
+    onApplyAiSuggestion?: (
+        field: 'document_number' | 'issue_date' | 'expiry_date',
+        value: string,
+    ) => void;
 };
 
 export function UploadDocumentDraftForm({
@@ -48,8 +55,10 @@ export function UploadDocumentDraftForm({
     isMissingRequired = () => false,
     aiAvailable = false,
     aiBusy = false,
-    aiStatus = null,
+    aiReview,
+    aiWarnings = [],
     onExtractWithAi,
+    onApplyAiSuggestion,
 }: UploadDocumentDraftFormProps): ReactElement {
     const {
         selectOptions: documentTypeOptions,
@@ -107,8 +116,99 @@ export function UploadDocumentDraftForm({
                     </Button>
                 ) : null}
             </div>
-            {aiStatus ? (
-                <p className="text-xs text-muted-foreground">{aiStatus}</p>
+            {aiReview && aiReview.status !== 'idle' ? (
+                <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">
+                            AI extraction review
+                        </span>
+                        <span className="text-muted-foreground">
+                            {aiReview.status === 'extracting'
+                                ? 'Extracting…'
+                                : aiReview.status === 'failed'
+                                  ? 'Failed'
+                                  : 'Needs review'}
+                        </span>
+                    </div>
+                    {aiReview.status === 'ready' ? (
+                        <div className="space-y-1 text-muted-foreground">
+                            <p>
+                                Detected type:{' '}
+                                <span className="font-medium text-foreground">
+                                    {aiReview.detectedDocumentType?.replaceAll(
+                                        '_',
+                                        ' ',
+                                    )}
+                                </span>
+                            </p>
+                            {confidenceLabel(aiReview.overallConfidence) ? (
+                                <p>
+                                    Overall confidence:{' '}
+                                    {confidenceLabel(
+                                        aiReview.overallConfidence,
+                                    )}
+                                </p>
+                            ) : null}
+                            {(
+                                [
+                                    'document_number',
+                                    'issue_date',
+                                    'expiry_date',
+                                ] as const
+                            ).map((field) => {
+                                const suggestion = aiReview.fields[field];
+
+                                if (
+                                    !suggestion?.value ||
+                                    draft.ai_filled_fields.includes(field)
+                                ) {
+                                    return null;
+                                }
+
+                                return (
+                                    <div
+                                        key={field}
+                                        className="flex items-center justify-between gap-2 rounded-md bg-background/70 px-2 py-1.5"
+                                    >
+                                        <span>
+                                            {field.replaceAll('_', ' ')}:{' '}
+                                            <span className="font-medium text-foreground">
+                                                {suggestion.value}
+                                            </span>{' '}
+                                            ·{' '}
+                                            {confidenceLabel(
+                                                suggestion.confidence,
+                                            )}
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 text-xs"
+                                            onClick={() =>
+                                                onApplyAiSuggestion?.(
+                                                    field,
+                                                    suggestion.value!,
+                                                )
+                                            }
+                                        >
+                                            Use suggestion
+                                        </Button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : null}
+                    {aiWarnings.map((warning) => (
+                        <div
+                            key={warning}
+                            className="flex gap-1.5 text-amber-700 dark:text-amber-300"
+                        >
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            <span>{warning}</span>
+                        </div>
+                    ))}
+                </div>
             ) : null}
 
             <div className="space-y-3">
@@ -215,7 +315,14 @@ export function UploadDocumentDraftForm({
                                     isMissingRequired('document_number'),
                                 )}
                             >
-                                Document Number
+                                Document Number{' '}
+                                {draft.ai_filled_fields.includes(
+                                    'document_number',
+                                ) ? (
+                                    <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                        AI
+                                    </span>
+                                ) : null}
                                 <RequiredIndicator
                                     show={isFieldRequired('document_number')}
                                 />
@@ -259,7 +366,14 @@ export function UploadDocumentDraftForm({
                                             isMissingRequired('issue_date'),
                                         )}
                                     >
-                                        Issue Date
+                                        Issue Date{' '}
+                                        {draft.ai_filled_fields.includes(
+                                            'issue_date',
+                                        ) ? (
+                                            <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                                AI
+                                            </span>
+                                        ) : null}
                                         <RequiredIndicator
                                             show={isFieldRequired('issue_date')}
                                         />
@@ -300,7 +414,14 @@ export function UploadDocumentDraftForm({
                                             isMissingRequired('expiry_date'),
                                         )}
                                     >
-                                        Expiry Date
+                                        Expiry Date{' '}
+                                        {draft.ai_filled_fields.includes(
+                                            'expiry_date',
+                                        ) ? (
+                                            <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                                AI
+                                            </span>
+                                        ) : null}
                                         <RequiredIndicator
                                             show={isFieldRequired(
                                                 'expiry_date',

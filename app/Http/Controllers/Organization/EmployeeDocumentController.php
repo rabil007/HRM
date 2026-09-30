@@ -40,7 +40,7 @@ class EmployeeDocumentController extends Controller
         }
 
         try {
-            return response()->json(['ok' => true, 'result' => $extractor->extract($request->file('file'))]);
+            return response()->json(['ok' => true, 'result' => $extractor->extract($request->file('file'))->toArray()]);
         } catch (Throwable) {
             return response()->json(['message' => 'Document AI could not extract this file. You can continue manually.'], 503);
         }

@@ -44,6 +44,14 @@ Announcement **AI Assist** is a separate product capability. It reuses the same 
 
 **Document AI** reuses these installation-wide provider credentials independently of the Smart Employee Search enable switch. Each company owns only its Document AI mode (`off`, `optional`, or `automatic`) in `document_ai_settings`; provider credentials and models remain platform-global. `off` is the default and preserves the existing manual Documents workflow. `documents.ai.manage` changes the company mode, while `documents.ai.use` permits single-file extraction in the existing employee document upload dialog. Phase 2 supports Passport, Emirates ID, and UAE Visa suggestions only; extraction never creates an `EmployeeDocument`, updates employee master data, or replaces the final user review/save step. Uploaded files are sent through the private request path and provider failures fall back to manual upload.
 
+The upload experience depends on company mode:
+
+- **Off:** normal manual document workflow with no AI provider calls.
+- **Optional:** the user chooses **Extract with AI**, reviews or edits suggestions and warnings, then uses the existing Upload action.
+- **Automatic:** extraction starts for one eligible file after the employee context is known; the review panel appears, but the user still reviews and presses Upload.
+
+AI-filled document number and date fields are visibly marked until the user edits them. Existing user values are never overwritten; conflicting suggestions remain available through **Use suggestion**. Confidence is review guidance only, and low-confidence or document-type mismatch warnings do not silently change the selected type or block manual upload. AI suggestions can be incorrect. Document AI does not update employee master data, perform bulk extraction, or automatically save/upload documents.
+
 Architecture:
 
 ```text
