@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { confidenceLabel } from '@/features/organization/documents/lib/document-ai-review';
+import {
+    confidenceLabel,
+    detectedTypeDisplayLabel,
+} from '@/features/organization/documents/lib/document-ai-review';
 import type { DocumentAiReviewState } from '@/features/organization/documents/lib/document-ai-review';
 import type { DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import type {
@@ -133,20 +136,20 @@ export function UploadDocumentDraftForm({
                     {aiReview.status === 'ready' ? (
                         <div className="space-y-1 text-muted-foreground">
                             <p>
-                                Detected type:{' '}
+                                AI detected{' '}
                                 <span className="font-medium text-foreground">
-                                    {aiReview.detectedDocumentType?.replaceAll(
-                                        '_',
-                                        ' ',
-                                    )}
+                                    {detectedTypeDisplayLabel(aiReview) ??
+                                        'Unknown'}
                                 </span>
                             </p>
                             {confidenceLabel(aiReview.overallConfidence) ? (
                                 <p>
-                                    Overall confidence:{' '}
-                                    {confidenceLabel(
-                                        aiReview.overallConfidence,
-                                    )}
+                                    Confidence{' '}
+                                    <span className="font-medium text-foreground">
+                                        {confidenceLabel(
+                                            aiReview.overallConfidence,
+                                        )}
+                                    </span>
                                 </p>
                             ) : null}
                             {(
@@ -224,6 +227,13 @@ export function UploadDocumentDraftForm({
                                 )}
                             >
                                 Document Type
+                                {draft.ai_filled_fields.includes(
+                                    'document_type_id',
+                                ) ? (
+                                    <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                        AI
+                                    </span>
+                                ) : null}
                                 <RequiredIndicator
                                     show={isFieldRequired('document_type_id')}
                                 />

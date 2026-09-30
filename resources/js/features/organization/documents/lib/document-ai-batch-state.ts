@@ -57,6 +57,9 @@ export function mapBatchResponse(
                       status: 'ready',
                       contextKey: null,
                       detectedDocumentType: item.result.document_type,
+                      detectedDocumentSubtype:
+                          item.result.document_subtype ?? null,
+                      detectedLabel: item.result.detected_label ?? null,
                       overallConfidence: item.result.confidence,
                       fields: item.result.fields,
                       warnings: item.result.warnings,

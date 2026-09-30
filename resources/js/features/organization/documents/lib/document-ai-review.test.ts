@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+    DOCUMENT_AI_SUPPORTED_TYPE_LABELS,
     applyAiFieldsWithoutOverwrite,
     applyManualDraftPatch,
     clearAiOwnedDraftMetadata,
@@ -9,6 +10,7 @@ import {
     documentAiContextKey,
     documentTypeMismatch,
     idleDocumentAiReview,
+    resolveDocumentTypeIdFromAiClassification,
     resolveDocumentTypeIdFromDetectedCategory,
     shouldClearAiOwnedOnDraftCountChange,
 } from './document-ai-review.ts';
@@ -47,7 +49,11 @@ test('AI auto-selects an unambiguous matching document type', () => {
             document_number: { value: '784-2000-8332791-4', confidence: 0.99 },
         },
         {
-            detectedDocumentType: 'emirates_id',
+            classification: {
+                documentType: 'emirates_id',
+                documentSubtype: null,
+                detectedLabel: 'Emirates ID',
+            },
             documentTypes: [
                 { id: 10, title: 'Passport' },
                 { id: 11, title: 'Emirates ID' },
@@ -68,7 +74,11 @@ test('AI does not overwrite a manually selected document type', () => {
         { ...draft, document_type_id: '10' },
         {},
         {
-            detectedDocumentType: 'emirates_id',
+            classification: {
+                documentType: 'emirates_id',
+                documentSubtype: null,
+                detectedLabel: 'Emirates ID',
+            },
             documentTypes: [
                 { id: 10, title: 'Passport' },
                 { id: 11, title: 'Emirates ID' },
@@ -80,21 +90,155 @@ test('AI does not overwrite a manually selected document type', () => {
     assert.equal(result.ai_filled_fields.includes('document_type_id'), false);
 });
 
-test('AI skips document type when multiple titles match without an exact preferred label', () => {
+test('deterministic resolver maps passport ordinary to exact Passport title', () => {
     assert.equal(
-        resolveDocumentTypeIdFromDetectedCategory('passport', [
-            { id: 1, title: 'Passport' },
-            { id: 2, title: 'Seaman Passport' },
-        ]),
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'passport',
+                documentSubtype: 'ordinary',
+                detectedLabel: 'Ordinary Passport',
+            },
+            [
+                { id: 1, title: 'Passport' },
+                { id: 2, title: 'Seaman Passport' },
+            ],
+        ),
         '1',
     );
     assert.equal(
-        resolveDocumentTypeIdFromDetectedCategory('passport', [
-            { id: 2, title: 'Seaman Passport' },
-            { id: 3, title: 'Diplomatic Passport' },
-        ]),
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'passport',
+                documentSubtype: 'ordinary',
+                detectedLabel: 'Ordinary Passport',
+            },
+            [{ id: 2, title: 'Seaman Passport' }],
+        ),
         null,
     );
+});
+
+test('deterministic resolver covers key document families', () => {
+    const types = [
+        { id: 1, title: 'Diplomatic Passport' },
+        { id: 2, title: 'CDC' },
+        { id: 3, title: 'Seaman Book' },
+        { id: 4, title: 'Residence Visa' },
+        { id: 5, title: 'Visit Visa' },
+        { id: 6, title: 'Labour Card' },
+        { id: 7, title: 'Driving License' },
+        { id: 8, title: 'HSE Passport' },
+    ];
+
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'passport',
+                documentSubtype: 'diplomatic',
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '1',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'seafarer_document',
+                documentSubtype: 'cdc',
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '2',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'seafarer_document',
+                documentSubtype: 'seaman_book',
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '3',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'uae_visa',
+                documentSubtype: 'residence',
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '4',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'uae_visa',
+                documentSubtype: 'visit',
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '5',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'labour_card',
+                documentSubtype: null,
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '6',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'driving_license',
+                documentSubtype: null,
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '7',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'hse_passport',
+                documentSubtype: null,
+                detectedLabel: null,
+            },
+            types,
+        ),
+        '8',
+    );
+});
+
+test('insurance stays manual when multiple company types could match', () => {
+    assert.equal(
+        resolveDocumentTypeIdFromAiClassification(
+            {
+                documentType: 'insurance_document',
+                documentSubtype: 'card',
+                detectedLabel: 'Insurance Card',
+            },
+            [
+                { id: 1, title: 'Medical Insurance Card' },
+                { id: 2, title: 'Life Insurance Card' },
+                { id: 3, title: 'Crew Insurance Card' },
+            ],
+        ),
+        null,
+    );
+});
+
+test('legacy category resolver still maps emirates id exactly', () => {
     assert.equal(
         resolveDocumentTypeIdFromDetectedCategory('emirates_id', [
             { id: 11, title: 'Emirates ID' },
@@ -185,10 +329,29 @@ test('confidence categories use stable thresholds', () => {
 test('document mismatch is deterministic and unknown is ignored', () => {
     const types = [{ id: 1, title: 'Passport' }];
     assert.match(
-        documentTypeMismatch('emirates_id', '1', types) ?? '',
+        documentTypeMismatch(
+            {
+                detectedDocumentType: 'emirates_id',
+                detectedDocumentSubtype: null,
+                detectedLabel: 'Emirates ID',
+            },
+            '1',
+            types,
+        ) ?? '',
         /Emirates ID/,
     );
-    assert.equal(documentTypeMismatch('unknown', '1', types), null);
+    assert.equal(
+        documentTypeMismatch(
+            {
+                detectedDocumentType: 'unknown',
+                detectedDocumentSubtype: null,
+                detectedLabel: null,
+            },
+            '1',
+            types,
+        ),
+        null,
+    );
 });
 
 test('employee and file identity form the extraction context', () => {
@@ -200,4 +363,19 @@ test('employee and file identity form the extraction context', () => {
         documentAiContextKey(1, draft),
         documentAiContextKey(1, { ...draft, id: 'two' }),
     );
+});
+
+test('supported document labels list matches product copy', () => {
+    assert.deepEqual(DOCUMENT_AI_SUPPORTED_TYPE_LABELS, [
+        'Passport',
+        'Emirates ID',
+        'Labour Card',
+        'Seaman Book / CDC',
+        'Driving License',
+        'Visit Visa',
+        'Residence Visa',
+        'CICPA',
+        'HSE Passport',
+        'Insurance',
+    ]);
 });
