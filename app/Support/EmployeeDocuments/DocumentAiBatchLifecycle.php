@@ -9,9 +9,13 @@ use App\Models\DocumentAiBatch;
 use App\Models\DocumentAiBatchItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 final class DocumentAiBatchLifecycle
 {
+    /** Private temp files and normalized batch results expire after this window. */
+    public const TEMP_RETENTION_HOURS = 24;
+
     /**
      * Job timeout is 45s; grace covers scheduling, disk IO, and worker reclaim lag.
      * Expired batches with processing older than this window are treated as abandoned.
@@ -20,7 +24,11 @@ final class DocumentAiBatchLifecycle
 
     public const PROCESSING_GRACE_SECONDS = 120;
 
-    public const TEMP_RETENTION_HOURS = 24;
+    /**
+     * Protects in-flight batch creation: uncommitted DB rows are invisible to
+     * cleanup, so very recent orphan-looking directories must not be deleted yet.
+     */
+    public const ORPHAN_DIRECTORY_GRACE_SECONDS = 900;
 
     public static function staleProcessingThresholdSeconds(): int
     {
@@ -148,6 +156,8 @@ final class DocumentAiBatchLifecycle
     /**
      * Remove orphaned private temp directories left behind by DB cascade deletes.
      * Only touches paths under document-ai-temp/{companyId}/{batchId}/.
+     * Recent directories without a visible batch row are retained for
+     * ORPHAN_DIRECTORY_GRACE_SECONDS so in-flight creation is not raced.
      */
     public static function purgeOrphanTemporaryDirectories(): int
     {
@@ -175,6 +185,11 @@ final class DocumentAiBatchLifecycle
                     continue;
                 }
 
+                $ageSeconds = self::resolveDirectoryAgeSeconds($batchDirectory);
+                if ($ageSeconds === null || $ageSeconds < self::ORPHAN_DIRECTORY_GRACE_SECONDS) {
+                    continue;
+                }
+
                 $disk->deleteDirectory($batchDirectory);
                 $removed++;
             }
@@ -185,5 +200,43 @@ final class DocumentAiBatchLifecycle
         }
 
         return $removed;
+    }
+
+    /**
+     * @return int|null Age in seconds, or null when age cannot be determined safely.
+     */
+    public static function resolveDirectoryAgeSeconds(string $directory): ?int
+    {
+        $disk = Storage::disk('local');
+        $latest = null;
+
+        try {
+            foreach ($disk->allFiles($directory) as $file) {
+                $modified = $disk->lastModified($file);
+                $latest = max($latest ?? 0, $modified);
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        if ($latest === null) {
+            try {
+                $path = $disk->path($directory);
+                if (! is_dir($path)) {
+                    return null;
+                }
+
+                $mtime = @filemtime($path);
+                if ($mtime === false) {
+                    return null;
+                }
+
+                $latest = $mtime;
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
+        return max(0, time() - $latest);
     }
 }

@@ -30,17 +30,18 @@ final class CreateDocumentAiBatch
         array $accepted,
         array $rejected = [],
     ): array {
-        $existing = DocumentAiBatch::query()
-            ->where('company_id', $companyId)
-            ->where('user_id', $user->id)
-            ->where('employee_id', $employee->id)
-            ->where('batch_request_id', $batchRequestId)
-            ->with('items')
-            ->first();
+        $existing = $this->findExisting(
+            $companyId,
+            $user->id,
+            $employee->id,
+            $batchRequestId,
+        );
 
         if ($existing !== null) {
+            $this->dispatchQueuedItems($existing);
+
             return [
-                'batch' => $existing,
+                'batch' => $existing->fresh('items') ?? $existing,
                 'rejected' => $rejected,
                 'reused' => true,
             ];
@@ -92,17 +93,18 @@ final class CreateDocumentAiBatch
                 DocumentAiBatchLifecycle::deleteTemporaryPath($path);
             }
 
-            $existing = DocumentAiBatch::query()
-                ->where('company_id', $companyId)
-                ->where('user_id', $user->id)
-                ->where('employee_id', $employee->id)
-                ->where('batch_request_id', $batchRequestId)
-                ->with('items')
-                ->first();
+            $existing = $this->findExisting(
+                $companyId,
+                $user->id,
+                $employee->id,
+                $batchRequestId,
+            );
 
             if ($existing !== null) {
+                $this->dispatchQueuedItems($existing);
+
                 return [
-                    'batch' => $existing,
+                    'batch' => $existing->fresh('items') ?? $existing,
                     'rejected' => $rejected,
                     'reused' => true,
                 ];
@@ -133,14 +135,52 @@ final class CreateDocumentAiBatch
             })
             ->log('Document AI bulk extraction started');
 
-        foreach ($batch->items as $item) {
-            ExtractDocumentAiBatchItemJob::dispatch($item->id);
-        }
+        $this->dispatchQueuedItems($batch);
 
         return [
-            'batch' => $batch,
+            'batch' => $batch->fresh('items') ?? $batch,
             'rejected' => $rejected,
             'reused' => false,
         ];
+    }
+
+    /**
+     * Reconcile queue handoff for items that are still queued.
+     * Safe for idempotent retries: atomic job claiming prevents duplicate provider work.
+     */
+    public function dispatchQueuedItems(DocumentAiBatch $batch): int
+    {
+        $batch->loadMissing('items');
+        $dispatched = 0;
+
+        foreach ($batch->items as $item) {
+            if ($item->status !== DocumentAiBatchItemStatus::Queued) {
+                continue;
+            }
+
+            try {
+                ExtractDocumentAiBatchItemJob::dispatch($item->id);
+                $dispatched++;
+            } catch (Throwable) {
+                // Leave the item queued so a later idempotent request can recover handoff.
+            }
+        }
+
+        return $dispatched;
+    }
+
+    private function findExisting(
+        int $companyId,
+        int $userId,
+        int $employeeId,
+        string $batchRequestId,
+    ): ?DocumentAiBatch {
+        return DocumentAiBatch::query()
+            ->where('company_id', $companyId)
+            ->where('user_id', $userId)
+            ->where('employee_id', $employeeId)
+            ->where('batch_request_id', $batchRequestId)
+            ->with('items')
+            ->first();
     }
 }

@@ -286,9 +286,10 @@ export function useDocumentAiBatch(
     const abandon = useCallback(async () => {
         const current = stateRef.current;
 
-        if (!current.id) {
-            setState(emptyDocumentAiBatch());
+        // Clear local state immediately so late poll/results cannot repopulate drafts.
+        setState(emptyDocumentAiBatch());
 
+        if (!current.id) {
             return;
         }
 
@@ -302,7 +303,7 @@ export function useDocumentAiBatch(
                     },
                 });
             } catch {
-                // Continue clearing local state even if cancel fails.
+                // Continue even if cancel fails.
             }
         }
 
@@ -317,8 +318,6 @@ export function useDocumentAiBatch(
         } catch {
             // Destroy failure must not block local reset.
         }
-
-        setState(emptyDocumentAiBatch());
     }, []);
 
     return {

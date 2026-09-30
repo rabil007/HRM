@@ -59,7 +59,7 @@ Bulk extraction batches belong to the active company, initiating user, and emplo
 - purges expired terminal batches
 - skips expired batches that still have **recent** `processing` items (`started_at` within job timeout 45s + 120s grace)
 - terminalizes **stale** `processing` items past that window, then purges
-- sweeps orphan `document-ai-temp/{companyId}/{batchId}/` directories left by DB cascade deletes
+- sweeps orphan `document-ai-temp/{companyId}/{batchId}/` directories left by DB cascade deletes, but only after a **15-minute** grace window so in-flight batch creation (uncommitted DB row + written temp files) is not raced
 
 Cleanup is idempotent. Provider credentials, raw responses, OCR text, and document PII are never stored in queued payloads or operational logs. Jobs resolve provider credentials server-side at execution time; if the provider or company mode is unavailable then, extraction fails safely. Bulk create accepts a client `batch_request_id` UUID for idempotency scoped to `company_id` + `user_id` + `employee_id` + `batch_request_id`. Ambiguous network retries should reuse the same UUID so the server returns the existing batch instead of spawning duplicates. Changing employee, clearing drafts, or abandoning the dialog resets that UUID because those are a new logical batch. Switching employee also clears still-AI-owned draft metadata (`ai_filled_fields`) so one employee's extracted values cannot be uploaded under another; manually edited values keep their AI marker cleared and remain. Item `attempts` increments on every claimed execution (including provider-unavailable checks) and is capped at 3 for both queue and manual Retry.
 

@@ -19,6 +19,7 @@ import {
     documentAiContextKey,
     documentTypeMismatch,
     idleDocumentAiReview,
+    shouldClearAiOwnedOnDraftCountChange,
     uniqueReviewWarnings,
 } from '@/features/organization/documents/lib/document-ai-review';
 import type { DocumentAiReviewState } from '@/features/organization/documents/lib/document-ai-review';
@@ -260,24 +261,32 @@ export function UploadDocumentDialog({
     const previousDraftCountRef = useRef(drafts.length);
 
     useEffect(() => {
-        const crossedToBulk =
-            previousDraftCountRef.current === 1 && drafts.length > 1;
-        previousDraftCountRef.current = drafts.length;
+        const previousCount = previousDraftCountRef.current;
+        const currentCount = drafts.length;
+        previousDraftCountRef.current = currentCount;
 
-        if (crossedToBulk) {
+        if (shouldClearAiOwnedOnDraftCountChange(previousCount, currentCount)) {
+            if (previousCount > 1) {
+                void abandonBulkAi();
+            }
+
+            appliedBulkAiRef.current.clear();
             setAiReview(idleDocumentAiReview());
             setDrafts((current) => clearAiOwnedDraftsMetadata(current));
-            appliedBulkAiRef.current.clear();
 
             return;
         }
 
-        if (drafts.length > 1 && aiReview.status !== 'idle') {
+        if (currentCount > 1 && aiReview.status !== 'idle') {
             setAiReview(idleDocumentAiReview());
         }
-    }, [aiReview.status, drafts.length]);
+    }, [abandonBulkAi, aiReview.status, drafts.length]);
 
     useEffect(() => {
+        if (drafts.length < 2) {
+            return;
+        }
+
         setDrafts((current) => {
             let changed = false;
             const next = current.map((draft) => {
@@ -306,7 +315,7 @@ export function UploadDocumentDialog({
 
             return changed ? next : current;
         });
-    }, [bulkAiState.items]);
+    }, [bulkAiState.items, drafts.length]);
 
     useEffect(() => {
         if (

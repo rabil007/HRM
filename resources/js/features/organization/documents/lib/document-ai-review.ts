@@ -139,6 +139,17 @@ export function clearAiOwnedDraftsMetadata(
     return drafts.map(clearAiOwnedDraftMetadata);
 }
 
+/** True when draft count crosses between single-file and bulk AI modes. */
+export function shouldClearAiOwnedOnDraftCountChange(
+    previousCount: number,
+    currentCount: number,
+): boolean {
+    return (
+        (previousCount === 1 && currentCount > 1) ||
+        (previousCount > 1 && currentCount === 1)
+    );
+}
+
 const TYPE_LABELS: Record<DocumentAiDetectedType, string> = {
     passport: 'Passport',
     emirates_id: 'Emirates ID',

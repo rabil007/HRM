@@ -185,6 +185,45 @@ test('removed draft ids ignore late batch results', () => {
     assert.equal(state.items.removed, undefined);
 });
 
+test('abandoned bulk state ignores late poll payloads for remaining draft', () => {
+    // After bulk → single, abandon resets to empty before any late poll applies.
+    const abandoned = emptyDocumentAiBatch();
+    assert.equal(abandoned.id, null);
+    assert.equal(abandoned.requestId, null);
+    assert.equal(isActiveBatchStatus(abandoned.status), false);
+
+    const late = mapBatchResponse(
+        {
+            id: 42,
+            status: 'completed',
+            items: [
+                {
+                    id: 7,
+                    draft_id: 'remaining',
+                    status: 'completed',
+                    result: {
+                        document_type: 'passport',
+                        confidence: 0.99,
+                        fields: {
+                            document_number: {
+                                value: 'SHOULD-NOT-STICK',
+                                confidence: 0.99,
+                            },
+                        },
+                        warnings: [],
+                    },
+                },
+            ],
+        },
+        abandoned,
+        // Single-file mode no longer treats the draft as part of an active bulk set.
+        new Set(),
+    );
+
+    assert.equal(late.items.remaining, undefined);
+    assert.equal(Object.keys(late.items).length, 0);
+});
+
 test('failed start preserves requestId for ambiguous retry', () => {
     const failed = failedStartPreservingRequestId('uuid-x');
     assert.equal(failed.status, 'failed');

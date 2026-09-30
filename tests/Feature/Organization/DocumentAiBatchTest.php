@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
@@ -45,6 +46,14 @@ function enableBatchAi($company, User $user): void
 function batchRequestId(): string
 {
     return (string) Str::uuid();
+}
+
+function ageTemporaryPath(string $path, int $secondsAgo): void
+{
+    $absolute = Storage::disk('local')->path($path);
+    $mtime = time() - $secondsAgo;
+    touch($absolute, $mtime);
+    touch(dirname($absolute), $mtime);
 }
 
 function createQueuedBatch(User $user, $company, $employee, int $files = 1, ?string $requestId = null): DocumentAiBatch
@@ -123,7 +132,7 @@ test('off mode and missing permission cannot create a batch', function () {
         ->assertForbidden();
 });
 
-test('duplicate batch request id reuses the existing batch without extra jobs', function () {
+test('duplicate batch request id reuses the existing batch and redispatches queued items', function () {
     Queue::fake();
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
@@ -149,7 +158,84 @@ test('duplicate batch request id reuses the existing batch without extra jobs', 
         ->assertJsonPath('batch.id', $first->json('batch.id'));
 
     expect(DocumentAiBatch::query()->count())->toBe(1);
+    // Idempotent retry reconciles queue handoff for still-queued items.
+    Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 2);
+});
+
+test('idempotent retry redispatches only queued items', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $requestId = batchRequestId();
+    $batch = createQueuedBatch($user, $company, $employee, 4, $requestId);
+    $items = $batch->items->values();
+    $items[0]->update(['status' => DocumentAiBatchItemStatus::Completed, 'completed_at' => now()]);
+    $items[1]->update(['status' => DocumentAiBatchItemStatus::Processing, 'started_at' => now()]);
+    $items[2]->update(['status' => DocumentAiBatchItemStatus::Failed, 'safe_error_code' => 'extraction_failed', 'completed_at' => now()]);
+    // items[3] remains queued
+
+    Queue::fake();
+
+    $this->actingAs($user)->postJson(
+        route('organization.employees.documents.ai-batches.store', $employee),
+        [
+            'batch_request_id' => $requestId,
+            'draft_ids' => [
+                '11111111-1111-4111-8111-000000000001',
+                '11111111-1111-4111-8111-000000000002',
+                '11111111-1111-4111-8111-000000000003',
+                '11111111-1111-4111-8111-000000000004',
+            ],
+            'files' => [
+                UploadedFile::fake()->create('a.pdf', 10, 'application/pdf'),
+                UploadedFile::fake()->create('b.pdf', 10, 'application/pdf'),
+                UploadedFile::fake()->create('c.pdf', 10, 'application/pdf'),
+                UploadedFile::fake()->create('d.pdf', 10, 'application/pdf'),
+            ],
+        ],
+    )->assertAccepted()->assertJsonPath('reused', true);
+
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 1);
+    Queue::assertPushed(
+        ExtractDocumentAiBatchItemJob::class,
+        fn (ExtractDocumentAiBatchItemJob $job) => $job->itemId === $items[3]->id,
+    );
+    expect(DocumentAiBatch::query()->count())->toBe(1)
+        ->and(Activity::query()->where('event', 'document_ai_batch_started')->count())->toBe(1);
+});
+
+test('idempotent retry redispatches each still-queued item exactly once per request', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $requestId = batchRequestId();
+    $batch = createQueuedBatch($user, $company, $employee, 4, $requestId);
+    $items = $batch->items->values();
+    $items[0]->update(['status' => DocumentAiBatchItemStatus::Completed, 'completed_at' => now()]);
+    // three remain queued
+
+    Queue::fake();
+
+    $this->actingAs($user)->postJson(
+        route('organization.employees.documents.ai-batches.store', $employee),
+        [
+            'batch_request_id' => $requestId,
+            'draft_ids' => [
+                '11111111-1111-4111-8111-000000000001',
+                '11111111-1111-4111-8111-000000000002',
+                '11111111-1111-4111-8111-000000000003',
+                '11111111-1111-4111-8111-000000000004',
+            ],
+            'files' => [
+                UploadedFile::fake()->create('a.pdf', 10, 'application/pdf'),
+                UploadedFile::fake()->create('b.pdf', 10, 'application/pdf'),
+                UploadedFile::fake()->create('c.pdf', 10, 'application/pdf'),
+                UploadedFile::fake()->create('d.pdf', 10, 'application/pdf'),
+            ],
+        ],
+    )->assertAccepted()->assertJsonPath('reused', true);
+
+    Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 3);
+    expect(DocumentAiBatch::query()->count())->toBe(1);
 });
 
 test('same batch request id for a different employee creates an independent batch', function () {
@@ -511,11 +597,12 @@ test('cleanup skips recent processing and purges stale processing', function () 
     Artisan::call('documents:cleanup-ai-batches');
 });
 
-test('cleanup removes orphan temp directories after parent cascade delete', function () {
+test('cleanup retains recent orphan temp directories and removes aged orphans', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
     $batch = createQueuedBatch($user, $company, $employee);
     $path = $batch->items->first()->temporary_file_reference;
+    $batchDirectory = dirname($path);
     expect(Storage::disk('local')->exists($path))->toBeTrue();
 
     // Simulate DB cascade deleting the batch row without Eloquent events.
@@ -524,7 +611,32 @@ test('cleanup removes orphan temp directories after parent cascade delete', func
     expect(Storage::disk('local')->exists($path))->toBeTrue();
 
     Artisan::call('documents:cleanup-ai-batches');
-    expect(Storage::disk('local')->exists($path))->toBeFalse();
+    expect(Storage::disk('local')->exists($path))->toBeTrue();
+
+    ageTemporaryPath($path, DocumentAiBatchLifecycle::ORPHAN_DIRECTORY_GRACE_SECONDS + 60);
+
+    Artisan::call('documents:cleanup-ai-batches');
+    expect(Storage::disk('local')->exists($path))->toBeFalse()
+        ->and(Storage::disk('local')->exists($batchDirectory))->toBeFalse();
+
+    Artisan::call('documents:cleanup-ai-batches');
+});
+
+test('cleanup retains directories for existing batches regardless of age', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $batch = createQueuedBatch($user, $company, $employee);
+    $path = $batch->items->first()->temporary_file_reference;
+
+    ageTemporaryPath($path, DocumentAiBatchLifecycle::ORPHAN_DIRECTORY_GRACE_SECONDS + 3600);
+
+    Artisan::call('documents:cleanup-ai-batches');
+    expect(Storage::disk('local')->exists($path))->toBeTrue()
+        ->and(DocumentAiBatch::query()->whereKey($batch->id)->exists())->toBeTrue();
+});
+
+test('resolveDirectoryAgeSeconds fails closed when age cannot be determined', function () {
+    expect(DocumentAiBatchLifecycle::resolveDirectoryAgeSeconds('document-ai-temp/999999/999999'))->toBeNull();
 });
 
 test('cleanup purges expired completed cancelled and failed batches', function () {

@@ -4,9 +4,12 @@ import {
     applyAiFieldsWithoutOverwrite,
     applyManualDraftPatch,
     clearAiOwnedDraftMetadata,
+    clearAiOwnedDraftsMetadata,
     confidenceLabel,
     documentAiContextKey,
     documentTypeMismatch,
+    idleDocumentAiReview,
+    shouldClearAiOwnedOnDraftCountChange,
 } from './document-ai-review.ts';
 
 const file = { name: 'passport.pdf', size: 100, lastModified: 1 } as File;
@@ -68,6 +71,37 @@ test('employee switch clears AI-owned values but keeps manual edits', () => {
     );
     assert.equal(manual.document_number, 'P456');
     assert.deepEqual(manual.ai_filled_fields, []);
+});
+
+test('bulk to single transition clears AI-owned values but keeps manual edits', () => {
+    assert.equal(shouldClearAiOwnedOnDraftCountChange(2, 1), true);
+    assert.equal(shouldClearAiOwnedOnDraftCountChange(1, 2), true);
+    assert.equal(shouldClearAiOwnedOnDraftCountChange(2, 3), false);
+    assert.equal(shouldClearAiOwnedOnDraftCountChange(1, 1), false);
+
+    const bulkFilled = {
+        ...draft,
+        document_number: 'P123',
+        issue_date: '2020-01-01',
+        expiry_date: '2030-01-01',
+        ai_filled_fields: ['document_number', 'issue_date', 'expiry_date'],
+    };
+    const manuallyEdited = applyManualDraftPatch(bulkFilled, {
+        document_number: 'P456',
+    });
+
+    const cleared = clearAiOwnedDraftsMetadata([manuallyEdited])[0];
+    assert.equal(cleared.document_number, 'P456');
+    assert.equal(cleared.issue_date, '');
+    assert.equal(cleared.expiry_date, '');
+    assert.deepEqual(cleared.ai_filled_fields, []);
+});
+
+test('after bulk to single clear, single-file review can start from idle', () => {
+    const review = idleDocumentAiReview();
+    assert.equal(review.status, 'idle');
+    assert.equal(review.contextKey, null);
+    assert.deepEqual(review.fields, {});
 });
 
 test('confidence categories use stable thresholds', () => {
