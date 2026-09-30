@@ -145,9 +145,10 @@ export function CrewAssignmentRelationships({
                                 }
                             />
                             <CrewMetadataField
-                                label="Rank"
+                                label="Position"
                                 value={
                                     assignment.relieves.source_position?.name ??
+                                    // Phase 3 compatibility: legacy payload only when source_position is absent
                                     assignment.relieves.source_rank?.name ??
                                     '—'
                                 }

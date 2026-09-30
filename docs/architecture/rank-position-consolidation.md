@@ -1,238 +1,74 @@
 # Rank → Position Consolidation
 
-## Phase 1: dual-schema preparation
+## Current state
 
-This phase prepares OMS-HRM to make `Position` the single occupational/job master across Employees, Crew Assignments, Crew Planning, Sea Service, Vessel Manning, Tour of Duty, Document Requirements, and related reports/filters/imports.
+**Position is now canonical for active application behavior.**
 
-**Phase 1 does not cut the application over from Rank to Position.**
+Phase 1 (data foundation) and Phase 2 (application cutover) are **complete**. Rank remains only for:
 
-Rank tables, columns (`rank_id`), routes, UI, permissions, and Crew Operations behaviour remain fully functional. The only intentional user-visible change is the new crew/Tour-of-Duty fields on Position master data.
+- temporary legacy compatibility (dual-write, URL/import/filter translation)
+- historical persisted payload readability (activity, corrections)
+- remaining physical schema pending Phase 3
+- legacy Rank master-data UI/routes/permissions until Phase 3 deletion
 
-## Why both IDs temporarily exist
+Do **not** treat current Crew Assignment, Crew Planning, Sea Service, Vessel Manning, or Tour of Duty as Rank-canonical. Active forms, filters, reports, and presenters resolve and display **Position**. Rank has **not** been deleted yet.
 
-During the transition:
+---
 
-| Area | Current | Phase 1 addition |
-| --- | --- | --- |
-| Employees | `rank_id` + `position_id` | reconcile `position_id` carefully (including soft-deleted employees) |
-| Crew Assignment / Planning / Sea Service / Vessel Manning | `rank_id` | nullable `position_id` backfilled beside Rank |
-| Document requirements | Rank + Position pivots | copy Rank pivots into Position pivots without removing Rank |
-| Mapping | — | tenant-aware `rank_position_mappings` |
+## Phase 1 — Completed (data foundation)
 
-`Position` will become the future source of truth in a later phase. Rank must not be removed until that cutover is complete and validated.
+Prepared OMS-HRM so Position can become the single occupational master without cutting application behaviour yet.
 
-## Position crew capabilities
+### Delivered
 
-`positions` now supports:
-
-- `is_crew_position` — boolean, **default `true`**
-- `max_tour_of_duty_days` — nullable unsigned small integer (same 1–365 validation as Rank)
-
-These fields are editable in Organization → Positions. Disabling “Available for Crew Operations” does not change current Crew forms (still Rank-based); it prepares filtering for Phase 2.
-
-## Mapped Position deletion protection
-
-`MasterDataUsage` treats `rank_position_mappings.position_id` as Position usage (`Rank consolidation mappings`).
-
-If a Position participates in an active Rank→Position mapping, Position deletion is blocked. This prevents soft-deleting a Position that consolidation still depends on, even when no employee/crew row references it yet.
-
-## Mapping rules (conservative)
-
-Automatic matching is exact normalized title only:
-
-- trim edges
-- collapse repeated whitespace
-- case-insensitive compare
-
-No fuzzy similarity, abbreviation expansion, or punctuation stripping for automatic mapping.
-
-Mappings are always:
-
-```text
-company_id + rank_id → position_id
-```
-
-A Rank is global; Position is company-scoped. Never map a Rank to another company’s Position.
-
-Match types:
-
-- `exact` — existing company Position matched by normalized title
-- `created` — new company Position created from Rank
-- `manual` — reserved for explicit future aliases
-
-## Soft-deleted mapping targets
-
-If an existing `rank_position_mappings.position_id` points to a soft-deleted Position:
-
-- the command reports `mapped_position_soft_deleted`
-- it does **not** auto-restore the Position
-- it does **not** create a replacement Position
-- it does **not** create a duplicate `company_id + rank_id` mapping
-- the command exits with failure until an administrator resolves it explicitly
-
-Integrity types are distinct:
-
-- `mapping_position_missing`
-- `mapping_position_company_mismatch`
-- `mapped_position_soft_deleted`
-
-## Near duplicates (report only)
-
-The command may surface likely aliases such as:
-
-- `PTWC` ↔ `PTW Coordinator`
-- `Rigger Leaderman` ↔ `Rigging Leaderman`
-- `Port Captain` ↔ `Port Captain - MSI`
-
-These are **report-only**. Similarity never writes `rank_position_mappings`.
-
-## Active Rank → inactive Position
-
-Exact title matches may still create/keep a mapping when Rank is active and Position is inactive.
-
-That mismatch is reported under `status_conflicts` for manual review before Phase 2. Position status is never auto-reactivated.
-
-## Soft-deleted employees
-
-Employee Rank→Position reconciliation includes soft-deleted employees (`Employee::withTrashed()`).
-
-- null `position_id` is backfilled from the company mapping
-- conflicts are reported and not overwritten
-- `deleted_at`, employee status, and unrelated fields are left unchanged
-
-## Command
-
-Dry-run (default — **zero writes**):
-
-```bash
-php artisan master-data:prepare-rank-position-consolidation
-php artisan master-data:prepare-rank-position-consolidation --company=1
-```
-
-Apply (idempotent; safe to re-run before Phase 2):
-
-```bash
-php artisan master-data:prepare-rank-position-consolidation --apply
-php artisan master-data:prepare-rank-position-consolidation --apply --company=1
-```
-
-Implementation:
-
-- `App\Support\MasterData\PrepareRankPositionConsolidation`
-- `App\Console\Commands\PrepareRankPositionConsolidationCommand`
-
-## Reviewing conflicts
-
-The report surfaces:
-
-- employee Position/Rank conflicts (never overwritten)
-- ambiguous normalized Position candidates (never auto-picked)
-- Tour-of-Duty conflicts (existing non-null Position TOD preserved)
-- status conflicts (active Rank → inactive Position)
-- mapped soft-deleted Positions (integrity failure; command fails)
-- near-duplicate candidates (reported only; not merged)
-- unmapped Rank references
-- tenant integrity failures
-
-Resolve conflicts manually before Phase 2. Do not treat near-duplicates such as `PTWC` / `PTW Coordinator` as aliases unless explicitly approved.
-
-## Idempotency
-
-Re-running `--apply`:
-
-- does not recreate existing `rank_position_mappings`
-- does not recreate Positions for soft-deleted mapping targets
-- fills only null `position_id` values
-- does not overwrite conflicting `position_id` values
-- uses `syncWithoutDetaching` for document Position requirements (no duplicates)
-- continues to report unresolved integrity/status/near-duplicate findings
-
-## Out of scope for Phase 1
-
-Crew Assignment / Planning / Sea Service / Vessel Manning forms, TOD resolver, crew reports/filters/corrections, historical crew import, Employee Rank input, Rank master-data page/routes/permissions, and deletion of Rank schema remain Rank-based until Phase 2.
-
-## Phase 2: application cutover (in progress)
-
-Phase 2 makes **Position** the canonical occupational field for active Crew Operations, Planning, Sea Service directory filters, document requirement targeting, and list/saved-view filters. **`rank_id` columns and Rank master data remain** for dual-write, imports, and Phase 3 removal.
-
-### Canonical behavior
-
-| Area | Phase 2 behavior |
+| Area | Phase 1 addition |
 | --- | --- |
-| Crew assignment create/edit/bulk/movements | Forms and APIs accept `position_id`; `RankPositionBridge` dual-writes mapped `rank_id` when required |
-| Crew Operations list filters / saved views | Query `position_id`; `LegacyRankFilterTranslator` maps legacy `rank_id` URLs and stored saved views |
-| Crew Planning Gantt / relief / pool | UI and assignment writes use `position_id`; planning rows still store `rank_id` when mapped |
-| Sea Service directory | Filter and index props use `position_id`; legacy `rank_id` query params translate via bridge |
-| Document requirements | New/edited rules target **positions** only (Rank pivot retained in DB until Phase 3) |
-| Employees | Already position-first for profile and directory filters |
+| Position | `is_crew_position`, `max_tour_of_duty_days` |
+| Mapping | tenant-aware `rank_position_mappings` (`company_id + rank_id → position_id`) |
+| Employees / crew tables | nullable `position_id` backfilled beside Rank |
+| Document requirements | Rank pivots copied into Position pivots (Rank retained) |
+| Command | `master-data:prepare-rank-position-consolidation` (dry-run + `--apply`) |
 
-### Compatibility helpers
+### Mapping rules (still apply)
 
-- `App\Support\Positions\RankPositionBridge` — tenant mapping, crew position options, dual-write normalization
+- Exact normalized title only (trim, collapse whitespace, case-insensitive)
+- Never map a Rank to another company’s Position
+- Soft-deleted mapping targets are reported, not auto-restored
+- Near-duplicates are report-only
+
+Implementation: `App\Support\MasterData\PrepareRankPositionConsolidation`.
+
+---
+
+## Phase 2 — Completed (application cutover)
+
+Position is the **canonical application source of truth** for active behaviour:
+
+- Employee create/edit/profile/directory/filters/search/imports/exports
+- Crew Assignment lifecycle (create, update, join, transfer, redeploy, corrections, presenters)
+- Crew Planning (assignments, relief, Gantt, vacant slots)
+- Sea Service, Vessel Manning, Tour of Duty
+- Document requirement matching (Position pivots for active resolution)
+- Reports, saved views, smart search, activity presentation
+
+### Compatibility helpers (retained until Phase 3)
+
+- `App\Support\Positions\RankPositionBridge` — tenant mapping, crew position options, dual-write, batch `hydrateCanonicalPositions`
 - `App\Support\Positions\LegacyRankFilterTranslator` — request/saved-view `rank_id` → `position_id`
 - `App\Http\Requests\Organization\Concerns\TranslatesLegacyCrewRankToPosition` — legacy POST bodies with `rank_id` only
 
-### Not Phase 2
+New URLs, filters, and saved views store **`position_id` only**. Legacy `rank_id` is accepted and translated when a company mapping exists. **Never treat a Rank ID as a Position ID.**
 
-- Dropping `rank_id` columns or Rank routes/UI
-- Gantt row keys still accept legacy `rank:` segments in some stored URLs until bookmarks expire
-- Historical Excel import columns may still accept Rank labels with bridge resolution (see import orchestrators)
-- Full relief-link validator still compares mapped rank in edge cases — prefer matching `position_id` on both sides
+### Presenter contract (Phase 2 cleanup)
 
-Re-run `master-data:prepare-rank-position-consolidation --apply` after master-data changes. Resolve unmapped ranks before expecting filters or forms to resolve legacy URLs.
-
-## Phase 2: application cutover (in progress)
-
-Position is canonical for **application behavior** in reports, filters, saved views, smart search resolution, and operational URLs. Rank schema and `rank_id` columns remain; nothing is dropped in Phase 2.
-
-### Bridge and legacy translation
-
-- `App\Support\Positions\RankPositionBridge` — tenant `company_id + rank_id → position_id` (never treat global Rank ID as Position ID).
-- `App\Support\Positions\LegacyRankFilterTranslator` — temporary Phase 3 removal candidate for `?rank_id=` query params, saved views, and filter payloads.
-- `App\Support\Positions\CrewAssignmentPositionPresenter` — display/export labels use Position title with mapping fallback.
-
-New URLs, filters, and saved views store **`position_id` only**. Legacy `rank_id` is accepted on filter endpoints and migrated on save/apply when a company mapping exists.
-
-### Areas cut over in Phase 2
-
-| Area | Behavior |
-| --- | --- |
-| Crew Movement History, Crew Relief, Hotel Check-In/Out reports | `position_id` filters; export column **Position** |
-| Current Crew list filters | `position_id`; crew position options |
-| Saved views (Employees, Crew) | `position_id` on save; legacy `rank_id` migrated via bridge |
-| Employee smart search | `rank` concept resolves to `position_id` (temporary alias) |
-| Operational alert deep links (planning gaps) | `position_id` in query when mapped |
-| Payroll crew timeline preparation review | `position` label on assignments |
-
-### Still Rank-backed until Phase 3
-
-Crew assignment create/edit/movement forms, corrections field catalog (`rank_id` in payloads), vessel manning keys, planning row identity, Rank master data UI, and schema removal.
-
-### Verification
-
-```bash
-php artisan test --compact tests/Feature/Positions/RankPositionPhase2ApplicationTest.php
-php artisan test --compact tests/Feature/SavedViewTest.php
-php artisan test --compact tests/Feature/Organization/EmployeeSmartSearchTest.php
-```
-
-## Phase 2 — Application Cutover
-
-Position is now the **canonical application source of truth** for active behavior:
-
-- Employee create/edit/profile/directory/filters/search/imports/exports
-- Crew Assignment lifecycle (create, update, join, transfer, redeploy, corrections)
-- Crew Planning (assignments, relief, Gantt, vacant slots)
-- Sea Service, Vessel Manning, Tour of Duty
-- Document requirement matching (Position pivots only for active resolution)
-- Reports, saved views, smart search, activity presentation
+`CrewAssignmentPresenter` uses only an already-loaded `position` relation (or Positions set by `RankPositionBridge::hydrateCanonicalPositions`). It must not lazy-load `position` or run per-record relation queries. Relief context exposes `source_position` (not Rank) when the source assignment Position was eager-loaded/hydrated.
 
 ### Temporary compatibility retained until Phase 3
 
 - Physical schema: `ranks`, `rank_id` columns, `document_requirement_rank`, `rank_position_mappings`
-- Legacy `?rank_id=` URL / saved-view / import column translation via `RankPositionBridge` + `LegacyRankFilterTranslator` (tenant-aware; never treats Rank ID as Position ID)
-- Dual-write of `rank_id` from Position→mapping when schema still requires it (deterministic; never invents Rank IDs)
-- Historical activity / correction payloads containing Rank remain readable without rewriting old rows
+- Legacy `?rank_id=` URL / saved-view / import column translation
+- Dual-write of mapped `rank_id` when schema still requires it
+- Historical activity / correction payloads containing Rank remain readable
 
 ### Not done in Phase 2
 
@@ -240,4 +76,75 @@ Position is now the **canonical application source of truth** for active behavio
 - Removing Rank master-data UI/routes/permissions
 - Destructive cleanup of unresolved `rank_id` without `position_id`
 
-Phase 3 performs final Rank schema/code removal after readiness reporting shows clean mapping coverage.
+---
+
+## Phase 3 — Pending (destructive Rank removal)
+
+Final Rank dependency audit, then remove legacy Rank schema/code/UI/routes/permissions after readiness reporting shows clean mapping coverage.
+
+### Classification legend
+
+| Code | Meaning |
+| --- | --- |
+| **A** | Phase 3 deletion candidate |
+| **B** | Temporary legacy compatibility (remove after dual-write/URL support ends) |
+| **C** | Historical migration / consolidation command (keep or archive) |
+| **D** | Historical activity/audit compatibility (read old Rank payloads) |
+| **E** | Tests documenting legacy compatibility |
+| **F** | Documentation |
+
+### Phase 3 checklist (inventory — do not delete in Phase 2)
+
+#### A — Deletion candidates
+
+- [ ] Rank master-data UI: `resources/js/pages/settings/master-data/ranks.tsx`, settings nav / creatable registry entries
+- [ ] Rank routes, `RankController`, Rank permissions / seeder entries
+- [ ] `App\Models\Rank` and Rank factories once no FKs remain
+- [ ] Document Rank pivots (`document_requirement_rank`) after Position-only resolution is exclusive
+- [ ] Crew Planning Gantt `relieves_rank_name` → rename/remove in favour of Position label
+- [ ] Remaining `orWhereHas('rank')` search paths once Position search covers the same
+- [ ] Rank Tour-of-Duty import path / Rank-specific TOD admin if superseded by Position TOD
+
+#### B — Temporary legacy compatibility
+
+- [ ] `rank_id` columns on employees, crew_assignments, crew_planning_assignments, sea services, vessel manning, etc.
+- [ ] `RankPositionBridge` dual-write + `rankIdForPosition` / `resolveCrewAssignmentPositionId`
+- [ ] `LegacyRankFilterTranslator` and `TranslatesLegacyCrewRankToPosition`
+- [ ] `rank_position_mappings` table + `RankPositionMapping` model
+- [ ] Frontend deprecated `source_rank` / other Rank fallbacks marked Phase 3 compatibility
+- [ ] Smart-search `rank` alias → `position_id`
+- [ ] Historical Excel import Rank label resolution via bridge
+- [ ] Correction field catalog / payloads still accepting or storing `rank_id` where dual-write requires it
+
+#### C — Historical migration
+
+- [ ] `PrepareRankPositionConsolidation` command + support class (retain until post-cutover ops decide)
+- [ ] Consolidation migrations that added `position_id` / mappings (do not reverse)
+
+#### D — Historical activity/audit compatibility
+
+- [ ] Activity change presentation that can display historical Rank labels from old payloads
+- [ ] Approved correction snapshots that stored Rank fields
+
+#### E — Tests documenting legacy compatibility
+
+- [ ] Pest fixtures that still create Ranks + mappings (`crew-assignment-fixtures`, `rank-position-bridge-fixtures`, etc.)
+- [ ] Feature tests asserting legacy `rank_id` URL/import translation
+- [ ] Query-count tests that still eager-load `rank` beside `position`
+
+#### F — Documentation
+
+- [ ] This file — collapse Phase 1/2 history after Phase 3 ships
+- [ ] Domain / runbook / report docs that still mention Rank filters as primary
+- [ ] `docs/saved-views.md`, crew report docs, payroll notes referencing Rank
+
+### Verification before Phase 3 deletion
+
+```bash
+php artisan master-data:prepare-rank-position-consolidation
+# resolve unmapped ranks / integrity failures
+php artisan test --compact tests/Feature/Positions/RankPositionPhase2ApplicationTest.php
+php artisan test --compact tests/Feature/MasterData/RankPositionConsolidationTest.php
+```
+
+Phase 3 must not begin until the inventory above is reviewed and dual-write consumers are retired intentionally.

@@ -92,6 +92,7 @@ class CurrentCrewQuery
         $paginator = $query->paginate($perPage)->withQueryString();
 
         RankPositionBridge::hydrateCanonicalPositions($paginator->getCollection(), $companyId);
+        self::hydrateRelievedAssignmentPositions($paginator->getCollection(), $companyId);
         self::attachReliefReadiness($paginator->getCollection(), $companyId);
         self::attachMobilisationReadiness($paginator->getCollection(), $companyId);
         self::attachMovementAccommodation($paginator->getCollection());
@@ -205,9 +206,38 @@ class CurrentCrewQuery
             'phases',
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
+            'planningAssignment.relievedAssignment.position',
             'planningAssignment.relievedAssignment.rank',
             'company',
         ]);
+    }
+
+    /**
+     * Batch-hydrate Position on nested relief sources (no per-row queries in the presenter).
+     *
+     * @param  Collection<int, CrewAssignment>  $assignments
+     */
+    public static function hydrateRelievedAssignmentPositions(Collection $assignments, int $companyId): void
+    {
+        $relieved = $assignments
+            ->map(function (CrewAssignment $assignment): ?CrewAssignment {
+                if (! $assignment->relationLoaded('planningAssignment') || $assignment->planningAssignment === null) {
+                    return null;
+                }
+
+                $planning = $assignment->planningAssignment;
+
+                if (! $planning->relationLoaded('relievedAssignment')) {
+                    return null;
+                }
+
+                return $planning->relievedAssignment;
+            })
+            ->filter()
+            ->unique(fn (CrewAssignment $source): int => (int) $source->id)
+            ->values();
+
+        RankPositionBridge::hydrateCanonicalPositions($relieved, $companyId);
     }
 
     /**

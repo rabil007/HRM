@@ -416,6 +416,7 @@ class CrewAssignmentController extends Controller
             'phases.employeeTraining:id,source_crew_assignment_phase_id',
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
+            'planningAssignment.relievedAssignment.position',
             'planningAssignment.relievedAssignment.rank',
             'previousAssignment:id,assignment_no,status,vessel_id,source,closed_at',
             'previousAssignment.vessel:id,name',
@@ -437,6 +438,11 @@ class CrewAssignmentController extends Controller
         $assignment->load($eagerLoads);
 
         RankPositionBridge::hydrateCanonicalPositions(collect([$assignment]), $companyId);
+
+        $relievedSource = $assignment->planningAssignment?->relievedAssignment;
+        if ($relievedSource !== null) {
+            RankPositionBridge::hydrateCanonicalPositions(collect([$relievedSource]), $companyId);
+        }
 
         $detail = CrewAssignmentPresenter::detail($assignment, $request->user());
         $correctionPresenter = app(CrewMovementCorrectionPresenter::class);

@@ -47,6 +47,7 @@ final class CrewReliefPlanningLoader
                 'currentPhase',
                 'relievedAssignment.employee:id,company_id,name,employee_no',
                 'relievedAssignment.vessel:id,company_id,name',
+                'relievedAssignment.position:id,company_id,title,max_tour_of_duty_days',
                 'relievedAssignment.rank:id,name',
             ])
             ->orderByDesc('id')
@@ -85,6 +86,7 @@ final class CrewReliefPlanningLoader
                 'crewAssignment.employee:id,company_id,name,employee_no',
                 'relievedAssignment.employee:id,company_id,name,employee_no',
                 'relievedAssignment.vessel:id,company_id,name',
+                'relievedAssignment.position:id,company_id,title,max_tour_of_duty_days',
                 'relievedAssignment.rank:id,name',
             ])
             ->orderByDesc('id')
