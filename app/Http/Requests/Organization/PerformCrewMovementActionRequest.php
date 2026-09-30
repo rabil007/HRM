@@ -7,6 +7,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTravelHomeCompletionIntent;
+use App\Http\Requests\Organization\Concerns\TranslatesLegacyCrewRankToPosition;
 use App\Models\CrewAssignment;
 use App\Models\RoomType;
 use App\Support\CrewAccommodation\CrewAccommodationService;
@@ -25,6 +26,8 @@ use Illuminate\Validation\Validator;
 
 class PerformCrewMovementActionRequest extends FormRequest
 {
+    use TranslatesLegacyCrewRankToPosition;
+
     public function authorize(): bool
     {
         if ($this->user() === null) {
@@ -58,7 +61,11 @@ class PerformCrewMovementActionRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $action = (string) $this->input('action');
-        $companyId = (int) $this->attributes->get('current_company_id');
+        $companyId = $this->currentCompanyId();
+
+        if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true) && $companyId > 0) {
+            $this->mergeLegacyCrewPositionFromRank($companyId);
+        }
 
         if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true)) {
             $vesselId = $this->input('vessel_id');
@@ -114,19 +121,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             $nullable['client_id'] = null;
         }
 
-        if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true) && $companyId > 0) {
-            $positionId = $this->input('position_id');
-            $legacyRankId = $this->input('rank_id');
-            if (($positionId === null || $positionId === '')
-                && $legacyRankId !== null
-                && $legacyRankId !== '') {
-                $mapped = RankPositionBridge::positionIdForRank($companyId, (int) $legacyRankId);
-                if ($mapped !== null) {
-                    $nullable['position_id'] = $mapped;
-                }
-            }
-        }
-
         if ($nullable !== []) {
             $this->merge($nullable);
         }
@@ -137,7 +131,7 @@ class PerformCrewMovementActionRequest extends FormRequest
      */
     public function rules(): array
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
+        $companyId = $this->currentCompanyId();
         $action = $this->input('action');
 
         $baseRules = [
@@ -962,5 +956,16 @@ class PerformCrewMovementActionRequest extends FormRequest
             'check_out_date.required' => 'Please enter the hotel check-out date.',
             'source_check_out_date.required' => 'Please enter the hotel check-out date.',
         ];
+    }
+
+    private function currentCompanyId(): int
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if ($companyId > 0) {
+            return $companyId;
+        }
+
+        return (int) ($this->user()?->current_company_id ?? 0);
     }
 }

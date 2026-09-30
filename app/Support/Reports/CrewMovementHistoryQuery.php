@@ -15,6 +15,7 @@ use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\LegacyRankFilterTranslator;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -47,10 +48,13 @@ final class CrewMovementHistoryQuery
      */
     public function paginate(int $perPage = 25): LengthAwarePaginator
     {
-        return $this->ordered($this->filteredQuery())
+        $paginator = $this->ordered($this->filteredQuery())
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray($assignment));
+            ->withQueryString();
+
+        RankPositionBridge::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
+
+        return $paginator->through(fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray($assignment));
     }
 
     /**

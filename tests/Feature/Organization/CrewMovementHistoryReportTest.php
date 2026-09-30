@@ -112,7 +112,7 @@ test('report exposes repeated phases and authoritative p4 dates in one row', fun
                     'employee.id',
                     'employee.employee_no',
                     'employee.name',
-                    'rank',
+                    'position',
                     'vessel',
                     'client',
                     'status',

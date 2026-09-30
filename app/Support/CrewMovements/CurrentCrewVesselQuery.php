@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Support\Positions\LegacyRankFilterTranslator;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -116,6 +117,7 @@ final class CurrentCrewVesselQuery
             ])
             ->values();
 
+        RankPositionBridge::hydrateCanonicalPositions($assignments, $companyId);
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
         CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
@@ -139,6 +141,7 @@ final class CurrentCrewVesselQuery
         CurrentCrewQuery::eagerLoadForList($query);
 
         $assignments = $query->get();
+        RankPositionBridge::hydrateCanonicalPositions($assignments, $companyId);
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
         CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Positions\LegacyRankFilterTranslator;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -28,11 +29,14 @@ final class SeaServiceDirectoryQuery
 
         $this->applyFilters($query);
 
-        return $query
+        $paginator = $query
             ->latestServiceFirst()
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (EmployeeSeaService $seaService) => SeaServiceListResource::toArray($seaService));
+            ->withQueryString();
+
+        RankPositionBridge::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
+
+        return $paginator->through(fn (EmployeeSeaService $seaService) => SeaServiceListResource::toArray($seaService));
     }
 
     /**
@@ -80,6 +84,7 @@ final class SeaServiceDirectoryQuery
             ->with([
                 'vesselType:id,name',
                 'vessel:id,name',
+                'position:id,title',
                 'rank:id,name',
                 'client:id,name',
                 'employee:id,name,employee_no,image,company_id,branch_id,department_id,position_id',

@@ -88,12 +88,15 @@ test('transfer vessel redirects to the new destination assignment', function () 
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $sourceVessel);
 
     $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::TransferVessel->value,
             'occurred_at' => '2026-06-01 08:00:00',
             'vessel_id' => $destinationVessel->id,
             'rank_id' => $rank->id,
         ]);
+
+    $response->assertSessionDoesntHaveErrors();
 
     $destination = CrewAssignment::query()
         ->where('company_id', $company->id)

@@ -4,6 +4,7 @@ namespace App\Support\SeaServices;
 
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Support\Positions\RankPositionBridge;
 
 final class SeaServiceListResource
 {
@@ -13,6 +14,8 @@ final class SeaServiceListResource
     public static function toArray(EmployeeSeaService $seaService, ?Employee $employee = null): array
     {
         $employee ??= $seaService->employee;
+        $companyId = (int) $seaService->company_id;
+        $positionPayload = self::positionPayload($seaService, $companyId);
 
         return [
             'id' => $seaService->id,
@@ -26,6 +29,8 @@ final class SeaServiceListResource
             'vessel_type_name' => $seaService->vesselType?->name,
             'vessel_id' => $seaService->vessel_id,
             'vessel_name' => $seaService->vessel?->name,
+            'position_id' => $positionPayload['id'],
+            'position_name' => $positionPayload['name'],
             'rank_id' => $seaService->rank_id,
             'rank_name' => $seaService->rank?->name,
             'client_id' => $seaService->client_id,
@@ -46,12 +51,17 @@ final class SeaServiceListResource
      */
     public static function toProfileArray(EmployeeSeaService $seaService): array
     {
+        $companyId = (int) $seaService->company_id;
+        $positionPayload = self::positionPayload($seaService, $companyId);
+
         return [
             'id' => $seaService->id,
             'vessel_type_id' => $seaService->vessel_type_id,
             'vessel_type_name' => $seaService->vesselType?->name,
             'vessel_id' => $seaService->vessel_id,
             'vessel_name' => $seaService->vessel?->name,
+            'position_id' => $positionPayload['id'],
+            'position_name' => $positionPayload['name'],
             'rank_id' => $seaService->rank_id,
             'rank_name' => $seaService->rank?->name,
             'client_id' => $seaService->client_id,
@@ -63,6 +73,51 @@ final class SeaServiceListResource
             'crew_assignment_phase_id' => $seaService->crew_assignment_phase_id,
             'has_assignment_phase' => $seaService->crew_assignment_phase_id !== null,
             'sort_order' => (int) $seaService->sort_order,
+            'grt' => $seaService->vessel?->grt !== null ? (string) $seaService->vessel->grt : null,
+            'bhp' => $seaService->vessel?->bhp,
+            'created_at' => $seaService->created_at?->toDateTimeString(),
+        ];
+    }
+
+    /**
+     * @return array{id: int|null, name: string|null}
+     */
+    private static function positionPayload(EmployeeSeaService $seaService, int $companyId): array
+    {
+        $position = $seaService->relationLoaded('position') ? $seaService->position : null;
+
+        if ($position !== null) {
+            return [
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
+            ];
+        }
+
+        $resolvedId = RankPositionBridge::resolveCrewAssignmentPositionId(
+            $companyId,
+            $seaService->position_id !== null ? (int) $seaService->position_id : null,
+            $seaService->rank_id !== null ? (int) $seaService->rank_id : null,
+        );
+
+        if ($resolvedId !== null) {
+            $title = $position?->title ?? $seaService->rank?->name;
+
+            return [
+                'id' => $resolvedId,
+                'name' => $title !== null ? (string) $title : null,
+            ];
+        }
+
+        if ($seaService->rank !== null) {
+            return [
+                'id' => null,
+                'name' => (string) $seaService->rank->name,
+            ];
+        }
+
+        return [
+            'id' => null,
+            'name' => null,
         ];
     }
 }

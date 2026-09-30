@@ -2,9 +2,12 @@
 
 namespace App\Support\Positions;
 
+use App\Models\CrewAssignment;
+use App\Models\EmployeeSeaService;
 use App\Models\Position;
 use App\Models\RankPositionMapping;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
@@ -17,6 +20,9 @@ use Illuminate\Validation\Rules\Exists;
  */
 final class RankPositionBridge
 {
+    /** @var array<string, int|null> */
+    private static array $positionIdForRankCache = [];
+
     /**
      * @return Builder<Position>
      */
@@ -80,22 +86,168 @@ final class RankPositionBridge
             return null;
         }
 
-        $positionId = RankPositionMapping::query()
-            ->where('company_id', $companyId)
-            ->where('rank_id', $rankId)
-            ->value('position_id');
+        $cacheKey = $companyId.':'.$rankId;
 
-        if ($positionId === null) {
-            return null;
+        if (array_key_exists($cacheKey, self::$positionIdForRankCache)) {
+            return self::$positionIdForRankCache[$cacheKey];
         }
 
-        $usable = Position::query()
-            ->where('company_id', $companyId)
-            ->whereKey((int) $positionId)
-            ->whereNull('deleted_at')
-            ->exists();
+        self::positionIdMapForRankIds($companyId, [$rankId]);
 
-        return $usable ? (int) $positionId : null;
+        return self::$positionIdForRankCache[$cacheKey] ?? null;
+    }
+
+    /**
+     * @param  list<int>  $rankIds
+     * @return array<int, int> rank_id => position_id
+     */
+    public static function positionIdMapForRankIds(int $companyId, array $rankIds): array
+    {
+        if ($companyId < 1 || $rankIds === []) {
+            return [];
+        }
+
+        $normalizedRankIds = collect($rankIds)
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($normalizedRankIds === []) {
+            return [];
+        }
+
+        $uncachedRankIds = [];
+
+        foreach ($normalizedRankIds as $rankId) {
+            $cacheKey = $companyId.':'.$rankId;
+
+            if (! array_key_exists($cacheKey, self::$positionIdForRankCache)) {
+                $uncachedRankIds[] = $rankId;
+            }
+        }
+
+        if ($uncachedRankIds !== []) {
+            $mappings = RankPositionMapping::query()
+                ->where('company_id', $companyId)
+                ->whereIn('rank_id', $uncachedRankIds)
+                ->get(['rank_id', 'position_id']);
+
+            $positionIds = $mappings
+                ->pluck('position_id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->filter(fn (int $id): bool => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            $usablePositionIds = $positionIds === []
+                ? []
+                : Position::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('id', $positionIds)
+                    ->whereNull('deleted_at')
+                    ->pluck('id')
+                    ->map(fn (mixed $id): int => (int) $id)
+                    ->all();
+
+            $usableLookup = array_fill_keys($usablePositionIds, true);
+
+            foreach ($uncachedRankIds as $rankId) {
+                self::$positionIdForRankCache[$companyId.':'.$rankId] = null;
+            }
+
+            foreach ($mappings as $mapping) {
+                $rankId = (int) $mapping->rank_id;
+                $positionId = (int) $mapping->position_id;
+
+                if (isset($usableLookup[$positionId])) {
+                    self::$positionIdForRankCache[$companyId.':'.$rankId] = $positionId;
+                }
+            }
+        }
+
+        $map = [];
+
+        foreach ($normalizedRankIds as $rankId) {
+            $cached = self::$positionIdForRankCache[$companyId.':'.$rankId] ?? null;
+
+            if ($cached !== null) {
+                $map[$rankId] = $cached;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Eager-load Position models for legacy rank-only rows without per-row mapping queries.
+     *
+     * @param  Collection<int, CrewAssignment>|Collection<int, EmployeeSeaService>  $records
+     */
+    public static function hydrateCanonicalPositions(Collection $records, int $companyId): void
+    {
+        if ($companyId < 1 || $records->isEmpty()) {
+            return;
+        }
+
+        $needsHydration = $records->filter(function (CrewAssignment|EmployeeSeaService $record): bool {
+            if ($record->relationLoaded('position') && $record->position !== null) {
+                return false;
+            }
+
+            return (int) ($record->position_id ?? 0) > 0
+                || (int) ($record->rank_id ?? 0) > 0;
+        });
+
+        if ($needsHydration->isEmpty()) {
+            return;
+        }
+
+        $rankIds = $needsHydration
+            ->filter(fn (CrewAssignment|EmployeeSeaService $record): bool => (int) ($record->position_id ?? 0) < 1)
+            ->pluck('rank_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $rankToPosition = self::positionIdMapForRankIds($companyId, $rankIds);
+
+        $explicitPositionIds = $needsHydration
+            ->pluck('position_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
+
+        $positionIds = array_values(array_unique([
+            ...$explicitPositionIds,
+            ...array_values($rankToPosition),
+        ]));
+
+        if ($positionIds === []) {
+            return;
+        }
+
+        $positions = Position::query()
+            ->where('company_id', $companyId)
+            ->whereIn('id', $positionIds)
+            ->whereNull('deleted_at')
+            ->get(['id', 'title', 'max_tour_of_duty_days'])
+            ->keyBy('id');
+
+        foreach ($needsHydration as $record) {
+            $resolvedId = (int) ($record->position_id ?? 0) > 0
+                ? (int) $record->position_id
+                : ($rankToPosition[(int) ($record->rank_id ?? 0)] ?? null);
+
+            if ($resolvedId !== null && $positions->has($resolvedId)) {
+                $record->setRelation('position', $positions->get($resolvedId));
+            }
+        }
     }
 
     /**

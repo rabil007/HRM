@@ -9,6 +9,7 @@ use App\Models\Hotel;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\LegacyRankFilterTranslator;
+use App\Support\Positions\RankPositionBridge;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,10 +37,18 @@ final class HotelCheckInCheckoutQuery
      */
     public function paginate(int $perPage = 25): LengthAwarePaginator
     {
-        return $this->ordered($this->filteredQuery())
+        $paginator = $this->ordered($this->filteredQuery())
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (CrewAccommodationStay $stay): array => HotelCheckInCheckoutPresenter::toArray($stay, $this->timezone));
+            ->withQueryString();
+
+        $assignments = $paginator->getCollection()
+            ->map(fn (CrewAccommodationStay $stay) => $stay->assignment)
+            ->filter()
+            ->values();
+
+        RankPositionBridge::hydrateCanonicalPositions($assignments, $this->companyId);
+
+        return $paginator->through(fn (CrewAccommodationStay $stay): array => HotelCheckInCheckoutPresenter::toArray($stay, $this->timezone));
     }
 
     /**

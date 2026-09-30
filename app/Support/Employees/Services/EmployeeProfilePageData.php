@@ -26,6 +26,8 @@ use App\Support\Employees\ResolveEmployeeNavigation;
 use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Employees\Resources\EmployeeDetailResource;
 use App\Support\Employees\Resources\EmployeeDocumentResource;
+use App\Support\Positions\RankPositionBridge;
+use App\Support\SeaServices\SeaServiceListResource;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -630,11 +632,14 @@ final class EmployeeProfilePageData
                 ->with([
                     'vesselType:id,name',
                     'vessel:id,name,vessel_type_id,grt,bhp',
+                    'position:id,title',
                     'rank:id,name',
                     'client:id,name',
                 ])
                 ->latestServiceFirst()
                 ->get();
+
+            RankPositionBridge::hydrateCanonicalPositions($seaServiceModels, $companyId);
 
             $referencedVesselTypeIds = $seaServiceModels->pluck('vessel_type_id')->unique()->filter()->values()->all();
 
@@ -695,24 +700,7 @@ final class EmployeeProfilePageData
                 ->all();
 
             $seaServices = $seaServiceModels
-                ->map(fn (EmployeeSeaService $row) => [
-                    'id' => $row->id,
-                    'vessel_type_id' => $row->vessel_type_id,
-                    'vessel_type_name' => $row->vesselType?->name,
-                    'vessel_id' => $row->vessel_id,
-                    'vessel_name' => $row->vessel?->name,
-                    'rank_id' => $row->rank_id,
-                    'rank_name' => $row->rank?->name,
-                    'start_date' => $row->start_date?->toDateString(),
-                    'end_date' => $row->end_date?->toDateString(),
-                    'total_months' => $row->total_months,
-                    'total_days' => $row->total_days,
-                    'grt' => $row->vessel?->grt !== null ? (string) $row->vessel->grt : null,
-                    'bhp' => $row->vessel?->bhp,
-                    'client_id' => $row->client_id,
-                    'client_name' => $row->client?->name,
-                    'created_at' => $row->created_at?->toDateTimeString(),
-                ])
+                ->map(fn (EmployeeSeaService $row) => SeaServiceListResource::toProfileArray($row))
                 ->all();
 
             return [

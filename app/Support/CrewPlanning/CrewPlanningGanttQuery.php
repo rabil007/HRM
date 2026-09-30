@@ -9,6 +9,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\LegacyRankFilterTranslator;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -43,11 +44,11 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
         ?array $projectionPositions = null,
         ?User $user = null,
     ): array {
-        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $rankId, $user);
+        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $positionId, $user);
 
         $grouped = [];
 
@@ -137,10 +138,10 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
         ?User $user = null,
     ): array {
-        return self::allPlanningItems($companyId, $from, $to, $vesselId, $rankId, $user)
+        return self::allPlanningItems($companyId, $from, $to, $vesselId, $positionId, $user)
             ->map(function (array $item) use ($to): array {
                 $displayEnd = $item['leave_date'] ?? $to;
                 $joinDate = $item['join_date'];
@@ -210,11 +211,11 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
         ?array $projectionPositions = null,
         ?User $user = null,
     ): array {
-        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $rankId, $user);
+        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $positionId, $user);
 
         $grouped = [];
 
@@ -337,7 +338,7 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId,
-        ?int $rankId,
+        ?int $positionId,
         ?User $user = null,
     ): Collection {
         $timezone = CompanyTimezone::forCompanyId($companyId);
@@ -348,7 +349,9 @@ final class CrewPlanningGanttQuery
         $assignmentQuery = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
+            ->where(function (Builder $role): void {
+                $role->whereNotNull('rank_id')->orWhereNotNull('position_id');
+            })
             ->whereIn('status', [CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active])
             ->where(function (Builder $q) use ($fromTimestamp, $toTimestamp): void {
                 $q->where(function (Builder $planned) use ($fromTimestamp, $toTimestamp): void {
@@ -378,7 +381,11 @@ final class CrewPlanningGanttQuery
                     });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId));
+            ->when($positionId !== null, fn (Builder $query) => LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
+                $query,
+                $companyId,
+                $positionId,
+            ));
 
         if ($user !== null) {
             $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
@@ -463,7 +470,9 @@ final class CrewPlanningGanttQuery
             ->where('company_id', $companyId)
             ->whereNull('crew_assignment_id')
             ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
+            ->where(function (Builder $role): void {
+                $role->whereNotNull('rank_id')->orWhereNotNull('position_id');
+            })
             ->where('planned_join_date', '<=', $to)
             ->where(function (Builder $query) use ($from): void {
                 $query->where('planned_leave_date', '>=', $from)
@@ -482,7 +491,12 @@ final class CrewPlanningGanttQuery
                     });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId));
+            ->when($positionId !== null, fn (Builder $query) => LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
+                $query,
+                $companyId,
+                $positionId,
+                'crew_planning_assignments',
+            ));
 
         if ($user !== null) {
             $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);

@@ -171,7 +171,7 @@ test('join vessel requires vessel and rank and does not require actual disembark
 
     expect(fn () => $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-03-03 08:00:00',
-    ], $user->id))->toThrow(CrewMovementException::class, 'Join vessel requires vessel_id and rank_id.');
+    ], $user->id))->toThrow(CrewMovementException::class, 'Join vessel requires vessel_id and position_id.');
 
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-03-03 08:00:00',

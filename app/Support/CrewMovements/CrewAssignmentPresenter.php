@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
@@ -317,8 +318,8 @@ class CrewAssignmentPresenter
             ),
             'vessel_id' => $assignment->vessel_id,
             'vessel_name' => $assignment->vessel?->name,
-            'position_id' => $assignment->position_id,
-            'position_name' => $assignment->position?->title ?? $assignment->rank?->name,
+            'position_id' => self::resolvedPositionId($assignment),
+            'position_name' => self::positionPayload($assignment)['name'] ?? null,
             'client_id' => $assignment->client_id,
             'client_name' => $assignment->client?->name,
             'planned_join_at' => $assignment->planned_join_at?->toDateString(),
@@ -401,37 +402,53 @@ class CrewAssignmentPresenter
      */
     private static function positionPayload(CrewAssignment $assignment, bool $includeTourDays = false): ?array
     {
-        if ($assignment->position !== null) {
+        $companyId = (int) $assignment->company_id;
+        $position = $assignment->relationLoaded('position') ? $assignment->position : null;
+
+        if ($position === null && (int) ($assignment->position_id ?? 0) > 0) {
+            $position = $assignment->position;
+        }
+
+        if ($position === null && (int) ($assignment->rank_id ?? 0) > 0) {
+            $mappedId = RankPositionBridge::positionIdForRank($companyId, (int) $assignment->rank_id);
+
+            if ($mappedId !== null && $assignment->relationLoaded('position') && $assignment->position?->id === $mappedId) {
+                $position = $assignment->position;
+            }
+        }
+
+        if ($position !== null) {
             $payload = [
-                'id' => (int) $assignment->position->id,
-                'name' => (string) $assignment->position->title,
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
             ];
 
             if ($includeTourDays) {
-                $payload['max_tour_of_duty_days'] = $assignment->position->max_tour_of_duty_days !== null
-                    ? (int) $assignment->position->max_tour_of_duty_days
+                $payload['max_tour_of_duty_days'] = $position->max_tour_of_duty_days !== null
+                    ? (int) $position->max_tour_of_duty_days
                     : null;
             }
 
             return $payload;
         }
 
-        if ($assignment->rank !== null) {
-            $payload = [
-                'id' => (int) $assignment->rank->id,
+        if ($assignment->relationLoaded('rank') && $assignment->rank !== null) {
+            return [
+                'id' => null,
                 'name' => (string) $assignment->rank->name,
             ];
-
-            if ($includeTourDays) {
-                $payload['max_tour_of_duty_days'] = $assignment->rank->max_tour_of_duty_days !== null
-                    ? (int) $assignment->rank->max_tour_of_duty_days
-                    : null;
-            }
-
-            return $payload;
         }
 
         return null;
+    }
+
+    private static function resolvedPositionId(CrewAssignment $assignment): ?int
+    {
+        return RankPositionBridge::resolveCrewAssignmentPositionId(
+            (int) $assignment->company_id,
+            $assignment->position_id !== null ? (int) $assignment->position_id : null,
+            $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
+        );
     }
 
     /**

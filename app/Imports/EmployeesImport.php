@@ -155,7 +155,6 @@ class EmployeesImport
         'gender',
         'religion',
         'nationality',
-        'rank',
         'visa_type',
         'sponsor',
         'status',

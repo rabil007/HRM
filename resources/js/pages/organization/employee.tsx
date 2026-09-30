@@ -1109,7 +1109,6 @@ function EmployeeDetailsPage({
                                             clients={clients ?? []}
                                             employeePositionId={
                                                 localEmployee.position?.id ??
-                                                localEmployee.rank_id ??
                                                 null
                                             }
                                             canManage={

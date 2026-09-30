@@ -73,7 +73,7 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
                 'employee' => $assignment->employee?->name ?? ('#'.$assignment->employee_id),
                 'position' => $assignment->position?->title
                     ?? $assignment->rank?->name
-                    ?? ('#'.($assignment->position_id ?? $assignment->rank_id)),
+                    ?? ('Assignment #'.$assignment->id),
                 'actual_join' => $actualJoinStr,
                 'position_tour' => $inspection['tour_of_duty_days'].' days',
                 'existing_signoff' => $existingSignoffStr,

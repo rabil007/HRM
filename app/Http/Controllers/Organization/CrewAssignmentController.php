@@ -435,6 +435,8 @@ class CrewAssignmentController extends Controller
 
         $assignment->load($eagerLoads);
 
+        RankPositionBridge::hydrateCanonicalPositions(collect([$assignment]), $companyId);
+
         $detail = CrewAssignmentPresenter::detail($assignment, $request->user());
         $correctionPresenter = app(CrewMovementCorrectionPresenter::class);
 

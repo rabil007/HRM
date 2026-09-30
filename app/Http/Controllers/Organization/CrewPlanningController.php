@@ -54,9 +54,6 @@ class CrewPlanningController extends Controller
 
         $positionIdString = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
         $positionId = $positionIdString !== '' ? (int) $positionIdString : null;
-        $rankId = $positionId !== null
-            ? RankPositionBridge::rankIdForPosition($companyId, $positionId)
-            : null;
 
         $search = trim((string) $request->query('search', ''));
         $can = CrewPlanningPagePermissions::for($request->user());
@@ -142,7 +139,7 @@ class CrewPlanningController extends Controller
                     $from,
                     $to,
                     $vesselId,
-                    $rankId,
+                    $positionId !== null ? RankPositionBridge::rankIdForPosition($companyId, $positionId) : null,
                 ),
             );
             $projectionPositions = $projection['rows'];
@@ -155,7 +152,7 @@ class CrewPlanningController extends Controller
                 $from,
                 $to,
                 $vesselId,
-                $rankId,
+                $positionId,
                 $projectionPositions,
                 $request->user(),
             ),
@@ -164,7 +161,7 @@ class CrewPlanningController extends Controller
                 $from,
                 $to,
                 $vesselId,
-                $rankId,
+                $positionId,
                 $request->user(),
             ),
             'tree' => CrewPlanningGanttQuery::tree(
@@ -172,7 +169,7 @@ class CrewPlanningController extends Controller
                 $from,
                 $to,
                 $vesselId,
-                $rankId,
+                $positionId,
                 $projectionPositions,
                 $request->user(),
             ),

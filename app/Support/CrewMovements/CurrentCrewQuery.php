@@ -91,6 +91,7 @@ class CurrentCrewQuery
 
         $paginator = $query->paginate($perPage)->withQueryString();
 
+        RankPositionBridge::hydrateCanonicalPositions($paginator->getCollection(), $companyId);
         self::attachReliefReadiness($paginator->getCollection(), $companyId);
         self::attachMobilisationReadiness($paginator->getCollection(), $companyId);
         self::attachMovementAccommodation($paginator->getCollection());
@@ -126,7 +127,7 @@ class CurrentCrewQuery
         if (! empty($filters['position_id'])) {
             LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
                 $query,
-                $this->companyId,
+                $companyId,
                 (int) $filters['position_id'],
             );
         }
@@ -196,6 +197,7 @@ class CurrentCrewQuery
     {
         $query->with([
             'employee',
+            'position',
             'rank',
             'vessel',
             'client',

@@ -84,7 +84,7 @@ const SEA_SERVICE_TEMPLATE_FIELD_ALIASES = {
 } as const;
 
 function resolveSeaServiceRowPositionId(row: SeaServiceItem): number | null {
-    return row.position_id ?? row.rank_id ?? null;
+    return row.position_id ?? null;
 }
 
 function resolveSeaServiceRowPositionName(row: SeaServiceItem): string | null {

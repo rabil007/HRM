@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization\CrewPlanning\Concerns;
 use App\Models\CrewPlanningAssignment;
 use App\Support\CrewPlanning\ValidatesCrewPlanningReliefLink;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -52,7 +53,15 @@ trait ValidatesCrewPlanningAssignmentFields
 
             $assignmentPositionId = $this->has('position_id')
                 ? $this->input('position_id')
-                : ($existing?->position_id ?? $existing?->rank_id);
+                : null;
+
+            if (($assignmentPositionId === null || $assignmentPositionId === '') && $existing !== null) {
+                $assignmentPositionId = RankPositionBridge::resolveCrewAssignmentPositionId(
+                    $companyId,
+                    $existing->position_id !== null ? (int) $existing->position_id : null,
+                    $existing->rank_id !== null ? (int) $existing->rank_id : null,
+                );
+            }
 
             $vesselId = $this->has('vessel_id')
                 ? $this->input('vessel_id')
