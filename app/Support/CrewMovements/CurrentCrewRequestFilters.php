@@ -2,7 +2,6 @@
 
 namespace App\Support\CrewMovements;
 
-use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class CurrentCrewRequestFilters
@@ -23,7 +22,7 @@ final class CurrentCrewRequestFilters
     public static function fromRequest(Request $request): array
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $positionId = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+        $positionId = (string) ($request->query('position_id') ?? '');
 
         return [
             'search' => trim((string) $request->query('search', '')),

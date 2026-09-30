@@ -23,8 +23,7 @@ final class VesselManningIndexQuery
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
                     ->with('position:id,title')
-                    ->orderBy('position_id')
-                    ->orderBy('rank_id'),
+                    ->orderBy('position_id'),
             ])
             ->when($search !== '', fn (Builder $query) => $query->where('name', 'like', "%{$search}%"))
             ->when($vesselTypeId !== null, fn (Builder $query) => $query->where('vessel_type_id', $vesselTypeId))
@@ -46,11 +45,10 @@ final class VesselManningIndexQuery
      *         id: int,
      *         position_id: int,
      *         position_name: string,
-     *         rank_id: int|null,
      *         required_count: int
      *     }>,
      *     total_required: int,
-     *     ranks_configured: int
+     *     positions_configured: int
      * }
      */
     public static function toArray(Vessel $vessel, bool $includeDetails = false): array
@@ -63,7 +61,6 @@ final class VesselManningIndexQuery
                 'id' => $line->id,
                 'position_id' => (int) ($line->position_id ?? 0),
                 'position_name' => (string) ($line->position?->title ?? ''),
-                'rank_id' => $line->rank_id !== null ? (int) $line->rank_id : null,
                 'required_count' => $line->required_count,
             ])
             ->values()
@@ -77,7 +74,7 @@ final class VesselManningIndexQuery
             'is_active' => (bool) $vessel->is_active,
             'manning' => $lines,
             'total_required' => (int) $manning->sum('required_count'),
-            'ranks_configured' => $manning->count(),
+            'positions_configured' => $manning->count(),
         ];
 
         if ($includeDetails) {
@@ -97,8 +94,7 @@ final class VesselManningIndexQuery
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
                     ->with('position:id,title')
-                    ->orderBy('position_id')
-                    ->orderBy('rank_id'),
+                    ->orderBy('position_id'),
             ])
             ->whereKey($vessel->id)
             ->first();

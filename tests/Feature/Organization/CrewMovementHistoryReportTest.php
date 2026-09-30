@@ -261,7 +261,7 @@ test('report paginates one thousand assignments without per row queries', functi
         ->count(1000)
         ->forEmployee($employee)
         ->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => null,
             'vessel_id' => null,
         ]);
@@ -289,7 +289,7 @@ test('needs attention uses authoritative attention query not stale p4 threshold'
 
     $staleP4 = CrewAssignment::factory()->forEmployee($employee)->active()->create([
         'assignment_no' => 'CA-STALE-P4',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => Vessel::factory()->create(['company_id' => $company->id])->id,
         'tour_of_duty_days' => 90,
         'planned_signoff_at' => now($company->timezone)->addDays(45)->toDateString(),
@@ -305,7 +305,7 @@ test('needs attention uses authoritative attention query not stale p4 threshold'
 
     $tourDue = CrewAssignment::factory()->forEmployee($employee)->active()->create([
         'assignment_no' => 'CA-TOUR-DUE',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => Vessel::factory()->create(['company_id' => $company->id])->id,
         'tour_of_duty_days' => 60,
         'planned_signoff_at' => now($company->timezone)->addDays(5)->toDateString(),
@@ -515,7 +515,7 @@ test('report query count stays constant when page size increases', function () {
         ->count(25)
         ->forEmployee($employee)
         ->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => null,
             'vessel_id' => null,
         ]);

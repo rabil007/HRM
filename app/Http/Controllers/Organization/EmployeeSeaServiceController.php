@@ -10,7 +10,7 @@ use App\Models\EmployeeSeaService;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Employees\SeaServiceDuration;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceImportOrchestrator;
 use App\Support\SeaServices\SeaServiceImportTemplateExporter;
 use App\Support\Vessels\ResolvesCompanyVessels;
@@ -287,8 +287,7 @@ class EmployeeSeaServiceController extends Controller
         return [
             'vessel_type_id' => ['required', Rule::exists('vessel_types', 'id')->where('is_active', true)],
             'vessel_id' => ['required', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
-            'position_id' => ['required', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)],
-            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
+            'position_id' => ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
@@ -361,44 +360,25 @@ class EmployeeSeaServiceController extends Controller
 
     private function mergeLegacySeaServicePosition(Request $request, int $companyId): void
     {
-        if ($companyId < 1) {
-            return;
+        // Phase 3B: Rank retired — ignore legacy rank_id payloads.
+        if ($request->has('rank_id')) {
+            $request->request->remove('rank_id');
         }
-
-        $merged = RankPositionBridge::syncEmployeePositionAndRank([
-            'position_id' => $request->input('position_id'),
-            'rank_id' => $request->input('rank_id'),
-        ], $companyId);
-
-        $request->merge($merged);
     }
 
     /**
      * @param  array<string, mixed>  $validated
-     * @return array{position_id: int|null, rank_id: int|null}
+     * @return array{position_id: int|null}
      */
     private function resolvedPositionAndRank(int $companyId, array $validated, ?EmployeeSeaService $existing = null): array
     {
-        $payload = [
+        return [
             'position_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'position_id',
                 $existing?->position_id,
                 asInteger: true,
             ),
-            'rank_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
-                $validated,
-                'rank_id',
-                $existing?->rank_id,
-                asInteger: true,
-            ),
-        ];
-
-        $synced = RankPositionBridge::syncEmployeePositionAndRank($payload, $companyId);
-
-        return [
-            'position_id' => isset($synced['position_id']) ? (int) $synced['position_id'] : null,
-            'rank_id' => isset($synced['rank_id']) ? (int) $synced['rank_id'] : null,
         ];
     }
 }

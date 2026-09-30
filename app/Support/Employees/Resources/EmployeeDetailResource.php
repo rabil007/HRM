@@ -33,11 +33,6 @@ final class EmployeeDetailResource
                 'id' => $employee->position_id,
                 'title' => $employee->position?->title,
             ] : null,
-            'rank_id' => $employee->rank_id,
-            'rank' => $employee->rank_id ? [
-                'id' => $employee->rank_id,
-                'name' => $employee->rank?->name,
-            ] : null,
             'project_id' => $employee->project_id,
             'project' => $employee->project_id ? [
                 'id' => $employee->project_id,

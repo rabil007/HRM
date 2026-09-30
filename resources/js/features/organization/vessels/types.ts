@@ -15,7 +15,6 @@ export type VesselManningLine = {
     id: number;
     position_id: number;
     position_name: string;
-    rank_id: number | null;
     required_count: number;
 };
 
@@ -37,7 +36,7 @@ export type VesselRow = {
     is_active: boolean;
     manning: VesselManningLine[];
     total_required: number;
-    ranks_configured: number;
+    positions_configured: number;
     manning_health?: VesselManningHealthCompact | null;
 } & MasterDataUsageFlags;
 
@@ -47,7 +46,7 @@ export type VesselDetails = VesselRow & {
 };
 
 export type VesselSummary = {
-    manning_ranks: number;
+    manning_positions: number;
     total_required: number;
     sea_services: number;
     active_crew: number;
@@ -89,9 +88,9 @@ export type VesselManningHealthRelief = {
     mobilisation_readiness_label: string | null;
 };
 
-export type VesselManningHealthRank = {
-    rank_id: number;
-    rank_name: string;
+export type VesselManningHealthPosition = {
+    position_id: number;
+    position_name: string;
     required: number;
     onboard: number;
     projected: number;
@@ -128,7 +127,7 @@ export type VesselManningHealth = {
     ready_reliefs: number;
     projected_shortfall_days: number;
     include_crew_details: boolean;
-    ranks: VesselManningHealthRank[];
+    positions: VesselManningHealthPosition[];
 };
 
 export type VesselManningHealthCompact = {

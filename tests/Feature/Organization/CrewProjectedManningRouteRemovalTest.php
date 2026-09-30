@@ -37,7 +37,6 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planni
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -70,7 +69,6 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Overview wh
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -100,7 +98,6 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to vessels sho
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -134,7 +131,6 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to null when u
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),

@@ -4,7 +4,6 @@ namespace App\Support\CrewPlanning;
 
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
-use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class CrewReliefDeskFilters
@@ -56,7 +55,7 @@ final class CrewReliefDeskFilters
     {
         $vesselId = $request->query('vessel_id');
         $companyId = (int) $request->attributes->get('current_company_id');
-        $positionId = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+        $positionId = (string) ($request->query('position_id') ?? '');
         $clientId = $request->query('client_id');
         $horizon = trim((string) $request->query('horizon', self::HORIZON_DEFAULT));
         $focus = trim((string) $request->query('focus', ''));

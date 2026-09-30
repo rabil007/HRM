@@ -6,10 +6,10 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPlannedSignoffSource;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewTourOfDutyCalculator;
 use App\Support\CrewMovements\CrewTourOfDutyResolver;
-use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
@@ -38,10 +38,9 @@ final class RecalculateTourSignoffAfterP4StartCorrection
         }
 
         $positionChanged = array_key_exists('position_id', $normalizedProposed);
-        $legacyRankChanged = array_key_exists('rank_id', $normalizedProposed);
         $startChanged = array_key_exists('actual_start_at', $normalizedProposed);
 
-        if (! $positionChanged && ! $legacyRankChanged && ! $startChanged) {
+        if (! $positionChanged && ! $startChanged) {
             return;
         }
 
@@ -54,15 +53,10 @@ final class RecalculateTourSignoffAfterP4StartCorrection
         $previousSignoff = $assignment->planned_signoff_at;
         $previousTourDays = $assignment->tour_of_duty_days;
 
-        if ($positionChanged || $legacyRankChanged) {
-            $newPositionId = $positionChanged
-                ? (int) $normalizedProposed['position_id']
-                : RankPositionBridge::positionIdForRank(
-                    (int) $assignment->company_id,
-                    (int) $normalizedProposed['rank_id'],
-                );
+        if ($positionChanged) {
+            $newPositionId = (int) $normalizedProposed['position_id'];
 
-            if ($newPositionId === null || $newPositionId < 1) {
+            if ($newPositionId < 1) {
                 return;
             }
 
@@ -86,8 +80,6 @@ final class RecalculateTourSignoffAfterP4StartCorrection
 
                 $assignment->forceFill([
                     'position_id' => $newPositionId,
-                    // Temporary Phase 2 dual-write while schema still requires rank_id.
-                    'rank_id' => RankPositionBridge::rankIdForPosition((int) $assignment->company_id, $newPositionId),
                     'tour_of_duty_days' => $newTourDays,
                     'planned_signoff_at' => $newSignoff,
                 ])->save();
@@ -116,7 +108,6 @@ final class RecalculateTourSignoffAfterP4StartCorrection
 
             $assignment->forceFill([
                 'position_id' => $newPositionId,
-                'rank_id' => RankPositionBridge::rankIdForPosition((int) $assignment->company_id, $newPositionId),
                 'tour_of_duty_days' => $newTourDays,
             ])->save();
 

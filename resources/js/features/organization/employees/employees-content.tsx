@@ -97,7 +97,7 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    RankOption,
+    CrewPositionOption,
     ReligionOption,
     RoleOption,
     SssaOption,
@@ -152,7 +152,7 @@ export function EmployeesContent({
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
     /** @deprecated Phase 2 — Position filters are canonical; Rank prop ignored. */
-    ranks?: RankOption[];
+    ranks?: CrewPositionOption[];
     clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];

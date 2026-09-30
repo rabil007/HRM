@@ -6,7 +6,6 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -14,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * @return array{company: Company, user: User, employee: Employee, rank: Rank, position: Position, vessel: Vessel}
+ * @return array{company: Company, user: User, employee: Employee, position: Position, vessel: Vessel}
  */
 function makeCrewOperationsFixtures(): array
 {
@@ -66,17 +65,17 @@ function makeCrewOperationsFixtures(): array
         'include_in_attendance_leave' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'CO Rank '.Str::uuid()->toString(),
-        'is_active' => true,
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'CO Position '.Str::uuid()->toString(),
+        'status' => 'active',
+        'is_crew_position' => true,
+        'max_tour_of_duty_days' => null,
     ]);
-
-    $position = crewPositionForRank($company, $rank);
 
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
-            'rank_id' => $rank->id,
             'position_id' => $position->id,
             'department_id' => $department->id,
             'status' => 'active',
@@ -94,5 +93,5 @@ function makeCrewOperationsFixtures(): array
         'is_active' => true,
     ]);
 
-    return compact('company', 'user', 'employee', 'rank', 'position', 'vessel');
+    return compact('company', 'user', 'employee', 'position', 'vessel');
 }

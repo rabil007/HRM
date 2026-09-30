@@ -6,7 +6,6 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Company;
 use App\Models\CrewAccommodationStay;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
@@ -44,7 +43,7 @@ test('open P4 past crew bootstrap appears in current onboard and vessel manning 
     $data = HistoricalCrewAssignmentData::fromArray([
         'employee_id' => $fixtures['employee']->id,
         'vessel_id' => $fixtures['vessel']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'onsite_from' => '2024-08-01',
     ], (int) $fixtures['company']->id, CompanyTimezone::forCompanyId((int) $fixtures['company']->id));
 
@@ -72,7 +71,7 @@ test('open P2A past crew bootstrap establishes join standby without creating sta
     $data = HistoricalCrewAssignmentData::fromArray([
         'employee_id' => $fixtures['employee']->id,
         'vessel_id' => $fixtures['vessel']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'sign_on_standby_from' => '2024-09-20',
     ], (int) $fixtures['company']->id, $timezone);
 
@@ -99,7 +98,7 @@ test('open P5 past crew bootstrap establishes demob standby without creating sta
     $data = HistoricalCrewAssignmentData::fromArray([
         'employee_id' => $fixtures['employee']->id,
         'vessel_id' => $fixtures['vessel']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'onsite_from' => '2024-08-01',
         'onsite_to' => '2024-09-10',
         'sign_off_standby_from' => '2024-09-10',
@@ -129,7 +128,7 @@ test('completed past crew home bootstrap feeds in-home status and home query day
     $data = HistoricalCrewAssignmentData::fromArray([
         'employee_id' => $fixtures['employee']->id,
         'vessel_id' => $fixtures['vessel']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'onsite_from' => CarbonImmutable::now($timezone)->subDays(40)->toDateString(),
         'onsite_to' => CarbonImmutable::now($timezone)->subDays(10)->toDateString(),
         'sign_off_standby_from' => CarbonImmutable::now($timezone)->subDays(10)->toDateString(),

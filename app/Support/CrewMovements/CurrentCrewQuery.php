@@ -11,12 +11,10 @@ use App\Enums\CrewTourStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -91,7 +89,7 @@ class CurrentCrewQuery
 
         $paginator = $query->paginate($perPage)->withQueryString();
 
-        RankPositionBridge::hydrateCanonicalPositions($paginator->getCollection(), $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $companyId);
         self::hydrateRelievedAssignmentPositions($paginator->getCollection(), $companyId);
         self::attachReliefReadiness($paginator->getCollection(), $companyId);
         self::attachMobilisationReadiness($paginator->getCollection(), $companyId);
@@ -116,7 +114,7 @@ class CurrentCrewQuery
                     ->orWhereHas('employee', fn (Builder $e) => $e->where('name', 'like', '%'.$search.'%')
                         ->orWhere('employee_no', 'like', '%'.$search.'%'))
                     ->orWhereHas('vessel', fn (Builder $v) => $v->where('name', 'like', '%'.$search.'%'))
-                    ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'));
             });
         }
@@ -126,11 +124,7 @@ class CurrentCrewQuery
         }
 
         if (! empty($filters['position_id'])) {
-            LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                $query,
-                $companyId,
-                (int) $filters['position_id'],
-            );
+            $query->where('crew_assignments.position_id', (int) $filters['position_id']);
         }
 
         if (! empty($filters['client_id'])) {
@@ -199,7 +193,6 @@ class CurrentCrewQuery
         $query->with([
             'employee',
             'position',
-            'rank',
             'vessel',
             'client',
             'currentPhase',
@@ -207,7 +200,6 @@ class CurrentCrewQuery
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
             'planningAssignment.relievedAssignment.position',
-            'planningAssignment.relievedAssignment.rank',
             'company',
         ]);
     }
@@ -237,7 +229,7 @@ class CurrentCrewQuery
             ->unique(fn (CrewAssignment $source): int => (int) $source->id)
             ->values();
 
-        RankPositionBridge::hydrateCanonicalPositions($relieved, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($relieved, $companyId);
     }
 
     /**
@@ -325,7 +317,7 @@ class CurrentCrewQuery
 
         return [
             'vessels' => CrewAssignmentSnapshotFilterOptions::vessels($companyId),
-            'positions' => RankPositionBridge::crewPositionOptions($companyId),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'clients' => Client::query()
                 ->where('is_active', true)
                 ->orderBy('name')

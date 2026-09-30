@@ -9,7 +9,7 @@ use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\CrewMovements\Actions\BulkStartCrewAssignments;
 use App\Support\Payroll\CrewTimeline\CrewPhasePayCategoryResolver;
 use Carbon\Carbon;
@@ -42,7 +42,7 @@ function extraCrewEmployee(Company $company, Rank $rank, string $name): Employee
         ->forCompany($company)
         ->create([
             'name' => $name,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'position_id' => $position->id,
             'status' => 'active',
         ]);
@@ -117,7 +117,7 @@ test('bulk add page is forbidden without assignments create permission', functio
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
-            'crew' => [['employee_id' => 1, 'rank_id' => 1]],
+            'crew' => [['employee_id' => 1, 'position_id' => 1]],
         ]))
         ->assertForbidden();
 });
@@ -141,7 +141,7 @@ test('bulk mode create page is available with create permission but bulk store r
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
-            'crew' => [['employee_id' => 1, 'rank_id' => 1]],
+            'crew' => [['employee_id' => 1, 'position_id' => 1]],
         ]))
         ->assertForbidden();
 });
@@ -154,9 +154,9 @@ test('bulk store rejects an incomplete row and creates zero assignments', functi
         ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
-                ['employee_id' => null, 'rank_id' => null],
-                ['employee_id' => $employeeB->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
+                ['employee_id' => null, 'position_id' => null],
+                ['employee_id' => $employeeB->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -201,7 +201,7 @@ test('bulk add starts one employee as a normal active assignment', function () {
             'vessel_id' => $vessel->id,
             'client_id' => $vessel->client_id,
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(route('organization.crew-assignments.index'))
@@ -219,7 +219,7 @@ test('bulk add starts one employee as a normal active assignment', function () {
         ->and($assignment->company_id)->toBe($company->id)
         ->and($assignment->vessel_id)->toBe($vessel->id)
         ->and($assignment->client_id)->toBe($vessel->client_id)
-        ->and($assignment->rank_id)->toBe($rank->id)
+        ->and($assignment->position_id)->toBe($rank->id)
         ->and($assignment->planned_join_at?->toDateString())->toBe('2026-09-20')
         ->and($assignment->remarks)->toBe('Bulk mobilisation')
         ->and($assignment->phases)->toHaveCount(1)
@@ -233,7 +233,8 @@ test('bulk add starts one employee as a normal active assignment', function () {
 
 test('bulk add starts multiple employees in one batch with a shared server timestamp', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employeeA, 'rank' => $rank] = actingBulkAddCrewUser();
-    $rankB = Rank::query()->create(['name' => 'Bosun '.uniqid(), 'is_active' => true]);
+    $rankB = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Bosun '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
     ensureRankMappedPosition($company, $rankB);
     $employeeB = extraCrewEmployee($company, $rankB, 'John Mathew');
     $vessel = makeCrewMovementVessel('Bulk Shared Vessel', $company);
@@ -243,8 +244,8 @@ test('bulk add starts multiple employees in one batch with a shared server times
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'vessel_id' => $vessel->id,
             'crew' => [
-                ['employee_id' => $employeeA->id, 'rank_id' => $rank->id],
-                ['employee_id' => $employeeB->id, 'rank_id' => $rankB->id],
+                ['employee_id' => $employeeA->id, 'position_id' => $rank->id],
+                ['employee_id' => $employeeB->id, 'position_id' => $rankB->id],
             ],
         ]))
         ->assertRedirect(route('organization.crew-assignments.index'))
@@ -274,8 +275,8 @@ test('bulk add starts multiple employees in one batch with a shared server times
             ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
     }
 
-    expect($assignments->firstWhere('employee_id', $employeeA->id)?->rank_id)->toBe($rank->id)
-        ->and($assignments->firstWhere('employee_id', $employeeB->id)?->rank_id)->toBe($rankB->id);
+    expect($assignments->firstWhere('employee_id', $employeeA->id)?->position_id)->toBe($rank->id)
+        ->and($assignments->firstWhere('employee_id', $employeeB->id)?->position_id)->toBe($rankB->id);
 });
 
 test('omitted bulk current stage defaults every row to travel in', function () {
@@ -285,8 +286,8 @@ test('omitted bulk current stage defaults every row to travel in', function () {
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.bulk-store'), [
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
-                ['employee_id' => $employeeB->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
+                ['employee_id' => $employeeB->id, 'position_id' => $rank->id],
             ],
         ])
         ->assertRedirect();
@@ -310,8 +311,8 @@ test('explicit bulk p0 starts every row at active pre-mobilisation', function ()
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'current_stage' => 'p0',
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
-                ['employee_id' => $employeeB->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
+                ['employee_id' => $employeeB->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect();
@@ -336,8 +337,8 @@ test('duplicate employee ids in a bulk batch are rejected', function () {
         ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -368,7 +369,7 @@ test('cross-company employee cannot be bulk added', function () {
         ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [
-                ['employee_id' => $foreignEmployee->id, 'rank_id' => $rank->id],
+                ['employee_id' => $foreignEmployee->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -380,14 +381,14 @@ test('cross-company employee cannot be bulk added', function () {
 test('inactive employee cannot be bulk added', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = actingBulkAddCrewUser();
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     $this->actingAs($user)
         ->from(unifiedBulkCreateUrl())
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'crew' => [
-                ['employee_id' => $inactive->id, 'rank_id' => $rank->id],
+                ['employee_id' => $inactive->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -406,7 +407,7 @@ test('cross-company vessel cannot be used in bulk add', function () {
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'vessel_id' => $foreignVessel->id,
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -427,7 +428,7 @@ test('mismatched client and vessel relationship is rejected', function () {
             'client_id' => $clientB->id,
             'vessel_id' => $vessel->id,
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -444,7 +445,7 @@ test('browser supplied current stage in bulk add is ignored and rows start in p0
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'current_stage' => $stage,
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(route('organization.crew-assignments.index'));
@@ -467,7 +468,7 @@ test('client supplied stage started at cannot alter the bulk start time', functi
             'started_at' => '2026-09-01 08:00:00',
             'company_id' => 999999,
             'crew' => [
-                ['employee_id' => $employee->id, 'rank_id' => $rank->id],
+                ['employee_id' => $employee->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect();
@@ -492,8 +493,8 @@ test('an employee with an active assignment blocks the whole bulk batch', functi
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'vessel_id' => $vessel->id,
             'crew' => [
-                ['employee_id' => $ready->id, 'rank_id' => $rank->id],
-                ['employee_id' => $blocked->id, 'rank_id' => $rank->id],
+                ['employee_id' => $ready->id, 'position_id' => $rank->id],
+                ['employee_id' => $blocked->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -518,9 +519,9 @@ test('a valid first row still rolls back when a later bulk row is blocked', func
         ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
             'vessel_id' => $vessel->id,
             'crew' => [
-                ['employee_id' => $first->id, 'rank_id' => $rank->id],
-                ['employee_id' => $second->id, 'rank_id' => $rank->id],
-                ['employee_id' => $blocked->id, 'rank_id' => $rank->id],
+                ['employee_id' => $first->id, 'position_id' => $rank->id],
+                ['employee_id' => $second->id, 'position_id' => $rank->id],
+                ['employee_id' => $blocked->id, 'position_id' => $rank->id],
             ],
         ]))
         ->assertRedirect(unifiedBulkCreateUrl())
@@ -564,7 +565,7 @@ test('one company cannot bulk add another company employee or vessel', function 
             'company_id' => $companyB->id,
             'vessel_id' => $vesselB->id,
             'crew' => [
-                ['employee_id' => $employeeB->id, 'rank_id' => $rankA->id],
+                ['employee_id' => $employeeB->id, 'position_id' => $rankA->id],
             ],
         ]))
         ->assertSessionHasErrors(['vessel_id', 'crew.0.employee_id']);
@@ -585,9 +586,9 @@ test('bulk start coordinator shares one server timestamp and rolls back on a lat
         'vessel_id' => $vessel->id,
         'current_stage' => 'p1',
         'crew' => [
-            ['employee_id' => $first->id, 'rank_id' => $rank->id],
-            ['employee_id' => $second->id, 'rank_id' => $rank->id],
-            ['employee_id' => $blocked->id, 'rank_id' => $rank->id],
+            ['employee_id' => $first->id, 'position_id' => $rank->id],
+            ['employee_id' => $second->id, 'position_id' => $rank->id],
+            ['employee_id' => $blocked->id, 'position_id' => $rank->id],
         ],
     ]))->toThrow(ValidationException::class);
 

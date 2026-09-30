@@ -21,7 +21,6 @@ use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\SalaryInputType;
 use App\Models\User;
@@ -432,11 +431,6 @@ final class ActivityChangePresenter
                     'model' => Position::class,
                     'attribute' => 'title',
                     'companyScoped' => true,
-                ],
-                'rank_id' => [
-                    'model' => Rank::class,
-                    'attribute' => 'name',
-                    'companyScoped' => false,
                 ],
                 'project_id' => [
                     'model' => Project::class,

@@ -21,7 +21,7 @@ test('viewer with corrections.view receives permitted correction summary, histor
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'assignment_no' => 'CA-CORR-VIEW-01',
         'status' => 'active',
@@ -104,7 +104,7 @@ test('viewer without corrections.view and without corrections.request does not r
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'assignment_no' => 'CA-NO-CORR-VIEW-01',
         'status' => 'active',
@@ -186,7 +186,7 @@ test('viewer with corrections.request only receives request context with pending
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'assignment_no' => 'CA-REQ-ONLY-01',
         'status' => 'active',
@@ -283,7 +283,7 @@ test('tenant isolation prevents accessing assignment and corrections across comp
 
     $assignmentB = CrewAssignment::factory()->forEmployee($employeeB)->create([
         'company_id' => $companyB->id,
-        'rank_id' => $rankB->id,
+        'position_id' => $rankB->id,
         'vessel_id' => $vesselB->id,
         'assignment_no' => 'CA-COMP-B-01',
         'status' => 'active',
@@ -311,7 +311,7 @@ test('viewer with corrections.override only receives request context with pendin
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'assignment_no' => 'CA-OVR-ONLY-01',
         'status' => 'active',
@@ -397,7 +397,7 @@ test('requester without corrections.view sees own_pending_correction_id and canc
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'assignment_no' => 'CA-CANCEL-01',
         'status' => 'active',

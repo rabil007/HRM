@@ -16,7 +16,6 @@ use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\PayrollPeriod;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\VesselManning;
 use App\Support\CrewMovements\Actions\VoidCrewAssignment;
@@ -115,7 +114,7 @@ function advanceToPhase(
     $service->perform($companyId, $assignmentId, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-05 08:00:00',
         'vessel_id' => $vesselId,
-        'rank_id' => $rankId,
+        'position_id' => $rankId,
     ], $userId);
 
     if ($target === CrewPhaseCode::OnVessel) {
@@ -131,7 +130,7 @@ function advanceToPhase(
 test('show page exposes can.void for authorized users', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -146,7 +145,7 @@ test('show page exposes can.void for authorized users', function () {
 test('safe draft assignment can be voided', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     voidAssignmentViaHttp($user, $assignment)
@@ -166,7 +165,7 @@ test('safe p1 assignment can be voided', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     advanceToPhase($service, $company->id, $assignment->id, $user->id, CrewPhaseCode::TravelIn);
 
@@ -179,7 +178,7 @@ test('safe p2 and p3 assignments can be voided', function (CrewPhaseCode $phase)
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     advanceToPhase($service, $company->id, $assignment->id, $user->id, $phase);
 
@@ -199,7 +198,7 @@ test('active p4 void is blocked without delete_sea_service and allowed with dele
     $vessel = makeCrewMovementVessel('Void P4 Vessel');
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     advanceToPhase($service, $company->id, $assignment->id, $user->id, CrewPhaseCode::OnVessel, $vessel->id, $rank->id);
@@ -231,7 +230,7 @@ test('safe p5 and p6 can be voided when sea service sync is disabled', function 
     $vessel = makeCrewMovementVessel('Void Demob Vessel');
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     advanceToPhase(
@@ -254,7 +253,7 @@ test('safe p5 and p6 can be voided when sea service sync is disabled', function 
 test('void reason is required', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -277,7 +276,7 @@ test('unauthorized user gets 403 when voiding', function () {
     $user->update(['current_company_id' => $company->id]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     voidAssignmentViaHttp($user, $assignment)->assertForbidden();
@@ -288,7 +287,7 @@ test('cross-company assignment void is blocked', function () {
     ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
 
     $foreign = app(CrewMovementService::class)->createDraft($otherCompany->id, $otherEmployee->id, [
-        'rank_id' => $otherRank->id,
+        'position_id' => $otherRank->id,
     ]);
 
     voidAssignmentViaHttp($user, $foreign)->assertNotFound();
@@ -312,7 +311,7 @@ test('voided assignment no longer contributes to projected manning', function ()
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
@@ -384,7 +383,7 @@ test('void soft-deletes derived planning sync row', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Planning Void Vessel');
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-08-01 00:00:00',
         'planned_signoff_at' => '2026-11-01 00:00:00',
@@ -409,7 +408,7 @@ test('linked transfer child blocks void', function () {
     app(CrewMovementService::class)->perform($company->id, $source->id, CrewMovementAction::TransferVessel, [
         'occurred_at' => '2026-06-01 08:00:00',
         'vessel_id' => $destinationVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $child = CrewAssignment::query()
@@ -434,7 +433,7 @@ test('employee sea service blocks void', function () {
     $vessel = makeCrewMovementVessel('Sea Service Void Vessel');
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     advanceToPhase($service, $company->id, $assignment->id, $user->id, CrewPhaseCode::DemobStandby, $vessel->id, $rank->id);
@@ -509,7 +508,7 @@ test('approved payroll dependency blocks void', function () {
 test('paid payroll period segment blocks void', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $period = PayrollPeriod::factory()->for($company)->create([
@@ -542,7 +541,7 @@ test('paid payroll period segment blocks void', function () {
 test('timesheet segment dependency blocks void', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $period = PayrollPeriod::factory()->for($company)->create([
@@ -574,7 +573,7 @@ test('timesheet segment dependency blocks void', function () {
 test('normal cancel behavior remains unchanged', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -620,7 +619,7 @@ test('p4 still does not expose normal cancel', function () {
 test('void creates company-aware activity audit', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     app(VoidCrewAssignment::class)->handle($company->id, $assignment->id, $user, 'Duplicate assignment');
@@ -639,7 +638,7 @@ test('void creates company-aware activity audit', function () {
 test('already voided assignment cannot be voided again', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     app(VoidCrewAssignment::class)->handle($company->id, $assignment->id, $user, 'First void');
@@ -653,7 +652,7 @@ test('already voided assignment cannot be voided again', function () {
 test('concurrent void attempts are safe under lock', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $action = app(VoidCrewAssignment::class);
@@ -671,7 +670,7 @@ test('phase history is retained under soft-deleted assignment', function () {
     $vessel = makeCrewMovementVessel('Retain Phases Vessel');
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     advanceToPhase($service, $company->id, $assignment->id, $user->id, CrewPhaseCode::OnVessel, $vessel->id, $rank->id);
@@ -696,7 +695,7 @@ test('tenant isolation: void guard ignores foreign company sea service rows', fu
         'employee_id' => $employee->id,
         'crew_assignment_phase_id' => $phase->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2026-01-03',
         'end_date' => '2026-02-01',
         'total_months' => 0,

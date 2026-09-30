@@ -9,7 +9,7 @@ use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\CrewMovements\CrewAssignmentUpdateCandidate;
 use App\Support\MasterData\ClientAssignmentRules;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -49,6 +49,8 @@ class UpdateCrewAssignmentRequest extends FormRequest
         $vesselId = $this->input('vessel_id');
         $clientId = $this->input('client_id');
 
+        // Auto-resolve client from vessel when client is blank.
+        // Auto-resolve client from vessel when client is blank.
         if (($clientId === null || $clientId === '')
             && $vesselId !== null
             && $vesselId !== ''
@@ -57,19 +59,6 @@ class UpdateCrewAssignmentRequest extends FormRequest
 
             if ($resolved !== null) {
                 $this->merge(['client_id' => $resolved]);
-            }
-        }
-
-        // Temporary Phase 2: accept legacy rank_id and translate to position_id.
-        $positionId = $this->input('position_id');
-        $legacyRankId = $this->input('rank_id');
-        if (($positionId === null || $positionId === '')
-            && $legacyRankId !== null
-            && $legacyRankId !== ''
-            && $companyId > 0) {
-            $mapped = RankPositionBridge::positionIdForRank($companyId, (int) $legacyRankId);
-            if ($mapped !== null) {
-                $this->merge(['position_id' => $mapped]);
             }
         }
     }
@@ -84,9 +73,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
         $existingClientId = $this->existingAssignment()?->client_id;
 
         return [
-            'position_id' => ['nullable', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)],
-            // Temporary Phase 2: legacy rank_id accepted only via prepareForValidation translation.
-            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
+            'position_id' => ['nullable', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
             'client_id' => [
                 'nullable',
                 'integer',
@@ -172,7 +159,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
                     plannedArrivalAt: $candidate['planned_arrival_at'],
                     operationalStartAt: $action === 'start' ? $assignment->started_at : null,
                     vesselId: $candidate['vessel_id'],
-                    rankId: $this->conflictRankId($companyId, $candidate['position_id']),
+                    positionId: $candidate['position_id'],
                     clientId: $candidate['client_id'],
                     currentAssignmentId: (int) $assignment->id,
                     actor: $this->user(),
@@ -235,7 +222,6 @@ class UpdateCrewAssignmentRequest extends FormRequest
 
         foreach ([
             'position_id',
-            'rank_id',
             'client_id',
             'vessel_id',
             'planned_arrival_at',
@@ -304,23 +290,5 @@ class UpdateCrewAssignmentRequest extends FormRequest
         $assignment = $this->route('assignment');
 
         return $assignment instanceof CrewAssignment ? $assignment : null;
-    }
-
-    /**
-     * Temporary Phase 2: conflict evaluator still keys on rank_id until Phase 3.
-     */
-    private function conflictRankId(int $companyId, ?int $positionId): ?int
-    {
-        if ($positionId !== null) {
-            $mappedRankId = RankPositionBridge::rankIdForPosition($companyId, $positionId);
-
-            if ($mappedRankId !== null) {
-                return $mappedRankId;
-            }
-        }
-
-        $legacyRankId = $this->input('rank_id');
-
-        return $legacyRankId !== null && $legacyRankId !== '' ? (int) $legacyRankId : null;
     }
 }

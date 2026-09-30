@@ -16,7 +16,7 @@ function recommendedActionForPhase(CrewPhaseCode $phase, CrewAssignmentStatus $s
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     )->load(['currentPhase', 'employee', 'company']);
 
@@ -52,7 +52,7 @@ it('recommends approve mobilisation when no document checks are configured', fun
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     )->load(['currentPhase', 'employee']);
 
@@ -84,7 +84,7 @@ it('recommends resolving readiness on P0 when checks fail without removing other
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     )->load(['currentPhase', 'employee']);
 
@@ -194,7 +194,7 @@ it('does not recommend a movement the user cannot perform', function () {
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     )->load('currentPhase');
 

@@ -14,7 +14,7 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    RankOption,
+    CrewPositionOption,
     ReligionOption,
     RoleOption,
     SssaOption,
@@ -90,7 +90,7 @@ export default function Employees({
     approvalLocations?: never;
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
-    ranks: RankOption[];
+    ranks: CrewPositionOption[];
     clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];

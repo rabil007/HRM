@@ -7,7 +7,6 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTravelHomeCompletionIntent;
-use App\Http\Requests\Organization\Concerns\TranslatesLegacyCrewRankToPosition;
 use App\Models\CrewAssignment;
 use App\Models\RoomType;
 use App\Support\CrewAccommodation\CrewAccommodationService;
@@ -15,7 +14,7 @@ use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -26,8 +25,6 @@ use Illuminate\Validation\Validator;
 
 class PerformCrewMovementActionRequest extends FormRequest
 {
-    use TranslatesLegacyCrewRankToPosition;
-
     public function authorize(): bool
     {
         if ($this->user() === null) {
@@ -62,10 +59,6 @@ class PerformCrewMovementActionRequest extends FormRequest
     {
         $action = (string) $this->input('action');
         $companyId = $this->currentCompanyId();
-
-        if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true) && $companyId > 0) {
-            $this->mergeLegacyCrewPositionFromRank($companyId);
-        }
 
         if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true)) {
             $vesselId = $this->input('vessel_id');
@@ -107,7 +100,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         $startingPhase = (string) $this->input('starting_phase');
         $nullable = [];
 
-        foreach (['vessel_id', 'position_id', 'rank_id', 'client_id', 'planned_signoff_at', 'remarks'] as $field) {
+        foreach (['vessel_id', 'position_id', 'client_id', 'planned_signoff_at', 'remarks'] as $field) {
             if ($this->input($field) === '') {
                 $nullable[$field] = null;
             }
@@ -117,7 +110,6 @@ class PerformCrewMovementActionRequest extends FormRequest
             $nullable['planned_signoff_at'] = null;
             $nullable['vessel_id'] = null;
             $nullable['position_id'] = null;
-            $nullable['rank_id'] = null;
             $nullable['client_id'] = null;
         }
 
@@ -240,8 +232,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         if ($action === 'join_vessel') {
             $baseRules['check_out_date'] = ['nullable', 'date'];
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
-            $baseRules['position_id'] = ['required', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)];
-            $baseRules['rank_id'] = ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
+            $baseRules['position_id'] = ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
@@ -262,8 +253,7 @@ class PerformCrewMovementActionRequest extends FormRequest
 
         if ($action === 'transfer_vessel') {
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
-            $baseRules['position_id'] = ['required', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)];
-            $baseRules['rank_id'] = ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
+            $baseRules['position_id'] = ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
@@ -303,9 +293,8 @@ class PerformCrewMovementActionRequest extends FormRequest
                 Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value),
                 'nullable',
                 'integer',
-                RankPositionBridge::existsCrewPositionRule($companyId),
+                CrewPositionCatalog::existsCrewPositionRule($companyId),
             ];
-            $baseRules['rank_id'] = ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 Rule::excludeIf(fn () => $this->input('starting_phase') !== CrewPhaseCode::OnVessel->value),

@@ -8,11 +8,11 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\CrewPositionCatalog;
 
 final class ResolvePlanningStartHandoff
 {
@@ -23,8 +23,8 @@ final class ResolvePlanningStartHandoff
      *     planning_assignment_id: int,
      *     employee_id: null,
      *     employee_name: null,
-     *     rank_id: int|null,
-     *     rank_name: string|null,
+     *     position_id: int|null,
+     *     position_name: string|null,
      *     vessel_id: int|null,
      *     vessel_name: string|null,
      *     client_id: int|null,
@@ -57,10 +57,10 @@ final class ResolvePlanningStartHandoff
             );
         }
 
-        $planning->loadMissing(['rank:id,name', 'vessel:id,name,client_id']);
+        $planning->loadMissing(['position:id,title', 'vessel:id,name,client_id']);
 
         $vessel = $planning->vessel;
-        $rank = $planning->rank;
+        $position = $planning->position;
         $clientId = $vessel !== null
             ? ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vessel->id)
             : null;
@@ -69,8 +69,8 @@ final class ResolvePlanningStartHandoff
             'planning_assignment_id' => (int) $planning->id,
             'employee_id' => null,
             'employee_name' => null,
-            'rank_id' => $rank !== null ? (int) $rank->id : null,
-            'rank_name' => $rank?->name,
+            'position_id' => $position !== null ? (int) $position->id : null,
+            'position_name' => $position?->title,
             'vessel_id' => $vessel !== null ? (int) $vessel->id : null,
             'vessel_name' => $vessel?->name,
             'client_id' => $clientId,
@@ -86,8 +86,8 @@ final class ResolvePlanningStartHandoff
      *     planning_assignment_id: int,
      *     employee_id: int,
      *     employee_name: string,
-     *     rank_id: int,
-     *     rank_name: string,
+     *     position_id: int,
+     *     position_name: string,
      *     vessel_id: int,
      *     vessel_name: string,
      *     client_id: int|null,
@@ -100,15 +100,15 @@ final class ResolvePlanningStartHandoff
     {
         $this->assertAuthoritativeForStart($planning, $companyId, $actor);
 
-        $planning->loadMissing(['employee:id,name', 'rank:id,name', 'vessel:id,name,client_id']);
+        $planning->loadMissing(['employee:id,name', 'position:id,title', 'vessel:id,name,client_id']);
 
         $employee = $planning->employee;
-        $rank = $planning->rank;
+        $position = $planning->position;
         $vessel = $planning->vessel;
 
-        if ($employee === null || $rank === null || $vessel === null) {
+        if ($employee === null || $position === null || $vessel === null) {
             throw CrewMovementException::make(
-                'Planning assignment is missing required employee, rank, or vessel data.',
+                'Planning assignment is missing required employee, position, or vessel data.',
                 'planning_missing_masters',
             );
         }
@@ -122,8 +122,8 @@ final class ResolvePlanningStartHandoff
             'planning_assignment_id' => (int) $planning->id,
             'employee_id' => (int) $employee->id,
             'employee_name' => (string) $employee->name,
-            'rank_id' => (int) $rank->id,
-            'rank_name' => (string) $rank->name,
+            'position_id' => (int) $position->id,
+            'position_name' => (string) $position->title,
             'vessel_id' => (int) $vessel->id,
             'vessel_name' => (string) $vessel->name,
             'client_id' => $clientId,
@@ -136,7 +136,7 @@ final class ResolvePlanningStartHandoff
     /**
      * @return array{
      *     employee_id: int,
-     *     rank_id: int,
+     *     position_id: int,
      *     vessel_id: int,
      *     client_id: int|null,
      *     planned_join_at: string
@@ -156,7 +156,7 @@ final class ResolvePlanningStartHandoff
 
         return [
             'employee_id' => (int) $planning->employee_id,
-            'rank_id' => (int) $planning->rank_id,
+            'position_id' => (int) $planning->position_id,
             'vessel_id' => (int) $planning->vessel_id,
             'client_id' => $clientId,
             'planned_join_at' => $planning->planned_join_date->toDateString(),
@@ -203,9 +203,9 @@ final class ResolvePlanningStartHandoff
             );
         }
 
-        if ($planning->vessel_id === null || $planning->rank_id === null) {
+        if ($planning->vessel_id === null || $planning->position_id === null) {
             throw CrewMovementException::make(
-                'Planning assignment requires vessel and rank before starting mobilisation.',
+                'Planning assignment requires vessel and position before starting mobilisation.',
                 'planning_missing_masters',
             );
         }
@@ -277,15 +277,14 @@ final class ResolvePlanningStartHandoff
 
     private function assertMastersAreValid(CrewPlanningAssignment $planning, int $companyId): void
     {
-        $rankExists = Rank::query()
-            ->whereKey((int) $planning->rank_id)
-            ->where('is_active', true)
+        $positionExists = CrewPositionCatalog::companyPositionsQuery($companyId)
+            ->whereKey((int) $planning->position_id)
             ->exists();
 
-        if (! $rankExists) {
+        if (! $positionExists) {
             throw CrewMovementException::make(
-                'The planning rank is no longer active. Update the Crew Planning record before starting.',
-                'planning_rank_inactive',
+                'The planning position is no longer active. Update the Crew Planning record before starting.',
+                'planning_position_inactive',
             );
         }
 

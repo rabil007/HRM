@@ -162,7 +162,7 @@ final class HistoricalCrewAssignmentService
                 })
                 ->log('Past crew data saved');
 
-            return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'rank', 'client']);
+            return $assignment->fresh(['phases', 'currentPhase', 'employee', 'vessel', 'position', 'client']);
         });
     }
 

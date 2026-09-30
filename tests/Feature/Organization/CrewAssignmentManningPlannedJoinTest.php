@@ -12,10 +12,11 @@ use Carbon\CarbonImmutable;
 function makePlannedJoinManningAssignment(
     int $companyId,
     Employee $employee,
-    int $rankId,
+    int $positionId,
     int $vesselId,
     CrewPhaseCode $phaseCode,
     string $plannedJoinAt,
+    ?int $rankId = null,
 ): CrewAssignment {
     $started = CarbonImmutable::parse('2026-07-01 08:00:00', 'Asia/Dubai');
 
@@ -23,7 +24,7 @@ function makePlannedJoinManningAssignment(
         'company_id' => $companyId,
         'assignment_no' => 'CA-PJ-'.fake()->unique()->numerify('######'),
         'employee_id' => $employee->id,
-        'rank_id' => $rankId,
+        'position_id' => $positionId,
         'vessel_id' => $vesselId,
         'status' => 'active',
         'started_at' => $started,
@@ -45,29 +46,29 @@ function makePlannedJoinManningAssignment(
     return $assignment->fresh(['currentPhase']);
 }
 
-function manningVesselRankKey(int $vesselId, int $rankId): string
+function manningVesselPositionKey(int $vesselId, int $positionId): string
 {
-    return $vesselId.'|'.$rankId;
+    return $vesselId.'|'.$positionId;
 }
 
 test('planned join forecast counts modern pre-vessel phases with future planned join', function (
     CrewPhaseCode $phaseCode,
 ) {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'position' => $position] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Planned Join Vessel', $company);
 
     makePlannedJoinManningAssignment(
         $company->id,
         $employee,
-        $rank->id,
+        $position->id,
         $vessel->id,
         $phaseCode,
         '2026-08-01 10:00:00',
     );
 
     $today = CarbonImmutable::parse('2026-07-15', 'Asia/Dubai');
-    $counts = CrewAssignmentManningQuery::plannedJoinCountsByVesselRank($company->id, $today);
-    $key = manningVesselRankKey($vessel->id, $rank->id);
+    $counts = CrewAssignmentManningQuery::plannedJoinCountsByVesselPosition($company->id, $today);
+    $key = manningVesselPositionKey($vessel->id, $position->id);
 
     expect($counts[$key] ?? 0)->toBe(1);
 })->with([
@@ -81,21 +82,21 @@ test('planned join forecast counts modern pre-vessel phases with future planned 
 test('planned join forecast excludes onboard and post-vessel phases even with future planned join', function (
     CrewPhaseCode $phaseCode,
 ) {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'position' => $position] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Excluded Planned Join Vessel', $company);
 
     makePlannedJoinManningAssignment(
         $company->id,
         $employee,
-        $rank->id,
+        $position->id,
         $vessel->id,
         $phaseCode,
         '2026-08-01 10:00:00',
     );
 
     $today = CarbonImmutable::parse('2026-07-15', 'Asia/Dubai');
-    $counts = CrewAssignmentManningQuery::plannedJoinCountsByVesselRank($company->id, $today);
-    $key = manningVesselRankKey($vessel->id, $rank->id);
+    $counts = CrewAssignmentManningQuery::plannedJoinCountsByVesselPosition($company->id, $today);
+    $key = manningVesselPositionKey($vessel->id, $position->id);
 
     expect($counts[$key] ?? 0)->toBe(0);
 })->with([
@@ -105,13 +106,13 @@ test('planned join forecast excludes onboard and post-vessel phases even with fu
 ]);
 
 test('onboard manning counts only active p4 assignments', function () {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'position' => $position] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Onboard Manning Vessel', $company);
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $position->id,
         'required_count' => 2,
     ]);
 
@@ -121,17 +122,19 @@ test('onboard manning counts only active p4 assignments', function () {
 
     makePlannedJoinManningAssignment(
         $company->id,
-        Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]),
-        $rank->id,
+        Employee::factory()->forCompany($company)->create([
+            'position_id' => $position->id,
+        ]),
+        $position->id,
         $vessel->id,
         CrewPhaseCode::JoinStandby,
         '2026-08-05 10:00:00',
     );
 
     $today = CarbonImmutable::parse('2026-07-15', 'Asia/Dubai');
-    $key = manningVesselRankKey($vessel->id, $rank->id);
+    $key = manningVesselPositionKey($vessel->id, $position->id);
 
-    expect(CrewAssignmentManningQuery::onboardCountsByVesselRank($company->id)[$key] ?? 0)->toBe(1)
-        ->and(CrewAssignmentManningQuery::plannedJoinCountsByVesselRank($company->id, $today)[$key] ?? 0)->toBe(1)
+    expect(CrewAssignmentManningQuery::onboardCountsByVesselPosition($company->id)[$key] ?? 0)->toBe(1)
+        ->and(CrewAssignmentManningQuery::plannedJoinCountsByVesselPosition($company->id, $today)[$key] ?? 0)->toBe(1)
         ->and(CrewAssignmentManningQuery::forCompany($company->id, $today)['items'][0]['actual_count'])->toBe(1);
 });

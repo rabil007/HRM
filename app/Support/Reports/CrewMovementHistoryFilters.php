@@ -2,7 +2,6 @@
 
 namespace App\Support\Reports;
 
-use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class CrewMovementHistoryFilters
@@ -49,7 +48,7 @@ final class CrewMovementHistoryFilters
             status: (string) $request->query('status', ''),
             currentPhase: (string) $request->query('current_phase', ''),
             vesselId: (string) $request->query('vessel_id', ''),
-            positionId: LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId),
+            positionId: (string) ($request->query('position_id') ?? ''),
             clientId: (string) $request->query('client_id', ''),
             source: (string) $request->query('source', ''),
             needsAttention: self::booleanFilter($request->query('needs_attention')),

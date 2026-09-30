@@ -10,7 +10,6 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
@@ -84,14 +83,16 @@ function makeFilterCleanupFixtures(): array
         'status' => 'active',
     ]);
 
-    $rankA = Rank::query()->create([
-        'name' => 'Master',
-        'is_active' => true,
+    $rankA = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Master',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
-    $rankB = Rank::query()->create([
-        'name' => 'Chief Mate',
-        'is_active' => true,
+    $rankB = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Mate',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $client = Client::query()->create([
@@ -255,7 +256,7 @@ test('existing HR status, position, and rank filtering continues to work', funct
         'name' => 'Active Captain',
         'status' => 'active',
         'position_id' => $fixtures['positionA']->id,
-        'rank_id' => $fixtures['rankA']->id,
+        'position_id' => $fixtures['rankA']->id,
     ]);
 
     $inactiveCaptain = Employee::factory()->forCompany($company)->create([
@@ -263,7 +264,7 @@ test('existing HR status, position, and rank filtering continues to work', funct
         'name' => 'Inactive Captain',
         'status' => 'inactive',
         'position_id' => $fixtures['positionA']->id,
-        'rank_id' => $fixtures['rankA']->id,
+        'position_id' => $fixtures['rankA']->id,
     ]);
 
     $activeEngineer = Employee::factory()->forCompany($company)->create([
@@ -271,7 +272,7 @@ test('existing HR status, position, and rank filtering continues to work', funct
         'name' => 'Active Engineer',
         'status' => 'active',
         'position_id' => $fixtures['positionB']->id,
-        'rank_id' => $fixtures['rankB']->id,
+        'position_id' => $fixtures['rankB']->id,
     ]);
 
     // Test HR Status filter

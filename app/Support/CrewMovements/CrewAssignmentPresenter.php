@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
@@ -401,7 +401,7 @@ class CrewAssignmentPresenter
      * Present Position from an already-loaded relation only.
      *
      * Callers must eager-load `position` or run
-     * {@see RankPositionBridge::hydrateCanonicalPositions()} before presenting.
+     * {@see CrewPositionCatalog::hydrateCanonicalPositions()} before presenting.
      * Never lazy-loads; unresolved Position returns null.
      *
      * @return array{id: int, name: string, max_tour_of_duty_days?: int|null}|null
@@ -430,11 +430,7 @@ class CrewAssignmentPresenter
 
     private static function resolvedPositionId(CrewAssignment $assignment): ?int
     {
-        return RankPositionBridge::resolveCrewAssignmentPositionId(
-            (int) $assignment->company_id,
-            $assignment->position_id !== null ? (int) $assignment->position_id : null,
-            $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
-        );
+        return CrewPositionCatalog::resolveCrewAssignmentPositionId((int) $assignment->company_id, $assignment->position_id !== null ? (int) $assignment->position_id : null);
     }
 
     /**

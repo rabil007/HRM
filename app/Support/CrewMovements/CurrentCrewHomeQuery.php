@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\LegacyRankFilterTranslator;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -114,7 +113,7 @@ final class CurrentCrewHomeQuery
     private static function resolvePool(int $companyId, array $filters, ?User $user = null): Collection
     {
         $query = ActiveEmployeeConstraint::apply(Employee::query(), $companyId)
-            ->with(['rank:id,name']);
+            ->with(['position:id,title']);
 
         if ($user !== null) {
             EmployeeVisibilityScope::apply($query, $user, $companyId);
@@ -168,11 +167,7 @@ final class CurrentCrewHomeQuery
         }
 
         if (! empty($filters['position_id'])) {
-            LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                $query,
-                $this->companyId,
-                (int) $filters['position_id'],
-            );
+            $query->where('crew_assignments.position_id', (int) $filters['position_id']);
         }
 
         if (! empty($filters['search'])) {
@@ -180,7 +175,7 @@ final class CurrentCrewHomeQuery
             $query->where(function (Builder $inner) use ($search, $companyId): void {
                 $inner->where('name', 'like', '%'.$search.'%')
                     ->orWhere('employee_no', 'like', '%'.$search.'%')
-                    ->orWhereHas('rank', fn (Builder $rank) => $rank->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', '%'.$search.'%'))
                     ->orWhereHas('crewAssignments', function (Builder $assignment) use ($search, $companyId): void {
                         $assignment->where('company_id', $companyId)
                             ->where(function (Builder $match) use ($search): void {

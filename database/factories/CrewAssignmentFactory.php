@@ -8,7 +8,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,10 +28,18 @@ class CrewAssignmentFactory extends Factory
     {
         return [
             'assignment_no' => 'CA-'.Str::upper(Str::random(8)),
-            'rank_id' => static function (): int {
-                return Rank::query()->create([
-                    'name' => 'R '.Str::uuid()->toString(),
-                    'is_active' => true,
+            'position_id' => static function (array $attributes): int {
+                $companyId = $attributes['company_id'] ?? null;
+
+                if ($companyId === null) {
+                    throw new \InvalidArgumentException('company_id must be set before position_id on CrewAssignmentFactory.');
+                }
+
+                return Position::query()->create([
+                    'company_id' => $companyId,
+                    'title' => 'P '.Str::uuid()->toString(),
+                    'status' => 'active',
+                    'is_crew_position' => true,
                 ])->id;
             },
             'client_id' => static function (): int {
@@ -77,7 +85,7 @@ class CrewAssignmentFactory extends Factory
         return $this->state(fn () => [
             'company_id' => $employee->company_id,
             'employee_id' => $employee->id,
-            'rank_id' => $employee->rank_id,
+            'position_id' => $employee->position_id,
         ]);
     }
 

@@ -267,7 +267,6 @@ class DocumentTypeController extends Controller
                 ->with([
                     'departments:id,name',
                     'positions:id,title',
-                    'ranks:id,name',
                     'projects:id,title',
                 ]),
         ];
@@ -283,7 +282,6 @@ class DocumentTypeController extends Controller
      *         required_for_all: bool,
      *         department_ids: list<int>,
      *         position_ids: list<int>,
-     *         rank_ids: list<int>,
      *         project_ids: list<int>,
      *         require_issue_date: bool,
      *         require_expiry_date: bool,
@@ -329,7 +327,6 @@ class DocumentTypeController extends Controller
      *         required_for_all: bool,
      *         department_ids: list<int>,
      *         position_ids: list<int>,
-     *         rank_ids: list<int>,
      *         project_ids: list<int>,
      *         require_issue_date: bool,
      *         require_expiry_date: bool,

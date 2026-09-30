@@ -16,7 +16,7 @@ test('same crew assignment cannot link to two planning assignments', function ()
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'crew_assignment_id' => $assignment->id,
         'planned_join_date' => '2026-03-01',
@@ -26,7 +26,7 @@ test('same crew assignment cannot link to two planning assignments', function ()
     expect(fn () => CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'crew_assignment_id' => $assignment->id,
         'planned_join_date' => '2026-04-01',

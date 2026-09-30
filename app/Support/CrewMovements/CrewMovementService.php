@@ -20,7 +20,7 @@ use App\Models\Vessel;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -81,7 +81,6 @@ final class CrewMovementService
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
                 'position_id' => $masters['positionId'],
-                'rank_id' => $masters['rankId'],
                 'client_id' => $masters['clientId'],
                 'vessel_id' => $masters['vesselId'],
                 'status' => CrewAssignmentStatus::Draft,
@@ -175,7 +174,6 @@ final class CrewMovementService
                 plannedSignoffAt: $plannedSignoffAt,
                 plannedArrivalAt: $plannedArrivalAt,
                 vesselId: $masters['vesselId'],
-                rankId: $masters['rankId'],
                 positionId: $masters['positionId'],
                 clientId: $masters['clientId'],
                 relievesCrewAssignmentId: $relievesId,
@@ -191,7 +189,6 @@ final class CrewMovementService
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
                 'position_id' => $masters['positionId'],
-                'rank_id' => $masters['rankId'],
                 'client_id' => $masters['clientId'],
                 'vessel_id' => $masters['vesselId'],
                 'status' => CrewAssignmentStatus::Planned,
@@ -288,7 +285,6 @@ final class CrewMovementService
             );
 
             $persist = CrewAssignmentUpdateCandidate::persistableSlice($attributes, $candidate);
-            $persist = $this->applyTemporaryRankDualWrite($companyId, $persist, $candidate);
             $persist['updated_by'] = $actorId;
 
             $assignment->update($persist);
@@ -402,7 +398,7 @@ final class CrewMovementService
                 plannedSignoffAt: $candidate['planned_signoff_at'],
                 plannedArrivalAt: $candidate['planned_arrival_at'],
                 vesselId: $candidate['vessel_id'],
-                rankId: $this->temporaryRankIdForConflict($companyId, $candidate),
+                positionId: $candidate['position_id'],
                 clientId: $candidate['client_id'],
                 currentAssignmentId: (int) $assignment->id,
                 actor: $actor,
@@ -422,7 +418,7 @@ final class CrewMovementService
                 plannedArrivalAt: $candidate['planned_arrival_at'],
                 operationalStartAt: $assignment->started_at,
                 vesselId: $candidate['vessel_id'],
-                rankId: $this->temporaryRankIdForConflict($companyId, $candidate),
+                positionId: $candidate['position_id'],
                 clientId: $candidate['client_id'],
                 currentAssignmentId: (int) $assignment->id,
                 actor: $actor,
@@ -487,7 +483,6 @@ final class CrewMovementService
                 plannedArrivalAt: $plannedArrivalAt,
                 operationalStartAt: $startedAt,
                 vesselId: $masters['vesselId'],
-                rankId: $masters['rankId'],
                 positionId: $masters['positionId'],
                 clientId: $masters['clientId'],
                 relievesCrewAssignmentId: $relievesId,
@@ -502,7 +497,6 @@ final class CrewMovementService
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
                 'position_id' => $masters['positionId'],
-                'rank_id' => $masters['rankId'],
                 'client_id' => $masters['clientId'],
                 'vessel_id' => $masters['vesselId'],
                 'status' => CrewAssignmentStatus::Active,
@@ -626,7 +620,7 @@ final class CrewMovementService
             plannedArrivalAt: $assignment->planned_arrival_at,
             operationalStartAt: $occurredAt,
             vesselId: $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
-            rankId: $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
+            positionId: $assignment->position_id !== null ? (int) $assignment->position_id : null,
             clientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
             currentAssignmentId: (int) $assignment->id,
         );
@@ -913,7 +907,6 @@ final class CrewMovementService
 
         $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $vesselId, 'vessel');
         $this->assertCrewPosition((int) $assignment->company_id, $positionId);
-        $rankId = RankPositionBridge::rankIdForPosition((int) $assignment->company_id, $positionId);
 
         $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
         $clientId = $this->resolveOperationalClientId(
@@ -952,7 +945,6 @@ final class CrewMovementService
         $assignment->update([
             'vessel_id' => $vesselId,
             'position_id' => $positionId,
-            'rank_id' => $rankId,
             'client_id' => $clientId,
             'planned_signoff_at' => $signoff['planned_signoff_at'],
             'tour_of_duty_days' => $signoff['tour_of_duty_days'],
@@ -1159,10 +1151,6 @@ final class CrewMovementService
 
         $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $destinationVesselId, 'vessel');
         $this->assertCrewPosition((int) $assignment->company_id, $destinationPositionId);
-        $destinationRankId = RankPositionBridge::rankIdForPosition(
-            (int) $assignment->company_id,
-            $destinationPositionId,
-        );
 
         $destinationClientId = $this->resolveOperationalClientId(
             companyId: (int) $assignment->company_id,
@@ -1175,7 +1163,6 @@ final class CrewMovementService
 
         $sourceVesselId = $assignment->vessel_id;
         $sourcePositionId = $assignment->position_id;
-        $sourceRankId = $assignment->rank_id;
         $sourceTourDays = $assignment->tour_of_duty_days;
         $sourcePlannedSignoff = $assignment->planned_signoff_at?->toDateTimeString();
         $sourceP4ActualStart = $current->actual_start_at?->toDateTimeString();
@@ -1212,7 +1199,6 @@ final class CrewMovementService
             plannedJoinAt: null,
             vesselId: $destinationVesselId,
             positionId: $destinationPositionId,
-            rankId: $destinationRankId,
             clientId: $destinationClientId,
             plannedSignoffAt: $signoff['planned_signoff_at'],
             remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
@@ -1238,7 +1224,6 @@ final class CrewMovementService
             $actorId,
             $signoff,
             [
-                'source_rank_id' => $sourceRankId,
                 'source_tour_of_duty_days' => $sourceTourDays,
                 'source_planned_signoff_at' => $sourcePlannedSignoff,
                 'source_p4_actual_start_at' => $sourceP4ActualStart,
@@ -1315,10 +1300,6 @@ final class CrewMovementService
         if ($destinationPositionId !== null) {
             $this->assertCrewPosition((int) $assignment->company_id, $destinationPositionId);
         }
-
-        $destinationRankId = $destinationPositionId !== null
-            ? RankPositionBridge::rankIdForPosition((int) $assignment->company_id, $destinationPositionId)
-            : null;
 
         $destinationClientId = $isDraftStart
             ? $submittedClientId
@@ -1397,9 +1378,6 @@ final class CrewMovementService
             positionId: $isDraftStart
                 ? $destinationPositionId
                 : ($destinationPositionId ?? $assignment->position_id),
-            rankId: $isDraftStart
-                ? $destinationRankId
-                : ($destinationRankId ?? $assignment->rank_id),
             clientId: $destinationClientId,
             plannedSignoffAt: $isDraftStart
                 ? null
@@ -1656,7 +1634,6 @@ final class CrewMovementService
         ?CarbonInterface $plannedJoinAt = null,
         ?int $vesselId = null,
         ?int $positionId = null,
-        ?int $rankId = null,
         ?int $clientId = null,
         ?CarbonInterface $plannedSignoffAt = null,
         ?string $remarks = null,
@@ -1667,20 +1644,11 @@ final class CrewMovementService
     ): CrewAssignment {
         $assignmentNo = $this->numbers->next($companyId);
 
-        if ($positionId === null && $rankId !== null) {
-            $positionId = RankPositionBridge::positionIdForRank($companyId, $rankId);
-        }
-
-        if ($rankId === null && $positionId !== null) {
-            $rankId = RankPositionBridge::rankIdForPosition($companyId, $positionId);
-        }
-
         $assignment = CrewAssignment::query()->create([
             'company_id' => $companyId,
             'assignment_no' => $assignmentNo,
             'employee_id' => $employeeId,
             'position_id' => $positionId,
-            'rank_id' => $rankId,
             'client_id' => $clientId,
             'vessel_id' => $vesselId,
             'status' => $status,
@@ -1733,6 +1701,9 @@ final class CrewMovementService
      * @param  array<string, mixed>  $attributes
      * @return array{vesselId: int|null, clientId: int|null, positionId: int|null, rankId: int|null}
      */
+    /**
+     * @return array{vesselId: int|null, clientId: int|null, positionId: int|null}
+     */
     private function resolveCreateMasters(int $companyId, Employee $employee, array $attributes): array
     {
         $vesselId = isset($attributes['vessel_id']) && $attributes['vessel_id'] !== null && (int) $attributes['vessel_id'] > 0
@@ -1746,30 +1717,19 @@ final class CrewMovementService
             ? (int) $attributes['position_id']
             : null;
 
-        // Temporary Phase 2: legacy rank_id input translates through tenant mapping.
-        if ($positionId === null
-            && isset($attributes['rank_id'])
-            && $attributes['rank_id'] !== null
-            && (int) $attributes['rank_id'] > 0) {
-            $positionId = RankPositionBridge::positionIdForRank(
-                $companyId,
-                (int) $attributes['rank_id'],
-            );
-        }
-
         if ($positionId === null && $employee->position_id !== null) {
             $positionId = (int) $employee->position_id;
         }
 
         if ($positionId !== null) {
-            $usable = RankPositionBridge::crewPositionsQuery($companyId)
+            $usable = CrewPositionCatalog::crewPositionsQuery($companyId)
                 ->whereKey($positionId)
                 ->exists();
 
             if (! $usable) {
                 // Allow employee HR positions that are not marked crew for draft only when already set —
                 // still require company ownership and non-deleted.
-                $usable = RankPositionBridge::companyPositionsQuery($companyId)
+                $usable = CrewPositionCatalog::companyPositionsQuery($companyId)
                     ->whereKey($positionId)
                     ->exists();
             }
@@ -1780,11 +1740,6 @@ final class CrewMovementService
                 ]);
             }
         }
-
-        // Temporary Phase 2 dual-write: derive legacy rank_id from mapping when available.
-        $rankId = $positionId !== null
-            ? RankPositionBridge::rankIdForPosition($companyId, $positionId)
-            : null;
 
         if ($vesselId !== null) {
             $this->assertCompanyOwnedMaster($companyId, Vessel::class, $vesselId, 'vessel');
@@ -1802,7 +1757,6 @@ final class CrewMovementService
             'vesselId' => $vesselId,
             'clientId' => $clientId,
             'positionId' => $positionId,
-            'rankId' => $rankId,
         ];
     }
 
@@ -2038,24 +1992,8 @@ final class CrewMovementService
             return (int) $payload['position_id'];
         }
 
-        // Temporary Phase 2: legacy rank_id in movement payloads.
-        if (isset($payload['rank_id']) && $payload['rank_id'] !== null && (int) $payload['rank_id'] > 0) {
-            $mapped = RankPositionBridge::positionIdForRank($companyId, (int) $payload['rank_id']);
-
-            if ($mapped !== null) {
-                return $mapped;
-            }
-        }
-
         if ($fallbackAssignment?->position_id !== null && (int) $fallbackAssignment->position_id > 0) {
             return (int) $fallbackAssignment->position_id;
-        }
-
-        if ($fallbackAssignment?->rank_id !== null && (int) $fallbackAssignment->rank_id > 0) {
-            return RankPositionBridge::positionIdForRank(
-                $companyId,
-                (int) $fallbackAssignment->rank_id,
-            );
         }
 
         return null;
@@ -2063,7 +2001,7 @@ final class CrewMovementService
 
     private function assertCrewPosition(int $companyId, int $positionId): void
     {
-        $usable = RankPositionBridge::crewPositionsQuery($companyId)
+        $usable = CrewPositionCatalog::crewPositionsQuery($companyId)
             ->whereKey($positionId)
             ->exists();
 
@@ -2370,53 +2308,5 @@ final class CrewMovementService
         string $label,
     ): void {
         $this->masters->assertUsable($companyId, $modelClass, $id, $label);
-    }
-
-    /**
-     * @param  array{
-     *     position_id: int|null,
-     *     rank_id: int|null,
-     * }  $candidate
-     */
-    private function temporaryRankIdForConflict(int $companyId, array $candidate): ?int
-    {
-        if ($candidate['position_id'] !== null) {
-            $mapped = RankPositionBridge::rankIdForPosition($companyId, (int) $candidate['position_id']);
-
-            if ($mapped !== null) {
-                return $mapped;
-            }
-        }
-
-        return $candidate['rank_id'];
-    }
-
-    /**
-     * @param  array<string, mixed>  $persist
-     * @param  array{
-     *     position_id: int|null,
-     *     rank_id: int|null,
-     * }  $candidate
-     * @return array<string, mixed>
-     */
-    private function applyTemporaryRankDualWrite(int $companyId, array $persist, array $candidate): array
-    {
-        if (! array_key_exists('position_id', $persist)) {
-            return $persist;
-        }
-
-        if ($persist['position_id'] === null) {
-            $persist['rank_id'] = null;
-
-            return $persist;
-        }
-
-        // Temporary Phase 2 dual-write while schema still requires rank_id.
-        $persist['rank_id'] = RankPositionBridge::rankIdForPosition(
-            $companyId,
-            (int) $persist['position_id'],
-        ) ?? $candidate['rank_id'];
-
-        return $persist;
     }
 }

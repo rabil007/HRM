@@ -6,7 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -64,9 +64,10 @@ function makeSeaServicesIndexFixtures(): array
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Chief Officer '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Officer '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     return compact('company', 'branch', 'employee', 'vesselType', 'vessel', 'rank');
@@ -102,7 +103,7 @@ test('sea services index returns paginated records with summary', function () {
         'employee_id' => $employee->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2023-01-01',
         'end_date' => '2023-06-30',
         'total_months' => $duration['months'],
@@ -141,7 +142,7 @@ test('sea services index filters open-ended records', function () {
         'employee_id' => $employee->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2023-01-01',
         'end_date' => null,
         'total_months' => $duration['months'],
@@ -154,7 +155,7 @@ test('sea services index filters open-ended records', function () {
         'employee_id' => $employee->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2022-01-01',
         'end_date' => '2022-03-01',
         'total_months' => $duration['months'],
@@ -188,7 +189,7 @@ test('sea services index does not leak other company records', function () {
         'employee_id' => $employee->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2023-01-01',
         'end_date' => '2023-03-01',
         'total_months' => $duration['months'],
@@ -201,7 +202,7 @@ test('sea services index does not leak other company records', function () {
         'employee_id' => $other['employee']->id,
         'vessel_type_id' => $other['vesselType']->id,
         'vessel_id' => $other['vessel']->id,
-        'rank_id' => $other['rank']->id,
+        'position_id' => $other['rank']->id,
         'start_date' => '2023-01-01',
         'end_date' => '2023-03-01',
         'total_months' => $duration['months'],

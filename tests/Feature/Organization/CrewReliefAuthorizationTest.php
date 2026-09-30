@@ -49,7 +49,7 @@ it('requires planning create permission to plan relief', function () {
 
     $this->actingAs($viewer)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -74,13 +74,13 @@ it('allows planning creator to plan relief and convert via support action', func
         makeCrewMovementVessel('Auth Planner Vessel'),
     );
     $relief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
 
     $this->actingAs($planner)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -118,7 +118,7 @@ it('rejects cross-company relief source ids', function () {
 
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $localVessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $foreignSource->id,

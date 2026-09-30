@@ -34,8 +34,8 @@ export function vesselMobileCardModel(
         identificationLine: identification === '' ? null : identification,
         manningLine:
             vessel.manning_health?.reason ??
-            (vessel.ranks_configured > 0
-                ? `${vessel.ranks_configured} ranks · ${vessel.total_required} required`
+            (vessel.positions_configured > 0
+                ? `${vessel.positions_configured} positions · ${vessel.total_required} required`
                 : 'No manning configured'),
         isActive: vessel.is_active,
         statusLabel: vessel.is_active ? 'Active' : 'Inactive',
@@ -43,7 +43,7 @@ export function vesselMobileCardModel(
             vessel.manning_health?.status === 'critical' ||
             vessel.manning_health?.status === 'at_risk'
                 ? vessel.manning_health.reason
-                : vessel.ranks_configured === 0
+                : vessel.positions_configured === 0
                   ? 'Manning not configured'
                   : null,
         showEdit: can.update,

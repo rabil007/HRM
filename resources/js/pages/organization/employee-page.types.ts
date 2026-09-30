@@ -12,7 +12,7 @@ import type {
     DepartmentOption,
     GenderOption,
     PositionOption,
-    RankOption,
+    CrewPositionOption,
     ProjectOption,
     ReligionOption,
     SssaOption,
@@ -403,7 +403,9 @@ export type EmployeePageProps = {
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
     banks: BankOption[];
-    ranks: RankOption[];
+    sea_service_positions: CrewPositionOption[];
+    /** @deprecated Use sea_service_positions */
+    ranks?: CrewPositionOption[];
     projects: ProjectOption[];
     profile_clients: ClientOption[];
     vessel_types?: VesselTypeOption[];

@@ -6,7 +6,6 @@ use App\Enums\CrewOperationalAlertType;
 use App\Models\CrewOperationalAlert;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentAccess;
-use App\Support\Positions\RankPositionBridge;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
@@ -43,7 +42,6 @@ final class ResolveCrewOperationalAlertUrl
         if ($user->can('crew_operations.planning.view')) {
             $params = [];
             $vesselId = $alert->context['vessel_id'] ?? null;
-            $rankId = $alert->context['rank_id'] ?? null;
             $positionId = $alert->context['position_id'] ?? null;
 
             if (is_numeric($vesselId)) {
@@ -52,11 +50,6 @@ final class ResolveCrewOperationalAlertUrl
 
             if (is_numeric($positionId)) {
                 $params['position_id'] = (int) $positionId;
-            } elseif (is_numeric($rankId)) {
-                $mapped = RankPositionBridge::positionIdForRank((int) $alert->company_id, (int) $rankId);
-                if ($mapped !== null) {
-                    $params['position_id'] = $mapped;
-                }
             }
 
             return route('organization.crew-planning.index', $params);

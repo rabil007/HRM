@@ -135,7 +135,7 @@ test('vessel transfer allocates shared calendar day once without duplicate payro
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-DST-'.fake()->unique()->numerify('######'),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $vesselB->id,
         'previous_assignment_id' => $fixtures['assignment']->id,
         'status' => CrewAssignmentStatus::Active,

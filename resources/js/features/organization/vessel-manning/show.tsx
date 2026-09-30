@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
 import { vesselManningHasWriteActions } from './types';
 import type {
-    RankOption,
+    PositionOption,
     VesselManningFormData,
     VesselManningPagePermissions,
     VesselManningShowItem,
@@ -99,7 +99,7 @@ export function VesselManningShowContent({
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     can: VesselManningPagePermissions;
-    crew_positions: RankOption[];
+    crew_positions: PositionOption[];
     back_query: Record<string, string>;
 }) {
     const [editOpen, setEditOpen] = useState(false);
@@ -201,8 +201,8 @@ export function VesselManningShowContent({
                     <CardContent className="space-y-6 p-6">
                         <div className="grid gap-4 sm:grid-cols-3">
                             <StatChip
-                                label="Ranks configured"
-                                value={String(vessel.ranks_configured)}
+                                label="Positions configured"
+                                value={String(vessel.positions_configured)}
                                 icon={ShieldCheck}
                             />
                             <StatChip

@@ -9,7 +9,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\CrewMovements\CrewMovementService;
@@ -35,7 +35,7 @@ test('assignment can be saved as draft and does not reserve employee', function 
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'draft',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-20',
@@ -79,7 +79,7 @@ test('assignment can be saved as planned and reserves employee', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -117,7 +117,7 @@ test('planned assignment appears in Planning Gantt query without duplicate recor
 
     $service = app(CrewMovementService::class);
     $assignment = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -151,7 +151,7 @@ test('assignment can start directly without planning first', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-09-20',
             'planned_signoff_at' => '2026-11-20',
@@ -174,7 +174,7 @@ test('planned assignment can transition to active on the SAME CrewAssignment rec
 
     $service = app(CrewMovementService::class);
     $planned = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -206,7 +206,7 @@ test('planned to active transition reruns conflict check and blocks if circumsta
 
     $service = app(CrewMovementService::class);
     $planned = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel1->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -215,7 +215,7 @@ test('planned to active transition reruns conflict check and blocks if circumsta
     // Concurrent Active that ends before the Planned window — allowed at start time,
     // but still blocks Planned → Active because an Active assignment already exists.
     $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel2->id,
         'planned_signoff_at' => '2026-09-30',
         'stage_started_at' => '2026-09-15 08:00:00',
@@ -233,7 +233,7 @@ test('planned vs active overlap is detected with actionable context', function (
 
     $service = app(CrewMovementService::class);
     $active = $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-09-15',
         'planned_signoff_at' => '2026-10-31',
@@ -264,13 +264,13 @@ test('incompatible active vs active start is hard blocked', function () {
 
     $service = app(CrewMovementService::class);
     $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel1->id,
         'stage_started_at' => '2026-09-15 08:00:00',
     ], $user->id);
 
     expect(fn () => $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel2->id,
         'stage_started_at' => '2026-09-15 09:00:00',
     ], $user->id))->toThrow(CrewMovementException::class, 'already has an active assignment');
@@ -282,7 +282,7 @@ test('cancelling a planned assignment releases employee reservation', function (
 
     $service = app(CrewMovementService::class);
     $planned = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -327,7 +327,7 @@ test('invalid date sequence is rejected on planning', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-11-30',
             'planned_signoff_at' => '2026-10-10',
@@ -339,7 +339,7 @@ test('invalid date sequence is rejected on planning', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_arrival_at' => '2026-10-15',
             'planned_join_at' => '2026-10-10',
@@ -363,7 +363,7 @@ test('save as planned requires planning create permission and denies when missin
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -381,7 +381,7 @@ test('save as planned requires planning create permission and denies when missin
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -429,7 +429,7 @@ test('planned save creates no actual movement events or sea service', function (
 
     $service = app(CrewMovementService::class);
     $assignment = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -455,7 +455,7 @@ test('audit logs meaningful activity for planned lifecycle transitions', functio
 
     $service = app(CrewMovementService::class);
     $assignment = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -488,7 +488,7 @@ test('editing planned dates reruns conflict detection and blocks overlapping dat
 
     // Plan A: Oct 10 - Oct 31
     $planA = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel1->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-10-31',
@@ -496,7 +496,7 @@ test('editing planned dates reruns conflict detection and blocks overlapping dat
 
     // Plan B: Dec 01 - Dec 31 (non-overlapping)
     $planB = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel2->id,
         'planned_join_at' => '2026-12-01',
         'planned_signoff_at' => '2026-12-31',
@@ -517,7 +517,7 @@ test('concurrent conflict evaluator locks and prevents conflicting reservations'
 
     $service = app(CrewMovementService::class);
     $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -562,7 +562,7 @@ test('planning-only user can open plan form and save as planned without assignme
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -590,7 +590,7 @@ test('planning-only user cannot draft or start and crafted start intent is forbi
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'draft',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -601,7 +601,7 @@ test('planning-only user cannot draft or start and crafted start intent is forbi
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -619,7 +619,7 @@ test('planned to active rechecks full planned date range against overlapping pla
     $service = app(CrewMovementService::class);
 
     $planA = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel1->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
@@ -628,7 +628,7 @@ test('planned to active rechecks full planned date range against overlapping pla
     // Create a non-overlapping plan, then force an overlapping reservation that would
     // only be caught when Plan A activates (full planned range recheck).
     $planB = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel2->id,
         'planned_join_at' => '2026-12-15',
         'planned_signoff_at' => '2026-12-31',
@@ -654,7 +654,7 @@ test('same planned assignment can start successfully without conflicting with it
 
     $service = app(CrewMovementService::class);
     $planned = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
@@ -684,7 +684,7 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
     $vacant = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2026-10-10',
         'planned_leave_date' => '2026-11-30',
@@ -694,7 +694,7 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -705,13 +705,13 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
     expect($vacant->fresh()->crew_assignment_id)->toBe($assignment->id);
 
-    $employee2 = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'status' => 'active']);
+    $employee2 = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee2->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2027-01-01',
             'planned_signoff_at' => '2027-02-01',
@@ -722,7 +722,7 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
     $incompatible = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $otherVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2027-03-01',
         'planned_leave_date' => '2027-04-01',
@@ -732,7 +732,7 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee2->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2027-03-01',
             'planned_signoff_at' => '2027-04-01',
@@ -761,7 +761,7 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
     $foreignSlot = CrewPlanningAssignment::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $foreignVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2026-10-10',
         'planned_leave_date' => '2026-11-30',
@@ -771,7 +771,7 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -782,7 +782,7 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
     $localSlot = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2026-10-10',
         'planned_leave_date' => '2026-11-30',
@@ -793,7 +793,7 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -808,7 +808,7 @@ test('conflict payload matches frontend schema for overlapping planned assignmen
 
     $service = app(CrewMovementService::class);
     $existing = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -880,11 +880,12 @@ test('employee visibility scope hides inaccessible relief source without leaking
         'officeEmployee' => $officeEmployee,
     ] = makeEmployeeVisibilityFixtures();
 
-    $rank = Rank::query()->create([
-        'name' => 'Relief Visibility Rank '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Relief Visibility Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
-    $officeEmployee->update(['rank_id' => $rank->id]);
+    $officeEmployee->update(['position_id' => $rank->id]);
     $vessel = makeCrewMovementVessel('Relief Visibility Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
@@ -902,7 +903,7 @@ test('employee visibility scope hides inaccessible relief source without leaking
     $reliefEmployee = Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $marineDept->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
@@ -910,7 +911,7 @@ test('employee visibility scope hides inaccessible relief source without leaking
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $reliefEmployee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -938,7 +939,7 @@ test('planning handoff for a slot linked to a planned crew assignment redirects 
     $user->update(['current_company_id' => $company->id]);
 
     $planned = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -947,7 +948,7 @@ test('planning handoff for a slot linked to a planned crew assignment redirects 
     $slot = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'crew_assignment_id' => $planned->id,
         'planned_join_date' => '2026-10-10',
@@ -980,7 +981,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     $baseSlot = fn (): CrewPlanningAssignment => CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2026-10-10',
         'planned_leave_date' => '2026-11-30',
@@ -992,7 +993,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -1004,7 +1005,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     // Subset within slot — allow
     $subsetEmployee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $subset = $baseSlot();
@@ -1012,7 +1013,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $subsetEmployee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-15',
             'planned_signoff_at' => '2026-11-25',
@@ -1025,14 +1026,14 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     $overlong = $baseSlot();
     $overlongEmployee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $overlongEmployee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-12-31',
@@ -1045,14 +1046,14 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     $before = $baseSlot();
     $beforeEmployee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $beforeEmployee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-09',
             'planned_signoff_at' => '2026-11-25',
@@ -1064,14 +1065,14 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     $after = $baseSlot();
     $afterEmployee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $afterEmployee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-12-01',
             'planned_signoff_at' => '2026-12-15',
@@ -1083,14 +1084,14 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     $subsetOverlong = $baseSlot();
     $subsetOverlongEmployee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $subsetOverlongEmployee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-15',
             'planned_signoff_at' => '2026-12-31',
@@ -1114,7 +1115,7 @@ test('vacant planning create rejects employee_id and succeeds without it', funct
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'employee_id' => $employee->id,
             'planned_join_date' => '2026-10-10',
             'planned_leave_date' => '2026-11-30',
@@ -1131,7 +1132,7 @@ test('vacant planning create rejects employee_id and succeeds without it', funct
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_join_date' => '2026-10-10',
             'planned_leave_date' => '2026-11-30',
         ])
@@ -1160,7 +1161,7 @@ test('planned update cannot clear expected join or sign-off via blank submission
     $user->update(['current_company_id' => $company->id]);
 
     $assignment = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -1171,7 +1172,7 @@ test('planned update cannot clear expected join or sign-off via blank submission
             'planned_join_at' => '',
             'planned_signoff_at' => '2026-11-30',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertSessionHasErrors('planned_join_at');
 
@@ -1182,7 +1183,7 @@ test('planned update cannot clear expected join or sign-off via blank submission
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertSessionHasErrors('planned_signoff_at');
 
@@ -1201,14 +1202,14 @@ test('planned update conflict uses submitted effective dates not stale persisted
 
     $service = app(CrewMovementService::class);
     $existing = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-10-15',
     ], $user->id);
 
     $editable = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-11-01',
         'planned_signoff_at' => '2026-11-30',
@@ -1219,7 +1220,7 @@ test('planned update conflict uses submitted effective dates not stale persisted
             'planned_join_at' => '2026-10-05',
             'planned_signoff_at' => '2026-10-20',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertSessionHasErrors(['employee_id', 'conflict']);
 
@@ -1236,7 +1237,7 @@ test('save as planned without vessel is rejected', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
@@ -1258,7 +1259,7 @@ test('planning-only user can view edit and cancel planned but cannot start or ed
 
     $service = app(CrewMovementService::class);
     $planned = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -1284,17 +1285,17 @@ test('planning-only user can view edit and cancel planned but cannot start or ed
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect();
 
     expect($planned->fresh()->remarks)->toBe('Planning edit');
 
     $active = $service->startAssignment($company->id, Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ])->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'stage_started_at' => '2026-09-15 08:00:00',
     ], $user->id);
@@ -1327,12 +1328,12 @@ test('draft relief does not block a subsequent planned relief', function () {
     ]);
 
     $reliefEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
     $draftRelief = $service->createDraft($company->id, $reliefEmployee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-11-20',
         'planned_signoff_at' => '2027-02-28',
@@ -1344,7 +1345,7 @@ test('draft relief does not block a subsequent planned relief', function () {
         ->and($resolver->forSourceAssignment($source)->status->value)->toBe('no_relief');
 
     $plannedRelief = $service->createPlanned($company->id, $reliefEmployee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-11-20',
         'planned_signoff_at' => '2027-02-28',
@@ -1369,7 +1370,7 @@ test('crafted vacant slot handoff cannot clear vessel or rank', function () {
     $slot = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2026-10-01',
         'planned_leave_date' => '2026-11-30',
@@ -1379,7 +1380,7 @@ test('crafted vacant slot handoff cannot clear vessel or rank', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => null,
+            'position_id' => null,
             'vessel_id' => null,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-20',
@@ -1391,6 +1392,6 @@ test('crafted vacant slot handoff cannot clear vessel or rank', function () {
 
     expect($assignment)->not->toBeNull()
         ->and($assignment->vessel_id)->toBe($vessel->id)
-        ->and($assignment->rank_id)->toBe($rank->id)
+        ->and($assignment->position_id)->toBe($rank->id)
         ->and($slot->fresh()->crew_assignment_id)->toBe($assignment->id);
 });

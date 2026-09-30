@@ -8,7 +8,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 
@@ -131,7 +131,7 @@ final class CrewAssignmentCreateFormOptions
                 ->all(),
             'active_on_vessel_by_employee' => $activeOnVessel,
             'employee_status_by_employee' => $employeeStatusByEmployee,
-            'positions' => RankPositionBridge::crewPositionOptions($companyId),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'vessels' => self::activeVessels($companyId),
             'clients' => self::activeClients(),
             'courses' => self::activeCourses(),

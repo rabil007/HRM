@@ -5,7 +5,6 @@ use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
@@ -112,9 +111,10 @@ test('requirement can apply to positions and ranks', function () {
         'title' => 'Able Seaman',
         'status' => 'active',
     ]);
-    $rank = Rank::query()->create([
-        'name' => 'Captain Req '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Captain Req '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $this->put("/settings/master-data/document-types/{$passportType->id}", [

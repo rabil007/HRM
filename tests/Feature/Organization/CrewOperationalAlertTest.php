@@ -187,7 +187,7 @@ test('signoff no relief and relief not ready create distinct alerts', function (
     );
 
     $readyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $source = makeActiveOnVesselAssignment(
@@ -198,13 +198,13 @@ test('signoff no relief and relief not ready create distinct alerts', function (
         ['planned_signoff_at' => '2026-08-10 00:00:00'],
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $companyId,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => '2026-08-10',
@@ -244,7 +244,7 @@ test('current and projected manning gaps create alerts', function () {
     VesselManning::query()->create([
         'company_id' => $companyId,
         'vessel_id' => $currentVessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'required_count' => 1,
     ]);
 
@@ -252,7 +252,7 @@ test('current and projected manning gaps create alerts', function () {
     VesselManning::query()->create([
         'company_id' => $companyId,
         'vessel_id' => $futureVessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'required_count' => 1,
     ]);
     makeActiveOnVesselAssignment(

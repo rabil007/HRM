@@ -5,8 +5,6 @@ namespace App\Support\VesselManning;
 use App\Models\Company;
 use App\Models\Vessel;
 use App\Models\VesselManning;
-use App\Support\Positions\RankPositionBridge;
-use Illuminate\Support\Collection;
 
 final class SyncVesselManning
 {
@@ -20,29 +18,28 @@ final class SyncVesselManning
 
         abort_unless((int) $vessel->company_id === $companyId, 404);
 
-        $normalized = RankPositionBridge::normalizeManningRequirements($companyId, $requirements);
-
-        /** @var Collection<int, array{position_id: int, rank_id: int|null, required_count: int}> $incoming */
-        $incoming = collect($normalized)->keyBy('position_id');
+        /** @var array<int, array{position_id: int, required_count: int}> $incoming */
+        $incoming = [];
+        foreach ($requirements as $row) {
+            $positionId = (int) ($row['position_id'] ?? 0);
+            if ($positionId > 0) {
+                $incoming[$positionId] = [
+                    'position_id' => $positionId,
+                    'required_count' => (int) ($row['required_count'] ?? 0),
+                ];
+            }
+        }
 
         $existing = VesselManning::query()
             ->withTrashed()
             ->where('company_id', $companyId)
             ->where('vessel_id', $vesselId)
+            ->whereNotNull('position_id')
             ->get()
-            ->keyBy(fn (VesselManning $line): int => (int) (
-                RankPositionBridge::resolvedPositionId($companyId, $line->position_id, $line->rank_id) ?? 0
-            ))
-            ->filter(fn (VesselManning $line, int $positionId): bool => $positionId > 0);
+            ->keyBy(fn (VesselManning $line): int => (int) $line->position_id);
 
         foreach ($incoming as $positionId => $row) {
-            $rankId = $row['rank_id'];
-
-            if ($rankId === null) {
-                continue;
-            }
-
-            $record = $existing->get((int) $positionId);
+            $record = $existing->get($positionId);
 
             if ($record instanceof VesselManning) {
                 if ($record->trashed()) {
@@ -50,8 +47,7 @@ final class SyncVesselManning
                 }
 
                 $record->update([
-                    'position_id' => (int) $positionId,
-                    'rank_id' => $rankId,
+                    'position_id' => $positionId,
                     'required_count' => $row['required_count'],
                 ]);
 
@@ -61,26 +57,21 @@ final class SyncVesselManning
             VesselManning::query()->create([
                 'company_id' => $companyId,
                 'vessel_id' => $vesselId,
-                'position_id' => (int) $positionId,
-                'rank_id' => $rankId,
+                'position_id' => $positionId,
                 'required_count' => $row['required_count'],
             ]);
         }
 
-        $incomingPositionIds = $incoming->keys()->map(fn ($id): int => (int) $id)->all();
+        $incomingPositionIds = array_keys($incoming);
 
         VesselManning::query()
             ->where('company_id', $companyId)
             ->where('vessel_id', $vesselId)
             ->get()
-            ->each(function (VesselManning $line) use ($companyId, $incomingPositionIds): void {
-                $resolved = RankPositionBridge::resolvedPositionId(
-                    $companyId,
-                    $line->position_id !== null ? (int) $line->position_id : null,
-                    $line->rank_id !== null ? (int) $line->rank_id : null,
-                );
+            ->each(function (VesselManning $line) use ($incomingPositionIds): void {
+                $positionId = $line->position_id !== null ? (int) $line->position_id : null;
 
-                if ($resolved === null || ! in_array($resolved, $incomingPositionIds, true)) {
+                if ($positionId === null || ! in_array($positionId, $incomingPositionIds, true)) {
                     $line->delete();
                 }
             });

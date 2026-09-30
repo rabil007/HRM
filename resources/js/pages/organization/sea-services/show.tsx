@@ -9,7 +9,7 @@ import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { RankOption } from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import { SeaServiceManagementDialogs } from '@/features/organization/sea-services/sea-service-management-dialogs';
 import type {
     SeaServiceBackNavigation,
@@ -30,7 +30,7 @@ type Props = {
     employee: { id: number; name: string; employee_no: string };
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    positions: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
     can: SeaServicePageCan;

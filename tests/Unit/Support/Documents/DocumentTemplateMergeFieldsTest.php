@@ -6,7 +6,6 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Support\Documents\DocumentTemplateMergeFields;
 
 function createMergeFieldsTestCompany(string $name = 'Test Co'): Company
@@ -106,7 +105,8 @@ test('values for employee maps employee attributes to placeholders', function ()
         'include_in_attendance_leave' => true,
     ]);
     $position = Position::query()->create(['company_id' => $company->id, 'title' => 'First Officer']);
-    $rank = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Captain', 'status' => 'active', 'is_crew_position' => true]);
     $nationality = Country::query()->updateOrCreate(
         ['code' => 'PH'],
         ['name' => 'Philippines', 'dial_code' => '+63', 'is_active' => true],
@@ -116,7 +116,7 @@ test('values for employee maps employee attributes to placeholders', function ()
         'company_id' => $company->id,
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'nationality_id' => $nationality->id,
         'passport_number' => 'P99887766',
         'emirates_id' => '784-2000-1234567-1',

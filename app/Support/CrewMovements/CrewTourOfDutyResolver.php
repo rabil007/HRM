@@ -3,7 +3,6 @@
 namespace App\Support\CrewMovements;
 
 use App\Models\Position;
-use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Validation\ValidationException;
@@ -51,24 +50,5 @@ final class CrewTourOfDutyResolver
             suggestedPlannedSignoffAt: $suggested,
             timezone: $timezone,
         );
-    }
-
-    /**
-     * @deprecated Temporary Phase 2 alias — prefer resolve() with position_id.
-     */
-    public function resolveFromRank(
-        int $companyId,
-        int $rankId,
-        CarbonInterface $actualJoinAt,
-    ): CrewTourOfDutyResult {
-        $positionId = RankPositionBridge::positionIdForRank($companyId, $rankId);
-
-        if ($positionId === null) {
-            throw ValidationException::withMessages([
-                'position_id' => 'The selected rank has no usable Position mapping for this company.',
-            ]);
-        }
-
-        return $this->resolve($companyId, $positionId, $actualJoinAt);
     }
 }

@@ -1,7 +1,7 @@
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import type {
     DepartmentTreeNode,
-    RankOption,
+    CrewPositionOption,
 } from '@/features/organization/employees/types';
 import type {
     ClientOption,
@@ -81,7 +81,7 @@ export type SeaServicesIndexProps = {
     pagination: PaginationMeta;
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    positions: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     can: SeaServicePageCan;
 };
@@ -91,7 +91,7 @@ export type SeaServiceEmployeeBrowseProps = {
     sea_services: SeaServiceItem[];
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    positions: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
     back: SeaServiceBackNavigation;
@@ -103,7 +103,7 @@ export type SeaServiceShowProps = {
     employee: SeaServiceEmployeeSummary;
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    positions: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
     can: SeaServicePageCan;

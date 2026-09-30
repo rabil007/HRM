@@ -12,7 +12,6 @@ final class DocumentRequirementPresenter
      *     required_for_all: bool,
      *     department_ids: list<int>,
      *     position_ids: list<int>,
-     *     rank_ids: list<int>,
      *     project_ids: list<int>,
      *     require_issue_date: bool,
      *     require_expiry_date: bool,
@@ -28,7 +27,6 @@ final class DocumentRequirementPresenter
                 'required_for_all' => false,
                 'department_ids' => [],
                 'position_ids' => [],
-                'rank_ids' => [],
                 'project_ids' => [],
                 'require_issue_date' => false,
                 'require_expiry_date' => false,
@@ -43,9 +41,6 @@ final class DocumentRequirementPresenter
         $positionIds = $requirement->relationLoaded('positions')
             ? $requirement->positions->pluck('id')
             : $requirement->positions()->pluck('positions.id');
-        $rankIds = $requirement->relationLoaded('ranks')
-            ? $requirement->ranks->pluck('id')
-            : $requirement->ranks()->pluck('ranks.id');
         $projectIds = $requirement->relationLoaded('projects')
             ? $requirement->projects->pluck('id')
             : $requirement->projects()->pluck('projects.id');
@@ -55,7 +50,6 @@ final class DocumentRequirementPresenter
             'required_for_all' => (bool) $requirement->required_for_all,
             'department_ids' => $departmentIds->map(fn ($id): int => (int) $id)->values()->all(),
             'position_ids' => $positionIds->map(fn ($id): int => (int) $id)->values()->all(),
-            'rank_ids' => $rankIds->map(fn ($id): int => (int) $id)->values()->all(),
             'project_ids' => $projectIds->map(fn ($id): int => (int) $id)->values()->all(),
             'require_issue_date' => (bool) $requirement->require_issue_date,
             'require_expiry_date' => (bool) $requirement->require_expiry_date,

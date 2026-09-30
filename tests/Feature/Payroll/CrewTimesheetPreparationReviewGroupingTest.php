@@ -93,7 +93,7 @@ function makeLinkedAssignmentPreparation(array $fixtures, string $source): array
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-TL-DEST-'.fake()->unique()->numerify('######'),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $destinationVessel->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => $source,

@@ -27,11 +27,6 @@ const MASTER_DATA_ITEMS = [
         permission: 'settings.master-data.banks.view',
     },
     {
-        title: 'Ranks',
-        href: '/settings/master-data/ranks',
-        permission: 'settings.master-data.ranks.view',
-    },
-    {
         title: 'Clients',
         href: '/settings/master-data/clients',
         permission: 'settings.master-data.clients.view',

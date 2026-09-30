@@ -13,8 +13,8 @@ final class CrewOperationsManningGapQuery
      *     items: list<array{
      *         vessel_id: int,
      *         vessel_name: string,
-     *         rank_id: int,
-     *         rank_name: string,
+     *         position_id: int,
+     *         position_name: string,
      *         required_count: int,
      *         actual_count: int,
      *         gap: int

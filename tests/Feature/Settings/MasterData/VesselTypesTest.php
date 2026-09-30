@@ -6,7 +6,7 @@ use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -165,9 +165,10 @@ test('cannot delete vessel type used on employee sea service records', function 
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Officer',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Officer',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $employee = Employee::factory()
@@ -191,7 +192,7 @@ test('cannot delete vessel type used on employee sea service records', function 
         ->forEmployee($employee)
         ->create([
             'vessel_type_id' => $vesselType->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]);
 
     $this->from(route('settings.master-data.vessel-types.index'))

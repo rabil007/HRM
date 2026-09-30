@@ -28,7 +28,6 @@ final class SettingsHubAccess
             'settings.master-data.banks.view',
             'settings.master-data.vessel-types.view',
             'settings.master-data.vessels.view',
-            'settings.master-data.ranks.view',
             'settings.master-data.clients.view',
             'settings.master-data.document-types.view',
             'settings.master-data.projects.view',

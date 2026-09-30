@@ -7,7 +7,6 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\Vessel;
 use Illuminate\Support\Collection;
 
@@ -20,7 +19,6 @@ final class HistoricalCrewBulkValidationContext
     /**
      * @param  array<int, Employee>  $employeesById
      * @param  array<int, Vessel>  $vesselsById
-     * @param  array<int, Rank>  $ranksById
      * @param  array<int, Position>  $positionsById
      * @param  array<int, Client>  $clientsById
      * @param  array<int, Collection<int, CrewAssignment>>  $assignmentsByEmployeeId
@@ -29,12 +27,13 @@ final class HistoricalCrewBulkValidationContext
     public function __construct(
         public readonly array $employeesById,
         public readonly array $vesselsById,
-        public readonly array $ranksById,
         public readonly array $positionsById,
         public readonly array $clientsById,
         public readonly array $assignmentsByEmployeeId,
         public readonly array $seaServicesByEmployeeId,
         public readonly bool $seaServiceSyncEnabled,
+        /** @deprecated Kept empty for transitional call sites; Rank catalog removed. */
+        public readonly array $ranksById = [],
     ) {}
 
     public function employee(int $id): ?Employee
@@ -45,11 +44,6 @@ final class HistoricalCrewBulkValidationContext
     public function vessel(int $id): ?Vessel
     {
         return $this->vesselsById[$id] ?? null;
-    }
-
-    public function rank(int $id): ?Rank
-    {
-        return $this->ranksById[$id] ?? null;
     }
 
     public function position(int $id): ?Position

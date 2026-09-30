@@ -2,7 +2,6 @@
 
 namespace App\Support\SeaServices;
 
-use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class SeaServiceDirectoryFilters
@@ -31,7 +30,7 @@ final class SeaServiceDirectoryFilters
             $active = '';
         }
 
-        $positionId = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+        $positionId = (string) ($request->query('position_id') ?? '');
 
         return new self(
             search: trim((string) $request->query('search', '')),

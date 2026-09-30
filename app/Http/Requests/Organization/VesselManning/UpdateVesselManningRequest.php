@@ -4,7 +4,7 @@ namespace App\Http\Requests\Organization\VesselManning;
 
 use App\Models\Vessel;
 use App\Models\VesselManning;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -63,7 +63,7 @@ class UpdateVesselManningRequest extends FormRequest
                 'required',
                 'integer',
                 'distinct',
-                RankPositionBridge::existsCrewPositionRule($companyId),
+                CrewPositionCatalog::existsCrewPositionRule($companyId),
             ],
             'requirements.*.required_count' => ['required', 'integer', 'min:1', 'max:9999'],
         ];
@@ -81,29 +81,6 @@ class UpdateVesselManningRequest extends FormRequest
 
             if (! $vessel->is_active) {
                 $validator->errors()->add('vessel', 'Manning cannot be updated for an inactive vessel.');
-            }
-
-            $companyId = (int) $this->attributes->get('current_company_id');
-
-            $positionIds = collect($this->input('requirements', []))
-                ->pluck('position_id')
-                ->filter()
-                ->map(fn ($id) => (int) $id)
-                ->all();
-
-            if ($positionIds === []) {
-                return;
-            }
-
-            foreach (array_unique($positionIds) as $positionId) {
-                if (RankPositionBridge::rankIdForPosition($companyId, $positionId) === null) {
-                    $validator->errors()->add(
-                        'requirements',
-                        'One or more selected crew positions are missing a legacy rank mapping.',
-                    );
-
-                    break;
-                }
             }
         });
     }

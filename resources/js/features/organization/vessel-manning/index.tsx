@@ -36,7 +36,7 @@ import type { PaginationMeta } from '@/types/pagination';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
 import { vesselManningHasWriteActions } from './types';
 import type {
-    RankOption,
+    PositionOption,
     VesselManningFormData,
     VesselManningItem,
     VesselManningPagePermissions,
@@ -101,7 +101,7 @@ export function VesselManningContent({
     pagination: PaginationMeta;
     search: string;
     filters: { vessel_type_id: number | null };
-    crew_positions: RankOption[];
+    crew_positions: PositionOption[];
     vessel_types: VesselTypeOption[];
     can: VesselManningPagePermissions;
 }) {

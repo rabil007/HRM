@@ -22,7 +22,6 @@ import type {
     DocumentTypeRow,
     PositionOption,
     ProjectOption,
-    RankOption,
 } from '@/features/organization/documents/configuration/types';
 import { headerCheckboxState } from '@/lib/record-selection';
 import { cn } from '@/lib/utils';
@@ -50,7 +49,6 @@ export function DocumentTypeFormSheet({
     canUpdate,
     departments,
     positions,
-    ranks,
     projects,
     onSubmit,
 }: {
@@ -61,7 +59,6 @@ export function DocumentTypeFormSheet({
     canUpdate: boolean;
     departments: DepartmentOption[];
     positions: PositionOption[];
-    ranks: RankOption[];
     projects: ProjectOption[];
     onSubmit: () => void;
 }) {
@@ -263,8 +260,8 @@ export function DocumentTypeFormSheet({
                                     </div>
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         Applies only to employees matching
-                                        specific departments, positions, ranks,
-                                        or projects.
+                                        specific departments, positions, or
+                                        projects.
                                     </p>
                                 </RadioItem>
                             </RadioGroup>
@@ -332,19 +329,6 @@ export function DocumentTypeFormSheet({
                                                 )
                                             }
                                             error={form.errors.position_ids}
-                                        />
-                                        <DocumentRequirementMultiSelect
-                                            id="requirement-ranks"
-                                            label="Ranks"
-                                            options={ranks.map((rank) => ({
-                                                id: rank.id,
-                                                label: rank.name,
-                                            }))}
-                                            value={form.data.rank_ids}
-                                            onChange={(ids) =>
-                                                form.setData('rank_ids', ids)
-                                            }
-                                            error={form.errors.rank_ids}
                                         />
                                         <DocumentRequirementMultiSelect
                                             id="requirement-projects"

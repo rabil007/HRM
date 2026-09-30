@@ -18,7 +18,6 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\Documents\DocumentTemplateLayoutValidationFailureLogger;
 use App\Support\Documents\DocumentTemplateLayoutValidationFingerprint;
@@ -109,7 +108,7 @@ function makeDocumentRequirement(
         $company = Company::query()->findOrFail($companyId);
 
         foreach ($rankIds as $rankId) {
-            $rank = Rank::query()->find((int) $rankId);
+            $rank = Position::query()->find((int) $rankId);
 
             if ($rank === null) {
                 continue;
@@ -165,17 +164,20 @@ function makeDocumentRequirementMatchScopes(int $companyId): array
         'include_in_attendance_leave' => true,
     ]);
     $seafarer = Position::query()->create([
+        'company_id' => $company->id,
         'company_id' => $companyId,
         'title' => 'Seafarer',
         'status' => 'active',
     ]);
-    $captain = Rank::query()->create([
-        'name' => 'Captain '.$suffix,
-        'is_active' => true,
+    $captain = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Captain '.$suffix,
+        'status' => 'active', 'is_crew_position' => true,
     ]);
-    $chiefEngineer = Rank::query()->create([
-        'name' => 'Chief Engineer '.$suffix,
-        'is_active' => true,
+    $chiefEngineer = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Engineer '.$suffix,
+        'status' => 'active', 'is_crew_position' => true,
     ]);
     $company = Company::query()->findOrFail($companyId);
     $captainPosition = ensureRankMappedPosition($company, $captain);

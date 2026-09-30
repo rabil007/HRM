@@ -6,7 +6,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
 
@@ -18,13 +18,13 @@ it('excludes cross-company Vessel Manning assignments and Planning from projecti
     VesselManning::query()->create([
         'company_id' => $a['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $a['rank']->id,
+        'position_id' => $a['position']->id,
         'required_count' => 1,
     ]);
     VesselManning::query()->create([
         'company_id' => $b['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $b['rank']->id,
+        'position_id' => $b['position']->id,
         'required_count' => 5,
     ]);
 
@@ -32,11 +32,10 @@ it('excludes cross-company Vessel Manning assignments and Planning from projecti
         'planned_signoff_at' => '2026-08-20 00:00:00',
     ]);
     CrewPlanningAssignment::query()->create([
-        'company_id' => $b['company']->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $b['rank']->id,
+        'company_id' => $b['company']->id,        'vessel_id' => $vessel->id,
+        'position_id' => $b['position']->id,
         'employee_id' => Employee::factory()->forCompany($b['company'])->create([
-            'rank_id' => $b['rank']->id,
+            'position_id' => $b['position']->id,
             'status' => 'active',
         ])->id,
         'planned_join_date' => '2026-08-10',
@@ -48,7 +47,7 @@ it('excludes cross-company Vessel Manning assignments and Planning from projecti
         '2026-08-01',
         '2026-08-31',
         (int) $vessel->id,
-        (int) $a['rank']->id,
+        (int) $a['position']->id,
     );
 
     expect($result['items'])->toHaveCount(1)
@@ -57,25 +56,27 @@ it('excludes cross-company Vessel Manning assignments and Planning from projecti
         ->and($result['items'][0]['events'])->toBeEmpty();
 });
 
-it('respects vessel and rank filters', function () {
+it('respects vessel and position filters', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $vesselA = makeCrewMovementVessel('Filter Vessel A');
     $vesselB = makeCrewMovementVessel('Filter Vessel B');
-    $rankB = Rank::query()->create([
-        'name' => 'Filter Rank B '.uniqid(),
-        'is_active' => true,
+    $positionB = Position::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'title' => 'Filter Position B '.uniqid(),
+        'status' => 'active',
+        'is_crew_position' => true,
     ]);
 
     VesselManning::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $vesselA->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['position']->id,
         'required_count' => 1,
     ]);
     VesselManning::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $vesselB->id,
-        'rank_id' => $rankB->id,
+        'position_id' => $positionB->id,
         'required_count' => 3,
     ]);
 
@@ -89,13 +90,13 @@ it('respects vessel and rank filters', function () {
         '2026-08-01',
         '2026-08-31',
         (int) $vesselA->id,
-        (int) $fixtures['rank']->id,
+        (int) $fixtures['position']->id,
     );
 
     expect($all['items'])->toHaveCount(2)
         ->and($filtered['items'])->toHaveCount(1)
         ->and($filtered['items'][0]['vessel_id'])->toBe($vesselA->id)
-        ->and($filtered['items'][0]['rank_id'])->toBe($fixtures['rank']->id);
+        ->and($filtered['items'][0]['position_id'])->toBe($fixtures['position']->id);
 });
 
 it('does not project cancelled completed or P5/P6 historical linked relief as future joins', function () {
@@ -105,7 +106,7 @@ it('does not project cancelled completed or P5/P6 historical linked relief as fu
     VesselManning::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['position']->id,
         'required_count' => 1,
     ]);
 
@@ -118,13 +119,12 @@ it('does not project cancelled completed or P5/P6 historical linked relief as fu
     );
 
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['position']->id,
         'status' => 'active',
     ]);
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => '2026-08-20',
@@ -158,7 +158,7 @@ it('does not project cancelled completed or P5/P6 historical linked relief as fu
         '2026-08-01',
         '2026-08-31',
         (int) $vessel->id,
-        (int) $fixtures['rank']->id,
+        (int) $fixtures['position']->id,
     );
     $item = $result['items'][0];
 
@@ -174,7 +174,7 @@ it('excludes foreign employee phase and Planning relations from projection event
     VesselManning::query()->create([
         'company_id' => $a['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $a['rank']->id,
+        'position_id' => $a['position']->id,
         'required_count' => 1,
     ]);
 
@@ -193,9 +193,8 @@ it('excludes foreign employee phase and Planning relations from projection event
         'actual_end_at' => null,
     ]);
     CrewPlanningAssignment::query()->create([
-        'company_id' => $b['company']->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $a['rank']->id,
+        'company_id' => $b['company']->id,        'vessel_id' => $vessel->id,
+        'position_id' => $a['position']->id,
         'employee_id' => $b['employee']->id,
         'crew_assignment_id' => $assignment->id,
         'planned_join_date' => '2026-08-12',
@@ -207,7 +206,7 @@ it('excludes foreign employee phase and Planning relations from projection event
         '2026-08-01',
         '2026-08-31',
         (int) $vessel->id,
-        (int) $a['rank']->id,
+        (int) $a['position']->id,
     );
     $item = $result['items'][0];
 

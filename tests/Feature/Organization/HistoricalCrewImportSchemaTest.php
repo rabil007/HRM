@@ -128,7 +128,7 @@ test('interrupted importing batch resumes without duplicating assignments', func
             data: [
                 'employee_id' => $employee->id,
                 'vessel_id' => $vessel->id,
-                'rank_id' => $rank->id,
+                'position_id' => $rank->id,
                 'onsite_from' => '2024-01-01',
                 'onsite_to' => '2024-03-01',
                 'sign_off_standby_from' => '2024-03-01',
@@ -557,7 +557,7 @@ test('failed batch resumes remaining rows without duplicating imported assignmen
             data: [
                 'employee_id' => $employee->id,
                 'vessel_id' => $vessel->id,
-                'rank_id' => $rank->id,
+                'position_id' => $rank->id,
                 'onsite_from' => '2024-01-01',
                 'onsite_to' => '2024-03-01',
                 'sign_off_standby_from' => '2024-03-01',

@@ -9,12 +9,12 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 final class CrewPlanningGanttQuery
 {
@@ -375,7 +375,11 @@ final class CrewPlanningGanttQuery
             ->where('company_id', $companyId)
             ->whereNotNull('vessel_id')
             ->where(function (Builder $role): void {
-                $role->whereNotNull('rank_id')->orWhereNotNull('position_id');
+                $role->whereNotNull('position_id');
+
+                if (Schema::hasColumn('crew_assignments', 'rank_id')) {
+                    $role->orWhereNotNull('rank_id');
+                }
             })
             ->whereIn('status', [CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active])
             ->where(function (Builder $q) use ($fromTimestamp, $toTimestamp): void {
@@ -406,11 +410,7 @@ final class CrewPlanningGanttQuery
                     });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
-            ->when($positionId !== null, fn (Builder $query) => LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                $query,
-                $companyId,
-                $positionId,
-            ));
+            ->when($positionId !== null, fn (Builder $query) => $query->where('crew_assignments.position_id', $positionId));
 
         if ($user !== null) {
             $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
@@ -445,14 +445,14 @@ final class CrewPlanningGanttQuery
             ->orderBy('planned_join_at')
             ->get();
 
-        RankPositionBridge::hydrateCanonicalPositions($assignments, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $companyId);
 
         $relievedAssignments = $assignments
             ->map(fn (CrewAssignment $assignment): mixed => $assignment->relievedAssignment)
             ->filter()
             ->unique(fn (CrewAssignment $source): int => (int) $source->id)
             ->values();
-        RankPositionBridge::hydrateCanonicalPositions($relievedAssignments, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($relievedAssignments, $companyId);
 
         $assignmentItems = $assignments
             ->map(function (CrewAssignment $assignment) use ($user, $companyId, $timezone): ?array {
@@ -519,7 +519,11 @@ final class CrewPlanningGanttQuery
             ->whereNull('crew_assignment_id')
             ->whereNotNull('vessel_id')
             ->where(function (Builder $role): void {
-                $role->whereNotNull('rank_id')->orWhereNotNull('position_id');
+                $role->whereNotNull('position_id');
+
+                if (Schema::hasColumn('crew_planning_assignments', 'rank_id')) {
+                    $role->orWhereNotNull('rank_id');
+                }
             })
             ->where('planned_join_date', '<=', $to)
             ->where(function (Builder $query) use ($from): void {
@@ -539,12 +543,7 @@ final class CrewPlanningGanttQuery
                     });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
-            ->when($positionId !== null, fn (Builder $query) => LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                $query,
-                $companyId,
-                $positionId,
-                'crew_planning_assignments',
-            ));
+            ->when($positionId !== null, fn (Builder $query) => $query->where('crew_planning_assignments.position_id', $positionId));
 
         if ($user !== null) {
             $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
@@ -577,14 +576,14 @@ final class CrewPlanningGanttQuery
             ->orderBy('planned_join_date')
             ->get();
 
-        RankPositionBridge::hydrateCanonicalPositions($plans, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($plans, $companyId);
 
         $relievedPlans = $plans
             ->map(fn (CrewPlanningAssignment $plan): mixed => $plan->relievedAssignment)
             ->filter()
             ->unique(fn (CrewAssignment $source): int => (int) $source->id)
             ->values();
-        RankPositionBridge::hydrateCanonicalPositions($relievedPlans, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($relievedPlans, $companyId);
 
         $planItems = $plans
             ->map(function (CrewPlanningAssignment $plan) use ($user, $companyId, $timezone): ?array {

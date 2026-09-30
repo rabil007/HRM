@@ -10,8 +10,8 @@ use App\Models\Course;
 use App\Models\Currency;
 use App\Models\DocumentType;
 use App\Models\Gender;
+use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\SssaOption;
 use App\Models\User;
@@ -106,8 +106,8 @@ test('activity log is recorded for master data creation', function (string $mode
         fn () => DocumentType::query()->create(['title' => 'Activity Doc Type '.uniqid(), 'is_active' => true]),
     ],
     'rank' => [
-        Rank::class,
-        fn () => Rank::query()->create(['name' => 'Activity Rank '.uniqid(), 'is_active' => true]),
+        Position::class,
+        fn () => Position::query()->create(['company_id' => $company->id, 'title' => 'Activity Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]),
     ],
     'country' => [
         Country::class,

@@ -10,7 +10,7 @@ use App\Models\Gender;
 use App\Models\Position;
 use App\Models\SssaOption;
 use App\Models\VisaType;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
@@ -433,7 +433,7 @@ final class EmployeeSmartSearchResolver
      */
     private function positions(int $companyId, ?int $departmentId): array
     {
-        return RankPositionBridge::companyPositionsQuery($companyId)
+        return CrewPositionCatalog::companyPositionsQuery($companyId)
             ->where('status', 'active')
             ->when(
                 $departmentId !== null,

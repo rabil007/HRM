@@ -2,7 +2,7 @@
 
 use App\Models\Client;
 use App\Models\CompanyVisaType;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use Illuminate\Support\Facades\Schema;
 
@@ -18,7 +18,8 @@ test('crew master data tables keep ranks clients and visa types global while ves
 test('crew assignments filter options load company vessels and global master data', function () {
     ['company' => $company] = makeCrewAssignmentFixtures();
 
-    Rank::query()->create(['name' => 'Schema Rank '.uniqid(), 'is_active' => true]);
+    Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Schema Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
     makeCrewMovementVessel('Schema Vessel', $company);
     Client::query()->create(['name' => 'Schema Client '.uniqid(), 'is_active' => true]);
     CompanyVisaType::query()->create(['name' => 'Schema Visa '.uniqid(), 'is_active' => true]);

@@ -18,7 +18,6 @@ use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
@@ -1103,9 +1102,10 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'status' => 'active',
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Chief Officer',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Officer',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $project = Project::query()->create([
@@ -1183,7 +1183,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'branch_id' => $branch->id,
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'project_id' => $project->id,
         'work_email' => 'janet@example.com',
@@ -1194,7 +1194,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'id' => $employeeId,
         'name' => 'Janet Smith',
         'status' => 'inactive',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'project_id' => $project->id,
     ]);
@@ -4189,9 +4189,10 @@ test('employee with profile template can change to another active template', fun
         ]),
     );
 
-    $rank = Rank::query()->create([
-        'name' => 'Captain',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Captain',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $client = Client::query()->create([
@@ -4203,7 +4204,7 @@ test('employee with profile template can change to another active template', fun
         ->forCompany($company)
         ->create([
             'employee_profile_template_id' => $existingTemplate->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => $client->id,
             'passport_number' => 'P1234567',
             'nearest_airport' => 'DXB',
@@ -4229,7 +4230,7 @@ test('employee with profile template can change to another active template', fun
     $employee->refresh();
 
     expect($employee->employee_profile_template_id)->toBe($otherTemplate->id)
-        ->and($employee->rank_id)->toBe($rank->id)
+        ->and($employee->position_id)->toBe($rank->id)
         ->and($employee->client_id)->toBe($client->id)
         ->and($employee->passport_number)->toBe('P1234567')
         ->and($employee->nearest_airport)->toBe('DXB')

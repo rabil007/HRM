@@ -8,7 +8,6 @@ import { store as storeCourse } from '@/actions/App/Http/Controllers/Settings/Ma
 import { store as storeDocumentType } from '@/actions/App/Http/Controllers/Settings/MasterData/DocumentTypeController';
 import { store as storeGender } from '@/actions/App/Http/Controllers/Settings/MasterData/GenderController';
 import { store as storeProject } from '@/actions/App/Http/Controllers/Settings/MasterData/ProjectController';
-import { store as storeRank } from '@/actions/App/Http/Controllers/Settings/MasterData/RankController';
 import { store as storeReligion } from '@/actions/App/Http/Controllers/Settings/MasterData/ReligionController';
 import { store as storeVesselType } from '@/actions/App/Http/Controllers/Settings/MasterData/VesselTypeController';
 import { store as storeVisaType } from '@/actions/App/Http/Controllers/Settings/MasterData/VisaTypeController';
@@ -20,7 +19,6 @@ export type CreatableMasterDataKey =
     | 'religion'
     | 'gender'
     | 'course'
-    | 'rank'
     | 'project'
     | 'client'
     | 'vesselType'
@@ -83,12 +81,6 @@ export const creatableRegistry: Record<
         permission: 'settings.master-data.courses.create',
         labelField: 'name',
         url: () => storeCourse.url(),
-        body: (query) => ({ name: query, is_active: true }),
-    },
-    rank: {
-        permission: 'settings.master-data.ranks.create',
-        labelField: 'name',
-        url: () => storeRank.url(),
         body: (query) => ({ name: query, is_active: true }),
     },
     project: {

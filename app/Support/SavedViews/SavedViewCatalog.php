@@ -28,7 +28,6 @@ use App\Models\VisaType;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\Employees\EmployeeDirectoryCompleteness;
 use App\Support\Employees\EmployeeSmartSearchResolver;
-use App\Support\Positions\LegacyRankFilterTranslator;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -72,11 +71,6 @@ final class SavedViewCatalog
     {
         if ($page === SavedViewPage::Employees) {
             $raw = self::migrateLegacyEmployeeFilters($raw, rejectInvalid: true);
-            $raw = self::migrateLegacyRankPositionFilters($raw, $companyId, rejectInvalid: true);
-        }
-
-        if ($page === SavedViewPage::Crew) {
-            $raw = self::migrateLegacyRankPositionFilters($raw, $companyId, rejectInvalid: true);
         }
 
         $definitions = self::definitions($page);
@@ -130,10 +124,6 @@ final class SavedViewCatalog
 
         if ($page === SavedViewPage::Employees) {
             $raw = self::migrateLegacyEmployeeFilters($raw, rejectInvalid: false);
-        }
-
-        if ($companyId !== null && $companyId > 0 && in_array($page, [SavedViewPage::Employees, SavedViewPage::Crew], true)) {
-            $raw = self::migrateLegacyRankPositionFilters($raw, $companyId, rejectInvalid: false);
         }
 
         $normalized = [];
@@ -267,40 +257,6 @@ final class SavedViewCatalog
             'months' => self::normalizeMonths($key, $value, $rejectInvalid),
             default => null,
         };
-    }
-
-    /**
-     * @param  array<string, mixed>  $raw
-     * @return array<string, mixed>
-     */
-    /**
-     * @param  array<string, mixed>  $raw
-     * @return array<string, mixed>
-     */
-    private static function migrateLegacyRankPositionFilters(array $raw, int $companyId, bool $rejectInvalid): array
-    {
-        if (! array_key_exists('rank_id', $raw)) {
-            return $raw;
-        }
-
-        $legacyRankId = $raw['rank_id'];
-        $positionId = LegacyRankFilterTranslator::resolvePositionId(
-            $companyId,
-            $raw['position_id'] ?? null,
-            $legacyRankId,
-        );
-
-        unset($raw['rank_id']);
-
-        if ($positionId !== null) {
-            $raw['position_id'] = (string) $positionId;
-        }
-
-        if ($positionId === null && $rejectInvalid && $legacyRankId !== null && $legacyRankId !== '') {
-            self::failOrSkip('rank_id', 'must map to a company position.', true);
-        }
-
-        return $raw;
     }
 
     private static function migrateLegacyEmployeeFilters(array $raw, bool $rejectInvalid): array

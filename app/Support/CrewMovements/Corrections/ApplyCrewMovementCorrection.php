@@ -6,7 +6,6 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
-use App\Support\Positions\RankPositionBridge;
 use Carbon\CarbonInterface;
 
 final class ApplyCrewMovementCorrection
@@ -55,33 +54,6 @@ final class ApplyCrewMovementCorrection
         }
 
         if ($assignmentAttributes !== []) {
-            if (array_key_exists('rank_id', $assignmentAttributes)
-                && ! array_key_exists('position_id', $assignmentAttributes)
-                && $assignmentAttributes['rank_id'] !== null) {
-                $mappedPositionId = RankPositionBridge::positionIdForRank(
-                    (int) $assignment->company_id,
-                    (int) $assignmentAttributes['rank_id'],
-                );
-
-                if ($mappedPositionId !== null) {
-                    $assignmentAttributes['position_id'] = $mappedPositionId;
-                }
-            }
-
-            if (array_key_exists('position_id', $assignmentAttributes)
-                && $assignmentAttributes['position_id'] !== null
-                && (! array_key_exists('rank_id', $assignmentAttributes)
-                    || $assignmentAttributes['rank_id'] === null)) {
-                $mappedRankId = RankPositionBridge::rankIdForPosition(
-                    (int) $assignment->company_id,
-                    (int) $assignmentAttributes['position_id'],
-                );
-
-                if ($mappedRankId !== null) {
-                    $assignmentAttributes['rank_id'] = $mappedRankId;
-                }
-            }
-
             $assignment->fill($assignmentAttributes);
             $assignment->save();
         }

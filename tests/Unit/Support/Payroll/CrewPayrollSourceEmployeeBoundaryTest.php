@@ -13,7 +13,7 @@ test('stable apply boundary includes all active employees even when crew source 
     $employeeB = Employee::factory()
         ->forCompany($fixtures['company'])
         ->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'status' => 'active',
         ]);
 

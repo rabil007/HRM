@@ -29,7 +29,7 @@ it('filters current crew by tour status overdue', function () {
     );
 
     $otherEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $otherVessel = makeCrewMovementVessel('Filter Normal Vessel');
@@ -111,7 +111,7 @@ it('adds missing tour and overdue tour attention warnings', function () {
     expect($codes)->toContain('missing_tour_of_duty');
 
     $otherEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $overdue = makeActiveOnVesselAssignment(

@@ -6,7 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -204,9 +204,10 @@ function makeSeaServicesImportFixtures(): array
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Import Rank '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Import Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     return compact('user', 'company', 'employee', 'vesselType', 'vessel', 'rank');

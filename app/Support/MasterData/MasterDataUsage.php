@@ -33,8 +33,6 @@ use App\Models\Hotel;
 use App\Models\PayrollRecord;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
-use App\Models\RankPositionMapping;
 use App\Models\RecruitmentRequirement;
 use App\Models\Religion;
 use App\Models\RoomType;
@@ -319,32 +317,12 @@ final class MasterDataUsage
                 MasterDataUsageSource::model('vessel manning', VesselManning::class, 'vessel_id', 'company_id'),
                 MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'vessel_id', 'company_id', includeSoftDeletedReferences: true),
             ],
-            Rank::class => [
-                MasterDataUsageSource::model('employees', Employee::class, 'rank_id', 'company_id'),
-                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
-                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
-                MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'rank_id', 'company_id', includeSoftDeletedReferences: true),
-                MasterDataUsageSource::model('vessel manning', VesselManning::class, 'rank_id', 'company_id'),
-                MasterDataUsageSource::pivot(
-                    'document requirements',
-                    $requirement->ranks()->getTable(),
-                    'rank_id',
-                    DocumentRequirement::class,
-                    'document_requirement_id',
-                ),
-            ],
             Position::class => [
                 MasterDataUsageSource::model('employees', Employee::class, 'position_id', 'company_id'),
                 MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('vessel manning', VesselManning::class, 'position_id', 'company_id'),
-                MasterDataUsageSource::model(
-                    'Rank consolidation mappings',
-                    RankPositionMapping::class,
-                    'position_id',
-                    'company_id',
-                ),
                 MasterDataUsageSource::pivot(
                     'document requirements',
                     $requirement->positions()->getTable(),

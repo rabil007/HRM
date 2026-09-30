@@ -37,7 +37,7 @@ final class CrewTimesheetPreparationReviewQuery
                             'employee.position:id,title',
                             'assignment:id,assignment_no,vessel_id,rank_id,position_id,client_id,status,source,previous_assignment_id',
                             'assignment.vessel:id,name',
-                            'assignment.rank:id,name',
+                            'assignment.position:id,title',
                             'assignment.position:id,title',
                             'assignment.client:id,name',
                             'assignment.previousAssignment:id,assignment_no,vessel_id',

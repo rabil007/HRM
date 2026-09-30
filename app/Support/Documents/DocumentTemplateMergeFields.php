@@ -178,7 +178,7 @@ final class DocumentTemplateMergeFields
      */
     public static function valuesForEmployee(Employee $employee): array
     {
-        $employee->loadMissing(['company', 'department', 'position', 'branch', 'genderRef', 'nationalityRef', 'rank']);
+        $employee->loadMissing(['company', 'department', 'position', 'branch', 'genderRef', 'nationalityRef']);
 
         $fullName = trim((string) $employee->name);
         $firstName = (string) ($employee->first_name ?: explode(' ', $fullName)[0] ?: '');
@@ -199,7 +199,7 @@ final class DocumentTemplateMergeFields
             '{{nationality}}' => (string) ($employee->nationalityRef?->name ?? ''),
             '{{emirates_id}}' => (string) ($employee->emirates_id ?? ''),
             '{{position_name}}' => (string) ($employee->position?->title ?? $employee->position?->name ?? ''),
-            '{{rank_name}}' => (string) ($employee->rank?->name ?? ''),
+            '{{rank_name}}' => (string) ($employee->position?->title ?? ''),
             '{{manager_name}}' => (string) ($manager?->name ?? ''),
             '{{company_name}}' => (string) ($employee->company?->name ?? ''),
             '{{department_name}}' => (string) ($employee->department?->name ?? ''),

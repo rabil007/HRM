@@ -10,7 +10,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\Vessel;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\SeaServiceDuration;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 
 /**
  * Synchronizes EmployeeSeaService rows from completed On Vessel (P4) phases.
@@ -64,13 +64,10 @@ final class SeaServiceSyncService
         }
 
         $vessel = $assignment->vessel ?? Vessel::query()->find($assignment->vessel_id);
-        $positionId = RankPositionBridge::resolveCrewAssignmentPositionId(
+        $positionId = CrewPositionCatalog::resolveCrewAssignmentPositionId(
             (int) $assignment->company_id,
             $assignment->position_id !== null ? (int) $assignment->position_id : null,
-            $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
         );
-        $rankId = $assignment->rank_id
-            ?? RankPositionBridge::rankIdForPosition((int) $assignment->company_id, $positionId);
 
         $attributes = [
             'company_id' => $assignment->company_id,
@@ -79,7 +76,6 @@ final class SeaServiceSyncService
             'vessel_id' => $assignment->vessel_id,
             'vessel_type_id' => $vessel?->vessel_type_id,
             'position_id' => $positionId,
-            'rank_id' => $rankId,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'total_months' => $totalMonths,
@@ -169,11 +165,7 @@ final class SeaServiceSyncService
             return false;
         }
 
-        $positionId = RankPositionBridge::resolveCrewAssignmentPositionId(
-            (int) $assignment->company_id,
-            $assignment->position_id !== null ? (int) $assignment->position_id : null,
-            $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
-        );
+        $positionId = CrewPositionCatalog::resolveCrewAssignmentPositionId((int) $assignment->company_id, $assignment->position_id !== null ? (int) $assignment->position_id : null);
 
         return $positionId !== null;
     }

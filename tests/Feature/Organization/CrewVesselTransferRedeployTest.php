@@ -9,7 +9,7 @@ use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
@@ -46,7 +46,7 @@ function makeOnVesselSourceAssignment(): array
     $service = transferRedeployService();
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     $id = $assignment->id;
@@ -61,7 +61,7 @@ function makeOnVesselSourceAssignment(): array
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-07-01 16:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $user->id);
 
@@ -80,7 +80,7 @@ test('direct vessel transfer closes source p4 and starts destination in active p
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -132,7 +132,7 @@ test('destination vessel must differ for transfer', function () {
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $sourceVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     ))->toThrow(CrewMovementException::class, 'Destination vessel must differ');
@@ -150,7 +150,7 @@ test('exact timestamp handoff is not a blocking overlap for transfer', function 
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -177,7 +177,7 @@ test('crew assignments shows only the latest active assignment after transfer', 
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -201,7 +201,7 @@ test('movement history preserves both linked assignments after transfer', functi
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -230,7 +230,7 @@ test('failed transfer rolls back without leaving a partial destination assignmen
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => 999999,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     ))->toThrow(CrewMovementException::class);
@@ -256,7 +256,7 @@ test('redeploy from p5 can start at chosen phases including same vessel', functi
         'occurred_at' => '2026-07-15 09:00:00',
         'starting_phase' => $startingPhase,
         'vessel_id' => $sourceVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ];
 
     $destination = $service->perform(
@@ -305,7 +305,7 @@ test('redeploy from p6 is available and completes the source assignment', functi
         'occurred_at' => '2026-07-20 10:00:00',
         'starting_phase' => 'p2a',
         'vessel_id' => $sourceVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect($source->fresh()->status)->toBe(CrewAssignmentStatus::Completed)
@@ -325,7 +325,7 @@ test('cross-company destination vessel references are rejected on transfer', fun
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $foreignVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     ))->toThrow(CrewMovementException::class, 'The selected vessel does not belong to this company.');
@@ -339,7 +339,7 @@ test('cross-company destination vessel references are rejected on join', functio
     $service = transferRedeployService();
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $id = $assignment->id;
 
@@ -358,7 +358,7 @@ test('cross-company destination vessel references are rejected on join', functio
         [
             'occurred_at' => '2026-07-01 16:00:00',
             'vessel_id' => $foreignVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_choice' => 'tour_of_duty',
         ],
         $user->id,
@@ -389,7 +389,7 @@ test('cross-company destination vessel references are rejected on redeploy', fun
             'occurred_at' => '2026-07-15 09:00:00',
             'starting_phase' => 'p4',
             'vessel_id' => $foreignVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     ))->toThrow(CrewMovementException::class, 'The selected vessel does not belong to this company.');
@@ -411,7 +411,7 @@ test('redeploy to p2a inherits the active source vessel when destination vessel 
     $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-15 09:00:00',
         'starting_phase' => 'p2a',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect($source->fresh()->status)->toBe(CrewAssignmentStatus::Completed)
@@ -458,7 +458,7 @@ test('redeploy to p2a rejects an inherited inactive source vessel without mutati
         [
             'occurred_at' => '2026-07-15 09:00:00',
             'starting_phase' => 'p2a',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     ))->toThrow(CrewMovementException::class, 'The selected vessel is inactive.');
@@ -501,7 +501,7 @@ test('redeploy to p0 clears planned sign-off and does not require destination ve
         'starting_phase' => 'p0',
         'planned_signoff_at' => '2026-08-01',
         'vessel_id' => null,
-        'rank_id' => null,
+        'position_id' => null,
         'client_id' => null,
     ], $user->id);
 
@@ -528,7 +528,7 @@ test('transfer request rejects source vessel as destination', function () {
             'action' => 'transfer_vessel',
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $sourceVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect()
         ->assertSessionHasErrors('vessel_id');
@@ -538,9 +538,10 @@ test('direct transfer applies destination rank tour snapshot without copying sou
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
     setMappedCrewTourOfDutyDays($company, $rank, 90);
-    $destinationRank = Rank::query()->create([
-        'name' => 'Transfer Dest Rank '.uniqid(),
-        'is_active' => true,
+    $destinationRank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Transfer Dest Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
         'max_tour_of_duty_days' => 60,
     ]);
     ensureRankMappedPosition($company, $destinationRank, 60);
@@ -558,7 +559,7 @@ test('direct transfer applies destination rank tour snapshot without copying sou
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $destinationRank->id,
+            'position_id' => $destinationRank->id,
             'planned_signoff_choice' => 'tour_of_duty',
         ],
         $user->id,
@@ -568,13 +569,13 @@ test('direct transfer applies destination rank tour snapshot without copying sou
     $destination->refresh()->load('currentPhase');
 
     expect($source->vessel_id)->toBe($sourceVessel->id)
-        ->and($source->rank_id)->toBe($rank->id)
+        ->and($source->position_id)->toBe($rank->id)
         ->and($source->tour_of_duty_days)->toBe($sourceTourDays)
         ->and($source->planned_signoff_at?->toDateTimeString())->toBe($sourcePlannedSignoff)
         ->and($source->currentPhase?->actual_start_at?->toDateTimeString())->toBe($sourceP4Start)
         ->and($source->currentPhase?->actual_end_at?->toDateTimeString())->toBe('2026-07-11 12:00:00')
         ->and($destination->previous_assignment_id)->toBe($source->id)
-        ->and($destination->rank_id)->toBe($destinationRank->id)
+        ->and($destination->position_id)->toBe($destinationRank->id)
         ->and($destination->tour_of_duty_days)->toBe(60)
         ->and($destination->planned_signoff_source)->toBe(CrewPlannedSignoffSource::TourOfDuty)
         ->and($destination->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-09-09')
@@ -611,7 +612,7 @@ test('direct transfer applies Rank Master tour suggestion', function () {
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_choice' => 'tour_of_duty',
         ],
         $user->id,
@@ -634,7 +635,7 @@ test('direct transfer supports manual planned sign-off override and rolls back o
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_choice' => 'manual_override',
             'planned_signoff_at' => '2026-08-01',
             'planned_signoff_override_reason' => 'Contract ends early',
@@ -660,7 +661,7 @@ test('direct transfer supports manual planned sign-off override and rolls back o
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destFail->id,
-            'rank_id' => $rankFail->id,
+            'position_id' => $rankFail->id,
             'planned_signoff_choice' => 'manual_override',
             'planned_signoff_at' => '2026-08-01',
         ],
@@ -689,7 +690,7 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
         'occurred_at' => '2026-07-15 09:00:00',
         'starting_phase' => 'p4',
         'vessel_id' => $sourceVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $user->id);
 
@@ -709,7 +710,7 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
         'occurred_at' => '2026-07-15 09:00:00',
         'starting_phase' => 'p2a',
         'vessel_id' => $sourceVessel2->id,
-        'rank_id' => $rank2->id,
+        'position_id' => $rank2->id,
     ], $user2->id);
 
     expect($preP4->tour_of_duty_days)->toBeNull()
@@ -719,7 +720,7 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
     $joined = $service->perform($company2->id, $preP4->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-07-20 10:00:00',
         'vessel_id' => $sourceVessel2->id,
-        'rank_id' => $rank2->id,
+        'position_id' => $rank2->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $user2->id);
 
@@ -737,13 +738,13 @@ test('transfer projected manning reflects source loss and destination gain witho
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $sourceVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $destinationVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -754,7 +755,7 @@ test('transfer projected manning reflects source loss and destination gain witho
         [
             'occurred_at' => '2026-07-11 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_choice' => 'tour_of_duty',
         ],
         $user->id,

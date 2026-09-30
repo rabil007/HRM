@@ -12,13 +12,13 @@ use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\Gender;
+use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Role;
@@ -61,7 +61,7 @@ final class EmployeeFormOptions
             'company_visa_types' => self::companyVisaTypes(),
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
-            'ranks' => collect(),
+            'positions' => collect(),
             'clients' => self::clientsForDirectory($companyId, $user),
             'projects' => self::activeProjects(),
             'banks' => self::banks(),
@@ -100,7 +100,7 @@ final class EmployeeFormOptions
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
             'banks' => self::banks(),
-            'ranks' => collect(),
+            'positions' => collect(),
             'projects' => self::activeProjects(),
             'clients' => self::activeClients(),
             'document_types' => self::documentTypes(),
@@ -126,13 +126,35 @@ final class EmployeeFormOptions
     }
 
     /**
-     * Rank master-data options for sea service records (not employee HR rank).
+     * Position options for sea service records (historical role served).
      *
-     * @return Collection<int, Rank>
+     * @return Collection<int, Position>
      */
     public static function seaServiceRanks(): Collection
     {
-        return self::activeRanks();
+        return self::activeCrewPositions();
+    }
+
+    /**
+     * @return Collection<int, Position>
+     */
+    public static function seaServicePositions(): Collection
+    {
+        return self::activeCrewPositions();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    public static function seaServicePositionOptions(): array
+    {
+        return self::activeCrewPositions()
+            ->map(fn (Position $position): array => [
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -222,14 +244,14 @@ final class EmployeeFormOptions
 
     private static function positionsForDirectory(int $companyId)
     {
-        return once(fn () => RankPositionBridge::companyPositionsQuery($companyId)
+        return once(fn () => CrewPositionCatalog::companyPositionsQuery($companyId)
             ->orderBy('title')
             ->get(['id', 'company_id', 'department_id', 'title']));
     }
 
     private static function positionsForCreate(int $companyId)
     {
-        return once(fn () => RankPositionBridge::companyPositionsQuery($companyId)
+        return once(fn () => CrewPositionCatalog::companyPositionsQuery($companyId)
             ->orderBy('title')
             ->get(['id', 'department_id', 'title']));
     }
@@ -306,12 +328,14 @@ final class EmployeeFormOptions
             ->get(['id', 'name']));
     }
 
-    private static function activeRanks()
+    private static function activeCrewPositions()
     {
-        return once(fn () => Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name']));
+        return once(fn () => Position::query()
+            ->where('is_crew_position', true)
+            ->where('status', 'active')
+            ->whereNull('deleted_at')
+            ->orderBy('title')
+            ->get(['id', 'title']));
     }
 
     private static function activeProjects()

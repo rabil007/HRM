@@ -18,7 +18,7 @@ test('manning gap query returns understaffed positions when actual on-vessel cou
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 2,
     ]);
 
@@ -44,7 +44,7 @@ test('manning gap query ignores positions that are fully staffed or overstaffed'
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -64,7 +64,7 @@ test('manning gap query does not count assignments with completed P4 phase', fun
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -72,7 +72,7 @@ test('manning gap query does not count assignments with completed P4 phase', fun
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-COMPLETED',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => CarbonImmutable::today()->subDays(10),
@@ -105,12 +105,12 @@ test('manning gap query does not count inactive employees onboard', function () 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     makeActiveOnVesselAssignment($company, $inactive, $rank, $vessel);
 
@@ -130,14 +130,14 @@ test('manning gap query is scoped to company', function () {
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
     VesselManning::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 

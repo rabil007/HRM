@@ -28,7 +28,6 @@ final class AdnocSeafarerCvData
             'branch:id,name',
             'department:id,name',
             'position:id,title',
-            'rank:id,name',
             'religionRef:id,name',
             'genderRef:id,name',
             'nationalityRef:id,name,code',
@@ -76,11 +75,11 @@ final class AdnocSeafarerCvData
         $seaServices = EmployeeSeaService::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with(['vessel:id,name,grt,bhp', 'vesselType:id,name', 'rank:id,name', 'client:id,name'])
+            ->with(['vessel:id,name,grt,bhp', 'vesselType:id,name', 'position:id,title', 'client:id,name'])
             ->latestServiceFirst()
             ->get();
 
-        $rankApplied = $employee->rank?->name ?? $employee->position?->title ?? '';
+        $rankApplied = (string) ($employee->position?->title ?? '');
 
         $cocTrainings = $trainings->filter(fn (EmployeeTraining $t) => self::matchesDpOrCoc($t->course?->name));
         $dpTrainings = $trainings->filter(fn (EmployeeTraining $t) => self::isDpCourse($t->course?->name));
@@ -89,7 +88,7 @@ final class AdnocSeafarerCvData
         );
 
         $rankSeaServices = $seaServices->filter(
-            fn (EmployeeSeaService $s) => $rankApplied !== '' && strcasecmp((string) $s->rank?->name, $rankApplied) === 0,
+            fn (EmployeeSeaService $s) => $rankApplied !== '' && strcasecmp((string) $s->position?->title, $rankApplied) === 0,
         );
 
         $branding = $settings->brandingUrls();
@@ -108,7 +107,7 @@ final class AdnocSeafarerCvData
                 ?? 'OMS'
             )),
             'agency_name' => strtoupper((string) ($company?->name ?? '')),
-            'position_applied' => strtoupper($rankApplied),
+            'position_applied' => strtoupper($positionApplied),
             'full_name' => strtoupper((string) $employee->name),
             'dob_age' => $dob ? $dob->format('d/m/Y').'  '.$dob->age : '',
             'religion' => strtoupper((string) ($employee->religionRef?->name ?? '')),
@@ -222,7 +221,7 @@ final class AdnocSeafarerCvData
             'sea_services' => $seaServices->map(fn (EmployeeSeaService $row) => [
                 'vessel_name' => (string) ($row->vessel?->name ?? ''),
                 'vessel_type' => (string) ($row->vesselType?->name ?? ''),
-                'rank' => (string) ($row->rank?->name ?? ''),
+                'rank' => (string) ($row->position?->title ?? ''),
                 'from' => self::formatCvDate($row->start_date),
                 'to' => self::formatCvDate($row->end_date),
                 'months' => (string) ($row->total_months ?? 0),

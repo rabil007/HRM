@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import type {
-    RankOption,
+    PositionOption,
     VesselManningPagePermissions,
 } from '@/features/organization/vessel-manning/types';
 import { VesselShowContent } from '@/features/organization/vessels/show';
@@ -35,7 +35,7 @@ export default function VesselShow({
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     back_query?: Record<string, string>;
-    crew_positions?: RankOption[];
+    crew_positions?: PositionOption[];
     manning_can?: VesselManningPagePermissions;
     manning_health?: VesselManningHealth | null;
 }) {

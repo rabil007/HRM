@@ -179,7 +179,7 @@ test('export maps rich training phase timeline accommodation and redeployment va
         ->completed()
         ->create([
             'assignment_no' => 'CA-EXPORT-SOURCE',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $sourceVessel->id,
         ]);
 
@@ -188,7 +188,7 @@ test('export maps rich training phase timeline accommodation and redeployment va
         ->active()
         ->create([
             'assignment_no' => 'CA-EXPORT-RICH',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $destinationVessel->id,
             'source' => 'redeployment',
             'previous_assignment_id' => $source->id,

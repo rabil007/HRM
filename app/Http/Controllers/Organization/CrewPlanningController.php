@@ -17,8 +17,7 @@ use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
 use App\Support\CrewPlanning\CrewReliefDeskFilters;
 use App\Support\CrewPlanning\CrewReliefDeskQuery;
 use App\Support\Pagination\ResolvesPerPage;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -52,7 +51,7 @@ class CrewPlanningController extends Controller
         $vesselId = $request->query('vessel_id');
         $vesselId = $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null;
 
-        $positionIdString = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+        $positionIdString = (string) ($request->query('position_id') ?? '');
         $positionId = $positionIdString !== '' ? (int) $positionIdString : null;
 
         $search = trim((string) $request->query('search', ''));
@@ -69,7 +68,7 @@ class CrewPlanningController extends Controller
             ],
             'today' => CarbonImmutable::today()->toDateString(),
             'vessels' => $this->activeVessels($companyId),
-            'positions' => RankPositionBridge::crewPositionOptions($companyId),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'can' => $can,
             'relief_desk' => $this->emptyReliefDesk(),
         ];
@@ -139,7 +138,7 @@ class CrewPlanningController extends Controller
                     $from,
                     $to,
                     $vesselId,
-                    $positionId !== null ? RankPositionBridge::rankIdForPosition($companyId, $positionId) : null,
+                    $positionId,
                 ),
                 $companyId,
             );
@@ -262,7 +261,7 @@ class CrewPlanningController extends Controller
         $vesselIdRaw = $request->query('vessel_id');
         $vesselId = $vesselIdRaw !== null && $vesselIdRaw !== '' ? (int) $vesselIdRaw : null;
 
-        $positionIdString = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+        $positionIdString = (string) ($request->query('position_id') ?? '');
         $positionId = $positionIdString !== '' ? (int) $positionIdString : null;
 
         $plannedJoinDate = $this->nullableDate($request->query('planned_join_date'));
@@ -292,11 +291,7 @@ class CrewPlanningController extends Controller
                 );
 
                 $vesselId ??= $plan->vessel_id !== null ? (int) $plan->vessel_id : null;
-                $positionId ??= RankPositionBridge::resolveCrewAssignmentPositionId(
-                    $companyId,
-                    $plan->position_id !== null ? (int) $plan->position_id : null,
-                    $plan->rank_id !== null ? (int) $plan->rank_id : null,
-                );
+                $positionId ??= CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $plan->position_id !== null ? (int) $plan->position_id : null);
             }
         }
 
@@ -312,11 +307,7 @@ class CrewPlanningController extends Controller
             } else {
                 $relievesEmployeeName = $source->employee?->name;
                 $vesselId ??= $source->vessel_id !== null ? (int) $source->vessel_id : null;
-                $positionId ??= RankPositionBridge::resolveCrewAssignmentPositionId(
-                    $companyId,
-                    $source->position_id !== null ? (int) $source->position_id : null,
-                    $source->rank_id !== null ? (int) $source->rank_id : null,
-                );
+                $positionId ??= CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $source->position_id !== null ? (int) $source->position_id : null);
                 $plannedJoinDate ??= $source->planned_signoff_at?->toDateString();
             }
         }
@@ -375,10 +366,8 @@ class CrewPlanningController extends Controller
      */
     private function activeRanks(): array
     {
-        return Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->all();
+        return CrewPositionCatalog::crewPositionOptions(
+            (int) request()->attributes->get('current_company_id'),
+        );
     }
 }

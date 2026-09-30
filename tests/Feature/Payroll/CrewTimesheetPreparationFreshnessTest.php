@@ -56,7 +56,7 @@ test('monthly crew open phase does not invalidate daily crew preparation when cl
     );
 
     $monthlyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $monthlyContract = EmployeeContract::factory()->create([
@@ -75,7 +75,7 @@ test('monthly crew open phase does not invalidate daily crew preparation when cl
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-MONTHLY-'.fake()->unique()->numerify('######'),
         'employee_id' => $monthlyEmployee->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',
@@ -171,7 +171,7 @@ test('mixed population with monthly and excluded open phases does not create fal
     );
 
     $monthlyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $monthlyContract = EmployeeContract::factory()->create([
@@ -190,7 +190,7 @@ test('mixed population with monthly and excluded open phases does not create fal
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-MONTHLY-'.fake()->unique()->numerify('######'),
         'employee_id' => $monthlyEmployee->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',
@@ -209,7 +209,7 @@ test('mixed population with monthly and excluded open phases does not create fal
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-EXCL-'.fake()->unique()->numerify('######'),
         'employee_id' => $excludedEmployee->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',
@@ -256,7 +256,7 @@ test('monthly crew phase timestamp edit still invalidates preparation through so
     );
 
     $monthlyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $monthlyContract = EmployeeContract::factory()->create([
@@ -275,7 +275,7 @@ test('monthly crew phase timestamp edit still invalidates preparation through so
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-MONTHLY-'.fake()->unique()->numerify('######'),
         'employee_id' => $monthlyEmployee->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',
@@ -1215,7 +1215,7 @@ test('apply succeeds when pending correction exists only on historical phase out
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-AUG-'.fake()->unique()->numerify('######'),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'status' => CrewAssignmentStatus::Completed,
         'source' => 'manual',
@@ -1293,7 +1293,7 @@ test('locked apply hash matches ordinary source hash for unchanged representativ
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-AUG-'.fake()->unique()->numerify('######'),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'status' => CrewAssignmentStatus::Completed,
         'source' => 'manual',
@@ -1465,7 +1465,7 @@ test('apply rejects empty approved preparation after no-contract employee starts
 
     $assignment = $service->createDraft($company->id, $employee->id, [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $service->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
@@ -1500,7 +1500,7 @@ test('apply rejects mixed-company approved preparation after active non-crew emp
     $employeeB = Employee::factory()
         ->forCompany($fixtures['company'])
         ->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'status' => 'active',
         ]);
     EmployeeContract::query()->where('employee_id', $employeeB->id)->delete();
@@ -1532,7 +1532,7 @@ test('apply rejects mixed-company approved preparation after active non-crew emp
 
     $assignment = $service->createDraft($fixtures['company']->id, $employeeB->id, [
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ], $fixtures['user']->id);
 
     $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
@@ -1567,7 +1567,7 @@ test('apply rejects mixed-company approved preparation after active non-crew emp
     $employeeB = Employee::factory()
         ->forCompany($fixtures['company'])
         ->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'status' => 'active',
         ]);
     EmployeeContract::query()->where('employee_id', $employeeB->id)->delete();

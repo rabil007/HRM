@@ -32,7 +32,6 @@ use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\PayrollRecordLinkage;
-use App\Support\Positions\RankPositionBridge;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
@@ -161,7 +160,7 @@ class EmployeeController extends Controller
                 'branch:id,name',
                 'department:id,name',
                 'position:id,title',
-                'rank:id,name',
+                'position:id,title',
                 'project:id,title',
                 'client:id,name',
                 'manager:id,name,employee_no',
@@ -297,7 +296,6 @@ class EmployeeController extends Controller
             'branch_id',
             'department_id',
             'position_id',
-            'rank_id',
             'project_id',
             'client_id',
             'date_of_birth',
@@ -321,7 +319,7 @@ class EmployeeController extends Controller
             }
         }
 
-        $data = RankPositionBridge::syncEmployeePositionAndRank($data, $companyId);
+        unset($data['rank_id']);
 
         $data['status'] = $data['status'] ?? $employee->status;
 

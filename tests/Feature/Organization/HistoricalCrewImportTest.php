@@ -9,7 +9,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\RoomType;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportColumns;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportParser;
@@ -26,7 +26,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 test('authorized user can download historical import template with required sheets', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $inactiveRank = Rank::query()->create(['name' => 'Inactive Hist Rank '.uniqid(), 'is_active' => false]);
+    $inactiveRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Inactive Hist Rank '.uniqid(), 'status' => 'inactive', 'is_crew_position' => true]);
     $inactiveClient = Client::factory()->create(['name' => 'Inactive Hist Client '.uniqid(), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('Inactive Hist Vessel '.uniqid(), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
@@ -350,7 +351,8 @@ test('parser normalizes excel serial dates and rejects malformed dates', functio
 test('inactive master data rows return warning when domain rules allow them', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119', 'status' => 'terminated']);
-    $inactiveRank = Rank::query()->create(['name' => 'Chief Eng Inactive '.uniqid(), 'is_active' => false]);
+    $inactiveRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Chief Eng Inactive '.uniqid(), 'status' => 'inactive', 'is_crew_position' => true]);
     ensureRankMappedPosition($company, $inactiveRank);
     $inactiveClient = Client::factory()->create(['name' => 'Old Client '.uniqid(), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('OMS Pearl Inactive '.uniqid(), $company, $inactiveClient);
@@ -569,7 +571,7 @@ test('future date chronology and existing assignment overlap are blocked', funct
         ->post(route('organization.crew-assignments.historical.store'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'onsite_from' => '2024-01-01',
             'onsite_to' => '2024-06-30',
         ])
@@ -799,9 +801,10 @@ test('generated template writes formula-like database names as plain text', func
         'employee_no' => '3119',
         'name' => '=HYPERLINK("http://evil.test","Click")',
     ]);
-    Rank::query()->create([
-        'name' => '=CMD|calc',
-        'is_active' => true,
+    Position::query()->create([
+        'company_id' => $company->id,
+        'title' => '=CMD|calc',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     grantCompanyPermissions($user, $company, [
@@ -1264,7 +1267,7 @@ test('excel multiple exact sea service matches are blocked', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-06-30',
         'total_days' => 182,
@@ -1275,7 +1278,7 @@ test('excel multiple exact sea service matches are blocked', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-06-30',
         'total_days' => 182,

@@ -37,7 +37,7 @@ function advanceToReadyForTourJoin(CrewMovementService $service, int $companyId,
 
 it('stores tour snapshot and suggested planned sign-off on join vessel', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -46,7 +46,7 @@ it('stores tour snapshot and suggested planned sign-off on join vessel', functio
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
@@ -67,7 +67,7 @@ it('stores tour snapshot and suggested planned sign-off on join vessel', functio
 
 it('preserves existing planned sign-off when chosen', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
         'planned_signoff_at' => '2026-12-01 00:00:00',
     ], $this->user->id);
@@ -77,7 +77,7 @@ it('preserves existing planned sign-off when chosen', function () {
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'existing_plan',
     ], $this->user->id);
 
@@ -90,7 +90,7 @@ it('preserves existing planned sign-off when chosen', function () {
 
 it('requires a reason for manual planned sign-off override', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -99,7 +99,7 @@ it('requires a reason for manual planned sign-off override', function () {
     expect(fn () => $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'manual_override',
         'planned_signoff_at' => '2026-10-01',
     ], $this->user->id))->toThrow(ValidationException::class);
@@ -107,7 +107,7 @@ it('requires a reason for manual planned sign-off override', function () {
 
 it('stores manual override source and reason', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -116,7 +116,7 @@ it('stores manual override source and reason', function () {
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'manual_override',
         'planned_signoff_at' => '2026-10-01',
         'planned_signoff_override_reason' => 'Client requested earlier relief',
@@ -131,7 +131,7 @@ it('stores manual override source and reason', function () {
 
 it('keeps snapshotted tour days after Rank Master change', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -140,7 +140,7 @@ it('keeps snapshotted tour days after Rank Master change', function () {
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
@@ -154,12 +154,12 @@ it('keeps snapshotted tour days after Rank Master change', function () {
         ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10');
 
     $otherEmployee = Employee::factory()->forCompany($this->company)->create([
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'status' => 'active',
     ]);
     $otherVessel = makeCrewMovementVessel('Future Tour Vessel');
     $future = $this->service->createDraft($this->company->id, $otherEmployee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $otherVessel->id,
     ], $this->user->id);
 
@@ -168,7 +168,7 @@ it('keeps snapshotted tour days after Rank Master change', function () {
     $this->service->perform($this->company->id, $future->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-01 10:00:00',
         'vessel_id' => $otherVessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
@@ -178,7 +178,7 @@ it('keeps snapshotted tour days after Rank Master change', function () {
 
 it('does not create sea service or complete p4 from generated planned sign-off', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -187,7 +187,7 @@ it('does not create sea service or complete p4 from generated planned sign-off',
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
@@ -201,7 +201,7 @@ it('does not create sea service or complete p4 from generated planned sign-off',
 
 it('requires a reason when performing active P4 plan_signoff action', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -210,7 +210,7 @@ it('requires a reason when performing active P4 plan_signoff action', function (
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
@@ -221,7 +221,7 @@ it('requires a reason when performing active P4 plan_signoff action', function (
 
 it('updates planned sign-off with manual override source and reason during plan_signoff', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -230,7 +230,7 @@ it('updates planned sign-off with manual override source and reason during plan_
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 

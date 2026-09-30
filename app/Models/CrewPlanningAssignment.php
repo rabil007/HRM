@@ -25,7 +25,6 @@ class CrewPlanningAssignment extends Model
         return LogOptions::defaults()
             ->logOnly([
                 'vessel_id',
-                'rank_id',
                 'position_id',
                 'employee_id',
                 'crew_assignment_id',
@@ -42,7 +41,6 @@ class CrewPlanningAssignment extends Model
         return [
             'company_id' => 'integer',
             'vessel_id' => 'integer',
-            'rank_id' => 'integer',
             'position_id' => 'integer',
             'employee_id' => 'integer',
             'crew_assignment_id' => 'integer',
@@ -60,11 +58,6 @@ class CrewPlanningAssignment extends Model
     public function vessel(): BelongsTo
     {
         return $this->belongsTo(Vessel::class);
-    }
-
-    public function rank(): BelongsTo
-    {
-        return $this->belongsTo(Rank::class);
     }
 
     public function position(): BelongsTo

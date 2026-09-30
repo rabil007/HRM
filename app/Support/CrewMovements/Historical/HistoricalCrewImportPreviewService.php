@@ -7,12 +7,10 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\UploadedFile;
@@ -145,10 +143,10 @@ final class HistoricalCrewImportPreviewService
 
         $ranksByName = [];
 
-        foreach (Rank::query()->get(['id', 'name', 'is_active']) as $rank) {
-            $key = mb_strtolower(trim((string) $rank->name));
+        foreach (Position::query()->where('company_id', $companyId)->whereNull('deleted_at')->get(['id', 'title', 'status']) as $position) {
+            $key = mb_strtolower(trim((string) $position->title));
             $ranksByName[$key] ??= [];
-            $ranksByName[$key][] = $rank;
+            $ranksByName[$key][] = $position;
         }
 
         $clientsByName = [];
@@ -189,25 +187,9 @@ final class HistoricalCrewImportPreviewService
             }
         }
 
-        $ranksById = [];
-        foreach ($lookups['ranksByName'] as $matches) {
-            foreach ($matches as $rank) {
-                $ranksById[(int) $rank->id] = $rank;
-            }
-        }
-
-        $rankIds = array_keys($ranksById);
-        $positionIdsByRank = RankPositionBridge::positionIdMapForRankIds($companyId, $rankIds);
         $positionsById = [];
-
-        if ($positionIdsByRank !== []) {
-            $positions = Position::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', array_values($positionIdsByRank))
-                ->whereNull('deleted_at')
-                ->get();
-
-            foreach ($positions as $position) {
+        foreach ($lookups['ranksByName'] as $matches) {
+            foreach ($matches as $position) {
                 $positionsById[(int) $position->id] = $position;
             }
         }
@@ -261,7 +243,6 @@ final class HistoricalCrewImportPreviewService
         return new HistoricalCrewBulkValidationContext(
             employeesById: $employeesById,
             vesselsById: $vesselsById,
-            ranksById: $ranksById,
             positionsById: $positionsById,
             clientsById: $clientsById,
             assignmentsByEmployeeId: $assignmentsByEmployeeId,

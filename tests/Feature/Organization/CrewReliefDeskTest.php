@@ -13,7 +13,6 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use Carbon\CarbonImmutable;
@@ -58,7 +57,7 @@ function makeReliefDeskOnboard(
     string $name = 'Onboard Crew',
 ): CrewAssignment {
     $employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
         'name' => $name,
     ]);
@@ -80,7 +79,7 @@ function makeReliefPlanFor(
     return CrewPlanningAssignment::query()->create([
         'company_id' => $source->company_id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => $joinOn->toDateString(),
@@ -91,7 +90,7 @@ function makeReliefPlanFor(
 function makeReliefEmployee(Company $company, Rank $rank, string $name): Employee
 {
     return Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
         'name' => $name,
     ]);
@@ -151,7 +150,7 @@ test('relief desk lists active p4 crew with no relief', function () {
 test('relief desk includes missing planned sign-off as attention', function () {
     $fixtures = makeReliefDeskFixtures();
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
         'name' => 'Missing Signoff',
     ]);
@@ -560,9 +559,9 @@ test('another company planning row is ignored for a local source assignment', fu
     CrewPlanningAssignment::query()->create([
         'company_id' => $other['company']->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => Employee::factory()->forCompany($other['company'])->create([
-            'rank_id' => $other['rank']->id,
+            'position_id' => $other['rank']->id,
             'status' => 'active',
         ])->id,
         'relieves_crew_assignment_id' => $source->id,
@@ -584,7 +583,7 @@ test('linked relief assignment from another company is not exposed', function ()
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 6, 'Leak Source');
     $other = makeCrewAssignmentFixtures();
     $foreignEmployee = Employee::factory()->forCompany($other['company'])->create([
-        'rank_id' => $other['rank']->id,
+        'position_id' => $other['rank']->id,
         'status' => 'active',
         'name' => 'Foreign Relief',
     ]);
@@ -598,7 +597,7 @@ test('linked relief assignment from another company is not exposed', function ()
     CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Local Plan Employee')->id,
         'crew_assignment_id' => $foreignAssignment->id,
         'relieves_crew_assignment_id' => $source->id,
@@ -637,7 +636,7 @@ test('relief desk sorts known imminent sign-offs ahead of missing planned sign-o
 
     makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Good Vessel', $company), $today, 20, 'Good');
     $missingEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
         'name' => 'Ravi',
     ]);
@@ -678,7 +677,7 @@ test('open relief plan prefill targets the company-owned planning assignment', f
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-planning.index', [
             'vessel_id' => $fixtures['vessel']->id,
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'planning_assignment_id' => $plan->id,
         ]))
         ->assertOk()

@@ -33,7 +33,7 @@ test('apply creates separate crew operations segments for two assignments withou
         'company_id' => $company->id,
         'assignment_no' => 'CA-SEG-'.fake()->unique()->numerify('######'),
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vesselB->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'vessel_transfer',

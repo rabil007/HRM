@@ -2,10 +2,9 @@
 
 use App\Enums\CrewPlannedSignoffSource;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewReliefReadinessResult;
-use App\Support\Positions\RankPositionBridge;
 use Illuminate\Support\Facades\DB;
 
 it('keeps presenter query counts bounded for multiple assignments', function () {
@@ -13,9 +12,10 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
     $companyId = (int) $fixtures['company']->id;
 
     $ranks = collect(range(1, 8))->map(function (int $index) use ($fixtures): Rank {
-        $rank = Rank::query()->create([
-            'name' => "Query Count Rank {$index} ".uniqid(),
-            'is_active' => true,
+        $rank = Position::query()->create([
+            'company_id' => $fixtures['company']->id,
+            'title' => "Query Count Rank {$index} ".uniqid(),
+            'status' => 'active', 'is_crew_position' => true,
             'max_tour_of_duty_days' => 60 + $index,
         ]);
         ensureRankMappedPosition($fixtures['company'], $rank, 60 + $index);
@@ -24,11 +24,11 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
     });
 
     $assignments = $ranks->take(5)->values()->map(function (Rank $rank, int $index) use ($fixtures) {
-        $positionId = RankPositionBridge::positionIdForRank((int) $fixtures['company']->id, (int) $rank->id);
+        $positionId = (int) $rank->id;
         $employee = $index === 0
             ? $fixtures['employee']
             : Employee::factory()->forCompany($fixtures['company'])->create([
-                'rank_id' => $rank->id,
+                'position_id' => $rank->id,
                 'position_id' => $positionId,
                 'status' => 'active',
             ]);

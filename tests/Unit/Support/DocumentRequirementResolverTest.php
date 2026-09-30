@@ -22,28 +22,28 @@ test('resolver requires a match in every selected category', function () {
     $employee->update([
         'department_id' => $scopes['crew']->id,
         'position_id' => $scopes['seafarer']->id,
-        'rank_id' => $scopes['captain']->id,
+        'position_id' => $scopes['captain']->id,
         'project_id' => $scopes['adnoc']->id,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeTrue();
 
-    $employee->update(['department_id' => $scopes['crew']->id, 'position_id' => null, 'rank_id' => null, 'project_id' => null]);
+    $employee->update(['department_id' => $scopes['crew']->id, 'position_id' => null, 'position_id' => null, 'project_id' => null]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
-    $employee->update(['department_id' => null, 'position_id' => $scopes['seafarer']->id, 'rank_id' => null, 'project_id' => null]);
+    $employee->update(['department_id' => null, 'position_id' => $scopes['seafarer']->id, 'position_id' => null, 'project_id' => null]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
-    $employee->update(['department_id' => null, 'position_id' => null, 'rank_id' => $scopes['captain']->id, 'project_id' => null]);
+    $employee->update(['department_id' => null, 'position_id' => null, 'position_id' => $scopes['captain']->id, 'project_id' => null]);
     // Phase 2: rank pivot is legacy; occupational match is position-only.
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
-    $employee->update(['department_id' => null, 'position_id' => null, 'rank_id' => null, 'project_id' => $scopes['adnoc']->id]);
+    $employee->update(['department_id' => null, 'position_id' => null, 'position_id' => null, 'project_id' => $scopes['adnoc']->id]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
     $employee->update([
         'department_id' => null,
         'position_id' => null,
-        'rank_id' => null,
+        'position_id' => null,
         'project_id' => null,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
@@ -66,7 +66,7 @@ test('department position rank and project must all match when every category is
     $employee->update([
         'department_id' => $scopes['crew']->id,
         'position_id' => $scopes['seafarer']->id,
-        'rank_id' => $scopes['captain']->id,
+        'position_id' => $scopes['captain']->id,
         'project_id' => $scopes['otherProject']->id,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
@@ -80,7 +80,7 @@ test('department position rank and project must all match when every category is
     $employee->update([
         'department_id' => $scopes['crew']->id,
         'position_id' => $otherPosition->id,
-        'rank_id' => $scopes['captain']->id,
+        'position_id' => $scopes['captain']->id,
         'project_id' => $scopes['adnoc']->id,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
@@ -88,7 +88,7 @@ test('department position rank and project must all match when every category is
     $employee->update([
         'department_id' => $scopes['marine']->id,
         'position_id' => $scopes['seafarer']->id,
-        'rank_id' => $scopes['captain']->id,
+        'position_id' => $scopes['captain']->id,
         'project_id' => $scopes['adnoc']->id,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
@@ -116,7 +116,7 @@ test('multiple values in the same category match with or', function () {
     $employee->update([
         'department_id' => $scopes['marine']->id,
         'position_id' => $deckOfficer->id,
-        'rank_id' => $scopes['chiefEngineer']->id,
+        'position_id' => $scopes['chiefEngineer']->id,
         'project_id' => $scopes['aramco']->id,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeTrue();
@@ -124,7 +124,7 @@ test('multiple values in the same category match with or', function () {
     $employee->update([
         'department_id' => $scopes['crew']->id,
         'position_id' => $scopes['seafarer']->id,
-        'rank_id' => $scopes['captain']->id,
+        'position_id' => $scopes['captain']->id,
         'project_id' => $scopes['adnoc']->id,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeTrue();
@@ -145,7 +145,7 @@ test('empty position and project categories impose no restriction', function () 
     $employee->update([
         'department_id' => $scopes['crew']->id,
         'position_id' => $scopes['seafarer']->id,
-        'rank_id' => $scopes['captain']->id,
+        'position_id' => $scopes['captain']->id,
         'project_id' => null,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeTrue();
@@ -214,7 +214,7 @@ test('required for all ignores selected-scope mismatches', function () {
     $employee->update([
         'department_id' => $scopes['marine']->id,
         'position_id' => null,
-        'rank_id' => $scopes['chiefEngineer']->id,
+        'position_id' => $scopes['chiefEngineer']->id,
         'project_id' => $scopes['otherProject']->id,
     ]);
 

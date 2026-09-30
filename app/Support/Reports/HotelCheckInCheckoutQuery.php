@@ -8,8 +8,7 @@ use App\Models\CrewAssignment;
 use App\Models\Hotel;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,7 +45,7 @@ final class HotelCheckInCheckoutQuery
             ->filter()
             ->values();
 
-        RankPositionBridge::hydrateCanonicalPositions($assignments, $this->companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $this->companyId);
 
         return $paginator->through(fn (CrewAccommodationStay $stay): array => HotelCheckInCheckoutPresenter::toArray($stay, $this->timezone));
     }
@@ -185,11 +184,7 @@ final class HotelCheckInCheckoutQuery
 
         if ($this->filters->positionId !== '') {
             $positionId = (int) $this->filters->positionId;
-            $query->whereHas('assignment', fn (Builder $q) => LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                $q,
-                $this->companyId,
-                $positionId,
-            ));
+            $query->whereHas('assignment', fn (Builder $q) => $q->where('crew_assignments.position_id', $positionId));
         }
 
         if ($this->filters->clientId !== '') {
@@ -211,7 +206,7 @@ final class HotelCheckInCheckoutQuery
                     'current_phase_id',
                 ]),
                 'assignment.employee:id,company_id,employee_no,name',
-                'assignment.rank:id,name',
+                'assignment.position:id,title',
                 'assignment.position:id,title',
                 'assignment.vessel:id,name',
                 'assignment.client:id,name',

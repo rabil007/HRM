@@ -58,7 +58,9 @@ function ManningReliefRiskRowContent({
                     </Badge>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground/60">
-                    {item.rank_name}
+                    {item.position_name ??
+                        item.rank_name ??
+                        'Unassigned position'}
                     {item.employee_name ? ` · ${item.employee_name}` : ''}
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground/50">
@@ -125,7 +127,7 @@ export function ManningReliefRisksCard({
                         if (item.href) {
                             return (
                                 <Link
-                                    key={`${item.kind}-${item.vessel_id}-${item.rank_id}-${item.risk}-${index}`}
+                                    key={`${item.kind}-${item.vessel_id}-${item.position_id ?? item.rank_id}-${item.risk}-${index}`}
                                     href={item.href}
                                     className={rowClassName}
                                 >
@@ -136,7 +138,7 @@ export function ManningReliefRisksCard({
 
                         return (
                             <div
-                                key={`${item.kind}-${item.vessel_id}-${item.rank_id}-${item.risk}-${index}`}
+                                key={`${item.kind}-${item.vessel_id}-${item.position_id ?? item.rank_id}-${item.risk}-${index}`}
                                 className={rowClassName}
                             >
                                 <ManningReliefRiskRowContent item={item} />

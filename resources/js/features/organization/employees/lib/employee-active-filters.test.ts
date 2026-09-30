@@ -10,7 +10,7 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    RankOption,
+    PositionOption,
     RoleOption,
     SssaOption,
     VisaTypeOption,
@@ -82,7 +82,7 @@ const mockProjects: ProjectOption[] = [
     { id: 10, title: 'Internal Project', client_id: null },
 ];
 
-const mockRanks: RankOption[] = [{ id: 5, name: 'AB' }];
+const mockRanks: PositionOption[] = [{ id: 5, name: 'AB' }];
 
 const mockCountries: CountryOption[] = [
     { id: 101, name: 'India', code: 'IN', dial_code: '+91' },

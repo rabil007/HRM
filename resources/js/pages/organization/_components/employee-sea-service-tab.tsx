@@ -27,10 +27,7 @@ import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/b
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
-import type {
-    PositionOption,
-    RankOption,
-} from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import { SeaServicesImportDialog } from '@/features/organization/sea-services/sea-services-import-dialog';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
@@ -180,10 +177,10 @@ function resolveDisplayedDuration(
 }
 
 function resolvePositionSelectLabelKey(
-    items: Array<RankOption | PositionOption>,
+    items: Array<CrewPositionOption>,
 ): 'name' | 'title' {
     if (items.length === 0) {
-        return 'title';
+        return 'name';
     }
 
     return 'title' in items[0] ? 'title' : 'name';
@@ -197,11 +194,11 @@ export type EmployeeSeaServiceTabProps = {
     sea_services: SeaServiceItem[];
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    positions?: Array<RankOption | PositionOption>;
+    positions?: Array<CrewPositionOption>;
     clients: ClientOption[];
     employeePositionId?: number | null;
-    /** @deprecated Phase 2 alias — use `positions` */
-    ranks?: RankOption[];
+    /** @deprecated Phase 3B — use `positions` */
+    ranks?: CrewPositionOption[];
     canManage: boolean;
     canCreate?: boolean;
     canUpdate?: boolean;

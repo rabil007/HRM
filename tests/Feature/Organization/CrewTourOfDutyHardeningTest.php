@@ -37,7 +37,7 @@ it('uses cumulative within-N-day filters matching daily pulse sign-off counts', 
         $employee = $index === 0
             ? $fixtures['employee']
             : Employee::factory()->forCompany($fixtures['company'])->create([
-                'rank_id' => $fixtures['rank']->id,
+                'position_id' => $fixtures['rank']->id,
                 'status' => 'active',
             ]);
 

@@ -25,7 +25,7 @@ final class SalaryCertificateData
             'company:id,name,logo,email,phone,address,currency_id,timezone',
             'company.currency:id,code,symbol',
             'position:id,title',
-            'rank:id,name',
+            'position:id,title',
             'nationalityRef:id,name',
             'currentContract',
         ]);
@@ -80,7 +80,7 @@ final class SalaryCertificateData
             'emirates_id' => (string) ($employee->emirates_id ?? ''),
             'passport_number' => (string) ($employee->passport_number ?? ''),
             'nationality' => (string) ($employee->nationalityRef?->name ?? ''),
-            'designation' => (string) ($employee->position?->title ?? $employee->rank?->name ?? ''),
+            'designation' => (string) ($employee->position?->title ?? ''),
             'start_date' => $startDate ? CarbonImmutable::parse($startDate)->format('M d, Y') : '',
             'basic_salary' => $basicSalary,
             'total_salary' => $totalSalary,

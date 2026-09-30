@@ -7,7 +7,7 @@ use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\ApplyMissingCrewTourOfDuty;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
@@ -55,7 +55,7 @@ function createJoinedActiveP4AssignmentWithoutTour(
     ?string $overrideReason = null,
 ): CrewAssignment {
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_signoff_at' => $plannedSignoff,
     ], $user->id);
@@ -71,7 +71,7 @@ function createJoinedActiveP4AssignmentWithoutTour(
     $joinPayload = [
         'occurred_at' => $joinDate,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ];
 
     if ($plannedSignoff !== null) {
@@ -255,7 +255,7 @@ it('does not alter an existing assignment when Rank Master changes after a valid
     $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -269,7 +269,7 @@ it('does not alter an existing assignment when Rank Master changes after a valid
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-05 08:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
@@ -307,7 +307,7 @@ it('leaves rank without Tour unrepaired', function () {
 
 it('cannot repair draft or pre-P4 assignments', function () {
     $draft = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -358,7 +358,7 @@ it('cannot repair completed P4 or completed assignments', function () {
 
 it('cannot repair cancelled assignments', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 

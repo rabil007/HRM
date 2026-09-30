@@ -7,7 +7,7 @@ use App\Models\Client;
 use App\Models\VesselType;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceDepartmentTree;
 use App\Support\SeaServices\SeaServiceDirectoryFilters;
 use App\Support\SeaServices\SeaServiceDirectoryQuery;
@@ -66,7 +66,7 @@ class SeaServicesIndexController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'positions' => RankPositionBridge::crewPositionOptions($companyId),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'clients' => Client::query()
                 ->where('is_active', true)
                 ->orderBy('name')

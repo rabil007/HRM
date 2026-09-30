@@ -34,7 +34,7 @@ test('future actual movement timestamps are rejected by default', function () {
         [
             'occurred_at' => $tomorrow,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_choice' => 'tour_of_duty',
         ],
         $user->id,
@@ -73,7 +73,7 @@ test('future actual movement timestamps are allowed when company override is ena
         [
             'occurred_at' => $tomorrow,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_choice' => 'tour_of_duty',
         ],
         $user->id,
@@ -96,7 +96,7 @@ test('future join standby is allowed when override is enabled', function () {
     $vessel = makeCrewMovementVessel('Future Standby Vessel', $company);
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -145,7 +145,7 @@ test('override does not bypass chronological disembarkation before join', functi
         [
             'occurred_at' => '2026-09-30 10:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_choice' => 'tour_of_duty',
         ],
         $user->id,

@@ -4,7 +4,7 @@ namespace App\Support\CrewMovements\Historical;
 
 use App\Models\Client;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -276,9 +276,9 @@ final class HistoricalCrewImportTemplate
 
         $row = $headerRow + 1;
 
-        foreach (Rank::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $rank) {
-            $this->writeSafeString($sheet, 1, $row, (string) $rank->name);
-            $this->writeSafeString($sheet, 2, $row, $rank->is_active ? 'Active' : 'Inactive');
+        foreach (Position::query()->whereNull('deleted_at')->orderBy('title')->get(['id', 'title', 'status']) as $rank) {
+            $this->writeSafeString($sheet, 1, $row, (string) $rank->title);
+            $this->writeSafeString($sheet, 2, $row, $rank->status === 'active' ? 'Active' : 'Inactive');
             $row++;
         }
 

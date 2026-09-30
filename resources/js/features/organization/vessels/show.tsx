@@ -39,7 +39,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { VesselManningFormSheet } from '../vessel-manning/components/vessel-manning-form-sheet';
 import type {
-    RankOption,
+    PositionOption,
     VesselManningFormData,
     VesselManningPagePermissions,
 } from '../vessel-manning/types';
@@ -176,7 +176,7 @@ export function VesselShowContent({
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     back_query?: Record<string, string>;
-    crew_positions?: RankOption[];
+    crew_positions?: PositionOption[];
     manning_can?: VesselManningPagePermissions;
     manning_health?: VesselManningHealth | null;
 }) {
@@ -545,10 +545,10 @@ export function VesselShowContent({
                             accent="blue"
                         />
                         <StatChip
-                            label="Manning ranks"
-                            value={String(summary.manning_ranks)}
+                            label="Manning positions"
+                            value={String(summary.manning_positions)}
                             icon={ShieldCheck}
-                            highlight={summary.manning_ranks > 0}
+                            highlight={summary.manning_positions > 0}
                             accent="emerald"
                         />
                         <StatChip
@@ -594,7 +594,7 @@ export function VesselShowContent({
                             </div>
                             <div className="space-y-1">
                                 <p className="text-sm font-semibold text-foreground/80">
-                                    No ranks configured
+                                    No positions configured
                                 </p>
                                 <p className="text-xs text-muted-foreground/70">
                                     Define the crew requirements for this
@@ -615,7 +615,7 @@ export function VesselShowContent({
                         <Table className="min-w-[640px]">
                             <TableHeader>
                                 <DataTableHeaderRow>
-                                    <DataTableHead>Rank</DataTableHead>
+                                    <DataTableHead>Position</DataTableHead>
                                     <DataTableHead>Required</DataTableHead>
                                 </DataTableHeaderRow>
                             </TableHeader>
@@ -652,8 +652,8 @@ export function VesselShowContent({
                                         <td className="px-4 py-3 text-xs font-bold tracking-wider text-muted-foreground/70 uppercase">
                                             {vessel.manning.length}{' '}
                                             {vessel.manning.length === 1
-                                                ? 'rank'
-                                                : 'ranks'}{' '}
+                                                ? 'position'
+                                                : 'positions'}{' '}
                                             total
                                         </td>
                                         <td className="px-4 py-3">

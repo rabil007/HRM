@@ -2,7 +2,7 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { RankOption } from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import type {
     ClientOption,
     VesselOption,
@@ -33,7 +33,7 @@ export function SeaServicesFiltersSheet({
     onOpenChange: (open: boolean) => void;
     vesselTypes: VesselTypeOption[];
     vessels: VesselOption[];
-    positions: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     value: SeaServiceSheetFilters;
     onChange: (next: SeaServiceSheetFilters) => void;

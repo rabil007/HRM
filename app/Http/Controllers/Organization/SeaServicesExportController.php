@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Exports\SeaServicesExport;
 use App\Http\Controllers\Controller;
 use App\Support\Organization\SelectedRecordIds;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceDirectoryFilters;
 use App\Support\SeaServices\SeaServiceDirectoryQuery;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -29,7 +29,7 @@ class SeaServicesExportController extends Controller
         }
 
         $seaServices = $query->get();
-        RankPositionBridge::hydrateCanonicalPositions($seaServices, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($seaServices, $companyId);
 
         $export = new SeaServicesExport($seaServices);
 

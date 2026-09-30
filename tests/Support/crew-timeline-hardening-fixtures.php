@@ -14,7 +14,6 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
@@ -36,9 +35,10 @@ function setupCrewTimelineHardeningFixtures(): array
 {
     ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
 
-    $rank = Rank::query()->create([
-        'name' => 'Seaman',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Seaman',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $marineRank = Position::query()->create([
@@ -52,8 +52,8 @@ function setupCrewTimelineHardeningFixtures(): array
         'title' => 'Office Crew',
     ]);
 
-    $marine->update(['position_id' => $marineRank->id, 'rank_id' => $rank->id]);
-    $office->update(['position_id' => $officeRank->id, 'rank_id' => $rank->id]);
+    $marine->update(['position_id' => $marineRank->id, 'position_id' => $rank->id]);
+    $office->update(['position_id' => $officeRank->id, 'position_id' => $rank->id]);
 
     foreach ([$marine, $office] as $emp) {
         $contract = EmployeeContract::factory()->create([
@@ -92,7 +92,7 @@ function setupCrewTimelineHardeningFixtures(): array
         'company_id' => $company->id,
         'assignment_no' => 'CA-TL-M'.fake()->unique()->numerify('#####'),
         'employee_id' => $marine->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',
@@ -102,7 +102,7 @@ function setupCrewTimelineHardeningFixtures(): array
         'company_id' => $company->id,
         'assignment_no' => 'CA-TL-O'.fake()->unique()->numerify('#####'),
         'employee_id' => $office->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',

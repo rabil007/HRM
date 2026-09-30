@@ -6,7 +6,7 @@ use App\Models\CrewOperationalAlert;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Department;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Activity\ActivityChangePresenter;
@@ -53,12 +53,13 @@ function makeCrewEmployeeVisibilityFixtures(): array
     ]);
 
     $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
-    $fixtures['rank'] = Rank::query()->create([
-        'name' => 'Visibility Rank '.uniqid(),
-        'is_active' => true,
+    $fixtures['rank'] = Position::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'title' => 'Visibility Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
-    $fixtures['marineEmployee']->update(['rank_id' => $fixtures['rank']->id]);
-    $fixtures['officeEmployee']->update(['rank_id' => $fixtures['rank']->id]);
+    $fixtures['marineEmployee']->update(['position_id' => $fixtures['rank']->id]);
+    $fixtures['officeEmployee']->update(['position_id' => $fixtures['rank']->id]);
     $fixtures['vessel'] = makeCrewMovementVessel('Visibility Vessel', $fixtures['company']);
 
     return $fixtures;
@@ -198,7 +199,7 @@ test('relief desk hides hidden relief employee identity while keeping source vis
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
@@ -230,7 +231,7 @@ test('hidden assignment movement action returns not found without validation lea
     ] = makeCrewEmployeeVisibilityFixtures();
 
     $hidden = app(CrewMovementService::class)->startAssignment($company->id, $office->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
 
@@ -249,7 +250,7 @@ test('hidden assignment movement action returns not found without validation lea
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-01-02 08:00:00',
             'vessel_id' => makeCrewMovementVessel('Hidden Action Vessel', $company)->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertNotFound()
         ->assertSessionDoesntHaveErrors(['action', 'occurred_at', 'vessel_id', 'rank_id']);
@@ -265,7 +266,7 @@ test('hidden assignment update returns not found before field validation leakage
     ] = makeCrewEmployeeVisibilityFixtures();
 
     $hidden = app(CrewMovementService::class)->createDraft($company->id, $office->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     restrictUserToDepartments($user, $company, [$marineDept->id]);
@@ -288,7 +289,7 @@ test('hidden assignment void returns not found before cleanup validation leakage
     ] = makeCrewEmployeeVisibilityFixtures();
 
     $hidden = app(CrewMovementService::class)->createDraft($company->id, $office->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     restrictUserToDepartments($user, $company, [$marineDept->id]);
@@ -316,7 +317,7 @@ test('hidden planning assignment handoff returns not found', function () {
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'planned_join_date' => '2026-10-01',
         'planned_leave_date' => '2026-12-01',
@@ -398,7 +399,7 @@ test('trusted internal presenter call preserves relief employee identity', funct
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
@@ -446,7 +447,7 @@ test('restricted authenticated viewer gets hidden relief employee redacted in pr
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
@@ -496,7 +497,7 @@ test('vessel view redacts hidden relief employee for restricted viewer', functio
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
@@ -539,7 +540,7 @@ test('current crew export redacts hidden relief employee for restricted viewer',
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
@@ -583,7 +584,7 @@ test('unrestricted authenticated viewer still receives relief employee in presen
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(6)->toDateString(),
@@ -631,7 +632,7 @@ test('planning recent activity hides rows when relieved employee is hidden', fun
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $marine->id,
         'relieves_crew_assignment_id' => $hiddenSource->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateString(),
@@ -673,7 +674,7 @@ test('planning recent activity remains visible when both employees are visible',
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $marine->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateString(),
@@ -708,7 +709,7 @@ test('planning recent activity without relieved assignment depends only on plann
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'planned_join_date' => CarbonImmutable::now('Asia/Dubai')->addDays(10)->toDateString(),
         'planned_leave_date' => CarbonImmutable::now('Asia/Dubai')->addDays(90)->toDateString(),
@@ -739,7 +740,7 @@ test('planning activity masks hidden relieves crew assignment id for restricted 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $marine->id,
         'relieves_crew_assignment_id' => $hiddenSource->id,
         'planned_join_date' => '2026-10-01',
@@ -781,7 +782,7 @@ test('planning activity hides historical hidden employee values for restricted v
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'planned_join_date' => '2026-10-01',
         'planned_leave_date' => '2026-12-01',
@@ -824,7 +825,7 @@ test('planning activity hides newly assigned hidden employee values for restrict
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $marine->id,
         'planned_join_date' => '2026-10-01',
         'planned_leave_date' => '2026-12-01',
@@ -880,7 +881,7 @@ test('planning activity hides cross-company employee ids for restricted viewer',
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $marine->id,
         'planned_join_date' => '2026-10-01',
         'planned_leave_date' => '2026-12-01',
@@ -927,7 +928,7 @@ test('planning activity shows historical employee labels for unrestricted viewer
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $office->id,
         'planned_join_date' => '2026-10-01',
         'planned_leave_date' => '2026-12-01',

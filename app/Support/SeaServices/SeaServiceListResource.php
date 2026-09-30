@@ -4,7 +4,6 @@ namespace App\Support\SeaServices;
 
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Support\Positions\RankPositionBridge;
 
 final class SeaServiceListResource
 {
@@ -31,8 +30,8 @@ final class SeaServiceListResource
             'vessel_name' => $seaService->vessel?->name,
             'position_id' => $positionPayload['id'],
             'position_name' => $positionPayload['name'],
-            'rank_id' => $seaService->rank_id,
-            'rank_name' => $seaService->rank?->name,
+            'rank_id' => $positionPayload['id'],
+            'rank_name' => $positionPayload['name'],
             'client_id' => $seaService->client_id,
             'client_name' => $seaService->client?->name,
             'start_date' => $seaService->start_date?->toDateString(),
@@ -62,8 +61,8 @@ final class SeaServiceListResource
             'vessel_name' => $seaService->vessel?->name,
             'position_id' => $positionPayload['id'],
             'position_name' => $positionPayload['name'],
-            'rank_id' => $seaService->rank_id,
-            'rank_name' => $seaService->rank?->name,
+            'rank_id' => $positionPayload['id'],
+            'rank_name' => $positionPayload['name'],
             'client_id' => $seaService->client_id,
             'client_name' => $seaService->client?->name,
             'start_date' => $seaService->start_date?->toDateString(),
@@ -93,16 +92,10 @@ final class SeaServiceListResource
             ];
         }
 
-        $resolvedId = RankPositionBridge::resolveCrewAssignmentPositionId(
-            $companyId,
-            $seaService->position_id !== null ? (int) $seaService->position_id : null,
-            $seaService->rank_id !== null ? (int) $seaService->rank_id : null,
-        );
-
-        if ($resolvedId !== null) {
+        if ($seaService->position_id !== null) {
             return [
-                'id' => $resolvedId,
-                'name' => $position?->title !== null ? (string) $position->title : null,
+                'id' => (int) $seaService->position_id,
+                'name' => null,
             ];
         }
 

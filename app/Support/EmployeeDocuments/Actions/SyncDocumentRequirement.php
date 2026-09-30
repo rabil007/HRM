@@ -17,7 +17,6 @@ final class SyncDocumentRequirement
      *     required_for_all?: bool,
      *     department_ids?: list<int|string>,
      *     position_ids?: list<int|string>,
-     *     rank_ids?: list<int|string>,
      *     project_ids?: list<int|string>,
      *     require_issue_date?: bool,
      *     require_expiry_date?: bool,
@@ -30,7 +29,7 @@ final class SyncDocumentRequirement
             $requirement = DocumentRequirement::query()
                 ->forCompany($companyId)
                 ->where('document_type_id', $documentType->id)
-                ->with(['departments:id,name', 'positions:id,title', 'ranks:id,name', 'projects:id,title', 'documentType:id,title'])
+                ->with(['departments:id,name', 'positions:id,title', 'projects:id,title', 'documentType:id,title'])
                 ->first();
 
             $previousPhrase = DocumentRequirementSummary::auditPhrase($requirement);
@@ -81,9 +80,8 @@ final class SyncDocumentRequirement
 
             $requirement->unsetRelation('departments');
             $requirement->unsetRelation('positions');
-            $requirement->unsetRelation('ranks');
             $requirement->unsetRelation('projects');
-            $requirement->load(['departments:id,name', 'positions:id,title', 'ranks:id,name', 'projects:id,title', 'documentType:id,title']);
+            $requirement->load(['departments:id,name', 'positions:id,title', 'projects:id,title', 'documentType:id,title']);
 
             $nextPhrase = DocumentRequirementSummary::auditPhrase($requirement);
             $nextMetadata = $this->metadataSnapshot($requirement);

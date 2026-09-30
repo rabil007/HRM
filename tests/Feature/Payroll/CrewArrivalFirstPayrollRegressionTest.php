@@ -46,7 +46,7 @@ test('exact p0 to p2a same day boundary allocates sign on standby without double
     $assignment = CrewAssignment::factory()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => '2026-04-05 08:00:00',
         'planned_arrival_at' => '2026-04-10 10:00:00',
@@ -124,7 +124,7 @@ test('updating planned_arrival_at does not alter the crew timeline source hash',
     $assignment = CrewAssignment::factory()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => '2026-04-05 08:00:00',
         'planned_arrival_at' => '2026-04-10 10:00:00',

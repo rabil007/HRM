@@ -203,7 +203,7 @@ test('crew assignment recent activity resolves phase vessel and assignment ids t
     $destinationVessel = makeCrewMovementVessel('Destination Vessel');
 
     $previous = CrewAssignment::factory()->forEmployee($employee)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $sourceVessel->id,
         'assignment_no' => 'CA-TEST-PREV',
         'status' => 'completed',
@@ -212,7 +212,7 @@ test('crew assignment recent activity resolves phase vessel and assignment ids t
     ]);
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $destinationVessel->id,
         'assignment_no' => 'CA-TEST-DEST',
         'status' => 'active',
@@ -287,7 +287,7 @@ function makeOnVesselCorrectionFixtures(): array
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'assignment_no' => 'CA-CORR-001',
         'status' => 'active',

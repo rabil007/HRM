@@ -2,7 +2,7 @@
 
 use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -19,7 +19,7 @@ test('cross-company planned assignment show returns 404 for planning viewer', fu
     $user->update(['current_company_id' => $company->id]);
 
     $foreign = app(CrewMovementService::class)->createPlanned($otherCompany->id, $otherEmployee->id, [
-        'rank_id' => $otherRank->id,
+        'position_id' => $otherRank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -44,12 +44,13 @@ test('hidden employee planned assignment show returns 404 for planning viewer', 
         'officeEmployee' => $officeEmployee,
     ] = makeEmployeeVisibilityFixtures();
 
-    $rank = Rank::query()->create([
-        'name' => 'Access Order Rank '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Access Order Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
     $position = ensureRankMappedPosition($company, $rank);
-    $officeEmployee->update(['rank_id' => $rank->id, 'position_id' => $position->id]);
+    $officeEmployee->update(['position_id' => $rank->id, 'position_id' => $position->id]);
     $vessel = makeCrewMovementVessel('Hidden Plan Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
@@ -67,7 +68,7 @@ test('hidden employee planned assignment show returns 404 for planning viewer', 
     ]);
 
     $hidden = app(CrewMovementService::class)->createPlanned($company->id, $officeEmployee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -94,7 +95,7 @@ test('visible same-company planned assignment without permission returns forbidd
     $user->update(['current_company_id' => $company->id]);
 
     $planned = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -114,14 +115,14 @@ test('updateAssignment locks employee before assignment and still rechecks confl
     $service = app(CrewMovementService::class);
 
     $existing = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vesselA->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
     ], $user->id);
 
     $editable = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vesselB->id,
         'planned_join_at' => '2026-12-01',
         'planned_signoff_at' => '2027-01-15',
@@ -131,7 +132,7 @@ test('updateAssignment locks employee before assignment and still rechecks confl
         'planned_join_at' => '2026-10-15',
         'planned_signoff_at' => '2026-11-20',
         'vessel_id' => $vesselB->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id, $user))->toThrow(ValidationException::class);
 
     expect($existing->fresh()->status)->toBe(CrewAssignmentStatus::Planned)

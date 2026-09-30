@@ -2,7 +2,6 @@
 
 namespace App\Support\Reports;
 
-use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class HotelCheckInCheckoutFilters
@@ -39,7 +38,7 @@ final class HotelCheckInCheckoutFilters
             checkOutFrom: (string) $request->query('check_out_from', ''),
             checkOutTo: (string) $request->query('check_out_to', ''),
             vesselId: (string) $request->query('vessel_id', ''),
-            positionId: LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId),
+            positionId: (string) ($request->query('position_id') ?? ''),
             clientId: (string) $request->query('client_id', ''),
             sort: (string) $request->query('sort', 'check_in'),
             direction: strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc',

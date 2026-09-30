@@ -14,8 +14,7 @@ use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -52,7 +51,7 @@ final class CrewMovementHistoryQuery
             ->paginate($perPage)
             ->withQueryString();
 
-        RankPositionBridge::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
 
         return $paginator->through(fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray($assignment));
     }
@@ -112,7 +111,7 @@ final class CrewMovementHistoryQuery
             $query->with([
                 'company:id,timezone',
                 'employee:id,company_id,employee_no,name',
-                'rank:id,name',
+                'position:id,title',
                 'position:id,title',
                 'vessel:id,name',
                 'client:id,name',
@@ -150,15 +149,15 @@ final class CrewMovementHistoryQuery
                 'accommodationStays.hotel:id,name',
                 'accommodationStays.roomType:id,name',
                 'accommodationStays.startedFromPhase:id,phase_code',
-                'previousAssignment:id,company_id,assignment_no,source,status,vessel_id,rank_id,client_id,started_at,closed_at,current_phase_id',
+                'previousAssignment:id,company_id,assignment_no,source,status,vessel_id,position_id,client_id,started_at,closed_at,current_phase_id',
                 'previousAssignment.vessel:id,name',
-                'previousAssignment.rank:id,name',
+                'previousAssignment.position:id,title',
                 'previousAssignment.client:id,name',
                 'previousAssignment.currentPhase:id,phase_code',
                 'previousAssignment.phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
-                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,source,status,vessel_id,rank_id,client_id,started_at,closed_at,current_phase_id',
+                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,source,status,vessel_id,position_id,client_id,started_at,closed_at,current_phase_id',
                 'nextAssignments.vessel:id,name',
-                'nextAssignments.rank:id,name',
+                'nextAssignments.position:id,title',
                 'nextAssignments.client:id,name',
                 'nextAssignments.currentPhase:id,phase_code',
                 'nextAssignments.phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
@@ -178,7 +177,7 @@ final class CrewMovementHistoryQuery
                             ->orWhere('employee_no', 'like', $like))
                         ->orWhereHas('vessel', fn (Builder $vessel) => $vessel->where('name', 'like', $like))
                         ->orWhereHas('client', fn (Builder $client) => $client->where('name', 'like', $like))
-                        ->orWhereHas('rank', fn (Builder $rank) => $rank->where('name', 'like', $like))
+                        ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', $like))
                         ->orWhereHas('position', fn (Builder $position) => $position->where('title', 'like', $like))
                         ->orWhereHas('previousAssignment', fn (Builder $previous) => $previous
                             ->where('company_id', $this->companyId)
@@ -209,11 +208,7 @@ final class CrewMovementHistoryQuery
             ->when($this->filters->vesselId !== '', fn (Builder $inner) => $inner->where('crew_assignments.vessel_id', $this->filters->vesselId))
             ->when(
                 $this->filters->positionId !== '',
-                fn (Builder $inner) => LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                    $inner,
-                    $this->companyId,
-                    (int) $this->filters->positionId,
-                ),
+                fn (Builder $inner) => $inner->where('crew_assignments.position_id', (int) $this->filters->positionId),
             )
             ->when($this->filters->clientId !== '', fn (Builder $inner) => $inner->where('crew_assignments.client_id', $this->filters->clientId))
             ->when($this->filters->source !== '', fn (Builder $inner) => $inner->where('crew_assignments.source', $this->filters->source))

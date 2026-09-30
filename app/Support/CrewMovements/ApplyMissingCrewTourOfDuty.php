@@ -7,7 +7,6 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewPlannedSignoffSource;
 use App\Models\CrewAssignment;
-use App\Support\Positions\RankPositionBridge;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -47,11 +46,7 @@ final class ApplyMissingCrewTourOfDuty
             return null;
         }
 
-        $positionId = RankPositionBridge::resolveCrewAssignmentPositionId(
-            (int) $assignment->company_id,
-            $assignment->position_id !== null ? (int) $assignment->position_id : null,
-            $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
-        );
+        $positionId = $assignment->position_id !== null ? (int) $assignment->position_id : null;
 
         if ($positionId === null || $assignment->tour_of_duty_days !== null) {
             return null;
@@ -91,7 +86,7 @@ final class ApplyMissingCrewTourOfDuty
                 ->where('company_id', $companyId)
                 ->whereKey($assignmentId)
                 ->lockForUpdate()
-                ->with(['currentPhase', 'phases', 'position', 'rank', 'company', 'employee'])
+                ->with(['currentPhase', 'phases', 'position', 'company', 'employee'])
                 ->first();
 
             if ($assignment === null) {
@@ -111,11 +106,7 @@ final class ApplyMissingCrewTourOfDuty
                 return null;
             }
 
-            $positionId = RankPositionBridge::resolveCrewAssignmentPositionId(
-                $companyId,
-                $assignment->position_id !== null ? (int) $assignment->position_id : null,
-                $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
-            );
+            $positionId = $assignment->position_id !== null ? (int) $assignment->position_id : null;
 
             if ($positionId === null || $assignment->tour_of_duty_days !== null) {
                 return null;
@@ -155,7 +146,7 @@ final class ApplyMissingCrewTourOfDuty
                 ]);
             }
 
-            $assignment = $assignment->fresh(['phases', 'employee', 'company', 'position', 'rank', 'currentPhase']) ?? $assignment;
+            $assignment = $assignment->fresh(['phases', 'employee', 'company', 'position', 'currentPhase']) ?? $assignment;
 
             activity()
                 ->performedOn($assignment)
@@ -168,9 +159,6 @@ final class ApplyMissingCrewTourOfDuty
                     'employee_name' => $assignment->employee?->name,
                     'position_id' => $assignment->position_id,
                     'position_name' => $assignment->position?->title,
-                    // Temporary Phase 2: retain legacy rank fields for activity readability.
-                    'rank_id' => $assignment->rank_id,
-                    'rank_name' => $assignment->rank?->name,
                     'old_tour_of_duty_days' => null,
                     'new_tour_of_duty_days' => $tour->tourOfDutyDays,
                     'old_planned_signoff_at' => $oldPlannedSignoff?->toDateTimeString(),

@@ -7,7 +7,7 @@ use App\Enums\VesselManningHealthStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\VesselManning;
 use App\Support\VesselManning\VesselManningHealthQuery;
 use Carbon\CarbonImmutable;
@@ -30,7 +30,7 @@ function makeManningHealthContext(int $required = 4, ?string $vesselName = null)
     VesselManning::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['position']->id,
         'required_count' => $required,
     ]);
 
@@ -73,7 +73,7 @@ it('reports not_configured when the vessel has no VesselManning', function () {
     );
 
     expect($health['status'])->toBe(VesselManningHealthStatus::NotConfigured->value)
-        ->and($health['ranks'])->toBe([]);
+        ->and($health['positions'])->toBe([]);
 });
 
 it('reports critical when current onboard is below required', function () {
@@ -83,12 +83,12 @@ it('reports critical when current onboard is below required', function () {
     ]);
 
     makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel']);
-    $second = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+    $second = Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
         'status' => 'active',
     ]);
-    $third = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+    $third = Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
         'status' => 'active',
     ]);
     makeActiveOnVesselAssignment($ctx['company'], $second, $ctx['rank'], $ctx['vessel']);
@@ -100,7 +100,7 @@ it('reports critical when current onboard is below required', function () {
         ->and($health['required'])->toBe(4)
         ->and($health['onboard'])->toBe(3)
         ->and($health['current_gap'])->toBe(1)
-        ->and($health['ranks'][0]['status'])->toBe(VesselManningHealthStatus::Critical->value);
+        ->and($health['positions'][0]['status'])->toBe(VesselManningHealthStatus::Critical->value);
 });
 
 it('reports at_risk when currently covered but projected coverage falls within 30 days', function () {
@@ -112,8 +112,8 @@ it('reports at_risk when currently covered but projected coverage falls within 3
     foreach (range(1, 4) as $i) {
         $employee = $i === 1
             ? $ctx['employee']
-            : Employee::factory()->forCompany($ctx['company'])->create([
-                'rank_id' => $ctx['rank']->id,
+            : Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
                 'status' => 'active',
             ]);
         $signoff = $i === 1 ? '2026-09-18 00:00:00' : '2026-12-01 00:00:00';
@@ -129,7 +129,7 @@ it('reports at_risk when currently covered but projected coverage falls within 3
         ->and($health['current_gap'])->toBe(0)
         ->and($health['future_gap'])->toBe(1)
         ->and($health['next_gap_date'])->toBe('2026-09-18')
-        ->and($health['ranks'][0]['status'])->toBe(VesselManningHealthStatus::AtRisk->value);
+        ->and($health['positions'][0]['status'])->toBe(VesselManningHealthStatus::AtRisk->value);
 });
 
 it('reports healthy when onboard and projected coverage stay at required', function () {
@@ -139,8 +139,8 @@ it('reports healthy when onboard and projected coverage stay at required', funct
     foreach (range(1, 4) as $i) {
         $employee = $i === 1
             ? $ctx['employee']
-            : Employee::factory()->forCompany($ctx['company'])->create([
-                'rank_id' => $ctx['rank']->id,
+            : Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
                 'status' => 'active',
             ]);
         makeActiveOnVesselAssignment($ctx['company'], $employee, $ctx['rank'], $ctx['vessel'], [
@@ -153,7 +153,7 @@ it('reports healthy when onboard and projected coverage stay at required', funct
     expect($health['status'])->toBe(VesselManningHealthStatus::Healthy->value)
         ->and($health['current_gap'])->toBe(0)
         ->and($health['future_gap'])->toBe(0)
-        ->and($health['ranks'][0]['status'])->toBe(VesselManningHealthStatus::Healthy->value);
+        ->and($health['positions'][0]['status'])->toBe(VesselManningHealthStatus::Healthy->value);
 });
 
 it('keeps planned sign-off from reducing current onboard today', function () {
@@ -173,14 +173,13 @@ it('keeps planned sign-off from reducing current onboard today', function () {
 it('does not count planned relief as actual onboard before P4 join', function () {
     $ctx = makeManningHealthContext(1);
     grantVesselManningHealthPermissions($ctx['user'], $ctx['company']);
-    $relief = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+    $relief = Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
-        'company_id' => $ctx['company']->id,
-        'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'company_id' => $ctx['company']->id,        'vessel_id' => $ctx['vessel']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $relief->id,
         'planned_join_date' => '2026-09-20',
         'planned_leave_date' => '2026-12-20',
@@ -199,8 +198,8 @@ it('marks a rank healthy at 1/1 and critical at 2 required with 1 onboard', func
     makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel']);
 
     $covered = vesselManningHealth($ctx);
-    expect($covered['ranks'][0]['onboard'])->toBe(1)
-        ->and($covered['ranks'][0]['status'])->toBe(VesselManningHealthStatus::Healthy->value);
+    expect($covered['positions'][0]['onboard'])->toBe(1)
+        ->and($covered['positions'][0]['status'])->toBe(VesselManningHealthStatus::Healthy->value);
 
     VesselManning::query()
         ->where('company_id', $ctx['company']->id)
@@ -208,9 +207,9 @@ it('marks a rank healthy at 1/1 and critical at 2 required with 1 onboard', func
         ->update(['required_count' => 2]);
 
     $short = vesselManningHealth($ctx);
-    expect($short['ranks'][0]['status'])->toBe(VesselManningHealthStatus::Critical->value)
-        ->and($short['ranks'][0]['onboard'])->toBe(1)
-        ->and($short['ranks'][0]['required'])->toBe(2);
+    expect($short['positions'][0]['status'])->toBe(VesselManningHealthStatus::Critical->value)
+        ->and($short['positions'][0]['onboard'])->toBe(1)
+        ->and($short['positions'][0]['required'])->toBe(2);
 });
 
 it('treats a same-day planned replacement as covering the projected gap', function () {
@@ -219,14 +218,13 @@ it('treats a same-day planned replacement as covering the projected gap', functi
     makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel'], [
         'planned_signoff_at' => '2026-09-18 00:00:00',
     ]);
-    $relief = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+    $relief = Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
-        'company_id' => $ctx['company']->id,
-        'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'company_id' => $ctx['company']->id,        'vessel_id' => $ctx['vessel']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $relief->id,
         'relieves_crew_assignment_id' => vesselOnboardAssignmentId($ctx),
         'planned_join_date' => '2026-09-18',
@@ -249,14 +247,13 @@ it('surfaces mobilising and ready-to-join relief without overriding projected co
     $source = makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel'], [
         'planned_signoff_at' => '2026-09-20 00:00:00',
     ]);
-    $reliefEmployee = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+    $reliefEmployee = Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
         'status' => 'active',
     ]);
     $plan = CrewPlanningAssignment::query()->create([
-        'company_id' => $ctx['company']->id,
-        'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'company_id' => $ctx['company']->id,        'vessel_id' => $ctx['vessel']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => '2026-09-25',
@@ -271,7 +268,7 @@ it('surfaces mobilising and ready-to-join relief without overriding projected co
 
     $mobilising = vesselManningHealth($ctx);
     expect($mobilising['status'])->toBe(VesselManningHealthStatus::AtRisk->value)
-        ->and($mobilising['ranks'][0]['relief_status'])->toBe('mobilising');
+        ->and($mobilising['positions'][0]['relief_status'])->toBe('mobilising');
 
     $linked->currentPhase->update([
         'phase_code' => CrewPhaseCode::ReadyToJoin,
@@ -279,7 +276,7 @@ it('surfaces mobilising and ready-to-join relief without overriding projected co
     ]);
 
     $ready = vesselManningHealth($ctx);
-    expect($ready['ranks'][0]['relief_status'])->toBe('ready_to_join')
+    expect($ready['positions'][0]['relief_status'])->toBe('ready_to_join')
         ->and($ready['status'])->toBe(VesselManningHealthStatus::AtRisk->value);
 });
 
@@ -289,14 +286,13 @@ it('keeps overlap as supporting information rather than a shortage', function ()
     makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel'], [
         'planned_signoff_at' => '2026-09-25 00:00:00',
     ]);
-    $early = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+    $early = Employee::factory()->forCompany($ctx['company'])->create(['position_id' => $ctx['position']->id,
+
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
-        'company_id' => $ctx['company']->id,
-        'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'company_id' => $ctx['company']->id,        'vessel_id' => $ctx['vessel']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $early->id,
         'planned_join_date' => '2026-09-18',
         'planned_leave_date' => '2026-12-18',
@@ -306,28 +302,33 @@ it('keeps overlap as supporting information rather than a shortage', function ()
 
     expect($health['status'])->toBe(VesselManningHealthStatus::Healthy->value)
         ->and($health['overlap_excess'])->toBeGreaterThan(0)
-        ->and($health['ranks'][0]['overlap_excess'])->toBeGreaterThan(0);
+        ->and($health['positions'][0]['overlap_excess'])->toBeGreaterThan(0);
 });
 
-it('evaluates multiple ranks on one vessel independently', function () {
+it('evaluates multiple positions on one vessel independently', function () {
     $ctx = makeManningHealthContext(1);
     grantVesselManningHealthPermissions($ctx['user'], $ctx['company']);
-    $oiler = Rank::query()->create(['name' => 'Oiler Health '.uniqid(), 'is_active' => true]);
+    $oilerPosition = Position::query()->create([
+        'company_id' => $ctx['company']->id,
+        'title' => 'Oiler Health '.uniqid(),
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
     VesselManning::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $oiler->id,
+        'position_id' => $oilerPosition->id,
         'required_count' => 2,
     ]);
-    makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['rank'], $ctx['vessel']);
+    makeActiveOnVesselAssignment($ctx['company'], $ctx['employee'], $ctx['position'], $ctx['vessel']);
 
     $health = vesselManningHealth($ctx);
-    $byRank = collect($health['ranks'])->keyBy('rank_id');
+    $byPosition = collect($health['positions'])->keyBy('position_id');
 
     expect($health['status'])->toBe(VesselManningHealthStatus::Critical->value)
-        ->and($byRank[$ctx['rank']->id]['status'])->toBe(VesselManningHealthStatus::Healthy->value)
-        ->and($byRank[$oiler->id]['status'])->toBe(VesselManningHealthStatus::Critical->value)
-        ->and($byRank[$oiler->id]['onboard'])->toBe(0);
+        ->and($byPosition[$ctx['position']->id]['status'])->toBe(VesselManningHealthStatus::Healthy->value)
+        ->and($byPosition[$oilerPosition->id]['status'])->toBe(VesselManningHealthStatus::Critical->value)
+        ->and($byPosition[$oilerPosition->id]['onboard'])->toBe(0);
 });
 
 it('hides manning health without vessel manning view and forbids the vessel without vessels view', function () {
@@ -363,7 +364,7 @@ it('shows aggregate health without crew names when assignments view is missing',
             ->component('organization/vessels/show', false)
             ->where('manning_health.status', VesselManningHealthStatus::AtRisk->value)
             ->where('manning_health.include_crew_details', false)
-            ->where('manning_health.ranks.0.signoffs', [])
+            ->where('manning_health.positions.0.signoffs', [])
             ->where('can.view_planning', false)
         );
 });
@@ -375,7 +376,7 @@ it('does not leak another company health metrics current crew or requirements', 
     VesselManning::query()->create([
         'company_id' => $b['company']->id,
         'vessel_id' => $foreignVessel->id,
-        'rank_id' => $b['rank']->id,
+        'position_id' => $b['position']->id,
         'required_count' => 9,
     ]);
     makeActiveOnVesselAssignment($b['company'], $b['employee'], $b['rank'], $foreignVessel);
@@ -419,13 +420,13 @@ it('filters the vessel index by health on the server and sorts critical first', 
     VesselManning::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $critical->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['position']->id,
         'required_count' => 2,
     ]);
     VesselManning::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $healthy->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['position']->id,
         'required_count' => 1,
     ]);
     makeActiveOnVesselAssignment($fixtures['company'], $fixtures['employee'], $fixtures['rank'], $healthy);

@@ -26,7 +26,7 @@ test('pending reject and cancel leave official assignment and phase untouched', 
         'actual_end_at' => $phase->actual_end_at?->toIso8601String(),
         'remarks' => $phase->remarks,
         'vessel_id' => $assignment->vessel_id,
-        'rank_id' => $assignment->rank_id,
+        'position_id' => $assignment->position_id,
         'status' => $assignment->status->value,
         'phase_status' => $phase->status->value,
     ];
@@ -74,6 +74,6 @@ test('pending reject and cancel leave official assignment and phase untouched', 
     $phase->refresh();
     $assignment->refresh();
     expect($phase->remarks)->toBe($snapshot['remarks'])
-        ->and($assignment->rank_id)->toBe($snapshot['rank_id'])
+        ->and($assignment->position_id)->toBe($snapshot['rank_id'])
         ->and($assignment->status->value)->toBe($snapshot['status']);
 });

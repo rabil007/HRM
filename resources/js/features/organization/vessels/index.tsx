@@ -724,18 +724,21 @@ export function VesselsContent({
                                         <TableCell
                                             className={dataTableCellClass()}
                                         >
-                                            {vessel.ranks_configured === 0 ? (
+                                            {vessel.positions_configured ===
+                                            0 ? (
                                                 <Badge className="border-amber-500/20 bg-amber-500/10 text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-400">
                                                     Not set
                                                 </Badge>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
                                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                                                    {vessel.ranks_configured}{' '}
-                                                    {vessel.ranks_configured ===
+                                                    {
+                                                        vessel.positions_configured
+                                                    }{' '}
+                                                    {vessel.positions_configured ===
                                                     1
-                                                        ? 'rank'
-                                                        : 'ranks'}
+                                                        ? 'position'
+                                                        : 'positions'}
                                                 </span>
                                             )}
                                         </TableCell>

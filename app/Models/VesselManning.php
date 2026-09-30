@@ -28,7 +28,6 @@ class VesselManning extends Model
             ->logOnly([
                 'company_id',
                 'vessel_id',
-                'rank_id',
                 'position_id',
                 'required_count',
             ])
@@ -40,7 +39,6 @@ class VesselManning extends Model
         return [
             'company_id' => 'integer',
             'vessel_id' => 'integer',
-            'rank_id' => 'integer',
             'position_id' => 'integer',
             'required_count' => 'integer',
         ];
@@ -54,11 +52,6 @@ class VesselManning extends Model
     public function vessel(): BelongsTo
     {
         return $this->belongsTo(Vessel::class);
-    }
-
-    public function rank(): BelongsTo
-    {
-        return $this->belongsTo(Rank::class);
     }
 
     public function position(): BelongsTo

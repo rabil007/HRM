@@ -6,12 +6,12 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\SeaServiceDuration;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 
 function makeSeaServicesExportFixtures(bool $legacyRankOnly = false): array
 {
@@ -64,14 +64,15 @@ function makeSeaServicesExportFixtures(bool $legacyRankOnly = false): array
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Legacy Rank Label '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Legacy Rank Label '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $position = ensureRankMappedPosition($company, $rank);
     $position->update(['title' => 'Canonical Position Title '.$position->id]);
-    RankPositionBridge::clearCache();
+    // CrewPositionCatalog has no cache after Rank removal
 
     $duration = SeaServiceDuration::fromDates('2023-01-01', '2023-06-30');
 
@@ -80,7 +81,7 @@ function makeSeaServicesExportFixtures(bool $legacyRankOnly = false): array
         'employee_id' => $employee->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'position_id' => $legacyRankOnly ? null : $position->id,
         'start_date' => '2023-01-01',
         'end_date' => '2023-06-30',
@@ -147,7 +148,7 @@ test('sea services pdf export uses position heading and mapped title for legacy 
     $html = view('exports.sea-services', [
         'seaServices' => tap(
             EmployeeSeaService::query()->where('company_id', $company->id)->with(['position', 'rank'])->get(),
-            fn ($rows) => RankPositionBridge::hydrateCanonicalPositions($rows, (int) $company->id),
+            fn ($rows) => CrewPositionCatalog::hydrateCanonicalPositions($rows, (int) $company->id),
         ),
         'generatedAt' => now(),
     ])->render();

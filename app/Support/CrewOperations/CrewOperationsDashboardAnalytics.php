@@ -318,7 +318,7 @@ final class CrewOperationsDashboardAnalytics
                 'type' => 'current_manning_gap',
                 'severity' => 'critical',
                 'title' => $gap['vessel_name'],
-                'subtitle' => $gap['rank_name'],
+                'subtitle' => $gap['position_name'],
                 'problem' => sprintf(
                     'Short %d now — %d of %d actually onboard',
                     $gap['gap'],
@@ -433,7 +433,7 @@ final class CrewOperationsDashboardAnalytics
                     'type' => 'projected_future_gap',
                     'severity' => 'warning',
                     'title' => $position['vessel_name'],
-                    'subtitle' => $position['rank_name'],
+                    'subtitle' => $position['position_name'],
                     'problem' => sprintf(
                         'Projected future gap — max short %d',
                         $position['maximum_gap'],
@@ -443,7 +443,7 @@ final class CrewOperationsDashboardAnalytics
                         $canViewPlanning,
                         $canViewVesselManning,
                         (int) $position['vessel_id'],
-                        (int) $position['rank_id'],
+                        (int) $position['position_id'],
                     ),
                 ];
             }
@@ -487,12 +487,12 @@ final class CrewOperationsDashboardAnalytics
         $employeesQuery = Employee::query()
             ->where('company_id', $companyId)
             ->active()
-            ->with(['rank:id,name'])
+            ->with(['position:id,title'])
             ->orderBy('id');
 
         EmployeeVisibilityScope::apply($employeesQuery, $user, $companyId);
 
-        $employees = $employeesQuery->get(['id', 'company_id', 'name', 'rank_id']);
+        $employees = $employeesQuery->get(['id', 'company_id', 'name', 'position_id']);
 
         if ($employees->isEmpty()) {
             return;
@@ -520,7 +520,7 @@ final class CrewOperationsDashboardAnalytics
                 'type' => 'needs_update',
                 'severity' => 'warning',
                 'title' => $employee->name,
-                'subtitle' => $employee->rank?->name,
+                'subtitle' => $employee->position?->title,
                 'problem' => $resolved['warning'] ?? 'Assignment needs an update',
                 'meta' => null,
                 'href' => $canViewEmployees
@@ -555,7 +555,7 @@ final class CrewOperationsDashboardAnalytics
                 'type' => 'overdue_home',
                 'severity' => 'warning',
                 'title' => $employee->name,
-                'subtitle' => $employee->rank?->name,
+                'subtitle' => $employee->position?->title,
                 'problem' => sprintf(
                     'In home %d days — exceeds %d day limit',
                     $resolved['in_home_days'],
@@ -614,8 +614,8 @@ final class CrewOperationsDashboardAnalytics
                     'risk' => 'Gap now',
                     'vessel_id' => (int) $gap['vessel_id'],
                     'vessel_name' => (string) $gap['vessel_name'],
-                    'rank_id' => (int) $gap['rank_id'],
-                    'rank_name' => (string) $gap['rank_name'],
+                    'position_id' => (int) $gap['position_id'],
+                    'position_name' => (string) $gap['position_name'],
                     'when' => 'Now',
                     'href' => route('organization.vessels.show', ['vessel' => $gap['vessel_id']]),
                     'employee_name' => null,
@@ -638,14 +638,14 @@ final class CrewOperationsDashboardAnalytics
                     'risk' => 'Future gap',
                     'vessel_id' => (int) $position['vessel_id'],
                     'vessel_name' => (string) $position['vessel_name'],
-                    'rank_id' => (int) $position['rank_id'],
-                    'rank_name' => (string) $position['rank_name'],
+                    'position_id' => (int) $position['position_id'],
+                    'position_name' => (string) $position['position_name'],
                     'when' => $position['next_gap_date'] ?? 'Upcoming',
                     'href' => $this->projectedGapHref(
                         $canViewPlanning,
                         $canViewVesselManning,
                         (int) $position['vessel_id'],
-                        (int) $position['rank_id'],
+                        (int) $position['position_id'],
                     ),
                     'employee_name' => null,
                 ];
@@ -655,7 +655,7 @@ final class CrewOperationsDashboardAnalytics
         $assignmentMeta = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('id', $reliefResolved->keys()->all() ?: [0])
-            ->with(['vessel:id,name', 'rank:id,name', 'employee:id,name'])
+            ->with(['vessel:id,name', 'position:id,title', 'employee:id,name'])
             ->get()
             ->keyBy('id');
 
@@ -696,8 +696,8 @@ final class CrewOperationsDashboardAnalytics
                 'risk' => $riskLabel,
                 'vessel_id' => $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
                 'vessel_name' => $assignment->vessel?->name ?? 'Unassigned vessel',
-                'rank_id' => $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
-                'rank_name' => $assignment->rank?->name ?? 'Unassigned rank',
+                'position_id' => $assignment->position_id !== null ? (int) $assignment->position_id : null,
+                'position_name' => $assignment->position?->title ?? 'Unassigned position',
                 'when' => $result->sourcePlannedSignoffDate ?? 'Upcoming',
                 'href' => $canViewAssignments
                     ? route('organization.crew-assignments.show', [
@@ -717,12 +717,12 @@ final class CrewOperationsDashboardAnalytics
         bool $canViewPlanning,
         bool $canViewVesselManning,
         int $vesselId,
-        int $rankId,
+        int $positionId,
     ): ?string {
         if ($canViewPlanning) {
             return route('organization.crew-planning.index', [
                 'vessel_id' => $vesselId,
-                'rank_id' => $rankId,
+                'position_id' => $positionId,
             ]);
         }
 
@@ -801,8 +801,8 @@ final class CrewOperationsDashboardAnalytics
             ->map(fn (array $item): array => [
                 'vessel_id' => (int) $item['vessel_id'],
                 'vessel_name' => (string) $item['vessel_name'],
-                'rank_id' => (int) $item['rank_id'],
-                'rank_name' => (string) $item['rank_name'],
+                'position_id' => (int) $item['position_id'],
+                'position_name' => (string) $item['position_name'],
                 'required_count' => (int) $item['required_count'],
                 'minimum_projected_count' => (int) $item['minimum_projected_count'],
                 'maximum_gap' => (int) $item['maximum_gap'],

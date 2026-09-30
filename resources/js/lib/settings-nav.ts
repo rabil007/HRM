@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-    Award,
     BadgeCheck,
     Building2,
     Camera,
@@ -165,13 +164,6 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
         permission: 'settings.master-data.vessel-types.view',
         icon: Sailboat,
         color: 'bg-sky-500/10 text-sky-600',
-    },
-    {
-        title: 'Ranks',
-        href: '/settings/master-data/ranks',
-        permission: 'settings.master-data.ranks.view',
-        icon: Award,
-        color: 'bg-accent/10 text-accent',
     },
     {
         title: 'Clients',

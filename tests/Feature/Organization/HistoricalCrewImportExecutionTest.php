@@ -296,7 +296,7 @@ test('final import revalidation blocks row when overlapping assignment appears a
         ->post(route('organization.crew-assignments.historical.store'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'onsite_from' => '2024-04-01',
             'onsite_to' => '2024-10-01',
             'sign_off_standby_from' => '2024-10-01',
@@ -825,7 +825,7 @@ test('result workbook stays Sign-On Standby after later live join vessel', funct
         [
             'occurred_at' => '2025-04-01 12:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );

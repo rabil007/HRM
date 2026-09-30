@@ -22,7 +22,6 @@ final class OffshoreCvData
     {
         $employee->load([
             'position:id,title',
-            'rank:id,name',
             'companyVisaTypeRef:id,name',
             'visaTypeRef:id,name',
             'company:id,name,logo',
@@ -45,16 +44,16 @@ final class OffshoreCvData
         $seaServices = EmployeeSeaService::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with(['vessel:id,name,grt,bhp', 'vesselType:id,name', 'rank:id,name', 'client:id,name'])
+            ->with(['vessel:id,name,grt,bhp', 'vesselType:id,name', 'position:id,title', 'client:id,name'])
             ->latestServiceFirst()
             ->get();
 
-        $rankApplied = $employee->rank?->name ?? $employee->position?->title ?? '';
+        $rankApplied = (string) ($employee->position?->title ?? '');
 
-        $rankSeaServices = $employee->rank_id
-            ? $seaServices->filter(fn (EmployeeSeaService $row) => (int) $row->rank_id === (int) $employee->rank_id)
+        $rankSeaServices = $employee->position_id
+            ? $seaServices->filter(fn (EmployeeSeaService $row) => (int) $row->position_id === (int) $employee->position_id)
             : ($rankApplied !== ''
-                ? $seaServices->filter(fn (EmployeeSeaService $row) => strcasecmp((string) $row->rank?->name, $rankApplied) === 0)
+                ? $seaServices->filter(fn (EmployeeSeaService $row) => strcasecmp((string) $row->position?->title, $rankApplied) === 0)
                 : collect());
 
         $experienceRankYmd = self::formatExperienceYmd($rankSeaServices);
@@ -82,7 +81,7 @@ final class OffshoreCvData
             'offshore_projects' => $seaServices->map(fn (EmployeeSeaService $row) => [
                 'vessel_name' => (string) ($row->vessel?->name ?? ''),
                 'vessel_type' => (string) ($row->vesselType?->name ?? ''),
-                'rank' => (string) ($row->rank?->name ?? ''),
+                'rank' => (string) ($row->position?->title ?? ''),
                 'from' => self::formatCvDate($row->start_date),
                 'to' => self::formatCvDate($row->end_date),
                 'total_months' => (string) ($row->total_months ?? 0),

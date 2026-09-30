@@ -41,12 +41,6 @@ final class CrewAssignmentPositionPresenter
             return (string) $position->title;
         }
 
-        $rank = $assignment->relationLoaded('rank') ? $assignment->rank : null;
-
-        if ($rank !== null) {
-            return (string) $rank->name;
-        }
-
         return null;
     }
 
@@ -56,10 +50,6 @@ final class CrewAssignmentPositionPresenter
             return null;
         }
 
-        return RankPositionBridge::resolveCrewAssignmentPositionId(
-            $companyId,
-            $assignment->position_id !== null ? (int) $assignment->position_id : null,
-            $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
-        );
+        return $assignment->position_id !== null ? (int) $assignment->position_id : null;
     }
 }

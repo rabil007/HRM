@@ -6,8 +6,7 @@ use App\Models\CrewAssignment;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -111,7 +110,7 @@ final class CurrentCrewVesselQuery
             ->with(['vessel', 'position', 'employee'])
             ->get();
 
-        RankPositionBridge::hydrateCanonicalPositions($assignments, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $companyId);
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
         CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
@@ -141,7 +140,7 @@ final class CurrentCrewVesselQuery
         CurrentCrewQuery::eagerLoadForList($query);
 
         $assignments = $query->get();
-        RankPositionBridge::hydrateCanonicalPositions($assignments, $companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $companyId);
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
         CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
@@ -169,12 +168,7 @@ final class CurrentCrewVesselQuery
             ->whereIn('vessel_id', $vesselIds);
 
         if (! empty($filters['position_id'])) {
-            LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                $query,
-                $companyId,
-                (int) $filters['position_id'],
-                'vessel_manning',
-            );
+            $query->where('vessel_manning.position_id', (int) $filters['position_id']);
         }
 
         return $query

@@ -552,7 +552,7 @@ final class CrewPayrollCalculator
             $timesheet->relationLoaded('segments')
             && $timesheet->segments instanceof \Illuminate\Database\Eloquent\Collection
         ) {
-            $timesheet->segments->loadMissing(['assignment.vessel', 'assignment.client', 'assignment.rank']);
+            $timesheet->segments->loadMissing(['assignment.vessel', 'assignment.client', 'assignment.position']);
         }
 
         return collect($timesheet->segments)->map(function ($segment) {
@@ -589,8 +589,8 @@ final class CrewPayrollCalculator
                     ? ($assignment['client_name'] ?? $assignment['client']['name'] ?? null)
                     : $assignment?->client?->name,
                 'rank_name' => is_array($assignment)
-                    ? ($assignment['rank_name'] ?? $assignment['rank']['name'] ?? null)
-                    : $assignment?->rank?->name,
+                    ? ($assignment['position_name'] ?? $assignment['position']['title'] ?? $assignment['rank_name'] ?? null)
+                    : $assignment?->position?->title,
             ];
         })->values()->all();
     }

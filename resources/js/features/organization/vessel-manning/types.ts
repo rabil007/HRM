@@ -5,7 +5,7 @@ export type CrewPositionOption = {
 };
 
 /** @deprecated Use CrewPositionOption */
-export type RankOption = CrewPositionOption;
+export type PositionOption = CrewPositionOption;
 
 export type VesselTypeOption = {
     id: number;
@@ -16,7 +16,6 @@ export type VesselManningLine = {
     id: number;
     position_id: number;
     position_name: string;
-    rank_id: number | null;
     required_count: number;
 };
 
@@ -28,7 +27,7 @@ export type VesselManningItem = {
     is_active: boolean;
     manning: VesselManningLine[];
     total_required: number;
-    ranks_configured: number;
+    positions_configured: number;
 };
 
 export type VesselManningShowItem = VesselManningItem & {

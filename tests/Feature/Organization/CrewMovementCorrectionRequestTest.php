@@ -5,7 +5,6 @@ use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewMovementCorrection;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;

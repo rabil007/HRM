@@ -6,8 +6,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -34,7 +33,7 @@ final class SeaServiceDirectoryQuery
             ->paginate($perPage)
             ->withQueryString();
 
-        RankPositionBridge::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
+        CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
 
         return $paginator->through(fn (EmployeeSeaService $seaService) => SeaServiceListResource::toArray($seaService));
     }
@@ -85,7 +84,6 @@ final class SeaServiceDirectoryQuery
                 'vesselType:id,name',
                 'vessel:id,name',
                 'position:id,title',
-                'rank:id,name',
                 'client:id,name',
                 'employee:id,name,employee_no,image,company_id,branch_id,department_id,position_id',
                 'employee.department:id,name',
@@ -108,12 +106,7 @@ final class SeaServiceDirectoryQuery
                 $this->filters->vesselTypeId,
             ))
             ->when($this->filters->positionId !== '', function (Builder $inner): void {
-                LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                    $inner,
-                    $this->companyId,
-                    (int) $this->filters->positionId,
-                    'employee_sea_services',
-                );
+                $inner->where('employee_sea_services.position_id', (int) $this->filters->positionId);
             })
             ->when($this->filters->clientId !== '', fn (Builder $inner) => $inner->where(
                 'employee_sea_services.client_id',
@@ -146,13 +139,6 @@ final class SeaServiceDirectoryQuery
                         })
                         ->orWhereHas('position', function (Builder $positionQuery) use ($like): void {
                             $positionQuery->where('title', 'like', $like);
-                        })
-                        ->orWhere(function (Builder $legacyRank) use ($like): void {
-                            $legacyRank
-                                ->whereNull('employee_sea_services.position_id')
-                                ->whereHas('rank', function (Builder $rankQuery) use ($like): void {
-                                    $rankQuery->where('name', 'like', $like);
-                                });
                         })
                         ->orWhereHas('client', function (Builder $clientQuery) use ($like): void {
                             $clientQuery->where('name', 'like', $like);

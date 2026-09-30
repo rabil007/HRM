@@ -2,16 +2,7 @@
 
 ## Current state
 
-**Position is now canonical for active application behavior.**
-
-Phase 1 (data foundation) and Phase 2 (application cutover) are **complete**. Rank remains only for:
-
-- temporary legacy compatibility (dual-write, URL/import/filter translation)
-- historical persisted payload readability (activity, corrections)
-- remaining physical schema pending Phase 3
-- legacy Rank master-data UI/routes/permissions until Phase 3 deletion
-
-Do **not** treat current Crew Assignment, Crew Planning, Sea Service, Vessel Manning, or Tour of Duty as Rank-canonical. Active forms, filters, reports, and presenters resolve and display **Position**. Rank has **not** been deleted yet.
+**Position is the only occupational catalog. Rank has been retired (Phase 3B complete).**
 
 ---
 
@@ -110,81 +101,31 @@ Active application behaviour is fully Position-canonical. Rank remains only for 
 
 ---
 
-## Phase 3B — Pending (destructive Rank removal)
+## Phase 3B — Completed (destructive Rank removal)
 
-Final Rank dependency audit, then remove legacy Rank schema/code/UI/routes/permissions after readiness reporting shows clean mapping coverage.
+Position is the **only** occupational/job-role catalog. Rank has been retired.
 
-### Classification legend
+### Field semantics (may differ per record)
 
-| Code | Meaning |
+| Field | Meaning |
 | --- | --- |
-| **A** | Phase 3B deletion candidate |
-| **B** | Temporary legacy compatibility (remove after dual-write/URL support ends) |
-| **C** | Historical migration / consolidation command (keep or archive) |
-| **D** | Historical activity/audit compatibility (read old Rank payloads) |
-| **E** | Tests documenting legacy compatibility |
-| **F** | Documentation |
+| `Employee.position_id` | Current HR Position |
+| `CrewAssignment.position_id` | Assignment role |
+| `CrewPlanningAssignment.position_id` | Planned role |
+| `EmployeeSeaService.position_id` | Historical service role |
+| `VesselManning.position_id` | Required vessel role |
 
-### Phase 3 checklist (inventory — do not delete until audit is clean)
+### Delivered
 
-#### A — Deletion candidates
+- `CrewProjectedManningQuery` is Position-native
+- Saved-view `rank_id` filters migrated to `position_id` (migration A)
+- Destructive guarded schema removal (migration B): drops `document_requirement_rank`, all live `rank_id` FKs/columns, `rank_position_mappings`, `ranks`, and Rank master-data permissions
+- Rank master-data UI/routes/controllers removed
+- Readiness command: `php artisan master-data:rank-removal-readiness` (read-only; non-zero when unsafe)
+- Production runbook: `docs/runbooks/rank-removal-phase-3b.md`
 
-- [ ] Rank master-data UI: `resources/js/pages/settings/master-data/ranks.tsx`, settings nav / creatable registry entries
-- [ ] Rank routes, `RankController`, Rank permissions / seeder entries
-- [ ] `App\Models\Rank` and Rank factories once no FKs remain
-- [ ] Document Rank pivots (`document_requirement_rank`) after Position-only resolution is exclusive
-- [x] Crew Planning Gantt `relieves_rank_name` → `relieves_position_name` (Phase 3A)
-- [ ] Remaining `orWhereHas('rank')` search paths once Position search covers the same (Sea Service search uses Position + legacy Rank-only fallback)
-- [ ] Rank Tour-of-Duty import path / Rank-specific TOD admin if superseded by Position TOD
-- [x] Current Crew export Position conversion (Phase 3A)
-- [x] Sea Service export Position conversion (Phase 3A)
-- [x] Sea Service active UI terminology (Phase 3A)
-- [x] Crew Planning Gantt Position contract (Phase 3A)
-- [x] Crew Planning Position row keys (Phase 3A)
-- [x] Crew Planning relief Position output (Phase 3A)
-- [x] Crew Planning drag/drop Position contract (Phase 3A)
+### Destructive migration policy
 
-#### B — Temporary legacy compatibility
+Rollback requires **database backup restore + previous application version**. Migration `down()` throws and does not recreate Rank data.
 
-- [ ] `rank_id` columns on employees, crew_assignments, crew_planning_assignments, sea services, vessel manning, etc.
-- [ ] `RankPositionBridge` dual-write + `rankIdForPosition` / `resolveCrewAssignmentPositionId`
-- [ ] `LegacyRankFilterTranslator` and `TranslatesLegacyCrewRankToPosition`
-- [ ] `rank_position_mappings` table + `RankPositionMapping` model
-- [ ] Frontend deprecated `source_rank` / other Rank fallbacks marked Phase 3 compatibility
-- [ ] Smart-search `rank` alias → `position_id`
-- [ ] Historical Excel import Rank label resolution via bridge
-- [ ] Correction field catalog / payloads still accepting or storing `rank_id` where dual-write requires it
-- [ ] `CrewProjectedManningQuery` internal Rank keys (Planning presenter already maps to Position)
-
-#### C — Historical migration
-
-- [ ] `PrepareRankPositionConsolidation` command + support class (retain until post-cutover ops decide)
-- [ ] Consolidation migrations that added `position_id` / mappings (do not reverse)
-
-#### D — Historical activity/audit compatibility
-
-- [ ] Activity change presentation that can display historical Rank labels from old payloads
-- [ ] Approved correction snapshots that stored Rank fields
-
-#### E — Tests documenting legacy compatibility
-
-- [ ] Pest fixtures that still create Ranks + mappings (`crew-assignment-fixtures`, `rank-position-bridge-fixtures`, etc.)
-- [ ] Feature tests asserting legacy `rank_id` URL/import translation
-- [ ] Query-count tests that still eager-load `rank` beside `position`
-
-#### F — Documentation
-
-- [ ] This file — collapse Phase 1/2/3A history after Phase 3B ships
-- [ ] Domain / runbook / report docs that still mention Rank filters as primary
-- [ ] `docs/saved-views.md`, crew report docs, payroll notes referencing Rank
-
-### Verification before Phase 3B deletion
-
-```bash
-php artisan master-data:prepare-rank-position-consolidation
-# resolve unmapped ranks / integrity failures
-php artisan test --compact tests/Feature/Positions/RankPositionPhase2ApplicationTest.php
-php artisan test --compact tests/Feature/MasterData/RankPositionConsolidationTest.php
-```
-
-Phase 3B must not begin until a final dependency audit confirms no active Rank-canonical contracts remain.
+Historical activity/correction payloads may still contain legacy `rank_id` / `rank_name` snapshot fields for display. New events use Position only. Do not query the removed `ranks` table to render history.

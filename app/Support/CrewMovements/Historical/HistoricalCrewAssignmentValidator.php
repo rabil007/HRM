@@ -9,7 +9,6 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -109,31 +108,6 @@ final class HistoricalCrewAssignmentValidator
             'code' => 'position',
             'passed' => $positionValid,
             'message' => $positionMessage,
-        ];
-
-        $rank = $data->rankId > 0
-            ? ($bulk?->rank($data->rankId) ?? Rank::query()->find($data->rankId))
-            : null;
-        $rankValid = true;
-        $rankMessage = null;
-
-        if ($data->rankId > 0 && $rank === null) {
-            $rankValid = false;
-            $rankMessage = 'The selected rank is invalid.';
-            $errors['rank_id'] = $rankMessage;
-        } elseif ($rank !== null) {
-            $rankMessage = 'Rank is valid.';
-            if (! $rank->is_active) {
-                $warnings[] = "Rank '{$rank->name}' is currently inactive in master data.";
-            }
-        } else {
-            $rankMessage = 'Rank is optional when Position is provided.';
-        }
-
-        $checks[] = [
-            'code' => 'rank',
-            'passed' => $rankValid,
-            'message' => $rankMessage,
         ];
 
         $client = null;

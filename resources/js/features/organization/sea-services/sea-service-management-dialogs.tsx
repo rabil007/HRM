@@ -2,7 +2,7 @@ import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import * as EmployeeSeaServiceController from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
-import type { RankOption } from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import { EditSeaServiceDialog } from '@/features/organization/sea-services/edit-sea-service-dialog';
 import type { SeaServiceListItem } from '@/features/organization/sea-services/types';
 import type {
@@ -18,7 +18,7 @@ type SeaServiceManagementDialogsProps = {
     employeeId: number;
     vesselTypes: VesselTypeOption[];
     vessels: VesselOption[];
-    positions: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     editSeaService: EditableSeaService | null;
     onEditSeaServiceChange: (seaService: EditableSeaService | null) => void;

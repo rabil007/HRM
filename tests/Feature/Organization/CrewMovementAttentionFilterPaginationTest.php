@@ -4,7 +4,6 @@ use App\Enums\CrewAssignmentStatus;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
@@ -40,12 +39,12 @@ function makeDraftAssignmentForAttentionFilter(
     array $overrides = [],
 ): CrewAssignment {
     $employee ??= Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
     $attributes = array_merge([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Draft,
     ], $overrides);
 
@@ -251,7 +250,7 @@ test('inactive employee draft with attention warnings stays hidden from current 
     ]);
 
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     makeStaleDraftAssignmentForAttentionFilter($company, $rank, $inactive, $vessel, [
         'assignment_no' => 'CA-ATTN-INACTIVE',

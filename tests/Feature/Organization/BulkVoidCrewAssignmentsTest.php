@@ -12,7 +12,6 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Models\PayrollPeriod;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\CrewMovements\Actions\BulkVoidCrewAssignments;
 use App\Support\CrewMovements\CrewAssignmentVoidGuard;
@@ -79,7 +78,7 @@ test('preview returns server-authoritative impact details and permissions', func
         'training.delete',
     ]);
     $service = app(CrewMovementService::class);
-    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
     $phase = $assignment->currentPhase;
 
     EmployeeSeaService::factory()->forEmployee($employee)->create([
@@ -118,14 +117,14 @@ test('preview returns server-authoritative impact details and permissions', func
 test('basic single assignment deletion via bulk endpoint satisfies all operational invariants', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures();
     $service = app(CrewMovementService::class);
-    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     // Create a planning record to verify cleanup
     CrewPlanningAssignment::factory()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     expect(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
 
@@ -169,13 +168,13 @@ test('bulk deletion deletes multiple assignments and records distinct audit evid
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeBulkVoidFixtures();
     $service = app(CrewMovementService::class);
 
-    $emp1 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
-    $emp2 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
-    $emp3 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
+    $emp1 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id]);
+    $emp2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id]);
+    $emp3 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id]);
 
-    $a1 = $service->createDraft($company->id, $emp1->id, ['rank_id' => $rank->id], $user->id);
-    $a2 = $service->createDraft($company->id, $emp2->id, ['rank_id' => $rank->id], $user->id);
-    $a3 = $service->createDraft($company->id, $emp3->id, ['rank_id' => $rank->id], $user->id);
+    $a1 = $service->createDraft($company->id, $emp1->id, ['position_id' => $rank->id], $user->id);
+    $a2 = $service->createDraft($company->id, $emp2->id, ['position_id' => $rank->id], $user->id);
+    $a3 = $service->createDraft($company->id, $emp3->id, ['position_id' => $rank->id], $user->id);
 
     postBulkVoidViaHttp($user, [$a1->id, $a2->id, $a3->id], 'Bulk duplicate purge')
         ->assertRedirect(route('organization.crew-assignments.index'))
@@ -207,11 +206,11 @@ test('bulk operation is all-or-nothing: one blocked assignment halts the entire 
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeBulkVoidFixtures();
     $service = app(CrewMovementService::class);
 
-    $emp1 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
-    $emp2 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
+    $emp1 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id]);
+    $emp2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id]);
 
-    $safeAssignment = $service->createDraft($company->id, $emp1->id, ['rank_id' => $rank->id], $user->id);
-    $blockedAssignment = $service->createDraft($company->id, $emp2->id, ['rank_id' => $rank->id], $user->id);
+    $safeAssignment = $service->createDraft($company->id, $emp1->id, ['position_id' => $rank->id], $user->id);
+    $blockedAssignment = $service->createDraft($company->id, $emp2->id, ['position_id' => $rank->id], $user->id);
 
     // Block the second assignment with generated sea service without cleanup option enabled
     EmployeeSeaService::factory()->forEmployee($emp2)->create([
@@ -237,8 +236,8 @@ test('sea service cleanup targets only records explicitly linked via crew_assign
     ]);
     $service = app(CrewMovementService::class);
 
-    $assignment1 = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
-    $assignment2 = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment1 = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
+    $assignment2 = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     // Linked to assignment1
     $linkedSeaService = EmployeeSeaService::factory()->forEmployee($employee)->create([
@@ -280,7 +279,7 @@ test('sea service cleanup targets only records explicitly linked via crew_assign
 test('user without sea_services.delete permission cannot request sea service cleanup', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures();
     $service = app(CrewMovementService::class);
-    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     EmployeeSeaService::factory()->forEmployee($employee)->create([
         'crew_assignment_phase_id' => $assignment->currentPhase->id,
@@ -308,8 +307,8 @@ test('training cleanup handles optional deletion and removes certificates while 
     ]);
     $service = app(CrewMovementService::class);
 
-    $assignment1 = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
-    $assignment2 = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment1 = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
+    $assignment2 = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     // Staging file in storage with valid directory prefix
     $filePath = "employees/{$company->id}/training-certificates/cert.pdf";
@@ -375,7 +374,7 @@ test('training cleanup handles optional deletion and removes certificates while 
 test('user without training.delete cannot request training cleanup', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures();
     $service = app(CrewMovementService::class);
-    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     // User does not have training.delete
     postBulkVoidViaHttp($user, [$assignment->id], 'Delete', deleteTraining: true)
@@ -395,7 +394,7 @@ test('cleanup flags cannot bypass operational blockers like paid payroll or time
         'training.delete',
     ]);
     $service = app(CrewMovementService::class);
-    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     // Paid payroll period segment
     $period = PayrollPeriod::factory()->for($company)->create([
@@ -429,8 +428,8 @@ test('tenancy and authorization are strictly enforced: cross-company or unauthor
     ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
 
     $service = app(CrewMovementService::class);
-    $validAssignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
-    $foreignAssignment = $service->createDraft($otherCompany->id, $otherEmployee->id, ['rank_id' => $otherRank->id]);
+    $validAssignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
+    $foreignAssignment = $service->createDraft($otherCompany->id, $otherEmployee->id, ['position_id' => $otherRank->id]);
 
     // 29. Pure cross-company ID
     postBulkVoidViaHttp($user, [$foreignAssignment->id])
@@ -478,13 +477,13 @@ test('employee visibility restricts void preview and hides non-permitted assignm
         'include_in_attendance_leave' => true,
     ]);
 
-    $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'rank_id' => $rank->id]);
-    $empB = Employee::factory()->forCompany($company)->create(['department_id' => $deptB->id, 'rank_id' => $rank->id]);
+    $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'position_id' => $rank->id]);
+    $empB = Employee::factory()->forCompany($company)->create(['department_id' => $deptB->id, 'position_id' => $rank->id]);
 
     restrictUserToDepartments($user, $company, [$deptA->id]);
 
-    $assignmentA = $service->createDraft($company->id, $empA->id, ['rank_id' => $rank->id], $user->id);
-    $assignmentB = $service->createDraft($company->id, $empB->id, ['rank_id' => $rank->id], $user->id);
+    $assignmentA = $service->createDraft($company->id, $empA->id, ['position_id' => $rank->id], $user->id);
+    $assignmentB = $service->createDraft($company->id, $empB->id, ['position_id' => $rank->id], $user->id);
 
     EmployeeSeaService::factory()->forEmployee($empB)->create([
         'crew_assignment_phase_id' => $assignmentB->currentPhase->id,
@@ -527,13 +526,13 @@ test('employee visibility restricts bulk void mutation and enforces all-or-nothi
         'include_in_attendance_leave' => true,
     ]);
 
-    $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'rank_id' => $rank->id]);
-    $empB = Employee::factory()->forCompany($company)->create(['department_id' => $deptB->id, 'rank_id' => $rank->id]);
+    $empA = Employee::factory()->forCompany($company)->create(['department_id' => $deptA->id, 'position_id' => $rank->id]);
+    $empB = Employee::factory()->forCompany($company)->create(['department_id' => $deptB->id, 'position_id' => $rank->id]);
 
     restrictUserToDepartments($user, $company, [$deptA->id]);
 
-    $assignmentA = $service->createDraft($company->id, $empA->id, ['rank_id' => $rank->id], $user->id);
-    $assignmentB = $service->createDraft($company->id, $empB->id, ['rank_id' => $rank->id], $user->id);
+    $assignmentA = $service->createDraft($company->id, $empA->id, ['position_id' => $rank->id], $user->id);
+    $assignmentB = $service->createDraft($company->id, $empB->id, ['position_id' => $rank->id], $user->id);
 
     // 1. Department B forged mutation fails with 404
     postBulkVoidViaHttp($user, [$assignmentB->id], 'Forged attempt')
@@ -560,7 +559,7 @@ test('training certificate file is preserved if database transaction rolls back'
         'training.delete',
     ]);
     $service = app(CrewMovementService::class);
-    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     $filePath = "employees/{$company->id}/training-certificates/rollback-test.pdf";
     $versionFilePath = "employees/{$company->id}/training-certificates/rollback-test-v1.pdf";
@@ -617,8 +616,8 @@ test('batch blocker resolution executes in constant queries and eliminates N+1 o
 
     $assignments = [];
     for ($i = 0; $i < 5; $i++) {
-        $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
-        $assignments[] = $service->createDraft($company->id, $emp->id, ['rank_id' => $rank->id], $user->id);
+        $emp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id]);
+        $assignments[] = $service->createDraft($company->id, $emp->id, ['position_id' => $rank->id], $user->id);
     }
 
     $guard = app(CrewAssignmentVoidGuard::class);
@@ -649,7 +648,7 @@ test('post-commit certificate deletion failure logs warning while preserving com
         'training.delete',
     ]);
     $service = app(CrewMovementService::class);
-    $assignment = $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
 
     $filePath = "employees/{$company->id}/training-certificates/fail-cleanup.pdf";
     Storage::disk(EmployeePrivateFile::DISK)->put($filePath, 'precious certificate bytes');

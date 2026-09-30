@@ -15,7 +15,7 @@ function makePreMobilisationAssignment(): array
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     )->load(['employee', 'currentPhase', 'company']);
 

@@ -26,7 +26,7 @@ use App\Support\Employees\ResolveEmployeeNavigation;
 use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Employees\Resources\EmployeeDetailResource;
 use App\Support\Employees\Resources\EmployeeDocumentResource;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceListResource;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\Request;
@@ -45,7 +45,7 @@ final class EmployeeProfilePageData
             'branch:id,name',
             'department:id,name',
             'position:id,title',
-            'rank:id,name',
+            'position:id,title',
             'project:id,title',
             'client:id,name',
             'user:id,name,email,avatar',
@@ -164,7 +164,7 @@ final class EmployeeProfilePageData
             'approval_locations' => $formOptions['approval_locations'],
             'sssa_options' => $formOptions['sssa_options'],
             'banks' => $formOptions['banks'],
-            'ranks' => EmployeeFormOptions::seaServiceRanks(),
+            'sea_service_positions' => EmployeeFormOptions::seaServicePositionOptions(),
             'projects' => $profileLookups['projects'],
             'profile_clients' => $profileLookups['clients'],
             'employee_tabs' => $employeeTabsPayload,
@@ -264,7 +264,7 @@ final class EmployeeProfilePageData
             'approval_locations' => $formOptions['approval_locations'],
             'sssa_options' => $formOptions['sssa_options'],
             'banks' => $formOptions['banks'],
-            'ranks' => EmployeeFormOptions::seaServiceRanks(),
+            'sea_service_positions' => EmployeeFormOptions::seaServicePositionOptions(),
             'projects' => $profileLookups['projects'],
             'profile_clients' => $profileLookups['clients'],
             'employee_tabs' => $employeeTabsPayload,
@@ -633,13 +633,13 @@ final class EmployeeProfilePageData
                     'vesselType:id,name',
                     'vessel:id,name,vessel_type_id,grt,bhp',
                     'position:id,title',
-                    'rank:id,name',
+                    'position:id,title',
                     'client:id,name',
                 ])
                 ->latestServiceFirst()
                 ->get();
 
-            RankPositionBridge::hydrateCanonicalPositions($seaServiceModels, $companyId);
+            CrewPositionCatalog::hydrateCanonicalPositions($seaServiceModels, $companyId);
 
             $referencedVesselTypeIds = $seaServiceModels->pluck('vessel_type_id')->unique()->filter()->values()->all();
 

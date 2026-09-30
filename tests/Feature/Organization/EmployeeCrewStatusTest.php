@@ -10,7 +10,7 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -67,9 +67,10 @@ function makeEmployeeCrewStatusFixtures(): array
         'status' => 'active',
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'AB',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'AB',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $employee = Employee::factory()
@@ -77,7 +78,7 @@ function makeEmployeeCrewStatusFixtures(): array
         ->create([
             'employee_no' => '3001',
             'name' => 'Crew Status Seafarer',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'status' => 'active',
         ]);
 
@@ -131,7 +132,7 @@ test('employee crew status resolver returns join standby during join standby pha
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-STANDBY',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => CarbonImmutable::today()->subDays(3),
@@ -166,7 +167,7 @@ test('employee crew status resolver returns in home with day count', function ()
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-HOME',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::today()->subDays(40),
@@ -192,7 +193,7 @@ test('employee crew status resolver returns needs update when active assignment 
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-BROKEN',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => CarbonImmutable::today()->subDays(4),
@@ -351,7 +352,7 @@ test('employee directory ignores crew status filter parameter', function () {
         ->create([
             'employee_no' => '3002',
             'name' => 'Available Seafarer',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'status' => 'active',
         ]);
 
@@ -423,7 +424,7 @@ test('soft-deleted draft assignment does not block available filter', function (
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-SOFTDRAFT',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Draft,
         'source' => 'manual',
@@ -444,7 +445,7 @@ test('soft-deleted completed assignment does not classify employee as in-home da
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-SOFTDONE',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::today()->subDays(40),
@@ -472,7 +473,7 @@ test('crew status filters ignore assignments from other companies', function () 
         'company_id' => $otherCompany->id,
         'assignment_no' => 'CA-'.now()->year.'-FOREIGN',
         'employee_id' => $employee->id,
-        'rank_id' => $otherRank->id,
+        'position_id' => $otherRank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => CarbonImmutable::today()->subDays(2),
@@ -490,7 +491,7 @@ test('crew status filters ignore assignments from other companies', function () 
 test('completed assignment status resolution eager loads vessels without lazy loading', function () {
     ['company' => $company, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
     $employees = Employee::factory()->count(3)->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
@@ -500,7 +501,7 @@ test('completed assignment status resolution eager loads vessels without lazy lo
             'company_id' => $company->id,
             'assignment_no' => 'CA-'.now()->year.'-DONE'.$index,
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'status' => CrewAssignmentStatus::Completed,
             'started_at' => CarbonImmutable::today()->subDays(20),
@@ -546,7 +547,7 @@ test('legacy p1 and p3 statuses remain resolvable and filterable', function () {
         ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'travel_in'))
         ->toContain($employee->id);
 
-    $p3Employee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id]);
+    $p3Employee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id]);
     makeCurrentCrewPhaseAssignment(
         $company,
         $p3Employee,

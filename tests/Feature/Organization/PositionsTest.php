@@ -1,13 +1,10 @@
 <?php
 
-use App\Enums\RankPositionMatchType;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Position;
-use App\Models\Rank;
-use App\Models\RankPositionMapping;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -622,17 +619,13 @@ test('position referenced only by rank consolidation mapping cannot be deleted',
         'title' => 'Unused Position',
         'status' => 'active',
     ]);
-    $rank = Rank::query()->create([
-        'name' => 'Mapped Only Rank '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Mapped Only Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
-    RankPositionMapping::query()->create([
-        'company_id' => $company->id,
-        'rank_id' => $rank->id,
-        'position_id' => $mapped->id,
-        'match_type' => RankPositionMatchType::Exact,
-    ]);
+    // Rank mappings removed in Phase 3B
 
     $this->actingAs($user)
         ->from('/organization/positions')

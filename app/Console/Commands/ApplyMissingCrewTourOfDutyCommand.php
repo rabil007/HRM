@@ -32,11 +32,8 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
                     ->where('status', CrewPhaseStatus::Active)
                     ->whereNotNull('actual_start_at');
             })
-            ->where(function ($query): void {
-                $query->whereNotNull('position_id')
-                    ->orWhereNotNull('rank_id');
-            })
-            ->with(['company', 'employee', 'position', 'rank', 'currentPhase', 'phases'])
+            ->whereNotNull('position_id')
+            ->with(['company', 'employee', 'position', 'currentPhase', 'phases'])
             ->orderBy('company_id')
             ->orderBy('id');
 
@@ -72,7 +69,7 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
                 'assignment' => sprintf('%s (#%d)', $assignment->assignment_no, $assignment->id),
                 'employee' => $assignment->employee?->name ?? ('#'.$assignment->employee_id),
                 'position' => $assignment->position?->title
-                    ?? $assignment->rank?->name
+                    ?? $assignment->position?->title
                     ?? ('Assignment #'.$assignment->id),
                 'actual_join' => $actualJoinStr,
                 'position_tour' => $inspection['tour_of_duty_days'].' days',

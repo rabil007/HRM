@@ -18,7 +18,6 @@ final class CrewAssignmentUpdateCandidate
      * @param  array<string, mixed>  $submitted  Keys present in the write payload (has / array_key_exists)
      * @return array{
      *     position_id: int|null,
-     *     rank_id: int|null,
      *     client_id: int|null,
      *     vessel_id: int|null,
      *     planned_arrival_at: CarbonInterface|null,
@@ -31,7 +30,6 @@ final class CrewAssignmentUpdateCandidate
     {
         return [
             'position_id' => self::resolveInt($assignment->position_id, $submitted, 'position_id'),
-            'rank_id' => self::resolveInt($assignment->rank_id, $submitted, 'rank_id'),
             'client_id' => self::resolveInt($assignment->client_id, $submitted, 'client_id'),
             'vessel_id' => self::resolveInt($assignment->vessel_id, $submitted, 'vessel_id'),
             'planned_arrival_at' => self::resolveDate($assignment->planned_arrival_at, $submitted, 'planned_arrival_at', $timezone),
@@ -47,7 +45,6 @@ final class CrewAssignmentUpdateCandidate
      * @param  array<string, mixed>  $submitted
      * @param  array{
      *     position_id: int|null,
-     *     rank_id: int|null,
      *     client_id: int|null,
      *     vessel_id: int|null,
      *     planned_arrival_at: CarbonInterface|null,
@@ -63,7 +60,6 @@ final class CrewAssignmentUpdateCandidate
 
         foreach ([
             'position_id',
-            'rank_id',
             'client_id',
             'vessel_id',
             'planned_arrival_at',

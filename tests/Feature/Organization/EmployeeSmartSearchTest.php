@@ -5,7 +5,6 @@ use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\User;
 use App\Services\EmployeeSmartSearchInterpreter;
 use App\Services\Settings\AiSettingsService;
@@ -68,9 +67,10 @@ function makeEmployeeSmartSearchFixtures(): array
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'AB',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'AB',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -259,9 +259,10 @@ test('rank resolution uses active global master data only', function () {
     enableEmployeeSmartSearch();
     $fixtures = makeEmployeeSmartSearchFixtures();
 
-    $inactiveRank = Rank::query()->create([
-        'name' => 'OS',
-        'is_active' => false,
+    $inactiveRank = Position::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'title' => 'OS',
+        'status' => 'inactive', 'is_crew_position' => true,
     ]);
 
     EmployeeSmartSearchInterpreter::fake([

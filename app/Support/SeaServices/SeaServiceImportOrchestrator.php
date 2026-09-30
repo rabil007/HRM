@@ -6,7 +6,7 @@ use App\Imports\SeaServicesImport;
 use App\Models\Client;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\SeaServiceDuration;
@@ -141,10 +141,12 @@ final class SeaServiceImportOrchestrator
             ->map(fn ($group) => $group->mapWithKeys(
                 fn (Vessel $row) => [Vessel::normalizeName($row->name) => $row->id],
             ));
-        $rankByLower = Rank::query()
-            ->where('is_active', true)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (Rank $row) => [mb_strtolower(trim((string) $row->name)) => $row->id]);
+        $rankByLower = Position::query()
+            ->where('is_crew_position', true)
+            ->where('status', 'active')
+            ->whereNull('deleted_at')
+            ->get(['id', 'title'])
+            ->mapWithKeys(fn (Position $row) => [mb_strtolower(trim((string) $row->title)) => $row->id]);
         $clientByLower = Client::query()
             ->where('is_active', true)
             ->get(['id', 'name'])

@@ -53,7 +53,6 @@ import type {
     DocumentTypeRow,
     PositionOption,
     ProjectOption,
-    RankOption,
 } from '@/features/organization/documents/configuration/types';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
@@ -73,7 +72,6 @@ export function DocumentTypesContent({
     search = '',
     departments = [],
     positions = [],
-    ranks = [],
     projects = [],
     openDocumentType = null,
     documentAiSettings,
@@ -83,7 +81,6 @@ export function DocumentTypesContent({
     search?: string;
     departments?: DepartmentOption[];
     positions?: PositionOption[];
-    ranks?: RankOption[];
     projects?: ProjectOption[];
     openDocumentType?: DocumentTypeRow | null;
     documentAiSettings: DocumentAiSettingsProps;
@@ -548,7 +545,6 @@ export function DocumentTypesContent({
                 canUpdate={can.update}
                 departments={departments}
                 positions={positions}
-                ranks={ranks}
                 projects={projects}
                 onSubmit={submit}
             />

@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
 use App\Models\VesselType;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceAccess;
 use App\Support\SeaServices\SeaServiceListResource;
 use App\Support\SeaServices\SeaServicePagePermissions;
@@ -32,7 +32,7 @@ class SeaServiceShowController extends Controller
             'employee.employeeProfileTemplate:id,name,configuration_json',
             'vesselType:id,name',
             'vessel:id,name',
-            'rank:id,name',
+            'position:id,title',
             'client:id,name',
         ]);
 
@@ -64,13 +64,7 @@ class SeaServiceShowController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'ranks' => Rank::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $row) => ['id' => $row->id, 'name' => $row->name])
-                ->values()
-                ->all(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'clients' => Client::query()
                 ->where('is_active', true)
                 ->orderBy('name')

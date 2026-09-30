@@ -136,8 +136,6 @@ export type CrewRelievesContext = {
     source_employee: CrewReliefEmployee | null;
     source_vessel: { id: number; name: string } | null;
     source_position: { id: number; name: string } | null;
-    /** @deprecated Phase 3 compatibility only — prefer source_position */
-    source_rank?: { id: number; name: string } | null;
     source_planned_signoff_at: string | null;
 };
 

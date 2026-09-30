@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { RankOption } from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import type { SeaServiceListItem } from '@/features/organization/sea-services/types';
 import { actions } from '@/lib/design-system';
 import type {
@@ -40,7 +40,7 @@ export function EditSeaServiceDialog({
     onOpenChange: (open: boolean) => void;
     vesselTypes: VesselTypeOption[];
     vessels: VesselOption[];
-    positions: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     partialReloadKeys?: string[];
 }): ReactElement {

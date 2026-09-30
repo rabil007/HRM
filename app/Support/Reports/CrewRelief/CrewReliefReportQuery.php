@@ -10,8 +10,7 @@ use App\Models\User;
 use App\Support\CrewMovements\CrewReliefPlanningLoader;
 use App\Support\CrewMovements\CurrentOnboardCrewQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\LegacyRankFilterTranslator;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
@@ -113,7 +112,7 @@ final class CrewReliefReportQuery
             ->whereIn('id', $pageIds)
             ->with([
                 'employee:id,company_id,name,employee_no,photo_url,department_id,user_id',
-                'rank:id,name',
+                'position:id,title',
                 'position:id,title',
                 'vessel:id,company_id,name',
                 'client:id,name',
@@ -214,7 +213,7 @@ final class CrewReliefReportQuery
             ->whereIn('id', $allIds)
             ->with([
                 'employee:id,company_id,name,employee_no,photo_url,department_id,user_id',
-                'rank:id,name',
+                'position:id,title',
                 'position:id,title',
                 'vessel:id,company_id,name',
                 'client:id,name',
@@ -464,7 +463,7 @@ final class CrewReliefReportQuery
                         });
                     })
                     ->orWhereHas('vessel', fn (Builder $v) => $v->where('name', 'like', '%'.$search.'%'))
-                    ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('reliefAssignments', function (Builder $relief) use ($search, $companyId, $user): void {
                         $relief->where('company_id', $companyId)
@@ -494,11 +493,7 @@ final class CrewReliefReportQuery
         }
 
         if ($this->filters->positionId !== '') {
-            LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
-                $query,
-                $this->companyId,
-                (int) $this->filters->positionId,
-            );
+            $query->where('crew_assignments.position_id', (int) $this->filters->positionId);
         }
 
         $from = null;
@@ -690,7 +685,7 @@ final class CrewReliefReportQuery
                 ])
                 ->values()
                 ->all(),
-            'positions' => RankPositionBridge::crewPositionOptions($this->companyId),
+            'positions' => CrewPositionCatalog::crewPositionOptions($this->companyId),
             'readiness_options' => [
                 ['value' => 'all', 'label' => 'All Readiness'],
                 ['value' => 'ready', 'label' => 'Ready'],

@@ -161,6 +161,7 @@ function EmployeeDetailsPage({
     approval_locations,
     sssa_options,
     banks,
+    sea_service_positions,
     ranks,
     projects,
     profile_clients,
@@ -1105,7 +1106,11 @@ function EmployeeDetailsPage({
                                             sea_services={sea_services ?? []}
                                             vessel_types={vessel_types ?? []}
                                             vessels={vessels ?? []}
-                                            positions={positions ?? ranks ?? []}
+                                            positions={
+                                                sea_service_positions ??
+                                                ranks ??
+                                                []
+                                            }
                                             clients={clients ?? []}
                                             employeePositionId={
                                                 localEmployee.position?.id ??

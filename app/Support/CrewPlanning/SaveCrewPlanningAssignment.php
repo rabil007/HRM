@@ -6,7 +6,6 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
-use App\Support\Positions\RankPositionBridge;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -110,7 +109,6 @@ final class SaveCrewPlanningAssignment
                             ? $attributes['vessel_id']
                             : $locked->vessel_id,
                         'position_id' => $attributes['position_id'] ?? $locked->position_id,
-                        'rank_id' => $attributes['rank_id'] ?? $locked->rank_id,
                         'employee_id' => null,
                     ];
 
@@ -184,6 +182,6 @@ final class SaveCrewPlanningAssignment
      */
     private static function normalizePositionAndRank(int $companyId, array $attributes): array
     {
-        return RankPositionBridge::syncEmployeePositionAndRank($attributes, $companyId);
+        return $attributes;
     }
 }

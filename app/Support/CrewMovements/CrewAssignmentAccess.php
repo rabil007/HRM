@@ -44,7 +44,7 @@ class CrewAssignmentAccess
             ->whereKey($id)
             ->with([
                 'employee',
-                'rank',
+                'position',
                 'client',
                 'vessel',
                 'currentPhase',

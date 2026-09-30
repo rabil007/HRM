@@ -14,7 +14,7 @@ use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Hotel;
 use App\Support\Pagination\ResolvesPerPage;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryPagePermissions;
 use App\Support\Reports\CrewMovementHistoryQuery;
@@ -51,7 +51,7 @@ class CrewMovementHistoryController extends Controller
                     ->map(fn (CrewPhaseCode $phase) => ['value' => $phase->value, 'label' => $phase->label()])
                     ->all(),
                 'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
-                'positions' => RankPositionBridge::crewPositionOptions($companyId),
+                'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
                 'clients' => $this->activeOptions(Client::query()),
                 'sources' => CrewAssignment::query()
                     ->where('company_id', $companyId)

@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 /**
- * Read-only date-aware projected vessel/rank manning for a company date range.
+ * Read-only date-aware projected vessel/position manning for a company date range.
  *
  * Calendar-day semantics in the company timezone. Event display order on a shared
  * date is join before sign-off; min/max/gap/overlap are computed from the net
@@ -41,8 +41,8 @@ final class CrewProjectedManningQuery
      *     items: list<array{
      *         vessel_id: int,
      *         vessel_name: string,
-     *         rank_id: int,
-     *         rank_name: string,
+     *         position_id: int,
+     *         position_name: string,
      *         required_count: int,
      *         actual_onboard_at_start: int,
      *         projected_count_at_start: int,
@@ -80,7 +80,7 @@ final class CrewProjectedManningQuery
         string|CarbonInterface $from,
         string|CarbonInterface $to,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
     ): array {
         $timezone = CompanyTimezone::forCompanyId($companyId);
         [$fromDate, $toDate] = $this->normalizeRange($from, $to, $timezone);
@@ -88,10 +88,11 @@ final class CrewProjectedManningQuery
         $manningRows = VesselManning::query()
             ->where('company_id', $companyId)
             ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
-            ->with(['vessel:id,name', 'rank:id,name'])
+            ->when($positionId !== null, fn ($q) => $q->where('position_id', $positionId))
+            ->whereNotNull('position_id')
+            ->with(['vessel:id,name', 'position:id,title'])
             ->orderBy('vessel_id')
-            ->orderBy('rank_id')
+            ->orderBy('position_id')
             ->get();
 
         if ($manningRows->isEmpty()) {
@@ -100,13 +101,13 @@ final class CrewProjectedManningQuery
 
         /** @var list<int> $vesselIds */
         $vesselIds = $manningRows->pluck('vessel_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
-        /** @var list<int> $rankIds */
-        $rankIds = $manningRows->pluck('rank_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        /** @var list<int> $positionIds */
+        $positionIds = $manningRows->pluck('position_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
 
         $assignments = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('vessel_id', $vesselIds)
-            ->whereIn('rank_id', $rankIds)
+            ->whereIn('position_id', $positionIds)
             ->where('status', '!=', CrewAssignmentStatus::Cancelled->value)
             ->where(function ($query) use ($fromDate, $companyId): void {
                 $query->whereIn('status', [
@@ -142,7 +143,7 @@ final class CrewProjectedManningQuery
                 'company_id',
                 'employee_id',
                 'vessel_id',
-                'rank_id',
+                'position_id',
                 'status',
                 'current_phase_id',
                 'planned_join_at',
@@ -155,7 +156,7 @@ final class CrewProjectedManningQuery
         $planningOnly = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('vessel_id', $vesselIds)
-            ->whereIn('rank_id', $rankIds)
+            ->whereIn('position_id', $positionIds)
             ->whereNull('crew_assignment_id')
             ->whereNotNull('employee_id')
             ->with([
@@ -168,7 +169,7 @@ final class CrewProjectedManningQuery
                 'company_id',
                 'employee_id',
                 'vessel_id',
-                'rank_id',
+                'position_id',
                 'planned_join_date',
                 'planned_leave_date',
                 'relieves_crew_assignment_id',
@@ -194,12 +195,12 @@ final class CrewProjectedManningQuery
         ];
 
         foreach ($manningRows as $row) {
-            $key = $this->key((int) $row->vessel_id, (int) $row->rank_id);
+            $key = $this->key((int) $row->vessel_id, (int) $row->position_id);
             $item = $this->projectPosition(
                 vesselId: (int) $row->vessel_id,
                 vesselName: (string) ($row->vessel?->name ?? ''),
-                rankId: (int) $row->rank_id,
-                rankName: (string) ($row->rank?->name ?? ''),
+                positionId: (int) $row->position_id,
+                positionName: (string) ($row->position?->title ?? ''),
                 required: (int) $row->required_count,
                 fromDate: $fromDate,
                 toDate: $toDate,
@@ -257,7 +258,7 @@ final class CrewProjectedManningQuery
 
         foreach ($assignments as $assignment) {
             foreach ($this->segmentsFromAssignment($assignment, $companyId, $timezone) as $segment) {
-                $key = $this->key((int) $assignment->vessel_id, (int) $assignment->rank_id);
+                $key = $this->key((int) $assignment->vessel_id, (int) $assignment->position_id);
 
                 if (! $byKey->has($key)) {
                     $byKey->put($key, collect());
@@ -291,7 +292,7 @@ final class CrewProjectedManningQuery
                 continue;
             }
 
-            $key = $this->key((int) $planning->vessel_id, (int) $planning->rank_id);
+            $key = $this->key((int) $planning->vessel_id, (int) $planning->position_id);
 
             if (! $byKey->has($key)) {
                 $byKey->put($key, collect());
@@ -497,8 +498,8 @@ final class CrewProjectedManningQuery
     private function projectPosition(
         int $vesselId,
         string $vesselName,
-        int $rankId,
-        string $rankName,
+        int $positionId,
+        string $positionName,
         int $required,
         string $fromDate,
         string $toDate,
@@ -653,8 +654,8 @@ final class CrewProjectedManningQuery
         return [
             'vessel_id' => $vesselId,
             'vessel_name' => $vesselName,
-            'rank_id' => $rankId,
-            'rank_name' => $rankName,
+            'position_id' => $positionId,
+            'position_name' => $positionName,
             'required_count' => $required,
             'actual_onboard_at_start' => $actualOnboard,
             'projected_count_at_start' => $projectedAtStart,
@@ -781,9 +782,9 @@ final class CrewProjectedManningQuery
         return CarbonImmutable::parse((string) $value, $timezone)->toDateString();
     }
 
-    private function key(int $vesselId, int $rankId): string
+    private function key(int $vesselId, int $positionId): string
     {
-        return $vesselId.'|'.$rankId;
+        return $vesselId.'|'.$positionId;
     }
 
     /**

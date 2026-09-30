@@ -2,7 +2,6 @@
 
 namespace App\Support\Reports\CrewRelief;
 
-use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class CrewReliefReportFilters
@@ -68,7 +67,7 @@ final class CrewReliefReportFilters
             search: trim((string) $request->query('search', '')),
             vesselId: (string) $request->query('vessel_id', ''),
             clientId: (string) $request->query('client_id', ''),
-            positionId: LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId),
+            positionId: (string) ($request->query('position_id') ?? ''),
             plannedSignoffFrom: trim((string) $request->query('planned_signoff_from', '')),
             plannedSignoffTo: trim((string) $request->query('planned_signoff_to', '')),
             readiness: $readiness,

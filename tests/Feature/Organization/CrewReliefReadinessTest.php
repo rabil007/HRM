@@ -38,7 +38,7 @@ it('presenter includes relief readiness fields for on-vessel assignments', funct
         ->and($payload['days_until_signoff'])->toBe(10);
 
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
         'name' => 'Relief Person',
     ]);
@@ -46,7 +46,7 @@ it('presenter includes relief readiness fields for on-vessel assignments', funct
     CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $assignment->id,
         'planned_join_date' => $today->addDays(10)->toDateString(),
@@ -71,14 +71,14 @@ it('resolves assignment_created, mobilising, ready_to_join and relief_onboard', 
         ['planned_signoff_at' => now()->addDays(20)->toDateTimeString()],
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
@@ -126,13 +126,13 @@ it('excludes soft-deleted relief plans', function () {
         ['planned_signoff_at' => now()->addDays(5)->toDateTimeString()],
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $deleted = CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => now()->addDays(5)->toDateString(),
@@ -162,7 +162,7 @@ it('rejects duplicate active relief plans', function () {
 
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -170,7 +170,7 @@ it('rejects duplicate active relief plans', function () {
 
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'planned_join_date' => now()->addDays(11)->toDateString(),
         'planned_leave_date' => now()->addDays(101)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
@@ -195,7 +195,7 @@ it('rejects same-employee and inactive relief employees', function () {
 
     $this->actingAs($user)->post(route('organization.crew-planning.assignments.store'), [
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $fixtures['employee']->id,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
@@ -213,13 +213,13 @@ it('does not rewrite relief planned join when source sign-off changes', function
         ['planned_signoff_at' => '2026-09-01 00:00:00'],
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => '2026-09-01',
@@ -243,13 +243,13 @@ it('allows late planned join while marking critical risk near sign-off', functio
         ['planned_signoff_at' => '2026-08-08 00:00:00'],
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => '2026-08-20',

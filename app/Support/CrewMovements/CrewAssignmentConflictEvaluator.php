@@ -10,7 +10,7 @@ use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
@@ -40,7 +40,7 @@ final class CrewAssignmentConflictEvaluator
             $employeeQuery->lockForUpdate();
         }
 
-        $employee = $employeeQuery->first(['id', 'company_id', 'name', 'employee_no', 'status', 'position_id', 'rank_id']);
+        $employee = $employeeQuery->first(['id', 'company_id', 'name', 'employee_no', 'status', 'position_id']);
 
         if ($employee === null) {
             return CrewAssignmentConflictResult::blocking(
@@ -89,16 +89,9 @@ final class CrewAssignmentConflictEvaluator
 
         $position = null;
         $positionId = $context->positionId;
-        if ($positionId === null && $context->rankId !== null) {
-            // Temporary Phase 2: legacy conflict contexts may still pass rankId.
-            $positionId = RankPositionBridge::positionIdForRank(
-                $context->companyId,
-                $context->rankId,
-            );
-        }
 
         if ($positionId !== null) {
-            $position = RankPositionBridge::companyPositionsQuery($context->companyId)
+            $position = CrewPositionCatalog::companyPositionsQuery($context->companyId)
                 ->whereKey($positionId)
                 ->first(['id', 'title']);
 
@@ -115,7 +108,7 @@ final class CrewAssignmentConflictEvaluator
             $relievedQuery = CrewAssignment::query()
                 ->where('company_id', $context->companyId)
                 ->whereKey($context->relievesCrewAssignmentId)
-                ->with(['employee:id,name,employee_no,department_id,user_id', 'currentPhase', 'vessel:id,name', 'position:id,title', 'rank:id,name']);
+                ->with(['employee:id,name,employee_no,department_id,user_id', 'currentPhase', 'vessel:id,name', 'position:id,title']);
 
             if ($withLock) {
                 $relievedQuery->lockForUpdate();
@@ -240,7 +233,7 @@ final class CrewAssignmentConflictEvaluator
                 ->where('employee_id', $context->employeeId)
                 ->where('status', CrewAssignmentStatus::Active)
                 ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId))
-                ->with(['currentPhase', 'vessel:id,name', 'rank:id,name']);
+                ->with(['currentPhase', 'vessel:id,name', 'position:id,title']);
 
             if ($withLock) {
                 $activeQuery->lockForUpdate();
@@ -266,8 +259,8 @@ final class CrewAssignmentConflictEvaluator
                         'assignment_no' => $activeAssignment->assignment_no,
                         'vessel_id' => $activeAssignment->vessel_id,
                         'vessel_name' => $existingVessel,
-                        'rank_id' => $activeAssignment->rank_id,
-                        'rank_name' => $activeAssignment->rank?->name,
+                        'position_id' => $activeAssignment->position_id,
+                        'position_name' => $activeAssignment->position?->title,
                         'status' => $activeAssignment->status->value,
                         'current_phase_code' => $currentPhaseCode,
                         'current_phase_name' => $currentPhaseName,
@@ -329,7 +322,7 @@ final class CrewAssignmentConflictEvaluator
                 ->where('employee_id', $context->employeeId)
                 ->where('status', CrewAssignmentStatus::Active)
                 ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId))
-                ->with(['currentPhase', 'vessel:id,name', 'rank:id,name']);
+                ->with(['currentPhase', 'vessel:id,name', 'position:id,title']);
 
             if ($withLock) {
                 $activeQuery->lockForUpdate();
@@ -370,8 +363,8 @@ final class CrewAssignmentConflictEvaluator
                             'assignment_no' => $active->assignment_no,
                             'vessel_id' => $active->vessel_id,
                             'vessel_name' => $existingVessel,
-                            'rank_id' => $active->rank_id,
-                            'rank_name' => $active->rank?->name,
+                            'position_id' => $active->position_id,
+                            'position_name' => $active->position?->title,
                             'status' => $active->status->value,
                             'current_phase_code' => $active->currentPhase?->phase_code->value,
                             'current_phase_name' => $currentPhaseName,
@@ -446,7 +439,7 @@ final class CrewAssignmentConflictEvaluator
             ->where('employee_id', $context->employeeId)
             ->where('status', CrewAssignmentStatus::Planned)
             ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId))
-            ->with(['vessel:id,name', 'rank:id,name', 'employee:id,name']);
+            ->with(['vessel:id,name', 'position:id,title', 'employee:id,name']);
 
         if ($withLock) {
             $query->lockForUpdate();
@@ -498,8 +491,8 @@ final class CrewAssignmentConflictEvaluator
                     'assignment_no' => $plan->assignment_no,
                     'vessel_id' => $plan->vessel_id,
                     'vessel_name' => $existingVessel,
-                    'rank_id' => $plan->rank_id,
-                    'rank_name' => $plan->rank?->name,
+                    'position_id' => $plan->position_id,
+                    'position_name' => $plan->position?->title,
                     'status' => $plan->status->value,
                     'start_date' => $pStart,
                     'end_date' => $effectivePEnd,
@@ -507,7 +500,7 @@ final class CrewAssignmentConflictEvaluator
                 newAssignment: [
                     'vessel_id' => $context->vesselId,
                     'vessel_name' => $newVessel,
-                    'rank_id' => $context->rankId,
+                    'position_id' => $context->positionId,
                     'planned_join_at' => $forecastJoin,
                     'planned_signoff_at' => $forecastSignoff,
                 ],
@@ -536,7 +529,7 @@ final class CrewAssignmentConflictEvaluator
             ->whereNotNull('started_at')
             ->whereNotNull('closed_at')
             ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId))
-            ->with(['vessel:id,name', 'rank:id,name', 'employee:id,name']);
+            ->with(['vessel:id,name', 'position:id,title', 'employee:id,name']);
 
         if ($withLock) {
             $query->lockForUpdate();

@@ -17,11 +17,9 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
 use App\Models\EmployeeTraining;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewActualMovementTimestampGuard;
 use App\Support\CrewMovements\CrewMovementMasterDataGuard;
-use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -282,7 +280,6 @@ final class ValidateCrewMovementCorrection
 
         $map = [
             'vessel_id' => [Vessel::class, 'vessel'],
-            'rank_id' => [Rank::class, 'rank'],
             'position_id' => [Position::class, 'position'],
             'client_id' => [Client::class, 'client'],
         ];
@@ -426,7 +423,7 @@ final class ValidateCrewMovementCorrection
         array $normalized,
     ): void {
         if ($phase->phase_code !== CrewPhaseCode::OnVessel
-            || (! array_key_exists('rank_id', $normalized) && ! array_key_exists('position_id', $normalized))) {
+            || ! array_key_exists('position_id', $normalized)) {
             return;
         }
 
@@ -435,13 +432,11 @@ final class ValidateCrewMovementCorrection
         }
 
         $companyId = (int) $assignment->company_id;
-        $positionId = array_key_exists('position_id', $normalized)
-            ? (int) $normalized['position_id']
-            : RankPositionBridge::positionIdForRank($companyId, (int) $normalized['rank_id']);
+        $positionId = (int) $normalized['position_id'];
 
         $tourDays = null;
 
-        if ($positionId !== null && $positionId > 0) {
+        if ($positionId > 0) {
             $tourDays = Position::query()
                 ->where('company_id', $companyId)
                 ->whereKey($positionId)
@@ -449,15 +444,10 @@ final class ValidateCrewMovementCorrection
                 ->value('max_tour_of_duty_days');
         }
 
-        if (($tourDays === null || (int) $tourDays <= 0) && array_key_exists('rank_id', $normalized)) {
-            $rank = Rank::query()->whereKey((int) $normalized['rank_id'])->first();
-            $tourDays = $rank?->max_tour_of_duty_days;
-        }
-
         if ($tourDays === null || (int) $tourDays <= 0) {
             throw CrewMovementException::make(
                 'The selected position does not have a tour of duty configured, but the assignment planned sign-off was derived from tour of duty.',
-                'correction_rank_missing_tour_rule',
+                'correction_position_missing_tour_rule',
             );
         }
     }

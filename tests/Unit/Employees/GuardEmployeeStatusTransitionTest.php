@@ -8,7 +8,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\Employees\Actions\GuardEmployeeStatusTransition;
 use Illuminate\Validation\ValidationException;
 
@@ -63,9 +63,10 @@ test('status transition ignores already inactive employees and on_leave changes'
 
 test('status transition rejects leaving active while a crew assignment is open', function () {
     $company = makeStatusTransitionCompany('CA');
-    $rank = Rank::query()->create(['name' => 'GST Rank', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'GST Rank', 'status' => 'active', 'is_crew_position' => true]);
     $employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
@@ -77,9 +78,10 @@ test('status transition rejects leaving active while a crew assignment is open',
 
 test('status transition rejects leaving active while current planning exists', function () {
     $company = makeStatusTransitionCompany('PL');
-    $rank = Rank::query()->create(['name' => 'GST Plan Rank', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'GST Plan Rank', 'status' => 'active', 'is_crew_position' => true]);
     $employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $vessel = makeCrewMovementVessel('GST Plan Vessel', $company);
@@ -87,7 +89,7 @@ test('status transition rejects leaving active while current planning exists', f
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => now()->toDateString(),
         'planned_leave_date' => now()->addMonth()->toDateString(),

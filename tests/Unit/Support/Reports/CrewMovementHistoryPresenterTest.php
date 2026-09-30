@@ -24,7 +24,7 @@ test('it preserves repeated phases and calculates elapsed whole days in company 
     $assignment = CrewAssignment::factory()
         ->forEmployee($employee)
         ->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'status' => CrewAssignmentStatus::Active,
             'started_at' => '2026-07-14 20:00:00',
             'planned_signoff_at' => '2026-08-31 00:00:00',
@@ -331,7 +331,7 @@ test('it exposes tour sign-off override exact timestamps accommodation and linke
         ->completed()
         ->create([
             'assignment_no' => 'CA-2026-000041',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $previousVessel->id,
             'source' => 'manual',
             'started_at' => '2026-08-01 06:00:00',
@@ -343,7 +343,7 @@ test('it exposes tour sign-off override exact timestamps accommodation and linke
         ->active()
         ->create([
             'assignment_no' => 'CA-2026-000042',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $nextVessel->id,
             'source' => 'vessel_transfer',
             'previous_assignment_id' => $source->id,
@@ -482,7 +482,7 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ->completed()
         ->create([
             'assignment_no' => 'CA-2026-000041',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $sourceVessel->id,
             'source' => 'manual',
         ]);
@@ -500,7 +500,7 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ->active()
         ->create([
             'assignment_no' => 'CA-2026-000042',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $destinationVessel->id,
             'source' => 'redeployment',
             'previous_assignment_id' => $source->id,
@@ -562,7 +562,7 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ->active()
         ->create([
             'assignment_no' => 'CA-2026-000043',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $destinationVessel->id,
             'source' => 'redeployment',
             'previous_assignment_id' => $source->id,

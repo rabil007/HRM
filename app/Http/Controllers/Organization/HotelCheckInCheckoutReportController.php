@@ -10,7 +10,7 @@ use App\Models\Client;
 use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Support\Pagination\ResolvesPerPage;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Reports\HotelCheckInCheckoutFilters;
 use App\Support\Reports\HotelCheckInCheckoutPagePermissions;
 use App\Support\Reports\HotelCheckInCheckoutQuery;
@@ -84,7 +84,7 @@ class HotelCheckInCheckoutReportController extends Controller
                     ])
                     ->all(),
                 'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
-                'positions' => RankPositionBridge::crewPositionOptions($companyId),
+                'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
                 'clients' => $this->activeOptions(Client::query()),
             ],
             'company_today' => Carbon::now($timezone)->toDateString(),

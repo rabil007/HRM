@@ -65,7 +65,7 @@ test('full happy path p0 through completed p6', function () {
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-10 12:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
         ->and($assignment->vessel_id)->toBe($vessel->id)
@@ -125,7 +125,7 @@ test('training loop creates a second p2a record', function () {
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-02-12 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
@@ -176,7 +176,7 @@ test('join vessel requires vessel and rank and does not require actual disembark
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-03-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect($assignment->currentPhase?->actual_end_at)->toBeNull()
@@ -198,7 +198,7 @@ test('planned sign-off does not close p4 and confirm preserves planned sign-off'
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $assignment = $service->perform($company->id, $id, CrewMovementAction::PlanSignoff, [
@@ -235,7 +235,7 @@ test('direct p4 to p6 is supported via confirm disembarkation', function () {
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $assignment = $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-03-01 08:00:00',
@@ -260,7 +260,7 @@ test('start demob standby uses shared disembarkation handler', function () {
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $assignment = $service->perform($company->id, $id, CrewMovementAction::StartDemobStandby, [
         'occurred_at' => '2026-03-01 08:00:00',
@@ -284,7 +284,7 @@ test('assignment closes only from p6 and cancelling p4 is rejected', function ()
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect(fn () => $service->perform($company->id, $id, CrewMovementAction::CloseAssignment, [
@@ -346,7 +346,7 @@ test('invalid transition rolls back all changes', function () {
     expect(fn () => $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-02 08:00:00',
         'vessel_id' => makeCrewMovementVessel('Bad Join')->id,
-        'rank_id' => $employee->rank_id,
+        'position_id' => $employee->position_id,
     ], $user->id))->toThrow(CrewMovementException::class);
 
     expect(CrewAssignmentPhase::query()->where('crew_assignment_id', $id)->count())->toBe($beforePhases)

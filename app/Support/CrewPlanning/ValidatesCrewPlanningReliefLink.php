@@ -11,7 +11,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\RankPositionBridge;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Validator;
 
@@ -25,11 +25,8 @@ final class ValidatesCrewPlanningReliefLink
             'company_id' => (int) $planning->company_id,
             'relieves_crew_assignment_id' => $planning->relieves_crew_assignment_id,
             'vessel_id' => $planning->vessel_id,
-            'position_id' => RankPositionBridge::resolveCrewAssignmentPositionId(
-                (int) $planning->company_id,
-                $planning->position_id !== null ? (int) $planning->position_id : null,
-                $planning->rank_id !== null ? (int) $planning->rank_id : null,
-            ),
+            'position_id' => CrewPositionCatalog::resolveCrewAssignmentPositionId((int) $planning->company_id, $planning->position_id !== null ? (int) $planning->position_id : null),
+
             'employee_id' => $planning->employee_id,
         ], $planning);
 
@@ -110,11 +107,7 @@ final class ValidatesCrewPlanningReliefLink
             return;
         }
 
-        $assignmentPositionId = RankPositionBridge::resolveCrewAssignmentPositionId(
-            $companyId,
-            $assignment->position_id !== null ? (int) $assignment->position_id : null,
-            $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
-        );
+        $assignmentPositionId = CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $assignment->position_id !== null ? (int) $assignment->position_id : null);
 
         if ($assignment->vessel_id === null || $assignmentPositionId === null) {
             $validator->errors()->add(
@@ -132,11 +125,7 @@ final class ValidatesCrewPlanningReliefLink
             : null;
 
         if ($planningPositionId === null && $existing !== null) {
-            $planningPositionId = RankPositionBridge::resolveCrewAssignmentPositionId(
-                $companyId,
-                $existing->position_id !== null ? (int) $existing->position_id : null,
-                $existing->rank_id !== null ? (int) $existing->rank_id : null,
-            );
+            $planningPositionId = CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $existing->position_id !== null ? (int) $existing->position_id : null);
         }
 
         if ($vesselId === null || $vesselId === '') {

@@ -18,7 +18,7 @@ final class SalaryDeclarationData
         $employee->load([
             'company:id,name',
             'position:id,title',
-            'rank:id,name',
+            'position:id,title',
             'nationalityRef:id,name',
         ]);
 
@@ -41,7 +41,7 @@ final class SalaryDeclarationData
             'employee_name' => (string) ($employee->name ?? ''),
             'nationality' => (string) ($employee->nationalityRef?->name ?? ''),
             'eid_or_passport' => $identifier,
-            'job_title' => (string) ($employee->position?->title ?? $employee->rank?->name ?? ''),
+            'job_title' => (string) ($employee->position?->title ?? ''),
             'company_name' => $companyName,
             'signed_name' => $signature['signed_name'] ?? null,
             'signature_image_url' => $signature['signature_image_url'] ?? null,

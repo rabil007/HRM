@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Departments\BuildDepartmentTree;
 use App\Support\Employees\EmployeeVisibilityScope;
-use App\Support\Positions\RankPositionBridge;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -565,10 +564,7 @@ final class CrewOperationsSettings
             ->where('employees.company_id', $companyId)
             ->active()
             ->whereNull('employees.termination_date')
-            ->where(function ($role): void {
-                $role->whereNotNull('employees.position_id')
-                    ->orWhereNotNull('employees.rank_id');
-            });
+            ->whereNotNull('employees.position_id');
 
         $query = EmployeeVisibilityScope::apply($query, $user, $companyId);
 
@@ -579,46 +575,15 @@ final class CrewOperationsSettings
                 'employees.id',
                 'employees.name',
                 'employees.position_id',
-                'employees.rank_id',
             ]);
 
-        $rankIds = $employees
-            ->filter(fn (Employee $employee): bool => (int) ($employee->position_id ?? 0) < 1)
-            ->pluck('rank_id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->filter(fn (int $id): bool => $id > 0)
-            ->unique()
-            ->values()
-            ->all();
-
-        $rankToPosition = RankPositionBridge::positionIdMapForRankIds($companyId, $rankIds);
-
-        $positionIds = array_values(array_unique([
-            ...$employees->pluck('position_id')->map(fn (mixed $id): int => (int) $id)->filter(fn (int $id): bool => $id > 0)->all(),
-            ...array_values($rankToPosition),
-        ]));
-
-        $positions = $positionIds === []
-            ? collect()
-            : Position::query()
-                ->where('company_id', $companyId)
-                ->whereIn('id', $positionIds)
-                ->whereNull('deleted_at')
-                ->get(['id', 'title'])
-                ->keyBy('id');
-
         return $employees
-            ->map(function (Employee $employee) use ($rankToPosition, $positions): ?array {
-                $resolvedId = (int) ($employee->position_id ?? 0) > 0
-                    ? (int) $employee->position_id
-                    : ($rankToPosition[(int) ($employee->rank_id ?? 0)] ?? null);
+            ->map(function (Employee $employee): ?array {
+                $position = $employee->position;
 
-                if ($resolvedId === null || ! $positions->has($resolvedId)) {
+                if ($position === null || (int) ($employee->position_id ?? 0) < 1) {
                     return null;
                 }
-
-                /** @var Position $position */
-                $position = $positions->get($resolvedId);
 
                 return [
                     'id' => (int) $employee->id,

@@ -4,7 +4,6 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
@@ -70,19 +69,22 @@ function makeVesselManningFixtures(): array
         'is_active' => false,
     ]);
 
-    $captain = Rank::query()->create([
-        'name' => 'Captain',
-        'is_active' => true,
+    $captain = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Captain',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
-    $welder = Rank::query()->create([
-        'name' => 'Welder',
-        'is_active' => true,
+    $welder = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Welder',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
-    $inactiveRank = Rank::query()->create([
-        'name' => 'Inactive Rank',
-        'is_active' => false,
+    $inactiveRank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Inactive Rank',
+        'status' => 'inactive', 'is_crew_position' => true,
     ]);
 
     grantCompanyPermissions($user, $company, [
@@ -142,7 +144,7 @@ test('authorized users can view vessel manning on vessels show page', function (
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $captainPosition->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
@@ -150,7 +152,7 @@ test('authorized users can view vessel manning on vessels show page', function (
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $welderPosition->id,
-        'rank_id' => $welder->id,
+        'position_id' => $welder->id,
         'required_count' => 2,
     ]);
 
@@ -210,7 +212,7 @@ test('vessels manning update route syncs requirements and redirects to vessels s
     $this->assertDatabaseHas('vessel_manning', [
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 2,
     ]);
 });
@@ -276,14 +278,14 @@ test('authorized users can sync vessel manning requirements', function () {
     $this->assertDatabaseHas('vessel_manning', [
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
     $this->assertDatabaseHas('vessel_manning', [
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $welder->id,
+        'position_id' => $welder->id,
         'required_count' => 2,
     ]);
 });
@@ -303,7 +305,7 @@ test('sync updates existing rows and removes missing ranks', function () {
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $captainPosition->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
@@ -311,7 +313,7 @@ test('sync updates existing rows and removes missing ranks', function () {
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $welderPosition->id,
-        'rank_id' => $welder->id,
+        'position_id' => $welder->id,
         'required_count' => 2,
     ]);
 
@@ -326,13 +328,13 @@ test('sync updates existing rows and removes missing ranks', function () {
     $this->assertSoftDeleted('vessel_manning', [
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
     ]);
 
     $this->assertDatabaseHas('vessel_manning', [
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $welder->id,
+        'position_id' => $welder->id,
         'required_count' => 4,
     ]);
 });
@@ -350,7 +352,7 @@ test('sync can clear all requirements', function () {
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $captainPosition->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
@@ -379,7 +381,7 @@ test('vessel manning is scoped per company', function () {
     VesselManning::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 5,
     ]);
 
@@ -402,14 +404,14 @@ test('vessel manning is scoped per company', function () {
     $this->assertDatabaseHas('vessel_manning', [
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
     $this->assertDatabaseHas('vessel_manning', [
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 5,
     ]);
 });
@@ -454,7 +456,7 @@ test('users without update permission cannot modify existing vessel manning', fu
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $captainPosition->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
@@ -506,7 +508,7 @@ test('users without delete permission cannot clear vessel manning', function () 
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $captainPosition->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 

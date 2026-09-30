@@ -6,7 +6,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
@@ -92,9 +92,9 @@ test('daily pulse counts next-7-day joins and sign-offs with overdue secondary',
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => Employee::factory()->forCompany($company)->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'status' => 'active',
         ])->id,
         'planned_join_date' => $today->addDays(2)->toDateString(),
@@ -106,7 +106,7 @@ test('daily pulse counts next-7-day joins and sign-offs with overdue secondary',
     ]);
 
     $overdueEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     makeActiveOnVesselAssignment($company, $overdueEmployee, $rank, $vessel, [
@@ -137,18 +137,19 @@ test('actual current gap remains distinct from projected future gap', function (
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $currentVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
-    $futureRank = Rank::query()->create([
-        'name' => 'Future Gap Rank '.uniqid(),
-        'is_active' => true,
+    $futureRank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Future Gap Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $futureRank->id,
+        'position_id' => $futureRank->id,
         'required_count' => 1,
     ]);
 
@@ -191,7 +192,7 @@ test('projected future risk comes from CrewProjectedManningQuery', function () {
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -239,7 +240,7 @@ test('action required stays bounded and prefers current manning gaps first', fun
         VesselManning::query()->create([
             'company_id' => $company->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'required_count' => 1,
         ]);
     }
@@ -260,7 +261,7 @@ test('user without vessel manning permission does not receive projected data', f
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 3,
     ]);
 
@@ -286,7 +287,7 @@ test('company B projected manning cannot appear on company A dashboard', functio
     VesselManning::query()->create([
         'company_id' => $companyA->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -306,15 +307,16 @@ test('company B projected manning cannot appear on company A dashboard', functio
     ]);
 
     $vesselB = makeCrewMovementVessel('Foreign Dashboard Vessel', $companyB);
-    $rankB = Rank::query()->create([
-        'name' => 'Foreign Dashboard Rank '.uniqid(),
-        'is_active' => true,
+    $rankB = Position::query()->create([
+        'company_id' => $companyB->id,
+        'title' => 'Foreign Dashboard Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     VesselManning::query()->create([
         'company_id' => $companyB->id,
         'vessel_id' => $vesselB->id,
-        'rank_id' => $rankB->id,
+        'position_id' => $rankB->id,
         'required_count' => 4,
     ]);
 
@@ -336,7 +338,7 @@ test('crew operations overview counts needs update assignments in action require
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-NEEDSUP',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => now()->subDays(10),
@@ -365,7 +367,7 @@ test('crew operations overview counts overdue home using max home days setting',
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-OVERDUE',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::today()->subDays(20),
@@ -398,7 +400,7 @@ test('projected critical positions remain bounded on daily dashboard', function 
         VesselManning::query()->create([
             'company_id' => $company->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'required_count' => 1,
         ]);
     }
@@ -426,7 +428,7 @@ test('overview-only users do not receive assignment urls in action or relief ris
     ]);
 
     $reliefEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     makeActiveOnVesselAssignment(
@@ -486,7 +488,7 @@ test('users with assignments view receive assignment links on dashboard actions 
     ]);
 
     $reliefEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $reliefAssignment = makeActiveOnVesselAssignment(
@@ -537,7 +539,7 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -553,7 +555,7 @@ test('vessel and projected dashboard links remain gated by vessel manning permis
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $gapVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -620,7 +622,7 @@ test('projected future gap links prefer crew planning when planning view is gran
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 1,
     ]);
 
@@ -648,7 +650,7 @@ test('projected future gap links prefer crew planning when planning view is gran
 
     $expectedPlanningHref = route('organization.crew-planning.index', [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     expect($projectedGap)->not->toBeNull()
@@ -666,7 +668,7 @@ test('employee action rows omit employee show links without employees view', fun
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-NEEDSLINK',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => now()->subDays(10),

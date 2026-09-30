@@ -8,7 +8,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewPlanning\SaveCrewPlanningAssignment;
@@ -18,7 +18,7 @@ function reliefPlanningPayload(CrewAssignment $source, array $overrides = []): a
 {
     return array_merge([
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => null,
         'planned_join_date' => now()->addDays(10)->toDateString(),
         'planned_leave_date' => now()->addDays(100)->toDateString(),
@@ -91,9 +91,10 @@ it('rejects vacant relief with wrong vessel or rank', function () {
         makeCrewMovementVessel('Correct Vacant Vessel'),
     );
     $otherVessel = makeCrewMovementVessel('Wrong Vacant Vessel');
-    $otherRank = Rank::query()->create([
-        'name' => 'Wrong Relief Rank '.uniqid(),
-        'is_active' => true,
+    $otherRank = Position::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'title' => 'Wrong Relief Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
     ensureRankMappedPosition($fixtures['company'], $otherRank);
 
@@ -105,7 +106,7 @@ it('rejects vacant relief with wrong vessel or rank', function () {
 
     $this->actingAs($fixtures['user'])
         ->post(route('organization.crew-planning.assignments.store'), reliefPlanningPayload($source, [
-            'rank_id' => $otherRank->id,
+            'position_id' => $otherRank->id,
         ]))
         ->assertSessionHasErrors('relieves_crew_assignment_id');
 });
@@ -145,7 +146,7 @@ it('keeps vacant relief company-scoped', function () {
     $this->actingAs($fixtures['user'])
         ->post(route('organization.crew-planning.assignments.store'), [
             'vessel_id' => $foreignSource->vessel_id,
-            'rank_id' => $foreignSource->rank_id,
+            'position_id' => $foreignSource->position_id,
             'employee_id' => null,
             'planned_join_date' => now()->addDays(10)->toDateString(),
             'planned_leave_date' => now()->addDays(100)->toDateString(),
@@ -187,7 +188,7 @@ it('allows updating a relief plan without treating itself as a duplicate', funct
         'planned_leave_date' => now()->addDays(110)->toDateString(),
         'relieves_crew_assignment_id' => $source->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
     ]);
 
     expect($updated->planned_join_date->toDateString())->toBe(now()->addDays(14)->toDateString())
@@ -204,7 +205,7 @@ it('allows replacement planning after cancelled completed or soft-deleted relief
         makeCrewMovementVessel('Lifecycle Vessel'),
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
 
@@ -249,7 +250,7 @@ it('treats completed linked relief as non-blocking for a new plan', function () 
         makeCrewMovementVessel('Completed Lifecycle Vessel'),
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
 
@@ -281,7 +282,7 @@ it('treats active P4 relief as operational and P5/P6 as historical', function ()
         makeCrewMovementVessel('P4-P6 Lifecycle Vessel'),
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
 
@@ -328,11 +329,11 @@ it('allows a new relief plan after linked relief reaches P5 or P6 and preserves 
         makeCrewMovementVessel('P5 Block Vessel'),
     );
     $firstRelief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $secondRelief = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
 
@@ -380,7 +381,7 @@ it('resolves Current Crew no_relief when only an old P5 or P6 relief exists', fu
         ['planned_signoff_at' => now()->addDays(8)->toDateTimeString()],
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
 

@@ -134,7 +134,7 @@ test('5. active P2A join standby employee is recognised as having an active assi
     ]);
     $user->update(['current_company_id' => $company->id]);
     $vessel = makeCrewMovementVessel('P2A Vessel', $company);
-    $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $emp, $rank, $vessel, CrewPhaseCode::JoinStandby);
 
     $this->actingAs($user)
@@ -158,7 +158,7 @@ test('6. active P5 demob standby employee is recognised as having an active assi
     ]);
     $user->update(['current_company_id' => $company->id]);
     $vessel = makeCrewMovementVessel('P5 Vessel', $company);
-    $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $emp, $rank, $vessel, CrewPhaseCode::DemobStandby);
 
     $this->actingAs($user)
@@ -213,13 +213,13 @@ test('8. completed assignment employee is available for new cycle', function () 
     ]);
     $user->update(['current_company_id' => $company->id]);
     $vessel = makeCrewMovementVessel('Completed Vessel', $company);
-    $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
 
     CrewAssignment::query()->create([
         'company_id' => $company->id,
         'assignment_no' => 'CA-COMP-'.uniqid(),
         'employee_id' => $emp->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::parse('2026-01-01'),
@@ -256,7 +256,7 @@ test('9. generic error validation path is supported when backend rejects duplica
     $response = $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-09-01',
         ]);
@@ -428,19 +428,19 @@ test('employee operational status resolves on_vessel, join_standby, demob_standb
     $vessel = makeCrewMovementVessel('Status Test Vessel', $company);
 
     // Employee 1: On Vessel (P4)
-    $empOnVessel = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $empOnVessel = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $assignOnVessel = makeActiveOnVesselAssignment($company, $empOnVessel, $rank, $vessel);
 
     // Employee 2: Join Standby (P2A)
-    $empJoinStandby = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $empJoinStandby = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $assignJoinStandby = makeCurrentCrewPhaseAssignment($company, $empJoinStandby, $rank, $vessel, CrewPhaseCode::JoinStandby);
 
     // Employee 3: Demob Standby (P5)
-    $empDemobStandby = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $empDemobStandby = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $assignDemobStandby = makeCurrentCrewPhaseAssignment($company, $empDemobStandby, $rank, $vessel, CrewPhaseCode::DemobStandby);
 
     // Employee 4: Available (no active assignment)
-    $empAvailable = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $empAvailable = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.create'))
@@ -487,7 +487,7 @@ test('crew create/store no longer accepts or persists company_visa_type_id', fun
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'company_visa_type_id' => $visa->id,
             'planned_join_at' => '2026-09-01',
@@ -529,7 +529,7 @@ test('vessel transfer and redeployment movements work cleanly without visa type'
         [
             'occurred_at' => '2026-08-01 10:00:00',
             'vessel_id' => $destVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -565,7 +565,7 @@ test('vessel transfer and redeployment movements work cleanly without visa type'
             'occurred_at' => '2026-08-11 09:00:00',
             'starting_phase' => 'p0',
             'vessel_id' => $redeployVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -608,7 +608,7 @@ test('create page exposes max_home_days and home availability readiness for in-h
 
     $vessel = makeCrewMovementVessel('Home Readiness Vessel', $company);
     $employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
@@ -616,7 +616,7 @@ test('create page exposes max_home_days and home availability readiness for in-h
         'company_id' => $company->id,
         'assignment_no' => 'CA-HOME-'.uniqid(),
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::today('Asia/Dubai')->subDays(50),
@@ -665,7 +665,7 @@ test('home availability readiness fields are stripped without assignments view p
     $user->update(['current_company_id' => $company->id]);
 
     $employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
@@ -673,7 +673,7 @@ test('home availability readiness fields are stripped without assignments view p
         'company_id' => $company->id,
         'assignment_no' => 'CA-HOME-RESTRICTED-'.uniqid(),
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::parse('2026-06-01'),
         'closed_at' => CarbonImmutable::parse('2026-08-01'),
@@ -703,7 +703,7 @@ test('P0 draft assignment does not set has_active_assignment to true', function 
         'company_id' => $company->id,
         'assignment_no' => 'CA-DRAFT-'.uniqid(),
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Draft,
         'source' => 'manual',
     ]);
@@ -730,7 +730,7 @@ test('edit assignment page includes operational status context for locked employ
         'company_id' => $company->id,
         'assignment_no' => 'CA-EDIT-'.uniqid(),
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',
