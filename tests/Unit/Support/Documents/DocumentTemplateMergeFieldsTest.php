@@ -11,7 +11,8 @@ use App\Support\Documents\DocumentTemplateMergeFields;
 
 function createMergeFieldsTestCompany(string $name = 'Test Co'): Company
 {
-    $code = strtoupper((string) fake()->unique()->lexify('??'));
+    // Use X* codes so company country never collides with real ISO codes used later (e.g. PH).
+    $code = 'X'.strtoupper((string) fake()->unique()->lexify('?'));
     $country = Country::query()->firstOrCreate(
         ['code' => $code],
         ['name' => "Test {$code}", 'dial_code' => '+999', 'is_active' => true],
@@ -106,7 +107,7 @@ test('values for employee maps employee attributes to placeholders', function ()
     ]);
     $position = Position::query()->create(['company_id' => $company->id, 'title' => 'First Officer']);
     $rank = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
-    $nationality = Country::query()->firstOrCreate(
+    $nationality = Country::query()->updateOrCreate(
         ['code' => 'PH'],
         ['name' => 'Philippines', 'dial_code' => '+63', 'is_active' => true],
     );
