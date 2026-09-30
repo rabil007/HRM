@@ -245,4 +245,7 @@ jobs:
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
+
+            echo "Deploy complete for ${TARGET_SHA:0:7}."
+            echo "If new queue job classes shipped, restart queue workers so they load the new code."
           EOF

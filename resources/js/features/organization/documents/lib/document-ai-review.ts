@@ -139,7 +139,7 @@ export function clearAiOwnedDraftsMetadata(
     return drafts.map(clearAiOwnedDraftMetadata);
 }
 
-/** True when draft count crosses between single-file and bulk AI modes. */
+/** True when draft count crosses between single-file and bulk AI modes (clear AI-owned metadata either way). */
 export function shouldClearAiOwnedOnDraftCountChange(
     previousCount: number,
     currentCount: number,
