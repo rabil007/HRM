@@ -19,6 +19,8 @@ import {
     documentAiContextKey,
     documentTypeMismatch,
     idleDocumentAiReview,
+    isDocumentAiDetectedType,
+    reviewStateFromExtractionResult,
     shouldClearAiOwnedOnDraftCountChange,
     uniqueReviewWarnings,
 } from '@/features/organization/documents/lib/document-ai-review';
@@ -29,6 +31,7 @@ import {
     isSupportedUploadFile,
     prepareUploadFiles,
 } from '@/features/organization/documents/upload/compress-upload-file';
+import { DocumentAiSupportedTypesInfo } from '@/features/organization/documents/upload/document-ai-supported-types-info';
 import {
     DocumentUploadProgressOverlay,
     resolveDocumentUploadPhase,
@@ -237,7 +240,7 @@ export function UploadDocumentDialog({
     const aiContextRef = useRef(aiContextKey);
     const aiBusy = aiReview.status === 'extracting';
     const mismatchWarning = documentTypeMismatch(
-        aiReview.detectedDocumentType,
+        aiReview,
         selectedDraft?.document_type_id ?? '',
         documentTypes,
     );
@@ -308,8 +311,12 @@ export function UploadDocumentDialog({
                         draft,
                         item.review.fields,
                         {
-                            detectedDocumentType:
-                                item.review.detectedDocumentType,
+                            classification: {
+                                documentType: item.review.detectedDocumentType,
+                                documentSubtype:
+                                    item.review.detectedDocumentSubtype,
+                                detectedLabel: item.review.detectedLabel,
+                            },
                             documentTypes,
                         },
                     );
@@ -388,15 +395,18 @@ export function UploadDocumentDialog({
             }
 
             const payload = (await response.json()) as { result?: unknown };
-            const result = payload.result as Partial<
-                Omit<DocumentAiReviewState, 'status' | 'contextKey'>
-            > & { document_type?: string; confidence?: number };
+            const result = payload.result as {
+                document_type?: string;
+                document_subtype?: string | null;
+                detected_label?: string | null;
+                confidence?: number;
+                fields?: DocumentAiReviewState['fields'];
+                warnings?: string[];
+            };
 
             if (
                 !result ||
-                !['passport', 'emirates_id', 'uae_visa', 'unknown'].includes(
-                    result.document_type ?? '',
-                ) ||
+                !isDocumentAiDetectedType(result.document_type ?? '') ||
                 typeof result.confidence !== 'number' ||
                 !result.fields ||
                 typeof result.fields !== 'object' ||
@@ -428,17 +438,18 @@ export function UploadDocumentDialog({
             const review: DocumentAiReviewState = {
                 status: 'ready',
                 contextKey,
-                detectedDocumentType:
-                    result.document_type as DocumentAiReviewState['detectedDocumentType'],
-                overallConfidence: result.confidence,
-                fields: result.fields,
-                warnings: result.warnings,
+                ...reviewStateFromExtractionResult(result),
             };
             setDrafts((current) =>
                 current.map((draft) =>
                     draft.id === selectedDraft.id
                         ? applyAiFieldsWithoutOverwrite(draft, review.fields, {
-                              detectedDocumentType: review.detectedDocumentType,
+                              classification: {
+                                  documentType: review.detectedDocumentType,
+                                  documentSubtype:
+                                      review.detectedDocumentSubtype,
+                                  detectedLabel: review.detectedLabel,
+                              },
                               documentTypes,
                           })
                         : draft,
@@ -930,6 +941,10 @@ export function UploadDocumentDialog({
                                 </div>
                             </div>
 
+                            {aiAvailable || bulkAiAvailable ? (
+                                <DocumentAiSupportedTypesInfo />
+                            ) : null}
+
                             <div className="rounded-2xl border border-border bg-card/40">
                                 <div className="flex items-center justify-between border-b border-border px-4 py-3">
                                     <div>
@@ -1094,9 +1109,8 @@ export function UploadDocumentDialog({
                                                   documentTypeMismatch(
                                                       bulkAiState.items[
                                                           selectedDraft.id
-                                                      ]?.review
-                                                          ?.detectedDocumentType ??
-                                                          null,
+                                                      ]?.review ??
+                                                          idleDocumentAiReview(),
                                                       selectedDraft.document_type_id,
                                                       documentTypes,
                                                   ),

@@ -11,6 +11,7 @@ use App\Support\EmployeeDocuments\DocumentAiExtractionResult;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Ai\Prompts\AgentPrompt;
 
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
@@ -133,4 +134,45 @@ test('documents ai use permission does not grant upload permission', function ()
         'document_type_id' => $type->id,
         'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
     ])->assertForbidden();
+});
+
+test('document AI provider prompt includes original filename as secondary hint', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    enableDocumentExtractionFor($company, $user);
+
+    DocumentAiProviderExtractor::fake([
+        [
+            'document_type' => 'seafarer_document',
+            'document_subtype' => 'cdc',
+            'detected_label' => 'Continuous Discharge Certificate',
+            'confidence' => 0.98,
+            'fields' => [
+                'document_number' => ['value' => null, 'confidence' => null],
+                'issue_date' => ['value' => null, 'confidence' => null],
+                'expiry_date' => ['value' => null, 'confidence' => null],
+                'holder_name' => ['value' => null, 'confidence' => null],
+                'nationality' => ['value' => null, 'confidence' => null],
+                'issuing_country' => ['value' => null, 'confidence' => null],
+                'visa_type' => ['value' => null, 'confidence' => null],
+            ],
+            'warnings' => [],
+        ],
+    ]);
+
+    $file = UploadedFile::fake()->create('RAVI_CDC_2026.pdf', 100, 'application/pdf');
+
+    $result = app(DocumentAiProviderExtractor::class)->extract($file);
+
+    expect($result->documentType)->toBe('seafarer_document')
+        ->and($result->documentSubtype)->toBe('cdc');
+
+    DocumentAiProviderExtractor::assertPrompted(function (AgentPrompt $prompt): bool {
+        $instructions = (string) $prompt->agent->instructions();
+
+        return str_contains($prompt->prompt, 'Original filename: RAVI_CDC_2026.pdf')
+            && str_contains($prompt->prompt, 'secondary classification hint')
+            && str_contains($instructions, 'original filename is an additional hint only')
+            && str_contains($instructions, 'Verify document type from the actual attached document');
+    });
 });

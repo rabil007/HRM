@@ -4,20 +4,53 @@ import type {
     UploadDraftMetadata,
 } from '@/features/organization/documents/upload/upload-draft';
 
+export const DOCUMENT_AI_SUPPORTED_TYPE_LABELS = [
+    'Passport',
+    'Emirates ID',
+    'Labour Card',
+    'Seaman Book / CDC',
+    'Driving License',
+    'Visit Visa',
+    'Residence Visa',
+    'CICPA',
+    'HSE Passport',
+    'Insurance',
+] as const;
+
+export const DOCUMENT_AI_DETECTED_TYPES = [
+    'passport',
+    'emirates_id',
+    'labour_card',
+    'seafarer_document',
+    'driving_license',
+    'uae_visa',
+    'cicpa',
+    'hse_passport',
+    'insurance_document',
+    'unknown',
+] as const;
+
+export type DocumentAiDetectedType =
+    (typeof DOCUMENT_AI_DETECTED_TYPES)[number];
+
 export type DocumentAiFieldName =
     | 'document_number'
     | 'issue_date'
     | 'expiry_date'
     | 'document_type_id';
-export type DocumentAiDetectedType =
-    | 'passport'
-    | 'emirates_id'
-    | 'uae_visa'
-    | 'unknown';
+
+export type DocumentAiClassification = {
+    documentType: DocumentAiDetectedType | null;
+    documentSubtype: string | null;
+    detectedLabel: string | null;
+};
+
 export type DocumentAiReviewState = {
     status: 'idle' | 'extracting' | 'ready' | 'failed';
     contextKey: string | null;
     detectedDocumentType: DocumentAiDetectedType | null;
+    detectedDocumentSubtype: string | null;
+    detectedLabel: string | null;
     overallConfidence: number | null;
     fields: Partial<
         Record<
@@ -36,6 +69,8 @@ export const idleDocumentAiReview = (): DocumentAiReviewState => ({
     status: 'idle',
     contextKey: null,
     detectedDocumentType: null,
+    detectedDocumentSubtype: null,
+    detectedLabel: null,
     overallConfidence: null,
     fields: {},
     warnings: [],
@@ -68,11 +103,109 @@ export function confidenceLabel(
     return 'Low';
 }
 
+export function isDocumentAiDetectedType(
+    value: string,
+): value is DocumentAiDetectedType {
+    return (DOCUMENT_AI_DETECTED_TYPES as readonly string[]).includes(value);
+}
+
+export function reviewStateFromExtractionResult(result: {
+    document_type?: string;
+    document_subtype?: string | null;
+    detected_label?: string | null;
+    confidence?: number;
+    fields?: DocumentAiReviewState['fields'];
+    warnings?: string[];
+}): Omit<DocumentAiReviewState, 'status' | 'contextKey'> {
+    const documentType: DocumentAiDetectedType = isDocumentAiDetectedType(
+        result.document_type ?? '',
+    )
+        ? (result.document_type as DocumentAiDetectedType)
+        : 'unknown';
+
+    return {
+        detectedDocumentType: documentType,
+        detectedDocumentSubtype: result.document_subtype ?? null,
+        detectedLabel: result.detected_label ?? null,
+        overallConfidence:
+            typeof result.confidence === 'number' ? result.confidence : null,
+        fields: result.fields ?? {},
+        warnings: result.warnings ?? [],
+    };
+}
+
+export function detectedTypeDisplayLabel(
+    review: Pick<
+        DocumentAiReviewState,
+        'detectedDocumentType' | 'detectedDocumentSubtype' | 'detectedLabel'
+    >,
+): string | null {
+    if (review.detectedLabel?.trim()) {
+        return review.detectedLabel.trim();
+    }
+
+    if (
+        !review.detectedDocumentType ||
+        review.detectedDocumentType === 'unknown'
+    ) {
+        return 'Unknown';
+    }
+
+    return fallbackLabelForClassification(
+        review.detectedDocumentType,
+        review.detectedDocumentSubtype,
+    );
+}
+
+function fallbackLabelForClassification(
+    documentType: DocumentAiDetectedType,
+    documentSubtype: string | null,
+): string {
+    const labels: Record<DocumentAiDetectedType, string> = {
+        passport: 'Passport',
+        emirates_id: 'Emirates ID',
+        labour_card: 'Labour Card',
+        seafarer_document: 'Seafarer document',
+        driving_license: 'Driving License',
+        uae_visa: 'UAE Visa',
+        cicpa: 'CICPA',
+        hse_passport: 'HSE Passport',
+        insurance_document: 'Insurance',
+        unknown: 'Unknown',
+    };
+
+    const subtypeLabels: Record<string, string> = {
+        ordinary: 'Ordinary Passport',
+        diplomatic: 'Diplomatic Passport',
+        service: 'Service Passport',
+        official: 'Official Passport',
+        emergency: 'Emergency Passport',
+        seaman_book: 'Seaman Book',
+        cdc: 'Continuous Discharge Certificate',
+        discharge_book: 'Discharge Book',
+        seafarer_identity_document: "Seafarer's Identity Document",
+        visit: 'UAE Visit Visa',
+        residence: 'UAE Residence Visa',
+        employment: 'UAE Employment Visa',
+        tourist: 'UAE Tourist Visa',
+        transit: 'UAE Transit Visa',
+        card: 'Insurance Card',
+        policy: 'Insurance Policy',
+        certificate: 'Insurance Certificate',
+    };
+
+    if (documentSubtype && subtypeLabels[documentSubtype]) {
+        return subtypeLabels[documentSubtype];
+    }
+
+    return labels[documentType];
+}
+
 export function applyAiFieldsWithoutOverwrite(
     draft: UploadDraft,
     fields: DocumentAiReviewState['fields'],
     options?: {
-        detectedDocumentType?: DocumentAiDetectedType | null;
+        classification?: DocumentAiClassification | null;
         documentTypes?: DocumentTypeOption[];
     },
 ): UploadDraft {
@@ -94,8 +227,8 @@ export function applyAiFieldsWithoutOverwrite(
     }
 
     if (!draft.document_type_id.trim()) {
-        const resolvedTypeId = resolveDocumentTypeIdFromDetectedCategory(
-            options?.detectedDocumentType ?? null,
+        const resolvedTypeId = resolveDocumentTypeIdFromAiClassification(
+            options?.classification ?? null,
             options?.documentTypes ?? [],
         );
 
@@ -170,13 +303,6 @@ export function shouldClearAiOwnedOnDraftCountChange(
     );
 }
 
-const TYPE_LABELS: Record<DocumentAiDetectedType, string> = {
-    passport: 'Passport',
-    emirates_id: 'Emirates ID',
-    uae_visa: 'UAE Visa',
-    unknown: 'Unknown',
-};
-
 function normalizeDocumentTypeTitle(title: string): string {
     return title
         .toLowerCase()
@@ -184,66 +310,166 @@ function normalizeDocumentTypeTitle(title: string): string {
         .trim();
 }
 
-function categoryForTitle(title: string): DocumentAiDetectedType | null {
-    const value = normalizeDocumentTypeTitle(title);
+type ClassificationKey = string;
 
-    if (value.includes('passport')) {
-        return 'passport';
+function classificationKey(
+    documentType: DocumentAiDetectedType,
+    documentSubtype: string | null,
+): ClassificationKey {
+    return documentSubtype
+        ? `${documentType}:${documentSubtype}`
+        : documentType;
+}
+
+const CANONICAL_COMPANY_TYPE_TITLES: Partial<
+    Record<ClassificationKey, string>
+> = {
+    passport: 'Passport',
+    'passport:ordinary': 'Passport',
+    'passport:diplomatic': 'Diplomatic Passport',
+    'passport:service': 'Service Passport',
+    'passport:official': 'Official Passport',
+    'passport:emergency': 'Emergency Passport',
+    emirates_id: 'Emirates ID',
+    labour_card: 'Labour Card',
+    driving_license: 'Driving License',
+    'uae_visa:visit': 'Visit Visa',
+    'uae_visa:residence': 'Residence Visa',
+    'seafarer_document:seaman_book': 'Seaman Book',
+    'seafarer_document:cdc': 'CDC',
+    cicpa: 'CICPA',
+    hse_passport: 'HSE Passport',
+    'insurance_document:card': 'Insurance Card',
+    'insurance_document:policy': 'Insurance Policy',
+    'insurance_document:certificate': 'Insurance Certificate',
+};
+
+const COMPANY_TITLE_ALIASES: Partial<Record<ClassificationKey, string[]>> = {
+    'seafarer_document:seaman_book': ["Seaman's Book", 'Seamans Book'],
+    'seafarer_document:cdc': [
+        'Continuous Discharge Certificate',
+        'Continuous Discharge Book',
+    ],
+    'uae_visa:residence': ['UAE Residence Visa', 'Residence Visa'],
+    'uae_visa:visit': ['UAE Visit Visa', 'Visit Visa'],
+};
+
+function canonicalTitlesForClassification(
+    documentType: DocumentAiDetectedType,
+    documentSubtype: string | null,
+): string[] {
+    const keys = [
+        classificationKey(documentType, documentSubtype),
+        classificationKey(documentType, null),
+    ];
+
+    const titles = new Set<string>();
+
+    for (const key of keys) {
+        const canonical = CANONICAL_COMPANY_TYPE_TITLES[key];
+
+        if (canonical) {
+            titles.add(canonical);
+        }
+
+        for (const alias of COMPANY_TITLE_ALIASES[key] ?? []) {
+            titles.add(alias);
+        }
     }
 
-    if (value.includes('emirates id') || value === 'eid') {
-        return 'emirates_id';
+    return [...titles];
+}
+
+function companyTypeClassificationKey(title: string): ClassificationKey | null {
+    const normalized = normalizeDocumentTypeTitle(title);
+
+    for (const [key, canonical] of Object.entries(
+        CANONICAL_COMPANY_TYPE_TITLES,
+    )) {
+        if (
+            canonical !== undefined &&
+            normalizeDocumentTypeTitle(canonical) === normalized
+        ) {
+            return key;
+        }
     }
 
-    if (
-        value.includes('uae visa') ||
-        value.includes('residence visa') ||
-        value === 'visa'
-    ) {
-        return 'uae_visa';
+    for (const [key, aliases] of Object.entries(COMPANY_TITLE_ALIASES)) {
+        for (const alias of aliases ?? []) {
+            if (normalizeDocumentTypeTitle(alias) === normalized) {
+                return key;
+            }
+        }
     }
 
     return null;
 }
 
 /**
- * Map an AI category to a company Document Type when the match is unambiguous.
- * Never guesses when multiple company types share the same category.
+ * Map normalized AI category/subtype to a company Document Type when the match is deterministic.
+ * Never guesses when multiple company types could match.
  */
+export function resolveDocumentTypeIdFromAiClassification(
+    classification: DocumentAiClassification | null,
+    types: DocumentTypeOption[],
+): string | null {
+    if (
+        !classification?.documentType ||
+        classification.documentType === 'unknown'
+    ) {
+        return null;
+    }
+
+    const canonicalTitles = canonicalTitlesForClassification(
+        classification.documentType,
+        classification.documentSubtype,
+    );
+
+    if (canonicalTitles.length === 0) {
+        return null;
+    }
+
+    const normalizedCanonicals = new Set(
+        canonicalTitles.map((title) => normalizeDocumentTypeTitle(title)),
+    );
+
+    const matches = types.filter((type) =>
+        normalizedCanonicals.has(normalizeDocumentTypeTitle(type.title)),
+    );
+
+    return matches.length === 1 ? String(matches[0].id) : null;
+}
+
+/** @deprecated Use resolveDocumentTypeIdFromAiClassification */
 export function resolveDocumentTypeIdFromDetectedCategory(
     detected: DocumentAiDetectedType | null,
     types: DocumentTypeOption[],
 ): string | null {
-    if (!detected || detected === 'unknown') {
-        return null;
-    }
-
-    const matches = types.filter(
-        (type) => categoryForTitle(type.title) === detected,
+    return resolveDocumentTypeIdFromAiClassification(
+        detected
+            ? {
+                  documentType: detected,
+                  documentSubtype: null,
+                  detectedLabel: null,
+              }
+            : null,
+        types,
     );
-
-    if (matches.length === 0) {
-        return null;
-    }
-
-    if (matches.length === 1) {
-        return String(matches[0].id);
-    }
-
-    const preferredLabel = normalizeDocumentTypeTitle(TYPE_LABELS[detected]);
-    const exact = matches.filter(
-        (type) => normalizeDocumentTypeTitle(type.title) === preferredLabel,
-    );
-
-    return exact.length === 1 ? String(exact[0].id) : null;
 }
 
 export function documentTypeMismatch(
-    detected: DocumentAiDetectedType | null,
+    review: Pick<
+        DocumentAiReviewState,
+        'detectedDocumentType' | 'detectedDocumentSubtype' | 'detectedLabel'
+    >,
     selectedId: string,
     types: DocumentTypeOption[],
 ): string | null {
-    if (!detected || detected === 'unknown' || !selectedId) {
+    if (
+        !review.detectedDocumentType ||
+        review.detectedDocumentType === 'unknown' ||
+        !selectedId
+    ) {
         return null;
     }
 
@@ -253,13 +479,46 @@ export function documentTypeMismatch(
         return null;
     }
 
-    const selectedCategory = categoryForTitle(selected.title);
+    const resolvedId = resolveDocumentTypeIdFromAiClassification(
+        {
+            documentType: review.detectedDocumentType,
+            documentSubtype: review.detectedDocumentSubtype,
+            detectedLabel: review.detectedLabel,
+        },
+        types,
+    );
 
-    if (!selectedCategory || selectedCategory === detected) {
+    if (resolvedId === selectedId) {
         return null;
     }
 
-    return `AI detected this file as ${TYPE_LABELS[detected]}, but ${selected.title} is currently selected. Please confirm the document type before saving.`;
+    const selectedKey = companyTypeClassificationKey(selected.title);
+    const detectedKey = classificationKey(
+        review.detectedDocumentType,
+        review.detectedDocumentSubtype,
+    );
+
+    if (
+        selectedKey &&
+        detectedKey &&
+        selectedKey !== detectedKey &&
+        !detectedKey.startsWith(`${review.detectedDocumentType}:`) &&
+        !selectedKey.startsWith(`${review.detectedDocumentType}:`)
+    ) {
+        const detectedLabel =
+            detectedTypeDisplayLabel(review) ?? review.detectedDocumentType;
+
+        return `AI detected this file as ${detectedLabel}, but ${selected.title} is currently selected. Please confirm the document type before saving.`;
+    }
+
+    if (resolvedId && resolvedId !== selectedId) {
+        const detectedLabel =
+            detectedTypeDisplayLabel(review) ?? review.detectedDocumentType;
+
+        return `AI detected this file as ${detectedLabel}, but ${selected.title} is currently selected. Please confirm the document type before saving.`;
+    }
+
+    return null;
 }
 
 export function uniqueReviewWarnings(
