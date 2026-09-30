@@ -66,7 +66,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | Email / SMTP integration | [email-configuration.md](./email-configuration.md) |
 | WhatsApp integration | [whatsapp-integration.md](./whatsapp-integration.md) |
 | Hikvision integration | [hikvision-integration.md](./hikvision-integration.md) |
-| AI providers / Smart Employee Search | [ai-settings.md](./ai-settings.md) |
+| AI providers and AI features | [ai-settings.md](./ai-settings.md) |
 | Settings without a dedicated guide | [architecture/context-map.md](./architecture/context-map.md), then `routes/settings.php` and the relevant current Settings code |
 | Global Search | [global-search.md](./global-search.md) |
 | Navigation favorites | [navigation-favorites.md](./navigation-favorites.md) |

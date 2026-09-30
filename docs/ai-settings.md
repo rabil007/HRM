@@ -1,25 +1,51 @@
 # AI settings
 
-Platform AI providers and Smart Employee Search are configured in **Settings → Application → AI**.
+Platform AI providers, Smart Employee Search, and active-company Document AI policy are configured in **Settings → AI**.
 
-This is installation-wide configuration. The API account and billing belong to OMS-HRM, not to a company. Per-company AI credentials are not supported. Changes are recorded as platform activity with `company_id` null and do **not** appear in a tenant Activity Log merely because a company was selected when the settings were saved.
+This is the single centralized home for OMS-HRM AI configuration. Platform provider credentials and billing belong to OMS-HRM, not to a company. Per-company AI credentials are not supported. Platform AI changes are recorded as platform activity with `company_id` null and do **not** appear in a tenant Activity Log merely because a company was selected when the settings were saved. Document AI mode changes are tenant-owned for the active company.
 
 ## Routes
 
 | Method | Path | Name | Notes |
 |--------|------|------|-------|
+| GET | `/settings/ai` | `settings.ai.edit` | `platform:view` **or** `documents.ai.manage` — props are permission-filtered |
 | PUT | `/settings/application/ai` | `application.ai.update` | `platform:manage` + `privileged.2fa` |
 | POST | `/settings/application/ai/test` | `application.ai.test` | `platform:manage`, throttled `6,1` |
+| PUT | `/organization/documents/ai-settings` | `organization.documents.ai-settings.update` | `documents.ai.manage` + `privileged.2fa`; tenant from `current_company_id` |
 
-Controller: `App\Http\Controllers\Settings\ApplicationSettingsController`
+Controllers: `App\Http\Controllers\Settings\AiSettingsController` (page), `App\Http\Controllers\Settings\ApplicationSettingsController` (platform mutations), `App\Http\Controllers\Organization\DocumentAiSettingsController` (company mode).
+
+Legacy bookmark `/settings/application?tab=ai` redirects to `/settings/ai`.
+
+## Page sections
+
+The AI settings page has two scopes:
+
+### Platform AI
+
+Installation-wide provider configuration (OpenAI / OpenRouter, encrypted API keys, models, connection test) and the Smart Employee Search enable switch. Returned only when the user has `platform:view`.
+
+### AI Features
+
+- **Smart Employee Search** — platform-wide feature toggle (requires platform AI props)
+- **Document AI** — active-company mode (`off` / `optional` / `automatic`); returned for the current company when the user can reach the page
+
+Company-only Document AI managers (`documents.ai.manage` without platform access) receive Document AI props only. The server never sends platform provider credentials, `has_api_key` details, models, Smart Search controls, SMTP, branding, retention, or other Application settings to those users.
 
 ## What administrators can manage
+
+### Platform (`platform:manage` + `privileged.2fa` for credential saves)
 
 - Enable or disable Smart Employee Search
 - Select **OpenAI** or **OpenRouter**
 - Store an encrypted API key for each provider
 - Optionally set a model name for each provider (leave blank to use the fast Smart Search default)
 - Test the **currently saved** selected provider (not unsaved form values)
+
+### Company Document AI (`documents.ai.manage` + `privileged.2fa`)
+
+- Set Document AI mode for the **active** company only
+- Never change platform provider credentials or Smart Employee Search
 
 Normal administration does **not** require editing `.env` or redeploying. Stored Application Settings are authoritative. `EMPLOYEE_SMART_SEARCH_ENABLED`, `OPENAI_API_KEY`, and `OPENROUTER_API_KEY` remain optional bootstrap fallbacks only when no stored value exists. Database settings always win. PHP never writes to `.env`.
 
@@ -156,11 +182,14 @@ Malformed, empty, unstructured, or structurally incomplete provider output fails
 
 | Action | Authority |
 |--------|-----------|
-| View AI settings | `platform:view` |
-| Update AI settings / credentials | `platform:manage` + `privileged.2fa` |
+| Open AI settings page | `platform:view` **or** `documents.ai.manage` |
+| View Platform AI / Smart Search props | `platform:view` |
+| Update platform AI settings / credentials | `platform:manage` + `privileged.2fa` |
 | Test selected provider | `platform:manage` |
+| View / change Document AI mode (active company) | `documents.ai.manage` (+ `privileged.2fa` to mutate) |
 | Use Smart Employee Search | `employees.view` (existing) |
+| Use Document AI extraction | `documents.ai.use` + company mode + configured provider |
 
-Frontend `can` flags are UX only. Backend middleware is authoritative.
+Frontend `can` flags are UX only. Backend middleware is authoritative. A single page may show both scopes, but the server remains authoritative about which props each user receives.
 
 Platform AI activity uses `log_name` `platform` and `scope` `platform`. It is not tenant-owned. `audit.view` still gates the company Activity Log; that page only lists rows for the active `company_id`.

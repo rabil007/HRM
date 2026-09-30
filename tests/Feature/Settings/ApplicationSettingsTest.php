@@ -31,7 +31,7 @@ test('user with platform view access can open application settings in view mode'
             ->has('preferences')
             ->missing('esign_placement')
             ->has('smtp')
-            ->has('ai')
+            ->missing('ai')
             ->where('can.platform_view', true)
             ->where('can.platform_update', false)
             ->has('general.app_name')

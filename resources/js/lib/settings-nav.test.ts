@@ -143,6 +143,40 @@ describe('settings command destinations', () => {
         );
     });
 
+    it('shows AI navigation for platform viewers and Document AI managers', () => {
+        const aiItem = {
+            title: 'AI',
+            href: '/settings/ai',
+            description: 'Providers & AI features',
+            platformOnly: true,
+            permission: 'documents.ai.manage',
+        } as const;
+
+        const platformVisible = filterSettingsNavItems(
+            [aiItem],
+            [],
+            PLATFORM_VIEW,
+        );
+        const companyManagerVisible = filterSettingsNavItems(
+            [aiItem],
+            ['documents.ai.manage'],
+            NO_PLATFORM_ACCESS,
+        );
+        const unauthorized = filterSettingsNavItems(
+            [aiItem],
+            ['settings.security.view'],
+            NO_PLATFORM_ACCESS,
+        );
+
+        assert.equal(platformVisible[0]?.title, 'AI');
+        assert.equal(companyManagerVisible[0]?.title, 'AI');
+        assert.equal(
+            companyManagerVisible[0]?.description,
+            'Providers & AI features',
+        );
+        assert.equal(unauthorized.length, 0);
+    });
+
     it('does not duplicate a destination already present in the sidebar', () => {
         const groups = excludeOccupiedCommandGroups(
             [

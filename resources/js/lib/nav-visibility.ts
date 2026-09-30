@@ -59,6 +59,7 @@ export const SETTINGS_HUB_VIEW_PERMISSIONS: readonly string[] = [
     'settings.security.view',
     'settings.appearance.view',
     'settings.integrations.hikvision.view',
+    'documents.ai.manage',
     'settings.master-data.countries.view',
     'settings.master-data.currencies.view',
     'settings.master-data.visa-types.view',
@@ -124,7 +125,17 @@ export function filterSettingsNavItems<
 ): T[] {
     return items.filter((item) => {
         if (item.platformOnly) {
-            return platform.view;
+            if (platform.view) {
+                return true;
+            }
+
+            if (!item.permission) {
+                return false;
+            }
+
+            return permissionNames(item.permission).some((permission) =>
+                permissions.includes(permission),
+            );
         }
 
         if (!item.permission) {

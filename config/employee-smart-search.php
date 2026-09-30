@@ -8,7 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Converts a short natural-language prompt into existing Employee Directory
-    | filters. Stored Settings → Application → AI values are authoritative.
+    | filters. Stored Settings → AI values are authoritative.
     | This env flag is only a bootstrap fallback when no setting is stored.
     | Default is off. Does not search employees itself.
     |

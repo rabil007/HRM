@@ -33,18 +33,18 @@ test('platform viewer can see AI settings but never decrypted keys', function ()
     setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $response = $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('settings.ai.edit'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('settings/application')
-            ->where('ai.enabled', true)
-            ->where('ai.provider', 'openrouter')
-            ->where('ai.openai.has_api_key', true)
-            ->where('ai.openai.model', 'gpt-test')
-            ->where('ai.openrouter.has_api_key', true)
-            ->where('ai.openrouter.model', 'openrouter/test')
-            ->missing('ai.openai.api_key')
-            ->missing('ai.openrouter.api_key')
+            ->component('settings/ai')
+            ->where('platform_ai.enabled', true)
+            ->where('platform_ai.provider', 'openrouter')
+            ->where('platform_ai.openai.has_api_key', true)
+            ->where('platform_ai.openai.model', 'gpt-test')
+            ->where('platform_ai.openrouter.has_api_key', true)
+            ->where('platform_ai.openrouter.model', 'openrouter/test')
+            ->missing('platform_ai.openai.api_key')
+            ->missing('platform_ai.openrouter.api_key')
             ->missing('openai_api_key')
             ->missing('openrouter_api_key'),
         );
@@ -301,11 +301,11 @@ test('blank OpenRouter model uses the fast default without rewriting stored sett
     });
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('settings.ai.edit'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('ai.openrouter.model', '')
-            ->where('ai.default_models.openrouter', 'openai/gpt-5.6-luna'));
+            ->where('platform_ai.openrouter.model', '')
+            ->where('platform_ai.default_models.openrouter', 'openai/gpt-5.6-luna'));
 });
 
 test('missing selected-provider key fails safely without invoking AI', function () {
@@ -684,13 +684,13 @@ test('settings page stays safe when the stored AI provider is invalid', function
     setupCompanyWithApplicationSettingsPermissions($user, []);
 
     $response = $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('settings.ai.edit'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('settings/application')
-            ->where('ai.provider', 'openai')
-            ->where('ai.openai.has_api_key', true)
-            ->missing('ai.openai.api_key'),
+            ->component('settings/ai')
+            ->where('platform_ai.provider', 'openai')
+            ->where('platform_ai.openai.has_api_key', true)
+            ->missing('platform_ai.openai.api_key'),
         );
 
     expect($response->getContent())

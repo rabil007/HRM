@@ -13,12 +13,36 @@ beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
 });
 
-test('document ai defaults to off and configuration exposes safe availability props', function () {
+test('document ai defaults to off and the AI settings page exposes safe availability props', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'documents.ai.manage',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('settings.ai.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/ai')
+            ->where('document_ai.mode', 'off')
+            ->has('document_ai.provider_available')
+            ->where('document_ai.available', false)
+            ->where('platform_ai', null)
+        );
+
+    expect(DocumentAiSetting::query()->where('company_id', $company->id)->exists())->toBeFalse();
+});
+
+test('document types configuration no longer loads document ai settings', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, [
         'settings.master-data.document-types.view',
+        'documents.ai.manage',
     ]);
 
     $this->actingAs($user)
@@ -26,12 +50,8 @@ test('document ai defaults to off and configuration exposes safe availability pr
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/configuration/document-types')
-            ->where('document_ai_settings.mode', 'off')
-            ->has('document_ai_settings.provider_available')
-            ->where('document_ai_settings.available', false)
+            ->missing('document_ai_settings'),
         );
-
-    expect(DocumentAiSetting::query()->where('company_id', $company->id)->exists())->toBeFalse();
 });
 
 test('authorized users can update the company document ai mode', function () {
