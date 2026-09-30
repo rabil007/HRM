@@ -268,12 +268,12 @@ test('current and projected manning gaps create alerts', function () {
     expect(CrewOperationalAlert::query()
         ->where('company_id', $companyId)
         ->where('type', CrewOperationalAlertType::CurrentManningGap)
-        ->where('dedupe_key', 'current_manning_gap:vessel:'.$currentVessel->id.':rank:'.$fixtures['rank']->id)
+        ->where('dedupe_key', 'current_manning_gap:vessel:'.$currentVessel->id.':position:'.$fixtures['rank']->id)
         ->exists())->toBeTrue()
         ->and(CrewOperationalAlert::query()
             ->where('company_id', $companyId)
             ->where('type', CrewOperationalAlertType::ProjectedManningGap)
-            ->where('dedupe_key', 'projected_manning_gap:vessel:'.$futureVessel->id.':rank:'.$fixtures['rank']->id)
+            ->where('dedupe_key', 'projected_manning_gap:vessel:'.$futureVessel->id.':position:'.$fixtures['rank']->id)
             ->exists())->toBeTrue();
 
     CarbonImmutable::setTestNow();

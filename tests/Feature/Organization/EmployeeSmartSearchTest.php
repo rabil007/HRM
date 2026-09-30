@@ -23,7 +23,7 @@ use Laravel\Ai\Prompts\AgentPrompt;
  *     position: Position,
  *     otherPosition: Position,
  *     country: Country,
- *     rank: Rank
+ *     rank: Position
  * }
  */
 function makeEmployeeSmartSearchFixtures(): array
@@ -51,6 +51,7 @@ function makeEmployeeSmartSearchFixtures(): array
         'department_id' => $department->id,
         'title' => 'Able Seaman',
         'status' => 'active',
+        'is_crew_position' => true,
     ]);
 
     $otherPosition = Position::query()->create([
@@ -67,11 +68,8 @@ function makeEmployeeSmartSearchFixtures(): array
         'is_active' => true,
     ]);
 
-    $rank = Position::query()->create([
-        'company_id' => $company->id,
-        'title' => 'AB',
-        'status' => 'active', 'is_crew_position' => true,
-    ]);
+    // Alias for legacy fixture shape (rank === Able Seaman position after Rank retirement).
+    $rank = $position;
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
@@ -275,7 +273,7 @@ test('rank resolution uses active global master data only', function () {
         ->assertJsonPath('unresolved.0.field', 'rank')
         ->assertJsonPath('unresolved.0.reason', 'not_found');
 
-    expect($inactiveRank->is_active)->toBeFalse();
+    expect($inactiveRank->status)->toBe('inactive');
 });
 
 test('canonical HR status is returned correctly', function () {
@@ -861,8 +859,6 @@ test('department codes resolve against the current company only', function () {
 test('rank aliases resolve to the trusted canonical rank name', function () {
     enableEmployeeSmartSearch();
     $fixtures = makeEmployeeSmartSearchFixtures();
-
-    $fixtures['rank']->update(['name' => 'Able Seaman']);
 
     EmployeeSmartSearchInterpreter::fake([
         fakeSmartSearchIntent(['rank' => 'AB']),

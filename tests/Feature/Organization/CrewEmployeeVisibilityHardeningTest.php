@@ -31,7 +31,7 @@ use Spatie\Activitylog\Models\Activity;
  *     officeDept: Department,
  *     marineEmployee: Employee,
  *     officeEmployee: Employee,
- *     rank: Rank,
+ *     rank: Position,
  *     vessel: Vessel
  * }
  */
@@ -253,7 +253,7 @@ test('hidden assignment movement action returns not found without validation lea
             'position_id' => $rank->id,
         ])
         ->assertNotFound()
-        ->assertSessionDoesntHaveErrors(['action', 'occurred_at', 'vessel_id', 'rank_id']);
+        ->assertSessionDoesntHaveErrors(['action', 'occurred_at', 'vessel_id', 'position_id']);
 });
 
 test('hidden assignment update returns not found before field validation leakage', function () {
@@ -276,7 +276,7 @@ test('hidden assignment update returns not found before field validation leakage
             'planned_join_at' => '2099-01-01',
         ])
         ->assertNotFound()
-        ->assertSessionDoesntHaveErrors(['planned_join_at', 'vessel_id', 'rank_id']);
+        ->assertSessionDoesntHaveErrors(['planned_join_at', 'vessel_id', 'position_id']);
 });
 
 test('hidden assignment void returns not found before cleanup validation leakage', function () {
@@ -408,7 +408,7 @@ test('trusted internal presenter call preserves relief employee identity', funct
 
     $assignment = $source->fresh([
         'employee',
-        'rank',
+        'position',
         'vessel',
         'client',
         'currentPhase',
@@ -458,7 +458,7 @@ test('restricted authenticated viewer gets hidden relief employee redacted in pr
 
     $assignment = $source->fresh([
         'employee',
-        'rank',
+        'position',
         'vessel',
         'client',
         'currentPhase',
@@ -593,7 +593,7 @@ test('unrestricted authenticated viewer still receives relief employee in presen
 
     $assignment = $source->fresh([
         'employee',
-        'rank',
+        'position',
         'vessel',
         'client',
         'currentPhase',

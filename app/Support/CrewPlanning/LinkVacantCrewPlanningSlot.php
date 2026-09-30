@@ -18,7 +18,7 @@ final class LinkVacantCrewPlanningSlot
     /**
      * @param  array{
      *     vessel_id?: int|null,
-     *     rank_id?: int|null,
+     *     position_id?: int|null,
      *     planned_join_at?: string|null,
      *     planned_signoff_at?: string|null,
      * }  $submitted  Unused for identity — assignment fields are authoritative.
@@ -79,9 +79,9 @@ final class LinkVacantCrewPlanningSlot
             ]);
         }
 
-        if ($assignment->rank_id === null) {
+        if ($assignment->position_id === null) {
             throw ValidationException::withMessages([
-                'rank_id' => 'The crew assignment must have a rank before linking a planning slot.',
+                'position_id' => 'The crew assignment must have a position before linking a planning slot.',
             ]);
         }
 
@@ -92,10 +92,10 @@ final class LinkVacantCrewPlanningSlot
             ]);
         }
 
-        if ($planning->rank_id !== null
-            && (int) $planning->rank_id !== (int) $assignment->rank_id) {
+        if ($planning->position_id !== null
+            && (int) $planning->position_id !== (int) $assignment->position_id) {
             throw ValidationException::withMessages([
-                'planning_assignment_id' => 'The planning slot rank does not match this crew assignment.',
+                'planning_assignment_id' => 'The planning slot position does not match this crew assignment.',
             ]);
         }
 

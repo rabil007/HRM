@@ -34,7 +34,7 @@ function actingBulkAddCrewUser(array $permissions = []): array
     return $fixtures;
 }
 
-function extraCrewEmployee(Company $company, Rank $rank, string $name): Employee
+function extraCrewEmployee(Company $company, Position $rank, string $name): Employee
 {
     $position = ensureRankMappedPosition($company, $rank);
 

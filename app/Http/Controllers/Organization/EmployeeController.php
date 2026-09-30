@@ -115,7 +115,6 @@ class EmployeeController extends Controller
             'company_visa_types' => fn () => $formOptions()['company_visa_types'],
             'approval_locations' => fn () => $formOptions()['approval_locations'],
             'sssa_options' => fn () => $formOptions()['sssa_options'],
-            'ranks' => fn () => $formOptions()['ranks'],
             'clients' => fn () => $formOptions()['clients'],
             'projects' => fn () => $formOptions()['projects'],
             'banks' => fn () => $formOptions()['banks'],

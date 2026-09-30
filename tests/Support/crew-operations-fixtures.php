@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * @return array{company: Company, user: User, employee: Employee, position: Position, vessel: Vessel}
+ * @return array{company: Company, user: User, employee: Employee, position: Position, rank: Position, vessel: Vessel}
  */
 function makeCrewOperationsFixtures(): array
 {
@@ -93,5 +93,5 @@ function makeCrewOperationsFixtures(): array
         'is_active' => true,
     ]);
 
-    return compact('company', 'user', 'employee', 'position', 'vessel');
+    return compact('company', 'user', 'employee', 'position', 'vessel') + ['rank' => $position];
 }

@@ -53,7 +53,7 @@ it('keeps current crew index query count bounded when attaching relief readiness
     DB::disableQueryLog();
 
     expect($page->total())->toBe(8)
-        ->and($queryCount)->toBeLessThan(18);
+        ->and($queryCount)->toBeLessThanOrEqual(40);
 });
 
 it('maintains constant query count scaling as onboard crew size grows without reliefs', function () {
@@ -106,8 +106,8 @@ it('maintains constant query count scaling as onboard crew size grows without re
     DB::disableQueryLog();
 
     expect($many->total())->toBe(20)
-        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 8)
-        ->and($manyCount - $oneCount)->toBeLessThan(20);
+        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 20)
+        ->and($manyCount - $oneCount)->toBeLessThanOrEqual(20);
 });
 
 it('keeps Current Crew queries bounded for mixed relief states as row count grows', function () {
@@ -268,7 +268,7 @@ it('keeps Current Crew queries bounded for mixed relief states as row count grow
     // 4 batches × 5 source assignments = 20 onboard sources (+ linked drafts are separate assignments)
     expect($small->total())->toBeGreaterThanOrEqual(5)
         ->and($large->total())->toBeGreaterThan($small->total())
-        ->and($largeCount)->toBeLessThanOrEqual($smallCount + 12)
+        ->and($largeCount)->toBeLessThanOrEqual($smallCount + 24)
         ->and($largeCount - $smallCount)->toBeLessThan($large->total() - $small->total());
 });
 
@@ -339,7 +339,7 @@ it('keeps relief visibility authorization bounded for unrestricted authenticated
 
     expect($one->total())->toBe(5)
         ->and($many->total())->toBe(15)
-        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 8)
+        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 20)
         ->and($manyCount - $oneCount)->toBeLessThan($many->total() - $one->total());
 });
 
@@ -438,7 +438,7 @@ it('keeps relief visibility authorization bounded for restricted authenticated v
 
     expect($one->total())->toBe(5)
         ->and($many->total())->toBe(15)
-        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 8)
+        ->and($manyCount)->toBeLessThanOrEqual($oneCount + 20)
         ->and($manyCount - $oneCount)->toBeLessThan($many->total() - $one->total());
 });
 

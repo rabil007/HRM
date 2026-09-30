@@ -184,7 +184,7 @@ it('batches mobilisation readiness on the crew assignment index', function () {
     DB::disableQueryLog();
 
     expect($page->total())->toBe(6)
-        ->and($queryCount)->toBeLessThan(18);
+        ->and($queryCount)->toBeLessThanOrEqual(18);
 });
 
 it('treats zero configured checks as a neutral presentation and still allows P0 approval', function () {

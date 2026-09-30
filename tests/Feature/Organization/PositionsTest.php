@@ -604,42 +604,22 @@ test('position used by crew assignment cannot be deleted', function () {
     ]);
 });
 
-test('position referenced only by rank consolidation mapping cannot be deleted', function () {
+test('unused position can be deleted after rank consolidation mapping removal', function () {
     $user = User::factory()->create();
     $company = createPositionTestCompany('Mapped Position Co', 'MPC');
     grantCompanyPermissions($user, $company, ['positions.delete', 'positions.view', 'positions.create']);
 
-    $mapped = Position::query()->create([
-        'company_id' => $company->id,
-        'title' => 'Mapped Only Position',
-        'status' => 'active',
-    ]);
     $unused = Position::query()->create([
         'company_id' => $company->id,
         'title' => 'Unused Position',
         'status' => 'active',
     ]);
-    $rank = Position::query()->create([
-        'company_id' => $company->id,
-        'title' => 'Mapped Only Rank '.uniqid(),
-        'status' => 'active', 'is_crew_position' => true,
-    ]);
-
-    // Rank mappings removed in Phase 3B
 
     $this->actingAs($user)
         ->from('/organization/positions')
-        ->delete("/organization/positions/{$mapped->id}")
+        ->delete("/organization/positions/{$unused->id}")
         ->assertRedirect('/organization/positions')
-        ->assertSessionHasErrors('record');
-
-    $this->assertDatabaseHas('positions', [
-        'id' => $mapped->id,
-        'deleted_at' => null,
-    ]);
-
-    $this->delete("/organization/positions/{$unused->id}")
-        ->assertRedirect('/organization/positions');
+        ->assertSessionHasNoErrors();
 
     $this->assertSoftDeleted('positions', ['id' => $unused->id]);
 });

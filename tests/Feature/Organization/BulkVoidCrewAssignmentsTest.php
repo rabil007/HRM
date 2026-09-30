@@ -12,6 +12,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Models\PayrollPeriod;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\Actions\BulkVoidCrewAssignments;
 use App\Support\CrewMovements\CrewAssignmentVoidGuard;
@@ -25,7 +26,7 @@ use Spatie\Activitylog\Models\Activity;
 use function Pest\Laravel\actingAs;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeBulkVoidFixtures(array $extraPermissions = []): array
 {

@@ -105,9 +105,33 @@ test('activity log is recorded for master data creation', function (string $mode
         DocumentType::class,
         fn () => DocumentType::query()->create(['title' => 'Activity Doc Type '.uniqid(), 'is_active' => true]),
     ],
-    'rank' => [
+    'position' => [
         Position::class,
-        fn () => Position::query()->create(['company_id' => $company->id, 'title' => 'Activity Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]),
+        function () {
+            $company = Company::query()->create([
+                'name' => 'Activity Position Co '.uniqid(),
+                'slug' => 'activity-position-'.uniqid(),
+                'working_days' => [1, 2, 3, 4, 5],
+                'country_id' => Country::query()->firstOrCreate(
+                    ['code' => 'AP'.fake()->unique()->numerify('##')],
+                    ['name' => 'Activity Position Land', 'dial_code' => '+1', 'is_active' => true],
+                )->id,
+                'currency_id' => Currency::query()->firstOrCreate(
+                    ['code' => 'AP'.fake()->unique()->numerify('##')],
+                    ['name' => 'Activity Position Currency', 'symbol' => 'A$', 'is_active' => true],
+                )->id,
+                'timezone' => 'UTC',
+                'payroll_cycle' => 'monthly',
+                'status' => 'active',
+            ]);
+
+            return Position::query()->create([
+                'company_id' => $company->id,
+                'title' => 'Activity Position '.uniqid(),
+                'status' => 'active',
+                'is_crew_position' => true,
+            ]);
+        },
     ],
     'country' => [
         Country::class,

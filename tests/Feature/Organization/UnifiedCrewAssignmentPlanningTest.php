@@ -846,8 +846,8 @@ test('conflict payload matches frontend schema for overlapping planned assignmen
             'status_label',
             'vessel_id',
             'vessel_name',
-            'rank_id',
-            'rank_name',
+            'position_id',
+            'position_name',
             'planned_join_at',
             'planned_signoff_at',
             'current_phase_code',
@@ -856,8 +856,8 @@ test('conflict payload matches frontend schema for overlapping planned assignmen
         ->and($payload['new_assignment'])->toHaveKeys([
             'vessel_id',
             'vessel_name',
-            'rank_id',
-            'rank_name',
+            'position_id',
+            'position_name',
             'planned_join_at',
             'planned_signoff_at',
         ])

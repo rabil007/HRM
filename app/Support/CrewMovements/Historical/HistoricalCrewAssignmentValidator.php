@@ -342,7 +342,7 @@ final class HistoricalCrewAssignmentValidator
                     seaStartDate: $seaStartDate,
                     seaEndDate: $seaEndDate,
                     seaDays: $hasCompletedSea ? $seaDuration['days'] : 0,
-                    proposedRankName: $rank?->name,
+                    proposedRankName: $position?->title,
                     existingForEmployee: $existingSeaServices,
                 );
 
@@ -455,10 +455,10 @@ final class HistoricalCrewAssignmentValidator
                 'id' => (int) $position->id,
                 'name' => (string) $position->title,
             ] : ['id' => $data->positionId, 'name' => 'Unknown'],
-            rank: $rank !== null ? [
-                'id' => (int) $rank->id,
-                'name' => (string) $rank->name,
-            ] : ($data->rankId > 0 ? ['id' => $data->rankId, 'name' => 'Unknown'] : null),
+            rank: $position !== null ? [
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
+            ] : ($data->positionId > 0 ? ['id' => $data->positionId, 'name' => 'Unknown'] : null),
             client: $client !== null ? [
                 'id' => (int) $client->id,
                 'name' => (string) $client->name,

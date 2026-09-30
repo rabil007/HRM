@@ -11,6 +11,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
@@ -30,7 +31,7 @@ afterEach(function (): void {
 });
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewMovementIntegrityFixtures(): array
 {
@@ -170,12 +171,12 @@ test('actual movement actions reject future occurred_at timestamps', function (s
 
     if ($action === 'transfer_vessel') {
         $extraPayload['vessel_id'] = $destinationVessel->id;
-        $extraPayload['rank_id'] = $rank->id;
+        $extraPayload['position_id'] = $rank->id;
     }
 
     if ($action === 'join_vessel') {
         $extraPayload['vessel_id'] = $sourceVessel->id;
-        $extraPayload['rank_id'] = $rank->id;
+        $extraPayload['position_id'] = $rank->id;
         $extraPayload['planned_signoff_choice'] = 'tour_of_duty';
     }
 

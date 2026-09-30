@@ -168,7 +168,7 @@ final class ApplyCrewTimesheetPreparation
                 ->where('crew_timesheet_preparation_id', $preparation->id)
                 ->with([
                     'employee:id,employee_no,name,company_id',
-                    'assignment:id,company_id,vessel_id,client_id,rank_id',
+                    'assignment:id,company_id,vessel_id,client_id,position_id',
                 ])
                 ->lockForUpdate()
                 ->get();

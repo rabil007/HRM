@@ -352,7 +352,6 @@ final class DocumentComplianceQuery
                     'employees.employee_no as employee_no',
                     'employees.department_id as department_id',
                     'employees.position_id as position_id',
-                    'employees.rank_id as rank_id',
                     'employees.project_id as project_id',
                     'employees.company_id as company_id',
                 ]),

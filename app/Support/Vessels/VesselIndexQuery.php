@@ -39,7 +39,7 @@ final class VesselIndexQuery
                     ->where('company_id', $companyId)
                     ->with('position:id,title')
                     ->orderBy('position_id')
-                    ->orderBy('rank_id'),
+                    ->orderBy('position_id'),
             ])
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $inner) use ($search): void {
@@ -98,7 +98,7 @@ final class VesselIndexQuery
      *     certificate_original_filename: string|null,
      *     certificate_url: string|null,
      *     is_active: bool,
-     *     manning: list<array{id: int, position_id: int, position_name: string, rank_id: int|null, required_count: int}>,
+     *     manning: list<array{id: int, position_id: int, position_name: string, required_count: int}>,
      *     total_required: int,
      *     ranks_configured: int
      * }
@@ -115,7 +115,6 @@ final class VesselIndexQuery
                 'id' => $line->id,
                 'position_id' => (int) ($line->position_id ?? 0),
                 'position_name' => (string) ($line->position?->title ?? ''),
-                'rank_id' => $line->rank_id !== null ? (int) $line->rank_id : null,
                 'required_count' => $line->required_count,
             ])
             ->values()
@@ -166,7 +165,7 @@ final class VesselIndexQuery
                     ->where('company_id', $companyId)
                     ->with('position:id,title')
                     ->orderBy('position_id')
-                    ->orderBy('rank_id'),
+                    ->orderBy('position_id'),
             ])
             ->whereKey($vessel->id)
             ->first();

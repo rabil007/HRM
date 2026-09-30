@@ -420,7 +420,7 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
     $planning = CrewPlanningAssignment::query()
         ->where('company_id', $company->id)
         ->where('vessel_id', $vessel->id)
-        ->where('rank_id', $rank->id)
+        ->where('position_id', $rank->id)
         ->whereNull('employee_id')
         ->whereNull('crew_assignment_id')
         ->first();

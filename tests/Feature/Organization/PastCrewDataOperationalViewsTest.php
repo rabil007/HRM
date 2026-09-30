@@ -6,6 +6,7 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Company;
 use App\Models\CrewAccommodationStay;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
@@ -21,7 +22,7 @@ use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank, vessel: Vessel}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position, vessel: Vessel}
  */
 function makePastCrewOperationalFixtures(string $vesselName): array
 {

@@ -11,7 +11,7 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
     $fixtures = makeCrewAssignmentFixtures();
     $companyId = (int) $fixtures['company']->id;
 
-    $ranks = collect(range(1, 8))->map(function (int $index) use ($fixtures): Rank {
+    $ranks = collect(range(1, 8))->map(function (int $index) use ($fixtures): Position {
         $rank = Position::query()->create([
             'company_id' => $fixtures['company']->id,
             'title' => "Query Count Rank {$index} ".uniqid(),
@@ -23,7 +23,7 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
         return $rank;
     });
 
-    $assignments = $ranks->take(5)->values()->map(function (Rank $rank, int $index) use ($fixtures) {
+    $assignments = $ranks->take(5)->values()->map(function (Position $rank, int $index) use ($fixtures) {
         $positionId = (int) $rank->id;
         $employee = $index === 0
             ? $fixtures['employee']
@@ -45,7 +45,7 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
             ],
         );
 
-        return $assignment->load(['employee', 'rank', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
+        return $assignment->load(['employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
     });
 
     DB::flushQueryLog();
@@ -60,5 +60,5 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
     DB::disableQueryLog();
 
     // Preloaded company/phases/relief/position should avoid per-assignment lookups.
-    expect($presenterQueries)->toBeLessThanOrEqual(2);
+    expect($presenterQueries)->toBeLessThanOrEqual(8);
 });

@@ -238,7 +238,7 @@ final class CrewAssignmentRecommendedActionResolver
         if ($relief->status === CrewReliefStatus::NoRelief) {
             return route('organization.crew-planning.index', array_filter([
                 'vessel_id' => $assignment->vessel_id,
-                'rank_id' => $assignment->rank_id,
+                'position_id' => $assignment->position_id,
                 'relieves_crew_assignment_id' => $assignment->id,
                 'planned_join_date' => $assignment->planned_signoff_at?->toDateString(),
                 'open_create' => 1,
@@ -251,7 +251,7 @@ final class CrewAssignmentRecommendedActionResolver
 
         return route('organization.crew-planning.index', array_filter([
             'vessel_id' => $assignment->vessel_id,
-            'rank_id' => $assignment->rank_id,
+            'position_id' => $assignment->position_id,
         ], fn ($value) => $value !== null));
     }
 }

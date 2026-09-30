@@ -26,7 +26,7 @@ use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
  *     vesselA: Vessel,
  *     vesselB: Vessel,
  *     client: Client,
- *     rank: Rank,
+ *     rank: Position,
  *     segmentIds: list<int>
  * }
  */

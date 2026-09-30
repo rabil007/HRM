@@ -769,11 +769,11 @@ test('transfer projected manning reflects source loss and destination gain witho
 
     $sourceItem = collect($projection['items'])->first(
         fn (array $item): bool => (int) $item['vessel_id'] === (int) $sourceVessel->id
-            && (int) $item['rank_id'] === (int) $rank->id,
+            && (int) $item['position_id'] === (int) $rank->id,
     );
     $destinationItem = collect($projection['items'])->first(
         fn (array $item): bool => (int) $item['vessel_id'] === (int) $destinationVessel->id
-            && (int) $item['rank_id'] === (int) $rank->id,
+            && (int) $item['position_id'] === (int) $rank->id,
     );
 
     $handoffDay = (new CrewProjectedManningQuery)->forCompany(

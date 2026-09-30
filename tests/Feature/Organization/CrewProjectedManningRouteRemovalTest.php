@@ -29,7 +29,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planni
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -37,6 +37,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planni
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -61,7 +62,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Overview wh
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -69,6 +70,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Overview wh
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -90,7 +92,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to vessels sho
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -98,6 +100,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to vessels sho
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -123,7 +126,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to null when u
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -131,6 +134,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to null when u
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),

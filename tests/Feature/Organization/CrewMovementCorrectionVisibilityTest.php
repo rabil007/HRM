@@ -271,7 +271,7 @@ test('foreign company correction access is denied with 404', function () {
     $foreignFixtures = makeCrewAssignmentFixtures();
     $otherCompany = $foreignFixtures['company'];
     $foreignRank = Position::query()->create([
-        'company_id' => $company->id, 'title' => 'Foreign Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
+        'company_id' => $otherCompany->id, 'title' => 'Foreign Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
     $foreignVessel = makeCrewMovementVessel('Foreign Vessel', $otherCompany);
     $foreignAssignment = makeActiveOnVesselAssignment($otherCompany, $foreignFixtures['employee'], $foreignRank, $foreignVessel);
 

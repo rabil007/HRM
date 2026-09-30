@@ -102,7 +102,7 @@ class EmployeesImport
             'gender' => ['employees', 'gender_id'],
             'religion' => ['employees', 'religion_id'],
             'nationality' => ['employees', 'nationality_id'],
-            'rank' => ['employees', 'rank_id'],
+            'rank' => ['employees', 'position_id'],
             'visa_type' => ['employees', 'visa_type_id'],
             'sponsor' => ['employees', 'company_visa_type_id'],
             'status' => ['employees', 'status'],
@@ -615,7 +615,7 @@ class EmployeesImport
                         'gender_id' => $resolved['gender_id'] ?? null,
                         'religion_id' => $resolved['religion_id'] ?? null,
                         'nationality_id' => $resolved['nationality_id'] ?? null,
-                        'rank_id' => $resolved['rank_id'] ?? null,
+                        'position_id' => $resolved['position_id'] ?? $resolved['rank_id'] ?? null,
                         'visa_type_id' => $resolved['visa_type_id'] ?? null,
                         'company_visa_type_id' => $resolved['company_visa_type_id'] ?? null,
                         'status' => $row['status'] ?: 'active',
@@ -798,7 +798,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'rank' => 'rank_id', 'visa_type' => 'visa_type_id', 'sponsor' => 'company_visa_type_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'rank' => 'position_id', 'visa_type' => 'visa_type_id', 'sponsor' => 'company_visa_type_id'] as $key => $field) {
             if ($this->fieldHasValue($row, $key)) {
                 $payload[$field] = $resolved[$field];
             }
@@ -932,7 +932,7 @@ class EmployeesImport
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
-            'rank_id' => null,
+            'position_id' => null,
             'visa_type_id' => null,
             'company_visa_type_id' => null,
         ];
@@ -945,7 +945,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'rank' => 'rank_id', 'visa_type' => 'visa_type_id', 'sponsor' => 'company_visa_type_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'rank' => 'position_id', 'visa_type' => 'visa_type_id', 'sponsor' => 'company_visa_type_id'] as $key => $field) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
                 $map = match ($key) {

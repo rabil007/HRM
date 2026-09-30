@@ -107,7 +107,7 @@ final class AdnocSeafarerCvData
                 ?? 'OMS'
             )),
             'agency_name' => strtoupper((string) ($company?->name ?? '')),
-            'position_applied' => strtoupper($positionApplied),
+            'position_applied' => strtoupper($rankApplied),
             'full_name' => strtoupper((string) $employee->name),
             'dob_age' => $dob ? $dob->format('d/m/Y').'  '.$dob->age : '',
             'religion' => strtoupper((string) ($employee->religionRef?->name ?? '')),

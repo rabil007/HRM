@@ -62,7 +62,7 @@ final class EmployeeProfilePageData
             'employeeProfileTemplate:id,name,configuration_json',
         ]);
 
-        $profileLookups = EmployeeFormOptions::forProfile($companyId, $employee, []);
+        $profileLookups = EmployeeFormOptions::forProfile($companyId, $employee);
 
         $authUser = $request->user();
 
@@ -233,7 +233,7 @@ final class EmployeeProfilePageData
 
         $formOptions = EmployeeFormOptions::for($companyId, $authUser);
         $profileLookups = $employee !== null
-            ? EmployeeFormOptions::forProfile($companyId, $employee, [])
+            ? EmployeeFormOptions::forProfile($companyId, $employee)
             : [
                 'projects' => EmployeeFormOptions::forCreate($companyId, $authUser)['projects'],
                 'clients' => EmployeeFormOptions::forCreate($companyId, $authUser)['clients'],

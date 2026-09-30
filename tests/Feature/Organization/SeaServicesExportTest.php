@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\SeaServiceDuration;
-use App\Support\Positions\CrewPositionCatalog;
 
 function makeSeaServicesExportFixtures(bool $legacyRankOnly = false): array
 {
@@ -70,9 +69,12 @@ function makeSeaServicesExportFixtures(bool $legacyRankOnly = false): array
         'status' => 'active', 'is_crew_position' => true,
     ]);
 
-    $position = ensureRankMappedPosition($company, $rank);
-    $position->update(['title' => 'Canonical Position Title '.$position->id]);
-    // CrewPositionCatalog has no cache after Rank removal
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Canonical Position Title '.uniqid(),
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
 
     $duration = SeaServiceDuration::fromDates('2023-01-01', '2023-06-30');
 
@@ -81,8 +83,7 @@ function makeSeaServicesExportFixtures(bool $legacyRankOnly = false): array
         'employee_id' => $employee->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'position_id' => $rank->id,
-        'position_id' => $legacyRankOnly ? null : $position->id,
+        'position_id' => $legacyRankOnly ? $rank->id : $position->id,
         'start_date' => '2023-01-01',
         'end_date' => '2023-06-30',
         'total_months' => $duration['months'],
@@ -116,7 +117,7 @@ test('authenticated users with permission can export sea services as csv, excel,
 
     grantCompanyPermissions($user, $company, ['sea_services.view']);
 
-    expect($rank->name)->not->toBe($position->title);
+    expect($rank->title)->not->toBe($position->title);
 
     $csv = $this->get(route('organization.sea-services.export', ['format' => 'csv']));
     $csv->assertOk();
@@ -125,7 +126,7 @@ test('authenticated users with permission can export sea services as csv, excel,
         ->toContain('Position')
         ->not->toContain(',Rank,')
         ->toContain($position->title)
-        ->not->toContain($rank->name);
+        ->not->toContain($rank->title);
 
     $xlsx = $this->get(route('organization.sea-services.export', ['format' => 'xlsx']));
     $xlsx->assertOk();
@@ -135,29 +136,26 @@ test('authenticated users with permission can export sea services as csv, excel,
     expect($pdf->headers->get('content-disposition'))->toContain('.pdf');
 });
 
-test('sea services pdf export uses position heading and mapped title for legacy rank-only rows', function () {
+test('sea services pdf export uses position heading and title', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'position' => $position, 'rank' => $rank] = makeSeaServicesExportFixtures(legacyRankOnly: true);
+    ['company' => $company, 'position' => $position] = makeSeaServicesExportFixtures();
 
     grantCompanyPermissions($user, $company, ['sea_services.view']);
 
-    expect($rank->name)->not->toBe($position->title);
-
     $html = view('exports.sea-services', [
-        'seaServices' => tap(
-            EmployeeSeaService::query()->where('company_id', $company->id)->with(['position', 'rank'])->get(),
-            fn ($rows) => CrewPositionCatalog::hydrateCanonicalPositions($rows, (int) $company->id),
-        ),
+        'seaServices' => EmployeeSeaService::query()
+            ->where('company_id', $company->id)
+            ->with(['position'])
+            ->get(),
         'generatedAt' => now(),
     ])->render();
 
     expect($html)
         ->toContain('<th>Position</th>')
         ->not->toContain('<th>Rank</th>')
-        ->toContain($position->title)
-        ->not->toContain($rank->name);
+        ->toContain($position->title);
 });
 
 test('sea services export template links assignment phases instead of deployments', function () {

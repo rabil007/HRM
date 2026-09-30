@@ -53,8 +53,7 @@ final class BulkStartCrewAssignments
                         $companyId,
                         $row['employee_id'],
                         [
-                            'position_id' => $row['position_id'],
-                            'rank_id' => $row['rank_id'],
+                            'position_id' => $row['position_id'] ?? null,
                             'client_id' => $payload['client_id'] ?? null,
                             'vessel_id' => $payload['vessel_id'] ?? null,
                             'planned_arrival_at' => $row['planned_arrival_at'] ?? null,
@@ -93,10 +92,9 @@ final class BulkStartCrewAssignments
                 'employee_id' => (int) $row['employee_id'],
                 'position_id' => isset($row['position_id']) && $row['position_id'] !== null
                     ? (int) $row['position_id']
-                    : null,
-                'rank_id' => isset($row['rank_id']) && $row['rank_id'] !== null
-                    ? (int) $row['rank_id']
-                    : null,
+                    : (isset($row['rank_id']) && $row['rank_id'] !== null
+                        ? (int) $row['rank_id']
+                        : null),
                 'planned_arrival_at' => isset($row['planned_arrival_at']) && $row['planned_arrival_at'] !== ''
                     ? (string) $row['planned_arrival_at']
                     : null,

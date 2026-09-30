@@ -133,7 +133,7 @@ test('values for employee maps employee attributes to placeholders', function ()
     expect($values['{{email}}'])->toBe('john.doe@atlantic.com');
     expect($values['{{company_name}}'])->toBe('Atlantic Shipping');
     expect($values['{{department_name}}'])->toBe('Deck');
-    expect($values['{{position_name}}'])->toBe('First Officer');
+    expect($values['{{position_name}}'])->toBe('Captain');
     expect($values['{{rank_name}}'])->toBe('Captain');
     expect($values['{{nationality}}'])->toBe('Philippines');
     expect($values['{{emirates_id}}'])->toBe('784-2000-1234567-1');

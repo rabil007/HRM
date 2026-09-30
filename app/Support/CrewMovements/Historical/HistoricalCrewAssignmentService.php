@@ -65,7 +65,7 @@ final class HistoricalCrewAssignmentService
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $data->employeeId,
                 'position_id' => $data->positionId > 0 ? $data->positionId : null,
-                'rank_id' => $data->rankId > 0 ? $data->rankId : null,
+                'position_id' => $data->positionId > 0 ? $data->positionId : null,
                 'client_id' => $data->clientId,
                 'vessel_id' => $data->vesselId,
                 'status' => $reconstruction['assignment_status'],
@@ -143,7 +143,7 @@ final class HistoricalCrewAssignmentService
                     'employee_id' => $data->employeeId,
                     'vessel_id' => $data->vesselId,
                     'position_id' => $data->positionId,
-                    'rank_id' => $data->rankId,
+                    'position_id' => $data->positionId,
                     'historical_start' => $assignment->started_at?->toIso8601String(),
                     'historical_end' => $assignment->closed_at?->toIso8601String(),
                     'sign_on_standby_from' => $data->signOnStandbyFrom?->toDateString(),
@@ -251,8 +251,8 @@ final class HistoricalCrewAssignmentService
             if ($matchingUnlinked->position_id === null && $data->positionId > 0) {
                 $matchingUnlinked->position_id = $data->positionId;
             }
-            if ($matchingUnlinked->rank_id === null && $data->rankId > 0) {
-                $matchingUnlinked->rank_id = $data->rankId;
+            if ($matchingUnlinked->position_id === null && $data->positionId > 0) {
+                $matchingUnlinked->position_id = $data->positionId;
             }
             if ($matchingUnlinked->client_id === null && $data->clientId !== null) {
                 $matchingUnlinked->client_id = $data->clientId;

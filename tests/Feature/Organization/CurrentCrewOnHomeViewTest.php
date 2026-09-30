@@ -5,6 +5,7 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CurrentCrewHomeQuery;
@@ -15,7 +16,7 @@ use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * @param  array{company: Company, employee: Employee, rank: Rank, vessel: Vessel}  $fixtures
+ * @param  array{company: Company, employee: Employee, rank: Position, vessel: Vessel}  $fixtures
  */
 function excludeFixtureEmployeeFromHomePool(array $fixtures): void
 {

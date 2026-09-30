@@ -65,7 +65,7 @@ test('sea services import preview rejects unknown employee numbers', function ()
             'name' => 'Unknown',
             'vessel_type' => $vesselType->name,
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'start_date' => '2024-01-15',
             'end_date' => '2024-06-15',
             'client' => null,
@@ -93,7 +93,7 @@ test('sea services import creates new records', function () {
             'name' => $employee->name,
             'vessel_type' => $vesselType->name,
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'start_date' => '2024-03-01',
             'end_date' => '2024-09-01',
             'client' => null,
@@ -110,7 +110,7 @@ test('sea services import creates new records', function () {
     $created = EmployeeSeaService::query()
         ->where('employee_id', $employee->id)
         ->where('vessel_id', $vessel->id)
-        ->where('rank_id', $rank->id)
+        ->where('position_id', $rank->id)
         ->first();
 
     expect($created)->not->toBeNull()

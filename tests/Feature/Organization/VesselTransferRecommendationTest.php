@@ -547,7 +547,7 @@ test('transfer recommendation action requires assignment view and movement permi
             $active->id,
         ));
 
-    $draft->load(['company', 'employee', 'rank', 'vessel', 'currentPhase', 'phases']);
+    $draft->load(['company', 'employee', 'position', 'vessel', 'currentPhase', 'phases']);
 
     $detail = CrewAssignmentPresenter::detail($draft, $fixtures['user']);
 

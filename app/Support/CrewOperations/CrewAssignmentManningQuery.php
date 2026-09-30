@@ -85,6 +85,12 @@ final class CrewAssignmentManningQuery
     /**
      * @return array<string, int>
      */
+    /** @deprecated Use onboardCountsByVesselPosition */
+    public static function onboardCountsByVesselRank(int $companyId): array
+    {
+        return self::onboardCountsByVesselPosition($companyId);
+    }
+
     public static function onboardCountsByVesselPosition(int $companyId): array
     {
         $counts = [];

@@ -167,7 +167,7 @@ test('changing employee department or rank changes requirements dynamically', fu
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id],
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['captain']->id],
     );
 
     $employee->update(['department_id' => $scopes['marine']->id, 'position_id' => null, 'position_id' => null]);
@@ -179,7 +179,6 @@ test('changing employee department or rank changes requirements dynamically', fu
     $employee->update([
         'department_id' => $scopes['crew']->id,
         'position_id' => $scopes['captain']->id,
-        'position_id' => $scopes['captainPosition']->id,
     ]);
 
     $this->get('/organization/documents/library?requirement_status=missing')
@@ -192,7 +191,6 @@ test('changing employee department or rank changes requirements dynamically', fu
     $employee->update([
         'department_id' => $scopes['marine']->id,
         'position_id' => $scopes['captain']->id,
-        'position_id' => $scopes['captainPosition']->id,
     ]);
 
     $this->get('/organization/documents/library?requirement_status=missing')
@@ -587,14 +585,12 @@ test('crew seafarer captain assigned to another project is not required until pr
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id],
-        positionIds: [$scopes['seafarer']->id],
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['captain']->id],
         projectIds: [$scopes['adnoc']->id],
     );
 
     $employee->update([
         'department_id' => $scopes['crew']->id,
-        'position_id' => $scopes['seafarer']->id,
         'position_id' => $scopes['captain']->id,
         'project_id' => $scopes['otherProject']->id,
     ]);
@@ -645,14 +641,13 @@ test('required documents uses and matching across selected categories', function
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id],
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['captain']->id],
         projectIds: [$scopes['adnoc']->id],
     );
 
     $employee->update([
         'department_id' => $scopes['crew']->id,
         'position_id' => $scopes['chiefEngineer']->id,
-        'position_id' => $scopes['chiefEngineerPosition']->id,
         'project_id' => $scopes['adnoc']->id,
     ]);
 
@@ -662,7 +657,6 @@ test('required documents uses and matching across selected categories', function
 
     $employee->update([
         'position_id' => $scopes['captain']->id,
-        'position_id' => $scopes['captainPosition']->id,
     ]);
 
     $matched = $compliance->itemsForEmployee($employee->fresh());
@@ -683,14 +677,12 @@ test('bulk missing list uses and matching across selected categories', function 
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id],
-        positionIds: [$scopes['seafarer']->id],
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['captain']->id],
         projectIds: [$scopes['adnoc']->id],
     );
 
     $employee->update([
         'department_id' => $scopes['crew']->id,
-        'position_id' => $scopes['seafarer']->id,
         'position_id' => $scopes['captain']->id,
         'project_id' => $scopes['otherProject']->id,
     ]);
@@ -760,7 +752,7 @@ test('empty position category does not restrict bulk missing compliance', functi
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id],
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['captain']->id],
     );
 
     $employee->update([

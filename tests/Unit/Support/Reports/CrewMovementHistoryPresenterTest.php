@@ -65,7 +65,7 @@ test('it preserves repeated phases and calculates elapsed whole days in company 
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -123,7 +123,7 @@ test('same date activity counts as one payroll calendar day', function () {
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -180,7 +180,7 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -223,7 +223,7 @@ test('planned only phases do not report actual duration', function () {
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -259,7 +259,7 @@ test('it exposes approved correction metadata without treating pending as offici
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -303,7 +303,7 @@ test('modern assignments without legacy phases do not expose legacy placeholders
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -388,7 +388,7 @@ test('it exposes tour sign-off override exact timestamps accommodation and linke
         $destination->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -397,7 +397,7 @@ test('it exposes tour sign-off override exact timestamps accommodation and linke
             'accommodationStays.roomType',
             'accommodationStays.startedFromPhase',
             'previousAssignment.vessel',
-            'previousAssignment.rank',
+            'previousAssignment.position',
             'previousAssignment.client',
             'previousAssignment.currentPhase',
             'nextAssignments',
@@ -453,7 +453,7 @@ test('it reports repeated training history with employee training link status', 
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -527,13 +527,13 @@ test('it exposes linked redeployment starting checkpoint separately from current
         $destination->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
             'phases',
             'previousAssignment.vessel',
-            'previousAssignment.rank',
+            'previousAssignment.position',
             'previousAssignment.client',
             'previousAssignment.currentPhase',
             'previousAssignment.phases',
@@ -580,7 +580,7 @@ test('it exposes linked redeployment starting checkpoint separately from current
         $directP4->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -588,7 +588,7 @@ test('it exposes linked redeployment starting checkpoint separately from current
             'previousAssignment.phases',
             'previousAssignment.currentPhase',
             'previousAssignment.vessel',
-            'previousAssignment.rank',
+            'previousAssignment.position',
             'previousAssignment.client',
             'nextAssignments',
         ]),
@@ -627,7 +627,7 @@ test('it separates legacy p1 p3 timeline entries from modern lifecycle', functio
     ]);
 
     $row = CrewMovementHistoryPresenter::toArray(
-        $assignment->fresh(['company', 'employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases']),
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
     );
 
     expect($row['has_legacy_phases'])->toBeTrue()

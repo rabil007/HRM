@@ -30,7 +30,7 @@ test('manning gap query returns understaffed positions when actual on-vessel cou
         ->and($result['total_shortfall'])->toBe(1)
         ->and($result['items'])->toHaveCount(1)
         ->and($result['items'][0]['vessel_id'])->toBe($vessel->id)
-        ->and($result['items'][0]['rank_id'])->toBe($rank->id)
+        ->and($result['items'][0]['position_id'])->toBe($rank->id)
         ->and($result['items'][0]['required_count'])->toBe(2)
         ->and($result['items'][0]['actual_count'])->toBe(1)
         ->and($result['items'][0]['gap'])->toBe(1);

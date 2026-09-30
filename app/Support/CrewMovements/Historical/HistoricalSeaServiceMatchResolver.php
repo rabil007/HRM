@@ -96,7 +96,7 @@ final class HistoricalSeaServiceMatchResolver
         }
 
         foreach ($exactMatches as $record) {
-            if ($record->rank_id !== null && (int) $record->rank_id !== $data->rankId) {
+            if ($record->position_id !== null && (int) $record->position_id !== $data->positionId) {
                 $existingRankName = Position::query()->find($record->position_id)?->title ?? ('#'.($record->position_id ?? 'n/a'));
                 $proposed = $proposedRankName ?? '#'.$data->rankId;
                 $error = "Matches existing Sea Service record #{$record->id} with conflicting rank ({$existingRankName} vs {$proposed}). Cannot automatically overwrite HR history.";

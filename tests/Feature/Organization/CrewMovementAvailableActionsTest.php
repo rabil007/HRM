@@ -181,7 +181,7 @@ test('days in phase is a whole number', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Days Whole');
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel)
-        ->load(['currentPhase', 'phases', 'company', 'employee', 'rank', 'vessel']);
+        ->load(['currentPhase', 'phases', 'company', 'employee', 'position', 'vessel']);
 
     $detail = CrewAssignmentPresenter::detail($assignment);
 

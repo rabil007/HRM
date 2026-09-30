@@ -165,7 +165,7 @@ test('export headings and mapped row match authoritative stay and assignment val
     expect($mapped[0])->toBe((int) $stay->id)
         ->and($mapped[1])->toBe($employee->employee_no)
         ->and($mapped[2])->toBe($employee->name)
-        ->and($mapped[3])->toBe($fixtures['rank']->name)
+        ->and($mapped[3])->toBe($fixtures['rank']->title)
         ->and($mapped[4])->toBe($hotel->name)
         ->and($mapped[5])->toBe($roomType->name)
         ->and($mapped[6])->toBe('Pre-Join')

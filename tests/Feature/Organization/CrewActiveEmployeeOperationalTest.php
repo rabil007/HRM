@@ -213,7 +213,7 @@ test('crew assignment mutations reject inactive employee ids and planning create
     $planning = CrewPlanningAssignment::query()
         ->where('company_id', $company->id)
         ->where('vessel_id', $vessel->id)
-        ->where('rank_id', $rank->id)
+        ->where('position_id', $rank->id)
         ->whereDate('planned_join_date', '2027-02-01')
         ->first();
 

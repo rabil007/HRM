@@ -19,7 +19,6 @@ final class DocumentTypeDetailPresenter
      *         required_for_all: bool,
      *         department_ids: list<int>,
      *         position_ids: list<int>,
-     *         rank_ids: list<int>,
      *         project_ids: list<int>,
      *         require_issue_date: bool,
      *         require_expiry_date: bool,
@@ -34,7 +33,6 @@ final class DocumentTypeDetailPresenter
      *         targets: array{
      *             departments: list<array{id: int, name: string}>,
      *             positions: list<array{id: int, title: string}>,
-     *             ranks: list<array{id: int, name: string}>,
      *             projects: list<array{id: int, title: string}>
      *         },
      *         tracked_details: list<array{key: string, label: string}>
@@ -55,7 +53,6 @@ final class DocumentTypeDetailPresenter
                 ->with([
                     'departments:id,name',
                     'positions:id,title',
-                    'ranks:id,name',
                     'projects:id,title',
                 ])
                 ->first();
@@ -91,7 +88,6 @@ final class DocumentTypeDetailPresenter
         $targets = [
             'departments' => [],
             'positions' => [],
-            'ranks' => [],
             'projects' => [],
         ];
 
@@ -108,13 +104,6 @@ final class DocumentTypeDetailPresenter
                     ->map(fn ($position): array => [
                         'id' => (int) $position->id,
                         'title' => (string) $position->title,
-                    ])
-                    ->values()
-                    ->all(),
-                'ranks' => $requirement->ranks
-                    ->map(fn ($rank): array => [
-                        'id' => (int) $rank->id,
-                        'name' => (string) $rank->name,
                     ])
                     ->values()
                     ->all(),

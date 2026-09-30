@@ -256,7 +256,6 @@ test('existing HR status, position, and rank filtering continues to work', funct
         'name' => 'Active Captain',
         'status' => 'active',
         'position_id' => $fixtures['positionA']->id,
-        'position_id' => $fixtures['rankA']->id,
     ]);
 
     $inactiveCaptain = Employee::factory()->forCompany($company)->create([
@@ -264,7 +263,6 @@ test('existing HR status, position, and rank filtering continues to work', funct
         'name' => 'Inactive Captain',
         'status' => 'inactive',
         'position_id' => $fixtures['positionA']->id,
-        'position_id' => $fixtures['rankA']->id,
     ]);
 
     $activeEngineer = Employee::factory()->forCompany($company)->create([
@@ -272,7 +270,6 @@ test('existing HR status, position, and rank filtering continues to work', funct
         'name' => 'Active Engineer',
         'status' => 'active',
         'position_id' => $fixtures['positionB']->id,
-        'position_id' => $fixtures['rankB']->id,
     ]);
 
     // Test HR Status filter
@@ -292,10 +289,10 @@ test('existing HR status, position, and rank filtering continues to work', funct
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 2));
 
-    // Test Rank filter
+    // Test Position filter (legacy rank_id query param is ignored after Rank retirement)
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $company->id])
-        ->get("/organization/employees?rank_id={$fixtures['rankB']->id}&status=all")
+        ->get("/organization/employees?position_id={$fixtures['positionB']->id}&status=all")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 1)

@@ -9,6 +9,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewMovementService;
@@ -22,7 +23,7 @@ afterEach(function (): void {
 });
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewMovementActionFixtures(): array
 {

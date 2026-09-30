@@ -4,6 +4,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank, vessel: Vessel}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position, vessel: Vessel}
  */
 function makeMovementAttentionFilterFixtures(): array
 {
@@ -33,7 +34,7 @@ function makeMovementAttentionFilterFixtures(): array
  */
 function makeDraftAssignmentForAttentionFilter(
     Company $company,
-    Rank $rank,
+    Position $rank,
     ?Employee $employee = null,
     ?Vessel $vessel = null,
     array $overrides = [],
@@ -60,7 +61,7 @@ function makeDraftAssignmentForAttentionFilter(
 
 function makeStaleDraftAssignmentForAttentionFilter(
     Company $company,
-    Rank $rank,
+    Position $rank,
     ?Employee $employee = null,
     ?Vessel $vessel = null,
     array $overrides = [],

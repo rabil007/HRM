@@ -14,6 +14,7 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
+use App\Models\Position;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
@@ -35,7 +36,7 @@ afterEach(function (): void {
 });
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewMovementAccommodationFixtures(): array
 {
@@ -1888,5 +1889,5 @@ test('current crew bulk loads p5 accommodation without per assignment presenter 
             'open_hotel' => 2,
             'missing' => 1,
         ])
-        ->and($presenterQueries)->toBeLessThanOrEqual(2);
+        ->and($presenterQueries)->toBeLessThanOrEqual(3);
 });

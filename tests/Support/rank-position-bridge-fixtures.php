@@ -4,7 +4,7 @@ use App\Models\Company;
 use App\Models\Position;
 
 /**
- * Phase 3B: Rank schema dropped. Returns an active crew Position for the company.
+ * Phase 3B: Position schema dropped. Returns an active crew Position for the company.
  * Previously mapped a Rank↔Position; now just ensures the Position is a crew position.
  *
  * @deprecated Pass a Position directly. Kept so call sites compile; rename when convenient.

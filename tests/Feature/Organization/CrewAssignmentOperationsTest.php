@@ -5,12 +5,13 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMovementService;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewAssignmentOperationsFixtures(array $permissions = [
     'crew_operations.assignments.view',

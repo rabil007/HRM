@@ -77,7 +77,7 @@ it('presenter returns tour progress with negative remaining days', function () {
         'phase_code' => CrewPhaseCode::OnVessel,
     ]);
     $assignment->update(['status' => CrewAssignmentStatus::Active]);
-    $assignment->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
+    $assignment->load(['employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
 
     $item = CrewAssignmentPresenter::listItem($assignment);
 

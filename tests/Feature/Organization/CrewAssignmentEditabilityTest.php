@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewEditabilityFixtures(array $permissions = [
     'crew_operations.assignments.view',
@@ -41,7 +41,7 @@ function makeCrewEditabilityFixtures(array $permissions = [
 function makeAssignmentWithPhase(
     Company $company,
     Employee $employee,
-    Rank $rank,
+    Position $rank,
     Vessel $vessel,
     CrewPhaseCode $phaseCode,
     CrewAssignmentStatus $status = CrewAssignmentStatus::Active,

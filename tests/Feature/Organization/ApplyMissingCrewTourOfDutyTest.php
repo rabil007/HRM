@@ -46,7 +46,7 @@ function createJoinedActiveP4AssignmentWithoutTour(
     CrewMovementService $service,
     Company $company,
     Employee $employee,
-    Rank $rank,
+    Position $rank,
     $vessel,
     User $user,
     string $joinDate = '2026-06-01 08:00:00',

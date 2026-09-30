@@ -143,7 +143,7 @@ final class HistoricalCrewImportPreviewService
 
         $ranksByName = [];
 
-        foreach (Position::query()->where('company_id', $companyId)->whereNull('deleted_at')->get(['id', 'title', 'status']) as $position) {
+        foreach (Position::query()->where('company_id', $companyId)->whereNull('deleted_at')->get(['id', 'title', 'status', 'is_crew_position']) as $position) {
             $key = mb_strtolower(trim((string) $position->title));
             $ranksByName[$key] ??= [];
             $ranksByName[$key][] = $position;
@@ -370,7 +370,7 @@ final class HistoricalCrewImportPreviewService
                     data: [
                         'employee_id' => (int) $employee->id,
                         'vessel_id' => (int) $vessel->id,
-                        'rank_id' => (int) $rank->id,
+                        'position_id' => (int) $rank->id,
                         'client_id' => $client?->id,
                         'sign_on_standby_from' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM] ?? null,
                         'sign_on_standby_to' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO] ?? null,
@@ -431,8 +431,9 @@ final class HistoricalCrewImportPreviewService
             'employee_name' => $employee?->name,
             'vessel_id' => $vessel?->id,
             'vessel_name' => $vessel?->name ?? $vesselName,
+            'position_id' => $rank?->id,
             'rank_id' => $rank?->id,
-            'rank_name' => $rank?->name ?? $rankName,
+            'rank_name' => $rank?->title ?? $rankName,
             'client_id' => $client?->id,
             'client_name' => $client?->name ?? $clientName,
             'joined_vessel_at' => $parsedRow->onsiteFrom(),

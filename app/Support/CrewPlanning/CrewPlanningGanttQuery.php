@@ -14,7 +14,6 @@ use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 final class CrewPlanningGanttQuery
 {
@@ -374,13 +373,7 @@ final class CrewPlanningGanttQuery
         $assignmentQuery = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereNotNull('vessel_id')
-            ->where(function (Builder $role): void {
-                $role->whereNotNull('position_id');
-
-                if (Schema::hasColumn('crew_assignments', 'rank_id')) {
-                    $role->orWhereNotNull('rank_id');
-                }
-            })
+            ->whereNotNull('position_id')
             ->whereIn('status', [CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active])
             ->where(function (Builder $q) use ($fromTimestamp, $toTimestamp): void {
                 $q->where(function (Builder $planned) use ($fromTimestamp, $toTimestamp): void {
@@ -518,13 +511,7 @@ final class CrewPlanningGanttQuery
             ->where('company_id', $companyId)
             ->whereNull('crew_assignment_id')
             ->whereNotNull('vessel_id')
-            ->where(function (Builder $role): void {
-                $role->whereNotNull('position_id');
-
-                if (Schema::hasColumn('crew_planning_assignments', 'rank_id')) {
-                    $role->orWhereNotNull('rank_id');
-                }
-            })
+            ->whereNotNull('position_id')
             ->where('planned_join_date', '<=', $to)
             ->where(function (Builder $query) use ($from): void {
                 $query->where('planned_leave_date', '>=', $from)

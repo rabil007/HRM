@@ -377,7 +377,7 @@ test('override validates accommodation chronology: hotel checkout after new P4 j
 test('override on P4 rank recalculates Tour of Duty when planned_signoff_source is TourOfDuty', function () {
     ['user' => $user, 'company' => $company, 'assignment' => $assignment, 'phase' => $p4] = makeOverrideTestFixtures();
 
-    setMappedCrewTourOfDutyDays($company, $assignment->rank, 90);
+    setMappedCrewTourOfDutyDays($company, $assignment->position, 90);
 
     $newRank = Position::query()->create([
         'company_id' => $company->id,

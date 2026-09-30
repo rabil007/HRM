@@ -8,6 +8,7 @@ use App\Exceptions\CrewMovementException;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
@@ -30,7 +31,7 @@ afterEach(function (): void {
  * @return array{
  *     company: Company,
  *     employee: Employee,
- *     rank: Rank,
+ *     rank: Position,
  *     user: User,
  *     vessel: Vessel,
  *     assignment: CrewAssignment,

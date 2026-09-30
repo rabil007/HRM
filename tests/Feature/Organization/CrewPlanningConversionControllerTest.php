@@ -92,7 +92,7 @@ test('vacant planning row can open unified create handoff with vessel prefill', 
             ->where('planning_context.planning_assignment_id', $planning->id)
             ->where('planning_context.employee_id', null)
             ->where('planning_context.vessel_id', $vessel->id)
-            ->where('planning_context.rank_id', $rank->id)
+            ->where('planning_context.position_id', $rank->id)
         );
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);

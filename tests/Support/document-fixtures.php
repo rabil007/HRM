@@ -127,10 +127,9 @@ function makeDocumentRequirement(
 
     $requirement->departments()->sync($departmentIds);
     $requirement->positions()->sync(array_values(array_unique($positionIds)));
-    $requirement->ranks()->sync($rankIds);
     $requirement->projects()->sync($projectIds);
 
-    return $requirement->fresh(['departments', 'positions', 'ranks', 'projects']) ?? $requirement;
+    return $requirement->fresh(['departments', 'positions', 'projects']) ?? $requirement;
 }
 
 /**
@@ -138,8 +137,8 @@ function makeDocumentRequirement(
  *     crew: Department,
  *     marine: Department,
  *     seafarer: Position,
- *     captain: Rank,
- *     chiefEngineer: Rank,
+ *     captain: Position,
+ *     chiefEngineer: Position,
  *     adnoc: Project,
  *     aramco: Project,
  *     otherProject: Project
@@ -148,6 +147,7 @@ function makeDocumentRequirement(
 function makeDocumentRequirementMatchScopes(int $companyId): array
 {
     $suffix = uniqid();
+    $company = Company::query()->findOrFail($companyId);
 
     $crew = Department::query()->create([
         'company_id' => $companyId,
@@ -164,22 +164,20 @@ function makeDocumentRequirementMatchScopes(int $companyId): array
         'include_in_attendance_leave' => true,
     ]);
     $seafarer = Position::query()->create([
-        'company_id' => $company->id,
         'company_id' => $companyId,
         'title' => 'Seafarer',
         'status' => 'active',
     ]);
     $captain = Position::query()->create([
-        'company_id' => $company->id,
+        'company_id' => $companyId,
         'title' => 'Captain '.$suffix,
         'status' => 'active', 'is_crew_position' => true,
     ]);
     $chiefEngineer = Position::query()->create([
-        'company_id' => $company->id,
+        'company_id' => $companyId,
         'title' => 'Chief Engineer '.$suffix,
         'status' => 'active', 'is_crew_position' => true,
     ]);
-    $company = Company::query()->findOrFail($companyId);
     $captainPosition = ensureRankMappedPosition($company, $captain);
     $chiefEngineerPosition = ensureRankMappedPosition($company, $chiefEngineer);
     $adnoc = Project::query()->create([

@@ -142,6 +142,7 @@ final class SeaServiceImportOrchestrator
                 fn (Vessel $row) => [Vessel::normalizeName($row->name) => $row->id],
             ));
         $rankByLower = Position::query()
+            ->where('company_id', $companyId)
             ->where('is_crew_position', true)
             ->where('status', 'active')
             ->whereNull('deleted_at')
@@ -299,7 +300,7 @@ final class SeaServiceImportOrchestrator
                     $seaServiceAttributes = [
                         'vessel_type_id' => $vesselTypeId,
                         'vessel_id' => $vesselId,
-                        'rank_id' => $rankId,
+                        'position_id' => $rankId,
                         'start_date' => $startDate,
                         'end_date' => $endDate,
                         'total_months' => $duration['months'],

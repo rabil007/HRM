@@ -658,7 +658,7 @@ test('projected future gap links prefer crew planning when planning view is gran
         ->and($projectedRisk)->not->toBeNull()
         ->and($projectedRisk['href'])->toBe($expectedPlanningHref)
         ->and($projectedRisk['vessel_id'])->toBe($vessel->id)
-        ->and($projectedRisk['rank_id'])->toBe($rank->id);
+        ->and($projectedRisk['position_id'])->toBe($rank->id);
 });
 
 test('employee action rows omit employee show links without employees view', function () {

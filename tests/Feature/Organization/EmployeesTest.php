@@ -210,7 +210,6 @@ test('authenticated users can view an employee details page', function () {
                 ->has('employee_navigation')
                 ->has('employee')
                 ->has('employee_tabs')
-                ->has('ranks')
                 ->has('projects')
                 ->has('profile_clients')
                 ->missing('contracts')

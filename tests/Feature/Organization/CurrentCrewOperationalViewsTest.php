@@ -6,6 +6,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\Company;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
@@ -18,7 +19,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  *     user: User,
  *     company: Company,
  *     employee: Employee,
- *     rank: Rank,
+ *     rank: Position,
  *     vessel: Vessel
  * }
  */

@@ -55,7 +55,7 @@ function makeP4WithSignoff(
 
     $assignment->update(['current_phase_id' => $phase->id]);
 
-    return $assignment->fresh(['currentPhase', 'company', 'phases', 'employee', 'rank', 'vessel']);
+    return $assignment->fresh(['currentPhase', 'company', 'phases', 'employee', 'position', 'vessel']);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

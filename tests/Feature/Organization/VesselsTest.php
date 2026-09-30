@@ -511,7 +511,7 @@ test('vessel show includes manning ranks and manning permissions', function () {
             ->where('manning_can.create', true)
             ->where('manning_can.update', true)
             ->where('manning_can.delete', true)
-            ->where('summary.manning_ranks', 2)
+            ->where('summary.manning_positions', 2)
             ->where('summary.total_required', 3)
             ->where('can_view_audit', false)
             ->where('recent_activity', [])

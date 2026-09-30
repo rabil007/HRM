@@ -74,6 +74,6 @@ test('pending reject and cancel leave official assignment and phase untouched', 
     $phase->refresh();
     $assignment->refresh();
     expect($phase->remarks)->toBe($snapshot['remarks'])
-        ->and($assignment->position_id)->toBe($snapshot['rank_id'])
+        ->and($assignment->position_id)->toBe($snapshot['position_id'] ?? $snapshot['position_id'])
         ->and($assignment->status->value)->toBe($snapshot['status']);
 });

@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewMovementCorrection;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
@@ -19,7 +20,7 @@ afterEach(function (): void {
 });
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank, assignment: CrewAssignment, vessel: Vessel}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position, assignment: CrewAssignment, vessel: Vessel}
  */
 function authorizeCorrectionRequester(): array
 {

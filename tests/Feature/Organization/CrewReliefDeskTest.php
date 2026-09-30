@@ -23,7 +23,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  * @return array{
  *     user: User,
  *     company: Company,
- *     rank: Rank,
+ *     rank: Position,
  *     position: Position,
  *     vessel: Vessel,
  *     today: CarbonImmutable
@@ -50,7 +50,7 @@ function makeReliefDeskFixtures(array $permissions = [
 
 function makeReliefDeskOnboard(
     Company $company,
-    Rank $rank,
+    Position $rank,
     Vessel $vessel,
     CarbonImmutable $today,
     int $daysUntilSignoff,
@@ -87,7 +87,7 @@ function makeReliefPlanFor(
     ]);
 }
 
-function makeReliefEmployee(Company $company, Rank $rank, string $name): Employee
+function makeReliefEmployee(Company $company, Position $rank, string $name): Employee
 {
     return Employee::factory()->forCompany($company)->create([
         'position_id' => $rank->id,

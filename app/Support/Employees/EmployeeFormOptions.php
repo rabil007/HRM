@@ -40,7 +40,6 @@ final class EmployeeFormOptions
      *     company_visa_types: Collection,
      *     approval_locations: Collection,
      *     sssa_options: Collection,
-     *     ranks: Collection,
      *     clients: Collection,
      *     projects: Collection,
      *     banks: Collection,
@@ -61,7 +60,6 @@ final class EmployeeFormOptions
             'company_visa_types' => self::companyVisaTypes(),
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
-            'positions' => collect(),
             'clients' => self::clientsForDirectory($companyId, $user),
             'projects' => self::activeProjects(),
             'banks' => self::banks(),
@@ -82,7 +80,6 @@ final class EmployeeFormOptions
      *     visa_types: Collection,
      *     company_visa_types: Collection,
      *     banks: Collection,
-     *     ranks: Collection,
      *     document_types: Collection
      * }
      */
@@ -100,7 +97,6 @@ final class EmployeeFormOptions
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
             'banks' => self::banks(),
-            'positions' => collect(),
             'projects' => self::activeProjects(),
             'clients' => self::activeClients(),
             'document_types' => self::documentTypes(),
@@ -108,7 +104,7 @@ final class EmployeeFormOptions
     }
 
     /**
-     * Additional profile-only lookup props (ranks, document types).
+     * Additional profile-only lookup props (document types).
      *
      * @return array{
      *     projects: Collection,
@@ -116,7 +112,7 @@ final class EmployeeFormOptions
      *     document_types: Collection
      * }
      */
-    public static function forProfile(int $companyId, Employee $employee, array $ensureRankIds = []): array
+    public static function forProfile(int $companyId, Employee $employee): array
     {
         return [
             'projects' => self::projectsForProfile($employee),

@@ -540,7 +540,7 @@ test('list presenter keeps planned join values for expected vessel join display'
         'planned_join_at' => '2026-09-20',
         'current_stage' => 'p0',
         'stage_started_at' => '2026-09-15 08:00:00',
-    ], $user->id)->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'company']);
+    ], $user->id)->load(['employee', 'position', 'vessel', 'client', 'currentPhase', 'company']);
 
     $item = CrewAssignmentPresenter::listItem($assignment);
 
