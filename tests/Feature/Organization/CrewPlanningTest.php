@@ -16,6 +16,7 @@ use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
+use App\Support\Positions\RankPositionBridge;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -75,6 +76,8 @@ function makeCrewPlanningFixtures(): array
 
     $captain = Rank::query()->create(['name' => 'Captain CPL', 'is_active' => true]);
     $chiefOfficer = Rank::query()->create(['name' => 'Chief Officer CPL', 'is_active' => true]);
+    ensureRankMappedPosition($company, $captain);
+    ensureRankMappedPosition($company, $chiefOfficer);
 
     grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
 
@@ -495,6 +498,7 @@ test('rank filter narrows rows, bars, and tree', function () {
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
+        'position_id' => RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id),
         'planned_join_date' => $today->subDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
@@ -503,6 +507,7 @@ test('rank filter narrows rows, bars, and tree', function () {
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $chiefOfficer->id,
+        'position_id' => RankPositionBridge::positionIdForRank((int) $company->id, (int) $chiefOfficer->id),
         'planned_join_date' => $today->subDays(4)->toDateString(),
         'planned_leave_date' => $today->addDays(21)->toDateString(),
     ]);

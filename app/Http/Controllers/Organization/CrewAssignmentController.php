@@ -16,6 +16,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Hotel;
+use App\Models\Position;
 use App\Models\Rank;
 use App\Models\RoomType;
 use App\Models\User;
@@ -749,8 +750,8 @@ class CrewAssignmentController extends Controller
 
     /**
      * @return array{
-     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null, status: string}>,
-     *     ranks: list<array<string, mixed>>,
+     *     employees: list<array{id: int, name: string, employee_no: string|null, position_id: int|null, status: string}>,
+     *     positions: list<array<string, mixed>>,
      *     vessels: list<array<string, mixed>>,
      *     clients: list<array<string, mixed>>,
      *     company_timezone: string
@@ -779,11 +780,55 @@ class CrewAssignmentController extends Controller
 
         return [
             'employees' => $employees,
-            'positions' => $this->crewPositionsWithTour($companyId),
+            'positions' => $this->historicalPositionsWithTour($companyId),
             'vessels' => $this->historicalVessels($companyId),
             'clients' => $this->historicalClients(),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
+    }
+
+    /**
+     * Historical backfill may reference inactive crew Positions. Live form options stay active-only.
+     *
+     * @return list<array{
+     *     id: int,
+     *     name: string,
+     *     is_active: bool,
+     *     max_tour_of_duty_days: int|null,
+     *     resolved_tour_of_duty_days: int|null
+     * }>
+     */
+    private function historicalPositionsWithTour(int $companyId): array
+    {
+        return Position::query()
+            ->where('company_id', $companyId)
+            ->where('is_crew_position', true)
+            ->whereNull('deleted_at')
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderBy('title')
+            ->get(['id', 'title', 'status', 'max_tour_of_duty_days'])
+            ->map(function ($position): array {
+                $isActive = $position->status === 'active';
+                $label = (string) $position->title;
+
+                if (! $isActive) {
+                    $label .= ' — Inactive';
+                }
+
+                $tourDays = $position->max_tour_of_duty_days !== null
+                    ? (int) $position->max_tour_of_duty_days
+                    : null;
+
+                return [
+                    'id' => (int) $position->id,
+                    'name' => $label,
+                    'is_active' => $isActive,
+                    'max_tour_of_duty_days' => $tourDays,
+                    'resolved_tour_of_duty_days' => $tourDays,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

@@ -6,11 +6,13 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Position;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Illuminate\Http\UploadedFile;
@@ -194,6 +196,22 @@ final class HistoricalCrewImportPreviewService
             }
         }
 
+        $rankIds = array_keys($ranksById);
+        $positionIdsByRank = RankPositionBridge::positionIdMapForRankIds($companyId, $rankIds);
+        $positionsById = [];
+
+        if ($positionIdsByRank !== []) {
+            $positions = Position::query()
+                ->where('company_id', $companyId)
+                ->whereIn('id', array_values($positionIdsByRank))
+                ->whereNull('deleted_at')
+                ->get();
+
+            foreach ($positions as $position) {
+                $positionsById[(int) $position->id] = $position;
+            }
+        }
+
         $clientsById = [];
         foreach ($lookups['clientsByName'] as $matches) {
             foreach ($matches as $client) {
@@ -244,6 +262,7 @@ final class HistoricalCrewImportPreviewService
             employeesById: $employeesById,
             vesselsById: $vesselsById,
             ranksById: $ranksById,
+            positionsById: $positionsById,
             clientsById: $clientsById,
             assignmentsByEmployeeId: $assignmentsByEmployeeId,
             seaServicesByEmployeeId: $seaServicesByEmployeeId,

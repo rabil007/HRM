@@ -40,6 +40,8 @@ final class CrewMovementCorrectionFieldCatalog
         return [
             'vessel_id',
             'position_id',
+            // Temporary Phase 2: accept legacy rank_id corrections and dual-write.
+            'rank_id',
             'client_id',
         ];
     }

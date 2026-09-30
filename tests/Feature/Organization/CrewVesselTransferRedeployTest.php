@@ -41,7 +41,7 @@ function makeOnVesselSourceAssignment(): array
 {
     $fixtures = makeCrewAssignmentFixtures();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     $vessel = makeCrewMovementVessel('Transfer Source '.uniqid(), $company);
     $service = transferRedeployService();
 
@@ -537,12 +537,13 @@ test('transfer request rejects source vessel as destination', function () {
 test('direct transfer applies destination rank tour snapshot without copying source tour', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     $destinationRank = Rank::query()->create([
         'name' => 'Transfer Dest Rank '.uniqid(),
         'is_active' => true,
         'max_tour_of_duty_days' => 60,
     ]);
+    ensureRankMappedPosition($company, $destinationRank, 60);
     $destinationVessel = makeCrewMovementVessel('Tour Transfer Dest '.uniqid(), $company);
 
     $source->refresh();
@@ -600,7 +601,7 @@ test('direct transfer applies destination rank tour snapshot without copying sou
 test('direct transfer applies Rank Master tour suggestion', function () {
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $rank->update(['max_tour_of_duty_days' => 45]);
+    setMappedCrewTourOfDutyDays($company, $rank, 45);
     $destinationVessel = makeCrewMovementVessel('Rank Master Transfer Dest '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
@@ -623,7 +624,7 @@ test('direct transfer applies Rank Master tour suggestion', function () {
 test('direct transfer supports manual planned sign-off override and rolls back on invalid tour choice', function () {
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     $destinationVessel = makeCrewMovementVessel('Manual Transfer Dest '.uniqid(), $company);
 
     $destination = transferRedeployService()->perform(
@@ -648,7 +649,7 @@ test('direct transfer supports manual planned sign-off override and rolls back o
 
     [$sourceFail, $fixturesFail, $sourceVesselFail] = makeOnVesselSourceAssignment();
     ['company' => $companyFail, 'rank' => $rankFail, 'user' => $userFail] = $fixturesFail;
-    $rankFail->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rankFail, 90);
     $beforeCount = CrewAssignment::query()->where('company_id', $companyFail->id)->count();
     $destFail = makeCrewMovementVessel('Fail Transfer Dest '.uniqid(), $companyFail);
 
@@ -676,7 +677,7 @@ test('direct transfer supports manual planned sign-off override and rolls back o
 test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     $service = transferRedeployService();
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
@@ -698,7 +699,7 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
 
     [$source2, $fixtures2, $sourceVessel2] = makeOnVesselSourceAssignment();
     ['company' => $company2, 'rank' => $rank2, 'user' => $user2] = $fixtures2;
-    $rank2->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank2, 90);
     $service->perform($company2->id, $source2->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
         'next_phase' => 'p5',
@@ -730,7 +731,7 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
 test('transfer projected manning reflects source loss and destination gain without double count', function () {
     [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
     ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     $destinationVessel = makeCrewMovementVessel('Projection Transfer Dest '.uniqid(), $company);
 
     VesselManning::query()->create([

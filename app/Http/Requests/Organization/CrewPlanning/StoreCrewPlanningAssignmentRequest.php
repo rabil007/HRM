@@ -20,11 +20,7 @@ class StoreCrewPlanningAssignmentRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
-
-        if ($companyId > 0) {
-            $this->mergeLegacyCrewPositionFromRank($companyId);
-        }
+        $this->mergeLegacyCrewPositionFromRank();
     }
 
     /**

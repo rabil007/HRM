@@ -1435,7 +1435,7 @@ test('redeploy to p0 handles source accommodation without creating destination s
 
 test('redeploy to p4 handles source accommodation without creating destination pre join stay', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
-    $fixtures['rank']->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($fixtures['company'], $fixtures['rank'], 90);
     [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
     $vessel = makeCrewMovementVessel('Redeploy P4 Vessel', $fixtures['company']);
 

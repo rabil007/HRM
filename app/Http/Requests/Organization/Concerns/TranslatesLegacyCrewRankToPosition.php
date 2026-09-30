@@ -9,11 +9,28 @@ use App\Support\Positions\RankPositionBridge;
  */
 trait TranslatesLegacyCrewRankToPosition
 {
+    protected function resolveCurrentCompanyIdForLegacyRank(): int
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if ($companyId > 0) {
+            return $companyId;
+        }
+
+        return (int) ($this->user()?->current_company_id ?? 0);
+    }
+
     protected function mergeLegacyCrewPositionFromRank(
-        int $companyId,
+        ?int $companyId = null,
         string $positionKey = 'position_id',
         string $rankKey = 'rank_id',
     ): void {
+        $companyId ??= $this->resolveCurrentCompanyIdForLegacyRank();
+
+        if ($companyId < 1) {
+            return;
+        }
+
         $position = $this->input($positionKey);
 
         if ($position !== null && $position !== '') {

@@ -477,11 +477,14 @@ test('vessel show includes manning ranks and manning permissions', function () {
 
     $captain = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
     $welder = Rank::query()->create(['name' => 'Welder', 'is_active' => true]);
+    $captainPosition = ensureRankMappedPosition($company, $captain);
+    $welderPosition = ensureRankMappedPosition($company, $welder);
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
+        'position_id' => $captainPosition->id,
         'required_count' => 1,
     ]);
 
@@ -489,6 +492,7 @@ test('vessel show includes manning ranks and manning permissions', function () {
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $welder->id,
+        'position_id' => $welderPosition->id,
         'required_count' => 2,
     ]);
 
@@ -500,7 +504,7 @@ test('vessel show includes manning ranks and manning permissions', function () {
             ->where('vessel.total_required', 3)
             ->where('vessel.ranks_configured', 2)
             ->has('vessel.manning', 2)
-            ->has('ranks', 2)
+            ->has('crew_positions', 2)
             ->where('manning_can.create', true)
             ->where('manning_can.update', true)
             ->where('manning_can.delete', true)

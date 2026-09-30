@@ -25,7 +25,7 @@ test('crew assignments filter options load company vessels and global master dat
 
     $options = CurrentCrewQuery::filterOptions($company->id);
 
-    expect($options['ranks'])->not->toBeEmpty()
+    expect($options['positions'])->not->toBeEmpty()
         ->and($options['vessels'])->not->toBeEmpty()
         ->and($options['clients'])->not->toBeEmpty()
         ->and($options['employees'])->not->toBeEmpty()

@@ -21,7 +21,7 @@ test('dedicated projected manning route returns 404', function () {
 });
 
 test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planning when user has planning view permission', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeCrewOperationsFixtures();
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank, 'position' => $position] = makeCrewOperationsFixtures();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
@@ -49,7 +49,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planni
 
     expect($url)->toBe(route('organization.crew-planning.index', [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $position->id,
     ]));
 });
 

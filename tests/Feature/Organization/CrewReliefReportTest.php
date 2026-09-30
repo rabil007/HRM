@@ -456,7 +456,7 @@ test('crew relief report export downloads excel with active filters', function (
             ->and($rows[0]['assignment_no'])->toBe('CA-EXPORT-001');
 
         $headings = $export->headings();
-        expect($headings)->toContain('Current Crew', 'Rank', 'Vessel', 'Attention');
+        expect($headings)->toContain('Current Crew', 'Position', 'Vessel', 'Attention');
 
         $mapped = $export->map($rows[0]);
         expect($mapped[0])->toBe($rows[0]['employee']['name'])

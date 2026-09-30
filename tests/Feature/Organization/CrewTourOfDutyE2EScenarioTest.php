@@ -17,8 +17,8 @@ beforeEach(function () {
     $this->rank = $this->fixtures['rank'];
     $this->rank->update([
         'name' => 'Chief Officer '.uniqid(),
-        'max_tour_of_duty_days' => 90,
     ]);
+    setMappedCrewTourOfDutyDays($this->company, $this->rank, 90);
     $this->vessel = makeCrewMovementVessel('E2E Tour Vessel');
     $this->service = app(CrewMovementService::class);
 });
@@ -141,7 +141,7 @@ it('keeps snapshotted tour after later Rank Master changes', function () {
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
-    $this->rank->update(['max_tour_of_duty_days' => 120]);
+    setMappedCrewTourOfDutyDays($this->company, $this->rank, 120);
 
     $assignment->refresh();
 

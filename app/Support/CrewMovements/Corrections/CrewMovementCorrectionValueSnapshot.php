@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\Position;
 use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\Settings\CompanyTimezone;
@@ -84,7 +85,7 @@ final class CrewMovementCorrectionValueSnapshot
             return Carbon::parse($value)->toIso8601String();
         }
 
-        if (in_array($field, ['vessel_id', 'rank_id', 'client_id', 'details.course_id'], true)) {
+        if (in_array($field, ['vessel_id', 'rank_id', 'position_id', 'client_id', 'details.course_id'], true)) {
             return $value === null || $value === '' ? null : (int) $value;
         }
 
@@ -115,6 +116,7 @@ final class CrewMovementCorrectionValueSnapshot
         return match ($field) {
             'vessel_id' => Vessel::query()->whereKey((int) $value)->value('name'),
             'rank_id' => Rank::query()->whereKey((int) $value)->value('name'),
+            'position_id' => Position::query()->whereKey((int) $value)->value('title'),
             'client_id' => Client::query()->whereKey((int) $value)->value('name'),
             'details.course_id' => Course::query()->whereKey((int) $value)->value('name'),
             default => is_scalar($value) ? (string) $value : null,

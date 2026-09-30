@@ -33,16 +33,12 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
-
-        if ($companyId > 0) {
-            $this->mergeLegacyCrewPositionFromRank($companyId);
-        }
+        $this->mergeLegacyCrewPositionFromRank();
     }
 
     public function rules(): array
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
+        $companyId = $this->resolveCurrentCompanyIdForLegacyRank();
 
         return [
             'employee_id' => [
@@ -136,7 +132,7 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
 
     public function toData(): HistoricalCrewAssignmentData
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
+        $companyId = $this->resolveCurrentCompanyIdForLegacyRank();
         $timezone = CompanyTimezone::forCompanyId($companyId);
 
         return HistoricalCrewAssignmentData::fromArray(

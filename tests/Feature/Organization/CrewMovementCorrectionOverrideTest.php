@@ -377,13 +377,14 @@ test('override validates accommodation chronology: hotel checkout after new P4 j
 test('override on P4 rank recalculates Tour of Duty when planned_signoff_source is TourOfDuty', function () {
     ['user' => $user, 'company' => $company, 'assignment' => $assignment, 'phase' => $p4] = makeOverrideTestFixtures();
 
-    $assignment->rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $assignment->rank, 90);
 
     $newRank = Rank::query()->create([
         'name' => 'Rank With 60 Day Tour',
         'is_active' => true,
         'max_tour_of_duty_days' => 60,
     ]);
+    ensureRankMappedPosition($company, $newRank, 60);
 
     $assignment->update([
         'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty,
@@ -421,6 +422,7 @@ test('override on P4 rank rejects new rank without tour rule when source is Tour
         'is_active' => true,
         'max_tour_of_duty_days' => null,
     ]);
+    ensureRankMappedPosition($company, $newRankNoRule, null);
 
     $assignment->update([
         'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty,
@@ -452,6 +454,7 @@ test('override on P4 rank preserves planned signoff when source is manual overri
         'is_active' => true,
         'max_tour_of_duty_days' => 60,
     ]);
+    ensureRankMappedPosition($company, $newRank, 60);
     $fixedSignoff = now()->addDays(45);
 
     $assignment->update([
@@ -784,6 +787,7 @@ test('override on P4 rank preserves planned signoff and updates tour of duty day
         'is_active' => true,
         'max_tour_of_duty_days' => 75,
     ]);
+    ensureRankMappedPosition($company, $newRank, 75);
     $existingSignoff = now()->addDays(50);
 
     $assignment->update([

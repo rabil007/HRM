@@ -43,7 +43,7 @@ function makeMovementPayrollFixtures(): array
 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $company->update(['timezone' => 'Asia/Dubai']);
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
 
     $contract = EmployeeContract::factory()->create([
         'employee_id' => $employee->id,

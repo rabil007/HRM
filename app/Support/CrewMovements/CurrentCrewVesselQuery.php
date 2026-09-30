@@ -171,8 +171,9 @@ final class CurrentCrewVesselQuery
         if (! empty($filters['position_id'])) {
             LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
                 $query,
-                $this->companyId,
+                $companyId,
                 (int) $filters['position_id'],
+                'vessel_manning',
             );
         }
 

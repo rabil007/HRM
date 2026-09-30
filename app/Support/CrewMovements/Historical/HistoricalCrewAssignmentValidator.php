@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Position;
 use App\Models\Rank;
 use App\Models\User;
 use App\Support\CrewMovements\SeaServiceSyncService;
@@ -86,19 +87,47 @@ final class HistoricalCrewAssignmentValidator
             'message' => $vesselMessage,
         ];
 
-        $rank = $bulk?->rank($data->rankId) ?? Rank::query()->find($data->rankId);
+        $position = $data->positionId > 0
+            ? ($bulk?->position($data->positionId) ?? Position::query()
+                ->where('company_id', $data->companyId)
+                ->whereKey($data->positionId)
+                ->whereNull('deleted_at')
+                ->first())
+            : null;
+        $positionValid = $position !== null;
+        $positionMessage = $positionValid
+            ? 'Position is valid.'
+            : 'The selected position is invalid.';
+
+        if (! $positionValid) {
+            $errors['position_id'] = $positionMessage;
+        } elseif ($position->status !== 'active' || ! $position->is_crew_position) {
+            $warnings[] = "Position '{$position->title}' is not an active crew position in master data.";
+        }
+
+        $checks[] = [
+            'code' => 'position',
+            'passed' => $positionValid,
+            'message' => $positionMessage,
+        ];
+
+        $rank = $data->rankId > 0
+            ? ($bulk?->rank($data->rankId) ?? Rank::query()->find($data->rankId))
+            : null;
         $rankValid = true;
         $rankMessage = null;
 
-        if ($rank === null) {
+        if ($data->rankId > 0 && $rank === null) {
             $rankValid = false;
             $rankMessage = 'The selected rank is invalid.';
             $errors['rank_id'] = $rankMessage;
-        } else {
+        } elseif ($rank !== null) {
             $rankMessage = 'Rank is valid.';
             if (! $rank->is_active) {
                 $warnings[] = "Rank '{$rank->name}' is currently inactive in master data.";
             }
+        } else {
+            $rankMessage = 'Rank is optional when Position is provided.';
         }
 
         $checks[] = [
@@ -448,10 +477,14 @@ final class HistoricalCrewAssignmentValidator
                 'id' => (int) $vessel->id,
                 'name' => (string) $vessel->name,
             ] : ['id' => $data->vesselId, 'name' => 'Unknown'],
+            position: $position !== null ? [
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
+            ] : ['id' => $data->positionId, 'name' => 'Unknown'],
             rank: $rank !== null ? [
                 'id' => (int) $rank->id,
                 'name' => (string) $rank->name,
-            ] : ['id' => $data->rankId, 'name' => 'Unknown'],
+            ] : ($data->rankId > 0 ? ['id' => $data->rankId, 'name' => 'Unknown'] : null),
             client: $client !== null ? [
                 'id' => (int) $client->id,
                 'name' => (string) $client->name,

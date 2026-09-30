@@ -29,6 +29,9 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        if ($companyId < 1) {
+            $companyId = (int) ($this->user()?->current_company_id ?? 0);
+        }
         $vesselId = $this->input('vessel_id');
         $clientId = $this->input('client_id');
         $merge = [];

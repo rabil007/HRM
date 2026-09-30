@@ -5,25 +5,31 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewReliefReadinessResult;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Support\Facades\DB;
 
 it('keeps presenter query counts bounded for multiple assignments', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $companyId = (int) $fixtures['company']->id;
 
-    $ranks = collect(range(1, 8))->map(function (int $index): Rank {
-        return Rank::query()->create([
+    $ranks = collect(range(1, 8))->map(function (int $index) use ($fixtures): Rank {
+        $rank = Rank::query()->create([
             'name' => "Query Count Rank {$index} ".uniqid(),
             'is_active' => true,
             'max_tour_of_duty_days' => 60 + $index,
         ]);
+        ensureRankMappedPosition($fixtures['company'], $rank, 60 + $index);
+
+        return $rank;
     });
 
     $assignments = $ranks->take(5)->values()->map(function (Rank $rank, int $index) use ($fixtures) {
+        $positionId = RankPositionBridge::positionIdForRank((int) $fixtures['company']->id, (int) $rank->id);
         $employee = $index === 0
             ? $fixtures['employee']
             : Employee::factory()->forCompany($fixtures['company'])->create([
                 'rank_id' => $rank->id,
+                'position_id' => $positionId,
                 'status' => 'active',
             ]);
 
@@ -39,7 +45,7 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
             ],
         );
 
-        return $assignment->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
+        return $assignment->load(['employee', 'rank', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
     });
 
     DB::flushQueryLog();
@@ -53,6 +59,6 @@ it('keeps presenter query counts bounded for multiple assignments', function () 
     $presenterQueries = count(DB::getQueryLog());
     DB::disableQueryLog();
 
-    // Preloaded company/phases/relief should avoid per-assignment lookups.
+    // Preloaded company/phases/relief/position should avoid per-assignment lookups.
     expect($presenterQueries)->toBeLessThanOrEqual(2);
 });

@@ -18,11 +18,13 @@ use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
+use App\Models\Position;
 use App\Models\Rank;
 use App\Models\RoomType;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\Positions\RankPositionBridge;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -753,7 +755,13 @@ test('historical rank snapshot persists independently of employee current rank',
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
     $currentRank = Rank::query()->create(['name' => 'Current Rank '.Str::random(5), 'is_active' => true]);
     $historicalRank = Rank::query()->create(['name' => 'Historical Rank '.Str::random(5), 'is_active' => true]);
-    $employee->update(['rank_id' => $currentRank->id, 'status' => 'active']);
+    ensureRankMappedPosition($company, $currentRank);
+    $historicalPosition = ensureRankMappedPosition($company, $historicalRank);
+    $employee->update([
+        'rank_id' => $currentRank->id,
+        'position_id' => RankPositionBridge::positionIdForRank((int) $company->id, (int) $currentRank->id),
+        'status' => 'active',
+    ]);
     $vessel = makeCrewMovementVessel('Rank Snapshot Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
@@ -763,6 +771,7 @@ test('historical rank snapshot persists independently of employee current rank',
     $user->update(['current_company_id' => $company->id]);
 
     $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.crew-assignments.historical.store'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
@@ -777,8 +786,9 @@ test('historical rank snapshot persists independently of employee current rank',
     $sea = EmployeeSeaService::query()->where('employee_id', $employee->id)->firstOrFail();
 
     expect($assignment->rank_id)->toBe($historicalRank->id)
-        ->and($sea->rank_id)->toBe($historicalRank->id)
-        ->and($employee->fresh()->rank_id)->toBe($currentRank->id);
+        ->and($assignment->position_id)->toBe($historicalPosition->id)
+        ->and($employee->fresh()->rank_id)->toBe($currentRank->id)
+        ->and($sea->rank_id)->toBe($historicalRank->id);
 });
 
 test('historical entry rejects soft-deleted employees', function () {
@@ -1520,10 +1530,15 @@ test('disembarked and home at same timestamp creates direct P4 to P6 without pos
         ->and($phases[1]->actual_start_at->equalTo($phases[1]->actual_end_at))->toBeTrue();
 });
 
-test('historical form options include inactive vessel rank and client while live options stay active-only', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $activeRank] = makeCrewAssignmentFixtures();
+test('historical form options include inactive vessel position and client while live options stay active-only', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $activeRank, 'position' => $activePosition] = makeCrewAssignmentFixtures();
 
-    $inactiveRank = Rank::query()->create(['name' => 'Inactive Rank Opt '.Str::random(5), 'is_active' => false]);
+    $inactivePosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Inactive Position Opt '.Str::random(5),
+        'status' => 'inactive',
+        'is_crew_position' => true,
+    ]);
     $inactiveClient = Client::factory()->create(['name' => 'Inactive Client Opt '.Str::random(5), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('Inactive Vessel Opt '.Str::random(5), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
@@ -1569,12 +1584,12 @@ test('historical form options include inactive vessel rank and client while live
                     && str_contains((string) $inactive['name'], 'Inactive')
                     && ($inactive['is_active'] ?? true) === false;
             })
-            ->where('historical_form_options.ranks', function ($ranks) use ($inactiveRank, $activeRank) {
-                $ids = collect($ranks)->pluck('id')->all();
-                $inactive = collect($ranks)->firstWhere('id', $inactiveRank->id);
+            ->where('historical_form_options.positions', function ($positions) use ($inactivePosition, $activePosition) {
+                $ids = collect($positions)->pluck('id')->all();
+                $inactive = collect($positions)->firstWhere('id', $inactivePosition->id);
 
-                return in_array($inactiveRank->id, $ids, true)
-                    && in_array($activeRank->id, $ids, true)
+                return in_array($inactivePosition->id, $ids, true)
+                    && in_array($activePosition->id, $ids, true)
                     && $inactive !== null
                     && str_contains((string) $inactive['name'], 'Inactive');
             })
@@ -1599,11 +1614,11 @@ test('historical form options include inactive vessel rank and client while live
                 return ! in_array($inactiveHotel->id, $ids, true)
                     && in_array($activeHotel->id, $ids, true);
             })
-            ->where('form_options.ranks', function ($ranks) use ($inactiveRank, $activeRank) {
-                $ids = collect($ranks)->pluck('id')->all();
+            ->where('form_options.positions', function ($positions) use ($inactivePosition, $activePosition) {
+                $ids = collect($positions)->pluck('id')->all();
 
-                return ! in_array($inactiveRank->id, $ids, true)
-                    && in_array($activeRank->id, $ids, true);
+                return ! in_array($inactivePosition->id, $ids, true)
+                    && in_array($activePosition->id, $ids, true);
             })
             ->where('form_options.clients', function ($clients) use ($inactiveClient) {
                 $ids = collect($clients)->pluck('id')->all();

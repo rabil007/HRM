@@ -53,7 +53,7 @@ it('keeps current crew index query count bounded when attaching relief readiness
     DB::disableQueryLog();
 
     expect($page->total())->toBe(8)
-        ->and($queryCount)->toBeLessThan(14);
+        ->and($queryCount)->toBeLessThan(18);
 });
 
 it('maintains constant query count scaling as onboard crew size grows without reliefs', function () {

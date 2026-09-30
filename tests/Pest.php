@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\RankPositionBridge;
 use Composer\Autoload\ClassLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -80,6 +81,7 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
         EmployeeVisibilityScope::clearCache();
+        RankPositionBridge::clearCache();
     })
     ->in('Feature');
 
@@ -87,6 +89,7 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
         EmployeeVisibilityScope::clearCache();
+        RankPositionBridge::clearCache();
     })
     ->in('Unit/Support', 'Unit/Employees');
 

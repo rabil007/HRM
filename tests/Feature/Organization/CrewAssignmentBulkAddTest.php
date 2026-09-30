@@ -36,11 +36,14 @@ function actingBulkAddCrewUser(array $permissions = []): array
 
 function extraCrewEmployee(Company $company, Rank $rank, string $name): Employee
 {
+    $position = ensureRankMappedPosition($company, $rank);
+
     return Employee::factory()
         ->forCompany($company)
         ->create([
             'name' => $name,
             'rank_id' => $rank->id,
+            'position_id' => $position->id,
             'status' => 'active',
         ]);
 }
@@ -231,6 +234,7 @@ test('bulk add starts one employee as a normal active assignment', function () {
 test('bulk add starts multiple employees in one batch with a shared server timestamp', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employeeA, 'rank' => $rank] = actingBulkAddCrewUser();
     $rankB = Rank::query()->create(['name' => 'Bosun '.uniqid(), 'is_active' => true]);
+    ensureRankMappedPosition($company, $rankB);
     $employeeB = extraCrewEmployee($company, $rankB, 'John Mathew');
     $vessel = makeCrewMovementVessel('Bulk Shared Vessel', $company);
     Carbon::setTestNow(Carbon::parse('2026-09-15 15:45:12', $company->timezone));

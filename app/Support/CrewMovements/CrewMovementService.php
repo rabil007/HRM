@@ -1141,7 +1141,7 @@ final class CrewMovementService
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $destinationVesselId = (int) ($payload['vessel_id'] ?? 0);
-        $destinationPositionId = $this->resolvePayloadPositionId((int) $assignment->company_id, $payload);
+        $destinationPositionId = $this->resolvePayloadPositionId((int) $assignment->company_id, $payload, $assignment);
 
         if ($destinationVesselId <= 0 || $destinationPositionId === null) {
             throw CrewMovementException::make(
@@ -1282,7 +1282,7 @@ final class CrewMovementService
         ]);
 
         $destinationVesselId = isset($payload['vessel_id']) ? (int) $payload['vessel_id'] : null;
-        $destinationPositionId = $this->resolvePayloadPositionId((int) $assignment->company_id, $payload);
+        $destinationPositionId = $this->resolvePayloadPositionId((int) $assignment->company_id, $payload, $assignment);
         $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
 
         if ($startingPhase === CrewPhaseCode::OnVessel) {

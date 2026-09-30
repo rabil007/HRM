@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\Position;
 use App\Models\Rank;
 use App\Models\RankPositionMapping;
+use App\Support\Positions\RankPositionBridge;
 
 function crewPositionForRank(Company $company, Rank $rank, ?string $title = null): Position
 {
@@ -39,6 +40,8 @@ function crewPositionForRank(Company $company, Rank $rank, ?string $title = null
             'match_type' => RankPositionMatchType::Exact,
         ],
     );
+
+    RankPositionBridge::clearCache();
 
     return $position->fresh() ?? $position;
 }

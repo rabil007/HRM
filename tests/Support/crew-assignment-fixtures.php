@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\Positions\RankPositionBridge;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -83,6 +84,8 @@ function makeCrewAssignmentFixtures(): array
         'match_type' => RankPositionMatchType::Exact,
     ]);
 
+    RankPositionBridge::clearCache();
+
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
@@ -92,6 +95,68 @@ function makeCrewAssignmentFixtures(): array
         ]);
 
     return compact('user', 'company', 'employee', 'rank', 'position');
+}
+
+/**
+ * Phase 2: Tour of Duty is canonical on Position. Keep Rank TOD in sync only for
+ * temporary dual-write compatibility while tests still seed Rank masters.
+ */
+function setMappedCrewTourOfDutyDays(Company $company, Rank $rank, ?int $days): void
+{
+    $rank->update(['max_tour_of_duty_days' => $days]);
+
+    $position = ensureRankMappedPosition($company, $rank, $days);
+
+    $position->update([
+        'max_tour_of_duty_days' => $days,
+    ]);
+}
+
+/**
+ * Ensure a Rank has a usable company Position mapping (and return that Position).
+ */
+function ensureRankMappedPosition(Company $company, Rank $rank, ?int $tourOfDutyDays = null): Position
+{
+    $existingId = RankPositionMapping::query()
+        ->where('company_id', $company->id)
+        ->where('rank_id', $rank->id)
+        ->value('position_id');
+
+    if ($existingId !== null) {
+        $position = Position::query()->whereKey((int) $existingId)->firstOrFail();
+
+        if ($tourOfDutyDays !== null) {
+            $position->update(['max_tour_of_duty_days' => $tourOfDutyDays]);
+            $rank->update(['max_tour_of_duty_days' => $tourOfDutyDays]);
+        }
+
+        RankPositionBridge::clearCache();
+
+        return $position;
+    }
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => $rank->name,
+        'status' => 'active',
+        'is_crew_position' => true,
+        'max_tour_of_duty_days' => $tourOfDutyDays,
+    ]);
+
+    RankPositionMapping::query()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'position_id' => $position->id,
+        'match_type' => RankPositionMatchType::Exact,
+    ]);
+
+    if ($tourOfDutyDays !== null) {
+        $rank->update(['max_tour_of_duty_days' => $tourOfDutyDays]);
+    }
+
+    RankPositionBridge::clearCache();
+
+    return $position;
 }
 
 function makeCrewMovementVessel(string $name, ?Company $company = null, ?Client $client = null): Vessel

@@ -95,6 +95,7 @@ it('rejects vacant relief with wrong vessel or rank', function () {
         'name' => 'Wrong Relief Rank '.uniqid(),
         'is_active' => true,
     ]);
+    ensureRankMappedPosition($fixtures['company'], $otherRank);
 
     $this->actingAs($fixtures['user'])
         ->post(route('organization.crew-planning.assignments.store'), reliefPlanningPayload($source, [

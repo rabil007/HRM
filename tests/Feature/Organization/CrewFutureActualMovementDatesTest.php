@@ -13,7 +13,7 @@ use Carbon\CarbonImmutable;
 test('future actual movement timestamps are rejected by default', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $company->update(['timezone' => 'Asia/Dubai']);
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     $vessel = makeCrewMovementVessel('Future Join Off Vessel', $company);
     $assignment = makeCurrentCrewPhaseAssignment(
         $company,
@@ -46,7 +46,7 @@ test('future actual movement timestamps are rejected by default', function () {
 test('future actual movement timestamps are allowed when company override is enabled', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $company->update(['timezone' => 'Asia/Dubai']);
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
         'allow_future_actual_movement_dates' => true,
@@ -120,7 +120,7 @@ test('future join standby is allowed when override is enabled', function () {
 test('override does not bypass chronological disembarkation before join', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $company->update(['timezone' => 'Asia/Dubai']);
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
     CrewOperationsSettings::saveSettings($company->id, [], 30, false, [
         'allow_future_actual_movement_dates' => true,
         'actor_id' => $user->id,

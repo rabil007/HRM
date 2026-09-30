@@ -7,7 +7,8 @@ final class HistoricalCrewAssignmentPreview
     /**
      * @param  array{id: int, name: string, employee_no: ?string}  $employee
      * @param  array{id: int, name: string}  $vessel
-     * @param  array{id: int, name: string}  $rank
+     * @param  array{id: int, name: string}  $position
+     * @param  array{id: int, name: string}|null  $rank
      * @param  array{id: int, name: string}|null  $client
      * @param  array<string, mixed>  $summary
      * @param  list<array<string, mixed>>  $timeline
@@ -22,7 +23,8 @@ final class HistoricalCrewAssignmentPreview
         public readonly bool $valid,
         public readonly array $employee,
         public readonly array $vessel,
-        public readonly array $rank,
+        public readonly array $position,
+        public readonly ?array $rank,
         public readonly ?array $client,
         public readonly array $summary,
         public readonly array $timeline,
@@ -43,6 +45,7 @@ final class HistoricalCrewAssignmentPreview
             'valid' => $this->valid,
             'employee' => $this->employee,
             'vessel' => $this->vessel,
+            'position' => $this->position,
             'rank' => $this->rank,
             'client' => $this->client,
             'summary' => $this->summary,

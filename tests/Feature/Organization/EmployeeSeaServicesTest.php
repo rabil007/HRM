@@ -263,6 +263,7 @@ test('users with permission can add update delete and reorder sea services', fun
         'name' => 'Captain',
         'is_active' => true,
     ]);
+    $captainPosition = ensureRankMappedPosition($company, $rankCaptain);
 
     $clientX = Client::query()->create([
         'name' => 'Client X',
@@ -288,6 +289,7 @@ test('users with permission can add update delete and reorder sea services', fun
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $vesselA->id,
         'vessel_id' => $vesselAlpha->id,
+        'position_id' => $captainPosition->id,
         'rank_id' => $rankCaptain->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-03-11',

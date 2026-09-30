@@ -23,6 +23,20 @@ final class RankPositionBridge
     /** @var array<string, int|null> */
     private static array $positionIdForRankCache = [];
 
+    /** @var array<string, int|null> */
+    private static array $rankIdForPositionCache = [];
+
+    /**
+     * Clear request/process caches. Required between Pest tests because
+     * RefreshDatabase resets rows while static caches would otherwise reuse
+     * stale company/rank → position mappings across cases.
+     */
+    public static function clearCache(): void
+    {
+        self::$positionIdForRankCache = [];
+        self::$rankIdForPositionCache = [];
+    }
+
     /**
      * @return Builder<Position>
      */
@@ -260,13 +274,21 @@ final class RankPositionBridge
             return null;
         }
 
+        $cacheKey = $companyId.':'.$positionId;
+
+        if (array_key_exists($cacheKey, self::$rankIdForPositionCache)) {
+            return self::$rankIdForPositionCache[$cacheKey];
+        }
+
         $rankId = RankPositionMapping::query()
             ->where('company_id', $companyId)
             ->where('position_id', $positionId)
             ->orderBy('id')
             ->value('rank_id');
 
-        return $rankId !== null ? (int) $rankId : null;
+        self::$rankIdForPositionCache[$cacheKey] = $rankId !== null ? (int) $rankId : null;
+
+        return self::$rankIdForPositionCache[$cacheKey];
     }
 
     /**

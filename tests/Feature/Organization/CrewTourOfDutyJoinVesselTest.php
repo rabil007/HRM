@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->company = $this->fixtures['company'];
     $this->employee = $this->fixtures['employee'];
     $this->rank = $this->fixtures['rank'];
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($this->company, $this->rank, 90);
     $this->vessel = makeCrewMovementVessel('Tour Join Vessel');
     $this->service = app(CrewMovementService::class);
 });
@@ -147,7 +147,7 @@ it('keeps snapshotted tour days after Rank Master change', function () {
     $assignment->refresh();
     expect($assignment->tour_of_duty_days)->toBe(90);
 
-    $this->rank->update(['max_tour_of_duty_days' => 120]);
+    setMappedCrewTourOfDutyDays($this->company, $this->rank, 120);
 
     $assignment->refresh();
     expect($assignment->tour_of_duty_days)->toBe(90)

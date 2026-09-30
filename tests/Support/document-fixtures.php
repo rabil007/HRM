@@ -104,6 +104,21 @@ function makeDocumentRequirement(
     bool $isActive = true,
     array $projectIds = [],
 ): DocumentRequirement {
+    // Temporary Phase 2: legacy rank scope arguments map onto Position scopes.
+    if ($rankIds !== [] && $positionIds === []) {
+        $company = Company::query()->findOrFail($companyId);
+
+        foreach ($rankIds as $rankId) {
+            $rank = Rank::query()->find((int) $rankId);
+
+            if ($rank === null) {
+                continue;
+            }
+
+            $positionIds[] = ensureRankMappedPosition($company, $rank)->id;
+        }
+    }
+
     $requirement = DocumentRequirement::query()->create([
         'company_id' => $companyId,
         'document_type_id' => $documentTypeId,
@@ -112,7 +127,7 @@ function makeDocumentRequirement(
     ]);
 
     $requirement->departments()->sync($departmentIds);
-    $requirement->positions()->sync($positionIds);
+    $requirement->positions()->sync(array_values(array_unique($positionIds)));
     $requirement->ranks()->sync($rankIds);
     $requirement->projects()->sync($projectIds);
 
@@ -162,6 +177,9 @@ function makeDocumentRequirementMatchScopes(int $companyId): array
         'name' => 'Chief Engineer '.$suffix,
         'is_active' => true,
     ]);
+    $company = Company::query()->findOrFail($companyId);
+    $captainPosition = ensureRankMappedPosition($company, $captain);
+    $chiefEngineerPosition = ensureRankMappedPosition($company, $chiefEngineer);
     $adnoc = Project::query()->create([
         'title' => 'ADNOC '.$suffix,
         'is_active' => true,
@@ -180,7 +198,9 @@ function makeDocumentRequirementMatchScopes(int $companyId): array
         'marine',
         'seafarer',
         'captain',
+        'captainPosition',
         'chiefEngineer',
+        'chiefEngineerPosition',
         'adnoc',
         'aramco',
         'otherProject',
