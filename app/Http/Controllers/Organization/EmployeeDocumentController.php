@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\DocumentAiErrorCode;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\EmployeeDocument\BulkStoreEmployeeDocumentRequest;
 use App\Http\Requests\Organization\EmployeeDocument\ExtractEmployeeDocumentRequest;
@@ -42,7 +43,7 @@ class EmployeeDocumentController extends Controller
         try {
             return response()->json(['ok' => true, 'result' => $extractor->extract($request->file('file'))->toArray()]);
         } catch (Throwable) {
-            return response()->json(['message' => 'AI extraction failed. You can retry or continue manually.'], 503);
+            return response()->json(['message' => DocumentAiErrorCode::userMessage()], 503);
         }
     }
 

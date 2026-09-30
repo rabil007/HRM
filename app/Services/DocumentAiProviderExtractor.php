@@ -3,12 +3,15 @@
 namespace App\Services;
 
 use App\Contracts\EmployeeDocuments\DocumentAiExtractor;
+use App\Enums\DocumentAiErrorCode;
+use App\Exceptions\DocumentAiProviderException;
 use App\Exceptions\EmployeeSmartSearchUnavailableException;
 use App\Services\Settings\AiSettingsService;
 use App\Support\Ai\StructuredAgentOutput;
 use App\Support\EmployeeDocuments\DocumentAiExtractionResult;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\UploadedFile;
+use InvalidArgumentException;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Files\Document;
@@ -31,16 +34,25 @@ final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, H
             $attachment = str_starts_with((string) $file->getMimeType(), 'image/')
                 ? Image::fromPath($file->getRealPath(), $file->getMimeType())
                 : Document::fromPath($file->getRealPath());
-            $response = $this->prompt('Extract only the document metadata from the attached file.', [$attachment], $runtime->provider, $runtime->model);
+            $response = $this->prompt(
+                'Extract only the document metadata from the attached file.',
+                [$attachment],
+                $runtime->provider,
+                $runtime->model,
+            );
             if (! $response instanceof StructuredAgentResponse) {
-                throw new \RuntimeException('Invalid provider response.');
+                throw new DocumentAiProviderException(DocumentAiErrorCode::InvalidOutput);
             }
 
             return DocumentAiExtractionResult::fromDecoded(StructuredAgentOutput::fromResponse($response));
-        } catch (EmployeeSmartSearchUnavailableException $e) {
+        } catch (DocumentAiProviderException $e) {
             throw $e;
+        } catch (InvalidArgumentException $e) {
+            throw new DocumentAiProviderException(DocumentAiErrorCode::InvalidOutput, $e);
+        } catch (EmployeeSmartSearchUnavailableException $e) {
+            throw new DocumentAiProviderException(DocumentAiErrorCode::ProviderUnavailable, $e);
         } catch (Throwable $e) {
-            throw new \RuntimeException('Document AI extraction failed.', previous: $e);
+            throw DocumentAiProviderException::fromThrowable($e);
         }
     }
 

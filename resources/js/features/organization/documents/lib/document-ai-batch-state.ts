@@ -7,6 +7,7 @@ export type DocumentAiBatchItemState = {
     review?: DocumentAiReviewState;
     error?: string;
 };
+
 export type DocumentAiBatchState = {
     id: number | null;
     status:
@@ -19,12 +20,21 @@ export type DocumentAiBatchState = {
         | 'expired'
         | 'failed';
     items: Record<string, DocumentAiBatchItemState>;
+    requestId: string | null;
 };
+
 export const emptyDocumentAiBatch = (): DocumentAiBatchState => ({
     id: null,
     status: 'idle',
     items: {},
+    requestId: null,
 });
+
+export function isActiveBatchStatus(
+    status: DocumentAiBatchState['status'],
+): boolean {
+    return status === 'pending' || status === 'processing';
+}
 
 export function mapBatchResponse(
     payload: any,
@@ -56,7 +66,12 @@ export function mapBatchResponse(
         };
     }
 
-    return { id: payload.id, status: payload.status, items };
+    return {
+        id: payload.id,
+        status: payload.status,
+        items,
+        requestId: current.requestId,
+    };
 }
 
 export function resetFailedItem(
@@ -71,6 +86,7 @@ export function resetFailedItem(
 
     return {
         ...state,
+        status: isActiveBatchStatus(state.status) ? state.status : 'processing',
         items: {
             ...state.items,
             [draftId]: { ...item, status: 'queued', error: undefined },

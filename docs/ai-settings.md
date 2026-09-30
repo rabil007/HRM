@@ -54,15 +54,23 @@ AI-filled document number and date fields are visibly marked until the user edit
 
 For multi-file uploads, Optional mode exposes **Extract all with AI** and Automatic mode starts eligible extraction automatically. Each file is copied to private temporary storage (`local` disk, not public `/storage`) and processed by its own bounded background job on the application queue (default `database`). The dialog polls for per-file progress while the batch is active, keeps completed suggestions independently reviewable, and allows failed items to be retried or completed manually without affecting successful files. Cancelling AI extraction does not remove upload drafts or block the existing Upload action. Late results after cancellation do not reactivate the batch.
 
-Bulk extraction batches belong to the active company, initiating user, and employee (validated with `DocumentAccess` / `EmployeeVisibilityScope`). Temporary files and normalized results expire after **24 hours** and are removed by the hourly `documents:cleanup-ai-batches` scheduler task. Cleanup skips batches with items still `processing` and is idempotent. Provider credentials, raw responses, OCR text, and document PII are never stored in queued payloads or operational logs. Jobs resolve provider credentials server-side at execution time; if the provider or company mode is unavailable then, extraction fails safely.
+Bulk extraction batches belong to the active company, initiating user, and employee (validated with `DocumentAccess` / `EmployeeVisibilityScope`). Temporary files and normalized results expire after **24 hours** (`expires_at`). The hourly `documents:cleanup-ai-batches` task:
+
+- purges expired terminal batches
+- skips expired batches that still have **recent** `processing` items (`started_at` within job timeout 45s + 120s grace)
+- terminalizes **stale** `processing` items past that window, then purges
+- sweeps orphan `document-ai-temp/{companyId}/{batchId}/` directories left by DB cascade deletes
+
+Cleanup is idempotent. Provider credentials, raw responses, OCR text, and document PII are never stored in queued payloads or operational logs. Jobs resolve provider credentials server-side at execution time; if the provider or company mode is unavailable then, extraction fails safely. Bulk create accepts a client `batch_request_id` UUID for idempotency (`company_id` + `user_id` + `batch_request_id`). Item `attempts` increments on every claimed execution (including provider-unavailable checks) and is capped at 3 for both queue and manual Retry.
 
 ### Document AI operational notes
 
 - **Deployment order:** deploy code → run migrations → restart queue workers so they load new job classes/tables → ensure the existing app scheduler continues to run (cleanup is registered in `routes/console.php`).
-- **Queue:** uses the default queue connection (typically `database` on Hostinger). Workers must be running for bulk extraction.
-- **Safe error categories** stored on items (never raw provider bodies): `provider_timeout`, `provider_rate_limited`, `provider_unavailable`, `invalid_output`, `unsupported_file`, `temporary_file_missing`, `cancelled`, `company_ai_disabled`, `extraction_failed`.
+- **Queue:** uses the default queue connection (typically `database` on Hostinger). Workers must be running for bulk extraction. Timing: provider timeout 30s < job timeout 45s < database queue `retry_after` (default 660s).
+- **Safe error categories** stored on items (never raw provider bodies): `provider_timeout`, `provider_rate_limited`, `provider_unavailable`, `invalid_output`, `unsupported_file`, `temporary_file_missing`, `cancelled`, `company_ai_disabled`, `extraction_failed`. Transient provider failures are classified from the exception chain via `DocumentAiProviderException` and use bounded backoff retries.
 - **Throttles:** single extract `20/min`, bulk create `10/min`, retry `20/min`.
-- **Retention:** 24 hours after batch creation (`expires_at`); cleanup marks expired then deletes temporary files and rows.
+- **Retention:** 24 hours after batch creation; stale processing cannot retain private temp files indefinitely.
+- **Cancellation:** closing the upload dialog, clearing files, or changing employee cancels/purges an active backend batch when possible. Late results for removed drafts are ignored.
 
 Architecture:
 

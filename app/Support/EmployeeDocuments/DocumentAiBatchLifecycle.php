@@ -4,12 +4,29 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Enums\DocumentAiBatchItemStatus;
 use App\Enums\DocumentAiBatchStatus;
+use App\Enums\DocumentAiErrorCode;
 use App\Models\DocumentAiBatch;
+use App\Models\DocumentAiBatchItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 final class DocumentAiBatchLifecycle
 {
+    /**
+     * Job timeout is 45s; grace covers scheduling, disk IO, and worker reclaim lag.
+     * Expired batches with processing older than this window are treated as abandoned.
+     */
+    public const JOB_TIMEOUT_SECONDS = 45;
+
+    public const PROCESSING_GRACE_SECONDS = 120;
+
+    public const TEMP_RETENTION_HOURS = 24;
+
+    public static function staleProcessingThresholdSeconds(): int
+    {
+        return self::JOB_TIMEOUT_SECONDS + self::PROCESSING_GRACE_SECONDS;
+    }
+
     public static function refresh(DocumentAiBatch $batch): void
     {
         DB::transaction(function () use ($batch): void {
@@ -47,24 +64,71 @@ final class DocumentAiBatchLifecycle
         $batch->refresh();
     }
 
+    public static function isRecentProcessing(DocumentAiBatchItem $item): bool
+    {
+        if ($item->status !== DocumentAiBatchItemStatus::Processing) {
+            return false;
+        }
+
+        $startedAt = $item->started_at ?? $item->updated_at;
+        if ($startedAt === null) {
+            return false;
+        }
+
+        return $startedAt->gt(now()->subSeconds(self::staleProcessingThresholdSeconds()));
+    }
+
+    public static function isStaleProcessing(DocumentAiBatchItem $item): bool
+    {
+        return $item->status === DocumentAiBatchItemStatus::Processing
+            && ! self::isRecentProcessing($item);
+    }
+
+    public static function terminalizeStaleProcessing(DocumentAiBatch $batch): void
+    {
+        $batch->loadMissing('items');
+
+        foreach ($batch->items as $item) {
+            if (! self::isStaleProcessing($item)) {
+                continue;
+            }
+
+            $item->update([
+                'status' => DocumentAiBatchItemStatus::Failed,
+                'safe_error_code' => DocumentAiErrorCode::ExtractionFailed->value,
+                'completed_at' => now(),
+            ]);
+        }
+    }
+
     public static function deleteTemporaryFiles(DocumentAiBatch $batch): void
     {
         $disk = Storage::disk('local');
         $batch->loadMissing('items');
 
         foreach ($batch->items as $item) {
-            $path = (string) $item->temporary_file_reference;
-            if ($path === '' || str_contains($path, '..')) {
-                continue;
-            }
+            self::deleteTemporaryPath((string) $item->temporary_file_reference, $batch);
+        }
 
-            if (! self::isOwnedTemporaryPath($batch, $path)) {
-                continue;
-            }
+        $directory = 'document-ai-temp/'.$batch->company_id.'/'.$batch->id;
+        if ($disk->exists($directory)) {
+            $disk->deleteDirectory($directory);
+        }
+    }
 
-            if ($disk->exists($path)) {
-                $disk->delete($path);
-            }
+    public static function deleteTemporaryPath(string $path, ?DocumentAiBatch $batch = null): void
+    {
+        if ($path === '' || str_contains($path, '..') || ! str_starts_with($path, 'document-ai-temp/')) {
+            return;
+        }
+
+        if ($batch !== null && ! self::isOwnedTemporaryPath($batch, $path)) {
+            return;
+        }
+
+        $disk = Storage::disk('local');
+        if ($disk->exists($path)) {
+            $disk->delete($path);
         }
     }
 
@@ -79,5 +143,47 @@ final class DocumentAiBatchLifecycle
     {
         self::deleteTemporaryFiles($batch);
         $batch->delete();
+    }
+
+    /**
+     * Remove orphaned private temp directories left behind by DB cascade deletes.
+     * Only touches paths under document-ai-temp/{companyId}/{batchId}/.
+     */
+    public static function purgeOrphanTemporaryDirectories(): int
+    {
+        $disk = Storage::disk('local');
+        $root = 'document-ai-temp';
+        if (! $disk->exists($root)) {
+            return 0;
+        }
+
+        $removed = 0;
+
+        foreach ($disk->directories($root) as $companyDirectory) {
+            $companyId = basename($companyDirectory);
+            if (! ctype_digit($companyId)) {
+                continue;
+            }
+
+            foreach ($disk->directories($companyDirectory) as $batchDirectory) {
+                $batchId = basename($batchDirectory);
+                if (! ctype_digit($batchId)) {
+                    continue;
+                }
+
+                if (DocumentAiBatch::query()->whereKey((int) $batchId)->exists()) {
+                    continue;
+                }
+
+                $disk->deleteDirectory($batchDirectory);
+                $removed++;
+            }
+
+            if ($disk->exists($companyDirectory) && $disk->directories($companyDirectory) === [] && $disk->files($companyDirectory) === []) {
+                $disk->deleteDirectory($companyDirectory);
+            }
+        }
+
+        return $removed;
     }
 }

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as BatchController from '@/actions/App/Http/Controllers/Organization/DocumentAiBatchController';
 import {
     emptyDocumentAiBatch,
+    isActiveBatchStatus,
     mapBatchResponse,
     resetFailedItem,
 } from '@/features/organization/documents/lib/document-ai-batch-state';
+import type { DocumentAiBatchState } from '@/features/organization/documents/lib/document-ai-batch-state';
 import type { UploadDraft } from './upload-draft';
 
 const csrf = () =>
@@ -12,17 +14,35 @@ const csrf = () =>
         .querySelector('meta[name="csrf-token"]')
         ?.getAttribute('content') ?? '';
 
+function newBatchRequestId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+        return crypto.randomUUID();
+    }
+
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+        const value = (Math.random() * 16) | 0;
+        const digit = char === 'x' ? value : (value & 0x3) | 0x8;
+
+        return digit.toString(16);
+    });
+}
+
 export function useDocumentAiBatch(
     drafts: UploadDraft[],
     employeeId: number | null,
 ) {
     const [state, setState] = useState(emptyDocumentAiBatch);
+    const stateRef = useRef(state);
     const startingRef = useRef(false);
     const retryingRef = useRef<string | null>(null);
     const validDraftIds = useMemo(
         () => new Set(drafts.map((draft) => draft.id)),
         [drafts],
     );
+
+    useEffect(() => {
+        stateRef.current = state;
+    }, [state]);
 
     const start = useCallback(async () => {
         if (
@@ -35,14 +55,17 @@ export function useDocumentAiBatch(
         }
 
         startingRef.current = true;
+        const requestId = newBatchRequestId();
         setState({
             id: null,
             status: 'pending',
             items: {},
+            requestId,
         });
 
         try {
             const data = new FormData();
+            data.append('batch_request_id', requestId);
             drafts.forEach((d) => {
                 data.append('files[]', d.file);
                 data.append('draft_ids[]', d.id);
@@ -67,7 +90,10 @@ export function useDocumentAiBatch(
             setState(
                 mapBatchResponse(
                     p.batch,
-                    emptyDocumentAiBatch(),
+                    {
+                        ...emptyDocumentAiBatch(),
+                        requestId,
+                    },
                     validDraftIds,
                 ),
             );
@@ -76,6 +102,7 @@ export function useDocumentAiBatch(
                 id: null,
                 status: 'failed',
                 items: {},
+                requestId: null,
             });
         } finally {
             startingRef.current = false;
@@ -83,7 +110,7 @@ export function useDocumentAiBatch(
     }, [drafts, employeeId, state.status, validDraftIds]);
 
     useEffect(() => {
-        if (!state.id || !['pending', 'processing'].includes(state.status)) {
+        if (!state.id || !isActiveBatchStatus(state.status)) {
             return;
         }
 
@@ -110,10 +137,11 @@ export function useDocumentAiBatch(
 
     const retry = useCallback(
         async (draftId: string) => {
-            const item = state.items[draftId];
+            const current = stateRef.current;
+            const item = current.items[draftId];
 
             if (
-                !state.id ||
+                !current.id ||
                 !item ||
                 item.status !== 'failed' ||
                 retryingRef.current === draftId
@@ -122,12 +150,13 @@ export function useDocumentAiBatch(
             }
 
             retryingRef.current = draftId;
+            const previous = current;
             setState((s) => resetFailedItem(s, draftId));
 
             try {
-                await fetch(
+                const r = await fetch(
                     BatchController.retry.url({
-                        batch: state.id,
+                        batch: current.id,
                         item: item.itemId,
                     }),
                     {
@@ -138,40 +167,135 @@ export function useDocumentAiBatch(
                         },
                     },
                 );
+
+                if (!r.ok) {
+                    throw new Error('retry failed');
+                }
+
+                const p = await r.json();
+                setState((s) => mapBatchResponse(p.batch, s, validDraftIds));
+            } catch {
+                try {
+                    const show = await fetch(
+                        BatchController.show.url({ batch: current.id }),
+                        { headers: { Accept: 'application/json' } },
+                    );
+
+                    if (show.ok) {
+                        const p = await show.json();
+                        setState((s) =>
+                            mapBatchResponse(p.batch, s, validDraftIds),
+                        );
+
+                        return;
+                    }
+                } catch {
+                    // Fall through to previous local state.
+                }
+
+                setState(previous);
             } finally {
                 retryingRef.current = null;
             }
         },
-        [state],
+        [validDraftIds],
     );
 
     const cancel = useCallback(async () => {
-        if (!state.id) {
+        const current = stateRef.current;
+
+        if (!current.id) {
             return;
         }
 
-        await fetch(BatchController.cancel.url({ batch: state.id }), {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json' },
-        });
+        try {
+            await fetch(BatchController.cancel.url({ batch: current.id }), {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    Accept: 'application/json',
+                },
+            });
+        } catch {
+            // Cancellation failure must not block manual upload.
+        }
+
         setState((s) => ({ ...s, status: 'cancelled' }));
-    }, [state.id]);
+    }, []);
 
     const reset = useCallback(() => setState(emptyDocumentAiBatch()), []);
 
     const purge = useCallback(async () => {
-        if (state.id) {
-            await fetch(BatchController.destroy.url({ batch: state.id }), {
+        const current = stateRef.current;
+
+        if (current.id) {
+            try {
+                await fetch(
+                    BatchController.destroy.url({ batch: current.id }),
+                    {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf(),
+                            Accept: 'application/json',
+                        },
+                    },
+                );
+            } catch {
+                // Purge failure must not block dialog close / manual upload.
+            }
+        }
+
+        setState(emptyDocumentAiBatch());
+    }, []);
+
+    const abandon = useCallback(async () => {
+        const current = stateRef.current;
+
+        if (!current.id) {
+            setState(emptyDocumentAiBatch());
+
+            return;
+        }
+
+        if (isActiveBatchStatus(current.status)) {
+            try {
+                await fetch(BatchController.cancel.url({ batch: current.id }), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf(),
+                        Accept: 'application/json',
+                    },
+                });
+            } catch {
+                // Continue clearing local state even if cancel fails.
+            }
+        }
+
+        try {
+            await fetch(BatchController.destroy.url({ batch: current.id }), {
                 method: 'DELETE',
                 headers: {
                     'X-CSRF-TOKEN': csrf(),
                     Accept: 'application/json',
                 },
             });
+        } catch {
+            // Destroy failure must not block local reset.
         }
 
         setState(emptyDocumentAiBatch());
-    }, [state.id]);
+    }, []);
 
-    return { state, start, retry, cancel, reset, purge };
+    return {
+        state,
+        start,
+        retry,
+        cancel,
+        reset,
+        purge,
+        abandon,
+        isActive: isActiveBatchStatus(state.status),
+    };
 }
+
+export type { DocumentAiBatchState };

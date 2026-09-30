@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\DocumentAiBatchItemStatus;
 use App\Enums\DocumentAiBatchStatus;
 use App\Models\DocumentAiBatch;
 use App\Support\EmployeeDocuments\DocumentAiBatchLifecycle;
@@ -12,7 +11,7 @@ class CleanupExpiredDocumentAiBatchesCommand extends Command
 {
     protected $signature = 'documents:cleanup-ai-batches';
 
-    protected $description = 'Remove expired Document AI temporary batches';
+    protected $description = 'Remove expired Document AI temporary batches and orphan temp directories';
 
     public function handle(): int
     {
@@ -21,18 +20,22 @@ class CleanupExpiredDocumentAiBatchesCommand extends Command
             ->with('items')
             ->chunkById(100, function ($batches): void {
                 foreach ($batches as $batch) {
-                    $hasActiveProcessing = $batch->items->contains(
-                        fn ($item): bool => $item->status === DocumentAiBatchItemStatus::Processing,
+                    $hasRecentProcessing = $batch->items->contains(
+                        fn ($item): bool => DocumentAiBatchLifecycle::isRecentProcessing($item),
                     );
 
-                    if ($hasActiveProcessing) {
+                    if ($hasRecentProcessing) {
                         continue;
                     }
+
+                    DocumentAiBatchLifecycle::terminalizeStaleProcessing($batch);
 
                     $batch->update(['status' => DocumentAiBatchStatus::Expired]);
                     DocumentAiBatchLifecycle::purge($batch);
                 }
             });
+
+        DocumentAiBatchLifecycle::purgeOrphanTemporaryDirectories();
 
         return self::SUCCESS;
     }

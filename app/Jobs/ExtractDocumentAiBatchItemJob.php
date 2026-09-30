@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\DocumentAiBatchItemStatus;
 use App\Enums\DocumentAiBatchStatus;
 use App\Enums\DocumentAiErrorCode;
+use App\Exceptions\DocumentAiProviderException;
 use App\Models\DocumentAiBatchItem;
 use App\Services\DocumentAiExtractionService;
 use App\Support\EmployeeDocuments\DocumentAiBatchLifecycle;
@@ -13,19 +14,22 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use InvalidArgumentException;
 use Throwable;
 
 class ExtractDocumentAiBatchItemJob implements ShouldQueue
 {
     use Queueable;
 
+    /** Bounded queue attempts; must stay below database queue retry_after (default 660s). */
     public int $tries = 3;
 
+    /** Must exceed DocumentAiProviderExtractor::timeout() (30) and stay below retry_after. */
     public int $timeout = 45;
 
     /** @var list<int> */
     public array $backoff = [15, 60];
+
+    public const MAX_ITEM_ATTEMPTS = 3;
 
     public function __construct(public int $itemId) {}
 
@@ -41,7 +45,6 @@ class ExtractDocumentAiBatchItemJob implements ShouldQueue
         }
 
         // Worker timeout/kill can leave the item Processing without running catch().
-        // Reclaim on a subsequent attempt so bounded retries actually re-run extraction.
         if (
             $item->status === DocumentAiBatchItemStatus::Processing
             && $this->attempts() > 1
@@ -60,32 +63,8 @@ class ExtractDocumentAiBatchItemJob implements ShouldQueue
             return;
         }
 
-        if (! $settings->isEnabledForCompany((int) $item->batch->company_id)) {
-            $this->failPermanently($item, DocumentAiErrorCode::CompanyAiDisabled);
-
-            return;
-        }
-
-        if (! $settings->providerAvailable()) {
-            if ($this->shouldRetry()) {
-                throw new \RuntimeException('Document AI provider temporarily unavailable.');
-            }
-
-            $this->failPermanently($item, DocumentAiErrorCode::ProviderUnavailable);
-
-            return;
-        }
-
-        $path = (string) $item->temporary_file_reference;
-        if (! DocumentAiBatchLifecycle::isOwnedTemporaryPath($item->batch, $path)) {
-            $this->failPermanently($item, DocumentAiErrorCode::TemporaryFileMissing);
-
-            return;
-        }
-
-        $disk = Storage::disk('local');
-        if (! $disk->exists($path)) {
-            $this->failPermanently($item, DocumentAiErrorCode::TemporaryFileMissing);
+        if ($item->attempts >= self::MAX_ITEM_ATTEMPTS) {
+            $this->failPermanently($item, DocumentAiErrorCode::ExtractionFailed);
 
             return;
         }
@@ -106,6 +85,32 @@ class ExtractDocumentAiBatchItemJob implements ShouldQueue
 
         $item->refresh();
         $item->load('batch');
+
+        if (! $settings->isEnabledForCompany((int) $item->batch->company_id)) {
+            $this->failPermanently($item, DocumentAiErrorCode::CompanyAiDisabled);
+
+            return;
+        }
+
+        if (! $settings->providerAvailable()) {
+            $this->releaseForRetryOrFail($item, DocumentAiErrorCode::ProviderUnavailable);
+
+            return;
+        }
+
+        $path = (string) $item->temporary_file_reference;
+        if (! DocumentAiBatchLifecycle::isOwnedTemporaryPath($item->batch, $path)) {
+            $this->failPermanently($item, DocumentAiErrorCode::TemporaryFileMissing);
+
+            return;
+        }
+
+        $disk = Storage::disk('local');
+        if (! $disk->exists($path)) {
+            $this->failPermanently($item, DocumentAiErrorCode::TemporaryFileMissing);
+
+            return;
+        }
 
         try {
             $file = new UploadedFile(
@@ -147,20 +152,12 @@ class ExtractDocumentAiBatchItemJob implements ShouldQueue
             }
 
             DocumentAiBatchLifecycle::refresh($item->batch);
-        } catch (InvalidArgumentException) {
-            $this->failPermanently($item, DocumentAiErrorCode::InvalidOutput);
         } catch (Throwable $e) {
             $code = $this->classifyThrowable($e);
-            if ($code->isRetryable() && $this->shouldRetry()) {
-                DocumentAiBatchItem::query()
-                    ->whereKey($item->id)
-                    ->where('status', DocumentAiBatchItemStatus::Processing)
-                    ->update([
-                        'status' => DocumentAiBatchItemStatus::Queued,
-                        'safe_error_code' => null,
-                    ]);
+            if ($code->isRetryable()) {
+                $this->releaseForRetryOrFail($item, $code, $e);
 
-                throw $e;
+                return;
             }
 
             $this->failPermanently($item, $code);
@@ -182,6 +179,26 @@ class ExtractDocumentAiBatchItemJob implements ShouldQueue
             $item,
             $exception === null ? DocumentAiErrorCode::ExtractionFailed : $this->classifyThrowable($exception),
         );
+    }
+
+    private function releaseForRetryOrFail(
+        DocumentAiBatchItem $item,
+        DocumentAiErrorCode $code,
+        ?Throwable $exception = null,
+    ): void {
+        if ($this->shouldRetry() && $item->attempts < self::MAX_ITEM_ATTEMPTS) {
+            DocumentAiBatchItem::query()
+                ->whereKey($item->id)
+                ->where('status', DocumentAiBatchItemStatus::Processing)
+                ->update([
+                    'status' => DocumentAiBatchItemStatus::Queued,
+                    'safe_error_code' => null,
+                ]);
+
+            throw $exception ?? new DocumentAiProviderException($code);
+        }
+
+        $this->failPermanently($item, $code);
     }
 
     private function failPermanently(DocumentAiBatchItem $item, DocumentAiErrorCode $code): void
@@ -231,26 +248,6 @@ class ExtractDocumentAiBatchItemJob implements ShouldQueue
 
     private function classifyThrowable(Throwable $e): DocumentAiErrorCode
     {
-        $message = strtolower($e->getMessage());
-
-        if (str_contains($message, '429') || str_contains($message, 'rate limit') || str_contains($message, 'too many requests')) {
-            return DocumentAiErrorCode::ProviderRateLimited;
-        }
-
-        if (str_contains($message, 'timeout') || str_contains($message, 'timed out')) {
-            return DocumentAiErrorCode::ProviderTimeout;
-        }
-
-        if (
-            str_contains($message, '503')
-            || str_contains($message, '502')
-            || str_contains($message, '500')
-            || str_contains($message, 'unavailable')
-            || str_contains($message, 'connection')
-        ) {
-            return DocumentAiErrorCode::ProviderUnavailable;
-        }
-
-        return DocumentAiErrorCode::ExtractionFailed;
+        return DocumentAiProviderException::classify($e);
     }
 }

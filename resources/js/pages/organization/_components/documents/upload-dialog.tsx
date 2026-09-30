@@ -245,8 +245,8 @@ export function UploadDocumentDialog({
         start: startBulkAi,
         retry: retryBulkAi,
         cancel: cancelBulkAi,
-        reset: resetBulkAi,
         purge: purgeBulkAi,
+        abandon: abandonBulkAi,
     } = useDocumentAiBatch(drafts, effectiveEmployeeId);
     const bulkAiAvailable =
         canUseDocumentAi &&
@@ -773,6 +773,7 @@ export function UploadDocumentDialog({
                 onOpenChange(nextOpen);
 
                 if (!nextOpen) {
+                    void abandonBulkAi();
                     resetUploadDialog();
                 }
             }}
@@ -815,7 +816,7 @@ export function UploadDocumentDialog({
                                 selectedEmployee={selectedEmployee}
                                 onSelect={(employee) => {
                                     appliedBulkAiRef.current.clear();
-                                    resetBulkAi();
+                                    void abandonBulkAi();
                                     setAiReview(idleDocumentAiReview());
                                     setSelectedEmployee(employee);
                                 }}
@@ -919,7 +920,7 @@ export function UploadDocumentDialog({
                                                     new Map(),
                                                 );
                                                 appliedBulkAiRef.current.clear();
-                                                resetBulkAi();
+                                                void abandonBulkAi();
                                             }}
                                         >
                                             Clear

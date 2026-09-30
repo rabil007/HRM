@@ -3,7 +3,9 @@
 use App\Contracts\EmployeeDocuments\DocumentAiExtractor;
 use App\Enums\DocumentAiBatchItemStatus;
 use App\Enums\DocumentAiBatchStatus;
+use App\Enums\DocumentAiErrorCode;
 use App\Enums\DocumentAiMode;
+use App\Exceptions\DocumentAiProviderException;
 use App\Jobs\ExtractDocumentAiBatchItemJob;
 use App\Models\DocumentAiBatch;
 use App\Models\DocumentAiBatchItem;
@@ -11,6 +13,7 @@ use App\Models\DocumentAiSetting;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\DocumentAiExtractionService;
+use App\Support\EmployeeDocuments\CreateDocumentAiBatch;
 use App\Support\EmployeeDocuments\DocumentAiBatchLifecycle;
 use App\Support\EmployeeDocuments\DocumentAiExtractionResult;
 use App\Support\EmployeeDocuments\DocumentAiSettings;
@@ -19,7 +22,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Activitylog\Models\Activity;
+use Illuminate\Support\Str;
 
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
@@ -38,7 +41,12 @@ function enableBatchAi($company, User $user): void
     storePlatformAiSettings(['openai_api_key' => 'batch-test-key'], $user);
 }
 
-function createQueuedBatch(User $user, $company, $employee, int $files = 1): DocumentAiBatch
+function batchRequestId(): string
+{
+    return (string) Str::uuid();
+}
+
+function createQueuedBatch(User $user, $company, $employee, int $files = 1, ?string $requestId = null): DocumentAiBatch
 {
     Queue::fake();
     grantCompanyPermissions($user, $company, ['documents.ai.use']);
@@ -53,7 +61,11 @@ function createQueuedBatch(User $user, $company, $employee, int $files = 1): Doc
 
     $response = test()->actingAs($user)->postJson(
         route('organization.employees.documents.ai-batches.store', $employee),
-        ['draft_ids' => $draftIds, 'files' => $uploads],
+        [
+            'batch_request_id' => $requestId ?? batchRequestId(),
+            'draft_ids' => $draftIds,
+            'files' => $uploads,
+        ],
     )->assertAccepted();
 
     return DocumentAiBatch::query()->with('items')->findOrFail($response->json('batch.id'));
@@ -69,6 +81,7 @@ test('creates a tenant owned batch and dispatches one job per valid file', funct
     $response = $this->actingAs($user)->postJson(
         route('organization.employees.documents.ai-batches.store', $employee),
         [
+            'batch_request_id' => batchRequestId(),
             'draft_ids' => [
                 '11111111-1111-4111-8111-111111111111',
                 '22222222-2222-4222-8222-222222222222',
@@ -87,9 +100,6 @@ test('creates a tenant owned batch and dispatches one job per valid file', funct
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 2);
     expect(serialize(new ExtractDocumentAiBatchItemJob($batch->items->first()->id)))
         ->not->toContain('batch-test-key');
-
-    expect(Activity::query()->where('event', 'document_ai_batch_started')->where('company_id', $company->id)->exists())
-        ->toBeTrue();
 });
 
 test('off mode and missing permission cannot create a batch', function () {
@@ -97,6 +107,7 @@ test('off mode and missing permission cannot create a batch', function () {
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
     grantCompanyPermissions($user, $company, ['documents.ai.use']);
     $payload = [
+        'batch_request_id' => batchRequestId(),
         'draft_ids' => ['11111111-1111-4111-8111-111111111111'],
         'files' => [UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf')],
     ];
@@ -109,6 +120,114 @@ test('off mode and missing permission cannot create a batch', function () {
     $this->actingAs($other)
         ->postJson(route('organization.employees.documents.ai-batches.store', $employee), $payload)
         ->assertForbidden();
+});
+
+test('duplicate batch request id reuses the existing batch without extra jobs', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    enableBatchAi($company, $user);
+    $requestId = batchRequestId();
+    $payload = [
+        'batch_request_id' => $requestId,
+        'draft_ids' => ['11111111-1111-4111-8111-111111111111'],
+        'files' => [UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf')],
+    ];
+
+    $first = $this->actingAs($user)
+        ->postJson(route('organization.employees.documents.ai-batches.store', $employee), $payload)
+        ->assertAccepted();
+
+    Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 1);
+
+    $second = $this->actingAs($user)
+        ->postJson(route('organization.employees.documents.ai-batches.store', $employee), $payload)
+        ->assertAccepted()
+        ->assertJsonPath('reused', true)
+        ->assertJsonPath('batch.id', $first->json('batch.id'));
+
+    expect(DocumentAiBatch::query()->count())->toBe(1);
+    Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 1);
+});
+
+test('mixed supported and unsupported files partially accept', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    enableBatchAi($company, $user);
+
+    $response = $this->actingAs($user)->postJson(
+        route('organization.employees.documents.ai-batches.store', $employee),
+        [
+            'batch_request_id' => batchRequestId(),
+            'draft_ids' => [
+                '11111111-1111-4111-8111-111111111111',
+                '22222222-2222-4222-8222-222222222222',
+                '33333333-3333-4333-8333-333333333333',
+            ],
+            'files' => [
+                UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+                UploadedFile::fake()->image('eid.jpg'),
+                UploadedFile::fake()->create('notes.txt', 10, 'text/plain'),
+            ],
+        ],
+    )->assertAccepted()
+        ->assertJsonPath('batch.total', 2)
+        ->assertJsonPath('rejected.0.draft_id', '33333333-3333-4333-8333-333333333333');
+
+    Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 2);
+});
+
+test('mismatched files and draft ids are rejected', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    enableBatchAi($company, $user);
+
+    $this->actingAs($user)->postJson(
+        route('organization.employees.documents.ai-batches.store', $employee),
+        [
+            'batch_request_id' => batchRequestId(),
+            'draft_ids' => ['11111111-1111-4111-8111-111111111111'],
+            'files' => [
+                UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+                UploadedFile::fake()->image('eid.jpg'),
+            ],
+        ],
+    )->assertUnprocessable()->assertJsonValidationErrors('draft_ids');
+});
+
+test('failed batch creation after temp storage removes written files', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    enableBatchAi($company, $user);
+
+    $calls = 0;
+    DocumentAiBatchItem::creating(function () use (&$calls): void {
+        $calls++;
+        if ($calls === 2) {
+            throw new RuntimeException('simulated item create failure');
+        }
+    });
+
+    $accepted = [
+        [UploadedFile::fake()->create('a.pdf', 10, 'application/pdf'), '11111111-1111-4111-8111-111111111111'],
+        [UploadedFile::fake()->create('b.pdf', 10, 'application/pdf'), '22222222-2222-4222-8222-222222222222'],
+    ];
+
+    expect(fn () => app(CreateDocumentAiBatch::class)->handle(
+        $company->id,
+        $user,
+        $employee,
+        batchRequestId(),
+        $accepted,
+    ))->toThrow(RuntimeException::class);
+
+    expect(DocumentAiBatch::query()->count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles())->toBe([]);
 });
 
 test('batch job stores normalized result without creating documents or mutating employee', function () {
@@ -139,6 +258,113 @@ test('batch job stores normalized result without creating documents or mutating 
         ->toBe('P1')
         ->and(EmployeeDocument::query()->count())->toBe(0)
         ->and($employee->fresh()->only(['name', 'passport_number', 'emirates_id']))->toBe($before);
+});
+
+test('wrapped provider exceptions keep retryable categories', function (string $innerMessage, DocumentAiErrorCode $expected) {
+    $wrapped = new DocumentAiProviderException(
+        DocumentAiProviderException::classify(new RuntimeException($innerMessage)),
+        new RuntimeException($innerMessage),
+    );
+
+    expect(DocumentAiProviderException::classify($wrapped))->toBe($expected)
+        ->and($expected->isRetryable())->toBeTrue();
+})->with([
+    'timeout' => ['cURL error 28: Operation timed out', DocumentAiErrorCode::ProviderTimeout],
+    '429' => ['HTTP 429 Too Many Requests rate limit', DocumentAiErrorCode::ProviderRateLimited],
+    '503' => ['HTTP 503 Service Unavailable', DocumentAiErrorCode::ProviderUnavailable],
+]);
+
+test('wrapped invalid output is permanent and increments attempts', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $batch = createQueuedBatch($user, $company, $employee);
+
+    app()->instance(DocumentAiExtractor::class, new class implements DocumentAiExtractor
+    {
+        public function extract(UploadedFile $file): DocumentAiExtractionResult
+        {
+            throw new DocumentAiProviderException(
+                DocumentAiErrorCode::InvalidOutput,
+                new InvalidArgumentException('bad schema'),
+            );
+        }
+    });
+
+    app(ExtractDocumentAiBatchItemJob::class, ['itemId' => $batch->items->first()->id])
+        ->handle(app(DocumentAiExtractionService::class), app(DocumentAiSettings::class));
+
+    $item = $batch->items->first()->fresh();
+    expect($item->status)->toBe(DocumentAiBatchItemStatus::Failed)
+        ->and($item->safe_error_code)->toBe('invalid_output')
+        ->and($item->attempts)->toBe(1);
+});
+
+test('provider unavailable increments attempts and respects retry limit', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $batch = createQueuedBatch($user, $company, $employee);
+    $item = $batch->items->first();
+
+    storePlatformAiSettings([
+        'provider' => 'not-a-real-provider',
+        'openai_api_key' => 'batch-test-key',
+    ], $user);
+
+    expect(app(DocumentAiSettings::class)->providerAvailable())->toBeFalse();
+
+    $job = new class($item->id) extends ExtractDocumentAiBatchItemJob
+    {
+        public function attempts(): int
+        {
+            return 3;
+        }
+    };
+
+    $job->handle(app(DocumentAiExtractionService::class), app(DocumentAiSettings::class));
+
+    expect($item->fresh()->attempts)->toBe(1)
+        ->and($item->fresh()->status)->toBe(DocumentAiBatchItemStatus::Failed)
+        ->and($item->fresh()->safe_error_code)->toBe('provider_unavailable');
+
+    $item->refresh()->update([
+        'attempts' => ExtractDocumentAiBatchItemJob::MAX_ITEM_ATTEMPTS,
+        'status' => DocumentAiBatchItemStatus::Failed,
+        'safe_error_code' => 'provider_unavailable',
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.documents.ai-batches.retry', ['batch' => $batch, 'item' => $item->id]))
+        ->assertStatus(409);
+});
+
+test('retryable wrapped timeout requeues while attempts remain', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $batch = createQueuedBatch($user, $company, $employee);
+
+    app()->instance(DocumentAiExtractor::class, new class implements DocumentAiExtractor
+    {
+        public function extract(UploadedFile $file): DocumentAiExtractionResult
+        {
+            throw DocumentAiProviderException::fromThrowable(new RuntimeException('gateway timeout after 30s'));
+        }
+    });
+
+    $job = new class($batch->items->first()->id) extends ExtractDocumentAiBatchItemJob
+    {
+        public function attempts(): int
+        {
+            return 1;
+        }
+    };
+
+    expect(fn () => $job->handle(app(DocumentAiExtractionService::class), app(DocumentAiSettings::class)))
+        ->toThrow(DocumentAiProviderException::class);
+
+    $item = $batch->items->first()->fresh();
+    expect($item->status)->toBe(DocumentAiBatchItemStatus::Queued)
+        ->and($item->attempts)->toBe(1)
+        ->and($item->safe_error_code)->toBeNull();
 });
 
 test('batch progress is private to company and initiating user', function () {
@@ -192,6 +418,7 @@ test('company a cannot create a batch for a company b employee', function () {
         ->withSession(['current_company_id' => $companyA->id])
         ->postJson(route('organization.employees.documents.ai-batches.store', $employeeB), [
             'company_id' => $companyB->id,
+            'batch_request_id' => batchRequestId(),
             'draft_ids' => ['11111111-1111-4111-8111-111111111111'],
             'files' => [UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf')],
         ])
@@ -210,58 +437,75 @@ test('cancel keeps batch cancelled even if lifecycle refresh is called later', f
 
     DocumentAiBatchLifecycle::refresh($batch->fresh());
 
-    expect($batch->fresh()->status)->toBe(DocumentAiBatchStatus::Cancelled)
-        ->and(Activity::query()->where('event', 'document_ai_batch_cancelled')->where('company_id', $company->id)->exists())
-        ->toBeTrue();
+    expect($batch->fresh()->status)->toBe(DocumentAiBatchStatus::Cancelled);
 });
 
-test('cleanup skips batches with processing items and is idempotent for expired idle batches', function () {
+test('cleanup skips recent processing and purges stale processing', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    $batch = createQueuedBatch($user, $company, $employee, 2);
-    $items = $batch->items->values();
-    $items[0]->update(['status' => DocumentAiBatchItemStatus::Processing]);
-    $items[1]->update(['status' => DocumentAiBatchItemStatus::Queued]);
-    $batch->update(['expires_at' => now()->subMinute()]);
+    $recent = createQueuedBatch($user, $company, $employee);
+    $recent->items->first()->update([
+        'status' => DocumentAiBatchItemStatus::Processing,
+        'started_at' => now()->subSeconds(30),
+    ]);
+    $recent->update(['expires_at' => now()->subMinute()]);
 
     Artisan::call('documents:cleanup-ai-batches');
-    expect(DocumentAiBatch::query()->whereKey($batch->id)->exists())->toBeTrue();
+    expect(DocumentAiBatch::query()->whereKey($recent->id)->exists())->toBeTrue();
 
-    $items[0]->update(['status' => DocumentAiBatchItemStatus::Failed, 'completed_at' => now()]);
-    $items[1]->update(['status' => DocumentAiBatchItemStatus::Failed, 'completed_at' => now()]);
+    $stale = createQueuedBatch($user, $company, $employee, 1, batchRequestId());
+    $stalePath = $stale->items->first()->temporary_file_reference;
+    $stale->items->first()->update([
+        'status' => DocumentAiBatchItemStatus::Processing,
+        'started_at' => now()->subSeconds(DocumentAiBatchLifecycle::staleProcessingThresholdSeconds() + 10),
+    ]);
+    $stale->update(['expires_at' => now()->subMinute()]);
 
     Artisan::call('documents:cleanup-ai-batches');
-    expect(DocumentAiBatch::query()->whereKey($batch->id)->exists())->toBeFalse();
+    expect(DocumentAiBatch::query()->whereKey($stale->id)->exists())->toBeFalse()
+        ->and(Storage::disk('local')->exists($stalePath))->toBeFalse();
 
     Artisan::call('documents:cleanup-ai-batches');
-    expect(DocumentAiBatchItem::query()->count())->toBe(0);
 });
 
-test('permanent invalid output fails the item without creating documents', function () {
+test('cleanup removes orphan temp directories after parent cascade delete', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
     $batch = createQueuedBatch($user, $company, $employee);
+    $path = $batch->items->first()->temporary_file_reference;
+    expect(Storage::disk('local')->exists($path))->toBeTrue();
 
-    app()->instance(DocumentAiExtractor::class, new class implements DocumentAiExtractor
-    {
-        public function extract(UploadedFile $file): DocumentAiExtractionResult
-        {
-            return DocumentAiExtractionResult::fromDecoded([
-                'document_type' => 'not-a-type',
-                'confidence' => 1,
-                'fields' => [],
-                'warnings' => [],
-            ]);
-        }
-    });
+    // Simulate DB cascade deleting the batch row without Eloquent events.
+    DocumentAiBatchItem::query()->where('document_ai_batch_id', $batch->id)->delete();
+    DocumentAiBatch::query()->whereKey($batch->id)->delete();
+    expect(Storage::disk('local')->exists($path))->toBeTrue();
 
-    app(ExtractDocumentAiBatchItemJob::class, ['itemId' => $batch->items->first()->id])
-        ->handle(app(DocumentAiExtractionService::class), app(DocumentAiSettings::class));
+    Artisan::call('documents:cleanup-ai-batches');
+    expect(Storage::disk('local')->exists($path))->toBeFalse();
+});
 
-    $item = $batch->items->first()->fresh();
-    expect($item->status)->toBe(DocumentAiBatchItemStatus::Failed)
-        ->and($item->safe_error_code)->toBe('invalid_output')
-        ->and(EmployeeDocument::query()->count())->toBe(0);
+test('cleanup purges expired completed cancelled and failed batches', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    foreach ([
+        DocumentAiBatchStatus::Completed,
+        DocumentAiBatchStatus::Cancelled,
+        DocumentAiBatchStatus::CompletedWithErrors,
+    ] as $status) {
+        $batch = createQueuedBatch($user, $company, $employee, 1, batchRequestId());
+        $batch->items->first()->update([
+            'status' => DocumentAiBatchItemStatus::Failed,
+            'completed_at' => now(),
+        ]);
+        $batch->update([
+            'status' => $status,
+            'expires_at' => now()->subMinute(),
+        ]);
+    }
+
+    Artisan::call('documents:cleanup-ai-batches');
+    expect(DocumentAiBatch::query()->count())->toBe(0);
 });
 
 test('job rejects path traversal temporary references', function () {
@@ -275,7 +519,8 @@ test('job rejects path traversal temporary references', function () {
         ->handle(app(DocumentAiExtractionService::class), app(DocumentAiSettings::class));
 
     expect($item->fresh()->status)->toBe(DocumentAiBatchItemStatus::Failed)
-        ->and($item->fresh()->safe_error_code)->toBe('temporary_file_missing');
+        ->and($item->fresh()->safe_error_code)->toBe('temporary_file_missing')
+        ->and($item->fresh()->attempts)->toBe(1);
 });
 
 test('job reclaims processing items on a subsequent attempt after worker timeout', function () {

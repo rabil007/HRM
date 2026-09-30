@@ -10,30 +10,41 @@ use App\Http\Requests\Organization\EmployeeDocument\StoreDocumentAiBatchRequest;
 use App\Jobs\ExtractDocumentAiBatchItemJob;
 use App\Models\DocumentAiBatch;
 use App\Models\Employee;
+use App\Support\EmployeeDocuments\CreateDocumentAiBatch;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentAiBatchLifecycle;
 use App\Support\EmployeeDocuments\DocumentAiSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 
 class DocumentAiBatchController extends Controller
 {
-    public function store(StoreDocumentAiBatchRequest $request, Employee $employee, DocumentAiSettings $settings): JsonResponse
-    {
+    private const ALLOWED_MIME_TYPES = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+    ];
+
+    public function store(
+        StoreDocumentAiBatchRequest $request,
+        Employee $employee,
+        DocumentAiSettings $settings,
+        CreateDocumentAiBatch $createBatch,
+    ): JsonResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         DocumentAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user(), allowSelf: false);
         abort_unless($settings->isAvailableForCompany($companyId), 503, 'Document AI is temporarily unavailable.');
 
-        $files = $request->file('files', []);
-        $draftIds = $request->validated('draft_ids');
+        $files = array_values($request->file('files', []));
+        $draftIds = array_values($request->validated('draft_ids'));
         $accepted = [];
         $rejected = [];
 
         foreach ($files as $index => $file) {
-            if (! in_array($file->getMimeType(), ['application/pdf', 'image/jpeg', 'image/png'], true)) {
+            if (! $file instanceof UploadedFile) {
                 $rejected[] = [
                     'draft_id' => $draftIds[$index] ?? null,
                     'message' => 'Unsupported file type.',
@@ -42,64 +53,34 @@ class DocumentAiBatchController extends Controller
                 continue;
             }
 
-            $accepted[] = [$file, $draftIds[$index] ?? null];
+            $mime = (string) $file->getMimeType();
+            if (! in_array($mime, self::ALLOWED_MIME_TYPES, true)) {
+                $rejected[] = [
+                    'draft_id' => $draftIds[$index] ?? null,
+                    'message' => 'Unsupported file type.',
+                ];
+
+                continue;
+            }
+
+            $accepted[] = [$file, $draftIds[$index]];
         }
 
         abort_if($accepted === [], 422, 'No supported files were provided.');
 
-        $batch = DB::transaction(function () use ($accepted, $companyId, $employee, $request): DocumentAiBatch {
-            $batch = DocumentAiBatch::query()->create([
-                'company_id' => $companyId,
-                'user_id' => $request->user()->id,
-                'employee_id' => $employee->id,
-                'status' => DocumentAiBatchStatus::Pending,
-                'total_items' => count($accepted),
-                'expires_at' => now()->addDay(),
-            ]);
-
-            foreach ($accepted as [$file, $draftId]) {
-                $path = $file->storeAs(
-                    "document-ai-temp/{$companyId}/{$batch->id}",
-                    Str::uuid().'.'.$file->guessExtension(),
-                    'local',
-                );
-
-                $batch->items()->create([
-                    'client_draft_id' => $draftId,
-                    'status' => DocumentAiBatchItemStatus::Queued,
-                    'temporary_file_reference' => $path,
-                    'original_filename' => $file->getClientOriginalName(),
-                    'mime_type' => $file->getMimeType(),
-                    'file_size' => $file->getSize(),
-                ]);
-            }
-
-            return $batch;
-        });
-
-        activity()
-            ->useLog('documents')
-            ->causedBy($request->user())
-            ->performedOn($batch)
-            ->event('document_ai_batch_started')
-            ->withProperties([
-                'company_id' => $companyId,
-                'batch_id' => $batch->id,
-                'employee_id' => $employee->id,
-                'total_items' => $batch->total_items,
-            ])
-            ->tap(function (Activity $activity) use ($companyId): void {
-                $activity->company_id = $companyId;
-            })
-            ->log('Document AI bulk extraction started');
-
-        foreach ($batch->items as $item) {
-            ExtractDocumentAiBatchItemJob::dispatch($item->id);
-        }
+        $result = $createBatch->handle(
+            $companyId,
+            $request->user(),
+            $employee,
+            (string) $request->validated('batch_request_id'),
+            $accepted,
+            $rejected,
+        );
 
         return response()->json([
-            'batch' => $this->present($batch->fresh('items')),
-            'rejected' => $rejected,
+            'batch' => $this->present($result['batch']->loadMissing('items')),
+            'rejected' => $result['rejected'],
+            'reused' => $result['reused'],
         ], 202);
     }
 
@@ -118,7 +99,7 @@ class DocumentAiBatchController extends Controller
 
         $target = $batch->items()->findOrFail($item);
         abort_unless($target->status === DocumentAiBatchItemStatus::Failed, 409);
-        abort_if($target->attempts >= 3, 409, 'This item has reached the retry limit.');
+        abort_if($target->attempts >= ExtractDocumentAiBatchItemJob::MAX_ITEM_ATTEMPTS, 409, 'This item has reached the retry limit.');
 
         $target->update([
             'status' => DocumentAiBatchItemStatus::Queued,
