@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     emptyDocumentAiBatch,
+    failedStartPreservingRequestId,
     isActiveBatchStatus,
     mapBatchResponse,
     resetFailedItem,
+    resolveBatchRequestId,
 } from './document-ai-batch-state.ts';
 
 test('maps successful and failed files independently and ignores stale drafts', () => {
@@ -181,4 +183,19 @@ test('removed draft ids ignore late batch results', () => {
 
     assert.equal(state.items.kept.status, 'ready');
     assert.equal(state.items.removed, undefined);
+});
+
+test('failed start preserves requestId for ambiguous retry', () => {
+    const failed = failedStartPreservingRequestId('uuid-x');
+    assert.equal(failed.status, 'failed');
+    assert.equal(failed.requestId, 'uuid-x');
+    assert.equal(
+        resolveBatchRequestId(failed.requestId, () => 'new'),
+        'uuid-x',
+    );
+    assert.equal(
+        resolveBatchRequestId(emptyDocumentAiBatch().requestId, () => 'new'),
+        'new',
+    );
+    assert.equal(emptyDocumentAiBatch().requestId, null);
 });

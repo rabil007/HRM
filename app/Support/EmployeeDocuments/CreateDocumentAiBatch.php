@@ -33,6 +33,7 @@ final class CreateDocumentAiBatch
         $existing = DocumentAiBatch::query()
             ->where('company_id', $companyId)
             ->where('user_id', $user->id)
+            ->where('employee_id', $employee->id)
             ->where('batch_request_id', $batchRequestId)
             ->with('items')
             ->first();
@@ -94,6 +95,7 @@ final class CreateDocumentAiBatch
             $existing = DocumentAiBatch::query()
                 ->where('company_id', $companyId)
                 ->where('user_id', $user->id)
+                ->where('employee_id', $employee->id)
                 ->where('batch_request_id', $batchRequestId)
                 ->with('items')
                 ->first();

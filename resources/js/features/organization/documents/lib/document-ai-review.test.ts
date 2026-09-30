@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
     applyAiFieldsWithoutOverwrite,
     applyManualDraftPatch,
+    clearAiOwnedDraftMetadata,
     confidenceLabel,
     documentAiContextKey,
     documentTypeMismatch,
@@ -42,6 +43,31 @@ test('manual edit clears its AI marker', () => {
         ).ai_filled_fields,
         [],
     );
+});
+
+test('employee switch clears AI-owned values but keeps manual edits', () => {
+    const aiOwned = clearAiOwnedDraftMetadata({
+        ...draft,
+        document_number: 'P123',
+        expiry_date: '2030-01-01',
+        ai_filled_fields: ['document_number', 'expiry_date'],
+    });
+    assert.equal(aiOwned.document_number, '');
+    assert.equal(aiOwned.expiry_date, '');
+    assert.deepEqual(aiOwned.ai_filled_fields, []);
+
+    const manual = clearAiOwnedDraftMetadata(
+        applyManualDraftPatch(
+            {
+                ...draft,
+                document_number: 'P123',
+                ai_filled_fields: ['document_number'],
+            },
+            { document_number: 'P456' },
+        ),
+    );
+    assert.equal(manual.document_number, 'P456');
+    assert.deepEqual(manual.ai_filled_fields, []);
 });
 
 test('confidence categories use stable thresholds', () => {

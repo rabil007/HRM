@@ -106,6 +106,39 @@ export function applyManualDraftPatch(
     };
 }
 
+/**
+ * Clears only still-AI-owned metadata. Manually edited values keep their
+ * content because Phase 3 already drops the AI marker on user edit.
+ */
+export function clearAiOwnedDraftMetadata(draft: UploadDraft): UploadDraft {
+    if (draft.ai_filled_fields.length === 0) {
+        return draft;
+    }
+
+    const next: UploadDraft = {
+        ...draft,
+        ai_filled_fields: [],
+    };
+
+    for (const field of draft.ai_filled_fields) {
+        if (
+            field === 'document_number' ||
+            field === 'issue_date' ||
+            field === 'expiry_date'
+        ) {
+            next[field] = '';
+        }
+    }
+
+    return next;
+}
+
+export function clearAiOwnedDraftsMetadata(
+    drafts: UploadDraft[],
+): UploadDraft[] {
+    return drafts.map(clearAiOwnedDraftMetadata);
+}
+
 const TYPE_LABELS: Record<DocumentAiDetectedType, string> = {
     passport: 'Passport',
     emirates_id: 'Emirates ID',

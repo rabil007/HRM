@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as BatchController from '@/actions/App/Http/Controllers/Organization/DocumentAiBatchController';
 import {
     emptyDocumentAiBatch,
+    failedStartPreservingRequestId,
     isActiveBatchStatus,
     mapBatchResponse,
     resetFailedItem,
+    resolveBatchRequestId,
 } from '@/features/organization/documents/lib/document-ai-batch-state';
 import type { DocumentAiBatchState } from '@/features/organization/documents/lib/document-ai-batch-state';
 import type { UploadDraft } from './upload-draft';
@@ -44,6 +46,39 @@ export function useDocumentAiBatch(
         stateRef.current = state;
     }, [state]);
 
+    const draftIdentityKey = useMemo(
+        () =>
+            drafts
+                .map((draft) => draft.id)
+                .sort()
+                .join('|'),
+        [drafts],
+    );
+    const draftIdentityRef = useRef(draftIdentityKey);
+    const employeeRef = useRef(employeeId);
+
+    useEffect(() => {
+        if (draftIdentityRef.current === draftIdentityKey) {
+            return;
+        }
+
+        draftIdentityRef.current = draftIdentityKey;
+        setState((current) =>
+            current.status === 'failed' && current.requestId
+                ? { ...current, requestId: null }
+                : current,
+        );
+    }, [draftIdentityKey]);
+
+    useEffect(() => {
+        if (employeeRef.current === employeeId) {
+            return;
+        }
+
+        employeeRef.current = employeeId;
+        setState(emptyDocumentAiBatch());
+    }, [employeeId]);
+
     const start = useCallback(async () => {
         if (
             !employeeId ||
@@ -55,7 +90,10 @@ export function useDocumentAiBatch(
         }
 
         startingRef.current = true;
-        const requestId = newBatchRequestId();
+        const requestId = resolveBatchRequestId(
+            stateRef.current.requestId,
+            newBatchRequestId,
+        );
         setState({
             id: null,
             status: 'pending',
@@ -98,12 +136,9 @@ export function useDocumentAiBatch(
                 ),
             );
         } catch {
-            setState({
-                id: null,
-                status: 'failed',
-                items: {},
-                requestId: null,
-            });
+            // Preserve requestId so an ambiguous network failure can reuse the
+            // same server-side idempotency key instead of creating duplicates.
+            setState(failedStartPreservingRequestId(requestId));
         } finally {
             startingRef.current = false;
         }

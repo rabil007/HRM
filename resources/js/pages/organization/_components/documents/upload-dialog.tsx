@@ -15,6 +15,7 @@ import {
 import {
     applyAiFieldsWithoutOverwrite,
     applyManualDraftPatch,
+    clearAiOwnedDraftsMetadata,
     documentAiContextKey,
     documentTypeMismatch,
     idleDocumentAiReview,
@@ -256,7 +257,21 @@ export function UploadDocumentDialog({
         drafts.length > 1 &&
         !!effectiveEmployeeId;
 
+    const previousDraftCountRef = useRef(drafts.length);
+
     useEffect(() => {
+        const crossedToBulk =
+            previousDraftCountRef.current === 1 && drafts.length > 1;
+        previousDraftCountRef.current = drafts.length;
+
+        if (crossedToBulk) {
+            setAiReview(idleDocumentAiReview());
+            setDrafts((current) => clearAiOwnedDraftsMetadata(current));
+            appliedBulkAiRef.current.clear();
+
+            return;
+        }
+
         if (drafts.length > 1 && aiReview.status !== 'idle') {
             setAiReview(idleDocumentAiReview());
         }
@@ -818,6 +833,9 @@ export function UploadDocumentDialog({
                                     appliedBulkAiRef.current.clear();
                                     void abandonBulkAi();
                                     setAiReview(idleDocumentAiReview());
+                                    setDrafts((current) =>
+                                        clearAiOwnedDraftsMetadata(current),
+                                    );
                                     setSelectedEmployee(employee);
                                 }}
                                 disabled={isBusy}

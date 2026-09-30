@@ -93,3 +93,22 @@ export function resetFailedItem(
         },
     };
 }
+
+/** Reuse an existing UUID after ambiguous start failure; otherwise mint a new one. */
+export function resolveBatchRequestId(
+    currentRequestId: string | null,
+    createId: () => string,
+): string {
+    return currentRequestId ?? createId();
+}
+
+export function failedStartPreservingRequestId(
+    requestId: string,
+): DocumentAiBatchState {
+    return {
+        id: null,
+        status: 'failed',
+        items: {},
+        requestId,
+    };
+}

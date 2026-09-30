@@ -10,6 +10,7 @@ use App\Jobs\ExtractDocumentAiBatchItemJob;
 use App\Models\DocumentAiBatch;
 use App\Models\DocumentAiBatchItem;
 use App\Models\DocumentAiSetting;
+use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\DocumentAiExtractionService;
@@ -141,7 +142,7 @@ test('duplicate batch request id reuses the existing batch without extra jobs', 
 
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 1);
 
-    $second = $this->actingAs($user)
+    $this->actingAs($user)
         ->postJson(route('organization.employees.documents.ai-batches.store', $employee), $payload)
         ->assertAccepted()
         ->assertJsonPath('reused', true)
@@ -149,6 +150,48 @@ test('duplicate batch request id reuses the existing batch without extra jobs', 
 
     expect(DocumentAiBatch::query()->count())->toBe(1);
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 1);
+});
+
+test('same batch request id for a different employee creates an independent batch', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    ['company' => $company, 'branch' => $branch, 'employee' => $employeeA] = makeDocumentFixtures();
+    $employeeB = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $employeeA->department_id,
+        'employee_no' => 'DOC-AI-B',
+        'name' => 'Other Employee',
+        'status' => 'active',
+    ]);
+    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    enableBatchAi($company, $user);
+    $requestId = batchRequestId();
+
+    $batchA = $this->actingAs($user)->postJson(
+        route('organization.employees.documents.ai-batches.store', $employeeA),
+        [
+            'batch_request_id' => $requestId,
+            'draft_ids' => ['11111111-1111-4111-8111-111111111111'],
+            'files' => [UploadedFile::fake()->create('a.pdf', 100, 'application/pdf')],
+        ],
+    )->assertAccepted()->json('batch.id');
+
+    $batchB = $this->actingAs($user)->postJson(
+        route('organization.employees.documents.ai-batches.store', $employeeB),
+        [
+            'batch_request_id' => $requestId,
+            'draft_ids' => ['22222222-2222-4222-8222-222222222222'],
+            'files' => [UploadedFile::fake()->create('b.pdf', 100, 'application/pdf')],
+        ],
+    )->assertAccepted()->json('batch.id');
+
+    expect($batchA)->not->toBe($batchB)
+        ->and(DocumentAiBatch::query()->findOrFail($batchA)->employee_id)->toBe($employeeA->id)
+        ->and(DocumentAiBatch::query()->findOrFail($batchB)->employee_id)->toBe($employeeB->id)
+        ->and(DocumentAiBatch::query()->count())->toBe(2);
+
+    Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 2);
 });
 
 test('mixed supported and unsupported files partially accept', function () {

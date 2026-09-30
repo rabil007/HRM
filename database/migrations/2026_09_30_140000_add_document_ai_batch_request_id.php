@@ -10,7 +10,10 @@ return new class extends Migration
     {
         Schema::table('document_ai_batches', function (Blueprint $table) {
             $table->uuid('batch_request_id')->nullable()->after('employee_id');
-            $table->unique(['company_id', 'user_id', 'batch_request_id'], 'document_ai_batches_request_uidx');
+            $table->unique(
+                ['company_id', 'user_id', 'employee_id', 'batch_request_id'],
+                'document_ai_batches_request_uidx',
+            );
         });
     }
 
