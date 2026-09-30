@@ -1,4 +1,4 @@
-name: Temporary Prettier Diagnose
+name: Temporary Document AI Verify
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +21,8 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      - name: Format target file
-        run: npx prettier --write resources/js/features/organization/documents/configuration/document-ai-settings-card.tsx
+      - name: Prettier target
+        run: npx prettier --check resources/js/features/organization/documents/configuration/document-ai-settings-card.tsx
 
-      - name: Show exact formatter diff
-        run: git diff -- resources/js/features/organization/documents/configuration/document-ai-settings-card.tsx
+      - name: TypeScript
+        run: npm run types:check

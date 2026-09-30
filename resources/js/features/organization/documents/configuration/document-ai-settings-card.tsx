@@ -73,7 +73,9 @@ export function DocumentAiSettingsCard({
                         <Sparkles className="h-5 w-5" />
                     </div>
                     <div className="space-y-1">
-                        <CardTitle className="text-base">AI document assistance</CardTitle>
+                        <CardTitle className="text-base">
+                            AI document assistance
+                        </CardTitle>
                         <CardDescription>
                             Control whether this company can use AI-assisted
                             document intake. Platform AI credentials stay
@@ -108,8 +110,12 @@ export function DocumentAiSettingsCard({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="off">Off</SelectItem>
-                                <SelectItem value="optional">Optional</SelectItem>
-                                <SelectItem value="automatic">Automatic</SelectItem>
+                                <SelectItem value="optional">
+                                    Optional
+                                </SelectItem>
+                                <SelectItem value="automatic">
+                                    Automatic
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                         <InputError message={form.errors.mode} />
