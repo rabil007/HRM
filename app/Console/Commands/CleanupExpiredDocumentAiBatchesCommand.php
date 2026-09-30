@@ -2,10 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\DocumentAiBatchItemStatus;
 use App\Enums\DocumentAiBatchStatus;
 use App\Models\DocumentAiBatch;
+use App\Support\EmployeeDocuments\DocumentAiBatchLifecycle;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 
 class CleanupExpiredDocumentAiBatchesCommand extends Command
 {
@@ -15,14 +16,23 @@ class CleanupExpiredDocumentAiBatchesCommand extends Command
 
     public function handle(): int
     {
-        DocumentAiBatch::query()->where('expires_at', '<=', now())->with('items')->chunkById(100, function ($batches): void {
-            foreach ($batches as $batch) {
-                foreach ($batch->items as $item) {
-                    Storage::disk('local')->delete($item->temporary_file_reference);
-                } $batch->update(['status' => DocumentAiBatchStatus::Expired]);
-                $batch->delete();
-            }
-        });
+        DocumentAiBatch::query()
+            ->where('expires_at', '<=', now())
+            ->with('items')
+            ->chunkById(100, function ($batches): void {
+                foreach ($batches as $batch) {
+                    $hasActiveProcessing = $batch->items->contains(
+                        fn ($item): bool => $item->status === DocumentAiBatchItemStatus::Processing,
+                    );
+
+                    if ($hasActiveProcessing) {
+                        continue;
+                    }
+
+                    $batch->update(['status' => DocumentAiBatchStatus::Expired]);
+                    DocumentAiBatchLifecycle::purge($batch);
+                }
+            });
 
         return self::SUCCESS;
     }

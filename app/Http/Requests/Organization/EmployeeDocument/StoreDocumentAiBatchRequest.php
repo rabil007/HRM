@@ -13,7 +13,18 @@ class StoreDocumentAiBatchRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['files' => ['required', 'array', 'min:1', 'max:20'], 'files.*' => ['required', 'file', 'max:10240'], 'draft_ids' => ['required', 'array'], 'draft_ids.*' => ['required', 'uuid', 'distinct']];
+        return [
+            'files' => ['required', 'array', 'min:1', 'max:20'],
+            'files.*' => [
+                'required',
+                'file',
+                'max:10240',
+                'mimes:pdf,jpg,jpeg,png',
+                'mimetypes:application/pdf,image/jpeg,image/png',
+            ],
+            'draft_ids' => ['required', 'array'],
+            'draft_ids.*' => ['required', 'uuid', 'distinct'],
+        ];
     }
 
     protected function prepareForValidation(): void

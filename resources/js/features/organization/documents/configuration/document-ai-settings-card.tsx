@@ -31,9 +31,9 @@ export type DocumentAiSettingsProps = {
 const modeDescriptions: Record<DocumentAiMode, string> = {
     off: 'Document uploads stay fully manual and never call an AI provider.',
     optional:
-        'Authorized users can choose AI extraction when they want help with document intake.',
+        'Authorized users can choose Extract with AI for eligible files, then review suggestions before Upload.',
     automatic:
-        'Eligible document uploads will start AI extraction automatically when the extraction workflow is enabled.',
+        'Eligible files start AI extraction automatically. Extraction only — documents are never saved until you press Upload.',
 };
 
 const modeLabels: Record<DocumentAiMode, string> = {
@@ -145,9 +145,10 @@ export function DocumentAiSettingsCard({
                 ) : null}
 
                 <p className="text-xs text-muted-foreground">
-                    Phase 1 only establishes the setting and permissions.
-                    Existing uploads remain unchanged; extraction is wired in
-                    the next phase.
+                    Document AI never updates employee master data and never
+                    saves documents automatically. Final Upload remains a
+                    separate manual step. Provider credentials stay
+                    platform-managed and are never shown here.
                 </p>
             </CardContent>
         </Card>

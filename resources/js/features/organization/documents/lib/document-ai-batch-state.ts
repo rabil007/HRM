@@ -16,7 +16,8 @@ export type DocumentAiBatchState = {
         | 'completed'
         | 'completed_with_errors'
         | 'cancelled'
-        | 'expired';
+        | 'expired'
+        | 'failed';
     items: Record<string, DocumentAiBatchItemState>;
 };
 export const emptyDocumentAiBatch = (): DocumentAiBatchState => ({

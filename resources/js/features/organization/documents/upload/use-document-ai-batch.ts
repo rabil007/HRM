@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as BatchController from '@/actions/App/Http/Controllers/Organization/DocumentAiBatchController';
 import {
     emptyDocumentAiBatch,
@@ -11,43 +11,77 @@ const csrf = () =>
     document
         .querySelector('meta[name="csrf-token"]')
         ?.getAttribute('content') ?? '';
+
 export function useDocumentAiBatch(
     drafts: UploadDraft[],
     employeeId: number | null,
 ) {
     const [state, setState] = useState(emptyDocumentAiBatch);
+    const startingRef = useRef(false);
+    const retryingRef = useRef<string | null>(null);
     const validDraftIds = useMemo(
         () => new Set(drafts.map((draft) => draft.id)),
         [drafts],
     );
+
     const start = useCallback(async () => {
-        if (!employeeId || drafts.length < 2) {
+        if (
+            !employeeId ||
+            drafts.length < 2 ||
+            startingRef.current ||
+            (state.status !== 'idle' && state.status !== 'failed')
+        ) {
             return;
         }
 
-        const data = new FormData();
-        drafts.forEach((d) => {
-            data.append('files[]', d.file);
-            data.append('draft_ids[]', d.id);
+        startingRef.current = true;
+        setState({
+            id: null,
+            status: 'pending',
+            items: {},
         });
-        const r = await fetch(
-            BatchController.store.url({ employee: employeeId }),
-            {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json' },
-                body: data,
-            },
-        );
 
-        if (!r.ok) {
-            throw new Error('batch failed');
+        try {
+            const data = new FormData();
+            drafts.forEach((d) => {
+                data.append('files[]', d.file);
+                data.append('draft_ids[]', d.id);
+            });
+            const r = await fetch(
+                BatchController.store.url({ employee: employeeId }),
+                {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf(),
+                        Accept: 'application/json',
+                    },
+                    body: data,
+                },
+            );
+
+            if (!r.ok) {
+                throw new Error('batch failed');
+            }
+
+            const p = await r.json();
+            setState(
+                mapBatchResponse(
+                    p.batch,
+                    emptyDocumentAiBatch(),
+                    validDraftIds,
+                ),
+            );
+        } catch {
+            setState({
+                id: null,
+                status: 'failed',
+                items: {},
+            });
+        } finally {
+            startingRef.current = false;
         }
+    }, [drafts, employeeId, state.status, validDraftIds]);
 
-        const p = await r.json();
-        setState(
-            mapBatchResponse(p.batch, emptyDocumentAiBatch(), validDraftIds),
-        );
-    }, [drafts, employeeId, validDraftIds]);
     useEffect(() => {
         if (!state.id || !['pending', 'processing'].includes(state.status)) {
             return;
@@ -73,31 +107,44 @@ export function useDocumentAiBatch(
 
         return () => window.clearInterval(timer);
     }, [state.id, state.status, validDraftIds]);
+
     const retry = useCallback(
         async (draftId: string) => {
             const item = state.items[draftId];
 
-            if (!state.id || !item) {
+            if (
+                !state.id ||
+                !item ||
+                item.status !== 'failed' ||
+                retryingRef.current === draftId
+            ) {
                 return;
             }
 
+            retryingRef.current = draftId;
             setState((s) => resetFailedItem(s, draftId));
-            await fetch(
-                BatchController.retry.url({
-                    batch: state.id,
-                    item: item.itemId,
-                }),
-                {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': csrf(),
-                        Accept: 'application/json',
+
+            try {
+                await fetch(
+                    BatchController.retry.url({
+                        batch: state.id,
+                        item: item.itemId,
+                    }),
+                    {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf(),
+                            Accept: 'application/json',
+                        },
                     },
-                },
-            );
+                );
+            } finally {
+                retryingRef.current = null;
+            }
         },
         [state],
     );
+
     const cancel = useCallback(async () => {
         if (!state.id) {
             return;
@@ -109,12 +156,17 @@ export function useDocumentAiBatch(
         });
         setState((s) => ({ ...s, status: 'cancelled' }));
     }, [state.id]);
+
     const reset = useCallback(() => setState(emptyDocumentAiBatch()), []);
+
     const purge = useCallback(async () => {
         if (state.id) {
             await fetch(BatchController.destroy.url({ batch: state.id }), {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json' },
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    Accept: 'application/json',
+                },
             });
         }
 

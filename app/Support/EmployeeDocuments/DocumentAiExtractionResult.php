@@ -6,6 +6,12 @@ use InvalidArgumentException;
 
 final readonly class DocumentAiExtractionResult
 {
+    public const MAX_FIELD_VALUE_LENGTH = 255;
+
+    public const MAX_WARNINGS = 10;
+
+    public const MAX_WARNING_LENGTH = 240;
+
     private const SUPPORTED_FIELDS = [
         'document_number',
         'issue_date',
@@ -67,6 +73,11 @@ final readonly class DocumentAiExtractionResult
             }
 
             $normalizedValue = $value === null ? null : trim($value);
+            if ($normalizedValue !== null && mb_strlen($normalizedValue) > self::MAX_FIELD_VALUE_LENGTH) {
+                $normalizedValue = mb_substr($normalizedValue, 0, self::MAX_FIELD_VALUE_LENGTH);
+                $warnings[] = ucfirst(str_replace('_', ' ', $name)).' was truncated and needs manual review.';
+            }
+
             if (in_array($name, ['issue_date', 'expiry_date'], true) && $normalizedValue !== null && ! self::isIsoDate($normalizedValue)) {
                 $normalizedValue = null;
                 $warnings[] = ucfirst(str_replace('_', ' ', $name)).' could not be normalized and needs manual review.';
@@ -78,7 +89,15 @@ final readonly class DocumentAiExtractionResult
             ];
         }
 
-        return new self($type, (float) $confidence, $normalized, array_values(array_unique($warnings)));
+        $boundedWarnings = collect($warnings)
+            ->map(fn (string $warning): string => mb_substr(trim($warning), 0, self::MAX_WARNING_LENGTH))
+            ->filter(fn (string $warning): bool => $warning !== '')
+            ->unique()
+            ->take(self::MAX_WARNINGS)
+            ->values()
+            ->all();
+
+        return new self($type, (float) $confidence, $normalized, $boundedWarnings);
     }
 
     private static function isIsoDate(string $value): bool

@@ -176,6 +176,7 @@ export function UploadDocumentDialog({
         useState<DocumentUploadProgressState>(null);
     const [aiReview, setAiReview] =
         useState<DocumentAiReviewState>(idleDocumentAiReview);
+    const appliedBulkAiRef = useRef(new Set<string>());
 
     const uploadProgressPhase = resolveDocumentUploadPhase({
         isPreparing: isCompressingFiles,
@@ -211,6 +212,7 @@ export function UploadDocumentDialog({
         setIsUploading(false);
         setUploadProgress(null);
         setAiReview(idleDocumentAiReview());
+        appliedBulkAiRef.current.clear();
         clearMissingRequired();
 
         if (allowEmployeeSelection) {
@@ -261,15 +263,34 @@ export function UploadDocumentDialog({
     }, [aiReview.status, drafts.length]);
 
     useEffect(() => {
-        setDrafts((current) =>
-            current.map((draft) => {
+        setDrafts((current) => {
+            let changed = false;
+            const next = current.map((draft) => {
                 const item = bulkAiState.items[draft.id];
+                const applyKey =
+                    item?.status === 'ready' && item.review
+                        ? `${draft.id}:${item.itemId}`
+                        : null;
 
-                return item?.status === 'ready' && item.review
-                    ? applyAiFieldsWithoutOverwrite(draft, item.review.fields)
-                    : draft;
-            }),
-        );
+                if (
+                    applyKey &&
+                    item?.review &&
+                    !appliedBulkAiRef.current.has(applyKey)
+                ) {
+                    appliedBulkAiRef.current.add(applyKey);
+                    changed = true;
+
+                    return applyAiFieldsWithoutOverwrite(
+                        draft,
+                        item.review.fields,
+                    );
+                }
+
+                return draft;
+            });
+
+            return changed ? next : current;
+        });
     }, [bulkAiState.items]);
 
     useEffect(() => {
@@ -490,6 +511,13 @@ export function UploadDocumentDialog({
 
     const removeDraft = useCallback((draftId: string) => {
         setAiReview(idleDocumentAiReview());
+
+        for (const key of [...appliedBulkAiRef.current]) {
+            if (key.startsWith(`${draftId}:`)) {
+                appliedBulkAiRef.current.delete(key);
+            }
+        }
+
         setDrafts((current) => {
             const removedIndex = current.findIndex(
                 (draft) => draft.id === draftId,
@@ -786,6 +814,7 @@ export function UploadDocumentDialog({
                             <UploadEmployeeSelector
                                 selectedEmployee={selectedEmployee}
                                 onSelect={(employee) => {
+                                    appliedBulkAiRef.current.clear();
                                     resetBulkAi();
                                     setAiReview(idleDocumentAiReview());
                                     setSelectedEmployee(employee);
@@ -889,6 +918,7 @@ export function UploadDocumentDialog({
                                                 setFieldErrorsByIndex(
                                                     new Map(),
                                                 );
+                                                appliedBulkAiRef.current.clear();
                                                 resetBulkAi();
                                             }}
                                         >
@@ -897,7 +927,8 @@ export function UploadDocumentDialog({
                                     ) : null}
                                     {bulkAiAvailable &&
                                     documentAiSettings?.mode === 'optional' &&
-                                    bulkAiState.status === 'idle' ? (
+                                    (bulkAiState.status === 'idle' ||
+                                        bulkAiState.status === 'failed') ? (
                                         <Button
                                             variant="outline"
                                             size="sm"
