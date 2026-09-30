@@ -21,6 +21,7 @@ use App\Support\Queue\JobRunRetention;
 use App\Support\Settings\SettingKey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,9 +36,13 @@ class ApplicationSettingsController extends Controller
         private AiSettingsService $aiSettings,
     ) {}
 
-    public function edit(): Response
+    public function edit(Request $request): Response|RedirectResponse
     {
-        $user = request()->user();
+        if ($request->query('tab') === 'ai') {
+            return redirect()->route('settings.ai.edit');
+        }
+
+        $user = $request->user();
         $canPlatformView = PlatformAuthorization::canView($user);
 
         if (! $canPlatformView) {
@@ -69,7 +74,6 @@ class ApplicationSettingsController extends Controller
             ],
             'retention' => $this->retentionProps(),
             'smtp' => $this->mailSettings->forSettingsPage(),
-            'ai' => $this->aiSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
             'can' => [
                 'platform_view' => $canPlatformView,

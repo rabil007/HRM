@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\AiSettingsController;
 use App\Http\Controllers\Settings\ApplicationSettingsController;
 use App\Http\Controllers\Settings\EmailTemplateController;
 use App\Http\Controllers\Settings\Integrations\HikvisionIntegrationController;
@@ -46,6 +47,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('settings/application', [ApplicationSettingsController::class, 'edit'])
         ->name('application.edit');
+
+    Route::get('settings/ai', [AiSettingsController::class, 'edit'])
+        ->name('settings.ai.edit');
 
     Route::post('settings/application/general', [ApplicationSettingsController::class, 'updateGeneral'])
         ->middleware('platform:manage')

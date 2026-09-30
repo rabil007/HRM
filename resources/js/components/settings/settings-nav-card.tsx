@@ -31,8 +31,8 @@ export function SettingsNavCard({ item }: { item: SettingsNavItem }) {
                         {item.title}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                        Manage {item.title.toLowerCase()} standards and
-                        validations.
+                        {item.description ??
+                            `Manage ${item.title.toLowerCase()} standards and validations.`}
                     </p>
                 </div>
             </Card>

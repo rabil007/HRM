@@ -16,6 +16,7 @@ final class SettingsHubAccess
             'settings.security.view',
             'settings.appearance.view',
             'settings.integrations.hikvision.view',
+            'documents.ai.manage',
             'settings.master-data.countries.view',
             'settings.master-data.currencies.view',
             'settings.master-data.visa-types.view',

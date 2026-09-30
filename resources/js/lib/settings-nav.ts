@@ -17,6 +17,7 @@ import {
     Sailboat,
     Shield,
     SlidersHorizontal,
+    Sparkles,
     Users,
     Wallet,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import type { NavPlatformAccess } from './nav-visibility';
 export type SettingsNavItem = {
     title: string;
     href: string;
+    description?: string;
     permission?: string | readonly string[];
     platformOnly?: boolean;
     icon: LucideIcon;
@@ -47,6 +49,15 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
         platformOnly: true,
         icon: SlidersHorizontal,
         color: 'bg-primary/10 text-primary',
+    },
+    {
+        title: 'AI',
+        href: '/settings/ai',
+        description: 'Providers & AI features',
+        platformOnly: true,
+        permission: 'documents.ai.manage',
+        icon: Sparkles,
+        color: 'bg-violet-500/10 text-violet-600',
     },
     {
         title: 'WhatsApp templates',
@@ -211,7 +222,7 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
     {
         title: 'System',
         description:
-            'Application branding, email, WhatsApp, security, and appearance.',
+            'Application branding, email, AI, WhatsApp, security, and appearance.',
         commandHeading: 'Settings · System',
         items: SETTINGS_SYSTEM_ITEMS,
     },

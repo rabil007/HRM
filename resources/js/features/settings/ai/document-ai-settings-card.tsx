@@ -26,6 +26,7 @@ export type DocumentAiSettingsProps = {
     mode: DocumentAiMode;
     provider_available: boolean;
     available: boolean;
+    company_name?: string | null;
 };
 
 const modeDescriptions: Record<DocumentAiMode, string> = {
@@ -33,7 +34,7 @@ const modeDescriptions: Record<DocumentAiMode, string> = {
     optional:
         'Authorized users can choose Extract with AI for eligible files, then review suggestions before Upload.',
     automatic:
-        'Eligible files start AI extraction automatically. Extraction only — documents are never saved until you press Upload.',
+        'Eligible files start AI extraction automatically. Extraction only — documents are never saved until the user presses Upload.',
 };
 
 const modeLabels: Record<DocumentAiMode, string> = {
@@ -65,6 +66,11 @@ export function DocumentAiSettingsCard({
     const providerWarning =
         form.data.mode !== 'off' && !settings.provider_available;
 
+    const companyBadge =
+        settings.company_name && settings.company_name.trim() !== ''
+            ? settings.company_name
+            : 'Active company';
+
     return (
         <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
             <CardHeader className="gap-3 md:flex-row md:items-start md:justify-between">
@@ -73,13 +79,18 @@ export function DocumentAiSettingsCard({
                         <Sparkles className="h-5 w-5" />
                     </div>
                     <div className="space-y-1">
-                        <CardTitle className="text-base">
-                            AI document assistance
-                        </CardTitle>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <CardTitle className="text-base">
+                                Document AI
+                            </CardTitle>
+                            <Badge variant="secondary" className="text-[10px]">
+                                {companyBadge}
+                            </Badge>
+                        </div>
                         <CardDescription>
-                            Control whether this company can use AI-assisted
-                            document intake. Platform AI credentials stay
-                            managed by platform administrators.
+                            Use AI-assisted document intake for the active
+                            company while keeping review and final upload under
+                            user control.
                         </CardDescription>
                     </div>
                 </div>
@@ -138,17 +149,16 @@ export function DocumentAiSettingsCard({
 
                 {providerWarning ? (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-                        The platform AI provider is not configured. This mode
-                        can be saved, but Document AI will remain unavailable
-                        until a platform administrator configures a provider.
+                        The platform AI provider is not configured. Document AI
+                        will remain unavailable until a platform administrator
+                        configures a provider.
                     </p>
                 ) : null}
 
                 <p className="text-xs text-muted-foreground">
                     Document AI never updates employee master data and never
                     saves documents automatically. Final Upload remains a
-                    separate manual step. Provider credentials stay
-                    platform-managed and are never shown here.
+                    separate manual step.
                 </p>
             </CardContent>
         </Card>

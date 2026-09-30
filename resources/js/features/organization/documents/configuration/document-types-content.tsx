@@ -37,8 +37,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { DocumentAiSettingsCard } from '@/features/organization/documents/configuration/document-ai-settings-card';
-import type { DocumentAiSettingsProps } from '@/features/organization/documents/configuration/document-ai-settings-card';
 import { DocumentTypeFormSheet } from '@/features/organization/documents/configuration/document-type-form-sheet';
 import { DocumentTypeImportDialog } from '@/features/organization/documents/configuration/document-type-import-dialog';
 import {
@@ -76,7 +74,6 @@ export function DocumentTypesContent({
     ranks = [],
     projects = [],
     openDocumentType = null,
-    documentAiSettings,
 }: {
     documentTypes: DocumentTypeRow[];
     pagination: PaginationMeta;
@@ -86,7 +83,6 @@ export function DocumentTypesContent({
     ranks?: RankOption[];
     projects?: ProjectOption[];
     openDocumentType?: DocumentTypeRow | null;
-    documentAiSettings: DocumentAiSettingsProps;
 }) {
     const can = useSettingsMasterDataCan('document-types');
 
@@ -233,8 +229,6 @@ export function DocumentTypesContent({
                     </div>
                 }
             />
-
-            <DocumentAiSettingsCard settings={documentAiSettings} />
 
             <SearchBar
                 value={list.searchInput}

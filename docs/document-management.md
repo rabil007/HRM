@@ -54,7 +54,7 @@ Document AI is an optional company-scoped enhancement to employee document intak
 
 Changing the company mode requires `documents.ai.manage` plus `privileged.2fa`. The trusted tenant is always `current_company_id`; the settings endpoint rejects a client-supplied `company_id`.
 
-Document AI reuses the installation-wide AI provider and encrypted credentials configured in **Settings → Application → AI**. Company settings never contain provider keys or model secrets, and the Documents UI receives only provider availability, not credentials. The Smart Employee Search enable switch is unrelated to Document AI availability.
+Document AI reuses the installation-wide AI provider and encrypted credentials configured in **Settings → AI**. Company settings never contain provider keys or model secrets, and the Documents UI receives only provider availability, not credentials. The Smart Employee Search enable switch is unrelated to Document AI availability. Company Document AI mode is configured on the centralized AI settings page (`/settings/ai`), not under Documents → Configuration.
 
 Single-file extraction is synchronous (`POST .../ai-extract`). Multi-file extraction creates a tenant-owned batch with private temporary files and bounded queue jobs (`POST .../ai-batches`), with status/retry/cancel endpoints. Normalized results are closed structured suggestions (Passport / Emirates ID / UAE Visa / unknown). Extraction never creates `EmployeeDocument` rows, never updates employee master data, and never replaces the final Upload step. Temporary batches expire after 24 hours and are cleaned by `documents:cleanup-ai-batches`. Employee visibility continues to use `DocumentAccess` / `EmployeeVisibilityScope`; `documents.ai.use` alone is not a visibility bypass.
 

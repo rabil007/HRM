@@ -40,7 +40,7 @@ Current code, routes, migrations, tests, and `database/seeders/PermissionsSeeder
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings and test email |
 | [WhatsApp integration](./whatsapp-integration.md) | Admins, developers | Meta Cloud API settings, webhook verification, signed callbacks |
 | [Hikvision integration](./hikvision-integration.md) | Admins, developers | Company settings, webhooks, scheduled syncs |
-| [AI settings](./ai-settings.md) | Admins, developers | OpenAI/OpenRouter credentials, Smart Employee Search |
+| [AI settings](./ai-settings.md) | Admins, developers | AI providers and AI features (Smart Employee Search, Document AI) |
 | [CI quality gates](./ci.md) | Developers | Change classifier, Pint, frontend static/build, sharded Pest, quality-gate aggregation |
 
 ## Architecture and agent navigation

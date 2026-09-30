@@ -10,7 +10,6 @@ import {
     Palette,
     Send,
     Settings2,
-    Sparkles,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
@@ -31,8 +30,6 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { AiSettingsPanel } from '@/features/settings/ai-settings-panel';
-import type { AiSettings } from '@/features/settings/ai-settings-panel';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import { WhatsAppSettingsPanel } from '@/features/settings/whatsapp-settings-panel';
 import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';
@@ -91,7 +88,6 @@ type Props = {
             certifications: string;
         };
     } | null;
-    ai: AiSettings | null;
     whatsapp: WhatsAppSettingsPanelProps | null;
     can: {
         platform_view: boolean;
@@ -120,13 +116,6 @@ const ALL_NAV_ITEMS = [
         label: 'SMTP / Email',
         icon: Mail,
         description: 'Mail delivery',
-        permission: 'settings.application.view',
-    },
-    {
-        id: 'ai',
-        label: 'AI & Smart Search',
-        icon: Sparkles,
-        description: 'Providers & intelligent search',
         permission: 'settings.application.view',
     },
     {
@@ -269,7 +258,6 @@ export default function ApplicationSettings({
     date_formats,
     retention,
     smtp,
-    ai,
     whatsapp,
     can,
 }: Props) {
@@ -1212,18 +1200,6 @@ export default function ApplicationSettings({
                                 </div>
                             </SettingsCard>
                         </div>
-                    ) : null}
-
-                    {/* ══ AI ══ */}
-                    {tab === 'ai' && ai ? (
-                        <AiSettingsPanel
-                            enabled={ai.enabled}
-                            provider={ai.provider}
-                            openai={ai.openai}
-                            openrouter={ai.openrouter}
-                            default_models={ai.default_models}
-                            canUpdate={canUpdateApplication}
-                        />
                     ) : null}
 
                     {/* ══ WHATSAPP ══ */}
