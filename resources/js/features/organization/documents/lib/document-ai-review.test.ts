@@ -9,6 +9,7 @@ import {
     documentAiContextKey,
     documentTypeMismatch,
     idleDocumentAiReview,
+    resolveDocumentTypeIdFromDetectedCategory,
     shouldClearAiOwnedOnDraftCountChange,
 } from './document-ai-review.ts';
 
@@ -38,6 +39,71 @@ test('AI fills blank fields without overwriting existing values', () => {
     assert.deepEqual(result.ai_filled_fields, ['expiry_date']);
 });
 
+test('AI auto-selects an unambiguous matching document type', () => {
+    const blankType = { ...draft, document_type_id: '' };
+    const result = applyAiFieldsWithoutOverwrite(
+        blankType,
+        {
+            document_number: { value: '784-2000-8332791-4', confidence: 0.99 },
+        },
+        {
+            detectedDocumentType: 'emirates_id',
+            documentTypes: [
+                { id: 10, title: 'Passport' },
+                { id: 11, title: 'Emirates ID' },
+            ],
+        },
+    );
+
+    assert.equal(result.document_type_id, '11');
+    assert.equal(result.document_number, '784-2000-8332791-4');
+    assert.deepEqual(result.ai_filled_fields, [
+        'document_number',
+        'document_type_id',
+    ]);
+});
+
+test('AI does not overwrite a manually selected document type', () => {
+    const result = applyAiFieldsWithoutOverwrite(
+        { ...draft, document_type_id: '10' },
+        {},
+        {
+            detectedDocumentType: 'emirates_id',
+            documentTypes: [
+                { id: 10, title: 'Passport' },
+                { id: 11, title: 'Emirates ID' },
+            ],
+        },
+    );
+
+    assert.equal(result.document_type_id, '10');
+    assert.equal(result.ai_filled_fields.includes('document_type_id'), false);
+});
+
+test('AI skips document type when multiple titles match without an exact preferred label', () => {
+    assert.equal(
+        resolveDocumentTypeIdFromDetectedCategory('passport', [
+            { id: 1, title: 'Passport' },
+            { id: 2, title: 'Seaman Passport' },
+        ]),
+        '1',
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromDetectedCategory('passport', [
+            { id: 2, title: 'Seaman Passport' },
+            { id: 3, title: 'Diplomatic Passport' },
+        ]),
+        null,
+    );
+    assert.equal(
+        resolveDocumentTypeIdFromDetectedCategory('emirates_id', [
+            { id: 11, title: 'Emirates ID' },
+            { id: 12, title: 'Emirates ID Copy' },
+        ]),
+        '11',
+    );
+});
+
 test('manual edit clears its AI marker', () => {
     assert.deepEqual(
         applyManualDraftPatch(
@@ -53,10 +119,16 @@ test('employee switch clears AI-owned values but keeps manual edits', () => {
         ...draft,
         document_number: 'P123',
         expiry_date: '2030-01-01',
-        ai_filled_fields: ['document_number', 'expiry_date'],
+        document_type_id: '11',
+        ai_filled_fields: [
+            'document_number',
+            'expiry_date',
+            'document_type_id',
+        ],
     });
     assert.equal(aiOwned.document_number, '');
     assert.equal(aiOwned.expiry_date, '');
+    assert.equal(aiOwned.document_type_id, '');
     assert.deepEqual(aiOwned.ai_filled_fields, []);
 
     const manual = clearAiOwnedDraftMetadata(

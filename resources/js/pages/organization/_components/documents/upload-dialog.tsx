@@ -307,6 +307,11 @@ export function UploadDocumentDialog({
                     return applyAiFieldsWithoutOverwrite(
                         draft,
                         item.review.fields,
+                        {
+                            detectedDocumentType:
+                                item.review.detectedDocumentType,
+                            documentTypes,
+                        },
                     );
                 }
 
@@ -315,7 +320,7 @@ export function UploadDocumentDialog({
 
             return changed ? next : current;
         });
-    }, [bulkAiState.items, drafts.length]);
+    }, [bulkAiState.items, documentTypes, drafts.length]);
 
     useEffect(() => {
         if (
@@ -432,7 +437,10 @@ export function UploadDocumentDialog({
             setDrafts((current) =>
                 current.map((draft) =>
                     draft.id === selectedDraft.id
-                        ? applyAiFieldsWithoutOverwrite(draft, review.fields)
+                        ? applyAiFieldsWithoutOverwrite(draft, review.fields, {
+                              detectedDocumentType: review.detectedDocumentType,
+                              documentTypes,
+                          })
                         : draft,
                 ),
             );
@@ -449,7 +457,7 @@ export function UploadDocumentDialog({
                 warnings: ['AI extraction failed. You can continue manually.'],
             });
         }
-    }, [aiBusy, effectiveEmployeeId, selectedDraft]);
+    }, [aiBusy, documentTypes, effectiveEmployeeId, selectedDraft]);
 
     useEffect(() => {
         if (

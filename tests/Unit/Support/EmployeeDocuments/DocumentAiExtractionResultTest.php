@@ -52,6 +52,46 @@ it('whitelists fields and normalizes invalid dates to warnings', function () {
         ->and($result['warnings'])->toContain('Expiry date could not be normalized and needs manual review.');
 });
 
+it('converts Emirates ID day-first dates to ISO for storage', function () {
+    $result = DocumentAiExtractionResult::fromDecoded([
+        'document_type' => 'emirates_id',
+        'confidence' => 0.96,
+        'fields' => [
+            'issue_date' => ['value' => '12/02/2026', 'confidence' => 0.9],
+            'expiry_date' => ['value' => '11/02/2028', 'confidence' => 0.9],
+            'document_number' => ['value' => '784-2000-8332791-4', 'confidence' => 0.99],
+        ],
+        'warnings' => [],
+    ])->toArray();
+
+    expect($result['fields']['issue_date']['value'])->toBe('2026-02-12')
+        ->and($result['fields']['expiry_date']['value'])->toBe('2028-02-11')
+        ->and($result['warnings'])->toBe([]);
+});
+
+it('converts hyphenated day-first dates and rejects invalid calendars', function (string $raw, ?string $expected) {
+    $result = DocumentAiExtractionResult::fromDecoded([
+        'document_type' => 'emirates_id',
+        'confidence' => 0.8,
+        'fields' => [
+            'issue_date' => ['value' => $raw, 'confidence' => 0.7],
+        ],
+        'warnings' => [],
+    ])->toArray();
+
+    expect($result['fields']['issue_date']['value'])->toBe($expected);
+
+    if ($expected === null) {
+        expect($result['warnings'])->toContain('Issue date could not be normalized and needs manual review.');
+    } else {
+        expect($result['warnings'])->toBe([]);
+    }
+})->with([
+    'hyphenated day-first' => ['11-02-2028', '2028-02-11'],
+    'invalid calendar day' => ['31/02/2026', null],
+    'us-style month-first is not accepted' => ['02/28/2026', null],
+]);
+
 it('treats prompt-injection-like provider output as closed document content only', function () {
     $result = DocumentAiExtractionResult::fromDecoded([
         'document_type' => 'passport',

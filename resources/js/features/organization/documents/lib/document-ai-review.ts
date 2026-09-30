@@ -7,7 +7,8 @@ import type {
 export type DocumentAiFieldName =
     | 'document_number'
     | 'issue_date'
-    | 'expiry_date';
+    | 'expiry_date'
+    | 'document_type_id';
 export type DocumentAiDetectedType =
     | 'passport'
     | 'emirates_id'
@@ -20,7 +21,7 @@ export type DocumentAiReviewState = {
     overallConfidence: number | null;
     fields: Partial<
         Record<
-            DocumentAiFieldName,
+            Exclude<DocumentAiFieldName, 'document_type_id'>,
             {
                 value: string | null;
                 confidence: number | null;
@@ -70,6 +71,10 @@ export function confidenceLabel(
 export function applyAiFieldsWithoutOverwrite(
     draft: UploadDraft,
     fields: DocumentAiReviewState['fields'],
+    options?: {
+        detectedDocumentType?: DocumentAiDetectedType | null;
+        documentTypes?: DocumentTypeOption[];
+    },
 ): UploadDraft {
     const next = { ...draft, ai_filled_fields: [...draft.ai_filled_fields] };
 
@@ -77,13 +82,27 @@ export function applyAiFieldsWithoutOverwrite(
         'document_number',
         'issue_date',
         'expiry_date',
-    ] as DocumentAiFieldName[]) {
+    ] as const) {
         const value = fields[key]?.value;
 
         if (value && !draft[key]) {
             next[key] = value;
             next.ai_filled_fields = [
                 ...new Set([...next.ai_filled_fields, key]),
+            ];
+        }
+    }
+
+    if (!draft.document_type_id.trim()) {
+        const resolvedTypeId = resolveDocumentTypeIdFromDetectedCategory(
+            options?.detectedDocumentType ?? null,
+            options?.documentTypes ?? [],
+        );
+
+        if (resolvedTypeId) {
+            next.document_type_id = resolvedTypeId;
+            next.ai_filled_fields = [
+                ...new Set([...next.ai_filled_fields, 'document_type_id']),
             ];
         }
     }
@@ -124,7 +143,8 @@ export function clearAiOwnedDraftMetadata(draft: UploadDraft): UploadDraft {
         if (
             field === 'document_number' ||
             field === 'issue_date' ||
-            field === 'expiry_date'
+            field === 'expiry_date' ||
+            field === 'document_type_id'
         ) {
             next[field] = '';
         }
@@ -157,11 +177,15 @@ const TYPE_LABELS: Record<DocumentAiDetectedType, string> = {
     unknown: 'Unknown',
 };
 
-function categoryForTitle(title: string): DocumentAiDetectedType | null {
-    const value = title
+function normalizeDocumentTypeTitle(title: string): string {
+    return title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .trim();
+}
+
+function categoryForTitle(title: string): DocumentAiDetectedType | null {
+    const value = normalizeDocumentTypeTitle(title);
 
     if (value.includes('passport')) {
         return 'passport';
@@ -180,6 +204,38 @@ function categoryForTitle(title: string): DocumentAiDetectedType | null {
     }
 
     return null;
+}
+
+/**
+ * Map an AI category to a company Document Type when the match is unambiguous.
+ * Never guesses when multiple company types share the same category.
+ */
+export function resolveDocumentTypeIdFromDetectedCategory(
+    detected: DocumentAiDetectedType | null,
+    types: DocumentTypeOption[],
+): string | null {
+    if (!detected || detected === 'unknown') {
+        return null;
+    }
+
+    const matches = types.filter(
+        (type) => categoryForTitle(type.title) === detected,
+    );
+
+    if (matches.length === 0) {
+        return null;
+    }
+
+    if (matches.length === 1) {
+        return String(matches[0].id);
+    }
+
+    const preferredLabel = normalizeDocumentTypeTitle(TYPE_LABELS[detected]);
+    const exact = matches.filter(
+        (type) => normalizeDocumentTypeTitle(type.title) === preferredLabel,
+    );
+
+    return exact.length === 1 ? String(exact[0].id) : null;
 }
 
 export function documentTypeMismatch(

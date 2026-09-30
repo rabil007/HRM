@@ -78,9 +78,15 @@ final readonly class DocumentAiExtractionResult
                 $warnings[] = ucfirst(str_replace('_', ' ', $name)).' was truncated and needs manual review.';
             }
 
-            if (in_array($name, ['issue_date', 'expiry_date'], true) && $normalizedValue !== null && ! self::isIsoDate($normalizedValue)) {
-                $normalizedValue = null;
-                $warnings[] = ucfirst(str_replace('_', ' ', $name)).' could not be normalized and needs manual review.';
+            if (in_array($name, ['issue_date', 'expiry_date'], true) && $normalizedValue !== null) {
+                $isoDate = self::normalizeDateToIso($normalizedValue);
+
+                if ($isoDate === null) {
+                    $normalizedValue = null;
+                    $warnings[] = ucfirst(str_replace('_', ' ', $name)).' could not be normalized and needs manual review.';
+                } else {
+                    $normalizedValue = $isoDate;
+                }
             }
 
             $normalized[$name] = [
@@ -100,11 +106,45 @@ final readonly class DocumentAiExtractionResult
         return new self($type, (float) $confidence, $normalized, $boundedWarnings);
     }
 
-    private static function isIsoDate(string $value): bool
+    /**
+     * Accept ISO dates and common UAE document day-first formats; always return Y-m-d.
+     */
+    private static function normalizeDateToIso(string $value): ?string
     {
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        $candidate = trim($value);
 
-        return $date !== false && $date->format('Y-m-d') === $value;
+        if ($candidate === '') {
+            return null;
+        }
+
+        foreach (['!Y-m-d', '!d/m/Y', '!d-m-Y'] as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $candidate);
+
+            if ($date === false) {
+                continue;
+            }
+
+            $errors = \DateTimeImmutable::getLastErrors();
+
+            if (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0) {
+                continue;
+            }
+
+            $iso = $date->format('Y-m-d');
+
+            if ($format === '!Y-m-d' && $iso !== $candidate) {
+                continue;
+            }
+
+            if (in_array($format, ['!d/m/Y', '!d-m-Y'], true)
+                && $date->format(ltrim($format, '!')) !== $candidate) {
+                continue;
+            }
+
+            return $iso;
+        }
+
+        return null;
     }
 
     /** @return array<string, mixed> */
