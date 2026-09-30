@@ -12,14 +12,35 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+          ini-values: memory_limit=1G
+
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: package-lock.json
 
-      - run: npm ci --ignore-scripts
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Install Node dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Generate Wayfinder types
+        run: php artisan wayfinder:generate --with-form --no-interaction
 
       - name: Prettier target
         run: npx prettier --check resources/js/features/organization/documents/configuration/document-ai-settings-card.tsx
