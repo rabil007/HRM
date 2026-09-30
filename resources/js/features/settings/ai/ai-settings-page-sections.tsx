@@ -21,23 +21,24 @@ export function AiSettingsPageSections({
     documentAiCard,
 }: AiSettingsPageSectionsProps) {
     return (
-        <div className="space-y-10" data-testid="ai-settings-page">
+        <div className="space-y-8" data-testid="ai-settings-page">
             {platformAi ? (
                 <div data-testid="platform-ai-section">{platformPanel}</div>
             ) : null}
 
             {!platformAi && documentAi ? (
                 <section
-                    className="space-y-4"
+                    className="space-y-3"
                     data-testid="ai-features-section"
+                    id="ai-features"
                 >
                     <div>
                         <h2 className="text-sm font-semibold tracking-tight text-foreground">
                             AI Features
                         </h2>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Company Document AI policy for the active company.
-                            Provider credentials remain platform-managed.
+                            Document AI policy for the active company. Provider
+                            credentials stay platform-managed.
                         </p>
                     </div>
                     <div data-testid="document-ai-section">
@@ -47,7 +48,7 @@ export function AiSettingsPageSections({
             ) : null}
 
             {!platformAi && !documentAi ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="rounded-xl border border-dashed border-border/80 px-4 py-8 text-center text-sm text-muted-foreground dark:border-white/10">
                     No AI settings are available for your account.
                 </p>
             ) : null}

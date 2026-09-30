@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { CheckCircle2, PlugZap, Sparkles, XCircle } from 'lucide-react';
+import { CheckCircle2, PlugZap, Search, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import InputError from '@/components/input-error';
 import { SettingsSecretInput } from '@/components/settings/settings-secret-input';
@@ -80,9 +80,9 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
     );
 }
 
-function ProviderCredentialCard({
+function ProviderFields({
     title,
-    description,
+    selected,
     hasApiKey,
     apiKeyId,
     apiKeyValue,
@@ -96,7 +96,7 @@ function ProviderCredentialCard({
     defaultModelHint,
 }: {
     title: string;
-    description: string;
+    selected: boolean;
     hasApiKey: boolean;
     apiKeyId: string;
     apiKeyValue: string;
@@ -110,57 +110,101 @@ function ProviderCredentialCard({
     defaultModelHint: string;
 }) {
     return (
+        <div
+            className={cn(
+                'space-y-4 rounded-xl border p-4 transition-colors',
+                selected
+                    ? 'border-primary/40 bg-primary/5 dark:bg-primary/10'
+                    : 'border-border/70 bg-muted/20 dark:border-white/5 dark:bg-white/[0.03]',
+            )}
+        >
+            <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold tracking-tight">
+                    {title}
+                </h3>
+                {selected ? (
+                    <Badge className="text-[10px]">Active</Badge>
+                ) : null}
+                {hasApiKey ? (
+                    <Badge variant="success" className="text-[10px]">
+                        Key saved
+                    </Badge>
+                ) : (
+                    <Badge variant="secondary" className="text-[10px]">
+                        No key
+                    </Badge>
+                )}
+            </div>
+
+            <div className="space-y-1.5">
+                <FieldLabel htmlFor={apiKeyId}>API key</FieldLabel>
+                <SettingsSecretInput
+                    id={apiKeyId}
+                    value={apiKeyValue}
+                    onChange={(event) => onApiKeyChange(event.target.value)}
+                    placeholder={
+                        hasApiKey ? '•••••••• (configured)' : 'Paste API key'
+                    }
+                    disabled={!canUpdate}
+                    autoComplete="new-password"
+                />
+                <InputError message={apiKeyError} />
+            </div>
+
+            <div className="space-y-1.5">
+                <FieldLabel htmlFor={modelId}>Model</FieldLabel>
+                <FieldInput
+                    id={modelId}
+                    value={modelValue}
+                    onChange={(event) => onModelChange(event.target.value)}
+                    placeholder={`Default: ${defaultModelHint}`}
+                    disabled={!canUpdate}
+                    autoComplete="off"
+                />
+                <InputError message={modelError} />
+            </div>
+        </div>
+    );
+}
+
+function SmartEmployeeSearchCard({
+    enabled,
+    onEnabledChange,
+    canUpdate,
+    error,
+}: {
+    enabled: boolean;
+    onEnabledChange: (enabled: boolean) => void;
+    canUpdate: boolean;
+    error?: string;
+}) {
+    return (
         <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-            <CardContent className="space-y-5 p-6">
-                <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-bold tracking-tight">
-                        {title}
-                    </h3>
-                    {hasApiKey ? (
-                        <Badge variant="success" className="text-[10px]">
-                            Configured
+            <CardContent className="flex items-start gap-3 p-5 sm:items-center sm:p-6">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                    <Search className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                            Smart Employee Search
+                        </h3>
+                        <Badge variant="secondary" className="text-[10px]">
+                            Platform-wide
                         </Badge>
-                    ) : null}
-                </div>
-                <p className="text-xs text-muted-foreground">{description}</p>
-
-                <div className="space-y-1.5">
-                    <FieldLabel htmlFor={apiKeyId}>API key</FieldLabel>
-                    <SettingsSecretInput
-                        id={apiKeyId}
-                        value={apiKeyValue}
-                        onChange={(event) => onApiKeyChange(event.target.value)}
-                        placeholder={
-                            hasApiKey
-                                ? '•••••••• (configured)'
-                                : 'Paste API key'
-                        }
-                        disabled={!canUpdate}
-                        autoComplete="new-password"
-                    />
-                    <InputError message={apiKeyError} />
-                    <p className="ml-0.5 text-[10px] text-muted-foreground/50">
-                        Leave blank to keep the stored key. Keys are never shown
-                        after save.
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Natural-language filters on the Employee Directory. Off
+                        by default. Does not control Document AI.
                     </p>
+                    <InputError message={error} />
                 </div>
-
-                <div className="space-y-1.5">
-                    <FieldLabel htmlFor={modelId}>Model</FieldLabel>
-                    <FieldInput
-                        id={modelId}
-                        value={modelValue}
-                        onChange={(event) => onModelChange(event.target.value)}
-                        placeholder="Leave blank for the fast default"
-                        disabled={!canUpdate}
-                        autoComplete="off"
-                    />
-                    <InputError message={modelError} />
-                    <p className="ml-0.5 text-[10px] text-muted-foreground/50">
-                        Optional. Leave blank to use the fast default:{' '}
-                        {defaultModelHint}
-                    </p>
-                </div>
+                <Switch
+                    checked={enabled}
+                    onCheckedChange={onEnabledChange}
+                    disabled={!canUpdate}
+                    aria-label="Enable Smart Employee Search"
+                />
             </CardContent>
         </Card>
     );
@@ -248,47 +292,27 @@ export function AiSettingsPanel({
     };
 
     return (
-        <form onSubmit={submit} className="space-y-6">
-            <section className="space-y-4">
-                <div>
-                    <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                        Platform AI
-                    </h2>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        Provider credentials belong to OMS-HRM, not a company.
-                        These settings power AI features across the platform.
-                    </p>
+        <form onSubmit={submit} className="space-y-8">
+            <section className="space-y-3" id="platform-ai">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <h2 className="text-sm font-semibold tracking-tight text-foreground">
+                            Platform AI
+                        </h2>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Credentials belong to OMS-HRM, not a company.
+                        </p>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px]">
+                        Platform-wide
+                    </Badge>
                 </div>
 
                 <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                    <CardContent className="space-y-6 p-6">
-                        <div className="mb-2 flex items-center gap-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-500">
-                                <Sparkles className="h-5 w-5" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h3 className="text-base font-bold tracking-tight text-foreground">
-                                        Provider
-                                    </h3>
-                                    <Badge
-                                        variant="secondary"
-                                        className="text-[10px]"
-                                    >
-                                        Platform-wide
-                                    </Badge>
-                                </div>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Select OpenAI or OpenRouter, then store an
-                                    encrypted API key and optional model for
-                                    each provider.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
+                    <CardContent className="space-y-5 p-5 sm:p-6">
+                        <div className="max-w-sm space-y-1.5">
                             <FieldLabel htmlFor="ai_provider">
-                                Provider
+                                Active provider
                             </FieldLabel>
                             <Select
                                 value={form.data.provider}
@@ -316,151 +340,139 @@ export function AiSettingsPanel({
                                 </SelectContent>
                             </Select>
                             <InputError message={form.errors.provider} />
-                            <p className="ml-0.5 text-[10px] text-muted-foreground/50">
-                                Switching providers keeps both stored
-                                credentials. Test selected provider uses the
-                                last saved settings, not unsaved form values.
+                            <p className="text-[10px] text-muted-foreground/60">
+                                Switching keeps both keys. Test uses last saved
+                                settings.
                             </p>
                         </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <ProviderFields
+                                title="OpenAI"
+                                selected={form.data.provider === 'openai'}
+                                hasApiKey={openai.has_api_key}
+                                apiKeyId="openai_api_key"
+                                apiKeyValue={form.data.openai_api_key}
+                                onApiKeyChange={(value) =>
+                                    form.setData('openai_api_key', value)
+                                }
+                                apiKeyError={form.errors.openai_api_key}
+                                modelId="openai_model"
+                                modelValue={form.data.openai_model}
+                                onModelChange={(value) =>
+                                    form.setData('openai_model', value)
+                                }
+                                modelError={form.errors.openai_model}
+                                canUpdate={canUpdate}
+                                defaultModelHint="GPT-5.6 Luna"
+                            />
+
+                            <ProviderFields
+                                title="OpenRouter"
+                                selected={form.data.provider === 'openrouter'}
+                                hasApiKey={openrouter.has_api_key}
+                                apiKeyId="openrouter_api_key"
+                                apiKeyValue={form.data.openrouter_api_key}
+                                onApiKeyChange={(value) =>
+                                    form.setData('openrouter_api_key', value)
+                                }
+                                apiKeyError={form.errors.openrouter_api_key}
+                                modelId="openrouter_model"
+                                modelValue={form.data.openrouter_model}
+                                onModelChange={(value) =>
+                                    form.setData('openrouter_model', value)
+                                }
+                                modelError={form.errors.openrouter_model}
+                                canUpdate={canUpdate}
+                                defaultModelHint={
+                                    default_models?.openrouter ||
+                                    'openai/gpt-5.6-luna'
+                                }
+                            />
+                        </div>
+
+                        {canUpdate ? (
+                            <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:flex-wrap sm:items-center">
+                                <Button
+                                    type="submit"
+                                    disabled={form.processing}
+                                    className="h-10 rounded-xl px-5"
+                                >
+                                    {form.processing ? (
+                                        <Spinner className="mr-2" />
+                                    ) : null}
+                                    Save platform AI
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={testing}
+                                    onClick={() => void handleTestConnection()}
+                                    className="h-10 rounded-xl px-5"
+                                >
+                                    {testing ? (
+                                        <Spinner className="mr-2" />
+                                    ) : (
+                                        <PlugZap className="mr-2 h-4 w-4" />
+                                    )}
+                                    Test selected provider
+                                </Button>
+                                {connectionStatus === 'connected' &&
+                                connectionMessage ? (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-500">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        {connectionMessage}
+                                    </span>
+                                ) : null}
+                                {connectionStatus === 'failed' &&
+                                connectionMessage ? (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
+                                        <XCircle className="h-4 w-4" />
+                                        {connectionMessage}
+                                    </span>
+                                ) : null}
+                                <p className="text-[10px] text-muted-foreground/60 sm:ml-auto">
+                                    Leave API keys blank to keep stored values.
+                                </p>
+                            </div>
+                        ) : null}
                     </CardContent>
                 </Card>
-
-                <ProviderCredentialCard
-                    title="OpenAI"
-                    description="Used when OpenAI is the selected provider."
-                    hasApiKey={openai.has_api_key}
-                    apiKeyId="openai_api_key"
-                    apiKeyValue={form.data.openai_api_key}
-                    onApiKeyChange={(value) =>
-                        form.setData('openai_api_key', value)
-                    }
-                    apiKeyError={form.errors.openai_api_key}
-                    modelId="openai_model"
-                    modelValue={form.data.openai_model}
-                    onModelChange={(value) =>
-                        form.setData('openai_model', value)
-                    }
-                    modelError={form.errors.openai_model}
-                    canUpdate={canUpdate}
-                    defaultModelHint="GPT-5.6 Luna"
-                />
-
-                <ProviderCredentialCard
-                    title="OpenRouter"
-                    description="Used when OpenRouter is the selected provider."
-                    hasApiKey={openrouter.has_api_key}
-                    apiKeyId="openrouter_api_key"
-                    apiKeyValue={form.data.openrouter_api_key}
-                    onApiKeyChange={(value) =>
-                        form.setData('openrouter_api_key', value)
-                    }
-                    apiKeyError={form.errors.openrouter_api_key}
-                    modelId="openrouter_model"
-                    modelValue={form.data.openrouter_model}
-                    onModelChange={(value) =>
-                        form.setData('openrouter_model', value)
-                    }
-                    modelError={form.errors.openrouter_model}
-                    canUpdate={canUpdate}
-                    defaultModelHint={
-                        default_models?.openrouter || 'openai/gpt-5.6-luna'
-                    }
-                />
-
-                {canUpdate ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                        <Button
-                            type="submit"
-                            disabled={form.processing}
-                            className="h-11 rounded-xl px-6"
-                        >
-                            {form.processing ? (
-                                <Spinner className="mr-2" />
-                            ) : null}
-                            Save AI Settings
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={testing}
-                            onClick={() => void handleTestConnection()}
-                            className="h-11 rounded-xl px-6"
-                        >
-                            {testing ? (
-                                <Spinner className="mr-2" />
-                            ) : (
-                                <PlugZap className="mr-2 h-4 w-4" />
-                            )}
-                            Test selected provider
-                        </Button>
-                        {connectionStatus === 'connected' &&
-                        connectionMessage ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-emerald-500">
-                                <CheckCircle2 className="h-4 w-4" />
-                                {connectionMessage}
-                            </span>
-                        ) : null}
-                        {connectionStatus === 'failed' && connectionMessage ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
-                                <XCircle className="h-4 w-4" />
-                                {connectionMessage}
-                            </span>
-                        ) : null}
-                    </div>
-                ) : null}
             </section>
 
-            <section className="space-y-4">
+            <section className="space-y-3" id="ai-features">
                 <div>
                     <h2 className="text-sm font-semibold tracking-tight text-foreground">
                         AI Features
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Feature toggles use the platform provider above.
-                        Disabling Smart Employee Search does not affect Document
-                        AI.
+                        Features use the platform provider. Smart Search and
+                        Document AI are independent.
                     </p>
                 </div>
 
-                <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                    <CardContent className="space-y-4 p-6">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-bold tracking-tight text-foreground">
-                                Smart Employee Search
-                            </h3>
-                            <Badge variant="secondary" className="text-[10px]">
-                                Platform-wide feature
-                            </Badge>
-                        </div>
-                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/5 dark:bg-white/5">
-                            <div>
-                                <p className="text-sm font-medium">
-                                    Enable Smart Employee Search
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Interprets natural-language Employee
-                                    Directory filters. Off by default.
-                                </p>
-                            </div>
-                            <Switch
-                                checked={form.data.enabled}
-                                onCheckedChange={(checked) =>
-                                    form.setData('enabled', checked)
-                                }
-                                disabled={!canUpdate}
-                            />
-                        </div>
-                        <InputError message={form.errors.enabled} />
-                        {canUpdate ? (
-                            <p className="text-xs text-muted-foreground">
-                                Save AI Settings above to persist this toggle
-                                with provider credentials.
-                            </p>
-                        ) : null}
-                    </CardContent>
-                </Card>
+                <div className="space-y-3">
+                    <SmartEmployeeSearchCard
+                        enabled={form.data.enabled}
+                        onEnabledChange={(checked) =>
+                            form.setData('enabled', checked)
+                        }
+                        canUpdate={canUpdate}
+                        error={form.errors.enabled}
+                    />
 
-                {featuresExtra}
+                    {canUpdate ? (
+                        <p className="px-1 text-xs text-muted-foreground">
+                            Click{' '}
+                            <span className="font-medium">
+                                Save platform AI
+                            </span>{' '}
+                            above to persist the Smart Employee Search toggle.
+                        </p>
+                    ) : null}
+
+                    {featuresExtra}
+                </div>
             </section>
         </form>
     );
