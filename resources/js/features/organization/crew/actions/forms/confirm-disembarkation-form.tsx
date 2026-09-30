@@ -123,7 +123,7 @@ export function ConfirmDisembarkationForm({
                 <div>
                     <span className="text-muted-foreground">Rank: </span>
                     <span className="font-medium">
-                        {context.rank_name ?? 'Not set'}
+                        {context.position_name ?? 'Not set'}
                     </span>
                 </div>
                 <div>

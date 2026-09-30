@@ -11,7 +11,7 @@ describe('relief desk reset query', () => {
             view: 'relief',
             search: 'Ahmed',
             vessel_id: 12,
-            rank_id: 4,
+            position_id: 4,
             client_id: 8,
             relief_status: 'no_relief',
             relief_risk: 'critical',
@@ -31,7 +31,7 @@ describe('relief desk reset query', () => {
         assert.equal(merged.view, 'relief');
         assert.equal(merged.search, '');
         assert.equal(merged.vessel_id, null);
-        assert.equal(merged.rank_id, null);
+        assert.equal(merged.position_id, null);
         assert.equal(merged.client_id, null);
         assert.equal(merged.relief_status, '');
         assert.equal(merged.relief_risk, '');

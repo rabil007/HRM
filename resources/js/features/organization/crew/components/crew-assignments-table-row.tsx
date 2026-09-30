@@ -100,7 +100,7 @@ export function CrewAssignmentsTableRow({
             <TableCell className={cn(dataTableCellClass(), 'min-w-[220px]')}>
                 <CrewEmployeeIdentity
                     employee={assignment.employee}
-                    rankName={assignment.rank?.name}
+                    positionName={assignment.position?.name}
                 />
             </TableCell>
 

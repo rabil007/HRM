@@ -9,11 +9,12 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\User;
 use App\Support\CrewMovements\CrewTourOfDutyCalculator;
 use App\Support\CrewMovements\CrewTourOfDutyResolver;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
 /**
- * When an approved correction changes actual P4 start or P4 rank and the Planned Sign-Off
+ * When an approved correction changes actual P4 start or P4 position and the Planned Sign-Off
  * was derived from Tour of Duty, recalculate using the resolved tour days.
  */
 final class RecalculateTourSignoffAfterP4StartCorrection
@@ -36,10 +37,11 @@ final class RecalculateTourSignoffAfterP4StartCorrection
             return;
         }
 
-        $rankChanged = array_key_exists('rank_id', $normalizedProposed);
+        $positionChanged = array_key_exists('position_id', $normalizedProposed);
+        $legacyRankChanged = array_key_exists('rank_id', $normalizedProposed);
         $startChanged = array_key_exists('actual_start_at', $normalizedProposed);
 
-        if (! $rankChanged && ! $startChanged) {
+        if (! $positionChanged && ! $legacyRankChanged && ! $startChanged) {
             return;
         }
 
@@ -52,9 +54,19 @@ final class RecalculateTourSignoffAfterP4StartCorrection
         $previousSignoff = $assignment->planned_signoff_at;
         $previousTourDays = $assignment->tour_of_duty_days;
 
-        if ($rankChanged) {
-            $newRankId = (int) $normalizedProposed['rank_id'];
-            $tourResult = $this->tourResolver->resolve((int) $assignment->company_id, $newRankId, $actualStart);
+        if ($positionChanged || $legacyRankChanged) {
+            $newPositionId = $positionChanged
+                ? (int) $normalizedProposed['position_id']
+                : RankPositionBridge::positionIdForRank(
+                    (int) $assignment->company_id,
+                    (int) $normalizedProposed['rank_id'],
+                );
+
+            if ($newPositionId === null || $newPositionId < 1) {
+                return;
+            }
+
+            $tourResult = $this->tourResolver->resolve((int) $assignment->company_id, $newPositionId, $actualStart);
             $newTourDays = $tourResult->tourOfDutyDays;
 
             if ($assignment->planned_signoff_source === CrewPlannedSignoffSource::TourOfDuty) {
@@ -73,6 +85,9 @@ final class RecalculateTourSignoffAfterP4StartCorrection
                 ])->save();
 
                 $assignment->forceFill([
+                    'position_id' => $newPositionId,
+                    // Temporary Phase 2 dual-write while schema still requires rank_id.
+                    'rank_id' => RankPositionBridge::rankIdForPosition((int) $assignment->company_id, $newPositionId),
                     'tour_of_duty_days' => $newTourDays,
                     'planned_signoff_at' => $newSignoff,
                 ])->save();
@@ -84,7 +99,7 @@ final class RecalculateTourSignoffAfterP4StartCorrection
                         'event' => 'tour_signoff_recalculated',
                         'assignment_id' => $assignment->id,
                         'phase_id' => $phase->id,
-                        'rank_id' => $newRankId,
+                        'position_id' => $newPositionId,
                         'previous_tour_of_duty_days' => $previousTourDays,
                         'tour_of_duty_days' => $newTourDays,
                         'previous_planned_signoff_at' => $previousSignoff?->toDateTimeString(),
@@ -94,12 +109,14 @@ final class RecalculateTourSignoffAfterP4StartCorrection
                     ->tap(function ($activity) use ($assignment): void {
                         $activity->company_id = $assignment->company_id;
                     })
-                    ->log('Planned Sign-Off recalculated after P4 rank correction');
+                    ->log('Planned Sign-Off recalculated after P4 position correction');
 
                 return;
             }
 
             $assignment->forceFill([
+                'position_id' => $newPositionId,
+                'rank_id' => RankPositionBridge::rankIdForPosition((int) $assignment->company_id, $newPositionId),
                 'tour_of_duty_days' => $newTourDays,
             ])->save();
 
@@ -110,7 +127,7 @@ final class RecalculateTourSignoffAfterP4StartCorrection
                     'event' => 'tour_days_snapshot_updated',
                     'assignment_id' => $assignment->id,
                     'phase_id' => $phase->id,
-                    'rank_id' => $newRankId,
+                    'position_id' => $newPositionId,
                     'previous_tour_of_duty_days' => $previousTourDays,
                     'tour_of_duty_days' => $newTourDays,
                     'planned_signoff_source' => $assignment->planned_signoff_source?->value,
@@ -119,7 +136,7 @@ final class RecalculateTourSignoffAfterP4StartCorrection
                 ->tap(function ($activity) use ($assignment): void {
                     $activity->company_id = $assignment->company_id;
                 })
-                ->log('Tour of duty snapshot updated after P4 rank correction while preserving manual sign-off');
+                ->log('Tour of duty snapshot updated after P4 position correction while preserving manual sign-off');
 
             return;
         }

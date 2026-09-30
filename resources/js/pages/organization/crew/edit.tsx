@@ -47,7 +47,7 @@ export default function CrewAssignmentEdit({
 
     const form = useForm<CrewAssignmentFormData>({
         employee_id: assignment.employee?.id ?? null,
-        rank_id: assignment.rank?.id ?? null,
+        position_id: assignment.position?.id ?? null,
         client_id: assignment.client?.id ?? null,
         vessel_id: assignment.vessel?.id ?? null,
         planned_join_at: assignment.planned_join_at ?? '',
@@ -119,7 +119,7 @@ export default function CrewAssignmentEdit({
                                         </h2>
                                         <p className="text-xs text-muted-foreground">
                                             Employee is locked after assignment
-                                            creation. Rank and Arrival Date
+                                            creation. Position and Arrival Date
                                             remain editable.
                                         </p>
                                     </div>
@@ -127,14 +127,15 @@ export default function CrewAssignmentEdit({
                                     <CrewMemberFields
                                         data={{
                                             employee_id: form.data.employee_id,
-                                            rank_id: form.data.rank_id,
+                                            position_id: form.data.position_id,
                                             planned_arrival_at:
                                                 form.data.planned_arrival_at,
                                         }}
                                         onChange={(memberData) => {
                                             form.setData({
                                                 ...form.data,
-                                                rank_id: memberData.rank_id,
+                                                position_id:
+                                                    memberData.position_id,
                                                 planned_arrival_at:
                                                     memberData.planned_arrival_at,
                                             });

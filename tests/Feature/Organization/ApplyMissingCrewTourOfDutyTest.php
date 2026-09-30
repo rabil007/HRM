@@ -25,8 +25,9 @@ beforeEach(function () {
     $this->company = $this->fixtures['company'];
     $this->employee = $this->fixtures['employee'];
     $this->rank = $this->fixtures['rank'];
-    // Initially the rank has NO tour configured.
-    $this->rank->update(['max_tour_of_duty_days' => null]);
+    $this->position = $this->fixtures['position'];
+    // Initially the position has NO tour configured.
+    $this->position->update(['max_tour_of_duty_days' => null]);
     $this->vessel = makeCrewMovementVessel('Tour Repair Vessel');
     $this->service = app(CrewMovementService::class);
     $this->action = app(ApplyMissingCrewTourOfDuty::class);
@@ -108,7 +109,7 @@ it('repairs active P4 with null snapshot using newly configured Rank Tour', func
         ->and($assignment->planned_signoff_at)->toBeNull();
 
     // HR configures Rank Tour to 90 days later
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -127,7 +128,7 @@ it('calculates missing Planned Sign-Off from actual P4 join plus Tour days', fun
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -148,7 +149,7 @@ it('updates active P4 planned_end_at with the calculated sign-off date', functio
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
     $p4 = $repaired->currentPhase;
@@ -167,7 +168,7 @@ it('does not create or sync Crew Planning when repairing tour of duty', function
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -189,7 +190,7 @@ it('preserves existing manual Planned Sign-Off and does not overwrite it', funct
         overrideReason: 'Operational arrangement',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -213,7 +214,7 @@ it('preserves existing planned-signoff source and reason when a date already exi
         overrideReason: null,
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -239,7 +240,7 @@ it('does not change an assignment that already has an existing Tour snapshot', f
     ]);
 
     // Rank master is updated to 120 days
-    $this->rank->update(['max_tour_of_duty_days' => 120]);
+    $this->position->update(['max_tour_of_duty_days' => 120]);
 
     $result = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -251,7 +252,7 @@ it('does not change an assignment that already has an existing Tour snapshot', f
 });
 
 it('does not alter an existing assignment when Rank Master changes after a valid snapshot', function () {
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
         'rank_id' => $this->rank->id,
@@ -276,7 +277,7 @@ it('does not alter an existing assignment when Rank Master changes after a valid
     expect($assignment->tour_of_duty_days)->toBe(90);
 
     // Later Rank Master edit
-    $this->rank->update(['max_tour_of_duty_days' => 180]);
+    $this->position->update(['max_tour_of_duty_days' => 180]);
 
     $assignment->refresh();
     expect($assignment->tour_of_duty_days)->toBe(90);
@@ -310,7 +311,7 @@ it('cannot repair draft or pre-P4 assignments', function () {
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $result = $this->action->handle($this->company->id, $draft->id, $this->user->id);
     expect($result)->toBeNull()
@@ -348,7 +349,7 @@ it('cannot repair completed P4 or completed assignments', function () {
     $assignment->refresh();
     expect($assignment->status)->toBe(CrewAssignmentStatus::Completed);
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $result = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
     expect($result)->toBeNull()
@@ -367,7 +368,7 @@ it('cannot repair cancelled assignments', function () {
 
     expect($assignment->refresh()->status)->toBe(CrewAssignmentStatus::Cancelled);
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $result = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
     expect($result)->toBeNull();
@@ -377,19 +378,21 @@ it('rejects cross-company assignment IDs', function () {
     $otherFixtures = makeCrewAssignmentFixtures();
     $otherCompany = $otherFixtures['company'];
     $otherEmployee = $otherFixtures['employee'];
+    $otherRank = $otherFixtures['rank'];
     $otherVessel = makeCrewMovementVessel('Other Vessel', $otherCompany);
+    $otherFixtures['position']->update(['max_tour_of_duty_days' => null]);
 
     $otherAssignment = createJoinedActiveP4AssignmentWithoutTour(
         $this->service,
         $otherCompany,
         $otherEmployee,
-        $this->rank,
+        $otherRank,
         $otherVessel,
         $this->user,
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     // Calling with this->company->id on otherAssignment must return null / do nothing
     $result = $this->action->handle($this->company->id, $otherAssignment->id, $this->user->id);
@@ -408,7 +411,7 @@ it('rejects unauthorized HTTP user from performing the action', function () {
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $unauthorizedUser = User::factory()->create();
     grantCompanyPermissions($unauthorizedUser, $this->company, ['crew_operations.assignments.view']);
@@ -432,7 +435,7 @@ it('allows authorized HTTP user to perform the action', function () {
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     actingAs($this->user)
         ->withSession(['current_company_id' => $this->company->id])
@@ -455,7 +458,7 @@ it('records audit activity when repair is performed', function () {
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -484,7 +487,7 @@ it('performs no mutations during Artisan dry-run', function () {
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $this->artisan('crew:apply-missing-tour-of-duty', [
         '--company' => $this->company->id,
@@ -508,7 +511,7 @@ it('repairs eligible records during Artisan apply', function () {
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $this->artisan('crew:apply-missing-tour-of-duty', [
         '--company' => $this->company->id,
@@ -531,7 +534,7 @@ it('is idempotent when Artisan command is executed multiple times', function () 
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     // First run applies
     $this->artisan('crew:apply-missing-tour-of-duty', ['--company' => $this->company->id])
@@ -550,19 +553,21 @@ it('prevents --assignment option from accessing another companys assignment', fu
     $otherFixtures = makeCrewAssignmentFixtures();
     $otherCompany = $otherFixtures['company'];
     $otherEmployee = $otherFixtures['employee'];
+    $otherRank = $otherFixtures['rank'];
     $otherVessel = makeCrewMovementVessel('Other Vessel', $otherCompany);
+    $otherFixtures['position']->update(['max_tour_of_duty_days' => null]);
 
     $otherAssignment = createJoinedActiveP4AssignmentWithoutTour(
         $this->service,
         $otherCompany,
         $otherEmployee,
-        $this->rank,
+        $otherRank,
         $otherVessel,
         $this->user,
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     // Running for this->company with otherAssignment->id
     $this->artisan('crew:apply-missing-tour-of-duty', [
@@ -586,7 +591,7 @@ it('calculates tour progress correctly after repair', function () {
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $progressBefore = (new CrewTourProgress)->forAssignment($assignment);
     expect($progressBefore['tour_of_duty_days'])->toBeNull()
@@ -619,7 +624,7 @@ it('removes missing_tour_of_duty attention warning after successful repair', fun
     $warningCodesBefore = array_column($warningsBefore, 'code');
     expect($warningCodesBefore)->toContain('missing_tour_of_duty');
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $repaired = $this->action->handle($this->company->id, $assignment->id, $this->user->id);
 
@@ -639,7 +644,7 @@ it('exposes tour repair metadata on the assignment show page', function () {
         '2026-06-01 08:00:00',
     );
 
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     actingAs($this->user)
         ->withSession(['current_company_id' => $this->company->id])
@@ -648,7 +653,7 @@ it('exposes tour repair metadata on the assignment show page', function () {
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->component('organization/crew/show')
             ->where('assignment.can_apply_tour_of_duty', true)
-            ->where('assignment.current_rank_tour_days', 90)
+            ->where('assignment.current_position_tour_days', 90)
             ->where('assignment.suggested_planned_signoff_at', '2026-08-30')
         );
 

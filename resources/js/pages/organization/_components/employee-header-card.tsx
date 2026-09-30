@@ -200,7 +200,6 @@ export function EmployeeHeaderCard({
     religions,
     visa_types = [],
     company_visa_types = [],
-    ranks,
     projects = [],
     clients = [],
     form,
@@ -225,7 +224,6 @@ export function EmployeeHeaderCard({
     religions: Option[];
     visa_types?: Option[];
     company_visa_types?: Option[];
-    ranks: Option[];
     projects?: Array<{
         id: number;
         title: string | null;
@@ -309,7 +307,6 @@ export function EmployeeHeaderCard({
         positions,
         'title',
     );
-    const { selectOptions: rankOptions } = useMutableSelectOptions(ranks);
     const { sourceItems: projectItems, selectOptions: projectOptions } =
         useMutableSelectOptions(projects, 'title');
     const { selectOptions: clientOptions } = useMutableSelectOptions(clients);
@@ -802,28 +799,6 @@ export function EmployeeHeaderCard({
                             }
                             inputType="date"
                             highlightMissing={isMissingRequired('hire_date')}
-                        />
-                    )}
-
-                    {/* Rank */}
-                    {showField('rank_id') && (
-                        <EditableDetailSelectField
-                            label="Rank"
-                            field="rank_id"
-                            value={form.data.rank_id}
-                            displayValue={optionLabel(
-                                ranks,
-                                form.data.rank_id || employee.rank_id,
-                                employee.rank?.name,
-                            )}
-                            options={rankOptions}
-                            creatableKey="rank"
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            canEdit={canUpdate}
-                            onChange={(value) => form.setData('rank_id', value)}
-                            highlightMissing={isMissingRequired('rank_id')}
                         />
                     )}
 

@@ -101,6 +101,15 @@ class PrepareRankPositionConsolidationCommand extends Command
         $this->line("Near-duplicate candidates (not merged): {$report['near_duplicate_count']}");
         $this->line("Unmapped references: {$report['unmapped_references']}");
         $this->line('Integrity failures: '.count($report['integrity_failures'] ?? []));
+        $this->newLine();
+        $this->line('--- Rank cleanup readiness ---');
+        $this->line("Employees with rank_id but no position_id: {$report['employees_rank_without_position']}");
+        $this->line("Crew Assignments with rank_id but no position_id: {$report['crew_assignments_rank_without_position']}");
+        $this->line("Crew Planning with rank_id but no position_id: {$report['crew_planning_rank_without_position']}");
+        $this->line("Sea Services with rank_id but no position_id: {$report['sea_services_rank_without_position']}");
+        $this->line("Vessel Manning with rank_id but no position_id: {$report['vessel_manning_rank_without_position']}");
+        $this->line("Rank document requirements missing Position equivalent: {$report['document_rank_requirements_missing_position']}");
+        $this->line('Ready for Rank cleanup: '.(($report['ready_for_rank_cleanup'] ?? false) ? 'YES' : 'NO'));
 
         $this->renderDetails('Employee conflicts', $report['employee_conflict_details'] ?? []);
         $this->renderDetails('Ambiguous matches', $report['ambiguous_matches'] ?? []);

@@ -92,14 +92,14 @@ export function VesselManningShowContent({
     recent_activity,
     can_view_audit,
     can,
-    ranks,
+    crew_positions,
     back_query,
 }: {
     vessel: VesselManningShowItem;
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     can: VesselManningPagePermissions;
-    ranks: RankOption[];
+    crew_positions: RankOption[];
     back_query: Record<string, string>;
 }) {
     const [editOpen, setEditOpen] = useState(false);
@@ -308,7 +308,7 @@ export function VesselManningShowContent({
                                             className={dataTableCellClass()}
                                         >
                                             <span className="font-semibold text-foreground/80">
-                                                {line.rank_name}
+                                                {line.position_name}
                                             </span>
                                         </TableCell>
                                         <TableCell
@@ -342,7 +342,7 @@ export function VesselManningShowContent({
                     open={editOpen}
                     onOpenChange={setEditOpen}
                     vessel={vessel}
-                    ranks={ranks}
+                    crew_positions={crew_positions}
                     form={form}
                     onSubmit={submit}
                 />

@@ -3,6 +3,7 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\RankPositionMatchType;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
@@ -11,7 +12,9 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Rank;
+use App\Models\RankPositionMapping;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -21,7 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Rank, position: Position}
  */
 function makeCrewAssignmentFixtures(): array
 {
@@ -65,14 +68,30 @@ function makeCrewAssignmentFixtures(): array
         'is_active' => true,
     ]);
 
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => $rank->name,
+        'status' => 'active',
+        'is_crew_position' => true,
+        'max_tour_of_duty_days' => null,
+    ]);
+
+    RankPositionMapping::query()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'position_id' => $position->id,
+        'match_type' => RankPositionMatchType::Exact,
+    ]);
+
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
             'rank_id' => $rank->id,
+            'position_id' => $position->id,
             'status' => 'active',
         ]);
 
-    return compact('user', 'company', 'employee', 'rank');
+    return compact('user', 'company', 'employee', 'rank', 'position');
 }
 
 function makeCrewMovementVessel(string $name, ?Company $company = null, ?Client $client = null): Vessel
@@ -112,11 +131,14 @@ function makeActiveOnVesselAssignment(
 ): CrewAssignment {
     $started = CarbonImmutable::parse('2026-01-01 08:00:00', $company->timezone ?? 'UTC');
 
+    $positionId = $overrides['position_id'] ?? $employee->position_id;
+
     $assignment = CrewAssignment::query()->create(array_merge([
         'company_id' => $company->id,
         'assignment_no' => 'CA-2026-'.Str::upper(Str::random(6)),
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
+        'position_id' => $positionId,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => $started,
@@ -150,11 +172,14 @@ function makeCurrentCrewPhaseAssignment(
 ): CrewAssignment {
     $started = CarbonImmutable::parse('2026-01-01 08:00:00', $company->timezone ?? 'UTC');
 
+    $positionId = $overrides['position_id'] ?? $employee->position_id;
+
     $assignment = CrewAssignment::query()->create(array_merge([
         'company_id' => $company->id,
         'assignment_no' => 'CA-VV-'.Str::upper(Str::random(6)),
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
+        'position_id' => $positionId,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => $started,
@@ -172,7 +197,7 @@ function makeCurrentCrewPhaseAssignment(
 
     $assignment->update(['current_phase_id' => $phase->id]);
 
-    return $assignment->fresh(['currentPhase', 'vessel', 'employee', 'rank']);
+    return $assignment->fresh(['currentPhase', 'vessel', 'employee', 'rank', 'position']);
 }
 
 /**
@@ -213,6 +238,7 @@ function createAssignmentFromPlanning(
         $resolvedEmployeeId,
         [
             'rank_id' => $planning->rank_id,
+            'position_id' => $planning->position_id,
             'vessel_id' => $planning->vessel_id,
             'planned_join_at' => $planning->planned_join_date?->toDateString().' 00:00:00',
             'planned_signoff_at' => $planning->planned_leave_date?->toDateString().' 00:00:00',
@@ -262,6 +288,7 @@ function syncPlanningFromAssignment(CrewAssignment $assignment): CrewPlanningAss
             'company_id' => $assignment->company_id,
             'vessel_id' => $assignment->vessel_id,
             'rank_id' => $assignment->rank_id ?? $assignment->employee?->rank_id,
+            'position_id' => $assignment->position_id ?? $assignment->employee?->position_id,
             'employee_id' => $assignment->employee_id,
             'planned_join_date' => $joinDate,
             'planned_leave_date' => $leaveDate,

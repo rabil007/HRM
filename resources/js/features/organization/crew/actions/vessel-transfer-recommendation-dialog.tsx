@@ -15,7 +15,7 @@ import type { ActiveOnVesselAssignment } from '../types';
 
 export type VesselTransferPrefill = {
     vessel_id?: number | null;
-    rank_id?: number | null;
+    position_id?: number | null;
     client_id?: number | null;
     occurred_at?: string | null;
 };
@@ -32,8 +32,8 @@ export function openTransferVessel(
         query.vessel_id = String(prefill.vessel_id);
     }
 
-    if (prefill.rank_id) {
-        query.rank_id = String(prefill.rank_id);
+    if (prefill.position_id) {
+        query.position_id = String(prefill.position_id);
     }
 
     if (prefill.client_id) {

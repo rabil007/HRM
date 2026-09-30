@@ -27,8 +27,8 @@ export type HotelCheckInCheckoutRow = {
         status_label: string;
         vessel_id: number | null;
         vessel_name: string;
-        rank_id: number | null;
-        rank_name: string;
+        position_id: number | null;
+        position_name: string;
         client_id: number | null;
         client_name: string;
     };
@@ -60,7 +60,7 @@ export type HotelCheckInCheckoutFilters = {
     check_out_from: string;
     check_out_to: string;
     vessel_id: string;
-    rank_id: string;
+    position_id: string;
     client_id: string;
     sort: string;
     direction: 'asc' | 'desc';
@@ -73,7 +73,7 @@ export type HotelCheckInCheckoutFilterOptions = {
     stay_statuses: Array<{ value: string; label: string }>;
     accommodation_statuses: Array<{ value: string; label: string }>;
     vessels: Array<{ id: number; name: string }>;
-    ranks: Array<{ id: number; name: string }>;
+    positions: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
 };
 

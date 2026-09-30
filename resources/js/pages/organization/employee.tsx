@@ -745,7 +745,6 @@ function EmployeeDetailsPage({
                             employee={localEmployee}
                             departments={departments}
                             positions={positions}
-                            ranks={ranks}
                             projects={projects}
                             clients={profile_clients}
                             countries={countries}
@@ -1106,10 +1105,12 @@ function EmployeeDetailsPage({
                                             sea_services={sea_services ?? []}
                                             vessel_types={vessel_types ?? []}
                                             vessels={vessels ?? []}
-                                            ranks={ranks}
+                                            positions={positions ?? ranks ?? []}
                                             clients={clients ?? []}
-                                            employeeRankId={
-                                                localEmployee.rank_id ?? null
+                                            employeePositionId={
+                                                localEmployee.position?.id ??
+                                                localEmployee.rank_id ??
+                                                null
                                             }
                                             canManage={
                                                 can?.sea_service_manage ?? false

@@ -124,7 +124,6 @@ export function EmployeesContent({
     company_visa_types,
     approval_locations,
     sssa_options,
-    ranks,
     clients,
     projects,
     banks: _banks,
@@ -152,7 +151,8 @@ export function EmployeesContent({
     company_visa_types: CompanyVisaTypeOption[];
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
-    ranks: RankOption[];
+    /** @deprecated Phase 2 — Position filters are canonical; Rank prop ignored. */
+    ranks?: RankOption[];
     clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];
@@ -500,7 +500,6 @@ export function EmployeesContent({
                     companyVisaTypes: company_visa_types,
                     approvalLocations: approval_locations,
                     sssaOptions: sssa_options,
-                    ranks,
                     clients,
                     projects,
                     roles,
@@ -817,7 +816,6 @@ export function EmployeesContent({
                 companyVisaTypes={company_visa_types}
                 approvalLocations={approval_locations}
                 sssaOptions={sssa_options}
-                ranks={ranks}
                 clients={clients}
                 projects={projects}
                 roles={roles}

@@ -247,7 +247,7 @@ function QuickDetailContent({
                         <SheetDescription className="mt-0.5 text-xs">
                             {[
                                 assignment.employee?.employee_no,
-                                assignment.rank?.name,
+                                assignment.position?.name,
                             ]
                                 .filter(Boolean)
                                 .join(' · ') || 'Rank not assigned'}

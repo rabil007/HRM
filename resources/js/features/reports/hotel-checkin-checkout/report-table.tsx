@@ -275,7 +275,7 @@ export function HotelCheckInCheckoutReportTable({
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-                                        {row.assignment.rank_name}
+                                        {row.assignment.position_name}
                                     </TableCell>
                                     <TableCell className="text-xs font-medium whitespace-nowrap">
                                         {row.hotel.name}
@@ -410,10 +410,10 @@ export function HotelCheckInCheckoutReportTable({
                                                         }
                                                     />
                                                     <DetailRow
-                                                        label="Rank"
+                                                        label="Position"
                                                         value={
                                                             row.assignment
-                                                                .rank_name
+                                                                .position_name
                                                         }
                                                     />
                                                 </div>

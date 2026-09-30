@@ -7,7 +7,7 @@ import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-in
 export type CrewIndexCompatibleParams = {
     search?: string;
     vessel_id?: string;
-    rank_id?: string;
+    position_id?: string;
     client_id?: string;
     employee_id?: string;
     planned_join_from?: string;

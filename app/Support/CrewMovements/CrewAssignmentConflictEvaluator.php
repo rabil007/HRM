@@ -8,9 +8,9 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
@@ -40,7 +40,7 @@ final class CrewAssignmentConflictEvaluator
             $employeeQuery->lockForUpdate();
         }
 
-        $employee = $employeeQuery->first(['id', 'company_id', 'name', 'employee_no', 'status', 'rank_id']);
+        $employee = $employeeQuery->first(['id', 'company_id', 'name', 'employee_no', 'status', 'position_id', 'rank_id']);
 
         if ($employee === null) {
             return CrewAssignmentConflictResult::blocking(
@@ -87,17 +87,25 @@ final class CrewAssignmentConflictEvaluator
             }
         }
 
-        $rank = null;
-        if ($context->rankId !== null) {
-            $rank = Rank::query()
-                ->whereKey($context->rankId)
-                ->where('is_active', true)
-                ->first(['id', 'name']);
+        $position = null;
+        $positionId = $context->positionId;
+        if ($positionId === null && $context->rankId !== null) {
+            // Temporary Phase 2: legacy conflict contexts may still pass rankId.
+            $positionId = RankPositionBridge::positionIdForRank(
+                $context->companyId,
+                $context->rankId,
+            );
+        }
 
-            if ($rank === null) {
+        if ($positionId !== null) {
+            $position = RankPositionBridge::companyPositionsQuery($context->companyId)
+                ->whereKey($positionId)
+                ->first(['id', 'title']);
+
+            if ($position === null) {
                 return CrewAssignmentConflictResult::blocking(
-                    code: 'invalid_rank',
-                    message: 'The selected rank is invalid or inactive.',
+                    code: 'invalid_position',
+                    message: 'The selected position is invalid or inactive.',
                 );
             }
         }
@@ -107,7 +115,7 @@ final class CrewAssignmentConflictEvaluator
             $relievedQuery = CrewAssignment::query()
                 ->where('company_id', $context->companyId)
                 ->whereKey($context->relievesCrewAssignmentId)
-                ->with(['employee:id,name,employee_no,department_id,user_id', 'currentPhase', 'vessel:id,name', 'rank:id,name']);
+                ->with(['employee:id,name,employee_no,department_id,user_id', 'currentPhase', 'vessel:id,name', 'position:id,title', 'rank:id,name']);
 
             if ($withLock) {
                 $relievedQuery->lockForUpdate();
@@ -149,11 +157,11 @@ final class CrewAssignmentConflictEvaluator
                 );
             }
 
-            $sourceRankId = $relieved->rank_id ?? $relieved->employee?->rank_id;
-            if ($context->rankId !== null && $sourceRankId !== null && (int) $context->rankId !== (int) $sourceRankId) {
+            $sourcePositionId = $relieved->position_id ?? $relieved->employee?->position_id;
+            if ($positionId !== null && $sourcePositionId !== null && (int) $positionId !== (int) $sourcePositionId) {
                 return CrewAssignmentConflictResult::blocking(
-                    code: 'relief_rank_mismatch',
-                    message: 'The relief assignment must be for the same rank as the assignment being relieved.',
+                    code: 'relief_position_mismatch',
+                    message: 'The relief assignment must be for the same position as the assignment being relieved.',
                 );
             }
 
@@ -218,8 +226,8 @@ final class CrewAssignmentConflictEvaluator
         $newAssignmentData = [
             'vessel_id' => $vessel?->id,
             'vessel_name' => $vessel?->name ?? 'Unassigned Vessel',
-            'rank_id' => $rank?->id,
-            'rank_name' => $rank?->name,
+            'position_id' => $position?->id,
+            'position_name' => $position?->title,
             'planned_join_at' => $joinDate,
             'planned_signoff_at' => $signoffDate,
         ];

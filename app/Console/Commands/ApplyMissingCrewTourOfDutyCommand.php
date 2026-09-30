@@ -16,7 +16,7 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
                             {--assignment= : Limit repair to a specific Assignment ID}
                             {--dry-run : Perform a dry run without modifying records}';
 
-    protected $description = 'Apply missing Tour of Duty snapshot to active P4 crew assignments whose rank has a configured tour';
+    protected $description = 'Apply missing Tour of Duty snapshot to active P4 crew assignments whose position has a configured tour';
 
     public function handle(ApplyMissingCrewTourOfDuty $action): int
     {
@@ -32,8 +32,11 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
                     ->where('status', CrewPhaseStatus::Active)
                     ->whereNotNull('actual_start_at');
             })
-            ->whereNotNull('rank_id')
-            ->with(['company', 'employee', 'rank', 'currentPhase', 'phases'])
+            ->where(function ($query): void {
+                $query->whereNotNull('position_id')
+                    ->orWhereNotNull('rank_id');
+            })
+            ->with(['company', 'employee', 'position', 'rank', 'currentPhase', 'phases'])
             ->orderBy('company_id')
             ->orderBy('id');
 
@@ -68,9 +71,11 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
             $eligibleRows[] = [
                 'assignment' => sprintf('%s (#%d)', $assignment->assignment_no, $assignment->id),
                 'employee' => $assignment->employee?->name ?? ('#'.$assignment->employee_id),
-                'rank' => $assignment->rank?->name ?? ('#'.$assignment->rank_id),
+                'position' => $assignment->position?->title
+                    ?? $assignment->rank?->name
+                    ?? ('#'.($assignment->position_id ?? $assignment->rank_id)),
                 'actual_join' => $actualJoinStr,
-                'rank_tour' => $inspection['tour_of_duty_days'].' days',
+                'position_tour' => $inspection['tour_of_duty_days'].' days',
                 'existing_signoff' => $existingSignoffStr,
                 'calculated_signoff' => $calcSignoffStr,
                 'action' => $actionDescription,
@@ -87,9 +92,9 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
         $tableHeaders = [
             'Assignment',
             'Employee',
-            'Rank',
+            'Position',
             'Actual Join',
-            'Current Rank Tour',
+            'Current Position Tour',
             'Existing Planned Sign-Off',
             'Calculated Planned Sign-Off',
             $dryRun ? 'Action that would be taken' : 'Action taken',
@@ -99,9 +104,9 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
             return [
                 $row['assignment'],
                 $row['employee'],
-                $row['rank'],
+                $row['position'],
                 $row['actual_join'],
-                $row['rank_tour'],
+                $row['position_tour'],
                 $row['existing_signoff'],
                 $row['calculated_signoff'],
                 $row['action'],

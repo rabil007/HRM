@@ -3,6 +3,7 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Position;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
@@ -92,6 +93,9 @@ function makeVesselManningFixtures(): array
         'crew_operations.vessel_manning.delete',
     ]);
 
+    $captainPosition = crewPositionForRank($company, $captain);
+    $welderPosition = crewPositionForRank($company, $welder);
+
     return compact(
         'user',
         'company',
@@ -102,6 +106,8 @@ function makeVesselManningFixtures(): array
         'captain',
         'welder',
         'inactiveRank',
+        'captainPosition',
+        'welderPosition',
     );
 }
 
@@ -128,11 +134,14 @@ test('authorized users can view vessel manning on vessels show page', function (
         'vessel' => $vessel,
         'captain' => $captain,
         'welder' => $welder,
+        'captainPosition' => $captainPosition,
+        'welderPosition' => $welderPosition,
     ] = makeVesselManningFixtures();
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
+        'position_id' => $captainPosition->id,
         'rank_id' => $captain->id,
         'required_count' => 1,
     ]);
@@ -140,6 +149,7 @@ test('authorized users can view vessel manning on vessels show page', function (
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
+        'position_id' => $welderPosition->id,
         'rank_id' => $welder->id,
         'required_count' => 2,
     ]);
@@ -159,20 +169,20 @@ test('authorized users can view vessel manning on vessels show page', function (
             ->where('back_query.search', 'Alpha')
             ->where('back_query.page', '2')
             ->has('vessel.manning', 2)
-            ->has('ranks')
+            ->has('crew_positions')
             ->has('manning_can')
         );
 });
 
 test('updating from show page returns to vessels show page', function () {
-    ['user' => $user, 'vessel' => $vessel, 'captain' => $captain, 'welder' => $welder] = makeVesselManningFixtures();
+    ['user' => $user, 'vessel' => $vessel, 'captain' => $captain, 'welder' => $welder, 'captainPosition' => $captainPosition, 'welderPosition' => $welderPosition] = makeVesselManningFixtures();
 
     $this->actingAs($user)
         ->from(route('organization.vessels.show', ['vessel' => $vessel, 'search' => 'Alpha']))
         ->put(route('organization.vessel-manning.update', ['vessel' => $vessel, 'search' => 'Alpha']), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
-                ['rank_id' => $welder->id, 'required_count' => 3],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
+                ['position_id' => $welderPosition->id, 'required_count' => 3],
             ],
             'redirect_to' => 'show',
         ])
@@ -183,12 +193,12 @@ test('updating from show page returns to vessels show page', function () {
 });
 
 test('vessels manning update route syncs requirements and redirects to vessels show', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeVesselManningFixtures();
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain, 'captainPosition' => $captainPosition] = makeVesselManningFixtures();
 
     $this->actingAs($user)
         ->put(route('organization.vessels.manning.update', ['vessel' => $vessel, 'search' => 'Alpha']), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 2],
+                ['position_id' => $captainPosition->id, 'required_count' => 2],
             ],
             'redirect_to' => 'show',
         ])
@@ -248,14 +258,16 @@ test('authorized users can sync vessel manning requirements', function () {
         'vessel' => $vessel,
         'captain' => $captain,
         'welder' => $welder,
+        'captainPosition' => $captainPosition,
+        'welderPosition' => $welderPosition,
     ] = makeVesselManningFixtures();
 
     $this->actingAs($user)
         ->from(route('organization.vessels.index'))
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
-                ['rank_id' => $welder->id, 'required_count' => 2],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
+                ['position_id' => $welderPosition->id, 'required_count' => 2],
             ],
         ])
         ->assertRedirect(route('organization.vessels.index'))
@@ -283,11 +295,14 @@ test('sync updates existing rows and removes missing ranks', function () {
         'vessel' => $vessel,
         'captain' => $captain,
         'welder' => $welder,
+        'captainPosition' => $captainPosition,
+        'welderPosition' => $welderPosition,
     ] = makeVesselManningFixtures();
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
+        'position_id' => $captainPosition->id,
         'rank_id' => $captain->id,
         'required_count' => 1,
     ]);
@@ -295,6 +310,7 @@ test('sync updates existing rows and removes missing ranks', function () {
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
+        'position_id' => $welderPosition->id,
         'rank_id' => $welder->id,
         'required_count' => 2,
     ]);
@@ -302,7 +318,7 @@ test('sync updates existing rows and removes missing ranks', function () {
     $this->actingAs($user)
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $welder->id, 'required_count' => 4],
+                ['position_id' => $welderPosition->id, 'required_count' => 4],
             ],
         ])
         ->assertRedirect(route('organization.vessels.index'));
@@ -327,11 +343,13 @@ test('sync can clear all requirements', function () {
         'company' => $company,
         'vessel' => $vessel,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
+        'position_id' => $captainPosition->id,
         'rank_id' => $captain->id,
         'required_count' => 1,
     ]);
@@ -355,6 +373,7 @@ test('vessel manning is scoped per company', function () {
         'otherCompany' => $otherCompany,
         'vessel' => $vessel,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     VesselManning::query()->create([
@@ -375,7 +394,7 @@ test('vessel manning is scoped per company', function () {
     $this->actingAs($user)
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
             ],
         ])
         ->assertRedirect(route('organization.vessels.index'));
@@ -401,6 +420,7 @@ test('syncing manning rejects vessels from another company', function () {
         'otherCompany' => $otherCompany,
         'vesselType' => $vesselType,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     $foreignVessel = Vessel::query()->create([
@@ -413,7 +433,7 @@ test('syncing manning rejects vessels from another company', function () {
     $this->actingAs($user)
         ->put(route('organization.vessel-manning.update', $foreignVessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
             ],
         ])
         ->assertForbidden();
@@ -426,11 +446,14 @@ test('users without update permission cannot modify existing vessel manning', fu
         'vessel' => $vessel,
         'captain' => $captain,
         'welder' => $welder,
+        'captainPosition' => $captainPosition,
+        'welderPosition' => $welderPosition,
     ] = makeVesselManningFixtures();
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
+        'position_id' => $captainPosition->id,
         'rank_id' => $captain->id,
         'required_count' => 1,
     ]);
@@ -445,14 +468,14 @@ test('users without update permission cannot modify existing vessel manning', fu
     $this->actingAs($user)
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $welder->id, 'required_count' => 2],
+                ['position_id' => $welderPosition->id, 'required_count' => 2],
             ],
         ])
         ->assertForbidden();
 });
 
 test('users without create permission cannot add first vessel manning', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeVesselManningFixtures();
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain, 'captainPosition' => $captainPosition] = makeVesselManningFixtures();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.vessels.view',
@@ -464,7 +487,7 @@ test('users without create permission cannot add first vessel manning', function
     $this->actingAs($user)
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
             ],
         ])
         ->assertForbidden();
@@ -476,11 +499,13 @@ test('users without delete permission cannot clear vessel manning', function () 
         'company' => $company,
         'vessel' => $vessel,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
+        'position_id' => $captainPosition->id,
         'rank_id' => $captain->id,
         'required_count' => 1,
     ]);
@@ -505,6 +530,7 @@ test('users without manage permission cannot update vessel manning', function ()
         'company' => $company,
         'vessel' => $vessel,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     grantCompanyPermissions($user, $company, [
@@ -515,7 +541,7 @@ test('users without manage permission cannot update vessel manning', function ()
     $this->actingAs($user)
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
             ],
         ])
         ->assertForbidden();
@@ -526,36 +552,44 @@ test('duplicate ranks are rejected when syncing vessel manning', function () {
         'user' => $user,
         'vessel' => $vessel,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     $this->actingAs($user)
         ->from(route('organization.vessels.index'))
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
-                ['rank_id' => $captain->id, 'required_count' => 2],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
+                ['position_id' => $captainPosition->id, 'required_count' => 2],
             ],
         ])
         ->assertRedirect(route('organization.vessels.index'))
-        ->assertSessionHasErrors('requirements.1.rank_id');
+        ->assertSessionHasErrors('requirements.1.position_id');
 });
 
-test('inactive ranks are rejected when syncing vessel manning', function () {
+test('inactive crew positions are rejected when syncing vessel manning', function () {
     [
         'user' => $user,
+        'company' => $company,
         'vessel' => $vessel,
-        'inactiveRank' => $inactiveRank,
     ] = makeVesselManningFixtures();
+
+    $inactivePosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Inactive Crew Position',
+        'status' => 'inactive',
+        'is_crew_position' => true,
+    ]);
 
     $this->actingAs($user)
         ->from(route('organization.vessels.index'))
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $inactiveRank->id, 'required_count' => 1],
+                ['position_id' => $inactivePosition->id, 'required_count' => 1],
             ],
         ])
         ->assertRedirect(route('organization.vessels.index'))
-        ->assertSessionHasErrors('requirements.0.rank_id');
+        ->assertSessionHasErrors('requirements.0.position_id');
 });
 
 test('inactive vessels cannot be updated', function () {
@@ -563,13 +597,14 @@ test('inactive vessels cannot be updated', function () {
         'user' => $user,
         'inactiveVessel' => $inactiveVessel,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     $this->actingAs($user)
         ->from(route('organization.vessels.index'))
         ->put(route('organization.vessel-manning.update', $inactiveVessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 1],
+                ['position_id' => $captainPosition->id, 'required_count' => 1],
             ],
         ])
         ->assertRedirect(route('organization.vessels.index'))
@@ -581,13 +616,14 @@ test('required count must be at least one', function () {
         'user' => $user,
         'vessel' => $vessel,
         'captain' => $captain,
+        'captainPosition' => $captainPosition,
     ] = makeVesselManningFixtures();
 
     $this->actingAs($user)
         ->from(route('organization.vessels.index'))
         ->put(route('organization.vessel-manning.update', $vessel), [
             'requirements' => [
-                ['rank_id' => $captain->id, 'required_count' => 0],
+                ['position_id' => $captainPosition->id, 'required_count' => 0],
             ],
         ])
         ->assertRedirect(route('organization.vessels.index'))

@@ -6,6 +6,7 @@ use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -42,7 +43,7 @@ class StoreEmployeeRequest extends FormRequest
             'position_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('positions', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
+                RankPositionBridge::existsCompanyPositionRule($companyId),
             ],
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
             'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')],

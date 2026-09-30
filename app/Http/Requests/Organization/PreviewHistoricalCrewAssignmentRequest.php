@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Http\Requests\Organization\Concerns\TranslatesLegacyCrewRankToPosition;
 use App\Models\CrewAssignment;
 use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
 use App\Support\Employees\HistoricalCompanyEmployeeRule;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -13,6 +15,8 @@ use Illuminate\Validation\Validator;
 
 class PreviewHistoricalCrewAssignmentRequest extends FormRequest
 {
+    use TranslatesLegacyCrewRankToPosition;
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -27,6 +31,15 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
+    protected function prepareForValidation(): void
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if ($companyId > 0) {
+            $this->mergeLegacyCrewPositionFromRank($companyId);
+        }
+    }
+
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
@@ -42,7 +55,8 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
                 'integer',
                 Rule::exists('vessels', 'id')->where('company_id', $companyId),
             ],
-            'rank_id' => ['required', 'integer', Rule::exists('ranks', 'id')],
+            'position_id' => ['required', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)],
+            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
             'sign_on_standby_from' => ['nullable', 'date'],
             'sign_on_standby_to' => ['nullable', 'date'],

@@ -39,7 +39,7 @@ final class CrewMovementCorrectionFieldCatalog
 
         return [
             'vessel_id',
-            'rank_id',
+            'position_id',
             'client_id',
         ];
     }
@@ -59,8 +59,10 @@ final class CrewMovementCorrectionFieldCatalog
     {
         return in_array($field, [
             'vessel_id',
-            'rank_id',
+            'position_id',
             'client_id',
+            // Temporary Phase 2: historical correction payloads may still contain rank_id.
+            'rank_id',
         ], true);
     }
 

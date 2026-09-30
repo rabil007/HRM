@@ -45,7 +45,7 @@ export function crewAssignmentMobileCardModel(
 
     return {
         title: assignment.employee?.name ?? 'Unassigned',
-        subtitle: [assignment.assignment_no, assignment.rank?.name]
+        subtitle: [assignment.assignment_no, assignment.position?.name]
             .filter(Boolean)
             .join(' · '),
         vesselName: assignment.vessel?.name?.trim() || '—',

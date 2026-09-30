@@ -15,6 +15,8 @@ use App\Models\Rank;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\LegacyRankFilterTranslator;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -121,8 +123,12 @@ class CurrentCrewQuery
             $query->where('vessel_id', (int) $filters['vessel_id']);
         }
 
-        if (! empty($filters['rank_id'])) {
-            $query->where('rank_id', (int) $filters['rank_id']);
+        if (! empty($filters['position_id'])) {
+            LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
+                $query,
+                $this->companyId,
+                (int) $filters['position_id'],
+            );
         }
 
         if (! empty($filters['client_id'])) {
@@ -266,7 +272,7 @@ class CurrentCrewQuery
     /**
      * @return array{
      *     vessels: list<array{id: int, name: string}>,
-     *     ranks: list<array{id: int, name: string}>,
+     *     positions: list<array{id: int, name: string}>,
      *     clients: list<array{id: int, name: string}>,
      *     employees: list<array{id: int, name: string, employee_no: string|null}>,
      *     tour_statuses: list<array{value: string, label: string}>,
@@ -287,13 +293,7 @@ class CurrentCrewQuery
 
         return [
             'vessels' => CrewAssignmentSnapshotFilterOptions::vessels($companyId),
-            'ranks' => Rank::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $r) => ['id' => $r->id, 'name' => $r->name])
-                ->values()
-                ->all(),
+            'positions' => RankPositionBridge::crewPositionOptions($companyId),
             'clients' => Client::query()
                 ->where('is_active', true)
                 ->orderBy('name')

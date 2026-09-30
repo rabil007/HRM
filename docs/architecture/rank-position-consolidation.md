@@ -150,3 +150,94 @@ Re-running `--apply`:
 ## Out of scope for Phase 1
 
 Crew Assignment / Planning / Sea Service / Vessel Manning forms, TOD resolver, crew reports/filters/corrections, historical crew import, Employee Rank input, Rank master-data page/routes/permissions, and deletion of Rank schema remain Rank-based until Phase 2.
+
+## Phase 2: application cutover (in progress)
+
+Phase 2 makes **Position** the canonical occupational field for active Crew Operations, Planning, Sea Service directory filters, document requirement targeting, and list/saved-view filters. **`rank_id` columns and Rank master data remain** for dual-write, imports, and Phase 3 removal.
+
+### Canonical behavior
+
+| Area | Phase 2 behavior |
+| --- | --- |
+| Crew assignment create/edit/bulk/movements | Forms and APIs accept `position_id`; `RankPositionBridge` dual-writes mapped `rank_id` when required |
+| Crew Operations list filters / saved views | Query `position_id`; `LegacyRankFilterTranslator` maps legacy `rank_id` URLs and stored saved views |
+| Crew Planning Gantt / relief / pool | UI and assignment writes use `position_id`; planning rows still store `rank_id` when mapped |
+| Sea Service directory | Filter and index props use `position_id`; legacy `rank_id` query params translate via bridge |
+| Document requirements | New/edited rules target **positions** only (Rank pivot retained in DB until Phase 3) |
+| Employees | Already position-first for profile and directory filters |
+
+### Compatibility helpers
+
+- `App\Support\Positions\RankPositionBridge` — tenant mapping, crew position options, dual-write normalization
+- `App\Support\Positions\LegacyRankFilterTranslator` — request/saved-view `rank_id` → `position_id`
+- `App\Http\Requests\Organization\Concerns\TranslatesLegacyCrewRankToPosition` — legacy POST bodies with `rank_id` only
+
+### Not Phase 2
+
+- Dropping `rank_id` columns or Rank routes/UI
+- Gantt row keys still accept legacy `rank:` segments in some stored URLs until bookmarks expire
+- Historical Excel import columns may still accept Rank labels with bridge resolution (see import orchestrators)
+- Full relief-link validator still compares mapped rank in edge cases — prefer matching `position_id` on both sides
+
+Re-run `master-data:prepare-rank-position-consolidation --apply` after master-data changes. Resolve unmapped ranks before expecting filters or forms to resolve legacy URLs.
+
+## Phase 2: application cutover (in progress)
+
+Position is canonical for **application behavior** in reports, filters, saved views, smart search resolution, and operational URLs. Rank schema and `rank_id` columns remain; nothing is dropped in Phase 2.
+
+### Bridge and legacy translation
+
+- `App\Support\Positions\RankPositionBridge` — tenant `company_id + rank_id → position_id` (never treat global Rank ID as Position ID).
+- `App\Support\Positions\LegacyRankFilterTranslator` — temporary Phase 3 removal candidate for `?rank_id=` query params, saved views, and filter payloads.
+- `App\Support\Positions\CrewAssignmentPositionPresenter` — display/export labels use Position title with mapping fallback.
+
+New URLs, filters, and saved views store **`position_id` only**. Legacy `rank_id` is accepted on filter endpoints and migrated on save/apply when a company mapping exists.
+
+### Areas cut over in Phase 2
+
+| Area | Behavior |
+| --- | --- |
+| Crew Movement History, Crew Relief, Hotel Check-In/Out reports | `position_id` filters; export column **Position** |
+| Current Crew list filters | `position_id`; crew position options |
+| Saved views (Employees, Crew) | `position_id` on save; legacy `rank_id` migrated via bridge |
+| Employee smart search | `rank` concept resolves to `position_id` (temporary alias) |
+| Operational alert deep links (planning gaps) | `position_id` in query when mapped |
+| Payroll crew timeline preparation review | `position` label on assignments |
+
+### Still Rank-backed until Phase 3
+
+Crew assignment create/edit/movement forms, corrections field catalog (`rank_id` in payloads), vessel manning keys, planning row identity, Rank master data UI, and schema removal.
+
+### Verification
+
+```bash
+php artisan test --compact tests/Feature/Positions/RankPositionPhase2ApplicationTest.php
+php artisan test --compact tests/Feature/SavedViewTest.php
+php artisan test --compact tests/Feature/Organization/EmployeeSmartSearchTest.php
+```
+
+## Phase 2 — Application Cutover
+
+Position is now the **canonical application source of truth** for active behavior:
+
+- Employee create/edit/profile/directory/filters/search/imports/exports
+- Crew Assignment lifecycle (create, update, join, transfer, redeploy, corrections)
+- Crew Planning (assignments, relief, Gantt, vacant slots)
+- Sea Service, Vessel Manning, Tour of Duty
+- Document requirement matching (Position pivots only for active resolution)
+- Reports, saved views, smart search, activity presentation
+
+### Temporary compatibility retained until Phase 3
+
+- Physical schema: `ranks`, `rank_id` columns, `document_requirement_rank`, `rank_position_mappings`
+- Legacy `?rank_id=` URL / saved-view / import column translation via `RankPositionBridge` + `LegacyRankFilterTranslator` (tenant-aware; never treats Rank ID as Position ID)
+- Dual-write of `rank_id` from Position→mapping when schema still requires it (deterministic; never invents Rank IDs)
+- Historical activity / correction payloads containing Rank remain readable without rewriting old rows
+
+### Not done in Phase 2
+
+- Dropping `ranks` / `rank_id` / Rank pivots
+- Removing Rank master-data UI/routes/permissions
+- Destructive cleanup of unresolved `rank_id` without `position_id`
+
+Phase 3 performs final Rank schema/code removal after readiness reporting shows clean mapping coverage.

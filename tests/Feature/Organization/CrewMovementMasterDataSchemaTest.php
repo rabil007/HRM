@@ -53,7 +53,7 @@ test('create assignment page loads without querying nonexistent master company_i
             ->component('organization/crew/create')
             ->has('form_options.employee_status_by_employee')
             ->has('form_options.clients')
-            ->has('form_options.ranks')
+            ->has('form_options.positions')
             ->has('form_options.vessels')
             ->has('form_options.courses')
             ->has('form_options.employees'));

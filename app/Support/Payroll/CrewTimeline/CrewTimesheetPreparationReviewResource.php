@@ -14,6 +14,7 @@ use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetPreparationSkip;
 use App\Models\PayrollPeriod;
 use App\Support\CrewMovements\CrewDateProvenance;
+use App\Support\Positions\CrewAssignmentPositionPresenter;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Support\Collection;
 
@@ -230,9 +231,9 @@ final class CrewTimesheetPreparationReviewResource
                 'employee_number' => $first?->employee?->employee_no,
                 'employee_name' => $first?->employee?->name,
                 'employee_image' => $first?->employee?->image,
-                'rank' => $primaryAssignment['rank']
-                    ?? $assignments[0]['rank']
-                    ?? $first?->assignment?->rank?->name
+                'position' => $primaryAssignment['position']
+                    ?? $assignments[0]['position']
+                    ?? CrewAssignmentPositionPresenter::name($first?->assignment, (int) $period->company_id)
                     ?? $first?->employee?->position?->title,
                 'assignment_id' => $primaryAssignment['id'] ?? null,
                 'assignment_number' => $primaryAssignment['assignment_number'] ?? null,
@@ -299,7 +300,7 @@ final class CrewTimesheetPreparationReviewResource
                 'previous_vessel' => $assignment?->previousAssignment?->vessel?->name,
                 'vessel' => $assignment?->vessel?->name,
                 'client' => $assignment?->client?->name,
-                'rank' => $assignment?->rank?->name
+                'position' => CrewAssignmentPositionPresenter::name($assignment, (int) $assignmentLines->first()?->company_id)
                     ?? $assignmentLines->first()?->employee?->position?->title,
                 'phases' => $phases,
             ];

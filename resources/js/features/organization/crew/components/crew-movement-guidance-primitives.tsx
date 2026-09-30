@@ -41,17 +41,17 @@ export function MovementGuidanceHeader({
 export function GuidanceEmployeeIdentity({
     name,
     employeeNo,
-    rankName,
+    positionName,
     nationalityName,
     image,
 }: {
     name: string;
     employeeNo?: string | null;
-    rankName?: string | null;
+    positionName?: string | null;
     nationalityName?: string | null;
     image?: string | null;
 }): ReactElement {
-    const detailParts = [rankName, employeeNo].filter(Boolean);
+    const detailParts = [positionName, employeeNo].filter(Boolean);
 
     return (
         <div

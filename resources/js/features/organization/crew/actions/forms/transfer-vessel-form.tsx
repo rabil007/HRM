@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    findRankTourOption,
+    findPositionTourOption,
     hasManualOverrideInput,
     nextSignoffChoiceForRankChange,
 } from '@/features/organization/crew/lib/tour-signoff';
@@ -26,22 +26,25 @@ export function TransferVesselForm({
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
     const transferDate = form.data.occurred_at.slice(0, 10);
-    const selectedRank = findRankTourOption(
-        formOptions?.ranks,
-        form.data.rank_id,
+    const selectedPosition = findPositionTourOption(
+        formOptions?.positions,
+        form.data.position_id,
     );
 
     const setDestinationRank = (rankId: number | null): void => {
-        const nextRank = findRankTourOption(formOptions?.ranks, rankId);
+        const nextPosition = findPositionTourOption(
+            formOptions?.positions,
+            rankId,
+        );
         const planned_signoff_choice = nextSignoffChoiceForRankChange({
             previousChoice: form.data.planned_signoff_choice,
-            nextRank,
+            nextPosition,
             hasManualOverrideInput: hasManualOverrideInput(form.data),
         });
 
         form.setData({
             ...form.data,
-            rank_id: rankId,
+            position_id: rankId,
             planned_signoff_choice,
         });
     };
@@ -116,10 +119,10 @@ export function TransferVesselForm({
                 </div>
                 <div>
                     <span className="text-muted-foreground">
-                        Current rank:{' '}
+                        Current position:{' '}
                     </span>
                     <span className="font-medium">
-                        {context.rank_name ?? 'Not set'}
+                        {context.position_name ?? 'Not set'}
                     </span>
                 </div>
             </div>
@@ -191,42 +194,44 @@ export function TransferVesselForm({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="transfer-rank">
-                            Destination rank{' '}
+                        <Label htmlFor="transfer-position">
+                            Destination position{' '}
                             <span className="text-destructive">*</span>
                         </Label>
                         <Select
-                            value={form.data.rank_id?.toString() ?? ''}
+                            value={form.data.position_id?.toString() ?? ''}
                             onValueChange={(value) =>
                                 setDestinationRank(value ? Number(value) : null)
                             }
                         >
-                            <SelectTrigger id="transfer-rank">
-                                <SelectValue placeholder="Select rank..." />
+                            <SelectTrigger id="transfer-position">
+                                <SelectValue placeholder="Select position..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {formOptions.ranks.map((rank) => (
-                                    <SelectItem
-                                        key={rank.id}
-                                        value={rank.id.toString()}
-                                    >
-                                        {rank.name}
-                                    </SelectItem>
-                                ))}
+                                {(formOptions?.positions ?? []).map(
+                                    (position) => (
+                                        <SelectItem
+                                            key={position.id}
+                                            value={position.id.toString()}
+                                        >
+                                            {position.name}
+                                        </SelectItem>
+                                    ),
+                                )}
                             </SelectContent>
                         </Select>
-                        <InputError message={form.errors.rank_id} />
+                        <InputError message={form.errors.position_id} />
                     </div>
                 </>
             ) : null}
 
             <TourSignoffFields
                 form={form}
-                selectedRank={selectedRank}
+                selectedPosition={selectedPosition}
                 occurredDate={transferDate}
                 allowExistingPlan={false}
                 idPrefix="transfer"
-                tourContextLabel="the destination rank"
+                tourContextLabel="the destination position"
             />
 
             <div className="space-y-2">

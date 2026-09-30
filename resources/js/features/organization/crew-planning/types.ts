@@ -3,7 +3,7 @@ import type { PaginationMeta } from '@/types/pagination';
 
 export type GanttRankRow = {
     row_key: string;
-    rank_id: number;
+    position_id: number;
     rank_name: string;
     required_count: number;
 };
@@ -48,7 +48,7 @@ export type GanttBar = {
 
 export type PlanningReliefPrefill = {
     vessel_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     relieves_crew_assignment_id: number | null;
     planned_join_date: string | null;
     open_create: boolean;
@@ -64,7 +64,7 @@ export type TreeCrewMember = {
 };
 
 export type TreeRank = {
-    rank_id: number;
+    position_id: number;
     rank_name: string;
     required_count: number;
     crew: TreeCrewMember[];
@@ -80,7 +80,7 @@ export type CrewPlanningView = 'planning' | 'onboard-vessels' | 'relief';
 
 export type PlanningFilters = {
     vessel_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     from: string;
     to: string;
     search: string;
@@ -91,7 +91,7 @@ export type PlanningBackQuery = Record<string, string | number>;
 export type PlanningPoolEmployee = {
     id: number;
     name: string;
-    rank_id: number;
+    position_id: number;
     rank_name: string;
 };
 
@@ -132,7 +132,7 @@ export type ReliefDeskFocus =
 export type ReliefDeskFilters = {
     search: string;
     vessel_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     client_id: number | null;
     relief_status: string;
     relief_risk: string;
@@ -176,7 +176,7 @@ export type ReliefDeskRow = {
     source_href: string | null;
     employee: ReliefDeskPerson | null;
     vessel: ReliefDeskVessel | null;
-    rank: { id: number; name: string } | null;
+    position: { id: number; name: string } | null;
     current_phase_code: string | null;
     current_phase_label: string | null;
     current_duty_day: number | null;
@@ -238,7 +238,7 @@ export type PlanningProjectionRow = {
     row_key: string;
     vessel_id: number;
     vessel_name: string;
-    rank_id: number;
+    position_id: number;
     rank_name: string;
     required_count: number;
     status: PlanningProjectionStatus;
@@ -289,7 +289,7 @@ export type NotificationUserOption = {
 
 export type AssignmentFormData = {
     vessel_id: string;
-    rank_id: string;
+    position_id: string;
     planned_join_date: string;
     planned_leave_date: string;
     notes: string;

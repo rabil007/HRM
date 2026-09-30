@@ -528,6 +528,88 @@ test('soft-deleted mapped position is reported and not replaced', function () {
         ->and($report['integrity_failures'][0]['position_id'])->toBe($position->id);
 });
 
+test('soft-deleted mapped position never receives backfilled references', function () {
+    $company = makeRankPositionCompany('No Backfill Soft Co');
+    $rank = Rank::query()->create(['name' => 'Fitter', 'is_active' => true]);
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Fitter',
+        'status' => 'active',
+    ]);
+
+    RankPositionMapping::query()->create([
+        'company_id' => $company->id,
+        'rank_id' => $rank->id,
+        'position_id' => $position->id,
+        'match_type' => RankPositionMatchType::Exact,
+    ]);
+    $position->delete();
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'position_id' => null,
+        'status' => 'active',
+    ]);
+
+    $vessel = makeCrewMovementVessel('Soft Map Vessel', $company);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'position_id' => null,
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-03-01',
+        'planned_leave_date' => '2026-06-01',
+        'position_id' => null,
+    ]);
+
+    $seaService = EmployeeSeaService::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'start_date' => '2025-01-01',
+        'end_date' => '2025-06-01',
+        'total_days' => 151,
+        'total_months' => 5,
+        'sort_order' => 1,
+        'position_id' => null,
+    ]);
+
+    $manning = VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+        'position_id' => null,
+    ]);
+
+    $documentType = DocumentType::query()->create(['title' => 'Fitter Cert', 'is_active' => true]);
+    $requirement = DocumentRequirement::factory()
+        ->forCompany($company)
+        ->forDocumentType($documentType)
+        ->create();
+    $requirement->ranks()->attach($rank->id);
+
+    $exit = Artisan::call('master-data:prepare-rank-position-consolidation', [
+        '--company' => (string) $company->id,
+        '--apply' => true,
+    ]);
+
+    expect($exit)->toBe(1)
+        ->and($employee->fresh()->position_id)->toBeNull()
+        ->and($assignment->fresh()->position_id)->toBeNull()
+        ->and($planning->fresh()->position_id)->toBeNull()
+        ->and($seaService->fresh()->position_id)->toBeNull()
+        ->and($manning->fresh()->position_id)->toBeNull()
+        ->and(DB::table('document_requirement_position')->where('document_requirement_id', $requirement->id)->count())->toBe(0)
+        ->and(Position::query()->where('company_id', $company->id)->where('title', 'Fitter')->exists())->toBeFalse()
+        ->and(RankPositionMapping::query()->where('company_id', $company->id)->where('rank_id', $rank->id)->count())->toBe(1);
+});
+
 test('soft-deleted employees are reconciled without restoring them', function () {
     $company = makeRankPositionCompany('Archived Employee Co');
     $rank = Rank::query()->create(['name' => 'Able Seaman', 'is_active' => true]);

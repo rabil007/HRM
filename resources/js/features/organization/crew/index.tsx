@@ -68,7 +68,7 @@ function normalizeFilters(
         phase: String(filters.phase ?? ''),
         status: String(filters.status ?? ''),
         vessel_id: String(filters.vessel_id ?? ''),
-        rank_id: String(filters.rank_id ?? ''),
+        position_id: String(filters.position_id ?? ''),
         client_id: String(filters.client_id ?? ''),
         employee_id: String(filters.employee_id ?? ''),
         planned_join_from: String(filters.planned_join_from ?? ''),
@@ -211,7 +211,7 @@ export function CurrentCrewContent({
         filters.phase,
         filters.status,
         filters.vessel_id,
-        filters.rank_id,
+        filters.position_id,
         filters.client_id,
         filters.employee_id,
         filters.planned_join_from,
@@ -326,8 +326,8 @@ export function CurrentCrewContent({
             <SearchBar
                 placeholder={
                     isOnHomeView
-                        ? 'Search employee, rank, vessel, or assignment no...'
-                        : 'Search assignment no, employee, vessel, rank, or client...'
+                        ? 'Search employee, position, vessel, or assignment no...'
+                        : 'Search assignment no, employee, vessel, position, or client...'
                 }
                 value={searchInput}
                 onChange={onSearchChange}

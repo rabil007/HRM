@@ -32,6 +32,7 @@ use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\PayrollRecordLinkage;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
@@ -319,6 +320,8 @@ class EmployeeController extends Controller
                 $data[$key] = null;
             }
         }
+
+        $data = RankPositionBridge::syncEmployeePositionAndRank($data, $companyId);
 
         $data['status'] = $data['status'] ?? $employee->status;
 

@@ -587,7 +587,10 @@ function LinkedAssignmentCard({
                     label="Vessel"
                     value={linked.vessel?.name ?? '—'}
                 />
-                <DetailField label="Rank" value={linked.rank?.name ?? '—'} />
+                <DetailField
+                    label="Position"
+                    value={linked.position?.name ?? '—'}
+                />
                 <DetailField
                     label="Client"
                     value={linked.client?.name ?? '—'}
@@ -708,7 +711,10 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         value={row.employee.employee_no ?? '—'}
                         mono
                     />
-                    <DetailField label="Rank" value={row.rank?.name ?? '—'} />
+                    <DetailField
+                        label="Position"
+                        value={row.position?.name ?? '—'}
+                    />
                     <DetailField
                         label="Vessel"
                         value={row.vessel?.name ?? '—'}
@@ -1280,7 +1286,7 @@ export function CrewMovementHistoryReportTable({
                     />
                     <SortHead
                         column="vessel"
-                        label="Vessel & rank"
+                        label="Vessel & position"
                         filters={filters}
                         onSort={onSort}
                         className={columns.vessel}
@@ -1379,7 +1385,7 @@ export function CrewMovementHistoryReportTable({
                                         {row.vessel?.name ?? 'No vessel'}
                                     </p>
                                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                                        {row.rank?.name ?? 'No rank'}
+                                        {row.position?.name ?? 'No position'}
                                     </p>
                                     <p className="mt-1 truncate text-[11px] text-muted-foreground">
                                         {row.client?.name ?? 'No client'}

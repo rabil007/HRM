@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewMovements;
 
+use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class CurrentCrewRequestFilters
@@ -21,12 +22,15 @@ final class CurrentCrewRequestFilters
      */
     public static function fromRequest(Request $request): array
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $positionId = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+
         return [
             'search' => trim((string) $request->query('search', '')),
             'phase' => trim((string) $request->query('phase', '')),
             'status' => trim((string) $request->query('status', '')),
             'vessel_id' => $request->query('vessel_id'),
-            'rank_id' => $request->query('rank_id'),
+            'position_id' => $positionId !== '' ? $positionId : null,
             'client_id' => $request->query('client_id'),
             'employee_id' => $request->query('employee_id'),
             'planned_join_from' => $request->query('planned_join_from'),
@@ -75,7 +79,7 @@ final class CurrentCrewRequestFilters
             'phase' => $filters['phase'],
             'status' => $filters['status'],
             'vessel_id' => $filters['vessel_id'] !== null && $filters['vessel_id'] !== '' ? (string) $filters['vessel_id'] : '',
-            'rank_id' => $filters['rank_id'] !== null && $filters['rank_id'] !== '' ? (string) $filters['rank_id'] : '',
+            'position_id' => $filters['position_id'] !== null && $filters['position_id'] !== '' ? (string) $filters['position_id'] : '',
             'client_id' => $filters['client_id'] !== null && $filters['client_id'] !== '' ? (string) $filters['client_id'] : '',
             'employee_id' => $filters['employee_id'] !== null && $filters['employee_id'] !== '' ? (string) $filters['employee_id'] : '',
             'planned_join_from' => $filters['planned_join_from'] ? (string) $filters['planned_join_from'] : '',

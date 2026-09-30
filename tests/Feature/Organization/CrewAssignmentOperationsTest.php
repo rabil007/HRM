@@ -59,7 +59,7 @@ test('authorized users can view crew assignments index', function () {
             ->has('assignments')
             ->has('summary')
             ->has('filter_options')
-            ->has('form_options.ranks')
+            ->has('form_options.positions')
             ->has('form_options.vessels')
             ->has('form_options.clients')
             ->has('form_options.courses')
@@ -91,7 +91,7 @@ test('authorized users can open create with global master data options', functio
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew/create')
             ->has('form_options.employees')
-            ->has('form_options.ranks')
+            ->has('form_options.positions')
             ->has('form_options.vessels')
             ->has('form_options.clients')
             ->has('form_options.courses')

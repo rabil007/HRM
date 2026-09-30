@@ -247,10 +247,10 @@ export function CrewAssignmentBulkReadinessPanel({
                   (item) => item.id === currentPreview.row.employee_id,
               )
             : null;
-    const rankName =
-        currentPreview?.row.rank_id != null
-            ? (formOptions.ranks.find(
-                  (rank) => rank.id === currentPreview.row.rank_id,
+    const positionName =
+        currentPreview?.row.position_id != null
+            ? (formOptions.positions.find(
+                  (position) => position.id === currentPreview.row.position_id,
               )?.name ?? null)
             : null;
     const assignmentId =
@@ -273,7 +273,7 @@ export function CrewAssignmentBulkReadinessPanel({
     const readyOthersLabel = bulkReadyLabel(summary);
     const transferPrefill = {
         vessel_id: vesselId,
-        rank_id: currentPreview?.row.rank_id ?? null,
+        position_id: currentPreview?.row.position_id ?? null,
         client_id: clientId,
     };
 
@@ -515,7 +515,7 @@ export function CrewAssignmentBulkReadinessPanel({
                                 <GuidanceEmployeeIdentity
                                     name={employee.name}
                                     employeeNo={employee.employee_no}
-                                    rankName={rankName}
+                                    positionName={positionName}
                                     nationalityName={employee.nationality_name}
                                     image={employee.image}
                                 />

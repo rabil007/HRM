@@ -385,12 +385,6 @@ final class DocumentComplianceQuery
                         );
                         $this->constrainScopeCategory(
                             $selectedScopes,
-                            'document_requirement_rank',
-                            'rank_id',
-                            'employees.rank_id',
-                        );
-                        $this->constrainScopeCategory(
-                            $selectedScopes,
                             'document_requirement_project',
                             'project_id',
                             'employees.project_id',

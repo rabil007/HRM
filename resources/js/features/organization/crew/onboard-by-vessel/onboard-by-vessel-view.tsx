@@ -260,9 +260,9 @@ export function OnboardByVesselView({
                                                                     employee={
                                                                         assignment.employee
                                                                     }
-                                                                    rankName={
+                                                                    positionName={
                                                                         assignment
-                                                                            .rank
+                                                                            .position
                                                                             ?.name
                                                                     }
                                                                     showAvatar={

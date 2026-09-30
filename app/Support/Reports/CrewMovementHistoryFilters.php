@@ -2,6 +2,7 @@
 
 namespace App\Support\Reports;
 
+use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class CrewMovementHistoryFilters
@@ -11,7 +12,7 @@ final class CrewMovementHistoryFilters
         public readonly string $status = '',
         public readonly string $currentPhase = '',
         public readonly string $vesselId = '',
-        public readonly string $rankId = '',
+        public readonly string $positionId = '',
         public readonly string $clientId = '',
         public readonly string $source = '',
         public readonly string $needsAttention = '',
@@ -41,14 +42,14 @@ final class CrewMovementHistoryFilters
         public readonly string $direction = 'desc',
     ) {}
 
-    public static function fromRequest(Request $request): self
+    public static function fromRequest(Request $request, int $companyId): self
     {
         return new self(
             search: trim((string) $request->query('search', '')),
             status: (string) $request->query('status', ''),
             currentPhase: (string) $request->query('current_phase', ''),
             vesselId: (string) $request->query('vessel_id', ''),
-            rankId: (string) $request->query('rank_id', ''),
+            positionId: LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId),
             clientId: (string) $request->query('client_id', ''),
             source: (string) $request->query('source', ''),
             needsAttention: self::booleanFilter($request->query('needs_attention')),
@@ -103,7 +104,7 @@ final class CrewMovementHistoryFilters
             'status' => $this->status,
             'current_phase' => $this->currentPhase,
             'vessel_id' => $this->vesselId,
-            'rank_id' => $this->rankId,
+            'position_id' => $this->positionId,
             'client_id' => $this->clientId,
             'source' => $this->source,
             'needs_attention' => $this->needsAttention,

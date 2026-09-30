@@ -5,7 +5,6 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     branch_id: 'Branch',
     department_id: 'Department',
     position_id: 'Position',
-    rank_id: 'Rank',
     project_id: 'Project name',
     client_id: 'Client',
     date_of_birth: 'Date of birth',
@@ -66,6 +65,8 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     certificate_path: 'Certificate file',
     vessel_type_id: 'Vessel type',
     vessel_id: 'Vessel',
+    /** Phase 3: remove when sea-service templates use position_id only */
+    rank_id: 'Position',
     document_type_id: 'Document type',
     title: 'Title',
     document_number: 'Document number',

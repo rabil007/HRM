@@ -52,7 +52,7 @@ function DraggableCrewItem({
         type: 'crew',
         employeeId: employee.id,
         employeeName: employee.name,
-        rankId: employee.rank_id,
+        rankId: employee.position_id,
         rankName: employee.rank_name,
     };
 

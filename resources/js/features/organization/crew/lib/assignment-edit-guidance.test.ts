@@ -14,7 +14,7 @@ const baseAssignment = {
         employee_no: '2073',
         image: null,
     },
-    rank: { id: 1, name: 'Able Seaman' },
+    position: { id: 1, name: 'Able Seaman' },
     vessel: { id: 5, name: 'Sea Eagle' },
     client: { id: 1, name: 'Client A' },
     current_phase: {
@@ -59,7 +59,7 @@ const vessels = [
     { id: 8, name: 'Sea Falcon' },
 ];
 
-const ranks = [
+const positions = [
     { id: 1, name: 'Able Seaman' },
     { id: 2, name: 'Chief Officer' },
 ];
@@ -75,7 +75,7 @@ describe('buildAssignmentEditGuidance', () => {
             assignment: baseAssignment,
             formData: {
                 employee_id: 10,
-                rank_id: 1,
+                position_id: 1,
                 client_id: 1,
                 vessel_id: 5,
                 planned_join_at: '2026-10-05',
@@ -83,7 +83,7 @@ describe('buildAssignmentEditGuidance', () => {
                 remarks: '',
             },
             vessels,
-            ranks,
+            positions,
             permissions,
         });
 
@@ -97,7 +97,7 @@ describe('buildAssignmentEditGuidance', () => {
             assignment: baseAssignment,
             formData: {
                 employee_id: 10,
-                rank_id: 1,
+                position_id: 1,
                 client_id: 1,
                 vessel_id: 8,
                 planned_join_at: '2026-10-05',
@@ -105,7 +105,7 @@ describe('buildAssignmentEditGuidance', () => {
                 remarks: '',
             },
             vessels,
-            ranks,
+            positions,
             permissions,
         });
 
@@ -119,7 +119,7 @@ describe('buildAssignmentEditGuidance', () => {
             assignment: baseAssignment,
             formData: {
                 employee_id: 10,
-                rank_id: 2,
+                position_id: 2,
                 client_id: 1,
                 vessel_id: 8,
                 planned_join_at: '2026-10-08',
@@ -127,7 +127,7 @@ describe('buildAssignmentEditGuidance', () => {
                 remarks: '',
             },
             vessels,
-            ranks,
+            positions,
             permissions,
         });
 
@@ -143,7 +143,7 @@ describe('buildAssignmentEditGuidance', () => {
             assignment: baseAssignment,
             formData: {
                 employee_id: 10,
-                rank_id: 1,
+                position_id: 1,
                 client_id: 1,
                 vessel_id: 5,
                 planned_join_at: '2026-10-05',
@@ -151,7 +151,7 @@ describe('buildAssignmentEditGuidance', () => {
                 remarks: '',
             },
             vessels,
-            ranks,
+            positions,
             permissions,
         });
 
@@ -169,7 +169,7 @@ describe('buildAssignmentEditGuidance', () => {
             assignment: baseAssignment,
             formData: {
                 employee_id: 10,
-                rank_id: 1,
+                position_id: 1,
                 client_id: 1,
                 vessel_id: 5,
                 planned_join_at: '2026-11-09',
@@ -177,7 +177,7 @@ describe('buildAssignmentEditGuidance', () => {
                 remarks: '',
             },
             vessels,
-            ranks,
+            positions,
             permissions,
         });
 

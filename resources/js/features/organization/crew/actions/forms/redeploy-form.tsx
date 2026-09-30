@@ -17,7 +17,7 @@ import { resolveDestinationCheckInDateOnP2AEntry } from '@/features/organization
 import {
     clearedDirectP4TourFields,
     defaultDestinationTourSignoffChoice,
-    findRankTourOption,
+    findPositionTourOption,
     hasManualOverrideInput,
     nextSignoffChoiceForRankChange,
 } from '@/features/organization/crew/lib/tour-signoff';
@@ -118,9 +118,9 @@ export function RedeployForm({
             check_in_date: nextCheckInDate,
         });
     };
-    const selectedRank = findRankTourOption(
-        formOptions?.ranks,
-        form.data.rank_id,
+    const selectedPosition = findPositionTourOption(
+        formOptions?.positions,
+        form.data.position_id,
     );
     const signoffBeforeRedeploy =
         form.data.planned_signoff_at &&
@@ -129,21 +129,24 @@ export function RedeployForm({
 
     const setDestinationRank = (rankId: number | null): void => {
         if (!showDirectP4Tour) {
-            form.setData('rank_id', rankId);
+            form.setData('position_id', rankId);
 
             return;
         }
 
-        const nextRank = findRankTourOption(formOptions?.ranks, rankId);
+        const nextPosition = findPositionTourOption(
+            formOptions?.positions,
+            rankId,
+        );
         const planned_signoff_choice = nextSignoffChoiceForRankChange({
             previousChoice: form.data.planned_signoff_choice,
-            nextRank,
+            nextPosition,
             hasManualOverrideInput: hasManualOverrideInput(form.data),
         });
 
         form.setData({
             ...form.data,
-            rank_id: rankId,
+            position_id: rankId,
             planned_signoff_choice,
         });
     };
@@ -237,34 +240,34 @@ export function RedeployForm({
 
                         if (value === 'p0') {
                             next.vessel_id = null;
-                            next.rank_id = null;
+                            next.position_id = null;
                             next.client_id = null;
                             next.planned_signoff_at = '';
                             Object.assign(next, clearedDirectP4TourFields());
                         } else if (value === 'p4') {
                             if (!['p2a', 'p4'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
-                                next.rank_id = context.rank_id;
+                                next.position_id = context.position_id;
                                 next.client_id = context.client_id;
                             }
 
                             const rankId =
-                                next.rank_id !== undefined
-                                    ? next.rank_id
-                                    : form.data.rank_id;
-                            const rank = findRankTourOption(
-                                formOptions?.ranks,
+                                next.position_id !== undefined
+                                    ? next.position_id
+                                    : form.data.position_id;
+                            const position = findPositionTourOption(
+                                formOptions?.positions,
                                 rankId,
                             );
 
                             next.planned_signoff_choice =
-                                defaultDestinationTourSignoffChoice(rank);
+                                defaultDestinationTourSignoffChoice(position);
                             next.planned_signoff_override_reason = '';
                             next.planned_signoff_at = '';
                         } else if (value === 'p2a') {
                             if (!['p1', 'p2a', 'p4'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
-                                next.rank_id = context.rank_id;
+                                next.position_id = context.position_id;
                                 next.client_id = context.client_id;
                             }
 
@@ -291,7 +294,7 @@ export function RedeployForm({
                         } else {
                             if (!['p1', 'p2a', 'p4'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
-                                next.rank_id = context.rank_id;
+                                next.position_id = context.position_id;
                                 next.client_id = context.client_id;
                             }
 
@@ -473,8 +476,8 @@ export function RedeployForm({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="redeploy-rank">
-                            Destination rank
+                        <Label htmlFor="redeploy-position">
+                            Destination position
                             {requiresVessel ? (
                                 <span className="text-destructive"> *</span>
                             ) : (
@@ -482,26 +485,28 @@ export function RedeployForm({
                             )}
                         </Label>
                         <Select
-                            value={form.data.rank_id?.toString() ?? ''}
+                            value={form.data.position_id?.toString() ?? ''}
                             onValueChange={(value) =>
                                 setDestinationRank(value ? Number(value) : null)
                             }
                         >
-                            <SelectTrigger id="redeploy-rank">
-                                <SelectValue placeholder="Select rank..." />
+                            <SelectTrigger id="redeploy-position">
+                                <SelectValue placeholder="Select position..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {formOptions.ranks.map((rank) => (
-                                    <SelectItem
-                                        key={rank.id}
-                                        value={rank.id.toString()}
-                                    >
-                                        {rank.name}
-                                    </SelectItem>
-                                ))}
+                                {(formOptions?.positions ?? []).map(
+                                    (position) => (
+                                        <SelectItem
+                                            key={position.id}
+                                            value={position.id.toString()}
+                                        >
+                                            {position.name}
+                                        </SelectItem>
+                                    ),
+                                )}
                             </SelectContent>
                         </Select>
-                        <InputError message={form.errors.rank_id} />
+                        <InputError message={form.errors.position_id} />
                     </div>
                 </>
             ) : null}
@@ -509,11 +514,11 @@ export function RedeployForm({
             {showDirectP4Tour ? (
                 <TourSignoffFields
                     form={form}
-                    selectedRank={selectedRank}
+                    selectedPosition={selectedPosition}
                     occurredDate={redeployDate}
                     allowExistingPlan={false}
                     idPrefix="redeploy"
-                    tourContextLabel="the destination rank"
+                    tourContextLabel="the destination position"
                 />
             ) : null}
 

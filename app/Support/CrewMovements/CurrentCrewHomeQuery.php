@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\LegacyRankFilterTranslator;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -166,8 +167,12 @@ final class CurrentCrewHomeQuery
             $query->whereKey((int) $filters['employee_id']);
         }
 
-        if (! empty($filters['rank_id'])) {
-            $query->where('rank_id', (int) $filters['rank_id']);
+        if (! empty($filters['position_id'])) {
+            LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
+                $query,
+                $this->companyId,
+                (int) $filters['position_id'],
+            );
         }
 
         if (! empty($filters['search'])) {

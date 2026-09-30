@@ -109,7 +109,7 @@ final class CrewTimesheetPreparationEmployeeFilter
             (string) ($employee['employee_number'] ?? ''),
             (string) ($employee['assignment_number'] ?? ''),
             (string) ($employee['vessel'] ?? ''),
-            (string) ($employee['rank'] ?? ''),
+            (string) ($employee['position'] ?? ''),
         ];
 
         foreach ($employee['assignments'] ?? [] as $assignment) {
@@ -119,7 +119,7 @@ final class CrewTimesheetPreparationEmployeeFilter
 
             $haystack[] = (string) ($assignment['assignment_number'] ?? '');
             $haystack[] = (string) ($assignment['vessel'] ?? '');
-            $haystack[] = (string) ($assignment['rank'] ?? '');
+            $haystack[] = (string) ($assignment['position'] ?? '');
         }
 
         return str_contains(mb_strtolower(implode(' ', $haystack)), $search);

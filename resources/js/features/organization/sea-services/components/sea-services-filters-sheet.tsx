@@ -12,7 +12,7 @@ import type {
 export type SeaServiceSheetFilters = {
     vessel_id: string;
     vessel_type_id: string;
-    rank_id: string;
+    position_id: string;
     client_id: string;
     start_date: string;
     end_date: string;
@@ -23,7 +23,7 @@ export function SeaServicesFiltersSheet({
     onOpenChange,
     vesselTypes,
     vessels,
-    ranks,
+    positions,
     clients,
     value,
     onChange,
@@ -33,7 +33,7 @@ export function SeaServicesFiltersSheet({
     onOpenChange: (open: boolean) => void;
     vesselTypes: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: RankOption[];
     clients: ClientOption[];
     value: SeaServiceSheetFilters;
     onChange: (next: SeaServiceSheetFilters) => void;
@@ -108,16 +108,16 @@ export function SeaServicesFiltersSheet({
                     Rank
                 </Label>
                 <AppSelect
-                    value={value.rank_id}
+                    value={value.position_id}
                     onValueChange={(rankId) =>
-                        onChange({ ...value, rank_id: rankId })
+                        onChange({ ...value, position_id: rankId })
                     }
                     variant="dark"
-                    placeholder="All ranks"
+                    placeholder="All positions"
                     searchPlaceholder="Search rank..."
                 >
-                    <AppSelectItem value="">All ranks</AppSelectItem>
-                    {ranks.map((rank) => (
+                    <AppSelectItem value="">All positions</AppSelectItem>
+                    {positions.map((rank) => (
                         <AppSelectItem key={rank.id} value={String(rank.id)}>
                             {rank.name}
                         </AppSelectItem>

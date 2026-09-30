@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization;
 
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -43,6 +44,23 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
             }
         }
 
+        $crew = (array) $this->input('crew', []);
+        if ($crew !== [] && $companyId > 0) {
+            foreach ($crew as $index => $row) {
+                $positionId = $row['position_id'] ?? null;
+                $legacyRankId = $row['rank_id'] ?? null;
+                if (($positionId === null || $positionId === '')
+                    && $legacyRankId !== null
+                    && $legacyRankId !== '') {
+                    $mapped = RankPositionBridge::positionIdForRank($companyId, (int) $legacyRankId);
+                    if ($mapped !== null) {
+                        $crew[$index]['position_id'] = $mapped;
+                    }
+                }
+            }
+            $merge['crew'] = $crew;
+        }
+
         if ($merge !== []) {
             $this->merge($merge);
         }
@@ -67,6 +85,7 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
                 'distinct',
                 ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
+            'crew.*.position_id' => ['nullable', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)],
             'crew.*.rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
             'crew.*.planned_arrival_at' => ['nullable', 'date'],
         ];
@@ -93,6 +112,7 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
     {
         return [
             'crew.*.employee_id' => 'employee',
+            'crew.*.position_id' => 'position',
             'crew.*.rank_id' => 'rank',
             'crew.*.planned_arrival_at' => 'arrival date',
         ];

@@ -61,7 +61,7 @@ export function MovementContextCard({
                 <ContextRow label="Current phase" value={phaseLine} />
                 <ContextRow label="Started" value={startedDisplay} />
                 <ContextRow label="Vessel" value={context.vessel_name} />
-                <ContextRow label="Rank" value={context.rank_name} />
+                <ContextRow label="Position" value={context.position_name} />
             </div>
             <p className="pt-1 text-xs text-muted-foreground">
                 Times are recorded in company time: {timezoneLabel} (

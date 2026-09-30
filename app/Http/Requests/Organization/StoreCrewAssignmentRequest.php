@@ -9,6 +9,7 @@ use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -52,7 +53,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             $slot = CrewPlanningAssignment::query()
                 ->where('company_id', $companyId)
                 ->whereKey((int) $planningAssignmentId)
-                ->first(['id', 'vessel_id', 'rank_id']);
+                ->first(['id', 'vessel_id', 'position_id', 'rank_id']);
 
             if ($slot !== null) {
                 if ($slot->vessel_id !== null) {
@@ -60,9 +61,28 @@ class StoreCrewAssignmentRequest extends FormRequest
                     $vesselId = $merge['vessel_id'];
                 }
 
-                if ($slot->rank_id !== null) {
-                    $merge['rank_id'] = (int) $slot->rank_id;
+                if ($slot->position_id !== null) {
+                    $merge['position_id'] = (int) $slot->position_id;
+                } elseif ($slot->rank_id !== null) {
+                    // Temporary Phase 2: legacy planning slots may only have rank_id.
+                    $mapped = RankPositionBridge::positionIdForRank($companyId, (int) $slot->rank_id);
+                    if ($mapped !== null) {
+                        $merge['position_id'] = $mapped;
+                    }
                 }
+            }
+        }
+
+        // Temporary Phase 2: accept legacy rank_id and translate to position_id.
+        $positionId = $this->input('position_id') ?? ($merge['position_id'] ?? null);
+        $legacyRankId = $this->input('rank_id');
+        if (($positionId === null || $positionId === '')
+            && $legacyRankId !== null
+            && $legacyRankId !== ''
+            && $companyId > 0) {
+            $mapped = RankPositionBridge::positionIdForRank($companyId, (int) $legacyRankId);
+            if ($mapped !== null) {
+                $merge['position_id'] = $mapped;
             }
         }
 
@@ -97,6 +117,8 @@ class StoreCrewAssignmentRequest extends FormRequest
                 'integer',
                 ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
+            'position_id' => ['nullable', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)],
+            // Temporary Phase 2: legacy clients may still submit rank_id (translated in prepareForValidation).
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
             'vessel_id' => [$isPlanIntent ? 'required' : 'nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
@@ -140,21 +162,21 @@ class StoreCrewAssignmentRequest extends FormRequest
             );
 
             if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan) {
-                $rankId = $this->input('rank_id');
-                $effectiveRankId = $rankId !== null && $rankId !== '' ? (int) $rankId : null;
+                $positionId = $this->input('position_id');
+                $effectivePositionId = $positionId !== null && $positionId !== '' ? (int) $positionId : null;
 
-                if ($effectiveRankId === null) {
+                if ($effectivePositionId === null) {
                     $employeeId = (int) $this->input('employee_id');
-                    $employeeRankId = Employee::query()
+                    $employeePositionId = Employee::query()
                         ->where('company_id', $companyId)
                         ->whereKey($employeeId)
-                        ->value('rank_id');
+                        ->value('position_id');
 
-                    $effectiveRankId = $employeeRankId !== null ? (int) $employeeRankId : null;
+                    $effectivePositionId = $employeePositionId !== null ? (int) $employeePositionId : null;
                 }
 
-                if ($effectiveRankId === null) {
-                    $validator->errors()->add('rank_id', 'Rank is required when saving as Planned.');
+                if ($effectivePositionId === null) {
+                    $validator->errors()->add('position_id', 'Position is required when saving as Planned.');
                 }
             }
 
@@ -175,7 +197,6 @@ class StoreCrewAssignmentRequest extends FormRequest
                 $validator->errors()->add('planned_signoff_at', 'Expected Sign-off cannot be before Expected Vessel Join.');
             }
 
-            // Run shared conflict evaluator
             $conflictEvaluator = new CrewAssignmentConflictEvaluator;
             $intent = $this->submissionIntent();
             $operationalStartAt = $intent === CrewAssignmentSubmissionIntent::Start
@@ -191,7 +212,7 @@ class StoreCrewAssignmentRequest extends FormRequest
                 plannedArrivalAt: $arrivalCarbon,
                 operationalStartAt: $operationalStartAt,
                 vesselId: $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
-                rankId: $this->input('rank_id') !== null && $this->input('rank_id') !== '' ? (int) $this->input('rank_id') : null,
+                rankId: $this->conflictRankId($companyId),
                 clientId: $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 relievesCrewAssignmentId: $this->input('relieves_crew_assignment_id') !== null && $this->input('relieves_crew_assignment_id') !== ''
                     ? (int) $this->input('relieves_crew_assignment_id')
@@ -211,5 +232,26 @@ class StoreCrewAssignmentRequest extends FormRequest
     {
         return CrewAssignmentSubmissionIntent::tryFrom((string) $this->input('submission_intent'))
             ?? CrewAssignmentSubmissionIntent::Draft;
+    }
+
+    /**
+     * Temporary Phase 2: conflict evaluator still keys on rank_id until Phase 3.
+     */
+    private function conflictRankId(int $companyId): ?int
+    {
+        $positionId = $this->input('position_id');
+        $effectivePositionId = $positionId !== null && $positionId !== '' ? (int) $positionId : null;
+
+        if ($effectivePositionId !== null) {
+            $mappedRankId = RankPositionBridge::rankIdForPosition($companyId, $effectivePositionId);
+
+            if ($mappedRankId !== null) {
+                return $mappedRankId;
+            }
+        }
+
+        $legacyRankId = $this->input('rank_id');
+
+        return $legacyRankId !== null && $legacyRankId !== '' ? (int) $legacyRankId : null;
     }
 }

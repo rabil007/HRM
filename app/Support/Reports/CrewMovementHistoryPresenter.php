@@ -13,6 +13,7 @@ use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewDateProvenance;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourProgress;
+use App\Support\Positions\CrewAssignmentPositionPresenter;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -102,7 +103,7 @@ final class CrewMovementHistoryPresenter
                 'employee_no' => $assignment->employee?->employee_no,
                 'name' => $assignment->employee?->name,
             ],
-            'rank' => self::option($assignment->rank),
+            'position' => CrewAssignmentPositionPresenter::option($assignment, (int) $assignment->company_id),
             'vessel' => self::option($assignment->vessel),
             'client' => self::option($assignment->client),
             'status' => $assignment->status->value,
@@ -523,7 +524,7 @@ final class CrewMovementHistoryPresenter
             'status' => $assignment->status->value,
             'status_label' => $assignment->status->label(),
             'vessel' => self::option($assignment->relationLoaded('vessel') ? $assignment->vessel : null),
-            'rank' => self::option($assignment->relationLoaded('rank') ? $assignment->rank : null),
+            'position' => CrewAssignmentPositionPresenter::option($assignment, (int) $assignment->company_id),
             'client' => self::option($assignment->relationLoaded('client') ? $assignment->client : null),
             'started_at' => self::dateTime($assignment->started_at, $timezone),
             'closed_at' => self::dateTime($assignment->closed_at, $timezone),

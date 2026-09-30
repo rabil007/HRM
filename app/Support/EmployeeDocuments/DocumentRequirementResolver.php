@@ -21,7 +21,6 @@ final class DocumentRequirementResolver
                 'documentType:id,title,is_active',
                 'departments:id,name',
                 'positions:id,title',
-                'ranks:id,name',
                 'projects:id,title',
             ])
             ->get()
@@ -54,9 +53,10 @@ final class DocumentRequirementResolver
             return true;
         }
 
+        // Position is canonical for occupational matching (Phase 2).
+        // Legacy document_requirement_rank pivot is retained until Phase 3 but not used here.
         return $this->categoryMatches($requirement->departments, $employee->department_id)
             && $this->categoryMatches($requirement->positions, $employee->position_id)
-            && $this->categoryMatches($requirement->ranks, $employee->rank_id)
             && $this->categoryMatches($requirement->projects, $employee->project_id);
     }
 

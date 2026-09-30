@@ -113,7 +113,7 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
                             {/* Rank */}
                             <TableCell className={dataTableCellClass()}>
                                 <span className="font-medium">
-                                    {row.rank?.name ?? '—'}
+                                    {row.position?.name ?? '—'}
                                 </span>
                             </TableCell>
 

@@ -14,7 +14,7 @@ export function SeaServicesEmployeeContent({
     sea_services,
     vessel_types,
     vessels,
-    ranks,
+    positions,
     clients,
     template_fields,
     back,
@@ -62,9 +62,9 @@ export function SeaServicesEmployeeContent({
                 sea_services={sea_services}
                 vessel_types={vessel_types}
                 vessels={vessels}
-                ranks={ranks}
+                positions={positions}
                 clients={clients}
-                employeeRankId={null}
+                employeePositionId={null}
                 canManage={can.create || can.update}
                 canCreate={can.create}
                 canUpdate={can.update}

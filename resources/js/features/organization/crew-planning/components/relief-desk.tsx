@@ -46,7 +46,7 @@ export function ReliefDesk({
         filters: {
             view: 'relief',
             vessel_id: desk.filters.vessel_id,
-            rank_id: desk.filters.rank_id,
+            position_id: desk.filters.position_id,
             client_id: desk.filters.client_id,
             relief_status: desk.filters.relief_status,
             relief_risk: desk.filters.relief_risk,
@@ -68,7 +68,7 @@ export function ReliefDesk({
         applyFilters({
             view: 'relief',
             vessel_id: desk.filters.vessel_id,
-            rank_id: desk.filters.rank_id,
+            position_id: desk.filters.position_id,
             client_id: desk.filters.client_id,
             relief_status: desk.filters.relief_status,
             relief_risk: desk.filters.relief_risk,

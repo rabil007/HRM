@@ -69,7 +69,7 @@ function requestedTransferPrefill(
 
     return {
         vessel_id: numberOrNull(params.get('vessel_id')),
-        rank_id: numberOrNull(params.get('rank_id')),
+        position_id: numberOrNull(params.get('position_id')),
         client_id: numberOrNull(params.get('client_id')),
         occurred_at: params.get('occurred_at'),
     };
@@ -107,7 +107,7 @@ function reliefActionHref(
         return crewPlanningIndex.url({
             query: {
                 vessel_id: assignment.vessel?.id,
-                rank_id: assignment.rank?.id,
+                position_id: assignment.position?.id,
                 relieves_crew_assignment_id: assignment.id,
                 planned_join_date:
                     assignment.planned_signoff_at ??
@@ -126,7 +126,7 @@ function reliefActionHref(
         return crewPlanningIndex.url({
             query: {
                 vessel_id: assignment.vessel?.id ?? undefined,
-                rank_id: assignment.rank?.id ?? undefined,
+                position_id: assignment.position?.id ?? undefined,
                 search: assignment.relief_employee?.name ?? undefined,
             },
         });
@@ -147,7 +147,7 @@ function reliefActionHref(
     return crewPlanningIndex.url({
         query: {
             vessel_id: assignment.vessel?.id ?? undefined,
-            rank_id: assignment.rank?.id ?? undefined,
+            position_id: assignment.position?.id ?? undefined,
             search: assignment.relief_employee?.name ?? undefined,
         },
     });

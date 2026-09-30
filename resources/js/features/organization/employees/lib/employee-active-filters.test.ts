@@ -266,12 +266,11 @@ describe('employee active filters - chip generation & label resolution', () => {
         assert.equal(chips[1].label, 'Project: Project A');
     });
 
-    it('resolves Manager, Role, Rank, Nationality, Gender, Visa Type, Sponsor', () => {
+    it('resolves Manager, Role, Nationality, Gender, Visa Type, Sponsor', () => {
         const filters: EmployeeFilters = {
             ...EMPTY_EMPLOYEE_FILTERS,
             manager_id: '1',
             role_id: '2',
-            rank_id: '5',
             nationality_id: '101',
             gender_id: '1',
             visa_type_id: '2',
@@ -287,7 +286,6 @@ describe('employee active filters - chip generation & label resolution', () => {
         assert.deepEqual(labels, [
             'Manager: Mohammed Rabil',
             'Role: HR Manager',
-            'Rank: AB',
             'Nationality: India',
             'Gender: Male',
             'Visa Type: Employment',

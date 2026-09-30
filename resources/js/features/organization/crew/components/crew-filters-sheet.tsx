@@ -240,21 +240,24 @@ export function CrewFiltersSheet({
 
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                    Rank
+                    Position
                 </Label>
                 <AppSelect
-                    value={value.rank_id}
-                    onValueChange={(rankId) =>
-                        onChange({ ...value, rank_id: rankId })
+                    value={value.position_id}
+                    onValueChange={(positionId) =>
+                        onChange({ ...value, position_id: positionId })
                     }
                     variant="dark"
-                    placeholder="All ranks"
-                    searchPlaceholder="Search rank..."
+                    placeholder="All positions"
+                    searchPlaceholder="Search position..."
                 >
-                    <AppSelectItem value="">All ranks</AppSelectItem>
-                    {filterOptions.ranks.map((rank) => (
-                        <AppSelectItem key={rank.id} value={String(rank.id)}>
-                            {rank.name}
+                    <AppSelectItem value="">All positions</AppSelectItem>
+                    {filterOptions.positions.map((position) => (
+                        <AppSelectItem
+                            key={position.id}
+                            value={String(position.id)}
+                        >
+                            {position.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>

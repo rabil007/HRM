@@ -6,6 +6,7 @@ use App\Models\CrewAssignment;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
+use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -164,8 +165,12 @@ final class CurrentCrewVesselQuery
             ->where('company_id', $companyId)
             ->whereIn('vessel_id', $vesselIds);
 
-        if (! empty($filters['rank_id'])) {
-            $query->where('rank_id', (int) $filters['rank_id']);
+        if (! empty($filters['position_id'])) {
+            LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
+                $query,
+                $this->companyId,
+                (int) $filters['position_id'],
+            );
         }
 
         return $query

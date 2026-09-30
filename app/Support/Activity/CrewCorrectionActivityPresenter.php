@@ -35,6 +35,8 @@ final class CrewCorrectionActivityPresenter
         'details.provider' => 'Training Provider',
         'details.course' => 'Training Course',
         'vessel_id' => 'Vessel',
+        'position_id' => 'Position',
+        // Phase 3: historical correction payloads may still contain rank_id.
         'rank_id' => 'Rank',
         'client_id' => 'Client',
         'company_visa_type_id' => 'Visa Type',

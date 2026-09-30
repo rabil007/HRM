@@ -6,7 +6,7 @@ export interface CrewReliefEmployee {
     href?: string | null;
 }
 
-export interface CrewReliefRank {
+export interface CrewReliefPosition {
     id: number;
     name: string;
 }
@@ -41,7 +41,7 @@ export interface CrewReliefRow {
     assignment_no: string;
     source_href: string | null;
     employee: CrewReliefEmployee | null;
-    rank: CrewReliefRank | null;
+    position: CrewReliefPosition | null;
     vessel: CrewReliefVessel | null;
     client: CrewReliefClient | null;
     joined_date: string | null;
@@ -76,7 +76,7 @@ export interface CrewReliefFilters {
     search: string;
     vessel_id: string;
     client_id: string;
-    rank_id: string;
+    position_id: string;
     planned_signoff_from: string;
     planned_signoff_to: string;
     readiness: string;
@@ -88,7 +88,7 @@ export interface CrewReliefFilters {
 export interface CrewReliefFilterOptions {
     vessels: Array<{ id: number; name: string; client_id: number | null }>;
     clients: Array<{ id: number; name: string }>;
-    ranks: Array<{ id: number; name: string }>;
+    positions: Array<{ id: number; name: string }>;
     readiness_options: Array<{ value: string; label: string }>;
     attention_options: Array<{ value: string; label: string }>;
 }

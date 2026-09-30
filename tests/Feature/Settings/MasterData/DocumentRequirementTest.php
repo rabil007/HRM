@@ -133,7 +133,7 @@ test('requirement can apply to positions and ranks', function () {
         ->first();
 
     expect($requirement->positions->pluck('id')->all())->toBe([$position->id])
-        ->and($requirement->ranks->pluck('id')->all())->toBe([$rank->id]);
+        ->and($requirement->ranks->pluck('id')->all())->toBe([]);
 });
 
 test('switching a document type to optional keeps the previous scope selection', function () {

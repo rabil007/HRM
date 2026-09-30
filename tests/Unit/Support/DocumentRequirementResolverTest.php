@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Employee;
+use App\Models\Position;
 use App\Support\EmployeeDocuments\DocumentRequirementResolver;
 
 test('resolver requires a match in every selected category', function () {
@@ -33,6 +34,7 @@ test('resolver requires a match in every selected category', function () {
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
     $employee->update(['department_id' => null, 'position_id' => null, 'rank_id' => $scopes['captain']->id, 'project_id' => null]);
+    // Phase 2: rank pivot is legacy; occupational match is position-only.
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
     $employee->update(['department_id' => null, 'position_id' => null, 'rank_id' => null, 'project_id' => $scopes['adnoc']->id]);
@@ -69,10 +71,16 @@ test('department position rank and project must all match when every category is
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
+    $otherPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Other Position',
+        'status' => 'active',
+    ]);
+
     $employee->update([
         'department_id' => $scopes['crew']->id,
-        'position_id' => $scopes['seafarer']->id,
-        'rank_id' => $scopes['chiefEngineer']->id,
+        'position_id' => $otherPosition->id,
+        'rank_id' => $scopes['captain']->id,
         'project_id' => $scopes['adnoc']->id,
     ]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
@@ -91,17 +99,23 @@ test('multiple values in the same category match with or', function () {
     $scopes = makeDocumentRequirementMatchScopes($company->id);
     $resolver = new DocumentRequirementResolver;
 
+    $deckOfficer = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Deck Officer',
+        'status' => 'active',
+    ]);
+
     $requirement = makeDocumentRequirement(
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id, $scopes['marine']->id],
-        rankIds: [$scopes['captain']->id, $scopes['chiefEngineer']->id],
+        positionIds: [$scopes['seafarer']->id, $deckOfficer->id],
         projectIds: [$scopes['adnoc']->id, $scopes['aramco']->id],
     );
 
     $employee->update([
         'department_id' => $scopes['marine']->id,
-        'position_id' => null,
+        'position_id' => $deckOfficer->id,
         'rank_id' => $scopes['chiefEngineer']->id,
         'project_id' => $scopes['aramco']->id,
     ]);
@@ -109,6 +123,7 @@ test('multiple values in the same category match with or', function () {
 
     $employee->update([
         'department_id' => $scopes['crew']->id,
+        'position_id' => $scopes['seafarer']->id,
         'rank_id' => $scopes['captain']->id,
         'project_id' => $scopes['adnoc']->id,
     ]);
@@ -124,12 +139,12 @@ test('empty position and project categories impose no restriction', function () 
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id],
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['seafarer']->id],
     );
 
     $employee->update([
         'department_id' => $scopes['crew']->id,
-        'position_id' => null,
+        'position_id' => $scopes['seafarer']->id,
         'rank_id' => $scopes['captain']->id,
         'project_id' => null,
     ]);
@@ -154,7 +169,7 @@ test('selected project with a null employee project_id is not required', functio
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 });
 
-test('selected rank with a null employee rank_id is not required', function () {
+test('selected position with a null employee position_id is not required', function () {
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     $scopes = makeDocumentRequirementMatchScopes($company->id);
     $resolver = new DocumentRequirementResolver;
@@ -162,10 +177,10 @@ test('selected rank with a null employee rank_id is not required', function () {
     $requirement = makeDocumentRequirement(
         $company->id,
         $passportType->id,
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['seafarer']->id],
     );
 
-    $employee->update(['rank_id' => null]);
+    $employee->update(['position_id' => null]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 });
 
@@ -254,7 +269,7 @@ test('project-only requirement matches the employee assigned to that project', f
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 });
 
-test('selected scopes use and matching across department rank and project', function () {
+test('selected scopes use and matching across department position and project', function () {
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     $scopes = makeDocumentRequirementMatchScopes($company->id);
 
@@ -262,21 +277,21 @@ test('selected scopes use and matching across department rank and project', func
         $company->id,
         $passportType->id,
         departmentIds: [$scopes['crew']->id],
-        rankIds: [$scopes['captain']->id],
+        positionIds: [$scopes['seafarer']->id],
         projectIds: [$scopes['adnoc']->id],
     );
     $resolver = new DocumentRequirementResolver;
 
-    $employee->update(['department_id' => $scopes['marine']->id, 'rank_id' => null, 'project_id' => $scopes['adnoc']->id]);
+    $employee->update(['department_id' => $scopes['marine']->id, 'position_id' => null, 'project_id' => $scopes['adnoc']->id]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
-    $employee->update(['department_id' => $scopes['crew']->id, 'rank_id' => null, 'project_id' => null]);
+    $employee->update(['department_id' => $scopes['crew']->id, 'position_id' => null, 'project_id' => null]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
-    $employee->update(['department_id' => $scopes['marine']->id, 'rank_id' => $scopes['captain']->id, 'project_id' => $scopes['otherProject']->id]);
+    $employee->update(['department_id' => $scopes['marine']->id, 'position_id' => $scopes['seafarer']->id, 'project_id' => $scopes['otherProject']->id]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeFalse();
 
-    $employee->update(['department_id' => $scopes['crew']->id, 'rank_id' => $scopes['captain']->id, 'project_id' => $scopes['adnoc']->id]);
+    $employee->update(['department_id' => $scopes['crew']->id, 'position_id' => $scopes['seafarer']->id, 'project_id' => $scopes['adnoc']->id]);
     expect($resolver->matches($employee->fresh(), $requirement))->toBeTrue();
 });
 

@@ -13,8 +13,9 @@ export type ClientOption = {
 
 export type VesselManningLine = {
     id: number;
-    rank_id: number;
-    rank_name: string;
+    position_id: number;
+    position_name: string;
+    rank_id: number | null;
     required_count: number;
 };
 

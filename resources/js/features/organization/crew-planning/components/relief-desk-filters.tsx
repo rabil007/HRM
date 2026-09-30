@@ -88,13 +88,13 @@ export function ReliefDeskFiltersBar({
                         </AppSelect>
                         <AppSelect
                             value={
-                                filters.rank_id != null
-                                    ? String(filters.rank_id)
+                                filters.position_id != null
+                                    ? String(filters.position_id)
                                     : ''
                             }
                             onValueChange={(value) =>
                                 onFilterChange({
-                                    rank_id:
+                                    position_id:
                                         value === '' ? null : Number(value),
                                 })
                             }

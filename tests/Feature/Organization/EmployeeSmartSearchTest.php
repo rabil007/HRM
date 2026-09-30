@@ -120,7 +120,7 @@ test('authorized employee viewer can interpret a valid prompt', function () {
     $response->assertJsonPath('filters.status', 'active')
         ->assertJsonPath('filters.department_id', (string) $fixtures['department']->id)
         ->assertJsonPath('filters.nationality_id', (string) $fixtures['country']->id)
-        ->assertJsonPath('filters.rank_id', (string) $fixtures['rank']->id)
+        ->assertJsonPath('filters.position_id', (string) $fixtures['position']->id)
         ->assertJsonPath('applied.0.key', 'status:equals')
         ->assertJsonPath('applied.0.label', 'HR status')
         ->assertJsonPath('applied.0.value', 'Active')
@@ -129,7 +129,7 @@ test('authorized employee viewer can interpret a valid prompt', function () {
         ->assertJsonPath('applied.2.key', 'nationality:equals')
         ->assertJsonPath('applied.2.value', 'Philippines')
         ->assertJsonPath('applied.3.key', 'rank:equals')
-        ->assertJsonPath('applied.3.value', 'AB')
+        ->assertJsonPath('applied.3.value', 'Able Seaman')
         ->assertJsonPath('unresolved', [])
         ->assertJsonPath('ambiguous', [])
         ->assertJsonPath('unsupported', []);
@@ -138,7 +138,7 @@ test('authorized employee viewer can interpret a valid prompt', function () {
         'status',
         'department_id',
         'nationality_id',
-        'rank_id',
+        'position_id',
     ]);
 
     EmployeeSmartSearchInterpreter::assertPrompted(function (AgentPrompt $prompt) use ($fixtures): bool {
@@ -381,7 +381,7 @@ test('unsupported concepts are reported rather than fabricated', function () {
 
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'AB crew with valid STCW')
         ->assertOk()
-        ->assertJsonPath('filters.rank_id', (string) $fixtures['rank']->id)
+        ->assertJsonPath('filters.position_id', (string) $fixtures['position']->id)
         ->assertJsonPath('unsupported.0', 'valid STCW')
         ->assertJsonMissingPath('filters.search');
 });
@@ -869,7 +869,7 @@ test('rank aliases resolve to the trusted canonical rank name', function () {
 
     interpretSmartSearch($fixtures['user'], $fixtures['company']->id, 'AB crew')
         ->assertOk()
-        ->assertJsonPath('filters.rank_id', (string) $fixtures['rank']->id)
+        ->assertJsonPath('filters.position_id', (string) $fixtures['position']->id)
         ->assertJsonPath('applied.0.value', 'Able Seaman');
 });
 

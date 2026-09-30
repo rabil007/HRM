@@ -141,7 +141,7 @@ test('export headings and mapped row match authoritative stay and assignment val
         'Stay Record ID',
         'Employee No.',
         'Employee Name',
-        'Rank',
+        'Position',
         'Hotel',
         'Room Type',
         'Stay Type',

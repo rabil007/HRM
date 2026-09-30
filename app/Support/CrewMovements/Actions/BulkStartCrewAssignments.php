@@ -28,7 +28,7 @@ final class BulkStartCrewAssignments
      *     vessel_id?: int|null,
      *     planned_join_at?: string|null,
      *     remarks?: string|null,
-     *     crew: list<array{employee_id: int, rank_id?: int|null, planned_arrival_at?: string|null}>
+     *     crew: list<array{employee_id: int, position_id?: int|null, rank_id?: int|null, planned_arrival_at?: string|null}>
      * }  $payload
      * @return list<CrewAssignment>
      */
@@ -53,6 +53,7 @@ final class BulkStartCrewAssignments
                         $companyId,
                         $row['employee_id'],
                         [
+                            'position_id' => $row['position_id'],
                             'rank_id' => $row['rank_id'],
                             'client_id' => $payload['client_id'] ?? null,
                             'vessel_id' => $payload['vessel_id'] ?? null,
@@ -79,8 +80,8 @@ final class BulkStartCrewAssignments
     }
 
     /**
-     * @param  list<array{employee_id: int, rank_id?: int|null, planned_arrival_at?: string|null}>  $crew
-     * @return list<array{index: int, employee_id: int, rank_id: int|null, planned_arrival_at: string|null}>
+     * @param  list<array{employee_id: int, position_id?: int|null, rank_id?: int|null, planned_arrival_at?: string|null}>  $crew
+     * @return list<array{index: int, employee_id: int, position_id: int|null, rank_id: int|null, planned_arrival_at: string|null}>
      */
     private function rowsInLockOrder(array $crew): array
     {
@@ -90,6 +91,9 @@ final class BulkStartCrewAssignments
             $indexed[] = [
                 'index' => (int) $index,
                 'employee_id' => (int) $row['employee_id'],
+                'position_id' => isset($row['position_id']) && $row['position_id'] !== null
+                    ? (int) $row['position_id']
+                    : null,
                 'rank_id' => isset($row['rank_id']) && $row['rank_id'] !== null
                     ? (int) $row['rank_id']
                     : null,

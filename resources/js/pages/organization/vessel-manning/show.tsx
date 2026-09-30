@@ -12,7 +12,7 @@ type Props = {
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     can: VesselManningPagePermissions;
-    ranks: RankOption[];
+    crew_positions: RankOption[];
     back_query: Record<string, string>;
 };
 

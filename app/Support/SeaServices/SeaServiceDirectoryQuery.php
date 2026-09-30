@@ -6,6 +6,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -101,10 +102,14 @@ final class SeaServiceDirectoryQuery
                 'employee_sea_services.vessel_type_id',
                 $this->filters->vesselTypeId,
             ))
-            ->when($this->filters->rankId !== '', fn (Builder $inner) => $inner->where(
-                'employee_sea_services.rank_id',
-                $this->filters->rankId,
-            ))
+            ->when($this->filters->positionId !== '', function (Builder $inner): void {
+                LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
+                    $inner,
+                    $this->companyId,
+                    (int) $this->filters->positionId,
+                    'employee_sea_services',
+                );
+            })
             ->when($this->filters->clientId !== '', fn (Builder $inner) => $inner->where(
                 'employee_sea_services.client_id',
                 $this->filters->clientId,

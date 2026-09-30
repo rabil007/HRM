@@ -40,7 +40,6 @@ final class SyncDocumentRequirement
             $requiredForAll = (bool) ($data['required_for_all'] ?? false);
             $departmentIds = $this->integerIds($data['department_ids'] ?? []);
             $positionIds = $this->integerIds($data['position_ids'] ?? []);
-            $rankIds = $this->integerIds($data['rank_ids'] ?? []);
             $projectIds = $this->integerIds($data['project_ids'] ?? []);
 
             if (! $isRequired && $requirement === null) {
@@ -76,7 +75,7 @@ final class SyncDocumentRequirement
             if ($isRequired) {
                 $requirement->departments()->sync($departmentIds);
                 $requirement->positions()->sync($positionIds);
-                $requirement->ranks()->sync($rankIds);
+                // Phase 3: remove document_requirement_rank pivot writes entirely.
                 $requirement->projects()->sync($projectIds);
             }
 

@@ -12,14 +12,14 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import type {
-    RankOption,
+    CrewPositionOption,
     VesselManningFormData,
     VesselManningItem,
 } from '../types';
 
 function emptyRequirementRow(): VesselManningFormData['requirements'][number] {
     return {
-        rank_id: '',
+        position_id: '',
         required_count: '1',
     };
 }
@@ -28,14 +28,14 @@ export function VesselManningFormSheet({
     open,
     onOpenChange,
     vessel,
-    ranks,
+    crew_positions,
     form,
     onSubmit,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     vessel: VesselManningItem | null;
-    ranks: RankOption[];
+    crew_positions: CrewPositionOption[];
     form: InertiaFormProps<VesselManningFormData>;
     onSubmit: () => void;
 }) {
@@ -69,10 +69,10 @@ export function VesselManningFormSheet({
         );
     };
 
-    const usedRankIds = new Set(
+    const usedPositionIds = new Set(
         requirements
-            .map((row) => row.rank_id)
-            .filter((rankId) => rankId !== ''),
+            .map((row) => row.position_id)
+            .filter((positionId) => positionId !== ''),
     );
 
     return (
@@ -87,8 +87,8 @@ export function VesselManningFormSheet({
                     </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         {vessel
-                            ? `Set required ranks and headcount for ${vessel.name}.`
-                            : 'Set required ranks and headcount for this vessel.'}
+                            ? `Set required crew positions and headcount for ${vessel.name}.`
+                            : 'Set required crew positions and headcount for this vessel.'}
                     </SheetDescription>
                 </SheetHeader>
 
@@ -112,7 +112,7 @@ export function VesselManningFormSheet({
                     <div className="space-y-4">
                         <div className="flex items-center justify-between gap-3">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Rank requirements
+                                Position requirements
                             </Label>
                             <Button
                                 type="button"
@@ -122,21 +122,21 @@ export function VesselManningFormSheet({
                                 className="rounded-xl border-primary/25 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
                             >
                                 <Plus className="mr-1.5 h-4 w-4" />
-                                Add rank
+                                Add position
                             </Button>
                         </div>
 
                         {requirements.length === 0 ? (
                             <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                                No ranks configured yet. Add a rank to define
-                                this vessel&apos;s manning.
+                                No positions configured yet. Add a position to
+                                define this vessel&apos;s manning.
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 {requirements.map((row, index) => {
-                                    const rankError =
+                                    const positionError =
                                         form.errors[
-                                            `requirements.${index}.rank_id` as keyof typeof form.errors
+                                            `requirements.${index}.position_id` as keyof typeof form.errors
                                         ];
                                     const countError =
                                         form.errors[
@@ -150,45 +150,49 @@ export function VesselManningFormSheet({
                                         >
                                             <div className="space-y-2">
                                                 <Label className="text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                                    Rank
+                                                    Position
                                                 </Label>
                                                 <AppSelect
-                                                    value={row.rank_id}
+                                                    value={row.position_id}
                                                     onValueChange={(value) =>
                                                         updateRow(
                                                             index,
-                                                            'rank_id',
+                                                            'position_id',
                                                             value,
                                                         )
                                                     }
-                                                    placeholder="Select rank"
+                                                    placeholder="Select position"
                                                     variant="card"
                                                 >
-                                                    {ranks.map((rank) => (
-                                                        <AppSelectItem
-                                                            key={rank.id}
-                                                            value={String(
-                                                                rank.id,
-                                                            )}
-                                                            disabled={
-                                                                usedRankIds.has(
-                                                                    String(
-                                                                        rank.id,
-                                                                    ),
-                                                                ) &&
-                                                                row.rank_id !==
-                                                                    String(
-                                                                        rank.id,
-                                                                    )
-                                                            }
-                                                        >
-                                                            {rank.name}
-                                                        </AppSelectItem>
-                                                    ))}
+                                                    {crew_positions.map(
+                                                        (position) => (
+                                                            <AppSelectItem
+                                                                key={
+                                                                    position.id
+                                                                }
+                                                                value={String(
+                                                                    position.id,
+                                                                )}
+                                                                disabled={
+                                                                    usedPositionIds.has(
+                                                                        String(
+                                                                            position.id,
+                                                                        ),
+                                                                    ) &&
+                                                                    row.position_id !==
+                                                                        String(
+                                                                            position.id,
+                                                                        )
+                                                                }
+                                                            >
+                                                                {position.name}
+                                                            </AppSelectItem>
+                                                        ),
+                                                    )}
                                                 </AppSelect>
-                                                {rankError ? (
+                                                {positionError ? (
                                                     <div className="text-xs font-medium text-destructive">
-                                                        {rankError}
+                                                        {positionError}
                                                     </div>
                                                 ) : null}
                                             </div>

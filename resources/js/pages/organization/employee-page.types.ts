@@ -256,7 +256,10 @@ export type SeaServiceItem = {
     vessel_type_name: string | null;
     vessel_id: number | null;
     vessel_name: string | null;
-    rank_id: number;
+    position_id: number | null;
+    /** @deprecated Temporary Phase 2 legacy field */
+    rank_id?: number | null;
+    position_name?: string | null;
     rank_name: string | null;
     start_date: string | null;
     end_date: string | null;

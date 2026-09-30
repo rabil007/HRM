@@ -18,7 +18,7 @@ type SeaServiceManagementDialogsProps = {
     employeeId: number;
     vesselTypes: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: RankOption[];
     clients: ClientOption[];
     editSeaService: EditableSeaService | null;
     onEditSeaServiceChange: (seaService: EditableSeaService | null) => void;
@@ -32,7 +32,7 @@ export function SeaServiceManagementDialogs({
     employeeId,
     vesselTypes,
     vessels,
-    ranks,
+    positions,
     clients,
     editSeaService,
     onEditSeaServiceChange,
@@ -50,7 +50,7 @@ export function SeaServiceManagementDialogs({
                 onOpenChange={(open) => !open && onEditSeaServiceChange(null)}
                 vesselTypes={vesselTypes}
                 vessels={vessels}
-                ranks={ranks}
+                positions={positions}
                 clients={clients}
                 partialReloadKeys={partialReloadKeys}
             />

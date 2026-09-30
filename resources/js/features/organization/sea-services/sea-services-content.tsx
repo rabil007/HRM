@@ -40,7 +40,7 @@ export function SeaServicesContent({
     search: initialSearch,
     vessel_id: initialVesselId,
     vessel_type_id: initialVesselTypeId,
-    rank_id: initialRankId,
+    position_id: initialPositionId,
     client_id: initialClientId,
     active: initialActive,
     start_date: initialStartDate,
@@ -52,7 +52,7 @@ export function SeaServicesContent({
     sea_services: seaServiceRows,
     vessel_types,
     vessels,
-    ranks,
+    positions,
     clients,
     pagination,
     can,
@@ -79,7 +79,7 @@ export function SeaServicesContent({
     const sheetFilters: SeaServiceSheetFilters = {
         vessel_id: initialVesselId,
         vessel_type_id: initialVesselTypeId,
-        rank_id: initialRankId,
+        position_id: initialPositionId,
         client_id: initialClientId,
         start_date: initialStartDate,
         end_date: initialEndDate,
@@ -88,7 +88,7 @@ export function SeaServicesContent({
     const activeFiltersCount = [
         initialVesselId,
         initialVesselTypeId,
-        initialRankId,
+        initialPositionId,
         initialClientId,
         initialStartDate,
         initialEndDate,
@@ -110,7 +110,7 @@ export function SeaServicesContent({
         initialSearch,
         initialVesselId,
         initialVesselTypeId,
-        initialRankId,
+        initialPositionId,
         initialClientId,
         initialActive,
         initialStartDate,
@@ -126,7 +126,7 @@ export function SeaServicesContent({
             search: initialSearch,
             vessel_id: initialVesselId,
             vessel_type_id: initialVesselTypeId,
-            rank_id: initialRankId,
+            position_id: initialPositionId,
             client_id: initialClientId,
             active: initialActive,
             start_date: initialStartDate,
@@ -139,7 +139,7 @@ export function SeaServicesContent({
             initialSearch,
             initialVesselId,
             initialVesselTypeId,
-            initialRankId,
+            initialPositionId,
             initialClientId,
             initialActive,
             initialStartDate,
@@ -169,7 +169,7 @@ export function SeaServicesContent({
                 search: initialSearch || undefined,
                 vessel_id: initialVesselId || undefined,
                 vessel_type_id: initialVesselTypeId || undefined,
-                rank_id: initialRankId || undefined,
+                position_id: initialPositionId || undefined,
                 client_id: initialClientId || undefined,
                 active: initialActive || undefined,
                 start_date: initialStartDate || undefined,
@@ -360,7 +360,7 @@ export function SeaServicesContent({
                     employeeId={managementEmployeeId}
                     vesselTypes={vessel_types}
                     vessels={vessels}
-                    ranks={ranks}
+                    positions={positions}
                     clients={clients}
                     editSeaService={editSeaService}
                     onEditSeaServiceChange={(row) =>
@@ -381,7 +381,7 @@ export function SeaServicesContent({
                 onOpenChange={setIsFiltersOpen}
                 vesselTypes={vessel_types}
                 vessels={vessels}
-                ranks={ranks}
+                positions={positions}
                 clients={clients}
                 value={sheetFilters}
                 onChange={onSheetFiltersChange}
@@ -389,7 +389,7 @@ export function SeaServicesContent({
                     onSheetFiltersChange({
                         vessel_id: '',
                         vessel_type_id: '',
-                        rank_id: '',
+                        position_id: '',
                         client_id: '',
                         start_date: '',
                         end_date: '',

@@ -12,30 +12,30 @@ import {
     resolveJoinTourDays,
     suggestedPlannedSignoffDate,
 } from '@/features/organization/crew/lib/tour-of-duty';
-import type { CrewRankTourOption } from '@/features/organization/crew/lib/tour-signoff';
+import type { CrewPositionTourOption } from '@/features/organization/crew/lib/tour-signoff';
 import type { CrewMovementActionFormData } from '@/features/organization/crew/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 export function TourSignoffFields({
     form,
-    selectedRank,
+    selectedPosition,
     occurredDate,
     existingPlannedSignoffAt = null,
     allowExistingPlan = false,
     idPrefix = 'movement',
-    tourContextLabel = 'this rank',
+    tourContextLabel = 'this position',
 }: {
     form: InertiaFormProps<CrewMovementActionFormData>;
-    selectedRank: CrewRankTourOption | undefined;
+    selectedPosition: CrewPositionTourOption | undefined;
     occurredDate: string;
     existingPlannedSignoffAt?: string | null;
     allowExistingPlan?: boolean;
     idPrefix?: string;
-    /** e.g. "destination rank" for transfer/redeploy copy */
+    /** e.g. "destination position" for transfer/redeploy copy */
     tourContextLabel?: string;
 }): ReactElement {
-    const tourDays = resolveJoinTourDays(selectedRank);
+    const tourDays = resolveJoinTourDays(selectedPosition);
     const suggestedSignoff =
         occurredDate && tourDays != null
             ? suggestedPlannedSignoffDate(occurredDate, tourDays)
@@ -65,7 +65,7 @@ export function TourSignoffFields({
                     </p>
                     {tourDays != null ? (
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {tourDays} days · Based on Rank Master
+                            {tourDays} days · Based on Position Master
                         </p>
                     ) : (
                         <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">

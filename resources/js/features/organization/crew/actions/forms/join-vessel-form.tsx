@@ -25,8 +25,8 @@ export function JoinVesselForm({
 }: MovementActionFormProps): ReactElement {
     const joinDate = form.data.occurred_at.slice(0, 10);
     const preJoinAccommodation = context.pre_join_accommodation;
-    const selectedRank = formOptions?.ranks.find(
-        (rank) => rank.id === form.data.rank_id,
+    const selectedPosition = formOptions?.positions.find(
+        (position) => position.id === form.data.position_id,
     );
 
     const lastAutoCheckOutDateRef = useRef(
@@ -128,10 +128,12 @@ export function JoinVesselForm({
                 </div>
                 <div>
                     <span className="text-muted-foreground">
-                        Current rank:{' '}
+                        Current position:{' '}
                     </span>
                     <span className="font-medium">
-                        {context.rank_name ?? 'Not set'}
+                        {context.position_name ??
+                            context.position_name ??
+                            'Not set'}
                     </span>
                 </div>
                 <div>
@@ -290,49 +292,51 @@ export function JoinVesselForm({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="movement-rank">
-                            Rank <span className="text-destructive">*</span>
+                        <Label htmlFor="movement-position">
+                            Position <span className="text-destructive">*</span>
                         </Label>
                         <Select
-                            value={form.data.rank_id?.toString() ?? ''}
+                            value={form.data.position_id?.toString() ?? ''}
                             onValueChange={(value) =>
                                 form.setData(
-                                    'rank_id',
+                                    'position_id',
                                     value ? Number(value) : null,
                                 )
                             }
                         >
-                            <SelectTrigger id="movement-rank">
-                                <SelectValue placeholder="Select rank..." />
+                            <SelectTrigger id="movement-position">
+                                <SelectValue placeholder="Select position..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {formOptions.ranks.map((rank) => (
-                                    <SelectItem
-                                        key={rank.id}
-                                        value={rank.id.toString()}
-                                    >
-                                        {rank.name}
-                                    </SelectItem>
-                                ))}
+                                {(formOptions?.positions ?? []).map(
+                                    (position) => (
+                                        <SelectItem
+                                            key={position.id}
+                                            value={position.id.toString()}
+                                        >
+                                            {position.name}
+                                        </SelectItem>
+                                    ),
+                                )}
                             </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                            The rank served onboard. This is used for Planning
-                            and Sea Service.
+                            The position served onboard. This is used for
+                            Planning and Sea Service.
                         </p>
-                        <InputError message={form.errors.rank_id} />
+                        <InputError message={form.errors.position_id} />
                     </div>
                 </>
             ) : null}
 
             <TourSignoffFields
                 form={form}
-                selectedRank={selectedRank}
+                selectedPosition={selectedPosition}
                 occurredDate={joinDate}
                 existingPlannedSignoffAt={context.planned_signoff_at}
                 allowExistingPlan
                 idPrefix="movement"
-                tourContextLabel="this rank"
+                tourContextLabel="this position"
             />
 
             <div className="space-y-2">

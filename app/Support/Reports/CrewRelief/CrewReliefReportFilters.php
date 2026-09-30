@@ -2,6 +2,7 @@
 
 namespace App\Support\Reports\CrewRelief;
 
+use App\Support\Positions\LegacyRankFilterTranslator;
 use Illuminate\Http\Request;
 
 final class CrewReliefReportFilters
@@ -24,7 +25,7 @@ final class CrewReliefReportFilters
         public readonly string $search = '',
         public readonly string $vesselId = '',
         public readonly string $clientId = '',
-        public readonly string $rankId = '',
+        public readonly string $positionId = '',
         public readonly string $plannedSignoffFrom = '',
         public readonly string $plannedSignoffTo = '',
         public readonly string $readiness = '',
@@ -33,7 +34,7 @@ final class CrewReliefReportFilters
         public readonly int $perPage = 25,
     ) {}
 
-    public static function fromRequest(Request $request): self
+    public static function fromRequest(Request $request, int $companyId): self
     {
         $preset = (string) $request->query('preset', self::PRESET_NEXT_30_DAYS);
         if (! in_array($preset, [
@@ -67,7 +68,7 @@ final class CrewReliefReportFilters
             search: trim((string) $request->query('search', '')),
             vesselId: (string) $request->query('vessel_id', ''),
             clientId: (string) $request->query('client_id', ''),
-            rankId: (string) $request->query('rank_id', ''),
+            positionId: LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId),
             plannedSignoffFrom: trim((string) $request->query('planned_signoff_from', '')),
             plannedSignoffTo: trim((string) $request->query('planned_signoff_to', '')),
             readiness: $readiness,
@@ -86,7 +87,7 @@ final class CrewReliefReportFilters
             'search' => $this->search,
             'vessel_id' => $this->vesselId,
             'client_id' => $this->clientId,
-            'rank_id' => $this->rankId,
+            'position_id' => $this->positionId,
             'planned_signoff_from' => $this->plannedSignoffFrom,
             'planned_signoff_to' => $this->plannedSignoffTo,
             'readiness' => $this->readiness,

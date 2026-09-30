@@ -22,7 +22,8 @@ final class VesselManningIndexQuery
                 'vesselType:id,name',
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
-                    ->with('rank:id,name')
+                    ->with('position:id,title')
+                    ->orderBy('position_id')
                     ->orderBy('rank_id'),
             ])
             ->when($search !== '', fn (Builder $query) => $query->where('name', 'like', "%{$search}%"))
@@ -43,8 +44,9 @@ final class VesselManningIndexQuery
      *     is_active: bool,
      *     manning: list<array{
      *         id: int,
-     *         rank_id: int,
-     *         rank_name: string,
+     *         position_id: int,
+     *         position_name: string,
+     *         rank_id: int|null,
      *         required_count: int
      *     }>,
      *     total_required: int,
@@ -59,8 +61,9 @@ final class VesselManningIndexQuery
         $lines = $manning
             ->map(fn (VesselManning $line) => [
                 'id' => $line->id,
-                'rank_id' => $line->rank_id,
-                'rank_name' => $line->rank?->name ?? '',
+                'position_id' => (int) ($line->position_id ?? 0),
+                'position_name' => (string) ($line->position?->title ?? ''),
+                'rank_id' => $line->rank_id !== null ? (int) $line->rank_id : null,
                 'required_count' => $line->required_count,
             ])
             ->values()
@@ -93,7 +96,8 @@ final class VesselManningIndexQuery
                 'vesselType:id,name',
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
-                    ->with('rank:id,name')
+                    ->with('position:id,title')
+                    ->orderBy('position_id')
                     ->orderBy('rank_id'),
             ])
             ->whereKey($vessel->id)

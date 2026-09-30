@@ -11,7 +11,7 @@ export function reliefActionHref(
         return crewPlanningIndex.url({
             query: {
                 vessel_id: assignment.vessel?.id,
-                rank_id: assignment.rank?.id,
+                position_id: assignment.position?.id,
                 relieves_crew_assignment_id: assignment.id,
                 planned_join_date:
                     assignment.planned_signoff_at ??
@@ -26,7 +26,7 @@ export function reliefActionHref(
         return crewPlanningIndex.url({
             query: {
                 vessel_id: assignment.vessel?.id ?? undefined,
-                rank_id: assignment.rank?.id ?? undefined,
+                position_id: assignment.position?.id ?? undefined,
                 search: assignment.relief_employee?.name ?? undefined,
             },
         });
@@ -39,7 +39,7 @@ export function reliefActionHref(
     return crewPlanningIndex.url({
         query: {
             vessel_id: assignment.vessel?.id ?? undefined,
-            rank_id: assignment.rank?.id ?? undefined,
+            position_id: assignment.position?.id ?? undefined,
             search: assignment.relief_employee?.name ?? undefined,
         },
     });

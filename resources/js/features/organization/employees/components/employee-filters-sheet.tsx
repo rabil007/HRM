@@ -31,7 +31,6 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    RankOption,
     RoleOption,
     SssaOption,
     VisaTypeOption,
@@ -75,7 +74,6 @@ export function EmployeeFiltersSheet({
     companyVisaTypes = [],
     approvalLocations = [],
     sssaOptions = [],
-    ranks = [],
     clients = [],
     projects = [],
     roles = [],
@@ -93,7 +91,6 @@ export function EmployeeFiltersSheet({
     companyVisaTypes?: CompanyVisaTypeOption[];
     approvalLocations?: ApprovalLocationOption[];
     sssaOptions?: SssaOption[];
-    ranks?: RankOption[];
     clients?: ClientOption[];
     projects?: ProjectOption[];
     roles?: RoleOption[];
@@ -275,28 +272,6 @@ export function EmployeeFiltersSheet({
                                 value={String(project.id)}
                             >
                                 {project.title}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
-                </div>
-
-                {/* Row 2: Rank */}
-                <div className="space-y-2">
-                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                        Rank
-                    </Label>
-                    <AppSelect
-                        value={value.rank_id}
-                        onValueChange={(v) =>
-                            onChange({ ...value, rank_id: v })
-                        }
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        {ranks.map((r) => (
-                            <AppSelectItem key={r.id} value={String(r.id)}>
-                                {r.name}
                             </AppSelectItem>
                         ))}
                     </AppSelect>

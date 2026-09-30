@@ -147,7 +147,9 @@ export function CrewAssignmentRelationships({
                             <CrewMetadataField
                                 label="Rank"
                                 value={
-                                    assignment.relieves.source_rank?.name ?? '—'
+                                    assignment.relieves.source_position?.name ??
+                                    assignment.relieves.source_rank?.name ??
+                                    '—'
                                 }
                             />
                             <CrewMetadataField
@@ -171,8 +173,8 @@ export function CrewAssignmentRelationships({
                                                 vessel_id:
                                                     assignment.vessel?.id ??
                                                     undefined,
-                                                rank_id:
-                                                    assignment.rank?.id ??
+                                                position_id:
+                                                    assignment.position?.id ??
                                                     undefined,
                                                 search:
                                                     assignment.employee?.name ??

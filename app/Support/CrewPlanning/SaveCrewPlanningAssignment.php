@@ -10,6 +10,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -34,7 +35,7 @@ final class SaveCrewPlanningAssignment
             $this->assertReliefConstraints($companyId, $attributes, null, $actor);
 
             return CrewPlanningAssignment::query()->create([
-                ...$attributes,
+                ...self::normalizePositionAndRank($companyId, $attributes),
                 'employee_id' => null,
                 'company_id' => $companyId,
             ]);
@@ -116,7 +117,7 @@ final class SaveCrewPlanningAssignment
 
                     $this->assertReliefConstraints($companyId, $merged, (int) $locked->id, $actor);
 
-                    $locked->update($attributes);
+                    $locked->update(self::normalizePositionAndRank($companyId, $attributes));
 
                     return $locked->fresh() ?? $locked;
                 });
@@ -223,5 +224,14 @@ final class SaveCrewPlanningAssignment
                 'relieves_crew_assignment_id' => 'An active relief plan already exists for this assignment.',
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private static function normalizePositionAndRank(int $companyId, array $attributes): array
+    {
+        return RankPositionBridge::syncEmployeePositionAndRank($attributes, $companyId);
     }
 }

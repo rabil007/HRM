@@ -98,7 +98,7 @@ export type LinkedAssignmentSummary = {
     status: string;
     status_label: string;
     vessel: ReportOption | null;
-    rank: ReportOption | null;
+    position: ReportOption | null;
     client: ReportOption | null;
     started_at: string | null;
     closed_at: string | null;
@@ -143,7 +143,7 @@ export type CrewMovementHistoryRow = {
         employee_no: string | null;
         name: string | null;
     };
-    rank: ReportOption | null;
+    position: ReportOption | null;
     vessel: ReportOption | null;
     client: ReportOption | null;
     status: string;
@@ -244,7 +244,7 @@ export type CrewMovementHistoryFilters = {
     status: string;
     current_phase: string;
     vessel_id: string;
-    rank_id: string;
+    position_id: string;
     client_id: string;
     source: string;
     needs_attention: string;
@@ -291,7 +291,7 @@ export type CrewMovementHistoryProps = {
         statuses: SelectOption[];
         phases: SelectOption[];
         vessels: ReportOption[];
-        ranks: ReportOption[];
+        positions: ReportOption[];
         clients: ReportOption[];
         sources: SelectOption[];
         hotels: ReportOption[];

@@ -9,7 +9,7 @@ export const TEMPLATE_RECORD_DEFAULT_REQUIRED: Record<string, string[]> = {
     employee_sea_services: [
         'vessel_type_id',
         'vessel_id',
-        'rank_id',
+        'position_id',
         'start_date',
         'end_date',
     ],

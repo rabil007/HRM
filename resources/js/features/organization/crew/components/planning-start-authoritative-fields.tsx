@@ -43,8 +43,8 @@ export function PlanningStartAuthoritativeFields({
                     value={context.employee_name ?? 'Select on form'}
                 />
                 <ReadOnlyField
-                    label="Rank"
-                    value={context.rank_name ?? 'Select on form'}
+                    label="Position"
+                    value={context.position_name ?? 'Select on form'}
                 />
                 <ReadOnlyField
                     label="Client"

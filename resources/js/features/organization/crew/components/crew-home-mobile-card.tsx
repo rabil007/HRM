@@ -37,8 +37,10 @@ export function CrewHomeMobileCard({ row }: { row: CurrentCrewHomeRow }) {
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                        <p className="text-muted-foreground">Rank</p>
-                        <p className="font-medium">{row.rank?.name ?? '—'}</p>
+                        <p className="text-muted-foreground">Position</p>
+                        <p className="font-medium">
+                            {row.position?.name ?? row.rank?.name ?? '—'}
+                        </p>
                     </div>
                     <div>
                         <p className="text-muted-foreground">Last vessel</p>

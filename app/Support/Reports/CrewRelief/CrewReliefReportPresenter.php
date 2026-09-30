@@ -5,6 +5,7 @@ namespace App\Support\Reports\CrewRelief;
 use App\Models\CrewAssignment;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewAssignmentPositionPresenter;
 
 final class CrewReliefReportPresenter
 {
@@ -40,8 +41,8 @@ final class CrewReliefReportPresenter
 
         $employee = $assignment->employee;
         $vessel = $assignment->vessel;
-        $rank = $assignment->rank;
         $client = $assignment->client;
+        $position = CrewAssignmentPositionPresenter::option($assignment, $companyId);
 
         // Relief employee visibility check
         $rawRelief = $row['relief_employee'];
@@ -118,10 +119,7 @@ final class CrewReliefReportPresenter
                     ? route('organization.employees.show', $employee)
                     : null,
             ] : null,
-            'rank' => $rank !== null ? [
-                'id' => (int) $rank->id,
-                'name' => (string) $rank->name,
-            ] : null,
+            'position' => $position,
             'vessel' => $vessel !== null ? [
                 'id' => (int) $vessel->id,
                 'name' => (string) $vessel->name,

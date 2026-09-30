@@ -18,6 +18,7 @@ use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\Actions\ApplyEmployeeUpdateWithDepartmentGuard;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -965,6 +966,25 @@ class EmployeesImport
             }
         }
 
+        // Phase 3: drop Rank column import; until then map legacy Rank names to position_id.
+        if (($resolved['position_id'] ?? null) === null && ($resolved['rank_id'] ?? null) !== null) {
+            $resolved['position_id'] = RankPositionBridge::positionIdForRank(
+                $this->companyId,
+                (int) $resolved['rank_id'],
+            );
+        }
+
+        if (($resolved['position_id'] ?? null) !== null) {
+            $mappedRankId = RankPositionBridge::rankIdForPosition(
+                $this->companyId,
+                (int) $resolved['position_id'],
+            );
+
+            if ($mappedRankId !== null) {
+                $resolved['rank_id'] = $mappedRankId;
+            }
+        }
+
         return $resolved;
     }
 
@@ -988,6 +1008,7 @@ class EmployeesImport
 
         $this->positionMap = Position::query()
             ->where('company_id', $this->companyId)
+            ->whereNull('deleted_at')
             ->pluck('id', 'title')
             ->mapWithKeys(fn ($id, $title) => [self::normalize((string) $title) => (int) $id])
             ->all();

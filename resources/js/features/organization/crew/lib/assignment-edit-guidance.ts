@@ -5,7 +5,7 @@ import type {
 } from '../types';
 
 export type EditPlanningChange = {
-    field: 'vessel' | 'rank' | 'expected_join';
+    field: 'vessel' | 'position' | 'expected_join';
     label: string;
     from: string;
     to: string;
@@ -49,16 +49,18 @@ function resolveVesselName(
     return vessels.find((vessel) => vessel.id === vesselId)?.name ?? '—';
 }
 
-function resolveRankName(
+function resolvePositionName(
     assignment: CrewAssignmentDetail,
-    rankId: number | null,
-    ranks: Array<{ id: number; name: string }>,
+    positionId: number | null,
+    positions: Array<{ id: number; name: string }>,
 ): string {
-    if (rankId === (assignment.rank?.id ?? null)) {
-        return assignment.rank?.name ?? '—';
+    if (positionId === (assignment.position?.id ?? null)) {
+        return assignment.position?.name ?? '—';
     }
 
-    return ranks.find((rank) => rank.id === rankId)?.name ?? '—';
+    return (
+        positions.find((position) => position.id === positionId)?.name ?? '—'
+    );
 }
 
 function isPreP4Phase(assignment: CrewAssignmentDetail): boolean {
@@ -80,7 +82,7 @@ function buildPhaseExplanation(
             return {
                 explanation: 'This mobilisation is still being prepared.',
                 safeToUpdate:
-                    'Rank · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
+                    'Position · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
                 movementActionsNote:
                     'Actual operational events belong in Movement Actions.',
             };
@@ -95,7 +97,7 @@ function buildPhaseExplanation(
             return {
                 explanation: 'Waiting to join the vessel.',
                 safeToUpdate:
-                    'Rank · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
+                    'Position · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
                 destinationNote:
                     'Changing the vessel here updates the current mobilisation destination. This is not a Vessel Transfer because the employee has not boarded yet.',
                 movementActionsNote:
@@ -105,7 +107,7 @@ function buildPhaseExplanation(
             return {
                 explanation: 'Training is part of this same mobilisation.',
                 safeToUpdate:
-                    'Rank · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
+                    'Position · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
                 destinationNote:
                     'Saving updates the destination of this mobilisation. Training history remains attached to the same assignment.',
                 movementActionsNote:
@@ -116,7 +118,7 @@ function buildPhaseExplanation(
                 explanation:
                     'Ready to board. Update destination/planning details only if the mobilisation plan changed before boarding.',
                 safeToUpdate:
-                    'Rank · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
+                    'Position · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
                 destinationNote:
                     'Because the employee has not boarded P4 yet, vessel changes here are not a Vessel Transfer.',
                 movementActionsNote:
@@ -126,7 +128,7 @@ function buildPhaseExplanation(
             return {
                 explanation: `Editing ${assignment.assignment_no}.`,
                 safeToUpdate:
-                    'Rank · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
+                    'Position · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
             };
     }
 }
@@ -135,12 +137,12 @@ function buildPlanningChanges(
     assignment: CrewAssignmentDetail,
     formData: CrewAssignmentFormData,
     vessels: Array<{ id: number; name: string }>,
-    ranks: Array<{ id: number; name: string }>,
+    positions: Array<{ id: number; name: string }>,
 ): EditPlanningChange[] {
     const changes: EditPlanningChange[] = [];
 
     const originalVesselId = assignment.vessel?.id ?? null;
-    const originalRankId = assignment.rank?.id ?? null;
+    const originalPositionId = assignment.position?.id ?? null;
     const originalJoin = assignment.planned_join_at ?? '';
 
     if (formData.vessel_id !== originalVesselId) {
@@ -152,12 +154,20 @@ function buildPlanningChanges(
         });
     }
 
-    if (formData.rank_id !== originalRankId) {
+    if (formData.position_id !== originalPositionId) {
         changes.push({
-            field: 'rank',
-            label: 'Rank',
-            from: resolveRankName(assignment, originalRankId, ranks),
-            to: resolveRankName(assignment, formData.rank_id, ranks),
+            field: 'position',
+            label: 'Position',
+            from: resolvePositionName(
+                assignment,
+                originalPositionId,
+                positions,
+            ),
+            to: resolvePositionName(
+                assignment,
+                formData.position_id,
+                positions,
+            ),
         });
     }
 
@@ -206,13 +216,13 @@ export function buildAssignmentEditGuidance({
     assignment,
     formData,
     vessels,
-    ranks,
+    positions,
     permissions,
 }: {
     assignment: CrewAssignmentDetail;
     formData: CrewAssignmentFormData;
     vessels: Array<{ id: number; name: string }>;
-    ranks: Array<{ id: number; name: string }>;
+    positions: Array<{ id: number; name: string }>;
     permissions: Pick<
         CrewAssignmentPagePermissions,
         'perform_movement' | 'view_planning'
@@ -223,7 +233,7 @@ export function buildAssignmentEditGuidance({
         assignment,
         formData,
         vessels,
-        ranks,
+        positions,
     );
     const dateAdvisories = buildDateAdvisories(formData, assignment);
 
@@ -260,7 +270,7 @@ export function buildAssignmentEditGuidance({
         planningChanges,
         planningSyncNote:
             planningChanges.length > 0
-                ? 'Linked vacant Planning slots are not updated automatically. Edit the Planning slot separately if its vessel, rank, or dates need to change.'
+                ? 'Linked vacant Planning slots are not updated automatically. Edit the Planning slot separately if its vessel, position, or dates need to change.'
                 : undefined,
         dateAdvisories,
     };

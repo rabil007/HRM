@@ -24,7 +24,7 @@ export function ApplyTourOfDutyDialog({
 }) {
     const form = useForm({});
 
-    const tourDays = assignment.current_rank_tour_days ?? null;
+    const tourDays = assignment.current_position_tour_days ?? null;
     const hasExistingSignoff = assignment.planned_signoff_at != null;
 
     const submit = (): void => {
@@ -64,7 +64,7 @@ export function ApplyTourOfDutyDialog({
                     <div className="flex justify-between gap-3">
                         <span className="text-muted-foreground">Rank</span>
                         <span className="text-right font-semibold">
-                            {assignment.rank?.name ?? '—'}
+                            {assignment.position?.name ?? '—'}
                         </span>
                     </div>
                     <div className="flex justify-between gap-3">

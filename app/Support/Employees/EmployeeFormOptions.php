@@ -12,13 +12,13 @@ use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\Gender;
-use App\Models\Position;
 use App\Models\Project;
 use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Role;
@@ -61,7 +61,7 @@ final class EmployeeFormOptions
             'company_visa_types' => self::companyVisaTypes(),
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
-            'ranks' => self::activeRanks(),
+            'ranks' => collect(),
             'clients' => self::clientsForDirectory($companyId, $user),
             'projects' => self::activeProjects(),
             'banks' => self::banks(),
@@ -100,7 +100,7 @@ final class EmployeeFormOptions
             'approval_locations' => self::approvalLocations(),
             'sssa_options' => self::sssaOptions(),
             'banks' => self::banks(),
-            'ranks' => self::activeRanks(),
+            'ranks' => collect(),
             'projects' => self::activeProjects(),
             'clients' => self::activeClients(),
             'document_types' => self::documentTypes(),
@@ -110,9 +110,7 @@ final class EmployeeFormOptions
     /**
      * Additional profile-only lookup props (ranks, document types).
      *
-     * @param  list<int>  $ensureRankIds
      * @return array{
-     *     ranks: Collection,
      *     projects: Collection,
      *     clients: Collection,
      *     document_types: Collection
@@ -121,11 +119,20 @@ final class EmployeeFormOptions
     public static function forProfile(int $companyId, Employee $employee, array $ensureRankIds = []): array
     {
         return [
-            'ranks' => self::ranksForProfile($employee, $ensureRankIds),
             'projects' => self::projectsForProfile($employee),
             'clients' => self::clientsForProfile($employee),
             'document_types' => self::documentTypes(),
         ];
+    }
+
+    /**
+     * Rank master-data options for sea service records (not employee HR rank).
+     *
+     * @return Collection<int, Rank>
+     */
+    public static function seaServiceRanks(): Collection
+    {
+        return self::activeRanks();
     }
 
     /**
@@ -215,16 +222,14 @@ final class EmployeeFormOptions
 
     private static function positionsForDirectory(int $companyId)
     {
-        return once(fn () => Position::query()
-            ->where('company_id', $companyId)
+        return once(fn () => RankPositionBridge::companyPositionsQuery($companyId)
             ->orderBy('title')
             ->get(['id', 'company_id', 'department_id', 'title']));
     }
 
     private static function positionsForCreate(int $companyId)
     {
-        return once(fn () => Position::query()
-            ->where('company_id', $companyId)
+        return once(fn () => RankPositionBridge::companyPositionsQuery($companyId)
             ->orderBy('title')
             ->get(['id', 'department_id', 'title']));
     }
@@ -382,29 +387,6 @@ final class EmployeeFormOptions
             ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']));
-    }
-
-    /**
-     * @param  list<int>  $ensureRankIds
-     */
-    private static function ranksForProfile(Employee $employee, array $ensureRankIds)
-    {
-        return Rank::query()
-            ->where(function ($query) use ($employee, $ensureRankIds): void {
-                $query->where('is_active', true);
-
-                $ensureIds = collect([$employee->rank_id, ...$ensureRankIds])
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
-
-                if ($ensureIds !== []) {
-                    $query->orWhereIn('id', $ensureIds);
-                }
-            })
-            ->orderBy('name')
-            ->get(['id', 'name']);
     }
 
     private static function projectsForProfile(Employee $employee)

@@ -50,10 +50,10 @@ async function renderOverlay(
 describe('ProjectionOverlay render component test', () => {
     it('renders current gap as range band and future gap as compact marker', async () => {
         const projection: PlanningProjectionRow = {
-            row_key: 'vessel:1|rank:1',
+            row_key: 'vessel:1|position:1',
             vessel_id: 1,
             vessel_name: 'Vessel A',
-            rank_id: 1,
+            position_id: 1,
             rank_name: 'Captain',
             required_count: 1,
             status: 'future_gap',
@@ -95,10 +95,10 @@ describe('ProjectionOverlay render component test', () => {
 
     it('renders multiple future gaps as separate compact markers', async () => {
         const projection: PlanningProjectionRow = {
-            row_key: 'vessel:1|rank:1',
+            row_key: 'vessel:1|position:1',
             vessel_id: 1,
             vessel_name: 'Vessel B',
-            rank_id: 1,
+            position_id: 1,
             rank_name: 'Chief Engineer',
             required_count: 1,
             status: 'future_gap',
@@ -135,10 +135,10 @@ describe('ProjectionOverlay render component test', () => {
 
     it('renders relief overlap as range band', async () => {
         const projection: PlanningProjectionRow = {
-            row_key: 'vessel:1|rank:1',
+            row_key: 'vessel:1|position:1',
             vessel_id: 1,
             vessel_name: 'Vessel C',
-            rank_id: 1,
+            position_id: 1,
             rank_name: 'Chief Officer',
             required_count: 1,
             status: 'overlap',

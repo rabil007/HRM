@@ -43,7 +43,7 @@ function baseForm(
         planned_end_at: '',
         remarks: '',
         vessel_id: 2,
-        rank_id: 1,
+        position_id: 1,
         client_id: null,
         planned_signoff_at: '2026-10-01',
         planned_travel_at: '',
@@ -243,7 +243,7 @@ describe('normalizeTourSignoffPayload', () => {
             if (starting_phase === 'p0') {
                 assert.equal(payload.planned_signoff_at, '');
                 assert.equal(payload.vessel_id, null);
-                assert.equal(payload.rank_id, null);
+                assert.equal(payload.position_id, null);
             } else {
                 assert.equal(payload.planned_signoff_at, '2026-12-01');
             }

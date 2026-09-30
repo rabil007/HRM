@@ -38,7 +38,7 @@ const FILTER_LABELS: Partial<Record<keyof CrewMovementHistoryFilters, string>> =
         status: 'Status',
         current_phase: 'Current phase',
         vessel_id: 'Vessel',
-        rank_id: 'Rank',
+        position_id: 'Position',
         client_id: 'Client',
         source: 'Source',
         needs_attention: 'Needs attention',
@@ -97,8 +97,8 @@ function chipValueLabel(
             }));
         }
 
-        if (key === 'rank_id') {
-            return options.ranks.map((option) => ({
+        if (key === 'position_id') {
+            return options.positions.map((option) => ({
                 value: String(option.id),
                 label: option.name,
             }));

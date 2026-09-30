@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
-use App\Models\Rank;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
@@ -18,6 +17,8 @@ use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
 use App\Support\CrewPlanning\CrewReliefDeskFilters;
 use App\Support\CrewPlanning\CrewReliefDeskQuery;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\LegacyRankFilterTranslator;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -51,8 +52,11 @@ class CrewPlanningController extends Controller
         $vesselId = $request->query('vessel_id');
         $vesselId = $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null;
 
-        $rankId = $request->query('rank_id');
-        $rankId = $rankId !== null && $rankId !== '' ? (int) $rankId : null;
+        $positionIdString = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+        $positionId = $positionIdString !== '' ? (int) $positionIdString : null;
+        $rankId = $positionId !== null
+            ? RankPositionBridge::rankIdForPosition($companyId, $positionId)
+            : null;
 
         $search = trim((string) $request->query('search', ''));
         $can = CrewPlanningPagePermissions::for($request->user());
@@ -61,14 +65,14 @@ class CrewPlanningController extends Controller
             'view' => $view,
             'filters' => [
                 'vessel_id' => $vesselId,
-                'rank_id' => $rankId,
+                'position_id' => $positionId,
                 'from' => $from,
                 'to' => $to,
                 'search' => $search,
             ],
             'today' => CarbonImmutable::today()->toDateString(),
             'vessels' => $this->activeVessels($companyId),
-            'ranks' => $this->activeRanks(),
+            'positions' => RankPositionBridge::crewPositionOptions($companyId),
             'can' => $can,
             'relief_desk' => $this->emptyReliefDesk(),
         ];

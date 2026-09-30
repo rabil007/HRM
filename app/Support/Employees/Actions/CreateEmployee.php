@@ -8,6 +8,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -21,6 +22,7 @@ final class CreateEmployee
     {
         $data = $validated;
         $data['company_id'] = $companyId;
+        $data = RankPositionBridge::syncEmployeePositionAndRank($data, $companyId);
 
         $documents = $data['documents'] ?? [];
         unset($data['documents']);

@@ -45,6 +45,7 @@ require __DIR__.'/Support/employee-profile-inertia.php';
 require __DIR__.'/Support/employee-profile-template-fixtures.php';
 require __DIR__.'/Support/employee-import-template-fixtures.php';
 require __DIR__.'/Support/crew-assignment-fixtures.php';
+require __DIR__.'/Support/rank-position-bridge-fixtures.php';
 require __DIR__.'/Support/crew-operations-fixtures.php';
 require __DIR__.'/Support/crew-operational-alert-notification-fixtures.php';
 require __DIR__.'/Support/crew-timeline-fixtures.php';

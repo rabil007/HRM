@@ -4,7 +4,7 @@ import { EmployeeProfileLink } from '@/features/organization/employees/component
 
 export function CrewEmployeeIdentity({
     employee,
-    rankName,
+    positionName,
     showAvatar = true,
     showEmployeeNo = true,
 }: {
@@ -14,7 +14,7 @@ export function CrewEmployeeIdentity({
         employee_no: string | null;
         image?: string | null;
     } | null;
-    rankName?: string | null;
+    positionName?: string | null;
     showAvatar?: boolean;
     showEmployeeNo?: boolean;
 }): ReactElement {
@@ -50,9 +50,9 @@ export function CrewEmployeeIdentity({
                         {employee.employee_no}
                     </p>
                 ) : null}
-                {rankName ? (
+                {positionName ? (
                     <p className="truncate text-[11px] text-muted-foreground/60">
-                        {rankName}
+                        {positionName}
                     </p>
                 ) : null}
             </div>

@@ -98,13 +98,15 @@ export function PlanningToolbar({
     const handleJumpToToday = (): void => {
         if (!todayIsInRange) {
             // Drop from/to so the server restores the default range for today's month
-            const { vessel_id, rank_id, search } = filters;
+            const { vessel_id, position_id, search } = filters;
             const clean: Record<string, string> = {};
-            Object.entries({ vessel_id, rank_id, search }).forEach(([k, v]) => {
-                if (v !== null && v !== undefined && v !== '') {
-                    clean[k] = String(v);
-                }
-            });
+            Object.entries({ vessel_id, position_id, search }).forEach(
+                ([k, v]) => {
+                    if (v !== null && v !== undefined && v !== '') {
+                        clean[k] = String(v);
+                    }
+                },
+            );
             router.get(planningIndex.url(), clean, {
                 preserveState: false,
                 replace: true,
@@ -154,7 +156,7 @@ export function PlanningToolbar({
     const handleRankChange = (value: string): void => {
         visit({
             ...filters,
-            rank_id: value === '' ? null : (Number(value) as number | null),
+            position_id: value === '' ? null : (Number(value) as number | null),
         });
     };
 
@@ -184,7 +186,9 @@ export function PlanningToolbar({
 
                 <AppSelect
                     value={
-                        filters.rank_id !== null ? String(filters.rank_id) : ''
+                        filters.position_id !== null
+                            ? String(filters.position_id)
+                            : ''
                     }
                     onValueChange={handleRankChange}
                     placeholder="All ranks"

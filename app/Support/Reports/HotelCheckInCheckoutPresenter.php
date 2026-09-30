@@ -4,6 +4,7 @@ namespace App\Support\Reports;
 
 use App\Models\CrewAccommodationStay;
 use App\Support\CrewAccommodation\CrewAccommodationService;
+use App\Support\Positions\CrewAssignmentPositionPresenter;
 use Carbon\Carbon;
 
 final class HotelCheckInCheckoutPresenter
@@ -61,8 +62,8 @@ final class HotelCheckInCheckoutPresenter
                 'status_label' => $stay->assignment?->status?->label() ?? '—',
                 'vessel_id' => $stay->assignment?->vessel_id !== null ? (int) $stay->assignment->vessel_id : null,
                 'vessel_name' => $stay->assignment?->vessel?->name ?? '—',
-                'rank_id' => $stay->assignment?->rank_id !== null ? (int) $stay->assignment->rank_id : null,
-                'rank_name' => $stay->assignment?->rank?->name ?? '—',
+                'position_id' => self::assignmentPositionId($stay),
+                'position_name' => self::assignmentPositionName($stay),
                 'client_id' => $stay->assignment?->client_id !== null ? (int) $stay->assignment->client_id : null,
                 'client_name' => $stay->assignment?->client?->name ?? '—',
             ],
@@ -121,5 +122,26 @@ final class HotelCheckInCheckoutPresenter
             'code' => 'unknown',
             'label' => '—',
         ];
+    }
+
+    private static function assignmentCompanyId(CrewAccommodationStay $stay): int
+    {
+        return (int) ($stay->assignment?->company_id ?? $stay->company_id);
+    }
+
+    private static function assignmentPositionId(CrewAccommodationStay $stay): ?int
+    {
+        $position = CrewAssignmentPositionPresenter::option($stay->assignment, self::assignmentCompanyId($stay));
+
+        if ($position === null || $position['id'] < 1) {
+            return null;
+        }
+
+        return (int) $position['id'];
+    }
+
+    private static function assignmentPositionName(CrewAccommodationStay $stay): string
+    {
+        return CrewAssignmentPositionPresenter::name($stay->assignment, self::assignmentCompanyId($stay)) ?? '—';
     }
 }

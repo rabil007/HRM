@@ -162,7 +162,7 @@ final class EmployeeProfilePageData
             'approval_locations' => $formOptions['approval_locations'],
             'sssa_options' => $formOptions['sssa_options'],
             'banks' => $formOptions['banks'],
-            'ranks' => $profileLookups['ranks'],
+            'ranks' => EmployeeFormOptions::seaServiceRanks(),
             'projects' => $profileLookups['projects'],
             'profile_clients' => $profileLookups['clients'],
             'employee_tabs' => $employeeTabsPayload,
@@ -233,7 +233,6 @@ final class EmployeeProfilePageData
         $profileLookups = $employee !== null
             ? EmployeeFormOptions::forProfile($companyId, $employee, [])
             : [
-                'ranks' => EmployeeFormOptions::forCreate($companyId, $authUser)['ranks'],
                 'projects' => EmployeeFormOptions::forCreate($companyId, $authUser)['projects'],
                 'clients' => EmployeeFormOptions::forCreate($companyId, $authUser)['clients'],
             ];
@@ -263,7 +262,7 @@ final class EmployeeProfilePageData
             'approval_locations' => $formOptions['approval_locations'],
             'sssa_options' => $formOptions['sssa_options'],
             'banks' => $formOptions['banks'],
-            'ranks' => $profileLookups['ranks'],
+            'ranks' => EmployeeFormOptions::seaServiceRanks(),
             'projects' => $profileLookups['projects'],
             'profile_clients' => $profileLookups['clients'],
             'employee_tabs' => $employeeTabsPayload,

@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 
 export type CrewMemberFieldsData = {
     employee_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     planned_arrival_at?: string | null;
 };
 
@@ -43,7 +43,7 @@ type CrewMemberFieldsProps = {
     } | null;
     selectedEmployeeIds?: Set<number>;
     employeeErrorKey?: string;
-    rankErrorKey?: string;
+    positionErrorKey?: string;
     arrivalErrorKey?: string;
 };
 
@@ -58,6 +58,12 @@ function lookupByEmployeeId<T>(
     return map[String(employeeId)] ?? null;
 }
 
+function positionOptions(
+    formOptions: CrewAssignmentFormOptions | CrewAssignmentCreateFormOptions,
+): Array<{ id: number; name: string }> {
+    return formOptions.positions ?? [];
+}
+
 export function CrewMemberFields({
     data,
     onChange,
@@ -70,10 +76,10 @@ export function CrewMemberFields({
     currentPhase = null,
     selectedEmployeeIds,
     employeeErrorKey = 'employee_id',
-    rankErrorKey = 'rank_id',
+    positionErrorKey = 'position_id',
     arrivalErrorKey = 'planned_arrival_at',
 }: CrewMemberFieldsProps): ReactElement {
-    const [rankDefaultedFromProfile, setRankDefaultedFromProfile] =
+    const [positionDefaultedFromProfile, setPositionDefaultedFromProfile] =
         useState(false);
 
     const resolvedEmployeeStatus =
@@ -91,10 +97,14 @@ export function CrewMemberFields({
         (employee) => employee.id === data.employee_id,
     );
 
-    const profileRankName =
-        selectedEmployee?.rank_id != null
-            ? (formOptions.ranks.find(
-                  (rank) => rank.id === selectedEmployee.rank_id,
+    const positions = positionOptions(formOptions);
+
+    const profilePositionName =
+        selectedEmployee != null &&
+        'position_id' in selectedEmployee &&
+        selectedEmployee.position_id != null
+            ? (positions.find(
+                  (position) => position.id === selectedEmployee.position_id,
               )?.name ?? null)
             : null;
 
@@ -142,24 +152,28 @@ export function CrewMemberFields({
                                 const employee = formOptions.employees.find(
                                     (item) => item.id === employeeId,
                                 );
-                                const defaultRankId = employee?.rank_id ?? null;
-                                const shouldUseProfileRank =
-                                    defaultRankId !== null &&
-                                    (rankDefaultedFromProfile ||
-                                        data.rank_id === null);
-                                const nextRankId = shouldUseProfileRank
-                                    ? defaultRankId
-                                    : rankDefaultedFromProfile
+                                const defaultPositionId =
+                                    employee != null &&
+                                    'position_id' in employee
+                                        ? (employee.position_id ?? null)
+                                        : null;
+                                const shouldUseProfilePosition =
+                                    defaultPositionId !== null &&
+                                    (positionDefaultedFromProfile ||
+                                        data.position_id === null);
+                                const nextPositionId = shouldUseProfilePosition
+                                    ? defaultPositionId
+                                    : positionDefaultedFromProfile
                                       ? null
-                                      : data.rank_id;
+                                      : data.position_id;
 
                                 onChange({
                                     ...data,
                                     employee_id: employeeId,
-                                    rank_id: nextRankId,
+                                    position_id: nextPositionId,
                                 });
-                                setRankDefaultedFromProfile(
-                                    shouldUseProfileRank,
+                                setPositionDefaultedFromProfile(
+                                    shouldUseProfilePosition,
                                 );
                             }}
                             variant="dark"
@@ -191,11 +205,11 @@ export function CrewMemberFields({
                                         </span>
                                     </p>
                                 ) : null}
-                                {profileRankName ? (
+                                {profilePositionName ? (
                                     <p>
-                                        Default rank:{' '}
+                                        Default position:{' '}
                                         <span className="font-medium text-foreground">
-                                            {profileRankName}
+                                            {profilePositionName}
                                         </span>
                                     </p>
                                 ) : null}
@@ -207,38 +221,41 @@ export function CrewMemberFields({
             )}
 
             <div className="space-y-2">
-                <Label htmlFor="crew-rank">
-                    Rank{' '}
+                <Label htmlFor="crew-position">
+                    Position{' '}
                     <span className="font-normal text-muted-foreground">
                         (optional until vessel joining)
                     </span>
                 </Label>
                 <AppSelect
-                    value={data.rank_id?.toString() ?? ''}
+                    value={data.position_id?.toString() ?? ''}
                     onValueChange={(value) => {
                         onChange({
                             ...data,
-                            rank_id: value ? Number(value) : null,
+                            position_id: value ? Number(value) : null,
                         });
-                        setRankDefaultedFromProfile(false);
+                        setPositionDefaultedFromProfile(false);
                     }}
                     variant="dark"
-                    placeholder="Select rank..."
-                    searchPlaceholder="Search rank..."
+                    placeholder="Select position..."
+                    searchPlaceholder="Search position..."
                 >
-                    <AppSelectItem value="">No rank</AppSelectItem>
-                    {formOptions.ranks.map((rank) => (
-                        <AppSelectItem key={rank.id} value={String(rank.id)}>
-                            {rank.name}
+                    <AppSelectItem value="">No position</AppSelectItem>
+                    {positions.map((position) => (
+                        <AppSelectItem
+                            key={position.id}
+                            value={String(position.id)}
+                        >
+                            {position.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>
-                {rankDefaultedFromProfile && !lockEmployee ? (
+                {positionDefaultedFromProfile && !lockEmployee ? (
                     <p className="text-xs font-medium text-sky-700 dark:text-sky-300">
                         Defaulted from employee profile
                     </p>
                 ) : null}
-                <InputError message={errors[rankErrorKey]} />
+                <InputError message={errors[positionErrorKey]} />
             </div>
 
             <div className="space-y-2">
@@ -251,14 +268,13 @@ export function CrewMemberFields({
                 <Input
                     id="crew-planned-arrival-at"
                     type="date"
-                    className="h-11"
                     value={data.planned_arrival_at ?? ''}
-                    onChange={(event) =>
+                    onChange={(event) => {
                         onChange({
                             ...data,
                             planned_arrival_at: event.target.value || null,
-                        })
-                    }
+                        });
+                    }}
                 />
                 <p className="text-xs text-muted-foreground">
                     {ARRIVAL_DATE_HELPER}
@@ -266,21 +282,21 @@ export function CrewMemberFields({
                 <InputError message={errors[arrivalErrorKey]} />
             </div>
 
-            {currentPhase ? (
-                <div className="space-y-2">
-                    <Label>Current Assignment Stage</Label>
-                    <div className="flex min-h-11 flex-col justify-center gap-1 rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+            {showOperationalStatus && currentPhase ? (
+                <div className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
+                            Current phase
+                        </p>
                         <CrewPhaseBadge
                             code={currentPhase.code}
                             label={currentPhase.label}
                             status={currentPhase.status}
                         />
-                        {crewPhaseDescription(currentPhase.code) ? (
-                            <p className="text-xs text-muted-foreground">
-                                {crewPhaseDescription(currentPhase.code)}
-                            </p>
-                        ) : null}
                     </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                        {crewPhaseDescription(currentPhase.code)}
+                    </p>
                 </div>
             ) : null}
         </div>

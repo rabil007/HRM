@@ -8,6 +8,7 @@ use App\Models\CrewAssignment;
 use App\Models\Hotel;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\LegacyRankFilterTranslator;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -173,8 +174,13 @@ final class HotelCheckInCheckoutQuery
             $query->whereHas('assignment', fn (Builder $q) => $q->where('vessel_id', (int) $this->filters->vesselId));
         }
 
-        if ($this->filters->rankId !== '') {
-            $query->whereHas('assignment', fn (Builder $q) => $q->where('rank_id', (int) $this->filters->rankId));
+        if ($this->filters->positionId !== '') {
+            $positionId = (int) $this->filters->positionId;
+            $query->whereHas('assignment', fn (Builder $q) => LegacyRankFilterTranslator::whereAssignmentMatchesPosition(
+                $q,
+                $this->companyId,
+                $positionId,
+            ));
         }
 
         if ($this->filters->clientId !== '') {
@@ -189,6 +195,7 @@ final class HotelCheckInCheckoutQuery
                     'assignment_no',
                     'employee_id',
                     'rank_id',
+                    'position_id',
                     'vessel_id',
                     'client_id',
                     'status',
@@ -196,6 +203,7 @@ final class HotelCheckInCheckoutQuery
                 ]),
                 'assignment.employee:id,company_id,employee_no,name',
                 'assignment.rank:id,name',
+                'assignment.position:id,title',
                 'assignment.vessel:id,name',
                 'assignment.client:id,name',
                 'assignment.currentPhase:id,phase_code,status',

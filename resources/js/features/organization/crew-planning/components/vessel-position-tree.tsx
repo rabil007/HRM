@@ -105,14 +105,14 @@ function CrewMemberRow({
 }
 
 function RankNode({
-    rank,
+    position: rank,
     rowKey,
     isSelected,
     search,
     onRowSelect,
     forceOpen,
 }: {
-    rank: TreeRank;
+    position: TreeRank;
     rowKey: string;
     isSelected: boolean;
     search: string;
@@ -259,12 +259,12 @@ function VesselNode({
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-0.5 bg-background/50 py-1.5 pr-2">
                 {vessel.ranks.map((rank) => {
-                    const rowKey = `vessel:${vessel.vessel_id}|rank:${rank.rank_id}`;
+                    const rowKey = `vessel:${vessel.vessel_id}|position:${rank.position_id}`;
 
                     return (
                         <RankNode
                             key={rowKey}
-                            rank={rank}
+                            position={rank}
                             rowKey={rowKey}
                             isSelected={selectedRowKey === rowKey}
                             search={search}
@@ -281,7 +281,7 @@ function VesselNode({
     );
 }
 
-export function VesselRankTree({
+export function VesselPositionTree({
     tree,
     search,
     selectedRowKey,

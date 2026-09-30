@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests\Organization\VesselManning;
 
-use App\Models\Rank;
 use App\Models\Vessel;
 use App\Models\VesselManning;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateVesselManningRequest extends FormRequest
@@ -55,14 +54,16 @@ class UpdateVesselManningRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
             'requirements' => ['present', 'array'],
             'redirect_to' => ['nullable', 'string', 'in:show'],
-            'requirements.*.rank_id' => [
+            'requirements.*.position_id' => [
                 'required',
                 'integer',
                 'distinct',
-                Rule::exists('ranks', 'id')->where(fn ($query) => $query->where('is_active', true)),
+                RankPositionBridge::existsCrewPositionRule($companyId),
             ],
             'requirements.*.required_count' => ['required', 'integer', 'min:1', 'max:9999'],
         ];
@@ -82,23 +83,27 @@ class UpdateVesselManningRequest extends FormRequest
                 $validator->errors()->add('vessel', 'Manning cannot be updated for an inactive vessel.');
             }
 
-            $rankIds = collect($this->input('requirements', []))
-                ->pluck('rank_id')
+            $companyId = (int) $this->attributes->get('current_company_id');
+
+            $positionIds = collect($this->input('requirements', []))
+                ->pluck('position_id')
                 ->filter()
                 ->map(fn ($id) => (int) $id)
                 ->all();
 
-            if ($rankIds === []) {
+            if ($positionIds === []) {
                 return;
             }
 
-            $activeRankCount = Rank::query()
-                ->whereIn('id', $rankIds)
-                ->where('is_active', true)
-                ->count();
+            foreach (array_unique($positionIds) as $positionId) {
+                if (RankPositionBridge::rankIdForPosition($companyId, $positionId) === null) {
+                    $validator->errors()->add(
+                        'requirements',
+                        'One or more selected crew positions are missing a legacy rank mapping.',
+                    );
 
-            if ($activeRankCount !== count(array_unique($rankIds))) {
-                $validator->errors()->add('requirements', 'One or more selected ranks are inactive or invalid.');
+                    break;
+                }
             }
         });
     }

@@ -2,17 +2,29 @@
 
 namespace App\Http\Requests\Organization\CrewPlanning;
 
+use App\Http\Requests\Organization\Concerns\TranslatesLegacyCrewRankToPosition;
 use App\Http\Requests\Organization\CrewPlanning\Concerns\ValidatesCrewPlanningAssignmentFields;
+use App\Support\Positions\RankPositionBridge;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateCrewPlanningAssignmentRequest extends FormRequest
 {
+    use TranslatesLegacyCrewRankToPosition;
     use ValidatesCrewPlanningAssignmentFields;
 
     public function authorize(): bool
     {
         return (bool) $this->user();
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if ($companyId > 0) {
+            $this->mergeLegacyCrewPositionFromRank($companyId);
+        }
     }
 
     /**
@@ -30,7 +42,8 @@ class UpdateCrewPlanningAssignmentRequest extends FormRequest
                     ->where('company_id', $companyId)
                     ->where('is_active', true),
             ],
-            'rank_id' => ['sometimes', 'integer', Rule::exists('ranks', 'id')],
+            'position_id' => ['sometimes', 'integer', RankPositionBridge::existsCrewPositionRule($companyId)],
+            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
             'employee_id' => $this->crewPlanningEmployeeIdMustBeAbsentRule(),
             'planned_join_date' => ['sometimes', 'date'],
             'planned_leave_date' => ['sometimes', 'date', 'after_or_equal:planned_join_date'],

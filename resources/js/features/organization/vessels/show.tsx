@@ -164,7 +164,7 @@ export function VesselShowContent({
     recent_activity,
     can_view_audit,
     back_query,
-    ranks,
+    crew_positions,
     manning_can,
     manning_health,
 }: {
@@ -176,7 +176,7 @@ export function VesselShowContent({
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     back_query?: Record<string, string>;
-    ranks?: RankOption[];
+    crew_positions?: RankOption[];
     manning_can?: VesselManningPagePermissions;
     manning_health?: VesselManningHealth | null;
 }) {
@@ -318,7 +318,7 @@ export function VesselShowContent({
                 backLabel="Back to vessels"
                 actions={
                     <div className="flex flex-wrap items-center gap-2">
-                        {ranks && hasManningWriteAccess ? (
+                        {crew_positions && hasManningWriteAccess ? (
                             <Button
                                 type="button"
                                 variant="outline"
@@ -351,7 +351,7 @@ export function VesselShowContent({
                         can={can}
                         canEditManning={Boolean(hasManningWriteAccess)}
                         onEditManning={
-                            ranks && hasManningWriteAccess
+                            crew_positions && hasManningWriteAccess
                                 ? openManningEdit
                                 : undefined
                         }
@@ -573,7 +573,7 @@ export function VesselShowContent({
                         <CardTitle className="text-base font-bold">
                             Manning requirements
                         </CardTitle>
-                        {ranks && hasManningWriteAccess ? (
+                        {crew_positions && hasManningWriteAccess ? (
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -601,7 +601,7 @@ export function VesselShowContent({
                                     vessel.
                                 </p>
                             </div>
-                            {ranks && hasManningWriteAccess ? (
+                            {crew_positions && hasManningWriteAccess ? (
                                 <button
                                     type="button"
                                     className="mt-1 text-sm font-semibold text-primary underline-offset-4 hover:underline"
@@ -629,7 +629,7 @@ export function VesselShowContent({
                                             className={dataTableCellClass()}
                                         >
                                             <span className="font-semibold text-foreground/80">
-                                                {line.rank_name}
+                                                {line.position_name}
                                             </span>
                                         </TableCell>
                                         <TableCell
@@ -692,12 +692,12 @@ export function VesselShowContent({
                 onSubmit={submitVesselEdit}
             />
 
-            {ranks && manning_can ? (
+            {crew_positions && manning_can ? (
                 <VesselManningFormSheet
                     open={manningEditOpen}
                     onOpenChange={setManningEditOpen}
                     vessel={vessel}
-                    ranks={ranks}
+                    crew_positions={crew_positions}
                     form={manningForm}
                     onSubmit={submitManning}
                 />

@@ -217,10 +217,10 @@ export function HotelCheckInCheckoutFiltersSheet({
                 />
 
                 <SelectFilter
-                    label="Rank"
-                    value={draft.rank_id}
-                    options={options.ranks}
-                    onChange={(value) => set('rank_id', value)}
+                    label="Position"
+                    value={draft.position_id}
+                    options={options.positions}
+                    onChange={(value) => set('position_id', value)}
                 />
 
                 <SelectFilter

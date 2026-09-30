@@ -50,9 +50,9 @@ trait ValidatesCrewPlanningAssignmentFields
             $assignment = $this->route('assignment');
             $existing = $assignment instanceof CrewPlanningAssignment ? $assignment : null;
 
-            $assignmentRankId = $this->has('rank_id')
-                ? $this->input('rank_id')
-                : $existing?->rank_id;
+            $assignmentPositionId = $this->has('position_id')
+                ? $this->input('position_id')
+                : ($existing?->position_id ?? $existing?->rank_id);
 
             $vesselId = $this->has('vessel_id')
                 ? $this->input('vessel_id')
@@ -76,7 +76,7 @@ trait ValidatesCrewPlanningAssignmentFields
                     ? $this->input('relieves_crew_assignment_id')
                     : $existing?->relieves_crew_assignment_id,
                 'vessel_id' => $vesselId,
-                'rank_id' => $assignmentRankId,
+                'position_id' => $assignmentPositionId,
                 'employee_id' => null,
             ], $existing, $this->user());
         });

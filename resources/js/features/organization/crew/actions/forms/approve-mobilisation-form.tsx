@@ -15,7 +15,7 @@ export function ApproveMobilisationForm({
         missing.push('Vessel is not set yet.');
     }
 
-    if (!context.rank_name) {
+    if (!context.position_name) {
         missing.push('Rank is not set yet.');
     }
 
@@ -53,7 +53,7 @@ export function ApproveMobilisationForm({
                 <div>
                     <span className="text-muted-foreground">Rank: </span>
                     <span className="font-medium">
-                        {context.rank_name ?? 'Not set'}
+                        {context.position_name ?? 'Not set'}
                     </span>
                 </div>
             </div>

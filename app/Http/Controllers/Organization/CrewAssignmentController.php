@@ -41,6 +41,8 @@ use App\Support\CrewPlanning\LinkVacantCrewPlanningSlot;
 use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\LegacyRankFilterTranslator;
+use App\Support\Positions\RankPositionBridge;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
@@ -210,7 +212,7 @@ class CrewAssignmentController extends Controller
             $planningBackQuery = array_filter([
                 'view' => $request->query('view'),
                 'vessel_id' => $request->query('vessel_id'),
-                'rank_id' => $request->query('rank_id'),
+                'position_id' => LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId) ?: $request->query('position_id'),
                 'from' => $request->query('from'),
                 'to' => $request->query('to'),
                 'search' => $request->query('search'),
@@ -220,10 +222,16 @@ class CrewAssignmentController extends Controller
         }
 
         $intent = $request->query('intent') === 'plan' ? 'plan' : ($request->query('intent') === 'start' ? 'start' : null);
+        $prefillPositionId = LegacyRankFilterTranslator::resolvePositionId(
+            $companyId,
+            $request->query('position_id'),
+            $request->query('rank_id'),
+        );
+
         $prefill = array_filter([
             'employee_id' => $request->query('employee_id') ? (int) $request->query('employee_id') : null,
             'vessel_id' => $request->query('vessel_id') ? (int) $request->query('vessel_id') : null,
-            'rank_id' => $request->query('rank_id') ? (int) $request->query('rank_id') : null,
+            'position_id' => $prefillPositionId,
             'client_id' => $request->query('client_id') ? (int) $request->query('client_id') : null,
             'planned_join_at' => $request->query('planned_join_at') ?? $request->query('from'),
             'planned_signoff_at' => $request->query('planned_signoff_at') ?? $request->query('to'),
@@ -398,6 +406,7 @@ class CrewAssignmentController extends Controller
             'company:id,timezone',
             'employee',
             'rank',
+            'position',
             'client',
             'vessel',
             'currentPhase',
@@ -470,6 +479,7 @@ class CrewAssignmentController extends Controller
         $assignment->load([
             'employee',
             'rank',
+            'position',
             'client',
             'vessel',
             'currentPhase',
@@ -493,18 +503,18 @@ class CrewAssignmentController extends Controller
             'employees' => $employeeQuery
                 ->with(['nationalityRef:id,name'])
                 ->orderBy('name')
-                ->get(['id', 'name', 'employee_no', 'rank_id', 'image', 'nationality_id'])
+                ->get(['id', 'name', 'employee_no', 'position_id', 'image', 'nationality_id'])
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
                     'employee_no' => $e->employee_no,
-                    'rank_id' => $e->rank_id,
+                    'position_id' => $e->position_id,
                     'image' => $e->image,
                     'nationality_name' => $e->nationalityRef?->name,
                 ])
                 ->values()
                 ->all(),
-            'ranks' => $this->activeRanks(),
+            'positions' => RankPositionBridge::crewPositionOptions($companyId),
             'vessels' => $this->vesselOptionsForAssignment($companyId, $assignment),
             'clients' => $this->clientOptionsForAssignment($assignment),
             'courses' => $this->activeCourses(),
@@ -566,20 +576,18 @@ class CrewAssignmentController extends Controller
      *     resolved_tour_of_duty_days: int|null
      * }>
      */
-    private function activeRanksWithTour(int $companyId): array
+    /**
+     * @return list<array{id: int, name: string, max_tour_of_duty_days: int|null, resolved_tour_of_duty_days: int|null}>
+     */
+    private function crewPositionsWithTour(int $companyId): array
     {
-        return Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'max_tour_of_duty_days'])
-            ->map(fn (Rank $rank): array => [
-                'id' => $rank->id,
-                'name' => $rank->name,
-                'max_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
-                'resolved_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
-            ])
-            ->values()
-            ->all();
+        return array_map(
+            static fn (array $position): array => [
+                ...$position,
+                'resolved_tour_of_duty_days' => $position['max_tour_of_duty_days'],
+            ],
+            RankPositionBridge::crewPositionOptions($companyId),
+        );
     }
 
     /**
@@ -713,7 +721,7 @@ class CrewAssignmentController extends Controller
     /**
      * @return array{
      *     employees: list<array<string, mixed>>,
-     *     ranks: list<array<string, mixed>>,
+     *     positions: list<array<string, mixed>>,
      *     vessels: list<array<string, mixed>>,
      *     clients: list<array<string, mixed>>,
      *     courses: list<array<string, mixed>>,
@@ -726,7 +734,7 @@ class CrewAssignmentController extends Controller
     {
         return [
             'employees' => [],
-            'ranks' => $this->activeRanksWithTour($companyId),
+            'positions' => $this->crewPositionsWithTour($companyId),
             'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
             'courses' => $this->activeCourses(),
@@ -756,12 +764,12 @@ class CrewAssignmentController extends Controller
 
         $employees = $employeeQuery
             ->orderBy('name')
-            ->get(['id', 'name', 'employee_no', 'rank_id', 'status'])
+            ->get(['id', 'name', 'employee_no', 'position_id', 'status'])
             ->map(fn (Employee $employee) => [
                 'id' => $employee->id,
                 'name' => $employee->name,
                 'employee_no' => $employee->employee_no,
-                'rank_id' => $employee->rank_id,
+                'position_id' => $employee->position_id,
                 'status' => $employee->status,
             ])
             ->values()
@@ -769,7 +777,7 @@ class CrewAssignmentController extends Controller
 
         return [
             'employees' => $employees,
-            'ranks' => $this->historicalRanksWithTour(),
+            'positions' => $this->crewPositionsWithTour($companyId),
             'vessels' => $this->historicalVessels($companyId),
             'clients' => $this->historicalClients(),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),

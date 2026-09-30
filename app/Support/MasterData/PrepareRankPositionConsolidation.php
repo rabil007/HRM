@@ -122,8 +122,8 @@ final class PrepareRankPositionConsolidation
                 $report['integrity_failures'][] = $detail;
                 $report['mapped_soft_deleted_positions']++;
                 $report['mapped_soft_deleted_details'][] = $detail;
-                // Keep the mapped id for backfill continuity, but never create a replacement.
-                $rankToPosition[(int) $rankId] = (int) $position->id;
+                // Unusable mapping: never recreate, never backfill this Position ID.
+                $skipRecreationRankIds[(int) $rankId] = true;
 
                 continue;
             }
@@ -217,6 +217,7 @@ final class PrepareRankPositionConsolidation
         $this->backfillVesselManning($companyId, $rankToPosition, $apply, $report);
         $this->backfillDocumentRequirements($companyId, $rankToPosition, $apply, $report);
         $this->assertTenantIntegrity($companyId, $apply, $report);
+        $this->appendCleanupReadiness($companyId, $report);
 
         return $report;
     }
@@ -1006,6 +1007,96 @@ final class PrepareRankPositionConsolidation
             'unmapped_reference_details' => [],
             'conflict_details' => [],
             'integrity_failures' => [],
+            'employees_rank_without_position' => 0,
+            'crew_assignments_rank_without_position' => 0,
+            'crew_planning_rank_without_position' => 0,
+            'sea_services_rank_without_position' => 0,
+            'vessel_manning_rank_without_position' => 0,
+            'document_rank_requirements_missing_position' => 0,
+            'ready_for_rank_cleanup' => false,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $report
+     */
+    private function appendCleanupReadiness(int $companyId, array &$report): void
+    {
+        $report['employees_rank_without_position'] = Employee::withTrashed()
+            ->where('company_id', $companyId)
+            ->whereNotNull('rank_id')
+            ->whereNull('position_id')
+            ->count();
+
+        $report['crew_assignments_rank_without_position'] = CrewAssignment::withTrashed()
+            ->where('company_id', $companyId)
+            ->whereNotNull('rank_id')
+            ->whereNull('position_id')
+            ->count();
+
+        $report['crew_planning_rank_without_position'] = CrewPlanningAssignment::withTrashed()
+            ->where('company_id', $companyId)
+            ->whereNotNull('rank_id')
+            ->whereNull('position_id')
+            ->count();
+
+        $report['sea_services_rank_without_position'] = EmployeeSeaService::withTrashed()
+            ->where('company_id', $companyId)
+            ->whereNotNull('rank_id')
+            ->whereNull('position_id')
+            ->count();
+
+        $report['vessel_manning_rank_without_position'] = VesselManning::withTrashed()
+            ->where('company_id', $companyId)
+            ->whereNotNull('rank_id')
+            ->whereNull('position_id')
+            ->count();
+
+        $report['document_rank_requirements_missing_position'] = 0;
+
+        $rankRequirementRows = DB::table('document_requirement_rank')
+            ->join('document_requirements', 'document_requirements.id', '=', 'document_requirement_rank.document_requirement_id')
+            ->where('document_requirements.company_id', $companyId)
+            ->select([
+                'document_requirement_rank.document_requirement_id',
+                'document_requirement_rank.rank_id',
+            ])
+            ->get();
+
+        foreach ($rankRequirementRows as $row) {
+            $mappedPositionId = RankPositionMapping::query()
+                ->where('company_id', $companyId)
+                ->where('rank_id', (int) $row->rank_id)
+                ->value('position_id');
+
+            if ($mappedPositionId === null) {
+                $report['document_rank_requirements_missing_position']++;
+
+                continue;
+            }
+
+            $hasPositionRequirement = DB::table('document_requirement_position')
+                ->where('document_requirement_id', (int) $row->document_requirement_id)
+                ->where('position_id', (int) $mappedPositionId)
+                ->exists();
+
+            if (! $hasPositionRequirement) {
+                $report['document_rank_requirements_missing_position']++;
+            }
+        }
+
+        $report['ready_for_rank_cleanup'] = ($report['integrity_failures'] ?? []) === []
+            && (int) $report['mapped_soft_deleted_positions'] === 0
+            && (int) $report['status_conflicts'] === 0
+            && (int) $report['employee_conflicts'] === 0
+            && (int) $report['tod_conflicts'] === 0
+            && (int) $report['ambiguous_normalized_matches'] === 0
+            && (int) $report['unmapped_references'] === 0
+            && (int) $report['employees_rank_without_position'] === 0
+            && (int) $report['crew_assignments_rank_without_position'] === 0
+            && (int) $report['crew_planning_rank_without_position'] === 0
+            && (int) $report['sea_services_rank_without_position'] === 0
+            && (int) $report['vessel_manning_rank_without_position'] === 0
+            && (int) $report['document_rank_requirements_missing_position'] === 0;
     }
 }

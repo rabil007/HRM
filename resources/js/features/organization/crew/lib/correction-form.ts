@@ -10,7 +10,7 @@ import type { CorrectablePhase, CrewAssignmentFormOptions } from '../types.ts';
 /** Form option list keys used by correction select fields (excludes scalar metadata). */
 export type CorrectionFormOptionListKey =
     | 'vessels'
-    | 'ranks'
+    | 'positions'
     | 'clients'
     | 'courses';
 
@@ -19,7 +19,9 @@ export const CORRECTION_SELECT_OPTIONS: Record<
     CorrectionFormOptionListKey
 > = {
     vessel_id: 'vessels',
-    rank_id: 'ranks',
+    position_id: 'positions',
+    /** Legacy correction field name; options use positions. */
+    rank_id: 'positions',
     client_id: 'clients',
     'details.course_id': 'courses',
 };

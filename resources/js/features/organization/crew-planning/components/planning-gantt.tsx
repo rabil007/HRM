@@ -275,7 +275,7 @@ export function PlanningGantt({
                                     rowKey={rank.row_key}
                                     rankName={rank.rank_name}
                                     vesselId={vessel.vessel_id}
-                                    rankId={rank.rank_id}
+                                    rankId={rank.position_id}
                                     requiredCount={rank.required_count}
                                     bars={rowBars}
                                     rangeFrom={rangeFrom}

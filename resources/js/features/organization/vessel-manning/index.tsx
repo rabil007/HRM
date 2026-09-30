@@ -93,7 +93,7 @@ export function VesselManningContent({
     pagination,
     search: initialSearch,
     filters: initialFilters,
-    ranks,
+    crew_positions,
     vessel_types,
     can,
 }: {
@@ -101,7 +101,7 @@ export function VesselManningContent({
     pagination: PaginationMeta;
     search: string;
     filters: { vessel_type_id: number | null };
-    ranks: RankOption[];
+    crew_positions: RankOption[];
     vessel_types: VesselTypeOption[];
     can: VesselManningPagePermissions;
 }) {
@@ -356,7 +356,7 @@ export function VesselManningContent({
                                                     variant="outline"
                                                     className="border-primary/20 bg-primary/5 px-2 py-0.5 font-medium text-foreground"
                                                 >
-                                                    {line.rank_name}
+                                                    {line.position_name}
                                                     <span className="ml-1 text-xs font-bold text-primary">
                                                         ×{line.required_count}
                                                     </span>
@@ -419,7 +419,7 @@ export function VesselManningContent({
                         }
                     }}
                     vessel={editingVessel}
-                    ranks={ranks}
+                    crew_positions={crew_positions}
                     form={form}
                     onSubmit={submit}
                 />

@@ -52,7 +52,7 @@ export function AssignCrewSheet({
     const handleRankChange = (value: string): void => {
         form.setData({
             ...form.data,
-            rank_id: value,
+            position_id: value,
             relieves_crew_assignment_id: '',
         });
     };
@@ -158,13 +158,13 @@ export function AssignCrewSheet({
 
                         <div className="space-y-2">
                             <Label
-                                htmlFor="rank_id"
+                                htmlFor="position_id"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Rank *
                             </Label>
                             <AppSelect
-                                value={form.data.rank_id}
+                                value={form.data.position_id}
                                 onValueChange={handleRankChange}
                                 placeholder={
                                     form.data.vessel_id === ''
@@ -183,9 +183,9 @@ export function AssignCrewSheet({
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
-                            {form.errors.rank_id ? (
+                            {form.errors.position_id ? (
                                 <div className="text-xs font-medium text-destructive">
-                                    {form.errors.rank_id}
+                                    {form.errors.position_id}
                                 </div>
                             ) : null}
                         </div>

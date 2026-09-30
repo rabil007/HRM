@@ -60,7 +60,7 @@ export type ReliefDeskMobileCardModel = {
 export function reliefDeskMobileCardModel(
     row: ReliefDeskRow,
 ): ReliefDeskMobileCardModel {
-    const vesselRank = [row.vessel?.name, row.rank?.name]
+    const vesselRank = [row.vessel?.name, row.position?.name]
         .filter((part): part is string => Boolean(part))
         .join(' · ');
 

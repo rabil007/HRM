@@ -30,7 +30,7 @@ type Props = {
     employee: { id: number; name: string; employee_no: string };
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: RankOption[];
     clients: ClientOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
     can: SeaServicePageCan;
@@ -63,7 +63,7 @@ export default function SeaServiceShow({
     employee,
     vessel_types,
     vessels,
-    ranks,
+    positions,
     clients,
     can,
     back,
@@ -262,7 +262,7 @@ export default function SeaServiceShow({
                 employeeId={employee.id}
                 vesselTypes={vessel_types}
                 vessels={vessels}
-                ranks={ranks}
+                positions={positions}
                 clients={clients}
                 editSeaService={editSeaService}
                 onEditSeaServiceChange={(row) =>
