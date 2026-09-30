@@ -277,3 +277,46 @@ test('job rejects path traversal temporary references', function () {
     expect($item->fresh()->status)->toBe(DocumentAiBatchItemStatus::Failed)
         ->and($item->fresh()->safe_error_code)->toBe('temporary_file_missing');
 });
+
+test('job reclaims processing items on a subsequent attempt after worker timeout', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $batch = createQueuedBatch($user, $company, $employee);
+    $item = $batch->items->first();
+    $item->update([
+        'status' => DocumentAiBatchItemStatus::Processing,
+        'started_at' => now()->subMinute(),
+        'attempts' => 1,
+    ]);
+
+    app()->instance(DocumentAiExtractor::class, new class implements DocumentAiExtractor
+    {
+        public function extract(UploadedFile $file): DocumentAiExtractionResult
+        {
+            return DocumentAiExtractionResult::fromDecoded([
+                'document_type' => 'passport',
+                'confidence' => .8,
+                'fields' => [
+                    'document_number' => ['value' => 'RECLAIM', 'confidence' => .8],
+                ],
+                'warnings' => [],
+            ]);
+        }
+    });
+
+    $firstAttempt = new ExtractDocumentAiBatchItemJob($item->id);
+    $firstAttempt->handle(app(DocumentAiExtractionService::class), app(DocumentAiSettings::class));
+    expect($item->fresh()->status)->toBe(DocumentAiBatchItemStatus::Processing);
+
+    $retry = new class($item->id) extends ExtractDocumentAiBatchItemJob
+    {
+        public function attempts(): int
+        {
+            return 2;
+        }
+    };
+    $retry->handle(app(DocumentAiExtractionService::class), app(DocumentAiSettings::class));
+
+    expect($item->fresh()->status)->toBe(DocumentAiBatchItemStatus::Completed)
+        ->and($item->fresh()->normalized_result_json['fields']['document_number']['value'])->toBe('RECLAIM');
+});

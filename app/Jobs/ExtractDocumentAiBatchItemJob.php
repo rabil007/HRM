@@ -36,10 +36,27 @@ class ExtractDocumentAiBatchItemJob implements ShouldQueue
             return;
         }
 
+        if (in_array($item->batch->status, [DocumentAiBatchStatus::Cancelled, DocumentAiBatchStatus::Expired], true)) {
+            return;
+        }
+
+        // Worker timeout/kill can leave the item Processing without running catch().
+        // Reclaim on a subsequent attempt so bounded retries actually re-run extraction.
         if (
-            $item->status !== DocumentAiBatchItemStatus::Queued
-            || in_array($item->batch->status, [DocumentAiBatchStatus::Cancelled, DocumentAiBatchStatus::Expired], true)
+            $item->status === DocumentAiBatchItemStatus::Processing
+            && $this->attempts() > 1
         ) {
+            DocumentAiBatchItem::query()
+                ->whereKey($item->id)
+                ->where('status', DocumentAiBatchItemStatus::Processing)
+                ->update([
+                    'status' => DocumentAiBatchItemStatus::Queued,
+                    'safe_error_code' => null,
+                ]);
+            $item->refresh();
+        }
+
+        if ($item->status !== DocumentAiBatchItemStatus::Queued) {
             return;
         }
 
