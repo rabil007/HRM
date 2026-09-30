@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Position;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
@@ -509,4 +510,96 @@ test('position attachments require view permission and active company ownership'
 
     $this->get("/organization/positions/{$position->id}/attachment/download")
         ->assertNotFound();
+});
+
+test('is_crew_position defaults to true and can be explicitly disabled', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('Crew Flag Co', 'CFC');
+    grantCompanyPermissions($user, $company, ['positions.create', 'positions.update', 'positions.view']);
+
+    $this->actingAs($user)->post('/organization/positions', [
+        'title' => 'Default Crew Position',
+        'status' => 'active',
+    ])->assertRedirect('/organization/positions');
+
+    $position = Position::query()->where('company_id', $company->id)->where('title', 'Default Crew Position')->sole();
+    expect($position->is_crew_position)->toBeTrue()
+        ->and($position->max_tour_of_duty_days)->toBeNull();
+
+    $this->put("/organization/positions/{$position->id}", [
+        'title' => 'Default Crew Position',
+        'status' => 'active',
+        'is_crew_position' => 0,
+        'max_tour_of_duty_days' => 90,
+    ])->assertRedirect('/organization/positions');
+
+    $position->refresh();
+    expect($position->is_crew_position)->toBeFalse()
+        ->and($position->max_tour_of_duty_days)->toBe(90);
+
+    $activity = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('subject_type', Position::class)
+        ->where('subject_id', $position->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull();
+
+    $changes = $activity->attribute_changes instanceof Collection
+        ? $activity->attribute_changes->toArray()
+        : (array) $activity->attribute_changes;
+
+    expect($changes['attributes'] ?? [])->toHaveKey('is_crew_position')
+        ->and($changes['attributes'] ?? [])->toHaveKey('max_tour_of_duty_days');
+});
+
+test('position tour of duty validation matches rank rules', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('TOD Validation Co', 'TVC');
+    grantCompanyPermissions($user, $company, ['positions.create']);
+
+    $this->actingAs($user)->post('/organization/positions', [
+        'title' => 'Invalid TOD',
+        'status' => 'active',
+        'max_tour_of_duty_days' => 999,
+    ])->assertSessionHasErrors('max_tour_of_duty_days');
+
+    $this->post('/organization/positions', [
+        'title' => 'Invalid TOD Zero',
+        'status' => 'active',
+        'max_tour_of_duty_days' => 0,
+    ])->assertSessionHasErrors('max_tour_of_duty_days');
+
+    $this->assertDatabaseMissing('positions', ['title' => 'Invalid TOD']);
+    $this->assertDatabaseMissing('positions', ['title' => 'Invalid TOD Zero']);
+});
+
+test('position used by crew assignment cannot be deleted', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($user, $company, ['positions.delete', 'positions.view']);
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Protected Crew Position',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+
+    $vessel = makeCrewMovementVessel('Usage Vessel', $company);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'position_id' => $position->id,
+    ]);
+
+    $this->actingAs($user)
+        ->from('/organization/positions')
+        ->delete("/organization/positions/{$position->id}")
+        ->assertRedirect('/organization/positions')
+        ->assertSessionHasErrors('record');
+
+    $this->assertDatabaseHas('positions', [
+        'id' => $position->id,
+        'deleted_at' => null,
+    ]);
 });

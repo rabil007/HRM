@@ -41,7 +41,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | Dashboard / analytics | [dashboard.md](./dashboard.md) |
 | Organization / companies / branches / tenancy structure | [architecture/context-map.md](./architecture/context-map.md), then current Organization routes/code; use `architecture/domains.md` only if broader relationships are needed |
 | Employees / profiles / contracts / bank / education / experience / training / vaccination / languages / sea service | [architecture/context-map.md](./architecture/context-map.md), then current Employee implementation; also [architecture/active-employee-visibility.md](./architecture/active-employee-visibility.md) when employee-status visibility is involved |
-| Master data / settings master data | [architecture/context-map.md](./architecture/context-map.md), then `routes/settings.php` and current Settings implementation |
+| Master data / settings master data | [architecture/context-map.md](./architecture/context-map.md), then `routes/settings.php` and current Settings implementation; for Rank→Position consolidation see [architecture/rank-position-consolidation.md](./architecture/rank-position-consolidation.md) |
 | Documents / library / employee documents / company or branch documents / templates / e-signing | [document-management.md](./document-management.md); add [document-search.md](./document-search.md) or [document-sharing.md](./document-sharing.md) only when relevant |
 | Document compliance / expiry Web Push | [document-compliance-web-push.md](./document-compliance-web-push.md) |
 | Attendance / records | [architecture/context-map.md](./architecture/context-map.md), then current Attendance routes/code |

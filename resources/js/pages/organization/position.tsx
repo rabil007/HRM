@@ -123,6 +123,8 @@ export default function PositionDetails({
         min_salary: position.min_salary ? String(position.min_salary) : '',
         max_salary: position.max_salary ? String(position.max_salary) : '',
         status: position.status ?? 'active',
+        is_crew_position: position.is_crew_position ?? true,
+        max_tour_of_duty_days: position.max_tour_of_duty_days ?? '',
         attachment: null,
         remove_attachment: false,
     });
@@ -206,6 +208,20 @@ export default function PositionDetails({
                                 <Field
                                     label="Grade"
                                     value={position.grade ?? '—'}
+                                />
+                                <Field
+                                    label="Available for Crew Operations"
+                                    value={
+                                        position.is_crew_position ? 'Yes' : 'No'
+                                    }
+                                />
+                                <Field
+                                    label="Maximum Tour of Duty Days"
+                                    value={
+                                        position.max_tour_of_duty_days != null
+                                            ? `${position.max_tour_of_duty_days} days`
+                                            : '—'
+                                    }
                                 />
                                 <Field
                                     label="Min Salary"

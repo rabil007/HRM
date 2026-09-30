@@ -83,6 +83,8 @@ export function PositionsContent({
         min_salary: '',
         max_salary: '',
         status: 'active',
+        is_crew_position: true,
+        max_tour_of_duty_days: '' as string | number,
         attachment: null,
         remove_attachment: false,
     });
@@ -99,6 +101,8 @@ export function PositionsContent({
                 min_salary: '',
                 max_salary: '',
                 status: 'active',
+                is_crew_position: true,
+                max_tour_of_duty_days: '',
                 attachment: null,
                 remove_attachment: false,
             });
@@ -121,6 +125,8 @@ export function PositionsContent({
                     ? String(position.max_salary)
                     : '',
                 status: position.status ?? 'active',
+                is_crew_position: position.is_crew_position ?? true,
+                max_tour_of_duty_days: position.max_tour_of_duty_days ?? '',
                 attachment: null,
                 remove_attachment: false,
             });

@@ -10,6 +10,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { DepartmentOption, Position, PositionFormData } from '../types';
 
@@ -296,6 +297,65 @@ export function PositionFormSheet({
                             {form.errors.attachment ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.attachment}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                            <div className="pr-4">
+                                <div className="text-sm font-semibold text-foreground">
+                                    Available for Crew Operations
+                                </div>
+                                <div className="text-xs text-muted-foreground/80">
+                                    When disabled, this Position will not be
+                                    offered in Crew Operations after Rank is
+                                    consolidated into Position.
+                                </div>
+                            </div>
+                            <Switch
+                                checked={form.data.is_crew_position}
+                                onCheckedChange={(checked) =>
+                                    form.setData('is_crew_position', checked)
+                                }
+                            />
+                        </div>
+                        {form.errors.is_crew_position ? (
+                            <div className="text-xs font-medium text-destructive">
+                                {form.errors.is_crew_position}
+                            </div>
+                        ) : null}
+
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="max_tour_of_duty_days"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Maximum Tour of Duty Days
+                            </Label>
+                            <Input
+                                id="max_tour_of_duty_days"
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={form.data.max_tour_of_duty_days}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'max_tour_of_duty_days',
+                                        e.target.value === ''
+                                            ? ''
+                                            : Number(e.target.value),
+                                    )
+                                }
+                                placeholder="e.g. 90"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
+                            />
+                            <p className="text-xs text-muted-foreground/70">
+                                Maximum days on board per contract (TOD). Leave
+                                blank if no limit applies. Range: 1–365.
+                            </p>
+                            {form.errors.max_tour_of_duty_days ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.max_tour_of_duty_days}
                                 </div>
                             ) : null}
                         </div>

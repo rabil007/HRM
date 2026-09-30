@@ -31,6 +31,7 @@ use App\Models\EmployeeVaccination;
 use App\Models\Gender;
 use App\Models\Hotel;
 use App\Models\PayrollRecord;
+use App\Models\Position;
 use App\Models\Project;
 use App\Models\Rank;
 use App\Models\RecruitmentRequirement;
@@ -327,6 +328,20 @@ final class MasterDataUsage
                     'document requirements',
                     $requirement->ranks()->getTable(),
                     'rank_id',
+                    DocumentRequirement::class,
+                    'document_requirement_id',
+                ),
+            ],
+            Position::class => [
+                MasterDataUsageSource::model('employees', Employee::class, 'position_id', 'company_id'),
+                MasterDataUsageSource::model('sea service records', EmployeeSeaService::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('crew assignments', CrewAssignment::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('crew planning', CrewPlanningAssignment::class, 'position_id', 'company_id', includeSoftDeletedReferences: true),
+                MasterDataUsageSource::model('vessel manning', VesselManning::class, 'position_id', 'company_id'),
+                MasterDataUsageSource::pivot(
+                    'document requirements',
+                    $requirement->positions()->getTable(),
+                    'position_id',
                     DocumentRequirement::class,
                     'document_requirement_id',
                 ),
