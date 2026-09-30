@@ -14,11 +14,11 @@ final class DocumentAiSettings
 
     public function modeForCompany(int $companyId): DocumentAiMode
     {
-        $mode = DocumentAiSetting::query()
+        $setting = DocumentAiSetting::query()
             ->where('company_id', $companyId)
-            ->value('mode');
+            ->first();
 
-        return DocumentAiMode::tryFrom((string) $mode) ?? DocumentAiMode::Off;
+        return $setting?->mode ?? DocumentAiMode::Off;
     }
 
     public function providerAvailable(): bool

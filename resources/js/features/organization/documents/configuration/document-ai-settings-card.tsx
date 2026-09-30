@@ -73,20 +73,27 @@ export function DocumentAiSettingsCard({
                         <Sparkles className="h-5 w-5" />
                     </div>
                     <div className="space-y-1">
-                        <CardTitle className="text-base">AI document assistance</CardTitle>
+                        <CardTitle className="text-base">
+                            AI document assistance
+                        </CardTitle>
                         <CardDescription>
                             Control whether this company can use AI-assisted document intake. Platform AI credentials stay managed by platform administrators.
                         </CardDescription>
                     </div>
                 </div>
-                <Badge variant={form.data.mode === 'off' ? 'secondary' : 'default'}>
+                <Badge
+                    variant={form.data.mode === 'off' ? 'secondary' : 'default'}
+                >
                     {modeLabels[form.data.mode]}
                 </Badge>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_1fr_auto] md:items-end">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium" htmlFor="document_ai_mode">
+                        <label
+                            className="text-sm font-medium"
+                            htmlFor="document_ai_mode"
+                        >
                             Mode
                         </label>
                         <Select

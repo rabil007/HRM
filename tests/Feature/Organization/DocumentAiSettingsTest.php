@@ -3,6 +3,7 @@
 use App\Enums\DocumentAiMode;
 use App\Models\DocumentAiSetting;
 use App\Models\User;
+use App\Support\Authorization\ApplicationPermissionRegistry;
 use App\Support\EmployeeDocuments\DocumentAiSettings;
 use Database\Seeders\PermissionsSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -128,7 +129,7 @@ test('document ai settings remain isolated to the active company', function () {
 });
 
 test('document ai permissions are part of the application permission registry', function () {
-    $names = App\Support\Authorization\ApplicationPermissionRegistry::names();
+    $names = ApplicationPermissionRegistry::names();
 
     expect($names)->toContain('documents.ai.use', 'documents.ai.manage');
 });

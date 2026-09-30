@@ -86,6 +86,7 @@ use App\Http\Controllers\Organization\CrewReliefReportController;
 use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
+use App\Http\Controllers\Organization\DocumentAiSettingsController;
 use App\Http\Controllers\Organization\DocumentBulkCompanyFilesDeleteController;
 use App\Http\Controllers\Organization\DocumentBulkEmailController;
 use App\Http\Controllers\Organization\DocumentBulkFilesDeleteController;
@@ -136,7 +137,6 @@ use App\Http\Controllers\Organization\Documents\StoreDocumentWorkflowPresetContr
 use App\Http\Controllers\Organization\Documents\SubmitDocumentRecipientRequestSignController;
 use App\Http\Controllers\Organization\Documents\UpdateDocumentSigningPresetController;
 use App\Http\Controllers\Organization\Documents\UpdateDocumentWorkflowPresetController;
-use App\Http\Controllers\Organization\DocumentAiSettingsController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\DocumentsOverviewController;
