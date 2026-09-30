@@ -73,11 +73,11 @@ export function DocumentAiSettingsCard({
                         <Sparkles className="h-5 w-5" />
                     </div>
                     <div className="space-y-1">
-                        <CardTitle className="text-base">
-                            AI document assistance
-                        </CardTitle>
+                        <CardTitle className="text-base">AI document assistance</CardTitle>
                         <CardDescription>
-                            Control whether this company can use AI-assisted document intake. Platform AI credentials stay managed by platform administrators.
+                            Control whether this company can use AI-assisted
+                            document intake. Platform AI credentials stay
+                            managed by platform administrators.
                         </CardDescription>
                     </div>
                 </div>
@@ -132,12 +132,16 @@ export function DocumentAiSettingsCard({
 
                 {providerWarning ? (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-                        The platform AI provider is not configured. This mode can be saved, but Document AI will remain unavailable until a platform administrator configures a provider.
+                        The platform AI provider is not configured. This mode
+                        can be saved, but Document AI will remain unavailable
+                        until a platform administrator configures a provider.
                     </p>
                 ) : null}
 
                 <p className="text-xs text-muted-foreground">
-                    Phase 1 only establishes the setting and permissions. Existing uploads remain unchanged; extraction is wired in the next phase.
+                    Phase 1 only establishes the setting and permissions.
+                    Existing uploads remain unchanged; extraction is wired in
+                    the next phase.
                 </p>
             </CardContent>
         </Card>
