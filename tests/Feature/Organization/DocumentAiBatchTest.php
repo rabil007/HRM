@@ -77,6 +77,6 @@ test('batch progress is private to company and initiating user', function () {
     $r = $this->actingAs($owner)->postJson(route('organization.employees.documents.ai-batches.store', $employee), ['draft_ids' => ['11111111-1111-4111-8111-111111111111'], 'files' => [UploadedFile::fake()->create('p.pdf', 100, 'application/pdf')]]);
     $batch = DocumentAiBatch::findOrFail($r->json('batch.id'));
     $other = User::factory()->create();
-    grantCompanyPermissions($other,$company,['documents.ai.use'],'other-ai');
-    $this->actingAs($other)->getJson(route('organization.documents.ai-batches.show',$batch))->assertNotFound();
+    grantCompanyPermissions($other, $company, ['documents.ai.use'], 'other-ai');
+    $this->actingAs($other)->getJson(route('organization.documents.ai-batches.show', $batch))->assertNotFound();
 });
