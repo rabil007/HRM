@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react';
+import { Copy, Sparkles } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { CreatableSelect } from '@/components/ui/creatable-select';
@@ -30,6 +30,10 @@ export type UploadDocumentDraftFormProps = {
     showField?: (fieldKey: string) => boolean;
     isFieldRequired?: (fieldKey: string) => boolean;
     isMissingRequired?: (fieldKey: string) => boolean;
+    aiAvailable?: boolean;
+    aiBusy?: boolean;
+    aiStatus?: string | null;
+    onExtractWithAi?: () => void;
 };
 
 export function UploadDocumentDraftForm({
@@ -42,6 +46,10 @@ export function UploadDocumentDraftForm({
     showField = () => true,
     isFieldRequired = () => false,
     isMissingRequired = () => false,
+    aiAvailable = false,
+    aiBusy = false,
+    aiStatus = null,
+    onExtractWithAi,
 }: UploadDocumentDraftFormProps): ReactElement {
     const {
         selectOptions: documentTypeOptions,
@@ -85,7 +93,23 @@ export function UploadDocumentDraftForm({
                         Apply to all
                     </Button>
                 ) : null}
+                {aiAvailable && onExtractWithAi ? (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 shrink-0 gap-1.5 text-xs"
+                        disabled={aiBusy}
+                        onClick={onExtractWithAi}
+                    >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        {aiBusy ? 'Extracting…' : 'Extract with AI'}
+                    </Button>
+                ) : null}
             </div>
+            {aiStatus ? (
+                <p className="text-xs text-muted-foreground">{aiStatus}</p>
+            ) : null}
 
             <div className="space-y-3">
                 {showField('document_type_id') ? (

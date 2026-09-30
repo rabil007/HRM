@@ -1089,6 +1089,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:documents.delete')
         ->name('organization.documents.files.bulk-destroy');
     Route::post('organization/employees/{employee}/documents', [EmployeeDocumentController::class, 'store'])->middleware('can:documents.upload')->name('organization.employees.documents.store');
+    Route::post('organization/employees/{employee}/documents/ai-extract', [EmployeeDocumentController::class, 'extractWithAi'])->middleware('can:documents.ai.use')->name('organization.employees.documents.ai-extract');
     Route::post('organization/employees/{employee}/documents/bulk', [EmployeeDocumentController::class, 'bulkStore'])->middleware('can:documents.upload')->name('organization.employees.documents.bulk-store');
     Route::put('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'update'])->middleware('can:documents.upload')->name('organization.employees.documents.update');
     Route::post('organization/employees/{employee}/documents/{document}/replace', [EmployeeDocumentController::class, 'replace'])->middleware('can:documents.upload')->name('organization.employees.documents.replace');

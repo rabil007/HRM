@@ -1,7 +1,7 @@
 import type { RequestPayload } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { FileText, UploadCloud } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
@@ -81,6 +81,8 @@ export function UploadDocumentDialog({
     initialDocumentTypeId = null,
     partialReloadKeys = ['documents'],
     allowEmployeeSelection = false,
+    documentAiSettings,
+    canUseDocumentAi = false,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -93,6 +95,11 @@ export function UploadDocumentDialog({
     initialDocumentTypeId?: number | null;
     partialReloadKeys?: string[];
     allowEmployeeSelection?: boolean;
+    documentAiSettings?: {
+        mode: 'off' | 'optional' | 'automatic';
+        provider_available: boolean;
+    };
+    canUseDocumentAi?: boolean;
 }): ReactElement {
     const {
         showField,
@@ -157,6 +164,8 @@ export function UploadDocumentDialog({
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] =
         useState<DocumentUploadProgressState>(null);
+    const [aiBusy, setAiBusy] = useState(false);
+    const [aiStatus, setAiStatus] = useState<string | null>(null);
 
     const uploadProgressPhase = resolveDocumentUploadPhase({
         isPreparing: isCompressingFiles,
@@ -191,12 +200,125 @@ export function UploadDocumentDialog({
         setIsCompressingFiles(false);
         setIsUploading(false);
         setUploadProgress(null);
+        setAiBusy(false);
+        setAiStatus(null);
         clearMissingRequired();
 
         if (allowEmployeeSelection) {
             setSelectedEmployee(null);
         }
     }, [allowEmployeeSelection, clearMissingRequired]);
+
+    const aiAvailable =
+        canUseDocumentAi &&
+        !!documentAiSettings &&
+        documentAiSettings.mode !== 'off' &&
+        documentAiSettings.provider_available &&
+        drafts.length === 1 &&
+        !!effectiveEmployeeId;
+
+    const extractWithAi = useCallback(async () => {
+        if (!selectedDraft || !effectiveEmployeeId || aiBusy) {
+            return;
+        }
+
+        setAiBusy(true);
+        setAiStatus('Extracting…');
+        const response = await fetch(
+            EmployeeDocumentController.extractWithAi.url({
+                employee: effectiveEmployeeId,
+            }),
+            {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') ?? '',
+                    Accept: 'application/json',
+                },
+                body: (() => {
+                    const data = new FormData();
+                    data.append('file', selectedDraft.file);
+
+                    return data;
+                })(),
+            },
+        );
+
+        if (!response.ok) {
+            setAiStatus('Extraction failed. You can continue manually.');
+            setAiBusy(false);
+
+            return;
+        }
+
+        const payload = (await response.json()) as {
+            result?: {
+                document_type?: string;
+                warnings?: string[];
+                fields?: Record<string, { value: string | null }>;
+            };
+        };
+        const fields = payload.result?.fields ?? {};
+        const patch: Partial<UploadDraftMetadata> = {};
+        const filled: string[] = [];
+
+        for (const key of [
+            'document_number',
+            'issue_date',
+            'expiry_date',
+            'title',
+        ]) {
+            const value = fields[key]?.value;
+            const field = key as keyof UploadDraftMetadata;
+
+            if (value && !selectedDraft[field]) {
+                patch[field] = value;
+                filled.push(key);
+            }
+        }
+
+        if (filled.length) {
+            setDrafts((current) =>
+                current.map((draft) =>
+                    draft.id === selectedDraft.id
+                        ? {
+                              ...draft,
+                              ...patch,
+                              ai_filled_fields: filled,
+                          }
+                        : draft,
+                ),
+            );
+        }
+
+        const warning = payload.result?.warnings?.[0];
+        setAiStatus(
+            warning ??
+                (filled.length
+                    ? 'Extracted · Needs review'
+                    : 'Extracted · No compatible values found'),
+        );
+        setAiBusy(false);
+    }, [aiBusy, effectiveEmployeeId, selectedDraft]);
+
+    useEffect(() => {
+        if (
+            aiAvailable &&
+            documentAiSettings?.mode === 'automatic' &&
+            selectedDraft &&
+            aiStatus === null
+        ) {
+            void extractWithAi();
+        }
+    }, [
+        aiAvailable,
+        aiStatus,
+        documentAiSettings?.mode,
+        extractWithAi,
+        selectedDraft,
+    ]);
 
     const addUploadFiles = useCallback(
         async (files: File[]) => {
@@ -302,7 +424,12 @@ export function UploadDocumentDialog({
     }, []);
 
     const updateDraft = useCallback(
-        (draftId: string, patch: Partial<UploadDraftMetadata>) => {
+        (
+            draftId: string,
+            patch: Partial<UploadDraftMetadata> & {
+                ai_filled_fields?: string[];
+            },
+        ) => {
             setDrafts((current) => {
                 const index = current.findIndex(
                     (draft) => draft.id === draftId,
@@ -666,6 +793,10 @@ export function UploadDocumentDialog({
                                     onChange={(patch) =>
                                         updateDraft(selectedDraft.id, patch)
                                     }
+                                    aiAvailable={aiAvailable}
+                                    aiBusy={aiBusy}
+                                    aiStatus={aiStatus}
+                                    onExtractWithAi={extractWithAi}
                                     fieldErrors={
                                         selectedDraftIndex >= 0
                                             ? fieldErrorsByIndex.get(

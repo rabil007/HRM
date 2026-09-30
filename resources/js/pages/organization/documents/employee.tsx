@@ -90,6 +90,11 @@ type Props = {
         whatsapp_template: boolean;
         whatsapp_templates: WhatsAppTemplateOption[];
         email_templates: EmailTemplateOption[];
+        ai_use: boolean;
+    };
+    document_ai_settings?: {
+        mode: 'off' | 'optional' | 'automatic';
+        provider_available: boolean;
     };
 };
 
@@ -102,6 +107,7 @@ export default function EmployeeDocumentsBrowse({
     template_fields = null,
     documents_tab_visible = true,
     can,
+    document_ai_settings,
 }: Props) {
     const { company_switcher_companies, current_company_id } = usePage()
         .props as unknown as {
@@ -770,6 +776,8 @@ export default function EmployeeDocumentsBrowse({
                 onOpenChange={setUploadOpen}
                 documentTypes={document_types}
                 templateFields={template_fields}
+                documentAiSettings={document_ai_settings}
+                canUseDocumentAi={can.ai_use}
                 {...uploadConfig.dialogProps}
             />
 

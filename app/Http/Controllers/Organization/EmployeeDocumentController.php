@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\EmployeeDocument\BulkStoreEmployeeDocumentRequest;
+use App\Http\Requests\Organization\EmployeeDocument\ExtractEmployeeDocumentRequest;
 use App\Http\Requests\Organization\EmployeeDocument\ReplaceEmployeeDocumentRequest;
 use App\Http\Requests\Organization\EmployeeDocument\StoreEmployeeDocumentRequest;
 use App\Http\Requests\Organization\EmployeeDocument\UpdateEmployeeDocumentRequest;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Services\DocumentAiExtractionService;
 use App\Support\EmployeeDocuments\DocumentAccess;
+use App\Support\EmployeeDocuments\DocumentAiSettings;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
@@ -19,9 +22,30 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class EmployeeDocumentController extends Controller
 {
+    public function extractWithAi(
+        ExtractEmployeeDocumentRequest $request,
+        Employee $employee,
+        DocumentAiSettings $settings,
+        DocumentAiExtractionService $extractor,
+    ): JsonResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        DocumentAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user(), allowSelf: false);
+
+        if (! $settings->isAvailableForCompany($companyId)) {
+            return response()->json(['message' => 'Document AI is temporarily unavailable.'], 503);
+        }
+
+        try {
+            return response()->json(['ok' => true, 'result' => $extractor->extract($request->file('file'))]);
+        } catch (Throwable) {
+            return response()->json(['message' => 'Document AI could not extract this file. You can continue manually.'], 503);
+        }
+    }
+
     public function store(
         StoreEmployeeDocumentRequest $request,
         Employee $employee,

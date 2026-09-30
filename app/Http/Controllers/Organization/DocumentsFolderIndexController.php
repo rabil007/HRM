@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Support\Documents\DocumentsLibraryQueryState;
+use App\Support\EmployeeDocuments\DocumentAiSettings;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentComplianceQuery;
 use App\Support\EmployeeDocuments\DocumentDepartmentTree;
@@ -24,6 +25,7 @@ class DocumentsFolderIndexController extends Controller
         Request $request,
         DocumentBrowseQuery $browse,
         DocumentComplianceQuery $compliance,
+        DocumentAiSettings $documentAiSettings,
     ): InertiaResponse|RedirectResponse {
         $redirect = ApplyDefaultSavedView::maybeRedirect($request, SavedViewPage::Documents);
 
@@ -65,6 +67,7 @@ class DocumentsFolderIndexController extends Controller
             'document_types' => EmployeeFormOptions::documentTypes(),
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
+            'document_ai_settings' => $documentAiSettings->propsForCompany($companyId),
             'saved_views' => SavedViewsForPage::props($request->user(), $companyId, SavedViewPage::Documents),
             'module_section' => 'library',
         ];

@@ -74,6 +74,11 @@ type Props = {
         whatsapp_template: boolean;
         whatsapp_templates: WhatsAppTemplateOption[];
         email_templates: EmailTemplateOption[];
+        ai_use: boolean;
+    };
+    document_ai_settings?: {
+        mode: 'off' | 'optional' | 'automatic';
+        provider_available: boolean;
     };
     saved_views?: SavedView[];
     module_section?: 'overview' | 'library';
@@ -114,6 +119,7 @@ export default function DocumentsIndex({
     document_types,
     countries = [],
     can,
+    document_ai_settings,
     saved_views = [],
 }: Props) {
     const indexUrl = documentsLibrary.url();
@@ -601,6 +607,8 @@ export default function DocumentsIndex({
                     allowEmployeeSelection
                     documentTypes={document_types}
                     partialReloadKeys={libraryUploadPartialReloadKeys}
+                    documentAiSettings={document_ai_settings}
+                    canUseDocumentAi={can.ai_use}
                 />
             ) : null}
         </Main>

@@ -26,6 +26,7 @@ export type UploadDraftMetadata = {
 export type UploadDraft = UploadDraftMetadata & {
     id: string;
     file: File;
+    ai_filled_fields: string[];
 };
 
 export type UploadDraftFieldErrors = Partial<
@@ -71,6 +72,7 @@ export function createUploadDraftFromFile(
         issue_date: '',
         expiry_date: '',
         notes: '',
+        ai_filled_fields: [],
     };
 }
 
