@@ -89,7 +89,8 @@ INSTRUCTIONS;
         return [
             'status' => $schema->string()
                 ->enum(['OK'])
-                ->description('Must be the word OK.'),
+                ->description('Must be the word OK.')
+                ->required(),
         ];
     }
 }
