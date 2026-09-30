@@ -30,7 +30,8 @@ export type SeaServiceListItem = {
     vessel_id: number | null;
     vessel_name: string | null;
     position_id: number | null;
-    rank_name: string | null;
+    position_name: string | null;
+    rank_name?: string | null;
     client_id: number | null;
     client_name: string | null;
     start_date: string | null;

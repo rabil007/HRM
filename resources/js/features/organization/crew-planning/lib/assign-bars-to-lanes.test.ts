@@ -221,16 +221,19 @@ describe('search highlight and row targeting helpers', () => {
         assert.equal(highlighted[0].lane, 1);
     });
 
-    it('preserves vessel/rank identity independent of lane packing', () => {
+    it('preserves vessel/position identity independent of lane packing', () => {
         const vesselId = 7;
-        const rankId = 3;
+        const positionId = 3;
         const bars = [
             bar(1, '2026-08-01', '2026-08-20'),
             bar(2, '2026-08-05', '2026-08-25'),
         ];
 
         assert.equal(laneCountForBars(bars), 2);
-        // Drop / click targets remain the original rank position, not a lane index.
-        assert.deepEqual({ vesselId, rankId }, { vesselId: 7, rankId: 3 });
+        // Drop / click targets remain the original position, not a lane index.
+        assert.deepEqual(
+            { vesselId, positionId },
+            { vesselId: 7, positionId: 3 },
+        );
     });
 });

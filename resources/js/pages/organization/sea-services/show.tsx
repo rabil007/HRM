@@ -119,7 +119,7 @@ export default function SeaServiceShow({
                         sea_service.has_assignment_phase ? (
                             <span
                                 className="inline-flex items-center rounded-lg border border-border/60 bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground"
-                                title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates."
+                                title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, position, or service dates."
                             >
                                 Managed by Crew Operations
                             </span>
@@ -164,7 +164,7 @@ export default function SeaServiceShow({
                     <div className="mt-4 rounded-xl border border-border/80 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
                         This Sea Service record is synchronized from Crew
                         Operations. Use Crew Movement Correction to change
-                        vessel, rank, or service dates.
+                        vessel, position, or service dates.
                     </div>
                 ) : null}
 
@@ -185,8 +185,8 @@ export default function SeaServiceShow({
                                 value={sea_service.vessel_type_name ?? '—'}
                             />
                             <MetadataField
-                                label="Rank"
-                                value={sea_service.rank_name ?? '—'}
+                                label="Position"
+                                value={sea_service.position_name ?? '—'}
                             />
                             <MetadataField
                                 label="Client"
@@ -239,7 +239,7 @@ export default function SeaServiceShow({
                                 value={sea_service.department_name ?? '—'}
                             />
                             <MetadataField
-                                label="Position"
+                                label="Employee position"
                                 value={sea_service.position_title ?? '—'}
                             />
                             <MetadataField

@@ -3,6 +3,7 @@
 namespace App\Support\Positions;
 
 use App\Models\CrewAssignment;
+use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\Position;
 use App\Models\RankPositionMapping;
@@ -198,7 +199,7 @@ final class RankPositionBridge
     /**
      * Eager-load Position models for legacy rank-only rows without per-row mapping queries.
      *
-     * @param  Collection<int, CrewAssignment>|Collection<int, EmployeeSeaService>  $records
+     * @param  Collection<int, CrewAssignment|CrewPlanningAssignment|EmployeeSeaService>  $records
      */
     public static function hydrateCanonicalPositions(Collection $records, int $companyId): void
     {
@@ -206,7 +207,13 @@ final class RankPositionBridge
             return;
         }
 
-        $needsHydration = $records->filter(function (CrewAssignment|EmployeeSeaService $record): bool {
+        $needsHydration = $records->filter(function (mixed $record): bool {
+            if (! $record instanceof CrewAssignment
+                && ! $record instanceof CrewPlanningAssignment
+                && ! $record instanceof EmployeeSeaService) {
+                return false;
+            }
+
             if ($record->relationLoaded('position') && $record->position !== null) {
                 return false;
             }
@@ -220,7 +227,7 @@ final class RankPositionBridge
         }
 
         $rankIds = $needsHydration
-            ->filter(fn (CrewAssignment|EmployeeSeaService $record): bool => (int) ($record->position_id ?? 0) < 1)
+            ->filter(fn (mixed $record): bool => (int) ($record->position_id ?? 0) < 1)
             ->pluck('rank_id')
             ->map(fn (mixed $id): int => (int) $id)
             ->filter(fn (int $id): bool => $id > 0)

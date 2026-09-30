@@ -78,7 +78,39 @@ New URLs, filters, and saved views store **`position_id` only**. Legacy `rank_id
 
 ---
 
-## Phase 3 — Pending (destructive Rank removal)
+## Phase 3A — Completed (final active Rank contract removal)
+
+Active application behaviour is fully Position-canonical. Rank remains only for temporary compatibility / schema pending destructive Phase 3B.
+
+### Delivered
+
+| Area | Phase 3A change |
+| --- | --- |
+| Current Crew export | Heading + mapped value use Position (`position.name`); no Rank heading |
+| Current Crew vessel sorting | Sort by hydrated `position.title` after batch hydrate |
+| Sea Service CSV/XLSX/PDF | Position heading + canonical title; legacy Rank-only rows via bridge hydrate |
+| Sea Service active UI | Position labels / `position_name`; wording uses “position” not “rank” |
+| Crew Planning Gantt | `position_id` / `position_name`, groups under `positions`, row keys `vessel:<id>|position:<id>` |
+| Crew Planning relief | `relieves_position_name` |
+| Crew Planning drag/drop | `positionId` / `positionName` |
+| Projection overlay contract | Presenter emits Position IDs/names (maps legacy Rank keys from manning query) |
+
+### Temporary compatibility retained
+
+- Physical `rank_id` columns and `ranks` / `rank_position_mappings` tables
+- Legacy `?rank_id=` URL translation and dual-write helpers
+- Historical import Rank column parsing
+- Legacy Gantt row keys `vessel:<id>|rank:<rank_id>` may still be *accepted* only where callers translate through the mapping bridge; **new** keys always use `position:`
+
+### Not done in Phase 3A (destructive Phase 3B)
+
+- Dropping `ranks` / `rank_id` / Rank pivots / mappings
+- Removing Rank master-data UI/routes/permissions
+- Converting every remaining Crew Operations alert/dashboard internal Rank key (outside Planning Gantt contract)
+
+---
+
+## Phase 3B — Pending (destructive Rank removal)
 
 Final Rank dependency audit, then remove legacy Rank schema/code/UI/routes/permissions after readiness reporting shows clean mapping coverage.
 
@@ -86,14 +118,14 @@ Final Rank dependency audit, then remove legacy Rank schema/code/UI/routes/permi
 
 | Code | Meaning |
 | --- | --- |
-| **A** | Phase 3 deletion candidate |
+| **A** | Phase 3B deletion candidate |
 | **B** | Temporary legacy compatibility (remove after dual-write/URL support ends) |
 | **C** | Historical migration / consolidation command (keep or archive) |
 | **D** | Historical activity/audit compatibility (read old Rank payloads) |
 | **E** | Tests documenting legacy compatibility |
 | **F** | Documentation |
 
-### Phase 3 checklist (inventory — do not delete in Phase 2)
+### Phase 3 checklist (inventory — do not delete until audit is clean)
 
 #### A — Deletion candidates
 
@@ -101,9 +133,16 @@ Final Rank dependency audit, then remove legacy Rank schema/code/UI/routes/permi
 - [ ] Rank routes, `RankController`, Rank permissions / seeder entries
 - [ ] `App\Models\Rank` and Rank factories once no FKs remain
 - [ ] Document Rank pivots (`document_requirement_rank`) after Position-only resolution is exclusive
-- [ ] Crew Planning Gantt `relieves_rank_name` → rename/remove in favour of Position label
-- [ ] Remaining `orWhereHas('rank')` search paths once Position search covers the same
+- [x] Crew Planning Gantt `relieves_rank_name` → `relieves_position_name` (Phase 3A)
+- [ ] Remaining `orWhereHas('rank')` search paths once Position search covers the same (Sea Service search uses Position + legacy Rank-only fallback)
 - [ ] Rank Tour-of-Duty import path / Rank-specific TOD admin if superseded by Position TOD
+- [x] Current Crew export Position conversion (Phase 3A)
+- [x] Sea Service export Position conversion (Phase 3A)
+- [x] Sea Service active UI terminology (Phase 3A)
+- [x] Crew Planning Gantt Position contract (Phase 3A)
+- [x] Crew Planning Position row keys (Phase 3A)
+- [x] Crew Planning relief Position output (Phase 3A)
+- [x] Crew Planning drag/drop Position contract (Phase 3A)
 
 #### B — Temporary legacy compatibility
 
@@ -115,6 +154,7 @@ Final Rank dependency audit, then remove legacy Rank schema/code/UI/routes/permi
 - [ ] Smart-search `rank` alias → `position_id`
 - [ ] Historical Excel import Rank label resolution via bridge
 - [ ] Correction field catalog / payloads still accepting or storing `rank_id` where dual-write requires it
+- [ ] `CrewProjectedManningQuery` internal Rank keys (Planning presenter already maps to Position)
 
 #### C — Historical migration
 
@@ -134,11 +174,11 @@ Final Rank dependency audit, then remove legacy Rank schema/code/UI/routes/permi
 
 #### F — Documentation
 
-- [ ] This file — collapse Phase 1/2 history after Phase 3 ships
+- [ ] This file — collapse Phase 1/2/3A history after Phase 3B ships
 - [ ] Domain / runbook / report docs that still mention Rank filters as primary
 - [ ] `docs/saved-views.md`, crew report docs, payroll notes referencing Rank
 
-### Verification before Phase 3 deletion
+### Verification before Phase 3B deletion
 
 ```bash
 php artisan master-data:prepare-rank-position-consolidation
@@ -147,4 +187,4 @@ php artisan test --compact tests/Feature/Positions/RankPositionPhase2Application
 php artisan test --compact tests/Feature/MasterData/RankPositionConsolidationTest.php
 ```
 
-Phase 3 must not begin until the inventory above is reviewed and dual-write consumers are retired intentionally.
+Phase 3B must not begin until a final dependency audit confirms no active Rank-canonical contracts remain.

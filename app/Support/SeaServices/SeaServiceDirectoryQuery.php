@@ -144,8 +144,15 @@ final class SeaServiceDirectoryQuery
                         ->orWhereHas('vesselType', function (Builder $vesselTypeQuery) use ($like): void {
                             $vesselTypeQuery->where('name', 'like', $like);
                         })
-                        ->orWhereHas('rank', function (Builder $rankQuery) use ($like): void {
-                            $rankQuery->where('name', 'like', $like);
+                        ->orWhereHas('position', function (Builder $positionQuery) use ($like): void {
+                            $positionQuery->where('title', 'like', $like);
+                        })
+                        ->orWhere(function (Builder $legacyRank) use ($like): void {
+                            $legacyRank
+                                ->whereNull('employee_sea_services.position_id')
+                                ->whereHas('rank', function (Builder $rankQuery) use ($like): void {
+                                    $rankQuery->where('name', 'like', $like);
+                                });
                         })
                         ->orWhereHas('client', function (Builder $clientQuery) use ($like): void {
                             $clientQuery->where('name', 'like', $like);

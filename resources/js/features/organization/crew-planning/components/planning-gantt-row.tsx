@@ -29,13 +29,13 @@ import {
 
 /** Historic single-lane default; multi-lane rows use rowHeightForLaneCount(). */
 export const ROW_HEIGHT = 48;
-export const RANK_LABEL_WIDTH = 112;
+export const POSITION_LABEL_WIDTH = 112;
 
 type Props = {
     rowKey: string;
-    rankName: string;
+    positionName: string;
     vesselId: number;
-    rankId: number;
+    positionId: number;
     requiredCount?: number;
     bars: GanttBar[];
     rangeFrom: Date;
@@ -52,12 +52,12 @@ type Props = {
     onRowClick?: (
         rowKey: string,
         vesselId: number,
-        rankId: number,
+        positionId: number,
         estimatedDate: string,
     ) => void;
     onGapClick?: (
         vesselId: number,
-        rankId: number,
+        positionId: number,
         period: PlanningProjectionPeriod,
     ) => void;
     onEditBar?: (bar: GanttBar) => void;
@@ -80,9 +80,9 @@ function todayLineStyle(
 
 export function PlanningGanttRow({
     rowKey,
-    rankName,
+    positionName,
     vesselId,
-    rankId,
+    positionId,
     requiredCount,
     bars,
     rangeFrom,
@@ -101,7 +101,7 @@ export function PlanningGanttRow({
     onEditBar,
     onDeleteBar,
 }: Props): ReactElement {
-    const dropData: RowDropData = { type: 'row', vesselId, rankId };
+    const dropData: RowDropData = { type: 'row', vesselId, positionId };
     const { setNodeRef: setDropRef, isOver } = useDroppable({
         id: `row:${rowKey}`,
         data: dropData,
@@ -117,7 +117,7 @@ export function PlanningGanttRow({
     const rowHeight = rowHeightForLaneCount(laneCount);
     const barHeight = laneBarHeight(laneCount);
     const lanedBars = assignBarsToLanes(bars);
-    const dropTarget = { vesselId, rankId };
+    const dropTarget = { vesselId, positionId };
 
     const handleBackgroundClick = (e: MouseEvent<HTMLDivElement>): void => {
         if (!can.create || !onRowClick || isDraggingBar) {
@@ -137,7 +137,7 @@ export function PlanningGanttRow({
         const rect = e.currentTarget.getBoundingClientRect();
         const ratio = (e.clientX - rect.left) / rect.width;
         const estimatedDate = dateFromPointerRatio(ratio, rangeFrom, rangeTo);
-        onRowClick(rowKey, vesselId, rankId, estimatedDate);
+        onRowClick(rowKey, vesselId, positionId, estimatedDate);
     };
 
     return (
@@ -145,7 +145,7 @@ export function PlanningGanttRow({
             ref={setDropRef}
             data-row-key={rowKey}
             data-vessel-id={vesselId}
-            data-rank-id={rankId}
+            data-position-id={positionId}
             data-lane-count={laneCount}
             className={cn(
                 'group relative flex border-b border-border/50 bg-background',
@@ -155,7 +155,7 @@ export function PlanningGanttRow({
             )}
             style={{
                 height: rowHeight,
-                minWidth: timelineMinWidth + RANK_LABEL_WIDTH,
+                minWidth: timelineMinWidth + POSITION_LABEL_WIDTH,
             }}
         >
             <div
@@ -166,10 +166,10 @@ export function PlanningGanttRow({
                     can.create &&
                         'group-hover:bg-muted/30 dark:group-hover:bg-muted/20',
                 )}
-                style={{ width: RANK_LABEL_WIDTH }}
+                style={{ width: POSITION_LABEL_WIDTH }}
             >
                 <span className="truncate text-[11px] font-medium tracking-wide text-muted-foreground/70">
-                    {rankName}
+                    {positionName}
                 </span>
                 {manningRequired != null && showCoverage ? (
                     <div className="flex min-w-0 items-center gap-1">
@@ -211,9 +211,9 @@ export function PlanningGanttRow({
                 {can.create ? (
                     <div
                         className="absolute inset-0 z-0 cursor-crosshair"
-                        title={`Click to plan assignment on ${rankName}`}
+                        title={`Click to plan assignment on ${positionName}`}
                         onClick={handleBackgroundClick}
-                        data-row-drop-target={`${dropTarget.vesselId}:${dropTarget.rankId}`}
+                        data-row-drop-target={`${dropTarget.vesselId}:${dropTarget.positionId}`}
                     />
                 ) : null}
 
@@ -227,7 +227,7 @@ export function PlanningGanttRow({
                         onGapClick={
                             onGapClick
                                 ? (period) =>
-                                      onGapClick(vesselId, rankId, period)
+                                      onGapClick(vesselId, positionId, period)
                                 : undefined
                         }
                     />

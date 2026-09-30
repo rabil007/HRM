@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { barAvatarClass } from '../lib/assignment-bar-styles';
-import type { TreeCrewMember, TreeRank, TreeVessel } from '../types';
+import type { TreeCrewMember, TreePosition, TreeVessel } from '../types';
 
 function crewInitials(name: string): string {
     return name
@@ -22,17 +22,21 @@ function matchesSearch(text: string, query: string): boolean {
     return query === '' || text.toLowerCase().includes(query);
 }
 
-function rankMatchesSearch(rank: TreeRank, query: string): boolean {
+function positionMatchesSearch(position: TreePosition, query: string): boolean {
     return (
-        matchesSearch(rank.rank_name, query) ||
-        rank.crew.some((member) => matchesSearch(member.employee_name, query))
+        matchesSearch(position.position_name, query) ||
+        position.crew.some((member) =>
+            matchesSearch(member.employee_name, query),
+        )
     );
 }
 
 function vesselMatchesSearch(vessel: TreeVessel, query: string): boolean {
     return (
         matchesSearch(vessel.vessel_name, query) ||
-        vessel.ranks.some((rank) => rankMatchesSearch(rank, query))
+        vessel.positions.some((position) =>
+            positionMatchesSearch(position, query),
+        )
     );
 }
 
@@ -104,15 +108,15 @@ function CrewMemberRow({
     );
 }
 
-function RankNode({
-    position: rank,
+function PositionNode({
+    position,
     rowKey,
     isSelected,
     search,
     onRowSelect,
     forceOpen,
 }: {
-    position: TreeRank;
+    position: TreePosition;
     rowKey: string;
     isSelected: boolean;
     search: string;
@@ -120,16 +124,19 @@ function RankNode({
     forceOpen: boolean;
 }): ReactElement | null {
     const lowerSearch = search.trim().toLowerCase();
-    const [rankOpen, setRankOpen] = useState(false);
+    const [positionOpen, setPositionOpen] = useState(false);
 
-    if (!rankMatchesSearch(rank, lowerSearch)) {
+    if (!positionMatchesSearch(position, lowerSearch)) {
         return null;
     }
 
-    const isExpanded = forceOpen || rankOpen;
+    const isExpanded = forceOpen || positionOpen;
 
     return (
-        <Collapsible open={forceOpen || rankOpen} onOpenChange={setRankOpen}>
+        <Collapsible
+            open={forceOpen || positionOpen}
+            onOpenChange={setPositionOpen}
+        >
             <div
                 className={cn(
                     'relative ml-3 border-l-2 pl-2',
@@ -150,8 +157,8 @@ function RankNode({
                             className="inline-flex w-6 shrink-0 items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none"
                             aria-label={
                                 isExpanded
-                                    ? `Collapse ${rank.rank_name}`
-                                    : `Expand ${rank.rank_name}`
+                                    ? `Collapse ${position.position_name}`
+                                    : `Expand ${position.position_name}`
                             }
                         >
                             <ChevronRight
@@ -178,20 +185,20 @@ function RankNode({
                                     : 'text-muted-foreground',
                             )}
                         >
-                            {rank.rank_name}
+                            {position.position_name}
                         </span>
                     </button>
                 </div>
 
                 <CollapsibleContent>
                     <div className="ml-2.5 space-y-0.5 border-l border-border/30 py-1 pl-3">
-                        {rank.crew.length === 0 ? (
+                        {position.crew.length === 0 ? (
                             <div className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground/55">
                                 <UserRound className="h-3 w-3 shrink-0" />
                                 <span>No crew planned in this range</span>
                             </div>
                         ) : (
-                            rank.crew.map((member, index) => (
+                            position.crew.map((member, index) => (
                                 <CrewMemberRow
                                     key={
                                         member.employee_id != null
@@ -258,20 +265,20 @@ function VesselNode({
                 </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-0.5 bg-background/50 py-1.5 pr-2">
-                {vessel.ranks.map((rank) => {
-                    const rowKey = `vessel:${vessel.vessel_id}|position:${rank.position_id}`;
+                {vessel.positions.map((position) => {
+                    const rowKey = `vessel:${vessel.vessel_id}|position:${position.position_id}`;
 
                     return (
-                        <RankNode
+                        <PositionNode
                             key={rowKey}
-                            position={rank}
+                            position={position}
                             rowKey={rowKey}
                             isSelected={selectedRowKey === rowKey}
                             search={search}
                             onRowSelect={onRowSelect}
                             forceOpen={
                                 lowerSearch !== '' &&
-                                rankMatchesSearch(rank, lowerSearch)
+                                positionMatchesSearch(position, lowerSearch)
                             }
                         />
                     );
@@ -304,7 +311,7 @@ export function VesselPositionTree({
                     <Ship className="h-5 w-5" />
                 </span>
                 <p className="text-sm font-medium text-foreground/90">
-                    No planned vessels or ranks
+                    No planned vessels or positions
                 </p>
                 <p className="max-w-[200px] text-xs leading-relaxed text-muted-foreground/70">
                     No planned assignments in this date range. Save a plan from
@@ -321,7 +328,7 @@ export function VesselPositionTree({
                     No matches
                 </p>
                 <p className="text-xs text-muted-foreground/70">
-                    Try a different vessel, rank, or crew name.
+                    Try a different vessel, position, or crew name.
                 </p>
             </div>
         );

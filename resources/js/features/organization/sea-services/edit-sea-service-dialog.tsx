@@ -150,20 +150,20 @@ export function EditSeaServiceDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Rank</Label>
+                        <Label>Position</Label>
                         <AppSelect
                             value={editForm.data.position_id}
                             onValueChange={(value) =>
                                 editForm.setData('position_id', value)
                             }
-                            placeholder="Select rank"
+                            placeholder="Select position"
                         >
-                            {positions.map((rank) => (
+                            {positions.map((position) => (
                                 <AppSelectItem
-                                    key={rank.id}
-                                    value={String(rank.id)}
+                                    key={position.id}
+                                    value={String(position.id)}
                                 >
-                                    {rank.name}
+                                    {position.name}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>

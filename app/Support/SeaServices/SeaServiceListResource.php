@@ -100,18 +100,9 @@ final class SeaServiceListResource
         );
 
         if ($resolvedId !== null) {
-            $title = $position?->title ?? $seaService->rank?->name;
-
             return [
                 'id' => $resolvedId,
-                'name' => $title !== null ? (string) $title : null,
-            ];
-        }
-
-        if ($seaService->rank !== null) {
-            return [
-                'id' => null,
-                'name' => (string) $seaService->rank->name,
+                'name' => $position?->title !== null ? (string) $position->title : null,
             ];
         }
 

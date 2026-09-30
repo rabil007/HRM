@@ -3,22 +3,22 @@
 namespace App\Exports;
 
 use App\Models\EmployeeSeaService;
-use Illuminate\Database\Eloquent\Builder;
-use Maatwebsite\Excel\Concerns\FromQuery;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 
-class SeaServicesExport implements FromQuery, WithHeadings, WithMapping, WithStrictNullComparison
+class SeaServicesExport implements FromCollection, WithHeadings, WithMapping, WithStrictNullComparison
 {
     /**
-     * @param  Builder<EmployeeSeaService>  $query
+     * @param  Collection<int, EmployeeSeaService>  $seaServices
      */
-    public function __construct(private readonly Builder $query) {}
+    public function __construct(private readonly Collection $seaServices) {}
 
-    public function query(): Builder
+    public function collection(): Collection
     {
-        return $this->query;
+        return $this->seaServices;
     }
 
     public function headings(): array
@@ -29,7 +29,7 @@ class SeaServicesExport implements FromQuery, WithHeadings, WithMapping, WithStr
             'Department',
             'Vessel',
             'Vessel Type',
-            'Rank',
+            'Position',
             'Client',
             'Start Date',
             'End Date',
@@ -47,7 +47,7 @@ class SeaServicesExport implements FromQuery, WithHeadings, WithMapping, WithStr
             $seaService->employee?->department?->name,
             $seaService->vessel?->name,
             $seaService->vesselType?->name,
-            $seaService->rank?->name,
+            $seaService->position?->title,
             $seaService->client?->name,
             optional($seaService->start_date)->toDateString(),
             optional($seaService->end_date)->toDateString(),

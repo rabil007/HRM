@@ -159,7 +159,7 @@ test('crew planning index returns relief prefill from query params', function ()
             ->component('organization/crew-planning/index')
             ->where('relief_prefill.open_create', true)
             ->where('relief_prefill.vessel_id', $vessel->id)
-            ->where('relief_prefill.rank_id', $captain->id)
+            ->where('relief_prefill.position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
             ->where('relief_prefill.relieves_crew_assignment_id', $source->id)
             ->where('relief_prefill.planned_join_date', '2026-09-15')
             ->where('relief_prefill.relieves_employee_name', 'Onboard Source')
@@ -228,8 +228,8 @@ test('planning index employees list respects role employee visibility scope', fu
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 1)
             ->where('employees.0.id', $crewMember->id)
-            ->where('employees.0.rank_id', $captain->id)
-            ->where('employees.0.rank_name', $captain->name)
+            ->where('employees.0.position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
+            ->where('employees.0.position_name', $captain->name)
         );
 });
 
@@ -358,7 +358,7 @@ test('rows are returned from planned assignments in range', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
             ->where('rows.0.vessel_name', 'Planning Vessel Alpha')
-            ->has('rows.0.ranks', 2)
+            ->has('rows.0.positions', 2)
         );
 });
 
@@ -517,10 +517,10 @@ test('rank filter narrows rows, bars, and tree', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
-            ->where('rows.0.ranks.0.rank_name', 'Captain CPL')
+            ->where('rows.0.positions.0.position_name', 'Captain CPL')
             ->has('tree', 1)
-            ->has('tree.0.ranks', 1)
-            ->where('tree.0.ranks.0.rank_name', 'Captain CPL')
+            ->has('tree.0.positions', 1)
+            ->where('tree.0.positions.0.position_name', 'Captain CPL')
         );
 });
 
@@ -634,7 +634,7 @@ test('planning users with vessel manning permission receive projection matching 
             ->where('projection.rows.0.status', $expected['items'][0]['status'])
             ->where('projection.rows.0.maximum_gap', $expected['items'][0]['maximum_gap'])
             ->has('rows', 1)
-            ->where('rows.0.ranks.0.required_count', 2)
+            ->where('rows.0.positions.0.required_count', 2)
         );
 
     $projectionRow = $response->inertiaProps('projection.rows.0');
@@ -722,14 +722,14 @@ test('projection vessel and rank filters apply on planning index', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('projection.rows', 1)
             ->where('projection.rows.0.vessel_id', $vessel->id)
-            ->where('projection.rows.0.rank_id', $captain->id)
+            ->where('projection.rows.0.position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
             ->has('rows', 1)
             ->where('rows.0.vessel_id', $vessel->id)
-            ->where('rows.0.ranks.0.rank_id', $captain->id)
+            ->where('rows.0.positions.0.position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
             ->has('tree', 1)
             ->where('tree.0.vessel_id', $vessel->id)
-            ->has('tree.0.ranks', 1)
-            ->where('tree.0.ranks.0.rank_id', $captain->id)
+            ->has('tree.0.positions', 1)
+            ->where('tree.0.positions.0.position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
         );
 });
 
@@ -790,8 +790,8 @@ test('company B projection cannot appear on company A planning page', function (
             ->where('projection.summary.positions', 1)
             ->has('bars', 0)
             ->has('tree', 1)
-            ->where('tree.0.ranks.0.required_count', 1)
-            ->where('tree.0.ranks.0.crew', [])
+            ->where('tree.0.positions.0.required_count', 1)
+            ->where('tree.0.positions.0.crew', [])
         );
 });
 
@@ -825,15 +825,15 @@ test('configured vessel rank with projected gap and zero planning still appears 
             ->has('bars', 0)
             ->has('rows', 1)
             ->where('rows.0.vessel_id', $vessel->id)
-            ->where('rows.0.ranks.0.rank_id', $captain->id)
-            ->where('rows.0.ranks.0.required_count', 2)
-            ->where('rows.0.ranks.0.row_key', "vessel:{$vessel->id}|rank:{$captain->id}")
+            ->where('rows.0.positions.0.position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
+            ->where('rows.0.positions.0.required_count', 2)
+            ->where('rows.0.positions.0.row_key', 'vessel:'.$vessel->id.'|position:'.RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
             ->has('tree', 1)
             ->where('tree.0.vessel_id', $vessel->id)
-            ->has('tree.0.ranks', 1)
-            ->where('tree.0.ranks.0.rank_id', $captain->id)
-            ->where('tree.0.ranks.0.required_count', 2)
-            ->where('tree.0.ranks.0.crew', [])
+            ->has('tree.0.positions', 1)
+            ->where('tree.0.positions.0.position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))
+            ->where('tree.0.positions.0.required_count', 2)
+            ->where('tree.0.positions.0.crew', [])
             ->where('projection.rows.0.status', CrewProjectedManningStatus::CurrentGap->value)
             ->where('projection.rows.0.maximum_gap', 2)
         );
@@ -849,6 +849,9 @@ test('vessel manning only positions appear in left tree with empty crew', functi
     ] = makeCrewPlanningFixtures();
 
     $welder->update(['name' => 'Welder CPL']);
+    $welderPosition = ensureRankMappedPosition($company, $welder);
+    $welderPosition->update(['title' => 'Welder CPL']);
+    RankPositionBridge::clearCache();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
@@ -875,17 +878,17 @@ test('vessel manning only positions appear in left tree with empty crew', functi
         ]))
         ->assertOk();
 
-    $treeRanks = collect($response->inertiaProps('tree.0.ranks'));
-    $rowRanks = collect($response->inertiaProps('rows.0.ranks'));
+    $treePositions = collect($response->inertiaProps('tree.0.positions'));
+    $rowPositions = collect($response->inertiaProps('rows.0.positions'));
 
     expect($response->inertiaProps('tree'))->toHaveCount(1)
         ->and($response->inertiaProps('tree.0.vessel_id'))->toBe($vessel->id)
-        ->and($treeRanks)->toHaveCount(2)
-        ->and($treeRanks->pluck('rank_name')->all())->toBe(['Captain CPL', 'Welder CPL'])
-        ->and($treeRanks->every(fn (array $rank): bool => $rank['crew'] === []))->toBeTrue()
-        ->and($treeRanks->firstWhere('rank_id', $captain->id)['required_count'])->toBe(1)
-        ->and($treeRanks->firstWhere('rank_id', $welder->id)['required_count'])->toBe(2)
-        ->and($rowRanks)->toHaveCount(2)
+        ->and($treePositions)->toHaveCount(2)
+        ->and($treePositions->pluck('position_name')->all())->toBe(['Captain CPL', 'Welder CPL'])
+        ->and($treePositions->every(fn (array $rank): bool => $rank['crew'] === []))->toBeTrue()
+        ->and($treePositions->firstWhere('position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $captain->id))['required_count'])->toBe(1)
+        ->and($treePositions->firstWhere('position_id', RankPositionBridge::positionIdForRank((int) $company->id, (int) $welder->id))['required_count'])->toBe(2)
+        ->and($rowPositions)->toHaveCount(2)
         ->and($response->inertiaProps('bars'))->toHaveCount(0);
 });
 
@@ -930,15 +933,15 @@ test('existing planning row and projection position do not duplicate vessel rank
         ]))
         ->assertOk();
 
-    $ranks = collect($response->inertiaProps('rows.0.ranks'));
-    $treeRanks = collect($response->inertiaProps('tree.0.ranks'));
-    $crew = $treeRanks->first()['crew'];
+    $positions = collect($response->inertiaProps('rows.0.positions'));
+    $treePositions = collect($response->inertiaProps('tree.0.positions'));
+    $crew = $treePositions->first()['crew'];
 
-    expect($ranks)->toHaveCount(1)
-        ->and($ranks->first()['required_count'])->toBe(3)
+    expect($positions)->toHaveCount(1)
+        ->and($positions->first()['required_count'])->toBe(3)
         ->and($response->inertiaProps('bars'))->toHaveCount(1)
-        ->and($treeRanks)->toHaveCount(1)
-        ->and($treeRanks->first()['required_count'])->toBe(3)
+        ->and($treePositions)->toHaveCount(1)
+        ->and($treePositions->first()['required_count'])->toBe(3)
         ->and($crew)->toHaveCount(1)
         ->and($crew[0]['employee_id'])->toBe($employee->id)
         ->and($crew[0]['employee_name'])->toBe($employee->name);

@@ -141,6 +141,7 @@ class CrewPlanningController extends Controller
                     $vesselId,
                     $positionId !== null ? RankPositionBridge::rankIdForPosition($companyId, $positionId) : null,
                 ),
+                $companyId,
             );
             $projectionPositions = $projection['rows'];
         }
@@ -244,7 +245,7 @@ class CrewPlanningController extends Controller
     /**
      * @return array{
      *     vessel_id: int|null,
-     *     rank_id: int|null,
+     *     position_id: int|null,
      *     relieves_crew_assignment_id: int|null,
      *     planned_join_date: string|null,
      *     open_create: bool,
@@ -261,8 +262,8 @@ class CrewPlanningController extends Controller
         $vesselIdRaw = $request->query('vessel_id');
         $vesselId = $vesselIdRaw !== null && $vesselIdRaw !== '' ? (int) $vesselIdRaw : null;
 
-        $rankIdRaw = $request->query('rank_id');
-        $rankId = $rankIdRaw !== null && $rankIdRaw !== '' ? (int) $rankIdRaw : null;
+        $positionIdString = LegacyRankFilterTranslator::positionIdFromRequest($request, $companyId);
+        $positionId = $positionIdString !== '' ? (int) $positionIdString : null;
 
         $plannedJoinDate = $this->nullableDate($request->query('planned_join_date'));
         $planningAssignmentIdRaw = $request->query('planning_assignment_id');
@@ -291,7 +292,11 @@ class CrewPlanningController extends Controller
                 );
 
                 $vesselId ??= $plan->vessel_id !== null ? (int) $plan->vessel_id : null;
-                $rankId ??= $plan->rank_id !== null ? (int) $plan->rank_id : null;
+                $positionId ??= RankPositionBridge::resolveCrewAssignmentPositionId(
+                    $companyId,
+                    $plan->position_id !== null ? (int) $plan->position_id : null,
+                    $plan->rank_id !== null ? (int) $plan->rank_id : null,
+                );
             }
         }
 
@@ -307,7 +312,11 @@ class CrewPlanningController extends Controller
             } else {
                 $relievesEmployeeName = $source->employee?->name;
                 $vesselId ??= $source->vessel_id !== null ? (int) $source->vessel_id : null;
-                $rankId ??= $source->rank_id !== null ? (int) $source->rank_id : null;
+                $positionId ??= RankPositionBridge::resolveCrewAssignmentPositionId(
+                    $companyId,
+                    $source->position_id !== null ? (int) $source->position_id : null,
+                    $source->rank_id !== null ? (int) $source->rank_id : null,
+                );
                 $plannedJoinDate ??= $source->planned_signoff_at?->toDateString();
             }
         }
@@ -318,7 +327,7 @@ class CrewPlanningController extends Controller
 
         return [
             'vessel_id' => $vesselId,
-            'rank_id' => $rankId,
+            'position_id' => $positionId,
             'relieves_crew_assignment_id' => $relievesId,
             'planned_join_date' => $plannedJoinDate,
             'open_create' => $openCreate,

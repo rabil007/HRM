@@ -108,20 +108,20 @@ final class CurrentCrewVesselQuery
         CurrentCrewQuery::eagerLoadForList($query);
 
         $assignments = $query
-            ->with(['vessel', 'rank', 'employee'])
-            ->get()
-            ->sortBy([
-                fn (CrewAssignment $assignment): string => (string) ($assignment->vessel?->name ?? ''),
-                fn (CrewAssignment $assignment): string => (string) ($assignment->rank?->name ?? ''),
-                fn (CrewAssignment $assignment): string => (string) ($assignment->employee?->name ?? ''),
-            ])
-            ->values();
+            ->with(['vessel', 'position', 'employee'])
+            ->get();
 
         RankPositionBridge::hydrateCanonicalPositions($assignments, $companyId);
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
         CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
-        return $assignments;
+        return $assignments
+            ->sortBy([
+                fn (CrewAssignment $assignment): string => (string) ($assignment->vessel?->name ?? ''),
+                fn (CrewAssignment $assignment): string => (string) ($assignment->position?->title ?? ''),
+                fn (CrewAssignment $assignment): string => (string) ($assignment->employee?->name ?? ''),
+            ])
+            ->values();
     }
 
     /**
@@ -147,7 +147,7 @@ final class CurrentCrewVesselQuery
 
         return $assignments
             ->sortBy([
-                fn (CrewAssignment $assignment): string => (string) ($assignment->rank?->name ?? ''),
+                fn (CrewAssignment $assignment): string => (string) ($assignment->position?->title ?? ''),
                 fn (CrewAssignment $assignment): string => (string) ($assignment->employee?->name ?? ''),
             ])
             ->groupBy(fn (CrewAssignment $assignment): int => (int) $assignment->vessel_id);

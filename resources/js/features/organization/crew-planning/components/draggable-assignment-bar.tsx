@@ -230,7 +230,7 @@ export function DraggableAssignmentBar({
                     data-planning-bar={bar.id}
                     role="button"
                     tabIndex={0}
-                    aria-label={`${bar.employee_name}${bar.rank_name ? `, ${bar.rank_name}` : ''}`}
+                    aria-label={`${bar.employee_name}${bar.position_name ? `, ${bar.position_name}` : ''}`}
                     className={cn(
                         'absolute overflow-hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                         surfaceClass,

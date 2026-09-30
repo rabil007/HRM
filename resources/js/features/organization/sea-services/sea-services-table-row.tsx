@@ -96,7 +96,7 @@ export function SeaServicesTableRow({
                 ) : null}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                {seaService.rank_name || '—'}
+                {seaService.position_name || '—'}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 {seaService.client_name || '—'}
@@ -123,7 +123,7 @@ export function SeaServicesTableRow({
                     {seaService.has_assignment_phase ? (
                         <span
                             className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-muted-foreground"
-                            title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates."
+                            title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, position, or service dates."
                         >
                             Managed by Crew Operations
                         </span>

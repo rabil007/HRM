@@ -1,17 +1,17 @@
 import type { CrewMobilisationReadiness } from '@/features/organization/crew/types';
 import type { PaginationMeta } from '@/types/pagination';
 
-export type GanttRankRow = {
+export type GanttPositionRow = {
     row_key: string;
     position_id: number;
-    rank_name: string;
+    position_name: string;
     required_count: number;
 };
 
 export type GanttVesselGroup = {
     vessel_id: number;
     vessel_name: string;
-    ranks: GanttRankRow[];
+    positions: GanttPositionRow[];
 };
 
 export type PlanningKind =
@@ -31,7 +31,7 @@ export type GanttBar = {
     planned_leave_date: string | null;
     is_open_ended: boolean;
     total_days: number;
-    rank_name: string | null;
+    position_name: string | null;
     vessel_name: string | null;
     notes: string | null;
     crew_assignment_id: number | null;
@@ -39,7 +39,7 @@ export type GanttBar = {
     relieves_employee_name: string | null;
     relieves_assignment_no?: string | null;
     relieves_vessel_name?: string | null;
-    relieves_rank_name?: string | null;
+    relieves_position_name?: string | null;
     relieves_planned_signoff_at?: string | null;
     is_assigned: boolean;
     planning_kind?: PlanningKind;
@@ -63,9 +63,9 @@ export type TreeCrewMember = {
     relieves_employee_name: string | null;
 };
 
-export type TreeRank = {
+export type TreePosition = {
     position_id: number;
-    rank_name: string;
+    position_name: string;
     required_count: number;
     crew: TreeCrewMember[];
 };
@@ -73,7 +73,7 @@ export type TreeRank = {
 export type TreeVessel = {
     vessel_id: number;
     vessel_name: string;
-    ranks: TreeRank[];
+    positions: TreePosition[];
 };
 
 export type CrewPlanningView = 'planning' | 'onboard-vessels' | 'relief';
@@ -92,7 +92,7 @@ export type PlanningPoolEmployee = {
     id: number;
     name: string;
     position_id: number;
-    rank_name: string;
+    position_name: string;
 };
 
 export type PlanningDepartmentNode = {
@@ -239,7 +239,7 @@ export type PlanningProjectionRow = {
     vessel_id: number;
     vessel_name: string;
     position_id: number;
-    rank_name: string;
+    position_name: string;
     required_count: number;
     status: PlanningProjectionStatus;
     next_gap_date: string | null;
@@ -300,7 +300,11 @@ export type CrewDragData = {
     type: 'crew';
     employeeId: number;
     employeeName: string;
-    rankId: number;
-    rankName: string;
+    positionId: number;
+    positionName: string;
 };
-export type RowDropData = { type: 'row'; vesselId: number; rankId: number };
+export type RowDropData = {
+    type: 'row';
+    vesselId: number;
+    positionId: number;
+};

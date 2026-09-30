@@ -27,11 +27,11 @@ import { index as planningIndex } from '@/routes/organization/crew-planning';
 export function ReliefDesk({
     desk,
     vessels,
-    ranks,
+    positions,
 }: {
     desk: ReliefDeskPayload;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
 }) {
     const {
         searchInput,
@@ -56,7 +56,7 @@ export function ReliefDesk({
             focus: desk.filters.focus,
         },
         pagination: desk.pagination,
-        only: ['view', 'relief_desk', 'filters', 'can', 'vessels', 'ranks'],
+        only: ['view', 'relief_desk', 'filters', 'can', 'vessels', 'positions'],
     });
 
     const applyDeskFilters = (
@@ -100,7 +100,7 @@ export function ReliefDesk({
                     onSearchChange={onSearchChange}
                     filters={desk.filters}
                     vessels={vessels}
-                    ranks={ranks}
+                    positions={positions}
                     filterOptions={desk.filter_options}
                     onFilterChange={(next) => applyDeskFilters(next)}
                     onReset={resetFilters}
@@ -135,7 +135,9 @@ export function ReliefDesk({
                         >
                             <TableHeader>
                                 <DataTableHeaderRow>
-                                    <DataTableHead>Vessel / Rank</DataTableHead>
+                                    <DataTableHead>
+                                        Vessel / Position
+                                    </DataTableHead>
                                     <DataTableHead>Current Crew</DataTableHead>
                                     <DataTableHead>
                                         Planned Sign-Off

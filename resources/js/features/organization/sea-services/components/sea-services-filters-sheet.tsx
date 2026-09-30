@@ -105,21 +105,24 @@ export function SeaServicesFiltersSheet({
 
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                    Rank
+                    Position
                 </Label>
                 <AppSelect
                     value={value.position_id}
-                    onValueChange={(rankId) =>
-                        onChange({ ...value, position_id: rankId })
+                    onValueChange={(positionId) =>
+                        onChange({ ...value, position_id: positionId })
                     }
                     variant="dark"
                     placeholder="All positions"
-                    searchPlaceholder="Search rank..."
+                    searchPlaceholder="Search position..."
                 >
                     <AppSelectItem value="">All positions</AppSelectItem>
-                    {positions.map((rank) => (
-                        <AppSelectItem key={rank.id} value={String(rank.id)}>
-                            {rank.name}
+                    {positions.map((position) => (
+                        <AppSelectItem
+                            key={position.id}
+                            value={String(position.id)}
+                        >
+                            {position.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>

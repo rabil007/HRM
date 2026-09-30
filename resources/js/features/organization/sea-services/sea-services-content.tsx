@@ -216,7 +216,7 @@ export function SeaServicesContent({
             />
 
             <SearchBar
-                placeholder="Search employee, vessel, rank or client..."
+                placeholder="Search employee, vessel, position or client..."
                 value={searchInput}
                 onChange={onSearchChange}
                 right={
@@ -293,7 +293,7 @@ export function SeaServicesContent({
                                     Vessel
                                 </DataTableHead>
                                 <DataTableHead className="w-[140px]">
-                                    Rank
+                                    Position
                                 </DataTableHead>
                                 <DataTableHead className="w-[140px]">
                                     Client

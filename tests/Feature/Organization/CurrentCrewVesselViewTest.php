@@ -312,10 +312,17 @@ test('vessel view export includes filtered current p4 crew beyond the current pa
     Excel::assertDownloaded(
         'current-crew-onboard-vessels-'.now()->toDateString().'.xlsx',
         function (CurrentCrewOnboardVesselsExport $export) use ($p3Employee): bool {
+            $headings = $export->headings();
+            $first = $export->collection()->first();
+            $mapped = $first !== null ? $export->map($first) : [];
+
             return $export->collection()->count() === 4
                 && $export->collection()->doesntContain('employee_id', $p3Employee->id)
-                && in_array('Vessel', $export->headings(), true)
-                && in_array('Days Onboard', $export->headings(), true);
+                && in_array('Vessel', $headings, true)
+                && in_array('Position', $headings, true)
+                && ! in_array('Rank', $headings, true)
+                && in_array('Days Onboard', $headings, true)
+                && filled($mapped[4] ?? null);
         },
     );
 });

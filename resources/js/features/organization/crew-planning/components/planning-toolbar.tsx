@@ -27,7 +27,7 @@ import type {
 type Props = {
     filters: PlanningFilters;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
     onSearchChange: (value: string) => void;
     searchInput: string;
     can: PlanningPagePermissions;
@@ -82,7 +82,7 @@ const ZOOM_LABELS: Record<ZoomLevel, string> = {
 export function PlanningToolbar({
     filters,
     vessels,
-    ranks,
+    positions,
     onSearchChange,
     searchInput,
     can,
@@ -153,7 +153,7 @@ export function PlanningToolbar({
         });
     };
 
-    const handleRankChange = (value: string): void => {
+    const handlePositionChange = (value: string): void => {
         visit({
             ...filters,
             position_id: value === '' ? null : (Number(value) as number | null),
@@ -190,14 +190,14 @@ export function PlanningToolbar({
                             ? String(filters.position_id)
                             : ''
                     }
-                    onValueChange={handleRankChange}
-                    placeholder="All ranks"
-                    searchPlaceholder="Search ranks..."
+                    onValueChange={handlePositionChange}
+                    placeholder="All positions"
+                    searchPlaceholder="Search positions..."
                     size="sm"
                     className="w-40"
                 >
-                    <AppSelectItem value="">All ranks</AppSelectItem>
-                    {ranks.map((r) => (
+                    <AppSelectItem value="">All positions</AppSelectItem>
+                    {positions.map((r) => (
                         <AppSelectItem key={r.id} value={String(r.id)}>
                             {r.name}
                         </AppSelectItem>

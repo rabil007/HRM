@@ -40,7 +40,7 @@ export function ReadOnlyAssignmentBar({
                     data-planning-bar={bar.id}
                     role="button"
                     tabIndex={0}
-                    aria-label={`${bar.employee_name}${bar.rank_name ? `, ${bar.rank_name}` : ''}`}
+                    aria-label={`${bar.employee_name}${bar.position_name ? `, ${bar.position_name}` : ''}`}
                     className={cn(
                         'absolute flex items-center gap-1.5 overflow-hidden rounded-md px-2 text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                         barSurfaceClass(bar),

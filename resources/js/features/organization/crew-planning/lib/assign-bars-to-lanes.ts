@@ -1,5 +1,5 @@
 /**
- * Compact adaptive rank-row sizing for multi-lane Gantt bars.
+ * Compact adaptive position-row sizing for multi-lane Gantt bars.
  * 1 lane stays near the historic 48px row; extra lanes add ~28px each.
  */
 export const GANTT_ROW_PAD_Y = 6;
@@ -112,7 +112,7 @@ export function rowHeightForLaneCount(laneCount: number): number {
     );
 }
 
-/** CSS top offset for a lane within an expanded rank row. */
+/** CSS top offset for a lane within an expanded position row. */
 export function laneTopOffset(lane: number, laneCount: number): number {
     if (laneCount <= 1) {
         return GANTT_ROW_PAD_Y;

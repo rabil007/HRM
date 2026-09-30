@@ -83,7 +83,7 @@ type Props = {
     filters: PlanningFilters;
     today: string;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
     employees: PlanningPoolEmployee[];
     can: PlanningPagePermissions;
     projection?: PlanningProjection | null;
@@ -143,7 +143,7 @@ export function CrewPlanningContent({
     filters,
     today,
     vessels,
-    ranks,
+    positions,
     employees,
     can,
     projection = null,
@@ -268,11 +268,11 @@ export function CrewPlanningContent({
     const openCreateForRow = useCallback(
         (
             vesselId: number,
-            rankId: number,
+            positionId: number,
             estimatedDate: string,
             employeeId = '',
         ): void => {
-            const rowKey = `vessel:${vesselId}|position:${rankId}`;
+            const rowKey = `vessel:${vesselId}|position:${positionId}`;
             const relieved = findRelievedAssignment(
                 bars,
                 rowKey,
@@ -281,7 +281,7 @@ export function CrewPlanningContent({
 
             openCreate(
                 String(vesselId),
-                String(rankId),
+                String(positionId),
                 relieved?.plannedLeaveDate ?? estimatedDate,
                 employeeId,
                 relieved ? String(relieved.crewAssignmentId) : '',
@@ -406,10 +406,10 @@ export function CrewPlanningContent({
         (
             _rowKey: string,
             vesselId: number,
-            rankId: number,
+            positionId: number,
             estimatedDate: string,
         ): void => {
-            openCreateForRow(vesselId, rankId, estimatedDate);
+            openCreateForRow(vesselId, positionId, estimatedDate);
         },
         [openCreateForRow],
     );
@@ -417,10 +417,10 @@ export function CrewPlanningContent({
     const handleGapClick = useCallback(
         (
             vesselId: number,
-            rankId: number,
+            positionId: number,
             period: PlanningProjectionPeriod,
         ): void => {
-            openCreateForRow(vesselId, rankId, period.from);
+            openCreateForRow(vesselId, positionId, period.from);
         },
         [openCreateForRow],
     );
@@ -442,20 +442,20 @@ export function CrewPlanningContent({
                 return;
             }
 
-            if (activeData.rankId !== overData.rankId) {
-                const rowRank = ranks.find(
-                    (rank) => rank.id === overData.rankId,
+            if (activeData.positionId !== overData.positionId) {
+                const rowPosition = positions.find(
+                    (position) => position.id === overData.positionId,
                 );
 
                 toast.error(
-                    `${activeData.employeeName} is a ${activeData.rankName} and cannot be assigned to ${rowRank?.name ?? 'this rank'}.`,
+                    `${activeData.employeeName} is a ${activeData.positionName} and cannot be assigned to ${rowPosition?.name ?? 'this position'}.`,
                 );
 
                 return;
             }
 
             const timelineEl = document.querySelector(
-                `[data-row-key="vessel:${overData.vesselId}|position:${overData.rankId}"] [data-timeline-container]`,
+                `[data-row-key="vessel:${overData.vesselId}|position:${overData.positionId}"] [data-timeline-container]`,
             ) as HTMLElement | null;
             let estimatedDate = today;
 
@@ -471,12 +471,12 @@ export function CrewPlanningContent({
 
             openCreateForRow(
                 overData.vesselId,
-                overData.rankId,
+                overData.positionId,
                 estimatedDate,
                 String(activeData.employeeId),
             );
         },
-        [openCreateForRow, today, filters.from, filters.to, ranks],
+        [openCreateForRow, today, filters.from, filters.to, positions],
     );
 
     if (currentView === 'relief' && reliefDesk) {
@@ -498,7 +498,11 @@ export function CrewPlanningContent({
                         }
                     />
                 </div>
-                <ReliefDesk desk={reliefDesk} vessels={vessels} ranks={ranks} />
+                <ReliefDesk
+                    desk={reliefDesk}
+                    vessels={vessels}
+                    positions={positions}
+                />
             </Main>
         );
     }
@@ -539,7 +543,7 @@ export function CrewPlanningContent({
                 <OnboardPlanningFilters
                     filters={filters}
                     vessels={vessels}
-                    ranks={ranks}
+                    positions={positions}
                     perPage={onboardPagination.per_page}
                 />
 
@@ -656,7 +660,7 @@ export function CrewPlanningContent({
                     <PlanningToolbar
                         filters={filters}
                         vessels={vessels}
-                        ranks={ranks}
+                        positions={positions}
                         searchInput={searchInput}
                         onSearchChange={setSearchInput}
                         can={can}
@@ -676,10 +680,10 @@ export function CrewPlanningContent({
                             <div className="flex w-64 shrink-0 flex-col overflow-hidden border-r bg-muted/10">
                                 <div className="border-b border-border/60 bg-background/80 px-3 py-2.5">
                                     <p className="text-[10px] font-bold tracking-widest text-muted-foreground/70 uppercase">
-                                        Vessels &amp; Ranks
+                                        Vessels &amp; Positions
                                     </p>
                                     <p className="mt-0.5 text-[11px] text-muted-foreground/55">
-                                        Select a vessel or rank to focus the
+                                        Select a vessel or position to focus the
                                         timeline
                                     </p>
                                 </div>
@@ -733,13 +737,13 @@ export function CrewPlanningContent({
                             )}
                             aria-label={
                                 sidebarOpen
-                                    ? 'Hide vessels and ranks panel'
-                                    : 'Show vessels and ranks panel'
+                                    ? 'Hide vessels and positions panel'
+                                    : 'Show vessels and positions panel'
                             }
                             title={
                                 sidebarOpen
-                                    ? 'Hide vessels & ranks panel'
-                                    : 'Show vessels & ranks panel'
+                                    ? 'Hide vessels & positions panel'
+                                    : 'Show vessels & positions panel'
                             }
                         >
                             {sidebarOpen ? (
@@ -758,7 +762,7 @@ export function CrewPlanningContent({
                         editing={dialogState.editing}
                         relievesEmployeeName={dialogState.relievesEmployeeName}
                         vessels={vessels}
-                        ranks={ranks}
+                        positions={positions}
                     />
                 </Main>
 
@@ -773,7 +777,7 @@ export function CrewPlanningContent({
                         >
                             {draggingEmployee.employeeName}
                             <span className="text-muted-foreground">
-                                · {draggingEmployee.rankName}
+                                · {draggingEmployee.positionName}
                             </span>
                         </div>
                     ) : null}

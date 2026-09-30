@@ -109,9 +109,9 @@ function AssignmentBarPopoverContent({
                             </Badge>
                         ) : null}
                     </div>
-                    {bar.rank_name ? (
+                    {bar.position_name ? (
                         <p className="truncate text-xs text-muted-foreground">
-                            {bar.rank_name}
+                            {bar.position_name}
                         </p>
                     ) : null}
                 </div>
@@ -155,10 +155,10 @@ function AssignmentBarPopoverContent({
                                 value={bar.relieves_vessel_name}
                             />
                         ) : null}
-                        {bar.relieves_rank_name ? (
+                        {bar.relieves_position_name ? (
                             <InfoRow
-                                label="Rank"
-                                value={bar.relieves_rank_name}
+                                label="Position"
+                                value={bar.relieves_position_name}
                             />
                         ) : null}
                         {bar.relieves_planned_signoff_at ? (
