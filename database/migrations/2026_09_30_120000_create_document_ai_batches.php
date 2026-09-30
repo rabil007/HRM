@@ -8,6 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Recover from a prior MySQL deploy that created tables then failed on
+        // an auto-generated unique index name longer than 64 characters.
+        Schema::dropIfExists('document_ai_batch_items');
+        Schema::dropIfExists('document_ai_batches');
+
         Schema::create('document_ai_batches', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
@@ -39,7 +44,11 @@ return new class extends Migration
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
-            $table->unique(['document_ai_batch_id', 'client_draft_id']);
+            // MySQL identifier limit is 64 chars; the default composite name exceeds it.
+            $table->unique(
+                ['document_ai_batch_id', 'client_draft_id'],
+                'dai_batch_items_batch_draft_uidx',
+            );
         });
     }
 
