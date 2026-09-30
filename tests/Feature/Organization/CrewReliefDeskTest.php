@@ -12,6 +12,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\Position;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
@@ -24,6 +25,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  *     user: User,
  *     company: Company,
  *     rank: Rank,
+ *     position: Position,
  *     vessel: Vessel,
  *     today: CarbonImmutable
  * }
@@ -685,7 +687,7 @@ test('open relief plan prefill targets the company-owned planning assignment', f
             ->where('relief_prefill.planning_assignment_id', $plan->id)
             ->where('relief_prefill.open_create', false)
             ->where('relief_prefill.vessel_id', $fixtures['vessel']->id)
-            ->where('relief_prefill.rank_id', $fixtures['rank']->id)
+            ->where('relief_prefill.position_id', $fixtures['position']->id)
             ->where('bars', fn ($bars) => collect($bars)->contains(fn ($bar) => (int) $bar['id'] === $plan->id))
         );
 });
