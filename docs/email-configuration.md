@@ -67,12 +67,12 @@ Known previous stock defaults (for example the original Document share “Overse
 
 | Template                        | Runtime-consumed EmailTemplate fields                             | Recipients                                       | Enable/disable        |
 | ------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------ | --------------------- |
-| `document_expiry_alert`         | TO/CC presets, `dispatch_at`, `include_company_footer`, `enabled` | Settings → Email Templates                       | Template `enabled`    |
+| `document_expiry_alert`         | `dispatch_at`, `include_company_footer`, `enabled`                | Documents → Configuration → Notification Routing | Template `enabled` + enabled routing rules |
 | `company_document_expiry_alert` | `include_company_footer` only                                     | Company Documents → Expiry Notification Settings | Per-company `enabled` |
 
 The Email Templates UI hides unused controls for these slugs. The unused `email_templates.enabled` field on `company_document_expiry_alert` is not shown as a Disabled badge.
 
-The Email Templates dashboard shows **Daily Compliance Schedule** as the shared scheduler time for both Employee and Company Document expiry checks. It is not an enabled/disabled indicator for either domain. Employee Document delivery still depends on the `document_expiry_alert.enabled` setting, while Company Document delivery depends on each company's own notification setting.
+The Email Templates dashboard shows **Daily Compliance Schedule** as the shared scheduler time for both Employee and Company Document expiry checks. It is not an enabled/disabled indicator for either domain. Employee Document delivery depends on `document_expiry_alert.enabled` **and** at least one enabled company Notification Routing rule with a valid TO recipient. Company Document delivery depends on each company's own notification setting.
 
 Shared `mail.layout` supplies logo, company name, footer, and contact information. Template bodies should not duplicate that footer.
 
@@ -106,18 +106,23 @@ Both scheduled commands must run in production (Herd scheduler / cron `schedule:
 
 ## Employee Document expiry alerts
 
-Daily alerts for expiring employee documents. Recipients come from the **global email template**, not from any company-level setting.
+Daily alerts for expiring employee documents. Recipients come from company-scoped **Notification Routing** rules, not from template TO/CC presets.
 
-| Item          | Value                                                                                           |
-| ------------- | ----------------------------------------------------------------------------------------------- |
-| Template slug | `document_expiry_alert`                                                                         |
-| Category      | Notification                                                                                    |
-| Job           | `SendDocumentExpiryAlertJob`                                                                    |
-| Service       | `DocumentExpiryAlertService`                                                                    |
-| Scheduler     | `documents:dispatch-expiry-alerts` (daily, via `DocumentExpiryAlertSchedule`)                   |
-| Deduplication | `employee_document_expiry_alerts` ledger (`employee_document_id` + `expiry_date_at_alert_time`) |
+| Item          | Value                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Template slug | `document_expiry_alert` (`enabled`, `dispatch_at`, `include_company_footer`)                                                         |
+| Recipients    | Documents → Configuration → Notification Routing (`documents.notification-routing.*`)                                                |
+| Category      | Notification                                                                                                                         |
+| Job           | `SendDocumentExpiryAlertJob`                                                                                                         |
+| Service       | `DocumentExpiryAlertService`                                                                                                         |
+| Scheduler     | `documents:dispatch-expiry-alerts` (daily, via `DocumentExpiryAlertSchedule`)                                                        |
+| Batching      | One consolidated summary email per routing rule (document-type filtered)                                                             |
+| Privacy       | Internal users filtered by `EmployeeVisibilityScope`; manual emails are trusted admin-configured addresses                           |
+| Deduplication | `employee_document_expiry_alerts` (`notification_rule_id` + `employee_document_id` + `expiry_date_at_alert_time`)                    |
 
-Recipients are configured under **Settings → Email Templates → Document expiry alert → TO / CC**.
+### Legacy TO/CC presets
+
+On migrate, existing `document_expiry_alert.to_preset` / `cc_preset` values are copied into one enabled “Employee Documents (migrated)” rule per company (`all_document_types = true`), then cleared on the template. Disabling or deleting routing rules does **not** revive those presets.
 
 > **Important:** Employee Document expiry recipients are completely separate from Company Document expiry recipients. Configuring one has no effect on the other.
 
@@ -178,4 +183,4 @@ Concurrent overlapping jobs for the same company are limited with `ShouldBeUniqu
 
 ### Separation from Employee Document alerts
 
-> **Critical:** Company Document expiry recipients are configured per company and are entirely independent of Employee Document expiry recipients. Configuring Employee Document expiry recipients (via Settings → Email Templates) has no effect on Company Document alerts, and vice versa.
+> **Critical:** Company Document expiry recipients are configured per company and are entirely independent of Employee Document expiry recipients. Configuring Employee Document expiry recipients (via Documents → Configuration → Notification Routing) has no effect on Company Document alerts, and vice versa.

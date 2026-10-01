@@ -96,6 +96,7 @@ use App\Http\Controllers\Organization\DocumentBulkFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentBulkPdfMergeController;
 use App\Http\Controllers\Organization\DocumentBulkShareLinksController;
 use App\Http\Controllers\Organization\DocumentBulkWhatsAppController;
+use App\Http\Controllers\Organization\DocumentExpiryNotificationRuleController;
 use App\Http\Controllers\Organization\DocumentExportController;
 use App\Http\Controllers\Organization\DocumentFileDownloadController;
 use App\Http\Controllers\Organization\DocumentFilePreviewController;
@@ -974,6 +975,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/configuration', [DocumentTypeController::class, 'index'])
         ->middleware('can:settings.master-data.document-types.view')
         ->name('organization.documents.configuration');
+    Route::get('organization/documents/configuration/notification-routing', [DocumentExpiryNotificationRuleController::class, 'index'])
+        ->middleware('can:documents.notification-routing.view')
+        ->name('organization.documents.configuration.notification-routing');
+    Route::post('organization/documents/configuration/notification-routing', [DocumentExpiryNotificationRuleController::class, 'store'])
+        ->middleware('can:documents.notification-routing.update')
+        ->name('organization.documents.configuration.notification-routing.store');
+    Route::put('organization/documents/configuration/notification-routing/{rule}', [DocumentExpiryNotificationRuleController::class, 'update'])
+        ->middleware('can:documents.notification-routing.update')
+        ->name('organization.documents.configuration.notification-routing.update');
+    Route::put('organization/documents/configuration/notification-routing/{rule}/toggle', [DocumentExpiryNotificationRuleController::class, 'toggle'])
+        ->middleware('can:documents.notification-routing.update')
+        ->name('organization.documents.configuration.notification-routing.toggle');
+    Route::delete('organization/documents/configuration/notification-routing/{rule}', [DocumentExpiryNotificationRuleController::class, 'destroy'])
+        ->middleware('can:documents.notification-routing.update')
+        ->name('organization.documents.configuration.notification-routing.destroy');
     Route::get('organization/documents/configuration/{documentType}', [DocumentTypeController::class, 'show'])
         ->middleware('can:settings.master-data.document-types.view')
         ->name('organization.documents.configuration.show');

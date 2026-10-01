@@ -50,6 +50,8 @@ final class BuiltInEmailTemplates
         return match ($slug) {
             'document_expiry_alert' => [
                 ...$defaults,
+                'to_preset' => false,
+                'cc_preset' => false,
                 'dispatch_at' => true,
                 'subject' => false,
                 'body' => false,

@@ -150,8 +150,6 @@ test('document expiry alert template can set daily dispatch time', function () {
             'slug' => 'document_expiry_alert',
             'label' => $template->label,
             'category' => 'notification',
-            'to_preset' => 'alerts@example.com',
-            'cc_preset' => '',
             'dispatch_at' => '10:45',
             'subject' => $template->subject,
             'body_html' => $template->body_html,
@@ -280,6 +278,29 @@ test('users without platform manage access cannot delete email templates', funct
     $this->actingAs($user)
         ->delete(route('application.email-templates.destroy', $template))
         ->assertForbidden();
+});
+
+test('employee document expiry template hides recipient presets and keeps dispatch controls', function () {
+    $user = User::factory()->create();
+    grantPlatformAccess($user, 'view');
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.index'))
+        ->assertOk();
+
+    $template = EmailTemplate::query()->where('slug', 'document_expiry_alert')->firstOrFail();
+
+    expect($template->toBrowseArray()['controls'])->toMatchArray([
+        'enabled' => true,
+        'to_preset' => false,
+        'cc_preset' => false,
+        'dispatch_at' => true,
+        'subject' => false,
+        'body' => false,
+        'is_default' => false,
+        'include_company_footer' => true,
+        'system_layout' => true,
+    ]);
 });
 
 test('company document expiry template exposes footer-only controls', function () {

@@ -113,6 +113,12 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Documents',
     },
     {
+        key: 'documents.notification-routing',
+        label: 'Notification Routing',
+        href: '/organization/documents/configuration/notification-routing',
+        group: 'Documents',
+    },
+    {
         key: 'contracts',
         label: 'Contracts',
         href: '/organization/contracts',

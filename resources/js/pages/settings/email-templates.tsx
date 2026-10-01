@@ -835,7 +835,7 @@ export default function EmailTemplatesSettings({
                             {form.data.slug ===
                             company_expiry_alert_template_slug
                                 ? 'Company Document expiry recipients and delivery status are configured per company under Company Documents → Expiry Notification Settings. The expiry email layout and content are system-managed.'
-                                : 'Employee Document expiry recipients and dispatch time are configured on this template. The expiry email layout and content are system-managed.'}
+                                : 'Employee Document expiry recipients are configured per company under Documents → Configuration → Notification Routing. Use this template for the enabled switch, daily dispatch time, and company footer. The expiry email layout and content are system-managed.'}
                         </p>
                     </div>
                 ) : null}

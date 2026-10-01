@@ -442,6 +442,23 @@ describe('Documents navigation', () => {
         );
     });
 
+    it('shows notification routing only with notification-routing.view', () => {
+        assert.equal(
+            isSidebarUrlVisible(
+                '/organization/documents/configuration/notification-routing',
+                ['documents.notification-routing.view'],
+            ),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible(
+                '/organization/documents/configuration/notification-routing',
+                ['settings.master-data.document-types.view'],
+            ),
+            false,
+        );
+    });
+
     it('shows templates only for bulk or custom template view, not document-types or platform access', () => {
         // Document Types permission no longer exposes Templates — only Configuration
         assert.equal(

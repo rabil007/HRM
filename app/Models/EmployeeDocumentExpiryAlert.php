@@ -12,6 +12,7 @@ class EmployeeDocumentExpiryAlert extends Model
 
     protected $fillable = [
         'company_id',
+        'notification_rule_id',
         'employee_document_id',
         'expiry_date_at_alert_time',
         'alerted_at',
@@ -31,6 +32,11 @@ class EmployeeDocumentExpiryAlert extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function notificationRule(): BelongsTo
+    {
+        return $this->belongsTo(DocumentExpiryNotificationRule::class, 'notification_rule_id');
     }
 
     public function employeeDocument(): BelongsTo

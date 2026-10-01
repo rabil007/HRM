@@ -4,14 +4,16 @@ Browser push for the **Documents & Compliance daily expiry summary** extends the
 
 ## Behaviour
 
-- The existing `document_expiry_alert` email template remains the source of truth for:
-  - Whether the alert is enabled
+- The `document_expiry_alert` email template remains the source of truth for:
+  - Whether the alert channel is enabled
   - Dispatch time (`dispatch_at`)
-  - TO recipients (`to_preset`)
-  - CC recipients (`cc_preset`)
+  - Company footer
+- **Recipients** come from company-scoped **Notification Routing** rules (Documents → Configuration → Notification Routing), not from template TO/CC presets.
 - When the daily process finds documents in the configured expiry window for a company:
-  - The existing consolidated summary email is still sent (email dedupe unchanged)
-  - Browser-push users are resolved from the same TO + CC presets
+  - Each enabled routing rule may send a consolidated email for its matching document types
+  - Browser-push users are resolved from **OMS-HRM user** recipients on those rules (TO and CC)
+  - Manual/external email recipients receive email only (no Web Push)
+  - Document-type routing and `EmployeeVisibilityScope` are applied before queueing push for a user
   - One generic Web Push summary is queued **per resolved user**
   - That push reaches every active browser subscription owned by the user
 - Email and push are operationally independent: email failure does not block push queueing, and push failure does not roll back email alert records.
@@ -19,24 +21,13 @@ Browser push for the **Documents & Compliance daily expiry summary** extends the
 
 ## Recipient resolution
 
-TO and CC are merged for push (case-insensitive, trimmed, deduplicated).
+For each enabled routing rule that covers a document type in the expiry window:
 
-Each configured email is matched, in the alert company only, against:
+1. Resolve active company members selected as user recipients (inactive membership / unusable email → skipped)
+2. Filter documents by the user’s employee visibility scope
+3. Require `documents.view` is **not** re-checked here for push eligibility beyond active membership used at configuration time; delivery jobs still re-validate company membership and subscriptions at send time as before
 
-1. `users.email`
-2. Employee `work_email` with a linked `user_id`
-3. Employee `personal_email` with a linked `user_id`
-
-A resolved user must:
-
-- Belong to an **active** company
-- Have an **active** company membership
-- Be an **active** user (or null status treated as active)
-- Have `documents.view` in that company (Spatie team context set to the company during the check)
-
-Email addresses that do not map to an authorised OMS-HRM user still receive email when listed in TO/CC, but receive no push.
-
-Users without push subscriptions are skipped without failing the job.
+Manual email recipients never receive Web Push.
 
 ## Privacy-safe payload
 
@@ -60,7 +51,11 @@ The authenticated, verified user must have active membership and `documents.view
 
 ## Deduplication
 
-Email dedupe remains on `employee_document_expiry_alerts`.
+Email dedupe is routing-aware on `employee_document_expiry_alerts`:
+
+```text
+(notification_rule_id, employee_document_id, expiry_date_at_alert_time)
+```
 
 Push uses a separate ledger:
 
@@ -74,7 +69,7 @@ Statuses: `queued`, `sent`, `failed`.
 
 - The same user is not repeatedly pushed for the same document and unchanged expiry date.
 - A changed expiry date may trigger a new alert.
-- A newly configured template recipient may receive alerts that were never pushed to that user.
+- A newly configured routing rule user may receive alerts that were never pushed to that user.
 - Provider endpoints, keys, and payloads are never stored on the ledger.
 
 ## Queue and retries
@@ -96,14 +91,5 @@ Requires a running queue worker (`php artisan queue:work` or `composer run dev`)
 - Trusted HTTPS origin (Herd local CA in development)
 - VAPID keys configured (`php artisan webpush:vapid`)
 - Users enable browser notifications from the bell control, or from the in-app **Stay updated** reminder (native permission is still requested only after they click Enable). See [Announcement Web Push](./announcements-web-push.md).
-- Document expiry email template enabled with TO/CC presets
-
-## Related files
-
-- Service: `app/Services/DocumentExpiryAlertService.php`
-- Resolver: `app/Support/Notifications/ResolveTemplatePushRecipients.php`
-- Job: `app/Jobs/DeliverDocumentComplianceWebPushJob.php`
-- Notification: `app/Notifications/DocumentComplianceWebPushNotification.php`
-- Open route: `app/Http/Controllers/Notifications/OpenDocumentComplianceNotificationController.php`
-- Ledger model: `app/Models/DocumentExpiryPushAlert.php`
-- Shared subscriptions / SW: see [Announcement Web Push](./announcements-web-push.md)
+- Document expiry email template enabled
+- At least one Notification Routing rule with OMS-HRM user recipients for push; manual-only rules send email without push

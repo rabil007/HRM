@@ -14,6 +14,7 @@ Documents is one sidebar group with these destinations. Pages do not repeat that
 | `/organization/documents/requests`      | My Tasks         | Personal actionable inbox: reviews, approvals, signatures   | `documents.requests.view` **or** `documents.recipient-requests.view` **or** `documents.recipient-requests.respond` |
 | `/organization/documents/templates`     | Templates        | Company custom and system generation templates              | Any of `documents.templates.view`, `bulk_documents.view`, or `settings.master-data.document-types.view`            |
 | `/organization/documents/configuration` | Configuration    | Document Types and employee requirement policy              | `settings.master-data.document-types.view`                                                                         |
+| `/organization/documents/configuration/notification-routing` | Notification Routing | Employee document expiry recipient rules by document type | `documents.notification-routing.view`                                                                              |
 
 **Overview** is an operational dashboard. It answers what needs attention, who is affected, and the next action. It does not render the document table, folder grid, search, or Saved Views. Zero-value warning cards are omitted; a healthy company sees **No urgent document issues** plus compact secondary totals.
 
@@ -466,6 +467,22 @@ The page answers one core question: _What kind of employee document is this, and
     4. **Tracked document details:** Clarifies which details are relevant for the document type (Issue date, Expiry date, Document number) and honestly explains: _"These settings identify the details normally tracked for this document type. They do not currently make those fields mandatory during upload."_ For Expiry date, the UI notes: _"Indicates that expiry date is a relevant detail for this document type."_
 
 The previous Settings location remains a compatibility bookmark: `/settings/master-data/document-types` redirects to `/organization/documents/configuration` and preserves supported query keys such as `search`, `page`, and `edit`. Create, update, delete, and CSV import still use the existing Settings mutation routes and `settings.master-data.document-types.*` permissions.
+
+### Employee Document Expiry Notification Routing
+
+Employee document expiry recipients are configured under **Documents → Configuration → Notification Routing** (`documents.notification-routing.view|update`). This is separate from Company/Branch document expiry notification settings.
+
+Each company-scoped rule defines:
+
+- Rule name and enabled state
+- Document types: **All document types** (includes future types) or a selected multi-select set
+- TO / CC recipients: OMS-HRM users (active company members) and/or manual/external emails
+
+Delivery sends one consolidated summary email per enabled rule. Internal user recipients only see employees allowed by `EmployeeVisibilityScope`. Manual emails are trusted administrator-configured addresses and are clearly labelled in the UI. Deduplication is per `(notification_rule_id, employee_document_id, expiry_date_at_alert_time)`.
+
+The Document Type detail page shows an **Expiry Notifications** card with matching rules and a **Manage Notifications** link into Notification Routing filtered by that type.
+
+The `document_expiry_alert` Email Template still controls channel enabled state, daily dispatch time, and company footer. Template TO/CC presets are retired; legacy values are migrated into routing rules once (see [email-configuration.md](./email-configuration.md)).
 
 Deep-linking a specific type is supported with `?edit={documentTypeId}` on the Configuration URL. Direct loads, Overview **Configure** visits, and same-page visits from one `edit` ID to another open or switch the Document Type Sheet. Invalid or unknown IDs are ignored and do not fail the page. Closing the Sheet replaces the URL without `edit` so the same ID can be opened again without an accidental reopen loop. The detail page Edit action uses the same Sheet component rather than a separate form implementation.
 

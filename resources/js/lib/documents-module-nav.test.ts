@@ -15,6 +15,10 @@ import {
 describe('documents module URL mapping', () => {
     it('labels the document types section for users', () => {
         assert.equal(DOCUMENTS_MODULE_LABELS.configuration, 'Document Types');
+        assert.equal(
+            DOCUMENTS_MODULE_LABELS['notification-routing'],
+            'Notification Routing',
+        );
     });
 
     it('maps overview and library independently', () => {
@@ -90,6 +94,12 @@ describe('documents module URL mapping', () => {
                 '/organization/documents/configuration?edit=12',
             ),
             'configuration',
+        );
+        assert.equal(
+            documentsModuleSectionFromUrl(
+                '/organization/documents/configuration/notification-routing',
+            ),
+            'notification-routing',
         );
     });
 
@@ -272,6 +282,21 @@ describe('documents module visibility', () => {
         );
         assert.equal(
             canViewDocumentsModuleSection('configuration', ['documents.view']),
+            false,
+        );
+    });
+
+    it('shows notification routing only with notification-routing.view', () => {
+        assert.deepEqual(
+            visibleDocumentsModuleSections([
+                'documents.notification-routing.view',
+            ]),
+            ['notification-routing'],
+        );
+        assert.equal(
+            canViewDocumentsModuleSection('notification-routing', [
+                'settings.master-data.document-types.view',
+            ]),
             false,
         );
     });

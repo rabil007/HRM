@@ -11,6 +11,8 @@ use App\Http\Requests\Settings\MasterData\UpdateDocumentTypeRequest;
 use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
 use App\Support\EmployeeDocuments\Actions\SyncDocumentRequirement;
+use App\Support\EmployeeDocuments\DocumentExpiryNotification\DocumentExpiryNotificationRulePresenter;
+use App\Support\EmployeeDocuments\DocumentExpiryNotification\DocumentExpiryNotificationRulesForDocumentType;
 use App\Support\EmployeeDocuments\DocumentRequirementFormOptions;
 use App\Support\EmployeeDocuments\DocumentRequirementPresenter;
 use App\Support\EmployeeDocuments\DocumentTypeDetailPresenter;
@@ -58,22 +60,39 @@ class DocumentTypeController extends Controller
         ]);
     }
 
-    public function show(Request $request, DocumentType $documentType): InertiaResponse
-    {
+    public function show(
+        Request $request,
+        DocumentType $documentType,
+        DocumentExpiryNotificationRulesForDocumentType $rulesForDocumentType,
+        DocumentExpiryNotificationRulePresenter $rulePresenter,
+    ): InertiaResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $user = $request->user();
         $canDeletePermission = $user?->can('settings.master-data.document-types.delete') ?? false;
+        $canViewNotificationRouting = $user?->can('documents.notification-routing.view') ?? false;
 
         $documentType->load($this->requirementRelationsForCompany($companyId));
+
+        $expiryNotificationRules = $canViewNotificationRouting
+            ? $rulePresenter->presentForDocumentType(
+                $rulesForDocumentType->handle($companyId, (int) $documentType->id),
+            )
+            : [];
 
         return Inertia::render('organization/documents/configuration/document-type-show', [
             'document_type' => [
                 ...DocumentTypeDetailPresenter::toArray($documentType, $companyId, $user),
                 ...MasterDataUsage::flagsFor($documentType, $canDeletePermission, $companyId),
+                'expiry_notification_rules' => $expiryNotificationRules,
+                'expiry_notification_rules_count' => count(array_filter(
+                    $expiryNotificationRules,
+                    fn (array $rule): bool => (bool) ($rule['enabled'] ?? false),
+                )),
             ],
             'can' => [
                 'update' => $user?->can('settings.master-data.document-types.update') ?? false,
                 'delete' => $canDeletePermission,
+                'view_notification_routing' => $canViewNotificationRouting,
             ],
             'recent_activity' => DocumentTypeRecentActivityQuery::for(
                 $user,

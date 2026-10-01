@@ -8,7 +8,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | Scheduler: routes/console.php (daily, timezone from Application settings).
-    | Recipients + dispatch time: Settings → Email templates → Document expiry alert.
+    | Recipients: Documents → Configuration → Notification Routing (company-scoped).
+    | Enabled switch, dispatch time, and footer: Settings → Email templates →
+    | Document expiry alert. Template TO/CC presets are retired.
     |
     */
 

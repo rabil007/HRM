@@ -46,6 +46,14 @@ export type DocumentTypeDetail = {
     status_label: string;
     requirement: DocumentTypeDetailRequirement;
     compliance_links: DocumentTypeComplianceLink[];
+    expiry_notification_rules?: Array<{
+        id: number;
+        name: string;
+        enabled: boolean;
+        to_summary: string;
+        cc_summary: string;
+    }>;
+    expiry_notification_rules_count?: number;
 } & MasterDataUsageFlags;
 
 export type DocumentTypeRow = {

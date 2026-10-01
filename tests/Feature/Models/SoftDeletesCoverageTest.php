@@ -2,6 +2,7 @@
 
 use App\Models\AppSetting;
 use App\Models\AttendanceRecord;
+use App\Models\DocumentExpiryNotificationRule;
 use App\Models\EmployeeDocumentExpiryAlert;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionDevice;
@@ -18,6 +19,7 @@ test('domain models use soft deletes', function (string $modelClass) {
 })->with([
     AttendanceRecord::class,
     AppSetting::class,
+    DocumentExpiryNotificationRule::class,
     EmployeeDocumentExpiryAlert::class,
     HikvisionAccessEvent::class,
     HikvisionDevice::class,
@@ -33,6 +35,7 @@ test('newly soft-deleted tables have deleted_at column', function (string $table
 })->with([
     'attendance_records',
     'app_settings',
+    'document_expiry_notification_rules',
     'employee_document_expiry_alerts',
     'hikvision_access_events',
     'hikvision_devices',

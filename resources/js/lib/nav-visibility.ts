@@ -286,6 +286,9 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'bulk_documents.view'),
     '/organization/documents/configuration': (permissions) =>
         has(permissions, 'settings.master-data.document-types.view'),
+    '/organization/documents/configuration/notification-routing': (
+        permissions,
+    ) => has(permissions, 'documents.notification-routing.view'),
     '/organization/contracts': (permissions) =>
         has(permissions, 'contracts.view'),
     '/organization/bank-accounts': (permissions) =>

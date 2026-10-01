@@ -5,7 +5,6 @@ use App\Jobs\DeliverDocumentComplianceWebPushJob;
 use App\Mail\DocumentExpiryAlertMail;
 use App\Models\Announcement;
 use App\Models\DocumentExpiryPushAlert;
-use App\Models\EmailTemplate;
 use App\Models\EmployeeDocumentExpiryAlert;
 use App\Models\User;
 use App\Notifications\DocumentComplianceWebPushNotification;
@@ -17,30 +16,9 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 
-/**
- * @param  array{to_preset?: string|null, cc_preset?: string|null, enabled?: bool}  $overrides
- */
-function configureCompliancePushAlertTemplate(array $overrides = []): void
-{
-    EmailTemplate::query()->updateOrCreate(
-        ['slug' => 'document_expiry_alert'],
-        array_merge([
-            'label' => 'Document expiry alert',
-            'category' => 'notification',
-            'to_preset' => 'hr@example.com',
-            'cc_preset' => 'manager@example.com',
-            'subject' => 'Document Expiry Alert - Next 30 Days',
-            'body_html' => 'Automated expiry summary email.',
-            'is_default' => true,
-            'enabled' => true,
-            'sort_order' => 0,
-        ], $overrides),
-    );
-}
-
 beforeEach(function () {
     config(['documents.expiry_alert_days' => 30]);
-    configureCompliancePushAlertTemplate();
+    configureDocumentExpiryAlertTemplate(['enabled' => true]);
     Carbon::setTestNow('2026-06-01');
 });
 
@@ -58,6 +36,13 @@ test('multiple expiring documents create one push job per resolved user with sub
     $manager = User::factory()->create(['email' => 'manager@example.com', 'status' => 'active']);
     grantCompanyPermissions($hr, $company, ['documents.view']);
     grantCompanyPermissions($manager, $company, ['documents.view']);
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'cc_user_ids' => [$manager->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
 
     $hr->updatePushSubscription('https://fcm.googleapis.com/fcm/send/hr-device-1', 'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE', 'tBHItJI5svbpez7KI4CCXg', 'aes128gcm');
     $hr->updatePushSubscription('https://fcm.googleapis.com/fcm/send/hr-device-2', 'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE', 'tBHItJI5svbpez7KI4CCXg', 'aes128gcm');
@@ -87,7 +72,7 @@ test('multiple expiring documents create one push job per resolved user with sub
         ->and(Announcement::query()->count())->toBe(0);
 });
 
-test('no push job when template disabled, no recipients map, or no pending documents', function () {
+test('no push job when template disabled, only manual emails, or no pending documents', function () {
     Queue::fake();
     Mail::fake();
 
@@ -95,12 +80,17 @@ test('no push job when template disabled, no recipients map, or no pending docum
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf", 'A.pdf');
     $doc->update(['expiry_date' => '2026-06-20']);
 
-    configureCompliancePushAlertTemplate(['enabled' => false]);
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_emails' => ['nobody@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    configureDocumentExpiryAlertTemplate(['enabled' => false]);
     app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
     Queue::assertNothingPushed();
     Mail::assertNothingSent();
 
-    configureCompliancePushAlertTemplate(['to_preset' => 'nobody@example.com', 'cc_preset' => null, 'enabled' => true]);
+    configureDocumentExpiryAlertTemplate(['enabled' => true]);
     app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
     Queue::assertNothingPushed();
     Mail::assertSent(DocumentExpiryAlertMail::class, 1);
@@ -110,7 +100,6 @@ test('no push job when template disabled, no recipients map, or no pending docum
     EmployeeDocumentExpiryAlert::query()->delete();
     DocumentExpiryPushAlert::query()->delete();
     $doc->update(['expiry_date' => '2027-01-01']);
-    configureCompliancePushAlertTemplate();
     app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
     Queue::assertNothingPushed();
     Mail::assertNothingSent();
@@ -123,6 +112,11 @@ test('user without push subscription is skipped safely while email still sends',
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     $hr = User::factory()->create(['email' => 'hr@example.com', 'status' => 'active']);
     grantCompanyPermissions($hr, $company, ['documents.view']);
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
 
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf", 'A.pdf');
     $doc->update(['expiry_date' => '2026-06-20']);
@@ -141,6 +135,11 @@ test('same user document expiry is not pushed twice and changed expiry permits a
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     $hr = User::factory()->create(['email' => 'hr@example.com', 'status' => 'active']);
     grantCompanyPermissions($hr, $company, ['documents.view']);
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
     $hr->updatePushSubscription('https://fcm.googleapis.com/fcm/send/hr-once', 'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE', 'tBHItJI5svbpez7KI4CCXg', 'aes128gcm');
 
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf", 'A.pdf');
@@ -211,6 +210,11 @@ test('email failure does not prevent push queueing and push never creates announ
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     $hr = User::factory()->create(['email' => 'hr@example.com', 'status' => 'active']);
     grantCompanyPermissions($hr, $company, ['documents.view']);
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
     $hr->updatePushSubscription('https://fcm.googleapis.com/fcm/send/hr-email-fail', 'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE', 'tBHItJI5svbpez7KI4CCXg', 'aes128gcm');
 
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf", 'A.pdf');
@@ -267,6 +271,11 @@ test('rolled-back transaction does not persist push alert ledger rows', function
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     $hr = User::factory()->create(['email' => 'hr@example.com', 'status' => 'active']);
     grantCompanyPermissions($hr, $company, ['documents.view']);
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
     $hr->updatePushSubscription('https://fcm.googleapis.com/fcm/send/hr-rollback', 'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE', 'tBHItJI5svbpez7KI4CCXg', 'aes128gcm');
 
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf", 'A.pdf');

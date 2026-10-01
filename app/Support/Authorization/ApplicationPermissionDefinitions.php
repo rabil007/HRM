@@ -1935,6 +1935,18 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to configure the company Document AI mode without changing platform AI provider credentials.',
                 'group' => 'Documents',
             ],
+            329 => [
+                'name' => 'documents.notification-routing.view',
+                'label' => 'View Employee Document Expiry Notification Routing',
+                'description' => 'Allows the user to view employee document expiry notification routing rules for the active company.',
+                'group' => 'Documents',
+            ],
+            330 => [
+                'name' => 'documents.notification-routing.update',
+                'label' => 'Manage Employee Document Expiry Notification Routing',
+                'description' => 'Allows the user to create, update, enable, disable, and delete employee document expiry notification routing rules for the active company.',
+                'group' => 'Documents',
+            ],
         ];
     }
 }

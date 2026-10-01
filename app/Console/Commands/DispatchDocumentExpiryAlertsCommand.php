@@ -34,16 +34,14 @@ class DispatchDocumentExpiryAlertsCommand extends Command
 
         $employeeJobsDispatched = 0;
         $companyJobsDispatched = 0;
-
-        // Guard employee document alerts on template configuration.
-        $employeeRecipientsConfigured = $employeeAlertService->resolveRecipients()['recipient'] !== '';
-
-        if (! $employeeRecipientsConfigured) {
-            $this->warn('Employee document expiry alert template has no To preset or is disabled. Configure it under Settings → Email templates.');
-        }
+        $anyEmployeeRoutingConfigured = false;
 
         foreach ($companies as $company) {
-            if ($employeeRecipientsConfigured && $employeeAlertService->hasPendingDocuments((int) $company->id)) {
+            if ($employeeAlertService->companyHasDeliverableRules((int) $company->id)) {
+                $anyEmployeeRoutingConfigured = true;
+            }
+
+            if ($employeeAlertService->hasPendingDocuments((int) $company->id)) {
                 SendDocumentExpiryAlertJob::dispatch((int) $company->id);
                 $employeeJobsDispatched++;
                 $this->line("Dispatched employee document expiry alert job for {$company->name}.");
@@ -54,6 +52,10 @@ class DispatchDocumentExpiryAlertsCommand extends Command
                 $companyJobsDispatched++;
                 $this->line("Dispatched company document expiry alert job for {$company->name}.");
             }
+        }
+
+        if (! $anyEmployeeRoutingConfigured) {
+            $this->warn('No company has an enabled employee document expiry notification routing rule with TO recipients. Configure rules under Documents → Configuration → Notification Routing.');
         }
 
         $this->info("Finished. {$employeeJobsDispatched} employee job(s) and {$companyJobsDispatched} company job(s) dispatched.");

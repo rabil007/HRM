@@ -44,6 +44,7 @@ import {
 } from '@/lib/master-data/usage';
 import { documents as documentsOverview } from '@/routes/organization';
 import { configuration as documentsConfiguration } from '@/routes/organization/documents';
+import { notificationRouting } from '@/routes/organization/documents/configuration';
 
 function OverviewField({
     label,
@@ -108,7 +109,11 @@ export function DocumentTypeShowContent({
     canViewAudit,
 }: {
     documentType: DocumentTypeDetail;
-    can: { update: boolean; delete: boolean };
+    can: {
+        update: boolean;
+        delete: boolean;
+        view_notification_routing?: boolean;
+    };
     departments?: DepartmentOption[];
     positions?: PositionOption[];
     projects?: ProjectOption[];
@@ -123,6 +128,15 @@ export function DocumentTypeShowContent({
     const row = documentTypeToRow(documentType);
     const form = useForm(requirementToFormData(row, { redirectToShow: true }));
     const canDeleteRecord = masterDataCanDelete(documentType, can.delete);
+    const expiryRules = documentType.expiry_notification_rules ?? [];
+    const activeExpiryRuleCount =
+        documentType.expiry_notification_rules_count ??
+        expiryRules.filter((rule) => rule.enabled).length;
+    const manageNotificationsHref = notificationRouting.url({
+        query: {
+            document_type_id: documentType.id,
+        },
+    });
 
     const openEdit = () => {
         form.reset();
@@ -355,6 +369,75 @@ export function DocumentTypeShowContent({
                             </p>
                         </CardContent>
                     </Card>
+
+                    {can.view_notification_routing ? (
+                        <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/5">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base font-semibold">
+                                    Expiry Notifications
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4 pt-0">
+                                {expiryRules.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        No specific expiry notification routing
+                                        configured.
+                                    </p>
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-muted-foreground">
+                                            {activeExpiryRuleCount} active
+                                            notification{' '}
+                                            {activeExpiryRuleCount === 1
+                                                ? 'rule'
+                                                : 'rules'}
+                                        </p>
+                                        <ul className="space-y-3">
+                                            {expiryRules.map((rule) => (
+                                                <li
+                                                    key={rule.id}
+                                                    className="rounded-xl border border-border/60 bg-muted/20 p-3"
+                                                >
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="text-sm font-semibold">
+                                                            {rule.name}
+                                                        </p>
+                                                        <Badge
+                                                            variant={
+                                                                rule.enabled
+                                                                    ? 'success'
+                                                                    : 'secondary'
+                                                            }
+                                                        >
+                                                            {rule.enabled
+                                                                ? 'Active'
+                                                                : 'Inactive'}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="mt-2 text-xs text-muted-foreground">
+                                                        TO: {rule.to_summary}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        CC: {rule.cc_summary}
+                                                    </p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </>
+                                )}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-11 rounded-xl"
+                                    asChild
+                                >
+                                    <Link href={manageNotificationsHref}>
+                                        Manage Notifications
+                                    </Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    ) : null}
                 </div>
 
                 <div className="space-y-6">
@@ -425,7 +508,11 @@ export default function DocumentTypeShowPage({
     can_view_audit,
 }: {
     document_type: DocumentTypeDetail;
-    can: { update: boolean; delete: boolean };
+    can: {
+        update: boolean;
+        delete: boolean;
+        view_notification_routing?: boolean;
+    };
     departments?: DepartmentOption[];
     positions?: PositionOption[];
     projects?: ProjectOption[];

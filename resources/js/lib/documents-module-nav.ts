@@ -4,7 +4,8 @@ export type DocumentsModuleSection =
     | 'generate'
     | 'requests'
     | 'templates'
-    | 'configuration';
+    | 'configuration'
+    | 'notification-routing';
 
 export const DOCUMENTS_MODULE_PATHS: Record<DocumentsModuleSection, string> = {
     overview: '/organization/documents',
@@ -13,6 +14,8 @@ export const DOCUMENTS_MODULE_PATHS: Record<DocumentsModuleSection, string> = {
     requests: '/organization/documents/requests',
     templates: '/organization/documents/templates',
     configuration: '/organization/documents/configuration',
+    'notification-routing':
+        '/organization/documents/configuration/notification-routing',
 };
 
 export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
@@ -22,6 +25,7 @@ export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
     requests: 'My Tasks',
     templates: 'Templates',
     configuration: 'Document Types',
+    'notification-routing': 'Notification Routing',
 };
 
 const DOCUMENTS_MODULE_ORDER: DocumentsModuleSection[] = [
@@ -31,6 +35,7 @@ const DOCUMENTS_MODULE_ORDER: DocumentsModuleSection[] = [
     'generate',
     'requests',
     'configuration',
+    'notification-routing',
 ];
 
 function normalizePath(url: string): { path: string; search: string } {
@@ -151,6 +156,10 @@ export function documentsModuleSectionFromUrl(
         return 'templates';
     }
 
+    if (path === DOCUMENTS_MODULE_PATHS['notification-routing']) {
+        return 'notification-routing';
+    }
+
     if (
         path === DOCUMENTS_MODULE_PATHS.configuration ||
         path.startsWith(`${DOCUMENTS_MODULE_PATHS.configuration}/`)
@@ -215,6 +224,10 @@ export function canViewDocumentsModuleSection(
 
     if (section === 'configuration') {
         return permissions.includes('settings.master-data.document-types.view');
+    }
+
+    if (section === 'notification-routing') {
+        return permissions.includes('documents.notification-routing.view');
     }
 
     return (
