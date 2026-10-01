@@ -235,7 +235,7 @@ export function BulkDocumentsContent({
     is_custom_template,
     custom_template,
     view,
-     can_view_templates = false,
+    can_view_templates = false,
     filters: initialFilters,
     search: initialSearch,
     counts,
