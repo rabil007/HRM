@@ -6,7 +6,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\Company;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
@@ -19,7 +19,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  *     user: User,
  *     company: Company,
  *     employee: Employee,
- *     rank: Rank,
+ *     rank: Position,
  *     vessel: Vessel
  * }
  */
@@ -44,7 +44,7 @@ test('summary counts map operational location cards from active current phases',
 
     foreach ($phases as $index => $phaseCode) {
         $employee = Employee::factory()->forCompany($company)->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'name' => "Phase Crew {$index}",
         ]);
         makeCurrentCrewPhaseAssignment(
@@ -78,7 +78,7 @@ test('summary counts exclude completed assignments from operational location car
     );
 
     $completedEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
     $completed = makeCurrentCrewPhaseAssignment(
         $company,
@@ -98,7 +98,7 @@ test('summary counts exclude completed assignments from operational location car
 test('pre join hotel view returns only active p2a p2b and p3 assignments', function (CrewPhaseCode $phaseCode, bool $included) {
     $fixtures = makeOperationalViewsFixtures();
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
 
     makeCurrentCrewPhaseAssignment(
@@ -130,7 +130,7 @@ test('pre join hotel view returns only active p2a p2b and p3 assignments', funct
 test('pre join hotel view excludes completed historical p2a assignments', function () {
     $fixtures = makeOperationalViewsFixtures();
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
 
     $assignment = makeCurrentCrewPhaseAssignment(
@@ -163,7 +163,7 @@ test('post signoff hotel view returns only active p5 assignments', function () {
     );
 
     $other = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
     makeCurrentCrewPhaseAssignment(
         $fixtures['company'],
@@ -243,7 +243,7 @@ test('pre join hotel search filters within the operational view', function () {
     );
 
     $other = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'name' => 'Ahmed Other',
     ]);
     makeCurrentCrewPhaseAssignment(
@@ -276,7 +276,7 @@ test('post signoff hotel search filters within the operational view', function (
     );
 
     $other = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'name' => 'Ahmed Demob',
     ]);
     makeCurrentCrewPhaseAssignment(
@@ -302,7 +302,7 @@ test('pre join hotel pagination totals remain server authoritative', function ()
 
     foreach (range(1, 16) as $index) {
         $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'name' => "Pre Join {$index}",
         ]);
         makeCurrentCrewPhaseAssignment(
@@ -498,7 +498,7 @@ test('operational location views sanitize conflicting inertia filters from craft
     makeCurrentCrewPhaseAssignment(
         $fixtures['company'],
         Employee::factory()->forCompany($fixtures['company'])->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
         ]),
         $fixtures['rank'],
         $fixtures['vessel'],
@@ -544,7 +544,7 @@ test('status completed cannot alter pre join hotel query semantics', function ()
 test('pre join hotel excludes active assignment whose current phase is not active', function () {
     $fixtures = makeOperationalViewsFixtures();
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
 
     $assignment = makeCurrentCrewPhaseAssignment(
@@ -569,7 +569,7 @@ test('pre join hotel excludes active assignment whose current phase is not activ
 test('post signoff hotel excludes active assignment whose current phase is not active', function () {
     $fixtures = makeOperationalViewsFixtures();
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
 
     $assignment = makeCurrentCrewPhaseAssignment(
@@ -594,7 +594,7 @@ test('post signoff hotel excludes active assignment whose current phase is not a
 test('summary location counts require active current phase status', function () {
     $fixtures = makeOperationalViewsFixtures();
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
 
     $assignment = makeCurrentCrewPhaseAssignment(

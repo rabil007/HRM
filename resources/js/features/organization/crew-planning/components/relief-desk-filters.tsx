@@ -18,7 +18,7 @@ export function ReliefDeskFiltersBar({
     onSearchChange,
     filters,
     vessels,
-    ranks,
+    positions,
     filterOptions,
     onFilterChange,
     onReset,
@@ -27,7 +27,7 @@ export function ReliefDeskFiltersBar({
     onSearchChange: (value: string) => void;
     filters: ReliefDeskFilters;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
     filterOptions: ReliefDeskFilterOptions;
     onFilterChange: (next: Partial<ReliefDeskFilters>) => void;
     onReset: () => void;
@@ -88,27 +88,29 @@ export function ReliefDeskFiltersBar({
                         </AppSelect>
                         <AppSelect
                             value={
-                                filters.rank_id != null
-                                    ? String(filters.rank_id)
+                                filters.position_id != null
+                                    ? String(filters.position_id)
                                     : ''
                             }
                             onValueChange={(value) =>
                                 onFilterChange({
-                                    rank_id:
+                                    position_id:
                                         value === '' ? null : Number(value),
                                 })
                             }
                             variant="dark"
-                            placeholder="All ranks"
+                            placeholder="All positions"
                             className="w-[140px]"
                         >
-                            <AppSelectItem value="">All ranks</AppSelectItem>
-                            {ranks.map((rank) => (
+                            <AppSelectItem value="">
+                                All positions
+                            </AppSelectItem>
+                            {positions.map((position) => (
                                 <AppSelectItem
-                                    key={rank.id}
-                                    value={String(rank.id)}
+                                    key={position.id}
+                                    value={String(position.id)}
                                 >
-                                    {rank.name}
+                                    {position.name}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>

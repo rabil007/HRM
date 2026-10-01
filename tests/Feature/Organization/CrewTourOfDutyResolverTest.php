@@ -6,18 +6,18 @@ use Carbon\CarbonImmutable;
 beforeEach(function () {
     $this->fixtures = makeCrewAssignmentFixtures();
     $this->company = $this->fixtures['company'];
-    $this->rank = $this->fixtures['rank'];
+    $this->position = $this->fixtures['position'];
     $this->resolver = new CrewTourOfDutyResolver;
 });
 
-it('resolves Tour of Duty directly from global Rank Master', function () {
-    $this->rank->update(['max_tour_of_duty_days' => 90]);
+it('resolves Tour of Duty from assignment Position master data', function () {
+    $this->position->update(['max_tour_of_duty_days' => 90]);
 
     $join = CarbonImmutable::parse('2026-08-12 10:00:00', $this->company->timezone);
 
     $result = $this->resolver->resolve(
         (int) $this->company->id,
-        (int) $this->rank->id,
+        (int) $this->position->id,
         $join,
     );
 
@@ -26,14 +26,14 @@ it('resolves Tour of Duty directly from global Rank Master', function () {
         ->toBe('2026-11-10');
 });
 
-it('returns no automatic tour when rank max_tour_of_duty_days is null or zero', function () {
-    $this->rank->update(['max_tour_of_duty_days' => null]);
+it('returns no automatic tour when position max_tour_of_duty_days is null or zero', function () {
+    $this->position->update(['max_tour_of_duty_days' => null]);
 
     $join = CarbonImmutable::parse('2026-08-12 10:00:00', $this->company->timezone);
 
     $result = $this->resolver->resolve(
         (int) $this->company->id,
-        (int) $this->rank->id,
+        (int) $this->position->id,
         $join,
     );
 

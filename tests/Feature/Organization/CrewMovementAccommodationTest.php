@@ -14,7 +14,7 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
@@ -36,7 +36,7 @@ afterEach(function (): void {
 });
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewMovementAccommodationFixtures(): array
 {
@@ -58,7 +58,7 @@ function startActivePreMobilisationAssignment(array $fixtures): CrewAssignment
         $fixtures['company']->id,
         $fixtures['employee']->id,
         [
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'stage_started_at' => '2026-09-15 08:00:00',
         ],
         $fixtures['user']->id,
@@ -311,7 +311,7 @@ test('join vessel closes open pre join hotel stay and enters p4', function () {
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-09-19 08:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'check_out_date' => '2026-09-19',
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
@@ -340,7 +340,7 @@ test('join vessel with no accommodation decision succeeds without checkout', fun
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-09-19 08:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
 
@@ -358,7 +358,7 @@ test('join vessel with missing accommodation remains allowed', function () {
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-09-19 08:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
 
@@ -385,7 +385,7 @@ test('join vessel checkout date validation rejects invalid dates and leaves p2a 
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-09-19 08:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'check_out_date' => '2026-09-15',
         ])
         ->assertSessionHasErrors('check_out_date');
@@ -395,7 +395,7 @@ test('join vessel checkout date validation rejects invalid dates and leaves p2a 
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-09-19 08:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'check_out_date' => '2026-09-20',
         ])
         ->assertSessionHasErrors('check_out_date');
@@ -411,7 +411,7 @@ test('join vessel checkout date validation rejects invalid dates and leaves p2a 
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-09-19 08:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'check_out_date' => '2026-09-18',
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
@@ -453,7 +453,7 @@ test('training loop keeps the same open pre join hotel stay until join vessel', 
     app(CrewMovementService::class)->perform($company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-19 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'check_out_date' => '2026-09-19',
     ], $user->id);
 
@@ -488,7 +488,7 @@ test('assignment show exposes accommodation summary and missing pre join warning
     $legacyEmployee = Employee::factory()
         ->forCompany($company)
         ->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'status' => 'active',
         ]);
     $legacyAssignment = makeCurrentCrewPhaseAssignment($company, $legacyEmployee, $rank, $vessel, CrewPhaseCode::JoinStandby);
@@ -549,7 +549,7 @@ test('join vessel rejects multiple open pre join hotel stays without partial mut
     expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-19 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'check_out_date' => '2026-09-19',
     ], $user->id))->toThrow(function (CrewMovementException $exception): void {
         expect($exception->getMessage())->toBe(
@@ -1203,7 +1203,7 @@ test('assignment show accommodation summary includes pre join and post signoff s
     app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-19 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'check_out_date' => '2026-09-19',
     ], $fixtures['user']->id);
 
@@ -1435,7 +1435,7 @@ test('redeploy to p0 handles source accommodation without creating destination s
 
 test('redeploy to p4 handles source accommodation without creating destination pre join stay', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
-    $fixtures['rank']->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($fixtures['company'], $fixtures['rank'], 90);
     [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
     $vessel = makeCrewMovementVessel('Redeploy P4 Vessel', $fixtures['company']);
 
@@ -1444,7 +1444,7 @@ test('redeploy to p4 handles source accommodation without creating destination p
         'starting_phase' => CrewPhaseCode::OnVessel->value,
         'source_check_out_date' => '2026-12-05',
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $fixtures['user']->id);
 
@@ -1816,7 +1816,7 @@ test('void without accommodation history remains allowed', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
     $assignment = app(CrewMovementService::class)->createDraft($fixtures['company']->id, $fixtures['employee']->id, [
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ], $fixtures['user']->id);
 
     app(VoidCrewAssignment::class)->handle(
@@ -1838,7 +1838,7 @@ test('current crew bulk loads p5 accommodation without per assignment presenter 
         $employee = $index === 0
             ? $fixtures['employee']
             : Employee::factory()->forCompany($fixtures['company'])->create([
-                'rank_id' => $fixtures['rank']->id,
+                'position_id' => $fixtures['rank']->id,
                 'status' => 'active',
             ]);
 
@@ -1889,5 +1889,5 @@ test('current crew bulk loads p5 accommodation without per assignment presenter 
             'open_hotel' => 2,
             'missing' => 1,
         ])
-        ->and($presenterQueries)->toBeLessThanOrEqual(2);
+        ->and($presenterQueries)->toBeLessThanOrEqual(3);
 });

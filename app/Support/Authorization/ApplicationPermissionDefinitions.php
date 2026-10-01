@@ -1557,30 +1557,6 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to view projects master data available to the active company.',
                 'group' => 'Master Data',
             ],
-            262 => [
-                'name' => 'settings.master-data.ranks.create',
-                'label' => 'Create Ranks',
-                'description' => 'Allows the user to create new ranks master data records for the active company.',
-                'group' => 'Master Data',
-            ],
-            263 => [
-                'name' => 'settings.master-data.ranks.delete',
-                'label' => 'Delete Ranks',
-                'description' => 'Allows the user to delete ranks master data records according to existing usage-protection rules.',
-                'group' => 'Master Data',
-            ],
-            264 => [
-                'name' => 'settings.master-data.ranks.update',
-                'label' => 'Update Ranks',
-                'description' => 'Allows the user to update existing ranks master data records within the active company.',
-                'group' => 'Master Data',
-            ],
-            265 => [
-                'name' => 'settings.master-data.ranks.view',
-                'label' => 'View Ranks',
-                'description' => 'Allows the user to view ranks master data available to the active company.',
-                'group' => 'Master Data',
-            ],
             266 => [
                 'name' => 'settings.master-data.religions.create',
                 'label' => 'Create Religions',

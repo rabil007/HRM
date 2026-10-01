@@ -18,7 +18,6 @@ use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
@@ -211,7 +210,6 @@ test('authenticated users can view an employee details page', function () {
                 ->has('employee_navigation')
                 ->has('employee')
                 ->has('employee_tabs')
-                ->has('ranks')
                 ->has('projects')
                 ->has('profile_clients')
                 ->missing('contracts')
@@ -1103,9 +1101,10 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'status' => 'active',
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Chief Officer',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Officer',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $project = Project::query()->create([
@@ -1183,7 +1182,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'branch_id' => $branch->id,
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'project_id' => $project->id,
         'work_email' => 'janet@example.com',
@@ -1194,7 +1193,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'id' => $employeeId,
         'name' => 'Janet Smith',
         'status' => 'inactive',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'project_id' => $project->id,
     ]);
@@ -2951,7 +2950,7 @@ test('employee import template download includes sponsor when sponsor is visible
     expect($headers)->toContain('employee_no', 'name', 'sponsor');
 });
 
-test('employee import template download includes rank and visa_type when visible', function () {
+test('employee import template download includes position and visa_type when visible', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -2970,8 +2969,58 @@ test('employee import template download includes rank and visa_type when visible
     ]);
 
     $company = Company::query()->create([
-        'name' => 'Import Template Rank Visa Co',
-        'slug' => 'import-template-rank-visa-co',
+        'name' => 'Import Template Position Visa Co',
+        'slug' => 'import-template-position-visa-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    // Canonical position_id becomes import header "position" (legacy rank_id is no longer an editor field).
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+        'position_id',
+        'visa_type_id',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Position Visa Import', $configuration);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
+
+    $response->assertOk();
+    $headers = employeeImportTemplateHeaders($response);
+
+    expect($headers)->toContain('employee_no', 'name', 'position', 'visa_type')
+        ->and($headers)->not->toContain('rank');
+});
+
+test('employee import template maps legacy stored rank_id field to position header', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITCL',
+        'name' => 'Import Template Legacy Rank',
+        'dial_code' => '+986',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITCL',
+        'name' => 'Import Template Legacy Currency',
+        'symbol' => 'L$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Template Legacy Rank Co',
+        'slug' => 'import-template-legacy-rank-co',
         'working_days' => [1, 2, 3, 4, 5],
         'country_id' => $country->id,
         'currency_id' => $currency->id,
@@ -2983,11 +3032,15 @@ test('employee import template download includes rank and visa_type when visible
     $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
         'employee_no',
         'name',
-        'rank_id',
         'visa_type_id',
     ]);
+    unset($configuration['fields']['employees']['position_id']);
+    $configuration['fields']['employees']['rank_id'] = [
+        'visible' => true,
+        'required' => false,
+    ];
 
-    $template = createEmployeeProfileTemplate($company, 'Rank Visa Import', $configuration);
+    $template = createEmployeeProfileTemplate($company, 'Legacy Rank Import', $configuration);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
 
@@ -2996,7 +3049,8 @@ test('employee import template download includes rank and visa_type when visible
     $response->assertOk();
     $headers = employeeImportTemplateHeaders($response);
 
-    expect($headers)->toContain('employee_no', 'name', 'rank', 'visa_type');
+    expect($headers)->toContain('employee_no', 'name', 'position', 'visa_type')
+        ->and($headers)->not->toContain('rank');
 });
 
 test('employee import template download includes visible personal fields such as address', function () {
@@ -4176,7 +4230,7 @@ test('employee with profile template can change to another active template', fun
         employeeProfileTemplateWithVisibleEmployeeFields([
             'employee_no',
             'name',
-            'rank_id',
+            'position_id',
         ]),
     );
     $otherTemplate = createEmployeeProfileTemplate(
@@ -4189,9 +4243,10 @@ test('employee with profile template can change to another active template', fun
         ]),
     );
 
-    $rank = Rank::query()->create([
-        'name' => 'Captain',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Captain',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $client = Client::query()->create([
@@ -4203,7 +4258,7 @@ test('employee with profile template can change to another active template', fun
         ->forCompany($company)
         ->create([
             'employee_profile_template_id' => $existingTemplate->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => $client->id,
             'passport_number' => 'P1234567',
             'nearest_airport' => 'DXB',
@@ -4229,7 +4284,7 @@ test('employee with profile template can change to another active template', fun
     $employee->refresh();
 
     expect($employee->employee_profile_template_id)->toBe($otherTemplate->id)
-        ->and($employee->rank_id)->toBe($rank->id)
+        ->and($employee->position_id)->toBe($rank->id)
         ->and($employee->client_id)->toBe($client->id)
         ->and($employee->passport_number)->toBe('P1234567')
         ->and($employee->nearest_airport)->toBe('DXB')
@@ -4752,7 +4807,7 @@ test('employee profile resolves an inactive non-deleted assigned template', func
         employeeProfileTemplateWithVisibleEmployeeFields([
             'employee_no',
             'name',
-            'rank_id',
+            'position_id',
         ]),
     );
     $template->update(['is_active' => false]);

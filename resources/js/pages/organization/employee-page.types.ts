@@ -12,7 +12,7 @@ import type {
     DepartmentOption,
     GenderOption,
     PositionOption,
-    RankOption,
+    CrewPositionOption,
     ProjectOption,
     ReligionOption,
     SssaOption,
@@ -45,8 +45,6 @@ export type EmployeeDetails = {
     branch: { id: number; name: string | null } | null;
     department: { id: number; name: string | null } | null;
     position: { id: number; title: string | null } | null;
-    rank_id?: number | null;
-    rank?: { id: number; name: string | null } | null;
     project_id?: number | null;
     project?: { id: number; title: string | null } | null;
     client_id?: number | null;
@@ -256,8 +254,8 @@ export type SeaServiceItem = {
     vessel_type_name: string | null;
     vessel_id: number | null;
     vessel_name: string | null;
-    rank_id: number;
-    rank_name: string | null;
+    position_id: number | null;
+    position_name?: string | null;
     start_date: string | null;
     end_date: string | null;
     total_months: number;
@@ -400,7 +398,7 @@ export type EmployeePageProps = {
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
     banks: BankOption[];
-    ranks: RankOption[];
+    sea_service_positions: CrewPositionOption[];
     projects: ProjectOption[];
     profile_clients: ClientOption[];
     vessel_types?: VesselTypeOption[];

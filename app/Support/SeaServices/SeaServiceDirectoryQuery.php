@@ -6,6 +6,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -27,11 +28,14 @@ final class SeaServiceDirectoryQuery
 
         $this->applyFilters($query);
 
-        return $query
+        $paginator = $query
             ->latestServiceFirst()
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (EmployeeSeaService $seaService) => SeaServiceListResource::toArray($seaService));
+            ->withQueryString();
+
+        CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
+
+        return $paginator->through(fn (EmployeeSeaService $seaService) => SeaServiceListResource::toArray($seaService));
     }
 
     /**
@@ -79,7 +83,7 @@ final class SeaServiceDirectoryQuery
             ->with([
                 'vesselType:id,name',
                 'vessel:id,name',
-                'rank:id,name',
+                'position:id,title',
                 'client:id,name',
                 'employee:id,name,employee_no,image,company_id,branch_id,department_id,position_id',
                 'employee.department:id,name',
@@ -101,10 +105,9 @@ final class SeaServiceDirectoryQuery
                 'employee_sea_services.vessel_type_id',
                 $this->filters->vesselTypeId,
             ))
-            ->when($this->filters->rankId !== '', fn (Builder $inner) => $inner->where(
-                'employee_sea_services.rank_id',
-                $this->filters->rankId,
-            ))
+            ->when($this->filters->positionId !== '', function (Builder $inner): void {
+                $inner->where('employee_sea_services.position_id', (int) $this->filters->positionId);
+            })
             ->when($this->filters->clientId !== '', fn (Builder $inner) => $inner->where(
                 'employee_sea_services.client_id',
                 $this->filters->clientId,
@@ -134,8 +137,8 @@ final class SeaServiceDirectoryQuery
                         ->orWhereHas('vesselType', function (Builder $vesselTypeQuery) use ($like): void {
                             $vesselTypeQuery->where('name', 'like', $like);
                         })
-                        ->orWhereHas('rank', function (Builder $rankQuery) use ($like): void {
-                            $rankQuery->where('name', 'like', $like);
+                        ->orWhereHas('position', function (Builder $positionQuery) use ($like): void {
+                            $positionQuery->where('title', 'like', $like);
                         })
                         ->orWhereHas('client', function (Builder $clientQuery) use ($like): void {
                             $clientQuery->where('name', 'like', $like);

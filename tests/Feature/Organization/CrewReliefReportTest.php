@@ -94,7 +94,7 @@ test('report only shows active P4 onboard crew and excludes completed or non-p4 
     ]);
 
     // Completed assignment
-    $completedEmployee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $completedEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     CrewAssignment::factory()->forEmployee($completedEmployee)->completed()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
@@ -103,7 +103,7 @@ test('report only shows active P4 onboard crew and excludes completed or non-p4 
     ]);
 
     // P1 Travel in assignment
-    $travelEmployee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $travelEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $travelEmployee, $rank, $vessel, CrewPhaseCode::TravelIn, [
         'assignment_no' => 'CA-TRAVEL-001',
         'planned_signoff_at' => '2026-10-25 00:00:00',
@@ -128,7 +128,7 @@ test('joined date uses actual P4 start date and days onboard counts correctly', 
         'company_id' => $company->id,
         'assignment_no' => 'CA-JOINED-001',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'planned_join_at' => '2026-09-01 00:00:00', // Should NOT be used as actual joined date
@@ -214,7 +214,7 @@ test('attention rules: relief in training (P2B) is flagged as relief not ready w
         'planned_signoff_at' => '2026-10-18 00:00:00', // 8 days away
     ]);
 
-    $reliefEmployee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $incoming = makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::Training, [
         'assignment_no' => 'CA-RELIEF-001',
         'relieves_crew_assignment_id' => $outgoing->id,
@@ -245,7 +245,7 @@ test('attention rules: relief joins late when planned join date is after sign-of
         'planned_signoff_at' => '2026-10-15 00:00:00',
     ]);
 
-    $reliefEmployee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
         'assignment_no' => 'CA-RELIEF-002',
         'relieves_crew_assignment_id' => $outgoing->id,
@@ -273,7 +273,7 @@ test('attention rules: relief ready (P3) with matching date is healthy', functio
         'planned_signoff_at' => '2026-10-25 00:00:00',
     ]);
 
-    $reliefEmployee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
         'assignment_no' => 'CA-RELIEF-003',
         'relieves_crew_assignment_id' => $outgoing->id,
@@ -302,7 +302,7 @@ test('attention rules: relief assignment conflict is flagged as critical', funct
         'planned_signoff_at' => '2026-10-20 00:00:00',
     ]);
 
-    $reliefEmployee = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     // Incoming relief assignment
     makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
         'assignment_no' => 'CA-RELIEF-004',
@@ -343,7 +343,7 @@ test('next assignment indicates whether current crew member has another assignme
         'company_id' => $company->id,
         'assignment_no' => 'CA-NEXT-001',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $nextVessel->id,
         'status' => CrewAssignmentStatus::Draft,
         'previous_assignment_id' => $current->id,
@@ -365,8 +365,8 @@ test('inactive and terminated employees are excluded from operational lists', fu
 
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
-    $inactive = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'inactive']);
-    $terminated = Employee::factory()->forCompany($company)->terminated()->create(['rank_id' => $rank->id]);
+    $inactive = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'inactive']);
+    $terminated = Employee::factory()->forCompany($company)->terminated()->create(['position_id' => $rank->id]);
 
     makeActiveOnVesselAssignment($company, $inactive, $rank, $vessel, [
         'assignment_no' => 'CA-INACTIVE-001',
@@ -391,8 +391,8 @@ test('filters: can filter by vessel, readiness, attention, and search', function
 
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
-    $emp1 = Employee::factory()->forCompany($company)->create(['name' => 'John Doe', 'rank_id' => $rank->id, 'status' => 'active']);
-    $emp2 = Employee::factory()->forCompany($company)->create(['name' => 'Jane Smith', 'rank_id' => $rank->id, 'status' => 'active']);
+    $emp1 = Employee::factory()->forCompany($company)->create(['name' => 'John Doe', 'position_id' => $rank->id, 'status' => 'active']);
+    $emp2 = Employee::factory()->forCompany($company)->create(['name' => 'Jane Smith', 'position_id' => $rank->id, 'status' => 'active']);
 
     $vessel2 = makeCrewMovementVessel('Other Filter Vessel', $company);
 
@@ -456,7 +456,7 @@ test('crew relief report export downloads excel with active filters', function (
             ->and($rows[0]['assignment_no'])->toBe('CA-EXPORT-001');
 
         $headings = $export->headings();
-        expect($headings)->toContain('Current Crew', 'Rank', 'Vessel', 'Attention');
+        expect($headings)->toContain('Current Crew', 'Position', 'Vessel', 'Attention');
 
         $mapped = $export->map($rows[0]);
         expect($mapped[0])->toBe($rows[0]['employee']['name'])
@@ -475,12 +475,12 @@ test('department restricted user cannot see assignments of employees from other 
     $deptEngine = Department::query()->create(['company_id' => $company->id, 'name' => 'Engine', 'code' => 'ENG', 'status' => 'active']);
 
     $deckEmp = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptDeck->id,
         'status' => 'active',
     ]);
     $engineEmp = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptEngine->id,
         'status' => 'active',
     ]);
@@ -516,12 +516,12 @@ test('department restricted user sees redacted name for relief crew in inaccessi
     $deptEngine = Department::query()->create(['company_id' => $company->id, 'name' => 'Engine 2', 'code' => 'ENG2', 'status' => 'active']);
 
     $deckEmp = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptDeck->id,
         'status' => 'active',
     ]);
     $engineRelief = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptEngine->id,
         'status' => 'active',
     ]);
@@ -556,19 +556,19 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
     // 1: Signs off in 5 days, no relief (critical)
-    $emp1 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp1 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeActiveOnVesselAssignment($company, $emp1, $rank, $vessel, [
         'assignment_no' => 'CA-PRESET-5DAYS',
         'planned_signoff_at' => '2026-10-15 00:00:00',
     ]);
 
     // 2: Signs off in 10 days, has relief in training (warning)
-    $emp2 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $outgoing2 = makeActiveOnVesselAssignment($company, $emp2, $rank, $vessel, [
         'assignment_no' => 'CA-PRESET-10DAYS',
         'planned_signoff_at' => '2026-10-20 00:00:00',
     ]);
-    $relief2 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $relief2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $relief2, $rank, $vessel, CrewPhaseCode::Training, [
         'assignment_no' => 'CA-RELIEF-TRAIN',
         'relieves_crew_assignment_id' => $outgoing2->id,
@@ -576,12 +576,12 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
     ]);
 
     // 3: Signs off in 25 days, has relief ready in P3 (healthy)
-    $emp3 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp3 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $outgoing3 = makeActiveOnVesselAssignment($company, $emp3, $rank, $vessel, [
         'assignment_no' => 'CA-PRESET-25DAYS',
         'planned_signoff_at' => '2026-11-04 00:00:00',
     ]);
-    $relief3 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $relief3 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $relief3, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
         'assignment_no' => 'CA-RELIEF-READY',
         'relieves_crew_assignment_id' => $outgoing3->id,
@@ -661,12 +661,12 @@ test('conflict detection prevents mixed model numeric ID collision between crew 
 
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
-    $outgoing1 = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    $outgoing1 = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-OUTGOING-COLLIDE-1',
         'planned_signoff_at' => '2026-10-25 00:00:00',
     ]);
 
-    $outgoing2 = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    $outgoing2 = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-OUTGOING-COLLIDE-2',
         'planned_signoff_at' => '2026-10-25 00:00:00',
     ]);
@@ -674,13 +674,13 @@ test('conflict detection prevents mixed model numeric ID collision between crew 
     $collisionId = 7777;
 
     // Relief 1: CrewAssignment with id = 7777 for outgoing1
-    $reliefEmp1 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefEmp1 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $reliefAssignment = CrewAssignment::query()->forceCreate([
         'id' => $collisionId,
         'company_id' => $company->id,
         'assignment_no' => 'CA-RELIEF-COLLISION',
         'employee_id' => $reliefEmp1->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Planned,
         'relieves_crew_assignment_id' => $outgoing1->id,
@@ -696,12 +696,12 @@ test('conflict detection prevents mixed model numeric ID collision between crew 
     ]);
 
     // Relief 2: CrewPlanningAssignment with identical numeric id = 7777 for outgoing2
-    $reliefEmp2 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefEmp2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $planningAssignment = CrewPlanningAssignment::query()->forceCreate([
         'id' => $collisionId,
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $reliefEmp2->id,
         'relieves_crew_assignment_id' => $outgoing2->id,
         'planned_join_date' => '2026-10-25',
@@ -736,17 +736,17 @@ test('conflict detection identifies competing assignment for CrewPlanningAssignm
 
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
-    $outgoing = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    $outgoing = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-OUTGOING-PLANNING-CONFLICT',
         'planned_signoff_at' => '2026-10-25 00:00:00',
     ]);
 
-    $reliefEmp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefEmp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
 
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $reliefEmp->id,
         'relieves_crew_assignment_id' => $outgoing->id,
         'planned_join_date' => '2026-10-25',
@@ -759,7 +759,7 @@ test('conflict detection identifies competing assignment for CrewPlanningAssignm
         'company_id' => $company->id,
         'assignment_no' => 'CA-COMPETING-PLANNED',
         'employee_id' => $reliefEmp->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $otherVessel->id,
         'status' => CrewAssignmentStatus::Planned,
         'planned_join_at' => '2026-10-20 00:00:00',
@@ -788,30 +788,30 @@ test('pagination architecture hydrates only page items and preserves urgency sor
     // Assignment 0: Overdue sign-off (critical, urgency 1) with relief assigned
     // Assignment 1: No relief within 7 days (critical, urgency 1)
     // Assignments 2..29: Healthy relief in 22 days (urgency 5)
-    $overdueOutgoing = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    $overdueOutgoing = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-PAGE-OVERDUE',
         'planned_signoff_at' => '2026-10-05 00:00:00', // 5 days overdue
     ]);
-    $overdueRelief = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $overdueRelief = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $overdueRelief, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
         'assignment_no' => 'CA-RELIEF-OVERDUE',
         'relieves_crew_assignment_id' => $overdueOutgoing->id,
         'planned_join_at' => '2026-10-05 00:00:00',
     ]);
 
-    makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-PAGE-NORELIEF-URGENT',
         'planned_signoff_at' => '2026-10-14 00:00:00', // 4 days away, no relief
     ]);
 
     for ($i = 2; $i < 30; $i++) {
-        $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+        $emp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
         $outgoing = makeActiveOnVesselAssignment($company, $emp, $rank, $vessel, [
             'assignment_no' => sprintf('CA-PAGE-%03d', $i),
             'planned_signoff_at' => '2026-11-01 00:00:00',
         ]);
 
-        $relief = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+        $relief = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
         makeCurrentCrewPhaseAssignment($company, $relief, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
             'assignment_no' => sprintf('CA-RELIEF-%03d', $i),
             'relieves_crew_assignment_id' => $outgoing->id,
@@ -897,8 +897,8 @@ test('search by remarks returns matching assignments', function () {
 
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
-    $emp1 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
-    $emp2 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp1 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
+    $emp2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
 
     makeActiveOnVesselAssignment($company, $emp1, $rank, $vessel, [
         'assignment_no' => 'CA-REMARKS-MATCH',
@@ -933,7 +933,7 @@ test('hidden relief employee operational metadata is privacy safe in screen payl
     $outgoingEmp = Employee::factory()->forCompany($company)->create([
         'name' => 'Allowed Captain',
         'employee_no' => 'EMP-ALLOW-01',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptAllowed->id,
         'status' => 'active',
     ]);
@@ -941,7 +941,7 @@ test('hidden relief employee operational metadata is privacy safe in screen payl
     $hiddenReliefEmp = Employee::factory()->forCompany($company)->create([
         'name' => 'Secret Relief Chief',
         'employee_no' => 'EMP-SECRET-99',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptHidden->id,
         'status' => 'active',
     ]);
@@ -1019,11 +1019,11 @@ test('summary reflects readiness and attention filters for the filtered report s
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
     // 1. Ready relief row: signing off in 5 days (signing_off_next_7_days: 1)
-    $outgoingReady = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    $outgoingReady = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-SUMMARY-READY',
         'planned_signoff_at' => '2026-10-15 00:00:00',
     ]);
-    $reliefReady = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefReady = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $reliefReady, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
         'assignment_no' => 'CA-RELIEF-READY',
         'relieves_crew_assignment_id' => $outgoingReady->id,
@@ -1031,17 +1031,17 @@ test('summary reflects readiness and attention filters for the filtered report s
     ]);
 
     // 2. No relief row: signing off in 10 days (no_relief_assigned: 1)
-    makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-SUMMARY-NORELIEF',
         'planned_signoff_at' => '2026-10-20 00:00:00',
     ]);
 
     // 3. At risk relief row: signing off in 12 days (relief_not_ready: 1, attention: critical conflict)
-    $outgoingConflict = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
+    $outgoingConflict = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vessel, [
         'assignment_no' => 'CA-SUMMARY-CONFLICT',
         'planned_signoff_at' => '2026-10-22 00:00:00',
     ]);
-    $reliefConflict = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $reliefConflict = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     makeCurrentCrewPhaseAssignment($company, $reliefConflict, $rank, $vessel, CrewPhaseCode::PreMobilisation, [
         'assignment_no' => 'CA-RELIEF-CONFLICT',
         'relieves_crew_assignment_id' => $outgoingConflict->id,
@@ -1110,14 +1110,14 @@ test('restricted relief cannot be inferred using readiness filters', function ()
 
     $outgoingEmp = Employee::factory()->forCompany($company)->create([
         'name' => 'Visible Outgoing',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptAllowed->id,
         'status' => 'active',
     ]);
 
     $hiddenReliefEmp = Employee::factory()->forCompany($company)->create([
         'name' => 'Secret Relief',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptHidden->id,
         'status' => 'active',
     ]);
@@ -1180,14 +1180,14 @@ test('restricted relief cannot be inferred using attention filters', function ()
 
     $outgoingEmp = Employee::factory()->forCompany($company)->create([
         'name' => 'Visible Outgoing 2',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptAllowed->id,
         'status' => 'active',
     ]);
 
     $hiddenReliefEmp = Employee::factory()->forCompany($company)->create([
         'name' => 'Secret Relief 2',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'department_id' => $deptHidden->id,
         'status' => 'active',
     ]);
@@ -1243,7 +1243,7 @@ test('out-of-range page preserves correct total and last_page when requested pag
 
     // Create 30 assignments
     for ($i = 0; $i < 30; $i++) {
-        $emp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+        $emp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
         makeActiveOnVesselAssignment($company, $emp, $rank, $vessel, [
             'assignment_no' => sprintf('CA-OUTOFRANGE-%02d', $i),
             'planned_signoff_at' => '2026-10-25 00:00:00',
@@ -1273,18 +1273,18 @@ test('two overlapping relief plans for the same employee within the batch detect
     $vesselA = makeCrewMovementVessel('Vessel Alpha', $company);
     $vesselB = makeCrewMovementVessel('Vessel Beta', $company);
 
-    $outgoingA = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vesselA, [
+    $outgoingA = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vesselA, [
         'assignment_no' => 'CA-BATCH-OUTGOING-A',
         'planned_signoff_at' => '2026-10-25 00:00:00',
     ]);
 
-    $outgoingB = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']), $rank, $vesselB, [
+    $outgoingB = makeActiveOnVesselAssignment($company, Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']), $rank, $vesselB, [
         'assignment_no' => 'CA-BATCH-OUTGOING-B',
         'planned_signoff_at' => '2026-10-30 00:00:00',
     ]);
 
     // Single relief employee assigned to relief plans for BOTH outgoing assignments
-    $sharedReliefEmp = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $sharedReliefEmp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
 
     // Plan A: joins 2026-10-25, signs off 2026-11-25
     makeCurrentCrewPhaseAssignment($company, $sharedReliefEmp, $rank, $vesselA, CrewPhaseCode::ReadyToJoin, [

@@ -10,7 +10,7 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
@@ -73,8 +73,18 @@ function makeCrewPlanningFixtures(): array
         'is_active' => true,
     ]);
 
-    $captain = Rank::query()->create(['name' => 'Captain CPL', 'is_active' => true]);
-    $chiefOfficer = Rank::query()->create(['name' => 'Chief Officer CPL', 'is_active' => true]);
+    $captain = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Captain CPL',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+    $chiefOfficer = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Officer CPL',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
 
     grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
 
@@ -135,7 +145,7 @@ test('crew planning index returns relief prefill from query params', function ()
 
     $employee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Onboard Source',
     ]);
 
@@ -146,7 +156,7 @@ test('crew planning index returns relief prefill from query params', function ()
     $this->actingAs($user)
         ->get(route('organization.crew-planning.index', [
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
             'relieves_crew_assignment_id' => $source->id,
             'planned_join_date' => '2026-09-15',
             'open_create' => 1,
@@ -156,7 +166,7 @@ test('crew planning index returns relief prefill from query params', function ()
             ->component('organization/crew-planning/index')
             ->where('relief_prefill.open_create', true)
             ->where('relief_prefill.vessel_id', $vessel->id)
-            ->where('relief_prefill.rank_id', $captain->id)
+            ->where('relief_prefill.position_id', $captain->id)
             ->where('relief_prefill.relieves_crew_assignment_id', $source->id)
             ->where('relief_prefill.planned_join_date', '2026-09-15')
             ->where('relief_prefill.relieves_employee_name', 'Onboard Source')
@@ -168,7 +178,7 @@ test('planning crew list includes employees with active assignments', function (
 
     $employee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Deployed Crew',
     ]);
 
@@ -206,14 +216,14 @@ test('planning index employees list respects role employee visibility scope', fu
     $crewMember = Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $crewDept->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Alpha Crew',
     ]);
 
     Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $officeDept->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Beta Office',
     ]);
 
@@ -225,8 +235,8 @@ test('planning index employees list respects role employee visibility scope', fu
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 1)
             ->where('employees.0.id', $crewMember->id)
-            ->where('employees.0.rank_id', $captain->id)
-            ->where('employees.0.rank_name', $captain->name)
+            ->where('employees.0.position_id', $captain->id)
+            ->where('employees.0.position_name', $captain->title)
         );
 });
 
@@ -235,19 +245,19 @@ test('planning index only includes employees with a profile rank', function () {
 
     $ranked = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Ranked Crew',
     ]);
 
     Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => null,
+        'position_id' => null,
         'name' => 'Unranked Crew',
     ]);
 
     $anotherRanked = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $chiefOfficer->id,
+        'position_id' => $chiefOfficer->id,
         'name' => 'Another Ranked Crew',
     ]);
 
@@ -283,14 +293,14 @@ test('role employee visibility includes employees from child departments when pa
     $parentEmployee = Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $parentDept->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Parent Crew',
     ]);
 
     $childEmployee = Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $childDept->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Child Crew',
     ]);
 
@@ -317,7 +327,7 @@ test('rows are returned from planned assignments in range', function () {
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
@@ -336,7 +346,7 @@ test('rows are returned from planned assignments in range', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'planned_join_date' => $today->subDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
@@ -344,7 +354,7 @@ test('rows are returned from planned assignments in range', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $chiefOfficer->id,
+        'position_id' => $chiefOfficer->id,
         'planned_join_date' => $today->subDays(3)->toDateString(),
         'planned_leave_date' => $today->addDays(25)->toDateString(),
     ]);
@@ -355,7 +365,7 @@ test('rows are returned from planned assignments in range', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
             ->where('rows.0.vessel_name', 'Planning Vessel Alpha')
-            ->has('rows.0.ranks', 2)
+            ->has('rows.0.positions', 2)
         );
 });
 
@@ -369,7 +379,7 @@ test('bars are returned for assignments overlapping the date range', function ()
 
     $employee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
     ]);
 
     $today = CarbonImmutable::today();
@@ -380,7 +390,7 @@ test('bars are returned for assignments overlapping the date range', function ()
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'planned_join_date' => $today->subDays(10)->toDateString(),
         'planned_leave_date' => $today->addDays(30)->toDateString(),
     ]);
@@ -406,14 +416,14 @@ test('bars outside the date range are excluded', function () {
 
     $employee = Employee::factory()->create([
         'company_id' => $company->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
     ]);
 
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'planned_join_date' => '2020-01-01',
         'planned_leave_date' => '2020-03-01',
     ]);
@@ -454,7 +464,7 @@ test('vessel filter narrows rows, bars, and tree', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'planned_join_date' => $today->subDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
@@ -462,7 +472,7 @@ test('vessel filter narrows rows, bars, and tree', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $otherVessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'planned_join_date' => $today->subDays(4)->toDateString(),
         'planned_leave_date' => $today->addDays(21)->toDateString(),
     ]);
@@ -494,7 +504,7 @@ test('rank filter narrows rows, bars, and tree', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'planned_join_date' => $today->subDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
@@ -502,20 +512,20 @@ test('rank filter narrows rows, bars, and tree', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $chiefOfficer->id,
+        'position_id' => $chiefOfficer->id,
         'planned_join_date' => $today->subDays(4)->toDateString(),
         'planned_leave_date' => $today->addDays(21)->toDateString(),
     ]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-planning.index', ['rank_id' => $captain->id, 'from' => $from, 'to' => $to]))
+        ->get(route('organization.crew-planning.index', ['position_id' => $captain->id, 'from' => $from, 'to' => $to]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
-            ->where('rows.0.ranks.0.rank_name', 'Captain CPL')
+            ->where('rows.0.positions.0.position_name', 'Captain CPL')
             ->has('tree', 1)
-            ->has('tree.0.ranks', 1)
-            ->where('tree.0.ranks.0.rank_name', 'Captain CPL')
+            ->has('tree.0.positions', 1)
+            ->where('tree.0.positions.0.position_name', 'Captain CPL')
         );
 });
 
@@ -535,7 +545,7 @@ test('planning data is scoped to current company', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'planned_join_date' => $today->subDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
@@ -560,7 +570,7 @@ test('planning users without vessel manning permission receive no projection pay
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 2,
     ]);
 
@@ -594,7 +604,7 @@ test('planning users with vessel manning permission receive projection matching 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 2,
     ]);
 
@@ -613,7 +623,7 @@ test('planning users with vessel manning permission receive projection matching 
             'from' => $from,
             'to' => $to,
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
@@ -629,7 +639,7 @@ test('planning users with vessel manning permission receive projection matching 
             ->where('projection.rows.0.status', $expected['items'][0]['status'])
             ->where('projection.rows.0.maximum_gap', $expected['items'][0]['maximum_gap'])
             ->has('rows', 1)
-            ->where('rows.0.ranks.0.required_count', 2)
+            ->where('rows.0.positions.0.required_count', 2)
         );
 
     $projectionRow = $response->inertiaProps('projection.rows.0');
@@ -653,7 +663,7 @@ test('projection uses exact planning from and to range', function () {
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
@@ -696,13 +706,13 @@ test('projection vessel and rank filters apply on planning index', function () {
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $otherVessel->id,
-        'rank_id' => $chiefOfficer->id,
+        'position_id' => $chiefOfficer->id,
         'required_count' => 3,
     ]);
 
@@ -711,20 +721,20 @@ test('projection vessel and rank filters apply on planning index', function () {
             'from' => '2026-08-01',
             'to' => '2026-08-31',
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('projection.rows', 1)
             ->where('projection.rows.0.vessel_id', $vessel->id)
-            ->where('projection.rows.0.rank_id', $captain->id)
+            ->where('projection.rows.0.position_id', $captain->id)
             ->has('rows', 1)
             ->where('rows.0.vessel_id', $vessel->id)
-            ->where('rows.0.ranks.0.rank_id', $captain->id)
+            ->where('rows.0.positions.0.position_id', $captain->id)
             ->has('tree', 1)
             ->where('tree.0.vessel_id', $vessel->id)
-            ->has('tree.0.ranks', 1)
-            ->where('tree.0.ranks.0.rank_id', $captain->id)
+            ->has('tree.0.positions', 1)
+            ->where('tree.0.positions.0.position_id', $captain->id)
         );
 });
 
@@ -745,19 +755,19 @@ test('company B projection cannot appear on company A planning page', function (
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
     VesselManning::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 9,
     ]);
 
     $foreignEmployee = Employee::factory()->forCompany($otherCompany)->create([
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'status' => 'active',
     ]);
     makeActiveOnVesselAssignment($otherCompany, $foreignEmployee, $captain, $vessel, [
@@ -766,7 +776,7 @@ test('company B projection cannot appear on company A planning page', function (
     CrewPlanningAssignment::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => $foreignEmployee->id,
         'planned_join_date' => '2026-08-05',
         'planned_leave_date' => '2026-11-05',
@@ -785,8 +795,8 @@ test('company B projection cannot appear on company A planning page', function (
             ->where('projection.summary.positions', 1)
             ->has('bars', 0)
             ->has('tree', 1)
-            ->where('tree.0.ranks.0.required_count', 1)
-            ->where('tree.0.ranks.0.crew', [])
+            ->where('tree.0.positions.0.required_count', 1)
+            ->where('tree.0.positions.0.crew', [])
         );
 });
 
@@ -806,7 +816,7 @@ test('configured vessel rank with projected gap and zero planning still appears 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 2,
     ]);
 
@@ -820,15 +830,15 @@ test('configured vessel rank with projected gap and zero planning still appears 
             ->has('bars', 0)
             ->has('rows', 1)
             ->where('rows.0.vessel_id', $vessel->id)
-            ->where('rows.0.ranks.0.rank_id', $captain->id)
-            ->where('rows.0.ranks.0.required_count', 2)
-            ->where('rows.0.ranks.0.row_key', "vessel:{$vessel->id}|rank:{$captain->id}")
+            ->where('rows.0.positions.0.position_id', $captain->id)
+            ->where('rows.0.positions.0.required_count', 2)
+            ->where('rows.0.positions.0.row_key', 'vessel:'.$vessel->id.'|position:'.$captain->id)
             ->has('tree', 1)
             ->where('tree.0.vessel_id', $vessel->id)
-            ->has('tree.0.ranks', 1)
-            ->where('tree.0.ranks.0.rank_id', $captain->id)
-            ->where('tree.0.ranks.0.required_count', 2)
-            ->where('tree.0.ranks.0.crew', [])
+            ->has('tree.0.positions', 1)
+            ->where('tree.0.positions.0.position_id', $captain->id)
+            ->where('tree.0.positions.0.required_count', 2)
+            ->where('tree.0.positions.0.crew', [])
             ->where('projection.rows.0.status', CrewProjectedManningStatus::CurrentGap->value)
             ->where('projection.rows.0.maximum_gap', 2)
         );
@@ -843,7 +853,7 @@ test('vessel manning only positions appear in left tree with empty crew', functi
         'chiefOfficer' => $welder,
     ] = makeCrewPlanningFixtures();
 
-    $welder->update(['name' => 'Welder CPL']);
+    $welder->update(['title' => 'Welder CPL']);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
@@ -853,13 +863,13 @@ test('vessel manning only positions appear in left tree with empty crew', functi
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $welder->id,
+        'position_id' => $welder->id,
         'required_count' => 2,
     ]);
 
@@ -870,17 +880,17 @@ test('vessel manning only positions appear in left tree with empty crew', functi
         ]))
         ->assertOk();
 
-    $treeRanks = collect($response->inertiaProps('tree.0.ranks'));
-    $rowRanks = collect($response->inertiaProps('rows.0.ranks'));
+    $treePositions = collect($response->inertiaProps('tree.0.positions'));
+    $rowPositions = collect($response->inertiaProps('rows.0.positions'));
 
     expect($response->inertiaProps('tree'))->toHaveCount(1)
         ->and($response->inertiaProps('tree.0.vessel_id'))->toBe($vessel->id)
-        ->and($treeRanks)->toHaveCount(2)
-        ->and($treeRanks->pluck('rank_name')->all())->toBe(['Captain CPL', 'Welder CPL'])
-        ->and($treeRanks->every(fn (array $rank): bool => $rank['crew'] === []))->toBeTrue()
-        ->and($treeRanks->firstWhere('rank_id', $captain->id)['required_count'])->toBe(1)
-        ->and($treeRanks->firstWhere('rank_id', $welder->id)['required_count'])->toBe(2)
-        ->and($rowRanks)->toHaveCount(2)
+        ->and($treePositions)->toHaveCount(2)
+        ->and($treePositions->pluck('position_name')->all())->toBe(['Captain CPL', 'Welder CPL'])
+        ->and($treePositions->every(fn (array $rank): bool => $rank['crew'] === []))->toBeTrue()
+        ->and($treePositions->firstWhere('position_id', $captain->id)['required_count'])->toBe(1)
+        ->and($treePositions->firstWhere('position_id', $welder->id)['required_count'])->toBe(2)
+        ->and($rowPositions)->toHaveCount(2)
         ->and($response->inertiaProps('bars'))->toHaveCount(0);
 });
 
@@ -900,19 +910,19 @@ test('existing planning row and projection position do not duplicate vessel rank
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 3,
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'status' => 'active',
     ]);
 
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2026-08-10',
         'planned_leave_date' => '2026-11-10',
@@ -925,15 +935,15 @@ test('existing planning row and projection position do not duplicate vessel rank
         ]))
         ->assertOk();
 
-    $ranks = collect($response->inertiaProps('rows.0.ranks'));
-    $treeRanks = collect($response->inertiaProps('tree.0.ranks'));
-    $crew = $treeRanks->first()['crew'];
+    $positions = collect($response->inertiaProps('rows.0.positions'));
+    $treePositions = collect($response->inertiaProps('tree.0.positions'));
+    $crew = $treePositions->first()['crew'];
 
-    expect($ranks)->toHaveCount(1)
-        ->and($ranks->first()['required_count'])->toBe(3)
+    expect($positions)->toHaveCount(1)
+        ->and($positions->first()['required_count'])->toBe(3)
         ->and($response->inertiaProps('bars'))->toHaveCount(1)
-        ->and($treeRanks)->toHaveCount(1)
-        ->and($treeRanks->first()['required_count'])->toBe(3)
+        ->and($treePositions)->toHaveCount(1)
+        ->and($treePositions->first()['required_count'])->toBe(3)
         ->and($crew)->toHaveCount(1)
         ->and($crew[0]['employee_id'])->toBe($employee->id)
         ->and($crew[0]['employee_name'])->toBe($employee->name);
@@ -955,7 +965,7 @@ test('planning projection returns current gap future gap and overlap periods', f
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
@@ -964,7 +974,7 @@ test('planning projection returns current gap future gap and overlap periods', f
             'from' => '2026-08-01',
             'to' => '2026-08-31',
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk();
 
@@ -973,7 +983,7 @@ test('planning projection returns current gap future gap and overlap periods', f
         ->and(collect($currentRow['periods'])->contains(fn (array $period): bool => $period['gap'] > 0))->toBeTrue();
 
     $employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'status' => 'active',
     ]);
     makeActiveOnVesselAssignment($company, $employee, $captain, $vessel, [
@@ -985,7 +995,7 @@ test('planning projection returns current gap future gap and overlap periods', f
             'from' => '2026-08-01',
             'to' => '2026-08-31',
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk();
 
@@ -995,13 +1005,13 @@ test('planning projection returns current gap future gap and overlap periods', f
         ->and(collect($futureRow['periods'])->contains(fn (array $period): bool => $period['gap'] > 0))->toBeTrue();
 
     $early = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => $early->id,
         'planned_join_date' => '2026-08-18',
         'planned_leave_date' => '2026-11-18',
@@ -1012,7 +1022,7 @@ test('planning projection returns current gap future gap and overlap periods', f
             'from' => '2026-08-01',
             'to' => '2026-08-31',
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk();
 
@@ -1037,12 +1047,12 @@ test('planning projection ignores vacant planning and counts linked assignment o
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
     $onboard = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'status' => 'active',
     ]);
     makeActiveOnVesselAssignment($company, $onboard, $captain, $vessel, [
@@ -1052,7 +1062,7 @@ test('planning projection ignores vacant planning and counts linked assignment o
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => null,
         'planned_join_date' => '2026-08-15',
         'planned_leave_date' => '2026-11-15',
@@ -1063,20 +1073,20 @@ test('planning projection ignores vacant planning and counts linked assignment o
             'from' => '2026-08-01',
             'to' => '2026-08-31',
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk();
 
     expect($vacantResponse->inertiaProps('projection.rows.0.minimum_projected_count'))->toBe(1);
 
     $planner = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'status' => 'active',
     ]);
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => $planner->id,
         'planned_join_date' => '2026-08-25',
         'planned_leave_date' => '2026-11-25',
@@ -1087,7 +1097,7 @@ test('planning projection ignores vacant planning and counts linked assignment o
             'from' => '2026-08-01',
             'to' => '2026-08-31',
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk();
 
@@ -1103,7 +1113,7 @@ test('planning projection ignores vacant planning and counts linked assignment o
             'from' => '2026-08-01',
             'to' => '2026-08-31',
             'vessel_id' => $vessel->id,
-            'rank_id' => $captain->id,
+            'position_id' => $captain->id,
         ]))
         ->assertOk();
 
@@ -1133,14 +1143,14 @@ test('planning gantt bars do not expose hidden employee', function () {
     $visible = Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $crewDept->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Visible Crew',
         'status' => 'active',
     ]);
     $hidden = Employee::factory()->create([
         'company_id' => $company->id,
         'department_id' => $officeDept->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'name' => 'Hidden Office',
         'status' => 'active',
     ]);
@@ -1151,7 +1161,7 @@ test('planning gantt bars do not expose hidden employee', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => $visible->id,
         'planned_join_date' => $from,
         'planned_leave_date' => $to,
@@ -1159,7 +1169,7 @@ test('planning gantt bars do not expose hidden employee', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => $hidden->id,
         'planned_join_date' => $from,
         'planned_leave_date' => $to,
@@ -1194,7 +1204,7 @@ test('vacant planning position remains visible under restricted scope', function
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'employee_id' => null,
         'planned_join_date' => $from,
         'planned_leave_date' => $to,

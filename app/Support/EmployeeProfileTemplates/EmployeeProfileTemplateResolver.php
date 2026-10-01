@@ -59,7 +59,10 @@ final class EmployeeProfileTemplateResolver
         $tabs['personal']['visible'] = true;
 
         $fields = $defaults['fields'];
-        $storedFields = is_array($stored['fields'] ?? null) ? $stored['fields'] : [];
+        $storedFields = self::normalizeLegacyRankIdFields(
+            is_array($stored['fields'] ?? null) ? $stored['fields'] : [],
+        );
+
         foreach (EmployeeProfileTemplateFieldRegistry::fieldsByTable() as $table => $tableFieldLabels) {
             foreach (array_keys($tableFieldLabels) as $fieldKey) {
                 $fieldConfig = $storedFields[$table][$fieldKey] ?? null;
@@ -80,6 +83,38 @@ final class EmployeeProfileTemplateResolver
             'tabs' => $tabs,
             'fields' => $fields,
         ];
+    }
+
+    /**
+     * Map legacy stored rank_id field config onto canonical position_id.
+     *
+     * Rules:
+     * - rank_id only → copy onto position_id
+     * - both present → position_id wins
+     * - rank_id is never re-exposed after resolution
+     *
+     * @param  array<string, mixed>  $storedFields
+     * @return array<string, mixed>
+     */
+    private static function normalizeLegacyRankIdFields(array $storedFields): array
+    {
+        foreach (['employees', 'employee_sea_services'] as $table) {
+            if (! isset($storedFields[$table]) || ! is_array($storedFields[$table])) {
+                continue;
+            }
+
+            $legacyRankConfig = $storedFields[$table]['rank_id'] ?? null;
+            $hasCanonicalPosition = isset($storedFields[$table]['position_id'])
+                && is_array($storedFields[$table]['position_id']);
+
+            if (is_array($legacyRankConfig) && ! $hasCanonicalPosition) {
+                $storedFields[$table]['position_id'] = $legacyRankConfig;
+            }
+
+            unset($storedFields[$table]['rank_id']);
+        }
+
+        return $storedFields;
     }
 
     /**

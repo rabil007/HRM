@@ -18,13 +18,13 @@ final class HotelCheckInCheckoutFilters
         public readonly string $checkOutFrom = '',
         public readonly string $checkOutTo = '',
         public readonly string $vesselId = '',
-        public readonly string $rankId = '',
+        public readonly string $positionId = '',
         public readonly string $clientId = '',
         public readonly string $sort = 'check_in',
         public readonly string $direction = 'desc',
     ) {}
 
-    public static function fromRequest(Request $request): self
+    public static function fromRequest(Request $request, int $companyId): self
     {
         return new self(
             search: trim((string) $request->query('search', '')),
@@ -38,7 +38,7 @@ final class HotelCheckInCheckoutFilters
             checkOutFrom: (string) $request->query('check_out_from', ''),
             checkOutTo: (string) $request->query('check_out_to', ''),
             vesselId: (string) $request->query('vessel_id', ''),
-            rankId: (string) $request->query('rank_id', ''),
+            positionId: (string) ($request->query('position_id') ?? ''),
             clientId: (string) $request->query('client_id', ''),
             sort: (string) $request->query('sort', 'check_in'),
             direction: strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc',
@@ -76,7 +76,7 @@ final class HotelCheckInCheckoutFilters
             'check_out_from' => $this->checkOutFrom,
             'check_out_to' => $this->checkOutTo,
             'vessel_id' => $this->vesselId,
-            'rank_id' => $this->rankId,
+            'position_id' => $this->positionId,
             'client_id' => $this->clientId,
             'sort' => $this->sort,
             'direction' => $this->direction,

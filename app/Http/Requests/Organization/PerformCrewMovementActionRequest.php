@@ -14,6 +14,7 @@ use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -57,7 +58,7 @@ class PerformCrewMovementActionRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $action = (string) $this->input('action');
-        $companyId = (int) $this->attributes->get('current_company_id');
+        $companyId = $this->currentCompanyId();
 
         if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true)) {
             $vesselId = $this->input('vessel_id');
@@ -99,7 +100,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         $startingPhase = (string) $this->input('starting_phase');
         $nullable = [];
 
-        foreach (['vessel_id', 'rank_id', 'client_id', 'planned_signoff_at', 'remarks'] as $field) {
+        foreach (['vessel_id', 'position_id', 'client_id', 'planned_signoff_at', 'remarks'] as $field) {
             if ($this->input($field) === '') {
                 $nullable[$field] = null;
             }
@@ -108,7 +109,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         if ($startingPhase === CrewPhaseCode::PreMobilisation->value) {
             $nullable['planned_signoff_at'] = null;
             $nullable['vessel_id'] = null;
-            $nullable['rank_id'] = null;
+            $nullable['position_id'] = null;
             $nullable['client_id'] = null;
         }
 
@@ -122,7 +123,7 @@ class PerformCrewMovementActionRequest extends FormRequest
      */
     public function rules(): array
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
+        $companyId = $this->currentCompanyId();
         $action = $this->input('action');
 
         $baseRules = [
@@ -231,7 +232,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         if ($action === 'join_vessel') {
             $baseRules['check_out_date'] = ['nullable', 'date'];
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
-            $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
+            $baseRules['position_id'] = ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
@@ -252,7 +253,7 @@ class PerformCrewMovementActionRequest extends FormRequest
 
         if ($action === 'transfer_vessel') {
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)];
-            $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
+            $baseRules['position_id'] = ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
                 'nullable',
@@ -288,11 +289,11 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'integer',
                 Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true),
             ];
-            $baseRules['rank_id'] = [
+            $baseRules['position_id'] = [
                 Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value),
                 'nullable',
                 'integer',
-                Rule::exists('ranks', 'id')->where('is_active', true),
+                CrewPositionCatalog::existsCrewPositionRule($companyId),
             ];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_choice'] = [
@@ -936,7 +937,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             'planned_signoff_at.required' => 'Please enter the planned sign-off date.',
             'planned_signoff_override_reason.required' => 'A reason is required when entering another Planned Sign-Off date.',
             'vessel_id.required' => 'Please select the vessel the employee joins.',
-            'rank_id.required' => 'Please select the rank served onboard.',
+            'position_id.required' => 'Please select the position served onboard.',
             'starting_phase.required' => 'Please choose the starting phase for redeployment.',
             'starting_phase.in' => 'The selected starting phase is not valid for redeployment.',
             'hotel_id.required' => 'Please select a hotel.',
@@ -944,5 +945,16 @@ class PerformCrewMovementActionRequest extends FormRequest
             'check_out_date.required' => 'Please enter the hotel check-out date.',
             'source_check_out_date.required' => 'Please enter the hotel check-out date.',
         ];
+    }
+
+    private function currentCompanyId(): int
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if ($companyId > 0) {
+            return $companyId;
+        }
+
+        return (int) ($this->user()?->current_company_id ?? 0);
     }
 }

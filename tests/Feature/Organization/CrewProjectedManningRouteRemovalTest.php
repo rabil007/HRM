@@ -21,7 +21,7 @@ test('dedicated projected manning route returns 404', function () {
 });
 
 test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planning when user has planning view permission', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeCrewOperationsFixtures();
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank, 'position' => $position] = makeCrewOperationsFixtures();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
@@ -29,7 +29,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planni
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -37,7 +37,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planni
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -49,7 +49,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Crew Planni
 
     expect($url)->toBe(route('organization.crew-planning.index', [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $position->id,
     ]));
 });
 
@@ -62,7 +62,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Overview wh
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -70,7 +70,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to Overview wh
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -92,7 +92,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to vessels sho
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -100,7 +100,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to vessels sho
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),
@@ -126,7 +126,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to null when u
 
     $alert = CrewOperationalAlert::query()->create([
         'company_id' => $company->id,
-        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':rank:'.$rank->id,
+        'dedupe_key' => 'projected_manning_gap:vessel:'.$vessel->id.':position:'.$rank->id,
         'type' => CrewOperationalAlertType::ProjectedManningGap,
         'severity' => 'warning',
         'title' => 'Projected Manning Gap',
@@ -134,7 +134,7 @@ test('ResolveCrewOperationalAlertUrl resolves ProjectedManningGap to null when u
         'summary' => 'Gap detected',
         'context' => [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         'status' => 'active',
         'detected_at' => now(),

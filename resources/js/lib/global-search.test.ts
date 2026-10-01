@@ -279,10 +279,6 @@ describe('record-search destination filtering', () => {
                         url: '/settings/master-data/projects',
                     },
                     {
-                        title: 'Ranks',
-                        url: '/settings/master-data/ranks',
-                    },
-                    {
                         title: 'Countries',
                         url: '/settings/master-data/countries',
                     },
@@ -333,8 +329,6 @@ describe('record-search destination filtering', () => {
         const queries: Array<[string, string]> = [
             ['project', 'Projects'],
             ['projects', 'Projects'],
-            ['rank', 'Ranks'],
-            ['ranks', 'Ranks'],
             ['country', 'Countries'],
             ['countries', 'Countries'],
             ['bank', 'Banks'],

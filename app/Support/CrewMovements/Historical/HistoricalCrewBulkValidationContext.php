@@ -6,7 +6,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\Vessel;
 use Illuminate\Support\Collection;
 
@@ -19,7 +19,7 @@ final class HistoricalCrewBulkValidationContext
     /**
      * @param  array<int, Employee>  $employeesById
      * @param  array<int, Vessel>  $vesselsById
-     * @param  array<int, Rank>  $ranksById
+     * @param  array<int, Position>  $positionsById
      * @param  array<int, Client>  $clientsById
      * @param  array<int, Collection<int, CrewAssignment>>  $assignmentsByEmployeeId
      * @param  array<int, Collection<int, EmployeeSeaService>>  $seaServicesByEmployeeId
@@ -27,11 +27,13 @@ final class HistoricalCrewBulkValidationContext
     public function __construct(
         public readonly array $employeesById,
         public readonly array $vesselsById,
-        public readonly array $ranksById,
+        public readonly array $positionsById,
         public readonly array $clientsById,
         public readonly array $assignmentsByEmployeeId,
         public readonly array $seaServicesByEmployeeId,
         public readonly bool $seaServiceSyncEnabled,
+        /** @deprecated Kept empty for transitional call sites; Rank catalog removed. */
+        public readonly array $ranksById = [],
     ) {}
 
     public function employee(int $id): ?Employee
@@ -44,9 +46,9 @@ final class HistoricalCrewBulkValidationContext
         return $this->vesselsById[$id] ?? null;
     }
 
-    public function rank(int $id): ?Rank
+    public function position(int $id): ?Position
     {
-        return $this->ranksById[$id] ?? null;
+        return $this->positionsById[$id] ?? null;
     }
 
     public function client(int $id): ?Client

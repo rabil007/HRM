@@ -21,6 +21,7 @@ final class CreateEmployee
     {
         $data = $validated;
         $data['company_id'] = $companyId;
+        unset($data['rank_id']);
 
         $documents = $data['documents'] ?? [];
         unset($data['documents']);
@@ -100,7 +101,7 @@ final class CreateEmployee
             'branch_id',
             'department_id',
             'position_id',
-            'rank_id',
+
             'project_id',
             'client_id',
             'date_of_birth',

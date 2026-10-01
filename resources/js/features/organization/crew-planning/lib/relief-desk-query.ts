@@ -5,7 +5,7 @@ export const RELIEF_DESK_RESET_QUERY: ServerQueryParams = {
     view: 'relief',
     search: '',
     vessel_id: null,
-    rank_id: null,
+    position_id: null,
     client_id: null,
     relief_status: '',
     relief_risk: '',

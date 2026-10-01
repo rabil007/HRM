@@ -13,7 +13,7 @@ test('past crew same-day handoffs map to payroll categories without duplicate ca
     $data = HistoricalCrewAssignmentData::fromArray([
         'employee_id' => $fixtures['employee']->id,
         'vessel_id' => $fixtures['vessel']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'sign_on_standby_from' => '2026-07-01',
         'sign_on_standby_to' => '2026-07-05',
         'onsite_from' => '2026-07-05',

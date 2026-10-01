@@ -20,27 +20,28 @@ function makeProjectedManningPosition(array $fixtures, string $vesselName, int $
     VesselManning::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['position']->id,
         'required_count' => $required,
     ]);
 
     return [
         'company' => $fixtures['company'],
         'rank' => $fixtures['rank'],
+        'position' => $fixtures['position'],
         'vessel' => $vessel,
         'user' => $fixtures['user'],
         'employee' => $fixtures['employee'],
     ];
 }
 
-function projectManning(array $ctx, string $from, string $to, ?int $vesselId = null, ?int $rankId = null): array
+function projectManning(array $ctx, string $from, string $to, ?int $vesselId = null, ?int $positionId = null): array
 {
     return (new CrewProjectedManningQuery)->forCompany(
         (int) $ctx['company']->id,
         $from,
         $to,
         $vesselId ?? (int) $ctx['vessel']->id,
-        $rankId ?? (int) $ctx['rank']->id,
+        $positionId ?? (int) $ctx['position']->id,
     );
 }
 
@@ -125,13 +126,13 @@ it('prevents gap when a replacement joins before or on the same day as sign-off'
         'planned_signoff_at' => '2026-08-20 00:00:00',
     ]);
     $relief = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $relief->id,
         'planned_join_date' => '2026-08-20',
         'planned_leave_date' => '2026-11-20',
@@ -151,13 +152,13 @@ it('creates a bounded gap for late relief and overlap for early relief', functio
         'planned_signoff_at' => '2026-08-20 00:00:00',
     ]);
     $late = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $late->id,
         'planned_join_date' => '2026-08-22',
         'planned_leave_date' => '2026-11-22',
@@ -175,13 +176,13 @@ it('creates a bounded gap for late relief and overlap for early relief', functio
         'planned_signoff_at' => '2026-08-20 00:00:00',
     ]);
     $early = Employee::factory()->forCompany($earlyCtx['company'])->create([
-        'rank_id' => $earlyCtx['rank']->id,
+        'position_id' => $earlyCtx['position']->id,
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
         'company_id' => $earlyCtx['company']->id,
         'vessel_id' => $earlyCtx['vessel']->id,
-        'rank_id' => $earlyCtx['rank']->id,
+        'position_id' => $earlyCtx['position']->id,
         'employee_id' => $early->id,
         'planned_join_date' => '2026-08-18',
         'planned_leave_date' => '2026-11-18',
@@ -199,13 +200,13 @@ it('does not create an artificial gap for same-day join and sign-off', function 
         'planned_signoff_at' => '2026-08-20 00:00:00',
     ]);
     $relief = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $relief->id,
         'planned_join_date' => '2026-08-20',
         'planned_leave_date' => '2026-11-20',
@@ -230,7 +231,7 @@ it('ignores vacant Planning and counts Planning-only employees once with linked 
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => null,
         'planned_join_date' => '2026-08-15',
         'planned_leave_date' => '2026-11-15',
@@ -240,13 +241,13 @@ it('ignores vacant Planning and counts Planning-only employees once with linked 
     expect(collect($vacantItem['events'])->where('type', 'join'))->toBeEmpty();
 
     $planner = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'status' => 'active',
     ]);
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $planner->id,
         'planned_join_date' => '2026-08-25',
         'planned_leave_date' => '2026-11-25',
@@ -267,9 +268,9 @@ it('prefers actual join and end dates over planned and planning dates', function
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $ctx['company']->id,
-        'assignment_no' => 'CA-2026-PREC01',
-        'employee_id' => $ctx['employee']->id,
-        'rank_id' => $ctx['rank']->id,
+        'assignment_no' => 'CA-2026-PREC01',        'employee_id' => $ctx['employee']->id,
+        'position_id' => $ctx['position']->id,
+        'position_id' => $ctx['position']->id,
         'vessel_id' => $ctx['vessel']->id,
         'status' => CrewAssignmentStatus::Active,
         'planned_join_at' => '2026-08-10 00:00:00',
@@ -290,7 +291,7 @@ it('prefers actual join and end dates over planned and planning dates', function
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $ctx['employee']->id,
         'crew_assignment_id' => $assignment->id,
         'planned_join_date' => '2026-08-12',
@@ -324,7 +325,7 @@ it('excludes cancelled assignments completed service and soft-deleted planning',
     $cancelled = makeActiveOnVesselAssignment(
         $ctx['company'],
         Employee::factory()->forCompany($ctx['company'])->create([
-            'rank_id' => $ctx['rank']->id,
+            'position_id' => $ctx['position']->id,
             'status' => 'active',
         ]),
         $ctx['rank'],
@@ -336,10 +337,10 @@ it('excludes cancelled assignments completed service and soft-deleted planning',
         'company_id' => $ctx['company']->id,
         'assignment_no' => 'CA-2026-ENDED1',
         'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
-            'rank_id' => $ctx['rank']->id,
+            'position_id' => $ctx['position']->id,
             'status' => 'active',
         ])->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'vessel_id' => $ctx['vessel']->id,
         'status' => CrewAssignmentStatus::Completed,
         'source' => 'manual',
@@ -357,9 +358,9 @@ it('excludes cancelled assignments completed service and soft-deleted planning',
     $deleted = CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
-            'rank_id' => $ctx['rank']->id,
+            'position_id' => $ctx['position']->id,
             'status' => 'active',
         ])->id,
         'planned_join_date' => '2026-08-10',
@@ -401,9 +402,9 @@ it('does not treat overdue Planning or pre-P4 assignments as actual onboard but 
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
-            'rank_id' => $ctx['rank']->id,
+            'position_id' => $ctx['position']->id,
             'status' => 'active',
         ])->id,
         'planned_join_date' => '2026-07-15',
@@ -414,10 +415,10 @@ it('does not treat overdue Planning or pre-P4 assignments as actual onboard but 
         'company_id' => $ctx['company']->id,
         'assignment_no' => 'CA-2026-DRAFT1',
         'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
-            'rank_id' => $ctx['rank']->id,
+            'position_id' => $ctx['position']->id,
             'status' => 'active',
         ])->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'vessel_id' => $ctx['vessel']->id,
         'status' => CrewAssignmentStatus::Draft,
         'planned_join_at' => '2026-07-10 00:00:00',
@@ -446,9 +447,9 @@ it('keeps multiple actual P4 occurrences as separate segments', function () {
 
     $assignment = CrewAssignment::query()->create([
         'company_id' => $ctx['company']->id,
-        'assignment_no' => 'CA-2026-REP4',
-        'employee_id' => $ctx['employee']->id,
-        'rank_id' => $ctx['rank']->id,
+        'assignment_no' => 'CA-2026-REP4',        'employee_id' => $ctx['employee']->id,
+        'position_id' => $ctx['position']->id,
+        'position_id' => $ctx['position']->id,
         'vessel_id' => $ctx['vessel']->id,
         'status' => CrewAssignmentStatus::Active,
         'source' => 'manual',
@@ -488,10 +489,10 @@ it('does not let completed or P5/P6 assignments create stale future joins', func
         'company_id' => $ctx['company']->id,
         'assignment_no' => 'CA-2026-COMP1',
         'employee_id' => Employee::factory()->forCompany($ctx['company'])->create([
-            'rank_id' => $ctx['rank']->id,
+            'position_id' => $ctx['position']->id,
             'status' => 'active',
         ])->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'vessel_id' => $ctx['vessel']->id,
         'status' => CrewAssignmentStatus::Completed,
         'planned_join_at' => '2026-08-15 00:00:00',
@@ -510,7 +511,7 @@ it('does not let completed or P5/P6 assignments create stale future joins', func
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $completed->employee_id,
         'crew_assignment_id' => $completed->id,
         'planned_join_date' => '2026-08-18',
@@ -520,7 +521,7 @@ it('does not let completed or P5/P6 assignments create stale future joins', func
     $p5 = makeActiveOnVesselAssignment(
         $ctx['company'],
         Employee::factory()->forCompany($ctx['company'])->create([
-            'rank_id' => $ctx['rank']->id,
+            'position_id' => $ctx['position']->id,
             'status' => 'active',
         ]),
         $ctx['rank'],
@@ -557,17 +558,17 @@ it('creates overlap only for same-day net increase and counts summary overlap fr
         'planned_signoff_at' => '2026-08-20 00:00:00',
     ]);
     $incomingA = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'status' => 'active',
     ]);
     $incomingB = Employee::factory()->forCompany($ctx['company'])->create([
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'status' => 'active',
     ]);
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $incomingA->id,
         'planned_join_date' => '2026-08-20',
         'planned_leave_date' => '2026-11-20',
@@ -575,7 +576,7 @@ it('creates overlap only for same-day net increase and counts summary overlap fr
     CrewPlanningAssignment::query()->create([
         'company_id' => $ctx['company']->id,
         'vessel_id' => $ctx['vessel']->id,
-        'rank_id' => $ctx['rank']->id,
+        'position_id' => $ctx['position']->id,
         'employee_id' => $incomingB->id,
         'planned_join_date' => '2026-08-20',
         'planned_leave_date' => '2026-11-20',

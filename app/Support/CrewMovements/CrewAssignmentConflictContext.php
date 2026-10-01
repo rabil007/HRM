@@ -23,6 +23,7 @@ final class CrewAssignmentConflictContext
         public readonly ?CarbonInterface $operationalStartAt = null,
         public readonly ?int $vesselId = null,
         public readonly ?int $rankId = null,
+        public readonly ?int $positionId = null,
         public readonly ?int $clientId = null,
         public readonly ?int $relievesCrewAssignmentId = null,
         public readonly ?int $currentAssignmentId = null,

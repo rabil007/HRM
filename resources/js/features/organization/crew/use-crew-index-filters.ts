@@ -81,7 +81,7 @@ export function useCrewIndexFilters({
             phase: initialFilters.phase || undefined,
             status: initialFilters.status || undefined,
             vessel_id: initialFilters.vessel_id || undefined,
-            rank_id: initialFilters.rank_id || undefined,
+            position_id: initialFilters.position_id || undefined,
             client_id: initialFilters.client_id || undefined,
             employee_id: initialFilters.employee_id || undefined,
             planned_join_from: initialFilters.planned_join_from || undefined,
@@ -143,7 +143,7 @@ export function useCrewIndexFilters({
             const {
                 search,
                 vessel_id,
-                rank_id,
+                position_id,
                 client_id,
                 employee_id,
                 planned_join_from,
@@ -162,7 +162,7 @@ export function useCrewIndexFilters({
                 buildCrewSummaryFilterParams(filter, {
                     search,
                     vessel_id,
-                    rank_id,
+                    position_id,
                     client_id,
                     employee_id,
                     planned_join_from,
@@ -195,7 +195,7 @@ export function useCrewIndexFilters({
                     ? undefined
                     : next.status || undefined,
                 vessel_id: next.vessel_id || undefined,
-                rank_id: next.rank_id || undefined,
+                position_id: next.position_id || undefined,
                 client_id: next.client_id || undefined,
                 employee_id: next.employee_id || undefined,
                 planned_join_from: next.planned_join_from || undefined,

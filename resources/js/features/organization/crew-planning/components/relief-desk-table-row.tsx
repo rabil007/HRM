@@ -58,7 +58,7 @@ export function ReliefDeskTableRow({ row }: { row: ReliefDeskRow }) {
                         </p>
                     )}
                     <p className="truncate text-[11px] text-muted-foreground">
-                        {row.rank?.name ?? '—'}
+                        {row.position?.name ?? '—'}
                     </p>
                 </div>
             </TableCell>

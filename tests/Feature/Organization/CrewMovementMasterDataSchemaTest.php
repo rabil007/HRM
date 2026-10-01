@@ -2,7 +2,7 @@
 
 use App\Models\Client;
 use App\Models\CompanyVisaType;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use Illuminate\Support\Facades\Schema;
 
@@ -18,14 +18,15 @@ test('crew master data tables keep ranks clients and visa types global while ves
 test('crew assignments filter options load company vessels and global master data', function () {
     ['company' => $company] = makeCrewAssignmentFixtures();
 
-    Rank::query()->create(['name' => 'Schema Rank '.uniqid(), 'is_active' => true]);
+    Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Schema Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
     makeCrewMovementVessel('Schema Vessel', $company);
     Client::query()->create(['name' => 'Schema Client '.uniqid(), 'is_active' => true]);
     CompanyVisaType::query()->create(['name' => 'Schema Visa '.uniqid(), 'is_active' => true]);
 
     $options = CurrentCrewQuery::filterOptions($company->id);
 
-    expect($options['ranks'])->not->toBeEmpty()
+    expect($options['positions'])->not->toBeEmpty()
         ->and($options['vessels'])->not->toBeEmpty()
         ->and($options['clients'])->not->toBeEmpty()
         ->and($options['employees'])->not->toBeEmpty()
@@ -53,7 +54,7 @@ test('create assignment page loads without querying nonexistent master company_i
             ->component('organization/crew/create')
             ->has('form_options.employee_status_by_employee')
             ->has('form_options.clients')
-            ->has('form_options.ranks')
+            ->has('form_options.positions')
             ->has('form_options.vessels')
             ->has('form_options.courses')
             ->has('form_options.employees'));

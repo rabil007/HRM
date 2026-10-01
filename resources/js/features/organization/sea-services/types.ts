@@ -1,7 +1,7 @@
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import type {
     DepartmentTreeNode,
-    RankOption,
+    CrewPositionOption,
 } from '@/features/organization/employees/types';
 import type {
     ClientOption,
@@ -29,8 +29,8 @@ export type SeaServiceListItem = {
     vessel_type_name: string | null;
     vessel_id: number | null;
     vessel_name: string | null;
-    rank_id: number | null;
-    rank_name: string | null;
+    position_id: number | null;
+    position_name: string | null;
     client_id: number | null;
     client_name: string | null;
     start_date: string | null;
@@ -67,7 +67,7 @@ export type SeaServicesIndexProps = {
     search: string;
     vessel_id: string;
     vessel_type_id: string;
-    rank_id: string;
+    position_id: string;
     client_id: string;
     active: string;
     start_date: string;
@@ -80,7 +80,7 @@ export type SeaServicesIndexProps = {
     pagination: PaginationMeta;
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     can: SeaServicePageCan;
 };
@@ -90,7 +90,7 @@ export type SeaServiceEmployeeBrowseProps = {
     sea_services: SeaServiceItem[];
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
     back: SeaServiceBackNavigation;
@@ -102,7 +102,7 @@ export type SeaServiceShowProps = {
     employee: SeaServiceEmployeeSummary;
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
     can: SeaServicePageCan;
@@ -116,7 +116,7 @@ export type SeaServiceEmployeeBackContext = {
     search?: string;
     vessel_id?: string;
     vessel_type_id?: string;
-    rank_id?: string;
+    position_id?: string;
     client_id?: string;
     active?: string;
     start_date?: string;

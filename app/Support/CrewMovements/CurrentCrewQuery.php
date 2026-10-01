@@ -11,10 +11,10 @@ use App\Enums\CrewTourStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -89,6 +89,8 @@ class CurrentCrewQuery
 
         $paginator = $query->paginate($perPage)->withQueryString();
 
+        CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $companyId);
+        self::hydrateRelievedAssignmentPositions($paginator->getCollection(), $companyId);
         self::attachReliefReadiness($paginator->getCollection(), $companyId);
         self::attachMobilisationReadiness($paginator->getCollection(), $companyId);
         self::attachMovementAccommodation($paginator->getCollection());
@@ -112,7 +114,7 @@ class CurrentCrewQuery
                     ->orWhereHas('employee', fn (Builder $e) => $e->where('name', 'like', '%'.$search.'%')
                         ->orWhere('employee_no', 'like', '%'.$search.'%'))
                     ->orWhereHas('vessel', fn (Builder $v) => $v->where('name', 'like', '%'.$search.'%'))
-                    ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'));
             });
         }
@@ -121,8 +123,8 @@ class CurrentCrewQuery
             $query->where('vessel_id', (int) $filters['vessel_id']);
         }
 
-        if (! empty($filters['rank_id'])) {
-            $query->where('rank_id', (int) $filters['rank_id']);
+        if (! empty($filters['position_id'])) {
+            $query->where('crew_assignments.position_id', (int) $filters['position_id']);
         }
 
         if (! empty($filters['client_id'])) {
@@ -190,16 +192,44 @@ class CurrentCrewQuery
     {
         $query->with([
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
             'phases',
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
-            'planningAssignment.relievedAssignment.rank',
+            'planningAssignment.relievedAssignment.position',
             'company',
         ]);
+    }
+
+    /**
+     * Batch-hydrate Position on nested relief sources (no per-row queries in the presenter).
+     *
+     * @param  Collection<int, CrewAssignment>  $assignments
+     */
+    public static function hydrateRelievedAssignmentPositions(Collection $assignments, int $companyId): void
+    {
+        $relieved = $assignments
+            ->map(function (CrewAssignment $assignment): ?CrewAssignment {
+                if (! $assignment->relationLoaded('planningAssignment') || $assignment->planningAssignment === null) {
+                    return null;
+                }
+
+                $planning = $assignment->planningAssignment;
+
+                if (! $planning->relationLoaded('relievedAssignment')) {
+                    return null;
+                }
+
+                return $planning->relievedAssignment;
+            })
+            ->filter()
+            ->unique(fn (CrewAssignment $source): int => (int) $source->id)
+            ->values();
+
+        CrewPositionCatalog::hydrateCanonicalPositions($relieved, $companyId);
     }
 
     /**
@@ -266,7 +296,7 @@ class CurrentCrewQuery
     /**
      * @return array{
      *     vessels: list<array{id: int, name: string}>,
-     *     ranks: list<array{id: int, name: string}>,
+     *     positions: list<array{id: int, name: string}>,
      *     clients: list<array{id: int, name: string}>,
      *     employees: list<array{id: int, name: string, employee_no: string|null}>,
      *     tour_statuses: list<array{value: string, label: string}>,
@@ -287,13 +317,7 @@ class CurrentCrewQuery
 
         return [
             'vessels' => CrewAssignmentSnapshotFilterOptions::vessels($companyId),
-            'ranks' => Rank::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $r) => ['id' => $r->id, 'name' => $r->name])
-                ->values()
-                ->all(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'clients' => Client::query()
                 ->where('is_active', true)
                 ->orderBy('name')

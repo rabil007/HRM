@@ -13,8 +13,8 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Hotel;
-use App\Models\Rank;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryPagePermissions;
 use App\Support\Reports\CrewMovementHistoryQuery;
@@ -33,7 +33,7 @@ class CrewMovementHistoryController extends Controller
     public function index(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $filters = CrewMovementHistoryFilters::fromRequest($request);
+        $filters = CrewMovementHistoryFilters::fromRequest($request, $companyId);
         $timezone = $this->companyTimezone($companyId);
         $query = new CrewMovementHistoryQuery($companyId, $filters, $timezone, $request->user());
         $paginator = $query->paginate($this->resolvePerPage($request, default: 25, allowed: [25, 50, 100]));
@@ -51,7 +51,7 @@ class CrewMovementHistoryController extends Controller
                     ->map(fn (CrewPhaseCode $phase) => ['value' => $phase->value, 'label' => $phase->label()])
                     ->all(),
                 'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
-                'ranks' => $this->activeOptions(Rank::query()),
+                'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
                 'clients' => $this->activeOptions(Client::query()),
                 'sources' => CrewAssignment::query()
                     ->where('company_id', $companyId)
@@ -99,7 +99,7 @@ class CrewMovementHistoryController extends Controller
     public function export(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $filters = CrewMovementHistoryFilters::fromRequest($request);
+        $filters = CrewMovementHistoryFilters::fromRequest($request, $companyId);
         $query = new CrewMovementHistoryQuery($companyId, $filters, $this->companyTimezone($companyId), $request->user());
         $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
         $filename = 'crew-movement-history-'.now()->toDateString();

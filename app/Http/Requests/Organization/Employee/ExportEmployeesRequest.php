@@ -13,6 +13,19 @@ class ExportEmployeesRequest extends FormRequest
         return (bool) $this->user();
     }
 
+    protected function prepareForValidation(): void
+    {
+        $fields = $this->input('fields');
+
+        if (! is_array($fields)) {
+            return;
+        }
+
+        $this->merge([
+            'fields' => EmployeeExportFieldRegistry::normalizeLegacyFieldKeys($fields),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -32,7 +45,7 @@ class ExportEmployeesRequest extends FormRequest
             'nationality_id' => ['nullable', 'string', 'max:20'],
             'visa_type_id' => ['nullable', 'string', 'max:20'],
             'company_visa_type_id' => ['nullable', 'string', 'max:20'],
-            'rank_id' => ['nullable', 'string', 'max:20'],
+
             'client_id' => ['nullable', 'string', 'max:20'],
             'project_id' => ['nullable', 'string', 'max:20'],
             'approval_location_id' => ['nullable', 'string', 'max:255'],

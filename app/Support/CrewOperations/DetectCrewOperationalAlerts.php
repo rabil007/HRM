@@ -83,15 +83,15 @@ final class DetectCrewOperationalAlerts
         $this->tourStatusQuery->applyFilter($query, CrewTourStatus::Overdue->value, $companyId);
 
         $assignments = $query
-            ->with(['employee:id,name', 'vessel:id,name', 'rank:id,name'])
-            ->get(['id', 'assignment_no', 'employee_id', 'vessel_id', 'rank_id', 'planned_signoff_at']);
+            ->with(['employee:id,name', 'vessel:id,name', 'position:id,title'])
+            ->get(['id', 'assignment_no', 'employee_id', 'vessel_id', 'position_id', 'planned_signoff_at']);
 
         $alerts = [];
 
         foreach ($assignments as $assignment) {
             $employeeName = $assignment->employee?->name ?? 'Crew member';
             $vesselName = $assignment->vessel?->name ?? 'Unassigned vessel';
-            $rankName = $assignment->rank?->name ?? 'Unassigned rank';
+            $positionName = $assignment->position?->title ?? 'Unassigned position';
 
             $alerts[] = [
                 'type' => CrewOperationalAlertType::SignoffOverdue,
@@ -101,7 +101,7 @@ final class DetectCrewOperationalAlerts
                 'message' => sprintf(
                     '%s · %s on %s is past planned sign-off%s.',
                     $employeeName,
-                    $rankName,
+                    $positionName,
                     $vesselName,
                     $assignment->planned_signoff_at !== null
                         ? ' ('.$assignment->planned_signoff_at->toDateString().')'
@@ -112,7 +112,7 @@ final class DetectCrewOperationalAlerts
                     'assignment_no' => $assignment->assignment_no,
                     'employee_id' => $assignment->employee_id !== null ? (int) $assignment->employee_id : null,
                     'vessel_id' => $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
-                    'rank_id' => $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
+                    'position_id' => $assignment->position_id !== null ? (int) $assignment->position_id : null,
                     'planned_signoff_at' => $assignment->planned_signoff_at?->toDateString(),
                 ],
             ];
@@ -132,8 +132,8 @@ final class DetectCrewOperationalAlerts
         $assignments = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('id', $assignmentIds === [] ? [0] : $assignmentIds)
-            ->with(['employee:id,name', 'vessel:id,name', 'rank:id,name'])
-            ->get(['id', 'assignment_no', 'employee_id', 'vessel_id', 'rank_id', 'planned_signoff_at'])
+            ->with(['employee:id,name', 'vessel:id,name', 'position:id,title'])
+            ->get(['id', 'assignment_no', 'employee_id', 'vessel_id', 'position_id', 'planned_signoff_at'])
             ->keyBy('id');
 
         $alerts = [];
@@ -148,13 +148,13 @@ final class DetectCrewOperationalAlerts
             $daysUntil = $result->daysUntilSignoff;
             $employeeName = $assignment->employee?->name ?? 'Crew member';
             $vesselName = $assignment->vessel?->name ?? 'Unassigned vessel';
-            $rankName = $assignment->rank?->name ?? 'Unassigned rank';
+            $positionName = $assignment->position?->title ?? 'Unassigned position';
             $baseContext = [
                 'assignment_id' => (int) $assignment->id,
                 'assignment_no' => $assignment->assignment_no,
                 'employee_id' => $assignment->employee_id !== null ? (int) $assignment->employee_id : null,
                 'vessel_id' => $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
-                'rank_id' => $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
+                'position_id' => $assignment->position_id !== null ? (int) $assignment->position_id : null,
                 'planned_signoff_at' => $assignment->planned_signoff_at?->toDateString(),
                 'days_until_signoff' => $daysUntil,
                 'relief_status' => $result->status->value,
@@ -175,7 +175,7 @@ final class DetectCrewOperationalAlerts
                     'message' => sprintf(
                         '%s · %s on %s signs off within 14 days with no relief planned.',
                         $employeeName,
-                        $rankName,
+                        $positionName,
                         $vesselName,
                     ),
                     'context' => $baseContext,
@@ -197,7 +197,7 @@ final class DetectCrewOperationalAlerts
                     'message' => sprintf(
                         '%s · %s on %s signs off within 7 days and relief is not ready (%s).',
                         $employeeName,
-                        $rankName,
+                        $positionName,
                         $vesselName,
                         $result->status->label(),
                     ),
@@ -246,15 +246,15 @@ final class DetectCrewOperationalAlerts
                 'type' => CrewOperationalAlertType::CurrentManningGap,
                 'severity' => CrewOperationalAlertSeverity::Critical,
                 'dedupe_key' => sprintf(
-                    'current_manning_gap:vessel:%d:rank:%d',
+                    'current_manning_gap:vessel:%d:position:%d',
                     $gap['vessel_id'],
-                    $gap['rank_id'],
+                    $gap['position_id'],
                 ),
                 'title' => 'Current manning gap',
                 'message' => sprintf(
                     '%s · %s is short %d now (%d of %d onboard).',
                     $gap['vessel_name'],
-                    $gap['rank_name'],
+                    $gap['position_name'],
                     $gap['gap'],
                     $gap['actual_count'],
                     $gap['required_count'],
@@ -262,8 +262,8 @@ final class DetectCrewOperationalAlerts
                 'context' => [
                     'vessel_id' => (int) $gap['vessel_id'],
                     'vessel_name' => (string) $gap['vessel_name'],
-                    'rank_id' => (int) $gap['rank_id'],
-                    'rank_name' => (string) $gap['rank_name'],
+                    'position_id' => (int) $gap['position_id'],
+                    'position_name' => (string) $gap['position_name'],
                     'gap' => (int) $gap['gap'],
                     'actual_count' => (int) $gap['actual_count'],
                     'required_count' => (int) $gap['required_count'],
@@ -298,15 +298,15 @@ final class DetectCrewOperationalAlerts
                 'type' => CrewOperationalAlertType::ProjectedManningGap,
                 'severity' => CrewOperationalAlertSeverity::Warning,
                 'dedupe_key' => sprintf(
-                    'projected_manning_gap:vessel:%d:rank:%d',
+                    'projected_manning_gap:vessel:%d:position:%d',
                     $item['vessel_id'],
-                    $item['rank_id'],
+                    $item['position_id'],
                 ),
                 'title' => 'Projected manning gap',
                 'message' => sprintf(
                     '%s · %s has a projected future gap (max short %d)%s.',
                     $item['vessel_name'],
-                    $item['rank_name'],
+                    $item['position_name'],
                     $item['maximum_gap'],
                     is_string($item['next_gap_date'] ?? null) && $item['next_gap_date'] !== ''
                         ? ' from '.$item['next_gap_date']
@@ -315,8 +315,8 @@ final class DetectCrewOperationalAlerts
                 'context' => [
                     'vessel_id' => (int) $item['vessel_id'],
                     'vessel_name' => (string) $item['vessel_name'],
-                    'rank_id' => (int) $item['rank_id'],
-                    'rank_name' => (string) $item['rank_name'],
+                    'position_id' => (int) $item['position_id'],
+                    'position_name' => (string) $item['position_name'],
                     'maximum_gap' => (int) $item['maximum_gap'],
                     'next_gap_date' => $item['next_gap_date'] ?? null,
                     'from' => $from,

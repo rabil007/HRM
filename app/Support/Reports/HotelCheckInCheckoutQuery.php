@@ -8,6 +8,7 @@ use App\Models\CrewAssignment;
 use App\Models\Hotel;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,10 +36,18 @@ final class HotelCheckInCheckoutQuery
      */
     public function paginate(int $perPage = 25): LengthAwarePaginator
     {
-        return $this->ordered($this->filteredQuery())
+        $paginator = $this->ordered($this->filteredQuery())
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (CrewAccommodationStay $stay): array => HotelCheckInCheckoutPresenter::toArray($stay, $this->timezone));
+            ->withQueryString();
+
+        $assignments = $paginator->getCollection()
+            ->map(fn (CrewAccommodationStay $stay) => $stay->assignment)
+            ->filter()
+            ->values();
+
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $this->companyId);
+
+        return $paginator->through(fn (CrewAccommodationStay $stay): array => HotelCheckInCheckoutPresenter::toArray($stay, $this->timezone));
     }
 
     /**
@@ -173,8 +182,9 @@ final class HotelCheckInCheckoutQuery
             $query->whereHas('assignment', fn (Builder $q) => $q->where('vessel_id', (int) $this->filters->vesselId));
         }
 
-        if ($this->filters->rankId !== '') {
-            $query->whereHas('assignment', fn (Builder $q) => $q->where('rank_id', (int) $this->filters->rankId));
+        if ($this->filters->positionId !== '') {
+            $positionId = (int) $this->filters->positionId;
+            $query->whereHas('assignment', fn (Builder $q) => $q->where('crew_assignments.position_id', $positionId));
         }
 
         if ($this->filters->clientId !== '') {
@@ -188,14 +198,14 @@ final class HotelCheckInCheckoutQuery
                     'company_id',
                     'assignment_no',
                     'employee_id',
-                    'rank_id',
+                    'position_id',
                     'vessel_id',
                     'client_id',
                     'status',
                     'current_phase_id',
                 ]),
                 'assignment.employee:id,company_id,employee_no,name',
-                'assignment.rank:id,name',
+                'assignment.position:id,title',
                 'assignment.vessel:id,name',
                 'assignment.client:id,name',
                 'assignment.currentPhase:id,phase_code,status',

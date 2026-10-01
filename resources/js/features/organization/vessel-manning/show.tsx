@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
 import { vesselManningHasWriteActions } from './types';
 import type {
-    RankOption,
+    PositionOption,
     VesselManningFormData,
     VesselManningPagePermissions,
     VesselManningShowItem,
@@ -92,14 +92,14 @@ export function VesselManningShowContent({
     recent_activity,
     can_view_audit,
     can,
-    ranks,
+    crew_positions,
     back_query,
 }: {
     vessel: VesselManningShowItem;
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     can: VesselManningPagePermissions;
-    ranks: RankOption[];
+    crew_positions: PositionOption[];
     back_query: Record<string, string>;
 }) {
     const [editOpen, setEditOpen] = useState(false);
@@ -201,8 +201,8 @@ export function VesselManningShowContent({
                     <CardContent className="space-y-6 p-6">
                         <div className="grid gap-4 sm:grid-cols-3">
                             <StatChip
-                                label="Ranks configured"
-                                value={String(vessel.ranks_configured)}
+                                label="Positions configured"
+                                value={String(vessel.positions_configured)}
                                 icon={ShieldCheck}
                             />
                             <StatChip
@@ -258,9 +258,9 @@ export function VesselManningShowContent({
                         <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-white/10 dark:bg-white/3">
                             <Anchor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                             <div className="text-sm text-muted-foreground">
-                                Vessel and rank master data are managed in
+                                Vessel and position master data are managed in
                                 Settings. This page only defines how many crew
-                                of each rank this vessel needs.
+                                of each position this vessel needs.
                             </div>
                         </div>
                     </CardContent>
@@ -270,13 +270,13 @@ export function VesselManningShowContent({
             <Card className="mt-6 glass-card dark:border-white/5 dark:bg-white/5">
                 <CardHeader className="border-b border-border pb-4 dark:border-white/5">
                     <CardTitle className="text-base font-bold">
-                        Rank requirements
+                        Position requirements
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     {vessel.manning.length === 0 ? (
                         <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-                            No ranks configured yet.
+                            No positions configured yet.
                             {vesselManningHasWriteActions(can) ? (
                                 <>
                                     {' '}
@@ -294,7 +294,7 @@ export function VesselManningShowContent({
                         <Table className="min-w-[640px]">
                             <TableHeader>
                                 <DataTableHeaderRow>
-                                    <DataTableHead>Rank</DataTableHead>
+                                    <DataTableHead>Position</DataTableHead>
                                     <DataTableHead>Required</DataTableHead>
                                 </DataTableHeaderRow>
                             </TableHeader>
@@ -308,7 +308,7 @@ export function VesselManningShowContent({
                                             className={dataTableCellClass()}
                                         >
                                             <span className="font-semibold text-foreground/80">
-                                                {line.rank_name}
+                                                {line.position_name}
                                             </span>
                                         </TableCell>
                                         <TableCell
@@ -342,7 +342,7 @@ export function VesselManningShowContent({
                     open={editOpen}
                     onOpenChange={setEditOpen}
                     vessel={vessel}
-                    ranks={ranks}
+                    crew_positions={crew_positions}
                     form={form}
                     onSubmit={submit}
                 />

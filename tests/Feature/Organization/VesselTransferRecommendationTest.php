@@ -94,7 +94,7 @@ test('planned future assignment does not block an actual on vessel interval', fu
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-PLAN-'.Str::upper(Str::random(4)),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $plannedVessel->id,
         'status' => CrewAssignmentStatus::Draft,
         'planned_join_at' => '2026-09-01 08:00:00',
@@ -239,7 +239,7 @@ test('transfer vessel still closes source and starts destination at the same tim
         [
             'occurred_at' => '2026-08-26 16:30:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
         ],
         $fixtures['user']->id,
     );
@@ -276,7 +276,7 @@ test('unauthorized user cannot perform transfer vessel', function () {
             'action' => 'transfer_vessel',
             'occurred_at' => '2026-08-26 16:30:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
         ])
         ->assertForbidden();
 });
@@ -347,7 +347,7 @@ test('historical p4 start correction remains available even if another on vessel
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-DEST-'.Str::upper(Str::random(4)),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $destinationVessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => '2026-08-31 16:30:00',
@@ -406,7 +406,7 @@ test('exact boundary correction remains allowed', function () {
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-DEST-'.Str::upper(Str::random(4)),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $destinationVessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => '2026-08-27 16:30:00',
@@ -516,7 +516,7 @@ test('transfer recommendation action requires assignment view and movement permi
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-DRAFT-'.Str::upper(Str::random(4)),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $draftVessel->id,
         'status' => CrewAssignmentStatus::Draft,
         'source' => 'manual',
@@ -547,7 +547,7 @@ test('transfer recommendation action requires assignment view and movement permi
             $active->id,
         ));
 
-    $draft->load(['company', 'employee', 'rank', 'vessel', 'currentPhase', 'phases']);
+    $draft->load(['company', 'employee', 'position', 'vessel', 'currentPhase', 'phases']);
 
     $detail = CrewAssignmentPresenter::detail($draft, $fixtures['user']);
 

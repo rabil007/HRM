@@ -11,6 +11,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Validator;
 
@@ -24,7 +25,8 @@ final class ValidatesCrewPlanningReliefLink
             'company_id' => (int) $planning->company_id,
             'relieves_crew_assignment_id' => $planning->relieves_crew_assignment_id,
             'vessel_id' => $planning->vessel_id,
-            'rank_id' => $planning->rank_id,
+            'position_id' => CrewPositionCatalog::resolveCrewAssignmentPositionId((int) $planning->company_id, $planning->position_id !== null ? (int) $planning->position_id : null),
+
             'employee_id' => $planning->employee_id,
         ], $planning);
 
@@ -47,7 +49,7 @@ final class ValidatesCrewPlanningReliefLink
      *     company_id: int,
      *     relieves_crew_assignment_id: int|string|null,
      *     vessel_id: int|string|null,
-     *     rank_id: int|string|null,
+     *     position_id: int|string|null,
      *     employee_id: int|string|null
      * }  $data
      */
@@ -72,7 +74,7 @@ final class ValidatesCrewPlanningReliefLink
 
         $assignment = CrewAssignment::query()
             ->where('company_id', $companyId)
-            ->with(['employee:id,rank_id', 'currentPhase'])
+            ->with(['employee:id', 'currentPhase', 'position:id,title'])
             ->find($relievesId);
 
         if ($assignment === null) {
@@ -105,17 +107,26 @@ final class ValidatesCrewPlanningReliefLink
             return;
         }
 
-        if ($assignment->vessel_id === null || $assignment->rank_id === null) {
+        $assignmentPositionId = CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $assignment->position_id !== null ? (int) $assignment->position_id : null);
+
+        if ($assignment->vessel_id === null || $assignmentPositionId === null) {
             $validator->errors()->add(
                 'relieves_crew_assignment_id',
-                'The assignment being relieved must have a vessel and rank.',
+                'The assignment being relieved must have a vessel and position.',
             );
 
             return;
         }
 
         $vesselId = $data['vessel_id'];
-        $rankId = $data['rank_id'];
+        $planningPositionRaw = $data['position_id'] ?? null;
+        $planningPositionId = $planningPositionRaw !== null && $planningPositionRaw !== ''
+            ? (int) $planningPositionRaw
+            : null;
+
+        if ($planningPositionId === null && $existing !== null) {
+            $planningPositionId = CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $existing->position_id !== null ? (int) $existing->position_id : null);
+        }
 
         if ($vesselId === null || $vesselId === '') {
             $validator->errors()->add(
@@ -129,17 +140,15 @@ final class ValidatesCrewPlanningReliefLink
             );
         }
 
-        $assignmentRankId = $assignment->rank_id ?? $assignment->employee?->rank_id;
-
-        if ($rankId === null || $rankId === '') {
+        if ($planningPositionId === null) {
             $validator->errors()->add(
-                'rank_id',
-                'A rank is required when planning relief.',
+                'position_id',
+                'A position is required when planning relief.',
             );
-        } elseif ($assignmentRankId !== null && (int) $assignmentRankId !== (int) $rankId) {
+        } elseif ((int) $planningPositionId !== (int) $assignmentPositionId) {
             $validator->errors()->add(
                 'relieves_crew_assignment_id',
-                'The relief assignment must be for the same rank as the assignment being relieved.',
+                'The relief assignment must be for the same position as the assignment being relieved.',
             );
         }
 

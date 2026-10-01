@@ -20,7 +20,7 @@ import { mapMovementErrorMessage } from '@/features/organization/crew/lib/moveme
 import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
 import {
     defaultDestinationTourSignoffChoice,
-    findRankTourOption,
+    findPositionTourOption,
     normalizeTourSignoffPayload,
 } from '@/features/organization/crew/lib/tour-signoff';
 import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
@@ -60,7 +60,7 @@ function resolveJoinSignoffChoice(
     }
 
     return defaultDestinationTourSignoffChoice(
-        findRankTourOption(formOptions?.ranks, context.rank_id),
+        findPositionTourOption(formOptions?.positions, context.position_id),
     );
 }
 
@@ -75,7 +75,7 @@ function resolveInitialSignoffChoice(
 
     if (action === 'transfer_vessel') {
         return defaultDestinationTourSignoffChoice(
-            findRankTourOption(formOptions?.ranks, context.rank_id),
+            findPositionTourOption(formOptions?.positions, context.position_id),
         );
     }
 
@@ -94,7 +94,7 @@ function applyTransferPrefill(
     return {
         ...data,
         vessel_id: prefill.vessel_id ?? data.vessel_id,
-        rank_id: prefill.rank_id ?? data.rank_id,
+        position_id: prefill.position_id ?? data.position_id,
         client_id: prefill.client_id ?? data.client_id,
         occurred_at: prefill.occurred_at || data.occurred_at,
     };
@@ -150,7 +150,7 @@ function buildInitialForm(
         planned_end_at: '',
         remarks: '',
         vessel_id: action === 'transfer_vessel' ? null : context.vessel_id,
-        rank_id: context.rank_id,
+        position_id: context.position_id,
         client_id: context.client_id,
         planned_signoff_at:
             action === 'redeploy' || action === 'transfer_vessel'
@@ -627,7 +627,7 @@ export function MovementActionDialog({
                 destinationVesselName={destinationVessel?.name}
                 prefill={{
                     vessel_id: form.data.vessel_id,
-                    rank_id: form.data.rank_id,
+                    position_id: form.data.position_id,
                     client_id: form.data.client_id,
                     occurred_at: form.data.occurred_at,
                 }}

@@ -36,7 +36,7 @@ class EmployeeSeaService extends Model
                 'crew_assignment_phase_id',
                 'vessel_type_id',
                 'vessel_id',
-                'rank_id',
+                'position_id',
                 'start_date',
                 'end_date',
                 'total_months',
@@ -53,7 +53,7 @@ class EmployeeSeaService extends Model
             'crew_assignment_phase_id' => 'integer',
             'vessel_type_id' => 'integer',
             'vessel_id' => 'integer',
-            'rank_id' => 'integer',
+            'position_id' => 'integer',
             'start_date' => 'date',
             'end_date' => 'date',
             'client_id' => 'integer',
@@ -99,9 +99,9 @@ class EmployeeSeaService extends Model
         return $this->belongsTo(Vessel::class);
     }
 
-    public function rank(): BelongsTo
+    public function position(): BelongsTo
     {
-        return $this->belongsTo(Rank::class);
+        return $this->belongsTo(Position::class);
     }
 
     public function client(): BelongsTo

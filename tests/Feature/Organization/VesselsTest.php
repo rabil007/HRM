@@ -7,7 +7,7 @@ use App\Models\CrewAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
@@ -278,7 +278,8 @@ test('deleting a vessel is blocked when referenced by sea service or crew assign
     ['user' => $user, 'company' => $company, 'vesselType' => $vesselType] = makeOrganizationVesselFixtures();
 
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    $rank = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Master', 'status' => 'active', 'is_crew_position' => true]);
 
     $seaServiceVessel = Vessel::query()->create([
         'company_id' => $company->id,
@@ -475,20 +476,26 @@ test('vessel show includes manning ranks and manning permissions', function () {
         'is_active' => true,
     ]);
 
-    $captain = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
-    $welder = Rank::query()->create(['name' => 'Welder', 'is_active' => true]);
+    $captain = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Captain', 'status' => 'active', 'is_crew_position' => true]);
+    $welder = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Welder', 'status' => 'active', 'is_crew_position' => true]);
+    $captainPosition = ensureRankMappedPosition($company, $captain);
+    $welderPosition = ensureRankMappedPosition($company, $welder);
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
+        'position_id' => $captainPosition->id,
         'required_count' => 1,
     ]);
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $welder->id,
+        'position_id' => $welder->id,
+        'position_id' => $welderPosition->id,
         'required_count' => 2,
     ]);
 
@@ -500,11 +507,11 @@ test('vessel show includes manning ranks and manning permissions', function () {
             ->where('vessel.total_required', 3)
             ->where('vessel.ranks_configured', 2)
             ->has('vessel.manning', 2)
-            ->has('ranks', 2)
+            ->has('crew_positions', 2)
             ->where('manning_can.create', true)
             ->where('manning_can.update', true)
             ->where('manning_can.delete', true)
-            ->where('summary.manning_ranks', 2)
+            ->where('summary.manning_positions', 2)
             ->where('summary.total_required', 3)
             ->where('can_view_audit', false)
             ->where('recent_activity', [])
@@ -577,20 +584,22 @@ test('vessels index includes manning summary totals', function () {
         'is_active' => true,
     ]);
 
-    $captain = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
-    $engineer = Rank::query()->create(['name' => 'Chief Engineer', 'is_active' => true]);
+    $captain = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Master', 'status' => 'active', 'is_crew_position' => true]);
+    $engineer = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Chief Engineer', 'status' => 'active', 'is_crew_position' => true]);
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
+        'position_id' => $captain->id,
         'required_count' => 1,
     ]);
 
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $engineer->id,
+        'position_id' => $engineer->id,
         'required_count' => 3,
     ]);
 

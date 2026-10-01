@@ -24,6 +24,8 @@ export type Position = {
     min_salary: string | number | null;
     max_salary: string | number | null;
     status: 'active' | 'inactive';
+    is_crew_position: boolean;
+    max_tour_of_duty_days: number | null;
     attachment: {
         original_name: string;
         mime_type: string | null;
@@ -43,6 +45,8 @@ export type PositionFormData = {
     min_salary: string;
     max_salary: string;
     status: 'active' | 'inactive';
+    is_crew_position: boolean;
+    max_tour_of_duty_days: string | number;
     attachment: File | null;
     remove_attachment: boolean;
 };

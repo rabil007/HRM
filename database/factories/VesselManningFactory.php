@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Company;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
@@ -43,10 +43,18 @@ class VesselManningFactory extends Factory
                     'is_active' => true,
                 ])->id;
             },
-            'rank_id' => static function (): int {
-                return Rank::query()->create([
-                    'name' => 'R '.Str::uuid()->toString(),
-                    'is_active' => true,
+            'position_id' => static function (array $attributes): int {
+                $companyId = $attributes['company_id'] ?? null;
+
+                if ($companyId === null) {
+                    throw new \InvalidArgumentException('company_id must be set before position_id on VesselManningFactory.');
+                }
+
+                return Position::query()->create([
+                    'company_id' => $companyId,
+                    'title' => 'P '.Str::uuid()->toString(),
+                    'status' => 'active',
+                    'is_crew_position' => true,
                 ])->id;
             },
             'required_count' => fake()->numberBetween(1, 5),

@@ -43,7 +43,7 @@ function makeMovementPayrollFixtures(): array
 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $company->update(['timezone' => 'Asia/Dubai']);
-    $rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $rank, 90);
 
     $contract = EmployeeContract::factory()->create([
         'employee_id' => $employee->id,
@@ -98,7 +98,7 @@ test('real crew movement happy path produces correct payroll through apply', fun
     $service = movementPayrollService();
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     $id = $assignment->id;
@@ -113,7 +113,7 @@ test('real crew movement happy path produces correct payroll through apply', fun
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-07 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-09-15 12:00:00',
@@ -153,7 +153,7 @@ test('real transfer vessel action allocates shared day once through payroll', fu
     $service = movementPayrollService();
 
     $source = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $sourceVessel->id,
     ], $user->id);
     $sourceId = $source->id;
@@ -168,7 +168,7 @@ test('real transfer vessel action allocates shared day once through payroll', fu
     $source = $service->perform($company->id, $sourceId, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-10 08:00:00',
         'vessel_id' => $sourceVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $destination = $service->perform(
@@ -178,7 +178,7 @@ test('real transfer vessel action allocates shared day once through payroll', fu
         [
             'occurred_at' => '2026-09-15 12:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -212,7 +212,7 @@ test('real cancel assignment after standby preserves legitimate standby pay thro
     $service = movementPayrollService();
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     $id = $assignment->id;
@@ -255,7 +255,7 @@ test('real redeploy closes source assignment and pays combined timeline once', f
     $service = movementPayrollService();
 
     $source = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     $sourceId = $source->id;
@@ -270,7 +270,7 @@ test('real redeploy closes source assignment and pays combined timeline once', f
     $source = $service->perform($company->id, $sourceId, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-05 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
@@ -282,7 +282,7 @@ test('real redeploy closes source assignment and pays combined timeline once', f
         'occurred_at' => '2026-09-14 10:00:00',
         'starting_phase' => 'p2a',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $source->refresh();

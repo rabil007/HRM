@@ -2,7 +2,7 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { RankOption } from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import type {
     ClientOption,
     VesselOption,
@@ -12,7 +12,7 @@ import type {
 export type SeaServiceSheetFilters = {
     vessel_id: string;
     vessel_type_id: string;
-    rank_id: string;
+    position_id: string;
     client_id: string;
     start_date: string;
     end_date: string;
@@ -23,7 +23,7 @@ export function SeaServicesFiltersSheet({
     onOpenChange,
     vesselTypes,
     vessels,
-    ranks,
+    positions,
     clients,
     value,
     onChange,
@@ -33,7 +33,7 @@ export function SeaServicesFiltersSheet({
     onOpenChange: (open: boolean) => void;
     vesselTypes: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     value: SeaServiceSheetFilters;
     onChange: (next: SeaServiceSheetFilters) => void;
@@ -105,21 +105,24 @@ export function SeaServicesFiltersSheet({
 
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                    Rank
+                    Position
                 </Label>
                 <AppSelect
-                    value={value.rank_id}
-                    onValueChange={(rankId) =>
-                        onChange({ ...value, rank_id: rankId })
+                    value={value.position_id}
+                    onValueChange={(positionId) =>
+                        onChange({ ...value, position_id: positionId })
                     }
                     variant="dark"
-                    placeholder="All ranks"
-                    searchPlaceholder="Search rank..."
+                    placeholder="All positions"
+                    searchPlaceholder="Search position..."
                 >
-                    <AppSelectItem value="">All ranks</AppSelectItem>
-                    {ranks.map((rank) => (
-                        <AppSelectItem key={rank.id} value={String(rank.id)}>
-                            {rank.name}
+                    <AppSelectItem value="">All positions</AppSelectItem>
+                    {positions.map((position) => (
+                        <AppSelectItem
+                            key={position.id}
+                            value={String(position.id)}
+                        >
+                            {position.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>

@@ -56,7 +56,7 @@ test('previous assignment for another employee is rejected', function () {
     $employeeB = Employee::factory()
         ->forCompany($company)
         ->create([
-            'rank_id' => $employeeA->rank_id,
+            'position_id' => $employeeA->position_id,
             'status' => 'active',
         ]);
 

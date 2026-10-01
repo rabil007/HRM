@@ -9,7 +9,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\RoomType;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportColumns;
 use App\Support\CrewMovements\Historical\HistoricalCrewImportParser;
@@ -26,7 +26,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 test('authorized user can download historical import template with required sheets', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119']);
-    $inactiveRank = Rank::query()->create(['name' => 'Inactive Hist Rank '.uniqid(), 'is_active' => false]);
+    $inactiveRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Inactive Hist Rank '.uniqid(), 'status' => 'inactive', 'is_crew_position' => true]);
     $inactiveClient = Client::factory()->create(['name' => 'Inactive Hist Client '.uniqid(), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('Inactive Hist Vessel '.uniqid(), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
@@ -74,6 +75,8 @@ test('authorized user can download historical import template with required shee
     }
 
     expect($headerRow)->toBe(HistoricalCrewImportColumns::displayHeaders())
+        ->and($headerRow)->toContain('Position *')
+        ->and($headerRow)->not->toContain('Rank *')
         ->and($headerRow)->toContain('Sign-On Standby From')
         ->and($headerRow)->toContain('Onsite From')
         ->and($headerRow)->toContain('Sign-Off Standby From')
@@ -130,7 +133,7 @@ test('authorized user can download historical import template with required shee
 
     expect($referenceValues)->toContain('3119')
         ->and($referenceValues)->toContain($inactiveVessel->name)
-        ->and($referenceValues)->toContain($inactiveRank->name)
+        ->and($referenceValues)->toContain($inactiveRank->title)
         ->and($referenceValues)->toContain($inactiveClient->name)
         ->and($referenceValues)->not->toContain($inactiveHotel->name)
         ->and($referenceValues)->not->toContain($inactiveRoomType->name)
@@ -229,7 +232,7 @@ test('valid workbook validates as ready without persisting records', function ()
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -268,7 +271,7 @@ test('unauthorized user cannot validate historical import', function () {
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -315,7 +318,7 @@ test('parser normalizes excel serial dates and rejects malformed dates', functio
         [
             'employee_no' => '0042',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => $serial,
             'disembark_date' => '2024-08-10',
         ],
@@ -333,7 +336,7 @@ test('parser normalizes excel serial dates and rejects malformed dates', functio
         [
             'employee_no' => '0042',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => 'not-a-date',
             'disembark_date' => '2024-08-10',
         ],
@@ -350,7 +353,9 @@ test('parser normalizes excel serial dates and rejects malformed dates', functio
 test('inactive master data rows return warning when domain rules allow them', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
     $employee->update(['employee_no' => '3119', 'status' => 'terminated']);
-    $inactiveRank = Rank::query()->create(['name' => 'Chief Eng Inactive '.uniqid(), 'is_active' => false]);
+    $inactiveRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Chief Eng Inactive '.uniqid(), 'status' => 'inactive', 'is_crew_position' => true]);
+    ensureRankMappedPosition($company, $inactiveRank);
     $inactiveClient = Client::factory()->create(['name' => 'Old Client '.uniqid(), 'is_active' => false]);
     $inactiveVessel = makeCrewMovementVessel('OMS Pearl Inactive '.uniqid(), $company, $inactiveClient);
     $inactiveVessel->update(['is_active' => false]);
@@ -364,7 +369,7 @@ test('inactive master data rows return warning when domain rules allow them', fu
         [
             'employee_no' => '3119',
             'vessel' => $inactiveVessel->name,
-            'rank' => $inactiveRank->name,
+            'rank' => $inactiveRank->title,
             'client' => $inactiveClient->name,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
@@ -394,14 +399,14 @@ test('employee not found and unknown vessel are blocked', function () {
         [
             'employee_no' => 'MISSING-999',
             'vessel' => 'Totally Unknown Vessel',
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
         [
             'employee_no' => 'MISSING-999',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2023-06-01',
         ],
@@ -453,14 +458,14 @@ test('cross company vessel and hidden employee are blocked', function () {
         [
             'employee_no' => 'HID-1',
             'vessel' => makeCrewMovementVessel('Local Vessel', $company)->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
         [
             'employee_no' => 'VIS-1',
             'vessel' => $otherVessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -516,14 +521,14 @@ test('hidden and nonexistent employee numbers receive indistinguishable validati
         [
             'employee_no' => 'HID-77',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
         [
             'employee_no' => 'MISSING-88',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -568,7 +573,7 @@ test('future date chronology and existing assignment overlap are blocked', funct
         ->post(route('organization.crew-assignments.historical.store'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'onsite_from' => '2024-01-01',
             'onsite_to' => '2024-06-30',
         ])
@@ -579,21 +584,21 @@ test('future date chronology and existing assignment overlap are blocked', funct
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-05-15',
             'disembark_date' => '2024-07-10',
         ],
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => $future,
             'disembark_date' => now()->addMonths(2)->format('Y-m-d'),
         ],
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2022-12-01',
         ],
@@ -622,7 +627,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-06-30',
         'travel_home_date' => '2024-06-30',
@@ -634,7 +639,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-05-15',
             'disembark_date' => '2024-07-10',
             'travel_home_date' => '2024-07-10',
@@ -642,7 +647,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2023-06-30',
             'travel_home_date' => '2023-06-30',
@@ -650,7 +655,7 @@ test('workbook exact duplicates and overlapping rows are detected', function () 
         [
             'employee_no' => '3220',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-01',
             'disembark_date' => '2024-06-30',
             'travel_home_date' => '2024-06-30',
@@ -720,7 +725,7 @@ test('formula cells are rejected and blank trailing rows do not count toward the
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
             'remarks' => '=HYPERLINK("http://evil.test")',
@@ -746,7 +751,7 @@ test('formula cells are rejected and blank trailing rows do not count toward the
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -798,9 +803,10 @@ test('generated template writes formula-like database names as plain text', func
         'employee_no' => '3119',
         'name' => '=HYPERLINK("http://evil.test","Click")',
     ]);
-    Rank::query()->create([
-        'name' => '=CMD|calc',
-        'is_active' => true,
+    Position::query()->create([
+        'company_id' => $company->id,
+        'title' => '=CMD|calc',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     grantCompanyPermissions($user, $company, [
@@ -862,7 +868,7 @@ test('missing employee_no and missing all movement dates are blocked', function 
         [
             'employee_no' => '',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
             'remarks' => 'missing employee',
@@ -870,13 +876,13 @@ test('missing employee_no and missing all movement dates are blocked', function 
         [
             'employee_no' => 'X1',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'remarks' => 'missing all movement dates',
         ],
         [
             'employee_no' => 'X1',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'remarks' => 'on vessel only is allowed',
         ],
@@ -917,7 +923,7 @@ test('outdated template with travel_in_date is rejected', function () {
     $sheet->setCellValueByColumnAndRow(6, 1, 'Disembarked *');
     $sheet->setCellValueByColumnAndRow(1, 2, '3119');
     $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
-    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->title);
     $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-10');
     $sheet->setCellValueByColumnAndRow(5, 2, '2024-01-15');
     $sheet->setCellValueByColumnAndRow(6, 2, '2024-07-20');
@@ -954,7 +960,7 @@ test('friendly excel headers map to modern phases without P1 or P3', function ()
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'mobilisation_date' => '2024-01-01',
             'join_standby_date' => '2024-01-05',
             'vessel_join_date' => '2024-01-15',
@@ -997,7 +1003,7 @@ test('excel blank client stays null and does not use vessel current client', fun
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -1031,7 +1037,7 @@ test('excel historical client snapshot differs from vessel current client with w
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'client' => $historicalClient->name,
             'vessel_join_date' => '2022-01-15',
             'disembark_date' => '2022-07-20',
@@ -1068,7 +1074,7 @@ test('excel on vessel plus disembarked without home is ready as open P5', functi
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -1104,13 +1110,13 @@ test('excel two open rows for same employee are blocked', function () {
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'join_standby_date' => '2023-01-01',
         ],
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
         ],
     ]);
@@ -1142,13 +1148,13 @@ test('excel open row followed by later assignment is blocked', function () {
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'join_standby_date' => '2023-01-01',
         ],
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
             'travel_home_date' => '2024-07-20',
@@ -1183,7 +1189,7 @@ test('excel active oms assignment blocks another open import row', function () {
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -1217,7 +1223,7 @@ test('excel open bootstrap is blocked for terminated employees but completed his
         [
             'employee_no' => 'TERM01',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
         ],
     ]);
@@ -1236,7 +1242,7 @@ test('excel open bootstrap is blocked for terminated employees but completed his
         [
             'employee_no' => 'TERM01',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2023-06-30',
             'travel_home_date' => '2023-07-03',
@@ -1263,7 +1269,7 @@ test('excel multiple exact sea service matches are blocked', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-06-30',
         'total_days' => 182,
@@ -1274,7 +1280,7 @@ test('excel multiple exact sea service matches are blocked', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-06-30',
         'total_days' => 182,
@@ -1291,7 +1297,7 @@ test('excel multiple exact sea service matches are blocked', function () {
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-01',
             'disembark_date' => '2024-06-30',
         ],
@@ -1326,7 +1332,7 @@ test('excel open sign-on standby without later onsite is ready as active P2A', f
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'sign_on_standby_from' => '2024-06-01',
         ],
     ]);
@@ -1360,7 +1366,7 @@ test('excel sign-on onsite and open sign-off is ready with P2A P4 P5 timeline', 
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'sign_on_standby_from' => '2024-06-01',
             'sign_on_standby_to' => '2024-06-05',
             'onsite_from' => '2024-06-05',
@@ -1404,7 +1410,7 @@ test('outdated workbook with sign-on accommodation column is rejected', function
     $sheet->setCellValueByColumnAndRow(5, 1, 'Sign-On Accommodation');
     $sheet->setCellValueByColumnAndRow(1, 2, '3119');
     $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
-    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->title);
     $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-15');
     $sheet->setCellValueByColumnAndRow(5, 2, 'Hotel');
 
@@ -1439,7 +1445,7 @@ test('outdated workbook with sign-off hotel column is rejected', function () {
     $sheet->setCellValueByColumnAndRow(5, 1, 'Sign-Off Hotel');
     $sheet->setCellValueByColumnAndRow(1, 2, '3119');
     $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
-    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->title);
     $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-15');
     $sheet->setCellValueByColumnAndRow(5, 2, 'Grand Hotel');
 
@@ -1474,7 +1480,7 @@ test('outdated workbook with room type column is rejected', function () {
     $sheet->setCellValueByColumnAndRow(5, 1, 'Sign-On Room Type');
     $sheet->setCellValueByColumnAndRow(1, 2, '3119');
     $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
-    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->title);
     $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-15');
     $sheet->setCellValueByColumnAndRow(5, 2, 'Deluxe');
 
@@ -1509,7 +1515,7 @@ test('outdated workbook with hotel check-in columns is rejected', function () {
     $sheet->setCellValueByColumnAndRow(5, 1, 'Pre-Join Hotel Check-In');
     $sheet->setCellValueByColumnAndRow(1, 2, '3119');
     $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
-    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->title);
     $sheet->setCellValueByColumnAndRow(4, 2, '2024-01-15');
     $sheet->setCellValueByColumnAndRow(5, 2, '2024-01-05');
 
@@ -1549,7 +1555,7 @@ test('legacy Historical Assignments sheet name is rejected as outdated template'
             [
                 HistoricalCrewImportColumns::EMPLOYEE_NO => '3119',
                 HistoricalCrewImportColumns::VESSEL => $vessel->name,
-                HistoricalCrewImportColumns::RANK => $rank->name,
+                HistoricalCrewImportColumns::RANK => $rank->title,
                 HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
             ],
         ],
@@ -1581,7 +1587,7 @@ test('user changes employee no but leaves sample remarks is parsed and validated
         [
             'employee_no' => 'REAL001',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-01-05',
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-01-14',
             HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
@@ -1614,7 +1620,7 @@ test('example001 with modified real row is not silently dropped and clearly vali
         [
             'employee_no' => 'EXAMPLE001',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
             'remarks' => 'Modified row but kept example001',
         ],
@@ -1685,7 +1691,7 @@ test('unknown non-empty header fails workbook with clear rename warning and does
     $sheet->setCellValueByColumnAndRow(5, 1, 'Onsite From *');
     $sheet->setCellValueByColumnAndRow(1, 2, '3119');
     $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
-    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->title);
     $sheet->setCellValueByColumnAndRow(4, 2, 'Grand Millennium');
     $sheet->setCellValueByColumnAndRow(5, 2, '2024-01-15');
 
@@ -1731,7 +1737,7 @@ test('blank header cells in workbook are ignored and do not fail import', functi
     $sheet->setCellValueByColumnAndRow(6, 1, 'Onsite From *');
     $sheet->setCellValueByColumnAndRow(1, 2, '3119');
     $sheet->setCellValueByColumnAndRow(2, 2, $vessel->name);
-    $sheet->setCellValueByColumnAndRow(3, 2, $rank->name);
+    $sheet->setCellValueByColumnAndRow(3, 2, $rank->title);
     $sheet->setCellValueByColumnAndRow(6, 2, '2024-01-15');
 
     $path = tempnam(sys_get_temp_dir(), 'blank-hdr-').'.xlsx';
@@ -1769,7 +1775,7 @@ test('excel import preview and execution do not create crew accommodation stay r
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'sign_on_standby_from' => '2024-01-05',
             'sign_on_standby_to' => '2024-01-15',
             'onsite_from' => '2024-01-15',
@@ -1793,7 +1799,7 @@ test('excel import preview and execution do not create crew accommodation stay r
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'sign_on_standby_from' => '2024-01-05',
             'sign_on_standby_to' => '2024-01-15',
             'onsite_from' => '2024-01-15',
@@ -1830,13 +1836,13 @@ test('open past crew data row followed by later past crew data row uses updated 
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2023-01-01',
         ],
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             HistoricalCrewImportColumns::ONSITE_FROM => '2024-01-15',
             HistoricalCrewImportColumns::ONSITE_TO => '2024-07-20',
             HistoricalCrewImportColumns::HOME_AVAILABLE_FROM => '2024-07-20',

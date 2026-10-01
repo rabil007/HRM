@@ -14,7 +14,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
 use App\Models\Hotel;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
@@ -377,13 +377,15 @@ test('override validates accommodation chronology: hotel checkout after new P4 j
 test('override on P4 rank recalculates Tour of Duty when planned_signoff_source is TourOfDuty', function () {
     ['user' => $user, 'company' => $company, 'assignment' => $assignment, 'phase' => $p4] = makeOverrideTestFixtures();
 
-    $assignment->rank->update(['max_tour_of_duty_days' => 90]);
+    setMappedCrewTourOfDutyDays($company, $assignment->position, 90);
 
-    $newRank = Rank::query()->create([
-        'name' => 'Rank With 60 Day Tour',
-        'is_active' => true,
+    $newRank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Rank With 60 Day Tour',
+        'status' => 'active', 'is_crew_position' => true,
         'max_tour_of_duty_days' => 60,
     ]);
+    ensureRankMappedPosition($company, $newRank, 60);
 
     $assignment->update([
         'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty,
@@ -396,7 +398,7 @@ test('override on P4 rank recalculates Tour of Duty when planned_signoff_source 
         ->post(route('organization.crew-assignments.corrections.override', $assignment), [
             'crew_assignment_phase_id' => $p4->id,
             'proposed_values' => [
-                'rank_id' => (string) $newRank->id,
+                'position_id' => (string) $newRank->id,
             ],
             'reason' => 'Rank reclassification to shorter tour',
         ]);
@@ -406,7 +408,7 @@ test('override on P4 rank recalculates Tour of Duty when planned_signoff_source 
     $assignment->refresh();
     $p4->refresh();
 
-    expect($assignment->rank_id)->toBe($newRank->id)
+    expect($assignment->position_id)->toBe($newRank->id)
         ->and($assignment->planned_signoff_at->toDateString())
         ->toBe($p4->actual_start_at->copy()->addDays(60)->toDateString())
         ->and($p4->planned_end_at->toDateString())
@@ -416,11 +418,13 @@ test('override on P4 rank recalculates Tour of Duty when planned_signoff_source 
 test('override on P4 rank rejects new rank without tour rule when source is TourOfDuty', function () {
     ['user' => $user, 'company' => $company, 'assignment' => $assignment, 'phase' => $p4] = makeOverrideTestFixtures();
 
-    $newRankNoRule = Rank::query()->create([
-        'name' => 'Rank Without Tour',
-        'is_active' => true,
+    $newRankNoRule = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Rank Without Tour',
+        'status' => 'active', 'is_crew_position' => true,
         'max_tour_of_duty_days' => null,
     ]);
+    ensureRankMappedPosition($company, $newRankNoRule, null);
 
     $assignment->update([
         'planned_signoff_source' => CrewPlannedSignoffSource::TourOfDuty,
@@ -433,7 +437,7 @@ test('override on P4 rank rejects new rank without tour rule when source is Tour
         ->post(route('organization.crew-assignments.corrections.override', $assignment), [
             'crew_assignment_phase_id' => $p4->id,
             'proposed_values' => [
-                'rank_id' => (string) $newRankNoRule->id,
+                'position_id' => (string) $newRankNoRule->id,
             ],
             'reason' => 'Change rank to one without tour',
         ]);
@@ -447,11 +451,13 @@ test('override on P4 rank rejects new rank without tour rule when source is Tour
 test('override on P4 rank preserves planned signoff when source is manual override', function () {
     ['user' => $user, 'company' => $company, 'assignment' => $assignment, 'phase' => $p4] = makeOverrideTestFixtures();
 
-    $newRank = Rank::query()->create([
-        'name' => 'Rank With 45 Day Manual Tour',
-        'is_active' => true,
+    $newRank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Rank With 45 Day Manual Tour',
+        'status' => 'active', 'is_crew_position' => true,
         'max_tour_of_duty_days' => 60,
     ]);
+    ensureRankMappedPosition($company, $newRank, 60);
     $fixedSignoff = now()->addDays(45);
 
     $assignment->update([
@@ -465,7 +471,7 @@ test('override on P4 rank preserves planned signoff when source is manual overri
         ->post(route('organization.crew-assignments.corrections.override', $assignment), [
             'crew_assignment_phase_id' => $p4->id,
             'proposed_values' => [
-                'rank_id' => (string) $newRank->id,
+                'position_id' => (string) $newRank->id,
             ],
             'reason' => 'Update rank preserving manual plan',
         ]);
@@ -475,7 +481,7 @@ test('override on P4 rank preserves planned signoff when source is manual overri
     $assignment->refresh();
     $p4->refresh();
 
-    expect($assignment->rank_id)->toBe($newRank->id)
+    expect($assignment->position_id)->toBe($newRank->id)
         ->and($assignment->planned_signoff_at->toDateString())->toBe($fixedSignoff->toDateString())
         ->and($p4->planned_end_at->toDateString())->toBe($fixedSignoff->toDateString());
 });
@@ -739,7 +745,7 @@ test('override rolls back all database mutations atomically when downstream pipe
 
     $originalRemarks = 'Original P4 Remarks';
     $p4->update(['remarks' => $originalRemarks]);
-    $originalRankId = $assignment->rank_id;
+    $originalRankId = $assignment->position_id;
     $originalPhaseCount = CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->count();
     $originalCorrectionsCount = CrewMovementCorrection::query()->where('crew_assignment_id', $assignment->id)->count();
 
@@ -771,7 +777,7 @@ test('override rolls back all database mutations atomically when downstream pipe
     $p4->refresh();
 
     expect($p4->remarks)->toBe($originalRemarks)
-        ->and($assignment->rank_id)->toBe($originalRankId)
+        ->and($assignment->position_id)->toBe($originalRankId)
         ->and(CrewMovementCorrection::query()->where('crew_assignment_id', $assignment->id)->count())->toBe($originalCorrectionsCount)
         ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->count())->toBe($originalPhaseCount);
 });
@@ -779,11 +785,13 @@ test('override rolls back all database mutations atomically when downstream pipe
 test('override on P4 rank preserves planned signoff and updates tour of duty days when source is ExistingPlan', function () {
     ['user' => $user, 'company' => $company, 'assignment' => $assignment, 'phase' => $p4] = makeOverrideTestFixtures();
 
-    $newRank = Rank::query()->create([
-        'name' => 'Rank With 75 Day Existing Plan Tour',
-        'is_active' => true,
+    $newRank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Rank With 75 Day Existing Plan Tour',
+        'status' => 'active', 'is_crew_position' => true,
         'max_tour_of_duty_days' => 75,
     ]);
+    ensureRankMappedPosition($company, $newRank, 75);
     $existingSignoff = now()->addDays(50);
 
     $assignment->update([
@@ -798,7 +806,7 @@ test('override on P4 rank preserves planned signoff and updates tour of duty day
         ->post(route('organization.crew-assignments.corrections.override', $assignment), [
             'crew_assignment_phase_id' => $p4->id,
             'proposed_values' => [
-                'rank_id' => (string) $newRank->id,
+                'position_id' => (string) $newRank->id,
             ],
             'reason' => 'Update rank preserving existing plan',
         ]);
@@ -808,7 +816,7 @@ test('override on P4 rank preserves planned signoff and updates tour of duty day
     $assignment->refresh();
     $p4->refresh();
 
-    expect($assignment->rank_id)->toBe($newRank->id)
+    expect($assignment->position_id)->toBe($newRank->id)
         ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ExistingPlan)
         ->and($assignment->planned_signoff_at->toDateString())->toBe($existingSignoff->toDateString())
         ->and($p4->planned_end_at->toDateString())->toBe($existingSignoff->toDateString())

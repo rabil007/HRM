@@ -34,7 +34,7 @@ import { PlanningGantt } from './components/planning-gantt';
 import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { ReliefDesk } from './components/relief-desk';
-import { VesselRankTree } from './components/vessel-rank-tree';
+import { VesselPositionTree } from './components/vessel-position-tree';
 import { findRelievedAssignment } from './lib/find-relieved-assignment';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
 import { ZoomProvider } from './lib/zoom-context';
@@ -61,7 +61,7 @@ type AssignDialogState = {
     open: boolean;
     editing: GanttBar | null;
     initialVesselId: string;
-    initialRankId: string;
+    initialPositionId: string;
     initialDate: string;
     relievesEmployeeName: string;
 };
@@ -70,7 +70,7 @@ const CLOSED_DIALOG: AssignDialogState = {
     open: false,
     editing: null,
     initialVesselId: '',
-    initialRankId: '',
+    initialPositionId: '',
     initialDate: '',
     relievesEmployeeName: '',
 };
@@ -83,7 +83,7 @@ type Props = {
     filters: PlanningFilters;
     today: string;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
     employees: PlanningPoolEmployee[];
     can: PlanningPagePermissions;
     projection?: PlanningProjection | null;
@@ -111,8 +111,8 @@ function visitPlanningView(
         params.vessel_id = String(filters.vessel_id);
     }
 
-    if (filters.rank_id != null) {
-        params.rank_id = String(filters.rank_id);
+    if (filters.position_id != null) {
+        params.position_id = String(filters.position_id);
     }
 
     if (filters.search) {
@@ -143,7 +143,7 @@ export function CrewPlanningContent({
     filters,
     today,
     vessels,
-    ranks,
+    positions,
     employees,
     can,
     projection = null,
@@ -172,7 +172,7 @@ export function CrewPlanningContent({
         Object.entries({
             view: currentView,
             vessel_id: filters.vessel_id,
-            rank_id: filters.rank_id,
+            position_id: filters.position_id,
             from: filters.from,
             to: filters.to,
             search: filters.search,
@@ -196,7 +196,7 @@ export function CrewPlanningContent({
 
     const form = useForm<AssignmentFormData>({
         vessel_id: '',
-        rank_id: '',
+        position_id: '',
         planned_join_date: '',
         planned_leave_date: '',
         notes: '',
@@ -206,7 +206,7 @@ export function CrewPlanningContent({
     const openCreate = useCallback(
         (
             initialVesselId = '',
-            initialRankId = '',
+            initialPositionId = '',
             initialDate = '',
             employeeId = '',
             relievesCrewAssignmentId = '',
@@ -219,8 +219,8 @@ export function CrewPlanningContent({
                 query.vessel_id = initialVesselId;
             }
 
-            if (initialRankId) {
-                query.rank_id = initialRankId;
+            if (initialPositionId) {
+                query.position_id = initialPositionId;
             }
 
             if (initialDate) {
@@ -254,7 +254,9 @@ export function CrewPlanningContent({
             reliefPrefill.vessel_id != null
                 ? String(reliefPrefill.vessel_id)
                 : '',
-            reliefPrefill.rank_id != null ? String(reliefPrefill.rank_id) : '',
+            reliefPrefill.position_id != null
+                ? String(reliefPrefill.position_id)
+                : '',
             reliefPrefill.planned_join_date ?? '',
             '',
             reliefPrefill.relieves_crew_assignment_id != null
@@ -266,11 +268,11 @@ export function CrewPlanningContent({
     const openCreateForRow = useCallback(
         (
             vesselId: number,
-            rankId: number,
+            positionId: number,
             estimatedDate: string,
             employeeId = '',
         ): void => {
-            const rowKey = `vessel:${vesselId}|rank:${rankId}`;
+            const rowKey = `vessel:${vesselId}|position:${positionId}`;
             const relieved = findRelievedAssignment(
                 bars,
                 rowKey,
@@ -279,7 +281,7 @@ export function CrewPlanningContent({
 
             openCreate(
                 String(vesselId),
-                String(rankId),
+                String(positionId),
                 relieved?.plannedLeaveDate ?? estimatedDate,
                 employeeId,
                 relieved ? String(relieved.crewAssignmentId) : '',
@@ -293,7 +295,7 @@ export function CrewPlanningContent({
         form.clearErrors();
         form.setData({
             vessel_id: bar.row_key.split('|')[0].replace('vessel:', ''),
-            rank_id: bar.row_key.split('|')[1].replace('rank:', ''),
+            position_id: bar.row_key.split('|')[1].replace('position:', ''),
             planned_join_date: bar.planned_join_date,
             planned_leave_date: bar.planned_leave_date ?? '',
             notes: bar.notes ?? '',
@@ -306,7 +308,7 @@ export function CrewPlanningContent({
             open: true,
             editing: bar,
             initialVesselId: '',
-            initialRankId: '',
+            initialPositionId: '',
             initialDate: '',
             relievesEmployeeName: bar.relieves_employee_name ?? '',
         });
@@ -362,7 +364,7 @@ export function CrewPlanningContent({
 
         form.transform((data) => ({
             vessel_id: Number(data.vessel_id),
-            rank_id: Number(data.rank_id),
+            position_id: Number(data.position_id),
             planned_join_date: data.planned_join_date,
             planned_leave_date: data.planned_leave_date,
             notes: data.notes || null,
@@ -404,10 +406,10 @@ export function CrewPlanningContent({
         (
             _rowKey: string,
             vesselId: number,
-            rankId: number,
+            positionId: number,
             estimatedDate: string,
         ): void => {
-            openCreateForRow(vesselId, rankId, estimatedDate);
+            openCreateForRow(vesselId, positionId, estimatedDate);
         },
         [openCreateForRow],
     );
@@ -415,10 +417,10 @@ export function CrewPlanningContent({
     const handleGapClick = useCallback(
         (
             vesselId: number,
-            rankId: number,
+            positionId: number,
             period: PlanningProjectionPeriod,
         ): void => {
-            openCreateForRow(vesselId, rankId, period.from);
+            openCreateForRow(vesselId, positionId, period.from);
         },
         [openCreateForRow],
     );
@@ -440,20 +442,20 @@ export function CrewPlanningContent({
                 return;
             }
 
-            if (activeData.rankId !== overData.rankId) {
-                const rowRank = ranks.find(
-                    (rank) => rank.id === overData.rankId,
+            if (activeData.positionId !== overData.positionId) {
+                const rowPosition = positions.find(
+                    (position) => position.id === overData.positionId,
                 );
 
                 toast.error(
-                    `${activeData.employeeName} is a ${activeData.rankName} and cannot be assigned to ${rowRank?.name ?? 'this rank'}.`,
+                    `${activeData.employeeName} is a ${activeData.positionName} and cannot be assigned to ${rowPosition?.name ?? 'this position'}.`,
                 );
 
                 return;
             }
 
             const timelineEl = document.querySelector(
-                `[data-row-key="vessel:${overData.vesselId}|rank:${overData.rankId}"] [data-timeline-container]`,
+                `[data-row-key="vessel:${overData.vesselId}|position:${overData.positionId}"] [data-timeline-container]`,
             ) as HTMLElement | null;
             let estimatedDate = today;
 
@@ -469,12 +471,12 @@ export function CrewPlanningContent({
 
             openCreateForRow(
                 overData.vesselId,
-                overData.rankId,
+                overData.positionId,
                 estimatedDate,
                 String(activeData.employeeId),
             );
         },
-        [openCreateForRow, today, filters.from, filters.to, ranks],
+        [openCreateForRow, today, filters.from, filters.to, positions],
     );
 
     if (currentView === 'relief' && reliefDesk) {
@@ -496,7 +498,11 @@ export function CrewPlanningContent({
                         }
                     />
                 </div>
-                <ReliefDesk desk={reliefDesk} vessels={vessels} ranks={ranks} />
+                <ReliefDesk
+                    desk={reliefDesk}
+                    vessels={vessels}
+                    positions={positions}
+                />
             </Main>
         );
     }
@@ -505,13 +511,13 @@ export function CrewPlanningContent({
         const hasActiveQuery =
             Boolean(filters.search?.trim()) ||
             filters.vessel_id != null ||
-            filters.rank_id != null;
+            filters.position_id != null;
         const selectionKey = onboardSelectionResetKey({
             companyId: currentCompanyId,
             search: filters.search ?? '',
             filters: {
                 vessel_id: filters.vessel_id,
-                rank_id: filters.rank_id,
+                position_id: filters.position_id,
             },
         });
 
@@ -537,7 +543,7 @@ export function CrewPlanningContent({
                 <OnboardPlanningFilters
                     filters={filters}
                     vessels={vessels}
-                    ranks={ranks}
+                    positions={positions}
                     perPage={onboardPagination.per_page}
                 />
 
@@ -549,7 +555,7 @@ export function CrewPlanningContent({
                         exportQuery={{
                             search: filters.search,
                             vessel_id: filters.vessel_id,
-                            rank_id: filters.rank_id,
+                            position_id: filters.position_id,
                         }}
                         onPageChange={(page) => {
                             const params: Record<string, string> = {
@@ -566,8 +572,10 @@ export function CrewPlanningContent({
                                 params.vessel_id = String(filters.vessel_id);
                             }
 
-                            if (filters.rank_id != null) {
-                                params.rank_id = String(filters.rank_id);
+                            if (filters.position_id != null) {
+                                params.position_id = String(
+                                    filters.position_id,
+                                );
                             }
 
                             router.get(planningIndex.url(), params, {
@@ -604,7 +612,7 @@ export function CrewPlanningContent({
                                         visitPlanningView('onboard-vessels', {
                                             ...filters,
                                             vessel_id: null,
-                                            rank_id: null,
+                                            position_id: null,
                                             search: '',
                                         })
                                     }
@@ -652,7 +660,7 @@ export function CrewPlanningContent({
                     <PlanningToolbar
                         filters={filters}
                         vessels={vessels}
-                        ranks={ranks}
+                        positions={positions}
                         searchInput={searchInput}
                         onSearchChange={setSearchInput}
                         can={can}
@@ -672,15 +680,15 @@ export function CrewPlanningContent({
                             <div className="flex w-64 shrink-0 flex-col overflow-hidden border-r bg-muted/10">
                                 <div className="border-b border-border/60 bg-background/80 px-3 py-2.5">
                                     <p className="text-[10px] font-bold tracking-widest text-muted-foreground/70 uppercase">
-                                        Vessels &amp; Ranks
+                                        Vessels &amp; Positions
                                     </p>
                                     <p className="mt-0.5 text-[11px] text-muted-foreground/55">
-                                        Select a vessel or rank to focus the
+                                        Select a vessel or position to focus the
                                         timeline
                                     </p>
                                 </div>
                                 <div className="flex-1 overflow-y-auto">
-                                    <VesselRankTree
+                                    <VesselPositionTree
                                         tree={tree}
                                         search={searchInput}
                                         selectedRowKey={selectedRowKey}
@@ -729,13 +737,13 @@ export function CrewPlanningContent({
                             )}
                             aria-label={
                                 sidebarOpen
-                                    ? 'Hide vessels and ranks panel'
-                                    : 'Show vessels and ranks panel'
+                                    ? 'Hide vessels and positions panel'
+                                    : 'Show vessels and positions panel'
                             }
                             title={
                                 sidebarOpen
-                                    ? 'Hide vessels & ranks panel'
-                                    : 'Show vessels & ranks panel'
+                                    ? 'Hide vessels & positions panel'
+                                    : 'Show vessels & positions panel'
                             }
                         >
                             {sidebarOpen ? (
@@ -754,7 +762,7 @@ export function CrewPlanningContent({
                         editing={dialogState.editing}
                         relievesEmployeeName={dialogState.relievesEmployeeName}
                         vessels={vessels}
-                        ranks={ranks}
+                        positions={positions}
                     />
                 </Main>
 
@@ -769,7 +777,7 @@ export function CrewPlanningContent({
                         >
                             {draggingEmployee.employeeName}
                             <span className="text-muted-foreground">
-                                · {draggingEmployee.rankName}
+                                · {draggingEmployee.positionName}
                             </span>
                         </div>
                     ) : null}

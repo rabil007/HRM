@@ -26,7 +26,7 @@ final class SavedViewsForPage
             ->map(fn (SavedView $view): array => [
                 'id' => $view->id,
                 'name' => $view->name,
-                'filters' => SavedViewCatalog::forApply($page, $view->filters ?? []),
+                'filters' => SavedViewCatalog::forApply($page, $view->filters ?? [], $companyId),
                 'is_default' => $view->is_default,
             ])
             ->all();

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization;
 
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -28,6 +29,9 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        if ($companyId < 1) {
+            $companyId = (int) ($this->user()?->current_company_id ?? 0);
+        }
         $vesselId = $this->input('vessel_id');
         $clientId = $this->input('client_id');
         $merge = [];
@@ -41,6 +45,14 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
             if ($resolved !== null) {
                 $merge['client_id'] = $resolved;
             }
+        }
+
+        $crew = (array) $this->input('crew', []);
+        if ($crew !== [] && $companyId > 0) {
+            foreach ($crew as $index => $row) {
+                unset($crew[$index]['rank_id']);
+            }
+            $merge['crew'] = $crew;
         }
 
         if ($merge !== []) {
@@ -67,7 +79,8 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
                 'distinct',
                 ActiveCompanyEmployeeRule::exists($companyId, $this->user()),
             ],
-            'crew.*.rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
+            'crew.*.position_id' => ['nullable', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
+
             'crew.*.planned_arrival_at' => ['nullable', 'date'],
         ];
     }
@@ -93,7 +106,8 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
     {
         return [
             'crew.*.employee_id' => 'employee',
-            'crew.*.rank_id' => 'rank',
+            'crew.*.position_id' => 'position',
+
             'crew.*.planned_arrival_at' => 'arrival date',
         ];
     }

@@ -10,7 +10,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
@@ -26,7 +26,7 @@ use App\Support\Payroll\CrewTimeline\Actions\ApplyCrewTimesheetPreparation;
  *     vesselA: Vessel,
  *     vesselB: Vessel,
  *     client: Client,
- *     rank: Rank,
+ *     rank: Position,
  *     segmentIds: list<int>
  * }
  */
@@ -49,7 +49,8 @@ function makeMultiSegmentManualTimesheetFixtures(CrewTimesheetSource $source = C
     $vesselA = makeCrewMovementVessel('Vessel A');
     $vesselB = makeCrewMovementVessel('Vessel B');
     $client = Client::query()->create(['name' => 'FS Client '.uniqid(), 'is_active' => true]);
-    $rank = Rank::query()->create(['name' => 'FS Rank '.uniqid(), 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'FS Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
 
     $timesheet = CrewTimesheet::factory()->create([
         'company_id' => $company->id,

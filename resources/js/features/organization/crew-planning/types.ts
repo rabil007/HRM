@@ -1,17 +1,17 @@
 import type { CrewMobilisationReadiness } from '@/features/organization/crew/types';
 import type { PaginationMeta } from '@/types/pagination';
 
-export type GanttRankRow = {
+export type GanttPositionRow = {
     row_key: string;
-    rank_id: number;
-    rank_name: string;
+    position_id: number;
+    position_name: string;
     required_count: number;
 };
 
 export type GanttVesselGroup = {
     vessel_id: number;
     vessel_name: string;
-    ranks: GanttRankRow[];
+    positions: GanttPositionRow[];
 };
 
 export type PlanningKind =
@@ -31,7 +31,7 @@ export type GanttBar = {
     planned_leave_date: string | null;
     is_open_ended: boolean;
     total_days: number;
-    rank_name: string | null;
+    position_name: string | null;
     vessel_name: string | null;
     notes: string | null;
     crew_assignment_id: number | null;
@@ -39,7 +39,7 @@ export type GanttBar = {
     relieves_employee_name: string | null;
     relieves_assignment_no?: string | null;
     relieves_vessel_name?: string | null;
-    relieves_rank_name?: string | null;
+    relieves_position_name?: string | null;
     relieves_planned_signoff_at?: string | null;
     is_assigned: boolean;
     planning_kind?: PlanningKind;
@@ -48,7 +48,7 @@ export type GanttBar = {
 
 export type PlanningReliefPrefill = {
     vessel_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     relieves_crew_assignment_id: number | null;
     planned_join_date: string | null;
     open_create: boolean;
@@ -63,9 +63,9 @@ export type TreeCrewMember = {
     relieves_employee_name: string | null;
 };
 
-export type TreeRank = {
-    rank_id: number;
-    rank_name: string;
+export type TreePosition = {
+    position_id: number;
+    position_name: string;
     required_count: number;
     crew: TreeCrewMember[];
 };
@@ -73,14 +73,14 @@ export type TreeRank = {
 export type TreeVessel = {
     vessel_id: number;
     vessel_name: string;
-    ranks: TreeRank[];
+    positions: TreePosition[];
 };
 
 export type CrewPlanningView = 'planning' | 'onboard-vessels' | 'relief';
 
 export type PlanningFilters = {
     vessel_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     from: string;
     to: string;
     search: string;
@@ -91,8 +91,8 @@ export type PlanningBackQuery = Record<string, string | number>;
 export type PlanningPoolEmployee = {
     id: number;
     name: string;
-    rank_id: number;
-    rank_name: string;
+    position_id: number;
+    position_name: string;
 };
 
 export type PlanningDepartmentNode = {
@@ -132,7 +132,7 @@ export type ReliefDeskFocus =
 export type ReliefDeskFilters = {
     search: string;
     vessel_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     client_id: number | null;
     relief_status: string;
     relief_risk: string;
@@ -176,7 +176,7 @@ export type ReliefDeskRow = {
     source_href: string | null;
     employee: ReliefDeskPerson | null;
     vessel: ReliefDeskVessel | null;
-    rank: { id: number; name: string } | null;
+    position: { id: number; name: string } | null;
     current_phase_code: string | null;
     current_phase_label: string | null;
     current_duty_day: number | null;
@@ -238,8 +238,8 @@ export type PlanningProjectionRow = {
     row_key: string;
     vessel_id: number;
     vessel_name: string;
-    rank_id: number;
-    rank_name: string;
+    position_id: number;
+    position_name: string;
     required_count: number;
     status: PlanningProjectionStatus;
     next_gap_date: string | null;
@@ -289,7 +289,7 @@ export type NotificationUserOption = {
 
 export type AssignmentFormData = {
     vessel_id: string;
-    rank_id: string;
+    position_id: string;
     planned_join_date: string;
     planned_leave_date: string;
     notes: string;
@@ -300,7 +300,11 @@ export type CrewDragData = {
     type: 'crew';
     employeeId: number;
     employeeName: string;
-    rankId: number;
-    rankName: string;
+    positionId: number;
+    positionName: string;
 };
-export type RowDropData = { type: 'row'; vesselId: number; rankId: number };
+export type RowDropData = {
+    type: 'row';
+    vesselId: number;
+    positionId: number;
+};

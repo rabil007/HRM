@@ -15,7 +15,6 @@ function profileData(
         branch_id: '',
         department_id: '6',
         position_id: '12',
-        rank_id: '',
         project_id: '',
         client_id: '',
         personal_email: 'rabil@example.com',

@@ -27,7 +27,7 @@ test('forEmployee returns pre mobilisation for draft assignment', function () {
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-DRAFT1',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Draft,
         'source' => 'manual',
@@ -68,7 +68,7 @@ test('forEmployee returns in home for completed assignment', function () {
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-DONE1',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::today()->subDays(15),
@@ -90,7 +90,7 @@ test('forEmployee returns needs update when active assignment has no current pha
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-BROKEN1',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => now()->subDays(5),
@@ -112,7 +112,7 @@ test('forEmployee prefers active assignment over draft', function () {
         'company_id' => $company->id,
         'assignment_no' => 'CA-'.now()->year.'-DRAFT2',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $draftVessel->id,
         'status' => CrewAssignmentStatus::Draft,
         'source' => 'manual',
@@ -129,8 +129,8 @@ test('forEmployees returns map keyed by employee id', function () {
     ['company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Multi Employee Vessel');
 
-    $employeeA = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
-    $employeeB = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $employeeA = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
+    $employeeB = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
 
     makeActiveOnVesselAssignment($company, $employeeA, $rank, $vessel);
 

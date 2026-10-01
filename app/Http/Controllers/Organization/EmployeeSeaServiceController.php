@@ -10,6 +10,7 @@ use App\Models\EmployeeSeaService;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Employees\SeaServiceDuration;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceImportOrchestrator;
 use App\Support\SeaServices\SeaServiceImportTemplateExporter;
 use App\Support\Vessels\ResolvesCompanyVessels;
@@ -28,6 +29,8 @@ class EmployeeSeaServiceController extends Controller
 
         $this->assertEmployeeVisible($request, $employee, $companyId);
 
+        $this->mergeLegacySeaServicePosition($request, $companyId);
+
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
             $employee,
@@ -39,7 +42,7 @@ class EmployeeSeaServiceController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['vessel_type_id', 'vessel_id', 'rank_id', 'start_date', 'end_date', 'client_id'],
+            ['vessel_type_id', 'vessel_id', 'position_id', 'start_date', 'end_date', 'client_id'],
             'Enter at least one sea service field before saving.',
         );
 
@@ -71,9 +74,11 @@ class EmployeeSeaServiceController extends Controller
 
         if ($seaService->isSynchronized()) {
             throw ValidationException::withMessages([
-                'error' => 'This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates.',
+                'error' => 'This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, position, or service dates.',
             ]);
         }
+
+        $this->mergeLegacySeaServicePosition($request, $companyId);
 
         $validated = EmployeeProfileTemplateRequestRules::validate(
             $request,
@@ -86,7 +91,7 @@ class EmployeeSeaServiceController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['vessel_type_id', 'vessel_id', 'rank_id', 'start_date', 'end_date', 'client_id'],
+            ['vessel_type_id', 'vessel_id', 'position_id', 'start_date', 'end_date', 'client_id'],
             'Enter at least one sea service field before saving.',
         );
 
@@ -282,7 +287,7 @@ class EmployeeSeaServiceController extends Controller
         return [
             'vessel_type_id' => ['required', Rule::exists('vessel_types', 'id')->where('is_active', true)],
             'vessel_id' => ['required', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
-            'rank_id' => ['required', Rule::exists('ranks', 'id')->where('is_active', true)],
+            'position_id' => ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
@@ -342,12 +347,7 @@ class EmployeeSeaServiceController extends Controller
         return [
             'vessel_type_id' => $vesselTypeId,
             'vessel_id' => $vesselId,
-            'rank_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
-                $validated,
-                'rank_id',
-                $existing?->rank_id,
-                asInteger: true,
-            ),
+            ...self::resolvedPositionAndRank($companyId, $validated, $existing),
             'start_date' => $startDate,
             'end_date' => $endDate,
             'total_months' => $duration['months'],
@@ -355,6 +355,30 @@ class EmployeeSeaServiceController extends Controller
             'client_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'client_id')
                 ? (isset($validated['client_id']) ? (int) $validated['client_id'] : null)
                 : $existing?->client_id,
+        ];
+    }
+
+    private function mergeLegacySeaServicePosition(Request $request, int $companyId): void
+    {
+        // Phase 3B: Rank retired — ignore legacy rank_id payloads.
+        if ($request->has('rank_id')) {
+            $request->request->remove('rank_id');
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{position_id: int|null}
+     */
+    private function resolvedPositionAndRank(int $companyId, array $validated, ?EmployeeSeaService $existing = null): array
+    {
+        return [
+            'position_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'position_id',
+                $existing?->position_id,
+                asInteger: true,
+            ),
         ];
     }
 }

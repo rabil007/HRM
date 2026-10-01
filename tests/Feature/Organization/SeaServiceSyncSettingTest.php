@@ -67,7 +67,7 @@ test('sign-off details are synchronized through disembarkation when enabled', fu
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -82,7 +82,7 @@ test('sign-off details are synchronized through disembarkation when enabled', fu
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-03-01 08:00:00',

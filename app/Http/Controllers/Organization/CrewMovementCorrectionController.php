@@ -67,7 +67,7 @@ class CrewMovementCorrectionController extends Controller
             'assignment' => fn ($query) => $query->withTrashed(),
             'assignment.employee' => fn ($query) => $query->withTrashed()->select(['id', 'company_id', 'employee_no', 'name']),
             'assignment.vessel:id,name',
-            'assignment.rank:id,name',
+            'assignment.position:id,title',
             'assignment.client:id,name',
             'phase',
             'requester:id,name',

@@ -27,12 +27,32 @@ class Position extends Model
         'min_salary',
         'max_salary',
         'status',
+        'is_crew_position',
+        'max_tour_of_duty_days',
         'attachment_path',
         'attachment_original_name',
         'attachment_mime_type',
         'attachment_size_bytes',
         'attachment_checksum',
     ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_crew_position' => true,
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_crew_position' => 'boolean',
+            'max_tour_of_duty_days' => 'integer',
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -46,6 +66,8 @@ class Position extends Model
                 'min_salary',
                 'max_salary',
                 'status',
+                'is_crew_position',
+                'max_tour_of_duty_days',
                 'attachment_original_name',
                 'attachment_mime_type',
                 'attachment_size_bytes',

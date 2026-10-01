@@ -21,10 +21,15 @@ function vessel(overrides: Partial<VesselRow> = {}): VesselRow {
         certificate_url: '/private/certificates/cert.pdf',
         is_active: true,
         manning: [
-            { id: 1, rank_id: 2, rank_name: 'Master', required_count: 1 },
+            {
+                id: 1,
+                position_id: 2,
+                position_name: 'Master',
+                required_count: 1,
+            },
         ],
         total_required: 8,
-        ranks_configured: 3,
+        positions_configured: 3,
         ...overrides,
     };
 }
@@ -43,7 +48,7 @@ describe('vesselMobileCardModel', () => {
             model.identificationLine,
             'IMO IMO1234567 · Official OFF-12',
         );
-        assert.equal(model.manningLine, '3 ranks · 8 required');
+        assert.equal(model.manningLine, '3 positions · 8 required');
         assert.equal(model.statusLabel, 'Active');
         assert.equal(model.attention, null);
         assert.equal(model.showEdit, false);
@@ -97,7 +102,7 @@ describe('vesselMobileCardModel', () => {
 
     it('flags vessels without manning', () => {
         const model = vesselMobileCardModel(
-            vessel({ ranks_configured: 0, total_required: 0, manning: [] }),
+            vessel({ positions_configured: 0, total_required: 0, manning: [] }),
             { update: false, delete: false },
         );
 

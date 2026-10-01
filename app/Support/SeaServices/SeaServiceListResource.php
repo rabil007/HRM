@@ -13,6 +13,8 @@ final class SeaServiceListResource
     public static function toArray(EmployeeSeaService $seaService, ?Employee $employee = null): array
     {
         $employee ??= $seaService->employee;
+        $companyId = (int) $seaService->company_id;
+        $positionPayload = self::positionPayload($seaService, $companyId);
 
         return [
             'id' => $seaService->id,
@@ -26,8 +28,8 @@ final class SeaServiceListResource
             'vessel_type_name' => $seaService->vesselType?->name,
             'vessel_id' => $seaService->vessel_id,
             'vessel_name' => $seaService->vessel?->name,
-            'rank_id' => $seaService->rank_id,
-            'rank_name' => $seaService->rank?->name,
+            'position_id' => $positionPayload['id'],
+            'position_name' => $positionPayload['name'],
             'client_id' => $seaService->client_id,
             'client_name' => $seaService->client?->name,
             'start_date' => $seaService->start_date?->toDateString(),
@@ -46,14 +48,17 @@ final class SeaServiceListResource
      */
     public static function toProfileArray(EmployeeSeaService $seaService): array
     {
+        $companyId = (int) $seaService->company_id;
+        $positionPayload = self::positionPayload($seaService, $companyId);
+
         return [
             'id' => $seaService->id,
             'vessel_type_id' => $seaService->vessel_type_id,
             'vessel_type_name' => $seaService->vesselType?->name,
             'vessel_id' => $seaService->vessel_id,
             'vessel_name' => $seaService->vessel?->name,
-            'rank_id' => $seaService->rank_id,
-            'rank_name' => $seaService->rank?->name,
+            'position_id' => $positionPayload['id'],
+            'position_name' => $positionPayload['name'],
             'client_id' => $seaService->client_id,
             'client_name' => $seaService->client?->name,
             'start_date' => $seaService->start_date?->toDateString(),
@@ -63,6 +68,36 @@ final class SeaServiceListResource
             'crew_assignment_phase_id' => $seaService->crew_assignment_phase_id,
             'has_assignment_phase' => $seaService->crew_assignment_phase_id !== null,
             'sort_order' => (int) $seaService->sort_order,
+            'grt' => $seaService->vessel?->grt !== null ? (string) $seaService->vessel->grt : null,
+            'bhp' => $seaService->vessel?->bhp,
+            'created_at' => $seaService->created_at?->toDateTimeString(),
+        ];
+    }
+
+    /**
+     * @return array{id: int|null, name: string|null}
+     */
+    private static function positionPayload(EmployeeSeaService $seaService, int $companyId): array
+    {
+        $position = $seaService->relationLoaded('position') ? $seaService->position : null;
+
+        if ($position !== null) {
+            return [
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
+            ];
+        }
+
+        if ($seaService->position_id !== null) {
+            return [
+                'id' => (int) $seaService->position_id,
+                'name' => null,
+            ];
+        }
+
+        return [
+            'id' => null,
+            'name' => null,
         ];
     }
 }

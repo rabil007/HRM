@@ -24,7 +24,7 @@ final class HistoricalCrewImportResultExporter
             'Employee No',
             'Employee',
             'Vessel',
-            'Rank',
+            'Position',
             'Last Movement',
             'Inferred State',
             'Import Status',

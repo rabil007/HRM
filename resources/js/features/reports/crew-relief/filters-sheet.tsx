@@ -87,7 +87,7 @@ export function CrewReliefFiltersSheet({
             onApply({
                 vessel_id: draft.vessel_id,
                 client_id: draft.client_id,
-                rank_id: draft.rank_id,
+                position_id: draft.position_id,
                 planned_signoff_from: draft.planned_signoff_from,
                 planned_signoff_to: draft.planned_signoff_to,
                 readiness: draft.readiness,
@@ -129,11 +129,11 @@ export function CrewReliefFiltersSheet({
                 />
 
                 <SelectFilter
-                    label="Rank"
-                    value={draft.rank_id}
-                    options={options.ranks}
-                    onChange={(rank_id) =>
-                        setDraft((prev) => ({ ...prev, rank_id }))
+                    label="Position"
+                    value={draft.position_id}
+                    options={options.positions}
+                    onChange={(position_id) =>
+                        setDraft((prev) => ({ ...prev, position_id }))
                     }
                 />
 

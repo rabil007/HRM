@@ -6,11 +6,11 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefPlanningLoader;
 use App\Support\CrewMovements\CurrentOnboardCrewQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
@@ -112,7 +112,8 @@ final class CrewReliefReportQuery
             ->whereIn('id', $pageIds)
             ->with([
                 'employee:id,company_id,name,employee_no,photo_url,department_id,user_id',
-                'rank:id,name',
+                'position:id,title',
+                'position:id,title',
                 'vessel:id,company_id,name',
                 'client:id,name',
                 'currentPhase',
@@ -212,7 +213,8 @@ final class CrewReliefReportQuery
             ->whereIn('id', $allIds)
             ->with([
                 'employee:id,company_id,name,employee_no,photo_url,department_id,user_id',
-                'rank:id,name',
+                'position:id,title',
+                'position:id,title',
                 'vessel:id,company_id,name',
                 'client:id,name',
                 'currentPhase',
@@ -461,7 +463,7 @@ final class CrewReliefReportQuery
                         });
                     })
                     ->orWhereHas('vessel', fn (Builder $v) => $v->where('name', 'like', '%'.$search.'%'))
-                    ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('reliefAssignments', function (Builder $relief) use ($search, $companyId, $user): void {
                         $relief->where('company_id', $companyId)
@@ -490,8 +492,8 @@ final class CrewReliefReportQuery
             $query->where('client_id', (int) $this->filters->clientId);
         }
 
-        if ($this->filters->rankId !== '') {
-            $query->where('rank_id', (int) $this->filters->rankId);
+        if ($this->filters->positionId !== '') {
+            $query->where('crew_assignments.position_id', (int) $this->filters->positionId);
         }
 
         $from = null;
@@ -683,16 +685,7 @@ final class CrewReliefReportQuery
                 ])
                 ->values()
                 ->all(),
-            'ranks' => Rank::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $r): array => [
-                    'id' => (int) $r->id,
-                    'name' => (string) $r->name,
-                ])
-                ->values()
-                ->all(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($this->companyId),
             'readiness_options' => [
                 ['value' => 'all', 'label' => 'All Readiness'],
                 ['value' => 'ready', 'label' => 'Ready'],

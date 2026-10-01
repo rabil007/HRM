@@ -26,7 +26,7 @@ import {
 } from '../lib/vessel-manning-health';
 import type {
     VesselManningHealth,
-    VesselManningHealthRank,
+    VesselManningHealthPosition,
     VesselPageCan,
 } from '../types';
 
@@ -43,26 +43,29 @@ function Metric({ label, value }: { label: string; value: string }) {
     );
 }
 
-function RankCard({ rank }: { rank: VesselManningHealthRank }) {
-    const primaryRelief = rank.reliefs[0];
+function PositionCard({ position }: { position: VesselManningHealthPosition }) {
+    const primaryRelief = position.reliefs[0];
 
     return (
         <div className="rounded-xl border border-border/70 bg-card/60 p-4 dark:border-white/8 dark:bg-white/[0.03]">
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="truncate font-semibold">{rank.rank_name}</p>
+                    <p className="truncate font-semibold">
+                        {position.position_name}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                        {rank.reason}
+                        {position.reason}
                     </p>
                 </div>
                 <Badge
                     variant="outline"
                     className={cn(
                         'shrink-0 text-[10px] font-bold tracking-wider uppercase',
-                        vesselManningHealthBadgeClass(rank.status),
+                        vesselManningHealthBadgeClass(position.status),
                     )}
                 >
-                    {vesselManningHealthDot(rank.status)} {rank.status_label}
+                    {vesselManningHealthDot(position.status)}{' '}
+                    {position.status_label}
                 </Badge>
             </div>
             <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -71,7 +74,7 @@ function RankCard({ rank }: { rank: VesselManningHealthRank }) {
                         Required
                     </dt>
                     <dd className="font-semibold tabular-nums">
-                        {rank.required}
+                        {position.required}
                     </dd>
                 </div>
                 <div>
@@ -79,7 +82,7 @@ function RankCard({ rank }: { rank: VesselManningHealthRank }) {
                         Onboard
                     </dt>
                     <dd className="font-semibold tabular-nums">
-                        {rank.onboard}
+                        {position.onboard}
                     </dd>
                 </div>
                 <div>
@@ -87,7 +90,7 @@ function RankCard({ rank }: { rank: VesselManningHealthRank }) {
                         Projected
                     </dt>
                     <dd className="font-semibold tabular-nums">
-                        {rank.projected}
+                        {position.projected}
                     </dd>
                 </div>
                 <div>
@@ -95,8 +98,8 @@ function RankCard({ rank }: { rank: VesselManningHealthRank }) {
                         Gap from
                     </dt>
                     <dd className="font-semibold">
-                        {rank.next_gap_date
-                            ? formatDisplayDate(rank.next_gap_date)
+                        {position.next_gap_date
+                            ? formatDisplayDate(position.next_gap_date)
                             : '—'}
                     </dd>
                 </div>
@@ -112,19 +115,20 @@ function RankCard({ rank }: { rank: VesselManningHealthRank }) {
                                   ? ` · ${primaryRelief.relief_phase_label}`
                                   : ` · ${primaryRelief.relief_status_label}`
                           }`
-                        : (rank.relief_status_label ?? rank.relief_summary)}
+                        : (position.relief_status_label ??
+                          position.relief_summary)}
                 </p>
-                {rank.signoffs[0]?.employee_name ? (
+                {position.signoffs[0]?.employee_name ? (
                     <p className="mt-1 text-muted-foreground">
-                        {rank.signoffs[0].employee_name}
-                        {rank.signoffs[0].planned_signoff_at
-                            ? ` · Planned Sign-Off ${formatDisplayDate(rank.signoffs[0].planned_signoff_at)}`
+                        {position.signoffs[0].employee_name}
+                        {position.signoffs[0].planned_signoff_at
+                            ? ` · Planned Sign-Off ${formatDisplayDate(position.signoffs[0].planned_signoff_at)}`
                             : null}
                     </p>
                 ) : null}
-                {rank.mobilisation_readiness_label ? (
+                {position.mobilisation_readiness_label ? (
                     <p className="mt-1 text-muted-foreground">
-                        Mobilisation: {rank.mobilisation_readiness_label}
+                        Mobilisation: {position.mobilisation_readiness_label}
                     </p>
                 ) : null}
             </div>
@@ -273,18 +277,23 @@ export function VesselManningHealthCard({
 
                         <div>
                             <h3 className="mb-3 text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
-                                Rank Manning Health
+                                Position Manning Health
                             </h3>
                             <div className="space-y-3 md:hidden">
-                                {health.ranks.map((rank) => (
-                                    <RankCard key={rank.rank_id} rank={rank} />
+                                {health.positions.map((position) => (
+                                    <PositionCard
+                                        key={position.position_id}
+                                        position={position}
+                                    />
                                 ))}
                             </div>
                             <div className="hidden overflow-x-auto md:block">
                                 <Table className="min-w-[720px]">
                                     <TableHeader>
                                         <DataTableHeaderRow>
-                                            <DataTableHead>Rank</DataTableHead>
+                                            <DataTableHead>
+                                                Position
+                                            </DataTableHead>
                                             <DataTableHead className="text-right">
                                                 Required
                                             </DataTableHead>
@@ -303,9 +312,9 @@ export function VesselManningHealthCard({
                                         </DataTableHeaderRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {health.ranks.map((rank) => (
+                                        {health.positions.map((position) => (
                                             <TableRow
-                                                key={rank.rank_id}
+                                                key={position.position_id}
                                                 className={dataTableBodyRowClass(
                                                     false,
                                                 )}
@@ -315,24 +324,26 @@ export function VesselManningHealthCard({
                                                 >
                                                     <div className="min-w-0">
                                                         <p className="font-semibold">
-                                                            {rank.rank_name}
+                                                            {
+                                                                position.position_name
+                                                            }
                                                         </p>
                                                         <p className="mt-0.5 text-xs text-muted-foreground">
-                                                            {rank.reason}
+                                                            {position.reason}
                                                         </p>
                                                         {health.include_crew_details &&
-                                                        rank.signoffs[0]
+                                                        position.signoffs[0]
                                                             ?.employee_name ? (
                                                             <p className="mt-1 text-xs text-muted-foreground">
                                                                 {
-                                                                    rank
+                                                                    position
                                                                         .signoffs[0]
                                                                         .employee_name
                                                                 }
-                                                                {rank
+                                                                {position
                                                                     .signoffs[0]
                                                                     .planned_signoff_at
-                                                                    ? ` · Planned Sign-Off ${formatDisplayDate(rank.signoffs[0].planned_signoff_at)}`
+                                                                    ? ` · Planned Sign-Off ${formatDisplayDate(position.signoffs[0].planned_signoff_at)}`
                                                                     : null}
                                                             </p>
                                                         ) : null}
@@ -344,7 +355,7 @@ export function VesselManningHealthCard({
                                                         'text-right tabular-nums',
                                                     )}
                                                 >
-                                                    {rank.required}
+                                                    {position.required}
                                                 </TableCell>
                                                 <TableCell
                                                     className={cn(
@@ -352,18 +363,20 @@ export function VesselManningHealthCard({
                                                         'text-right tabular-nums',
                                                     )}
                                                 >
-                                                    {rank.onboard}
+                                                    {position.onboard}
                                                 </TableCell>
                                                 <TableCell
                                                     className={dataTableCellClass()}
                                                 >
                                                     <span className="text-sm">
-                                                        {rank.relief_summary}
+                                                        {
+                                                            position.relief_summary
+                                                        }
                                                     </span>
-                                                    {rank.mobilisation_readiness_label ? (
+                                                    {position.mobilisation_readiness_label ? (
                                                         <span className="mt-0.5 block text-xs text-muted-foreground">
                                                             {
-                                                                rank.mobilisation_readiness_label
+                                                                position.mobilisation_readiness_label
                                                             }
                                                         </span>
                                                     ) : null}
@@ -374,7 +387,7 @@ export function VesselManningHealthCard({
                                                         'text-right tabular-nums',
                                                     )}
                                                 >
-                                                    {rank.projected}
+                                                    {position.projected}
                                                 </TableCell>
                                                 <TableCell
                                                     className={dataTableCellClass()}
@@ -384,14 +397,14 @@ export function VesselManningHealthCard({
                                                         className={cn(
                                                             'text-[10px] font-bold tracking-wider uppercase',
                                                             vesselManningHealthBadgeClass(
-                                                                rank.status,
+                                                                position.status,
                                                             ),
                                                         )}
                                                     >
                                                         {vesselManningHealthDot(
-                                                            rank.status,
+                                                            position.status,
                                                         )}{' '}
-                                                        {rank.status_label}
+                                                        {position.status_label}
                                                     </Badge>
                                                 </TableCell>
                                             </TableRow>

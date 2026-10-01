@@ -37,7 +37,7 @@ test('create-only users are redirected to dashboard after successful assignment 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect(route('dashboard'))
         ->assertSessionHas('success', 'Crew assignment created successfully.');
@@ -59,7 +59,7 @@ test('users with assignment view permission still redirect to the new assignment
     $response = $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]);
 
     $assignment = CrewAssignment::query()
@@ -78,7 +78,7 @@ test('on-vessel lookup can be limited to the selectable employee set', function 
     $otherEmployee = Employee::factory()
         ->forCompany($company)
         ->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'status' => 'active',
         ]);
 
@@ -102,7 +102,7 @@ test('operational status selects only the latest completed assignment per employ
         'company_id' => $company->id,
         'assignment_no' => 'CA-HISTORY-OLDER',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => '2026-07-01 08:00:00',
         'closed_at' => '2026-08-01 08:00:00',
@@ -113,7 +113,7 @@ test('operational status selects only the latest completed assignment per employ
         'company_id' => $company->id,
         'assignment_no' => 'CA-HISTORY-LATEST-A',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => '2026-08-15 08:00:00',
         'closed_at' => '2026-09-10 08:00:00',
@@ -124,7 +124,7 @@ test('operational status selects only the latest completed assignment per employ
         'company_id' => $company->id,
         'assignment_no' => 'CA-HISTORY-LATEST-B',
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => '2026-08-20 08:00:00',
         'closed_at' => '2026-09-10 08:00:00',

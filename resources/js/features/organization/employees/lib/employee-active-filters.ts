@@ -8,7 +8,6 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    RankOption,
     RoleOption,
     SssaOption,
     VisaTypeOption,
@@ -31,7 +30,6 @@ export type EmployeeFilterOptions = {
     companyVisaTypes?: CompanyVisaTypeOption[];
     approvalLocations?: ApprovalLocationOption[];
     sssaOptions?: SssaOption[];
-    ranks?: RankOption[];
     clients?: ClientOption[];
     projects?: ProjectOption[];
     roles?: RoleOption[];
@@ -323,22 +321,6 @@ export function buildEmployeeActiveFilterChips({
             label,
             ariaLabel: `Remove ${label} filter`,
             onClear: () => onApplyFilters({ ...filters, project_id: '' }),
-        });
-    }
-
-    // 9. Rank
-    if (filters.rank_id && filters.rank_id.trim() !== '') {
-        const rank = options.ranks?.find(
-            (r) => String(r.id) === filters.rank_id,
-        );
-        const rankName = rank?.name?.trim() || 'Unknown';
-        const label = `Rank: ${rankName}`;
-
-        chips.push({
-            key: 'rank_id',
-            label,
-            ariaLabel: `Remove ${label} filter`,
-            onClear: () => onApplyFilters({ ...filters, rank_id: '' }),
         });
     }
 

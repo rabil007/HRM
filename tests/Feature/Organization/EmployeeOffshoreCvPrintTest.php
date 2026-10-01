@@ -9,7 +9,7 @@ use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -56,9 +56,10 @@ test('authenticated users can open printable offshore cv', function () {
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Rigger',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Rigger',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $employee = Employee::factory()
@@ -67,7 +68,7 @@ test('authenticated users can open printable offshore cv', function () {
             'name' => 'Ahmed Hassan',
             'phone' => '+971 50 123 4567',
             'work_email' => 'ahmed.hassan@example.com',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'company_visa_type_id' => $visaType->id,
             'status' => 'active',
         ]);
@@ -109,7 +110,7 @@ test('authenticated users can open printable offshore cv', function () {
         ->create([
             'vessel_id' => $offshoreVessel->id,
             'vessel_type_id' => $vesselType->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => $client->id,
             'start_date' => '2023-01-10',
             'end_date' => '2023-12-20',
@@ -287,14 +288,16 @@ test('offshore cv applied rank and offshore experience use different filters', f
         'status' => 'active',
     ]);
 
-    $masterRank = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
-    $shadowRank = Rank::query()->create(['name' => 'Shadow Master', 'is_active' => true]);
+    $masterRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Master', 'status' => 'active', 'is_crew_position' => true]);
+    $shadowRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Shadow Master', 'status' => 'active', 'is_crew_position' => true]);
 
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
             'name' => 'Rank Worker',
-            'rank_id' => $masterRank->id,
+            'position_id' => $masterRank->id,
             'status' => 'active',
         ]);
 
@@ -310,7 +313,7 @@ test('offshore cv applied rank and offshore experience use different filters', f
         ->create([
             'vessel_id' => $masterVessel->id,
             'vessel_type_id' => $masterVessel->vessel_type_id,
-            'rank_id' => $masterRank->id,
+            'position_id' => $masterRank->id,
             'start_date' => null,
             'end_date' => null,
             'total_months' => 11,
@@ -329,7 +332,7 @@ test('offshore cv applied rank and offshore experience use different filters', f
         ->create([
             'vessel_id' => $shadowVessel->id,
             'vessel_type_id' => $shadowVessel->vessel_type_id,
-            'rank_id' => $shadowRank->id,
+            'position_id' => $shadowRank->id,
             'start_date' => '2023-01-01',
             'end_date' => '2023-12-31',
             'total_months' => 12,
@@ -368,14 +371,16 @@ test('offshore cv applied rank is zero when no sea service matches employee rank
         'status' => 'active',
     ]);
 
-    $masterRank = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
-    $shadowRank = Rank::query()->create(['name' => 'Shadow Master', 'is_active' => true]);
+    $masterRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Master', 'status' => 'active', 'is_crew_position' => true]);
+    $shadowRank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Shadow Master', 'status' => 'active', 'is_crew_position' => true]);
 
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
             'name' => 'Zero Rank Worker',
-            'rank_id' => $masterRank->id,
+            'position_id' => $masterRank->id,
             'status' => 'active',
         ]);
 
@@ -391,7 +396,7 @@ test('offshore cv applied rank is zero when no sea service matches employee rank
         ->create([
             'vessel_id' => $shadowVessel->id,
             'vessel_type_id' => $shadowVessel->vessel_type_id,
-            'rank_id' => $shadowRank->id,
+            'position_id' => $shadowRank->id,
             'start_date' => null,
             'end_date' => null,
             'total_months' => 6,

@@ -37,7 +37,7 @@ it('uses cumulative within-N-day filters matching daily pulse sign-off counts', 
         $employee = $index === 0
             ? $fixtures['employee']
             : Employee::factory()->forCompany($fixtures['company'])->create([
-                'rank_id' => $fixtures['rank']->id,
+                'position_id' => $fixtures['rank']->id,
                 'status' => 'active',
             ]);
 
@@ -156,7 +156,7 @@ it('freezes completed p4 progress at actual end and suppresses active tour alert
         'status' => CrewAssignmentStatus::Completed,
         'closed_at' => '2026-08-05 18:00:00',
     ]);
-    $assignment->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
+    $assignment->load(['employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'company']);
 
     $progress = (new CrewTourProgress)->forAssignment($assignment);
     $codes = collect(CrewMovementAttentionQuery::forAssignment($assignment, $progress))->pluck('code');

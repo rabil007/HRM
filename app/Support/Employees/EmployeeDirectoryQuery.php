@@ -101,7 +101,6 @@ final class EmployeeDirectoryQuery
             ->when($filters->nationalityId, fn (Builder $q) => $q->where('nationality_id', $filters->nationalityId))
             ->when($filters->visaTypeId, fn (Builder $q) => $q->where('visa_type_id', $filters->visaTypeId))
             ->when($filters->companyVisaTypeId, fn (Builder $q) => $q->where('company_visa_type_id', $filters->companyVisaTypeId))
-            ->when($filters->rankId, fn (Builder $q) => $q->where('rank_id', $filters->rankId))
             ->when($filters->clientId, fn (Builder $q) => $q->where('client_id', $filters->clientId))
             ->when($filters->projectId, fn (Builder $q) => $q->where('project_id', $filters->projectId))
             ->when($filters->approvalLocationId, function (Builder $q) use ($filters): void {

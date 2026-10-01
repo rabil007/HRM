@@ -219,14 +219,16 @@ final class CrewOperationalAlertDigestPresenter
             $assignment = CrewAssignment::query()
                 ->where('company_id', (int) $alert->company_id)
                 ->whereKey((int) $assignmentId)
-                ->with(['employee:id,name,employee_no', 'vessel:id,name', 'rank:id,name'])
+                ->with(['employee:id,name,employee_no', 'vessel:id,name', 'position:id,title'])
                 ->first();
 
             if ($assignment !== null) {
                 $employeeName = $assignment->employee?->name ?? 'Crew member';
                 $employeeNo = $assignment->employee?->employee_no;
                 $vesselName = $assignment->vessel?->name ?? 'Unassigned vessel';
-                $rankName = $assignment->rank?->name ?? 'Unassigned rank';
+                $positionName = $context['position_name']
+                    ?? $assignment->position?->title
+                    ?? 'Unassigned position';
                 $plannedSignoff = $assignment->planned_signoff_at?->toDateString();
 
                 $crewLine = e($employeeName);
@@ -234,7 +236,7 @@ final class CrewOperationalAlertDigestPresenter
                     $crewLine .= ' ('.e($employeeNo).')';
                 }
 
-                $vesselRankLine = e($vesselName).' · '.e($rankName);
+                $vesselPositionLine = e($vesselName).' · '.e($positionName);
                 $statusLine = '';
 
                 if ($alert->type === CrewOperationalAlertType::SignoffOverdue) {
@@ -255,7 +257,7 @@ final class CrewOperationalAlertDigestPresenter
                     <div style="color:#52525b;font-size:12px;">%s</div>
                     %s',
                     $crewLine,
-                    $vesselRankLine,
+                    $vesselPositionLine,
                     $statusLine,
                 );
             }
@@ -263,7 +265,7 @@ final class CrewOperationalAlertDigestPresenter
 
         if ($alert->type === CrewOperationalAlertType::CurrentManningGap) {
             $vessel = e($context['vessel_name'] ?? 'Vessel');
-            $rank = e($context['rank_name'] ?? 'Rank');
+            $position = e($context['position_name'] ?? 'Position');
             $gap = (int) ($context['gap'] ?? 1);
             $actual = (int) ($context['actual_count'] ?? 0);
             $req = (int) ($context['required_count'] ?? 1);
@@ -272,7 +274,7 @@ final class CrewOperationalAlertDigestPresenter
                 '<div style="font-weight:600;color:#18181b;">%s · %s</div>
                 <div style="color:#dc2626;font-size:12px;margin-top:2px;">Short %d (%d of %d onboard)</div>',
                 $vessel,
-                $rank,
+                $position,
                 $gap,
                 $actual,
                 $req,
@@ -281,7 +283,7 @@ final class CrewOperationalAlertDigestPresenter
 
         if ($alert->type === CrewOperationalAlertType::ProjectedManningGap) {
             $vessel = e($context['vessel_name'] ?? 'Vessel');
-            $rank = e($context['rank_name'] ?? 'Rank');
+            $position = e($context['position_name'] ?? 'Position');
             $maxGap = (int) ($context['maximum_gap'] ?? 1);
             $gapDate = $context['next_gap_date'] ?? null;
 
@@ -291,7 +293,7 @@ final class CrewOperationalAlertDigestPresenter
                 '<div style="font-weight:600;color:#18181b;">%s · %s</div>
                 <div style="color:#d97706;font-size:12px;margin-top:2px;">Max shortage %d%s</div>',
                 $vessel,
-                $rank,
+                $position,
                 $maxGap,
                 $dateText,
             );

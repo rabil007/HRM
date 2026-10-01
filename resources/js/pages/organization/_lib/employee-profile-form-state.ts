@@ -13,7 +13,6 @@ export const EMPLOYEE_PROFILE_FORM_KEYS = [
     'branch_id',
     'department_id',
     'position_id',
-    'rank_id',
     'project_id',
     'client_id',
     'personal_email',
@@ -73,7 +72,6 @@ export function buildEmployeeProfileFormInitial(
             ? String(employee.department.id)
             : '',
         position_id: employee.position?.id ? String(employee.position.id) : '',
-        rank_id: employee.rank_id ? String(employee.rank_id) : '',
         project_id: employee.project_id ? String(employee.project_id) : '',
         client_id: employee.client_id ? String(employee.client_id) : '',
         personal_email: employee.personal_email ?? employee.work_email ?? '',
@@ -159,7 +157,6 @@ export function transformEmployeeProfileFormData(
                 ? Number(data.department_id)
                 : null,
             position_id: data.position_id ? Number(data.position_id) : null,
-            rank_id: data.rank_id ? Number(data.rank_id) : null,
             project_id: data.project_id ? Number(data.project_id) : null,
             client_id: data.client_id ? Number(data.client_id) : null,
             personal_email: String(data.personal_email ?? '').trim() || null,

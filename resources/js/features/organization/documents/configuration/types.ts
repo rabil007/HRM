@@ -5,7 +5,6 @@ export type DocumentRequirementPayload = {
     required_for_all: boolean;
     department_ids: number[];
     position_ids: number[];
-    rank_ids: number[];
     project_ids: number[];
     require_issue_date: boolean;
     require_expiry_date: boolean;
@@ -16,7 +15,6 @@ export type DocumentRequirementPayload = {
 export type DocumentTypeRequirementTarget = {
     departments: Array<{ id: number; name: string }>;
     positions: Array<{ id: number; title: string }>;
-    ranks: Array<{ id: number; name: string }>;
     projects: Array<{ id: number; title: string }>;
 };
 
@@ -67,11 +65,6 @@ export type PositionOption = {
     title: string;
 };
 
-export type RankOption = {
-    id: number;
-    name: string;
-};
-
 export type ProjectOption = {
     id: number;
     title: string;
@@ -84,7 +77,6 @@ export type DocumentTypeFormData = {
     required_for_all: boolean;
     department_ids: number[];
     position_ids: number[];
-    rank_ids: number[];
     project_ids: number[];
     require_issue_date: boolean;
     require_expiry_date: boolean;
@@ -97,7 +89,6 @@ export const emptyRequirement: DocumentRequirementPayload = {
     required_for_all: false,
     department_ids: [],
     position_ids: [],
-    rank_ids: [],
     project_ids: [],
     require_issue_date: false,
     require_expiry_date: false,
@@ -112,7 +103,6 @@ export const initialDocumentTypeForm: DocumentTypeFormData = {
     required_for_all: false,
     department_ids: [],
     position_ids: [],
-    rank_ids: [],
     project_ids: [],
     require_issue_date: false,
     require_expiry_date: false,
@@ -169,7 +159,6 @@ export function documentTypeToRow(
             required_for_all: requirement.required_for_all,
             department_ids: requirement.department_ids,
             position_ids: requirement.position_ids,
-            rank_ids: requirement.rank_ids,
             project_ids: requirement.project_ids,
             require_issue_date: requirement.require_issue_date,
             require_expiry_date: requirement.require_expiry_date,
@@ -196,7 +185,6 @@ export function requirementToFormData(
         required_for_all: requirement.required_for_all,
         department_ids: requirement.department_ids,
         position_ids: requirement.position_ids,
-        rank_ids: requirement.rank_ids,
         project_ids: requirement.project_ids,
         require_issue_date: requirement.require_issue_date,
         require_expiry_date: requirement.require_expiry_date,

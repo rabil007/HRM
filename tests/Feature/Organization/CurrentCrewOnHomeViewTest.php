@@ -5,7 +5,7 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CurrentCrewHomeQuery;
@@ -16,7 +16,7 @@ use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * @param  array{company: Company, employee: Employee, rank: Rank, vessel: Vessel}  $fixtures
+ * @param  array{company: Company, employee: Employee, rank: Position, vessel: Vessel}  $fixtures
  */
 function excludeFixtureEmployeeFromHomePool(array $fixtures): void
 {
@@ -45,7 +45,7 @@ function makeCompletedHomeAssignment(
         'company_id' => $company->id,
         'assignment_no' => 'CA-HOME-'.fake()->unique()->numerify('######'),
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => $closedAt->subDays(30),
@@ -60,7 +60,7 @@ test('active p6 crew appears in on home pool', function () {
     $fixtures = makeCurrentCrewVesselViewFixtures();
     excludeFixtureEmployeeFromHomePool($fixtures);
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
 
     makeCurrentCrewPhaseAssignment(
@@ -131,7 +131,7 @@ test('employee with newer draft assignment is excluded from on home pool', funct
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-DRAFT-HOME',
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
         'status' => CrewAssignmentStatus::Draft,
         'source' => 'manual',
@@ -144,7 +144,7 @@ test('inactive employee is excluded from on home pool', function () {
     $fixtures = makeCurrentCrewVesselViewFixtures();
     excludeFixtureEmployeeFromHomePool($fixtures);
     $inactive = Employee::factory()->forCompany($fixtures['company'])->inactive()->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
 
     makeCompletedHomeAssignment(
@@ -246,7 +246,7 @@ test('summary card totals include on home and over limit counts', function () {
     CrewOperationsSettings::saveSettings($fixtures['company']->id, [], 30);
 
     $overLimit = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'name' => 'Over Limit Crew',
     ]);
     makeCompletedHomeAssignment(
@@ -258,7 +258,7 @@ test('summary card totals include on home and over limit counts', function () {
     );
 
     $withinLimit = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'name' => 'Within Limit Crew',
     ]);
     makeCompletedHomeAssignment(
@@ -282,7 +282,7 @@ test('view on home returns only on home crew via inertia', function () {
     CrewOperationsSettings::saveSettings($fixtures['company']->id, [], 30);
 
     $homeEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
     ]);
     makeCompletedHomeAssignment(
         $fixtures['company'],
@@ -295,7 +295,7 @@ test('view on home returns only on home crew via inertia', function () {
     makeCurrentCrewPhaseAssignment(
         $fixtures['company'],
         Employee::factory()->forCompany($fixtures['company'])->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
         ]),
         $fixtures['rank'],
         $fixtures['vessel'],
@@ -346,7 +346,7 @@ test('on home search and pagination remain server authoritative', function () {
 
     foreach (range(1, 16) as $index) {
         $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'name' => "Home Crew {$index}",
         ]);
         makeCompletedHomeAssignment(

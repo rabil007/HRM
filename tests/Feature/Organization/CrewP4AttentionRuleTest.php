@@ -34,7 +34,7 @@ function makeP4WithSignoff(
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-P4-'.strtoupper(substr(md5(microtime()), 0, 6)),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => $joinedAt,
@@ -55,7 +55,7 @@ function makeP4WithSignoff(
 
     $assignment->update(['current_phase_id' => $phase->id]);
 
-    return $assignment->fresh(['currentPhase', 'company', 'phases', 'employee', 'rank', 'vessel']);
+    return $assignment->fresh(['currentPhase', 'company', 'phases', 'employee', 'position', 'vessel']);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ it('P4 due today generates tour_due_today and no phase_stale', function () {
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-P4-TODAY-'.rand(1, 9999),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => '2026-05-12 08:00:00',
@@ -242,7 +242,7 @@ it('non-P4 phase active more than 14 days still emits phase_stale', function () 
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-P3-STALE-'.rand(1, 9999),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => null,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => now()->subDays(30),
@@ -286,7 +286,7 @@ it('summaryCounts does not increment needs_attention for healthy P4 with 30 days
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-P4-SUMMARY-'.rand(1, 9999),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => makeCrewMovementVessel('Summary P4 Vessel')->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => $joinedAt,
@@ -330,7 +330,7 @@ it('movement_attention filter does not return healthy P4 with 30 days remaining'
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-P4-FILTER-'.rand(1, 9999),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => makeCrewMovementVessel('Filter P4 Vessel')->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => $joinedAt,
@@ -378,7 +378,7 @@ it('CrewMovementHistoryPresenter yields needs_attention false and no Phase Activ
         'company_id' => $fixtures['company']->id,
         'assignment_no' => 'CA-P4-HISTORY-'.rand(1, 9999),
         'employee_id' => $fixtures['employee']->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => makeCrewMovementVessel('History P4 Vessel')->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => $joinedAt->toDateTimeString(),
@@ -428,7 +428,7 @@ it('tenant isolation remains intact for P4 attention query', function () {
         'company_id' => $companyA,
         'assignment_no' => 'CA-P4-TENANT-A-'.rand(1, 9999),
         'employee_id' => $fixturesA['employee']->id,
-        'rank_id' => $fixturesA['rank']->id,
+        'position_id' => $fixturesA['rank']->id,
         'vessel_id' => makeCrewMovementVessel('Tenant A Vessel')->id,
         'status' => CrewAssignmentStatus::Active,
         'started_at' => $joinedA,

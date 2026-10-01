@@ -145,9 +145,12 @@ export function CrewAssignmentRelationships({
                                 }
                             />
                             <CrewMetadataField
-                                label="Rank"
+                                label="Position"
                                 value={
-                                    assignment.relieves.source_rank?.name ?? '—'
+                                    assignment.relieves.source_position?.name ??
+                                    // Phase 3 compatibility: legacy payload only when source_position is absent
+                                    assignment.relieves.source_position?.name ??
+                                    '—'
                                 }
                             />
                             <CrewMetadataField
@@ -171,8 +174,8 @@ export function CrewAssignmentRelationships({
                                                 vessel_id:
                                                     assignment.vessel?.id ??
                                                     undefined,
-                                                rank_id:
-                                                    assignment.rank?.id ??
+                                                position_id:
+                                                    assignment.position?.id ??
                                                     undefined,
                                                 search:
                                                     assignment.employee?.name ??

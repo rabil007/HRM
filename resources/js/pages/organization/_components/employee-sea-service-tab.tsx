@@ -27,7 +27,7 @@ import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/b
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
-import type { RankOption } from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import { SeaServicesImportDialog } from '@/features/organization/sea-services/sea-services-import-dialog';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
@@ -72,11 +72,19 @@ const SEA_SERVICE_RELOAD = {
     only: ['sea_services'],
 };
 
+function resolveSeaServiceRowPositionId(row: SeaServiceItem): number | null {
+    return row.position_id ?? null;
+}
+
+function resolveSeaServiceRowPositionName(row: SeaServiceItem): string | null {
+    return row.position_name ?? null;
+}
+
 function buildSeaServicePayload(
     data: {
         vessel_type_id: string;
         vessel_id: string;
-        rank_id: string;
+        position_id: string;
         start_date: string;
         end_date: string;
         client_id: string;
@@ -93,8 +101,10 @@ function buildSeaServicePayload(
                 data.vessel_id === ''
                     ? null
                     : Number.parseInt(data.vessel_id, 10),
-            rank_id:
-                data.rank_id === '' ? null : Number.parseInt(data.rank_id, 10),
+            position_id:
+                data.position_id === ''
+                    ? null
+                    : Number.parseInt(data.position_id, 10),
             start_date: data.start_date,
             end_date: data.end_date,
             client_id:
@@ -135,6 +145,16 @@ function resolveDisplayedDuration(
     return { months: '0', days: '0' };
 }
 
+function resolvePositionSelectLabelKey(
+    items: Array<CrewPositionOption>,
+): 'name' | 'title' {
+    if (items.length === 0) {
+        return 'name';
+    }
+
+    return 'title' in items[0] ? 'title' : 'name';
+}
+
 export type EmployeeSeaServiceTabProps = {
     employeeId: number | null;
     employeeNo?: string | null;
@@ -143,9 +163,9 @@ export type EmployeeSeaServiceTabProps = {
     sea_services: SeaServiceItem[];
     vessel_types: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions?: Array<CrewPositionOption>;
     clients: ClientOption[];
-    employeeRankId: number | null;
+    employeePositionId?: number | null;
     canManage: boolean;
     canCreate?: boolean;
     canUpdate?: boolean;
@@ -181,9 +201,9 @@ export function EmployeeSeaServiceTab({
     sea_services,
     vessel_types,
     vessels,
-    ranks,
+    positions: positionsProp,
     clients,
-    employeeRankId,
+    employeePositionId: employeePositionIdProp,
     canManage,
     canCreate,
     canUpdate,
@@ -192,6 +212,13 @@ export function EmployeeSeaServiceTab({
     templateFields = null,
     standalone = false,
 }: EmployeeSeaServiceTabProps): ReactElement {
+    const positions = useMemo(() => positionsProp ?? [], [positionsProp]);
+    const employeePositionId = employeePositionIdProp ?? null;
+    const positionSelectLabelKey = useMemo(
+        () => resolvePositionSelectLabelKey(positions),
+        [positions],
+    );
+
     const allowCreate = canCreate ?? canManage;
     const allowUpdate = canUpdate ?? canManage;
     const allowDelete = canDelete ?? canManage;
@@ -245,14 +272,19 @@ export function EmployeeSeaServiceTab({
     const employeeForm = useForm({
         vessel_type_id: '',
         vessel_id: '',
-        rank_id: '',
+        position_id: '',
         start_date: '',
         end_date: '',
         client_id: '',
     });
 
+    const templateValidationFormData = useMemo(
+        () => employeeForm.data as Record<string, unknown>,
+        [employeeForm.data],
+    );
+
     useClearMissingOnFormChange(
-        employeeForm.data as Record<string, unknown>,
+        templateValidationFormData,
         syncMissingFromFormData,
     );
 
@@ -265,8 +297,10 @@ export function EmployeeSeaServiceTab({
         selectOptions: vesselSelectOptions,
         appendOption: appendVesselOption,
     } = useMutableSelectOptions(vessels);
-    const { selectOptions: rankSelectOptions, appendOption: appendRankOption } =
-        useMutableSelectOptions(ranks);
+    const {
+        selectOptions: positionSelectOptions,
+        appendOption: appendPositionOption,
+    } = useMutableSelectOptions(positions, positionSelectLabelKey);
     const {
         selectOptions: clientSelectOptions,
         appendOption: appendClientOption,
@@ -284,8 +318,8 @@ export function EmployeeSeaServiceTab({
         canCreateVessel &&
         Boolean(employeeForm.data.client_id) &&
         Boolean(employeeForm.data.vessel_type_id);
-    const { canCreate: canCreateRank, createConfig: rankCreateConfig } =
-        useCreatableMasterData('rank');
+    const { canCreate: canCreatePosition, createConfig: positionCreateConfig } =
+        useCreatableMasterData('position');
     const { canCreate: canCreateClient, createConfig: clientCreateConfig } =
         useCreatableMasterData('client');
 
@@ -387,12 +421,13 @@ export function EmployeeSeaServiceTab({
               }
             : null;
 
-    const appliedRankTotals =
-        employeeRankId != null
-            ? formatSeaServiceTotalsYmd(
-                  sea_services,
-                  (r) => r.rank_id === employeeRankId,
-              )
+    const appliedPositionTotals =
+        employeePositionId != null
+            ? formatSeaServiceTotalsYmd(sea_services, (row) => {
+                  const rowPositionId = resolveSeaServiceRowPositionId(row);
+
+                  return rowPositionId === employeePositionId;
+              })
             : formatSeaServiceTotalsYmd(sea_services);
 
     const seaServiceTotals = formatSeaServiceTotalsYmd(sea_services);
@@ -402,10 +437,10 @@ export function EmployeeSeaServiceTab({
             <div className="mb-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-border/60 bg-black/10 px-4 py-3">
                     <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                        Total experience in the applied rank (in years)
+                        Total experience in the applied position (in years)
                     </div>
                     <div className="mt-1 font-mono text-sm font-semibold text-foreground">
-                        {appliedRankTotals}
+                        {appliedPositionTotals}
                     </div>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-black/10 px-4 py-3">
@@ -472,7 +507,7 @@ export function EmployeeSeaServiceTab({
                                         employeeForm.setData({
                                             vessel_type_id: '',
                                             vessel_id: '',
-                                            rank_id: '',
+                                            position_id: '',
                                             start_date: '',
                                             end_date: '',
                                             client_id: '',
@@ -521,9 +556,9 @@ export function EmployeeSeaServiceTab({
                                     Vessel
                                 </th>
                             ) : null}
-                            {showField('rank_id') ? (
+                            {showField('position_id') ? (
                                 <th className={employeeRecordsTableThClass()}>
-                                    Rank
+                                    Position
                                 </th>
                             ) : null}
                             {showField('start_date') ? (
@@ -629,15 +664,21 @@ export function EmployeeSeaServiceTab({
                                             : '—'}
                                     </td>
                                 ) : null}
-                                {showField('rank_id') ? (
+                                {showField('position_id') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
                                             'max-w-[180px] truncate text-muted-foreground',
                                         )}
-                                        title={row.rank_name ?? ''}
+                                        title={
+                                            resolveSeaServiceRowPositionName(
+                                                row,
+                                            ) ?? ''
+                                        }
                                     >
-                                        {row.rank_name ?? '—'}
+                                        {resolveSeaServiceRowPositionName(
+                                            row,
+                                        ) ?? '—'}
                                     </td>
                                 ) : null}
                                 {showField('start_date') ? (
@@ -715,7 +756,7 @@ export function EmployeeSeaServiceTab({
                                         row.crew_assignment_phase_id ? (
                                             <span
                                                 className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-muted-foreground"
-                                                title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates."
+                                                title="This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, position, or service dates."
                                             >
                                                 Managed by Crew Operations
                                             </span>
@@ -741,10 +782,17 @@ export function EmployeeSeaServiceTab({
                                                                                     row.vessel_id,
                                                                                 )
                                                                               : '',
-                                                                      rank_id:
-                                                                          String(
-                                                                              row.rank_id,
-                                                                          ),
+                                                                      position_id:
+                                                                          resolveSeaServiceRowPositionId(
+                                                                              row,
+                                                                          ) !=
+                                                                          null
+                                                                              ? String(
+                                                                                    resolveSeaServiceRowPositionId(
+                                                                                        row,
+                                                                                    ),
+                                                                                )
+                                                                              : '',
                                                                       start_date:
                                                                           row.start_date ??
                                                                           '',
@@ -818,7 +866,7 @@ export function EmployeeSeaServiceTab({
                     <div className="space-y-4 py-1">
                         {showField('vessel_id') ||
                         showField('vessel_type_id') ||
-                        showField('rank_id') ||
+                        showField('position_id') ||
                         showField('client_id') ? (
                             <>
                                 <div className="flex items-center gap-2">
@@ -989,44 +1037,45 @@ export function EmployeeSeaServiceTab({
                                             )}
                                         </RecordFormField>
                                     ) : null}
-                                    {showField('rank_id') ? (
+                                    {showField('position_id') ? (
                                         <RecordFormField
-                                            field="rank_id"
+                                            field="position_id"
                                             highlightMissing={isMissingRequired(
-                                                'rank_id',
+                                                'position_id',
                                             )}
                                         >
                                             <Label
                                                 className={recordFieldLabelClass(
                                                     isMissingRequired(
-                                                        'rank_id',
+                                                        'position_id',
                                                     ),
                                                 )}
                                             >
-                                                Rank
+                                                Position
                                                 <RequiredIndicator
                                                     show={isFieldRequired(
-                                                        'rank_id',
+                                                        'position_id',
                                                     )}
                                                 />
                                             </Label>
                                             <CreatableSelect
                                                 value={
-                                                    employeeForm.data.rank_id
+                                                    employeeForm.data
+                                                        .position_id
                                                 }
                                                 onValueChange={(v) =>
                                                     employeeForm.setData(
-                                                        'rank_id',
+                                                        'position_id',
                                                         v,
                                                     )
                                                 }
                                                 variant="dark"
-                                                placeholder="— Select a rank —"
-                                                options={rankSelectOptions}
+                                                placeholder="— Select a position —"
+                                                options={positionSelectOptions}
                                                 onOptionsChange={(next) => {
                                                     const added = next.find(
                                                         (option) =>
-                                                            !rankSelectOptions.some(
+                                                            !positionSelectOptions.some(
                                                                 (existing) =>
                                                                     existing.value ===
                                                                     option.value,
@@ -1034,27 +1083,31 @@ export function EmployeeSeaServiceTab({
                                                     );
 
                                                     if (added) {
-                                                        appendRankOption({
+                                                        appendPositionOption({
                                                             id: added.id,
                                                             label: added.label,
                                                         });
                                                     }
                                                 }}
                                                 creatable
-                                                canCreate={canCreateRank}
-                                                createConfig={rankCreateConfig}
+                                                canCreate={canCreatePosition}
+                                                createConfig={
+                                                    positionCreateConfig
+                                                }
                                             />
-                                            {employeeForm.errors.rank_id ? (
+                                            {employeeForm.errors.position_id ? (
                                                 <p className="text-xs text-destructive">
                                                     {
                                                         employeeForm.errors
-                                                            .rank_id
+                                                            .position_id
                                                     }
                                                 </p>
                                             ) : (
                                                 <p className="text-[11px] text-muted-foreground">
                                                     Position held on board
-                                                    {isFieldRequired('rank_id')
+                                                    {isFieldRequired(
+                                                        'position_id',
+                                                    )
                                                         ? ''
                                                         : ' (optional)'}
                                                 </p>
@@ -1332,10 +1385,7 @@ export function EmployeeSeaServiceTab({
 
                                 if (
                                     !validateRequired(
-                                        employeeForm.data as Record<
-                                            string,
-                                            unknown
-                                        >,
+                                        templateValidationFormData,
                                     )
                                 ) {
                                     return;

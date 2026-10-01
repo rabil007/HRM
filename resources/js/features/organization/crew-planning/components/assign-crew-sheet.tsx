@@ -27,7 +27,7 @@ export function AssignCrewSheet({
     editing,
     relievesEmployeeName,
     vessels,
-    ranks,
+    positions,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -36,7 +36,7 @@ export function AssignCrewSheet({
     editing: GanttBar | null;
     relievesEmployeeName: string;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
 }): ReactElement {
     const isEdit = editing !== null;
 
@@ -49,10 +49,10 @@ export function AssignCrewSheet({
               )
             : null;
 
-    const handleRankChange = (value: string): void => {
+    const handlePositionChange = (value: string): void => {
         form.setData({
             ...form.data,
-            rank_id: value,
+            position_id: value,
             relieves_crew_assignment_id: '',
         });
     };
@@ -78,7 +78,7 @@ export function AssignCrewSheet({
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         {isEdit
                             ? 'Update the planned assignment on the Gantt board.'
-                            : 'Schedule crew on a vessel and rank for the selected dates.'}
+                            : 'Schedule crew on a vessel and position for the selected dates.'}
                     </SheetDescription>
                 </SheetHeader>
 
@@ -158,23 +158,23 @@ export function AssignCrewSheet({
 
                         <div className="space-y-2">
                             <Label
-                                htmlFor="rank_id"
+                                htmlFor="position_id"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
-                                Rank *
+                                Position *
                             </Label>
                             <AppSelect
-                                value={form.data.rank_id}
-                                onValueChange={handleRankChange}
+                                value={form.data.position_id}
+                                onValueChange={handlePositionChange}
                                 placeholder={
                                     form.data.vessel_id === ''
                                         ? 'Select vessel first'
-                                        : 'Select rank'
+                                        : 'Select position'
                                 }
                                 disabled={form.data.vessel_id === ''}
                                 variant="card"
                             >
-                                {ranks.map((r) => (
+                                {positions.map((r) => (
                                     <AppSelectItem
                                         key={r.id}
                                         value={String(r.id)}
@@ -183,9 +183,9 @@ export function AssignCrewSheet({
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
-                            {form.errors.rank_id ? (
+                            {form.errors.position_id ? (
                                 <div className="text-xs font-medium text-destructive">
-                                    {form.errors.rank_id}
+                                    {form.errors.position_id}
                                 </div>
                             ) : null}
                         </div>

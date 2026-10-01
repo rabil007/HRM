@@ -39,13 +39,13 @@ it('treats active P5 and P6 linked relief as non-operational', function () {
         makeCrewMovementVessel('Unit P5 Vessel'),
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $plan = CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $source->vessel_id,
-        'rank_id' => $source->rank_id,
+        'position_id' => $source->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $source->id,
         'planned_join_date' => now()->addDays(5)->toDateString(),

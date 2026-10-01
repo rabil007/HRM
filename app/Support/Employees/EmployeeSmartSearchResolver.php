@@ -8,9 +8,9 @@ use App\Models\Country;
 use App\Models\Department;
 use App\Models\Gender;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\SssaOption;
 use App\Models\VisaType;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
@@ -397,9 +397,8 @@ final class EmployeeSmartSearchResolver
 
         $this->namedLookups[$cacheKey] = match ($concept) {
             'department' => $this->departments($companyId),
-            'position' => $this->positions($companyId, $departmentId),
+            'position', 'rank' => $this->positions($companyId, $departmentId),
             'nationality' => $this->countries(),
-            'rank' => $this->ranks(),
             'gender' => $this->genders(),
             'visa_type' => $this->visaTypes(),
             'sponsor' => $this->companyVisaTypes(),
@@ -434,8 +433,7 @@ final class EmployeeSmartSearchResolver
      */
     private function positions(int $companyId, ?int $departmentId): array
     {
-        return Position::query()
-            ->where('company_id', $companyId)
+        return CrewPositionCatalog::companyPositionsQuery($companyId)
             ->where('status', 'active')
             ->when(
                 $departmentId !== null,
@@ -462,22 +460,6 @@ final class EmployeeSmartSearchResolver
                 'id' => (int) $country->id,
                 'label' => (string) $country->name,
                 'codes' => array_values(array_filter([(string) $country->code])),
-            ])
-            ->all();
-    }
-
-    /**
-     * @return list<array{id: int, label: string, codes: list<string>}>
-     */
-    private function ranks(): array
-    {
-        return Rank::query()
-            ->where('is_active', true)
-            ->get(['id', 'name'])
-            ->map(fn (Rank $rank): array => [
-                'id' => (int) $rank->id,
-                'label' => (string) $rank->name,
-                'codes' => [],
             ])
             ->all();
     }

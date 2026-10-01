@@ -23,7 +23,7 @@ export default function CrewAssignmentCreate({
     prefill?: {
         employee_id?: number | null;
         vessel_id?: number | null;
-        rank_id?: number | null;
+        position_id?: number | null;
         client_id?: number | null;
         planned_join_at?: string | null;
         planned_signoff_at?: string | null;

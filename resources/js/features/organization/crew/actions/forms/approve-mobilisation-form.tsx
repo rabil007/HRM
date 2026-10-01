@@ -15,8 +15,8 @@ export function ApproveMobilisationForm({
         missing.push('Vessel is not set yet.');
     }
 
-    if (!context.rank_name) {
-        missing.push('Rank is not set yet.');
+    if (!context.position_name) {
+        missing.push('Position is not set yet.');
     }
 
     if (!context.planned_join_at) {
@@ -51,9 +51,9 @@ export function ApproveMobilisationForm({
                     </span>
                 </div>
                 <div>
-                    <span className="text-muted-foreground">Rank: </span>
+                    <span className="text-muted-foreground">Position: </span>
                     <span className="font-medium">
-                        {context.rank_name ?? 'Not set'}
+                        {context.position_name ?? 'Not set'}
                     </span>
                 </div>
             </div>

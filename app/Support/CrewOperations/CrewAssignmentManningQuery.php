@@ -22,40 +22,41 @@ final class CrewAssignmentManningQuery
      *     items: list<array{
      *         vessel_id: int,
      *         vessel_name: string,
-     *         rank_id: int,
-     *         rank_name: string,
+     *         position_id: int,
+     *         position_name: string,
      *         required_count: int,
      *         actual_count: int,
      *         gap: int
      *     }>,
-     *     onboard_by_vessel_rank: array<string, int>,
-     *     planned_joins_by_vessel_rank: array<string, int>,
-     *     planned_signoffs_by_vessel_rank: array<string, int>
+     *     onboard_by_vessel_position: array<string, int>,
+     *     planned_joins_by_vessel_position: array<string, int>,
+     *     planned_signoffs_by_vessel_position: array<string, int>
      * }
      */
     public static function forCompany(int $companyId, ?CarbonImmutable $today = null): array
     {
         $today ??= CarbonImmutable::today();
-        $onboard = self::onboardCountsByVesselRank($companyId);
-        $plannedJoins = self::plannedJoinCountsByVesselRank($companyId, $today);
-        $plannedSignoffs = self::plannedSignoffCountsByVesselRank($companyId, $today);
+        $onboard = self::onboardCountsByVesselPosition($companyId);
+        $plannedJoins = self::plannedJoinCountsByVesselPosition($companyId, $today);
+        $plannedSignoffs = self::plannedSignoffCountsByVesselPosition($companyId, $today);
 
         $items = VesselManning::query()
             ->where('company_id', $companyId)
-            ->with(['vessel:id,name', 'rank:id,name'])
+            ->whereNotNull('position_id')
+            ->with(['vessel:id,name', 'position:id,title'])
             ->orderBy('vessel_id')
-            ->orderBy('rank_id')
+            ->orderBy('position_id')
             ->get()
             ->map(function (VesselManning $row) use ($onboard): array {
-                $key = self::vesselRankKey((int) $row->vessel_id, (int) $row->rank_id);
+                $key = self::vesselPositionKey((int) $row->vessel_id, (int) $row->position_id);
                 $actual = $onboard[$key] ?? 0;
                 $required = (int) $row->required_count;
 
                 return [
                     'vessel_id' => (int) $row->vessel_id,
                     'vessel_name' => $row->vessel?->name ?? '',
-                    'rank_id' => (int) $row->rank_id,
-                    'rank_name' => $row->rank?->name ?? '',
+                    'position_id' => (int) $row->position_id,
+                    'position_name' => $row->position?->title ?? '',
                     'required_count' => $required,
                     'actual_count' => $actual,
                     'gap' => $required - $actual,
@@ -65,7 +66,7 @@ final class CrewAssignmentManningQuery
             ->sortBy([
                 ['gap', 'desc'],
                 ['vessel_name', 'asc'],
-                ['rank_name', 'asc'],
+                ['position_name', 'asc'],
             ])
             ->values()
             ->take(self::ITEM_LIMIT)
@@ -75,26 +76,32 @@ final class CrewAssignmentManningQuery
             'understaffed_positions' => count($items),
             'total_shortfall' => array_sum(array_column($items, 'gap')),
             'items' => $items,
-            'onboard_by_vessel_rank' => $onboard,
-            'planned_joins_by_vessel_rank' => $plannedJoins,
-            'planned_signoffs_by_vessel_rank' => $plannedSignoffs,
+            'onboard_by_vessel_position' => $onboard,
+            'planned_joins_by_vessel_position' => $plannedJoins,
+            'planned_signoffs_by_vessel_position' => $plannedSignoffs,
         ];
     }
 
     /**
      * @return array<string, int>
      */
+    /** @deprecated Use onboardCountsByVesselPosition */
     public static function onboardCountsByVesselRank(int $companyId): array
+    {
+        return self::onboardCountsByVesselPosition($companyId);
+    }
+
+    public static function onboardCountsByVesselPosition(int $companyId): array
     {
         $counts = [];
 
         $query = CurrentOnboardCrewQuery::applyConstraint(CrewAssignment::query(), $companyId)
-            ->whereNotNull('rank_id');
+            ->whereNotNull('position_id');
 
         $query
-            ->get(['id', 'vessel_id', 'rank_id'])
+            ->get(['id', 'vessel_id', 'position_id'])
             ->each(function (CrewAssignment $assignment) use (&$counts): void {
-                $key = self::vesselRankKey((int) $assignment->vessel_id, (int) $assignment->rank_id);
+                $key = self::vesselPositionKey((int) $assignment->vessel_id, (int) $assignment->position_id);
                 $counts[$key] = ($counts[$key] ?? 0) + 1;
             });
 
@@ -104,7 +111,7 @@ final class CrewAssignmentManningQuery
     /**
      * @return array<string, int>
      */
-    public static function plannedJoinCountsByVesselRank(int $companyId, CarbonImmutable $today): array
+    public static function plannedJoinCountsByVesselPosition(int $companyId, CarbonImmutable $today): array
     {
         $counts = [];
 
@@ -112,7 +119,7 @@ final class CrewAssignmentManningQuery
             ->where('company_id', $companyId)
             ->where('status', CrewAssignmentStatus::Active)
             ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
+            ->whereNotNull('position_id')
             ->whereNotNull('planned_join_at')
             ->whereDate('planned_join_at', '>', $today->toDateString())
             ->whereHas('currentPhase', function ($query): void {
@@ -128,9 +135,9 @@ final class CrewAssignmentManningQuery
         ActiveEmployeeConstraint::whereHas($query, $companyId);
 
         $query
-            ->get(['id', 'vessel_id', 'rank_id'])
+            ->get(['id', 'vessel_id', 'position_id'])
             ->each(function (CrewAssignment $assignment) use (&$counts): void {
-                $key = self::vesselRankKey((int) $assignment->vessel_id, (int) $assignment->rank_id);
+                $key = self::vesselPositionKey((int) $assignment->vessel_id, (int) $assignment->position_id);
                 $counts[$key] = ($counts[$key] ?? 0) + 1;
             });
 
@@ -140,27 +147,27 @@ final class CrewAssignmentManningQuery
     /**
      * @return array<string, int>
      */
-    public static function plannedSignoffCountsByVesselRank(int $companyId, CarbonImmutable $today): array
+    public static function plannedSignoffCountsByVesselPosition(int $companyId, CarbonImmutable $today): array
     {
         $counts = [];
 
         $query = CurrentOnboardCrewQuery::applyConstraint(CrewAssignment::query(), $companyId)
-            ->whereNotNull('rank_id')
+            ->whereNotNull('position_id')
             ->whereNotNull('planned_signoff_at')
             ->whereDate('planned_signoff_at', '>=', $today->toDateString());
 
         $query
-            ->get(['id', 'vessel_id', 'rank_id'])
+            ->get(['id', 'vessel_id', 'position_id'])
             ->each(function (CrewAssignment $assignment) use (&$counts): void {
-                $key = self::vesselRankKey((int) $assignment->vessel_id, (int) $assignment->rank_id);
+                $key = self::vesselPositionKey((int) $assignment->vessel_id, (int) $assignment->position_id);
                 $counts[$key] = ($counts[$key] ?? 0) + 1;
             });
 
         return $counts;
     }
 
-    private static function vesselRankKey(int $vesselId, int $rankId): string
+    private static function vesselPositionKey(int $vesselId, int $positionId): string
     {
-        return $vesselId.'|'.$rankId;
+        return $vesselId.'|'.$positionId;
     }
 }

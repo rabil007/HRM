@@ -25,7 +25,7 @@
             <th>Department</th>
             <th>Vessel</th>
             <th>Vessel Type</th>
-            <th>Rank</th>
+            <th>Position</th>
             <th>Client</th>
             <th>Start Date</th>
             <th>End Date</th>
@@ -42,7 +42,7 @@
                 <td>{{ $seaService->employee?->department?->name ?? '—' }}</td>
                 <td>{{ $seaService->vessel?->name ?? '—' }}</td>
                 <td>{{ $seaService->vesselType?->name ?? '—' }}</td>
-                <td>{{ $seaService->rank?->name ?? '—' }}</td>
+                <td>{{ $seaService->position?->title ?? '—' }}</td>
                 <td>{{ $seaService->client?->name ?? '—' }}</td>
                 <td>{{ optional($seaService->start_date)->toDateString() ?? '—' }}</td>
                 <td>{{ optional($seaService->end_date)->toDateString() ?? '—' }}</td>

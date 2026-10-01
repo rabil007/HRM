@@ -8,7 +8,7 @@ use App\Exceptions\CrewMovementException;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
@@ -31,7 +31,7 @@ afterEach(function (): void {
  * @return array{
  *     company: Company,
  *     employee: Employee,
- *     rank: Rank,
+ *     rank: Position,
  *     user: User,
  *     vessel: Vessel,
  *     assignment: CrewAssignment,
@@ -46,7 +46,7 @@ function makeActiveP5Assignment(): array
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -61,7 +61,7 @@ function makeActiveP5Assignment(): array
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-10 12:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-04-01 08:00:00',
@@ -139,7 +139,7 @@ test('return home and close removes active assignment conflict for next cycle', 
     ], $user->id);
 
     $next = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect($next->status)->toBe(CrewAssignmentStatus::Draft);
@@ -257,7 +257,7 @@ test('cross-company travel home is rejected', function () {
     $user->update(['current_company_id' => $company->id]);
 
     $foreign = app(CrewMovementService::class)->createDraft($otherCompany->id, $otherEmployee->id, [
-        'rank_id' => $otherRank->id,
+        'position_id' => $otherRank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -275,7 +275,7 @@ test('direct p4 to p6 disembarkation regression remains available', function () 
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     $id = $assignment->id;
@@ -290,7 +290,7 @@ test('direct p4 to p6 disembarkation regression remains available', function () 
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-10 12:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $result = $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [

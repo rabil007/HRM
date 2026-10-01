@@ -9,16 +9,17 @@ type SourceOption = {
 };
 
 export function useMutableSelectOptions<T extends SourceOption>(
-    initial: T[],
+    initial: T[] | null | undefined,
     labelKey: 'name' | 'title' = 'name',
 ): {
     sourceItems: T[];
     selectOptions: CreatableOption[];
     appendOption: (entry: { id: number | string; label: string }) => void;
 } {
-    const [sourceItems, setSourceItems] = useState(initial);
+    const safeInitial = Array.isArray(initial) ? initial : [];
+    const [sourceItems, setSourceItems] = useState<T[]>(safeInitial);
 
-    const initialKey = initial
+    const initialKey = safeInitial
         .map((item) => {
             const label =
                 (labelKey === 'title' ? item.title : item.name) ??
@@ -29,7 +30,7 @@ export function useMutableSelectOptions<T extends SourceOption>(
         .join('|');
 
     useEffect(() => {
-        setSourceItems(initial);
+        setSourceItems(safeInitial);
         // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when option ids/labels change, not array reference
     }, [initialKey]);
 

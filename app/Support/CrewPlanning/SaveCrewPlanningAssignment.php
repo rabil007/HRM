@@ -2,15 +2,12 @@
 
 namespace App\Support\CrewPlanning;
 
-use App\Enums\CrewAssignmentStatus;
-use App\Enums\CrewPhaseCode;
-use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
-use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -31,6 +28,7 @@ final class SaveCrewPlanningAssignment
     public function create(int $companyId, array $attributes, ?User $actor = null): CrewPlanningAssignment
     {
         return DB::transaction(function () use ($companyId, $attributes, $actor): CrewPlanningAssignment {
+            $attributes = self::normalizePositionAndRank($companyId, $attributes);
             $this->assertReliefConstraints($companyId, $attributes, null, $actor);
 
             return CrewPlanningAssignment::query()->create([
@@ -101,6 +99,8 @@ final class SaveCrewPlanningAssignment
                         ]);
                     }
 
+                    $attributes = self::normalizePositionAndRank($companyId, $attributes);
+
                     $merged = [
                         'relieves_crew_assignment_id' => array_key_exists('relieves_crew_assignment_id', $attributes)
                             ? $attributes['relieves_crew_assignment_id']
@@ -108,9 +108,7 @@ final class SaveCrewPlanningAssignment
                         'vessel_id' => array_key_exists('vessel_id', $attributes)
                             ? $attributes['vessel_id']
                             : $locked->vessel_id,
-                        'rank_id' => array_key_exists('rank_id', $attributes)
-                            ? $attributes['rank_id']
-                            : $locked->rank_id,
+                        'position_id' => $attributes['position_id'] ?? $locked->position_id,
                         'employee_id' => null,
                     ];
 
@@ -153,75 +151,37 @@ final class SaveCrewPlanningAssignment
             return;
         }
 
-        $relievesId = (int) $relievesId;
-
-        $source = CrewAssignment::query()
+        CrewAssignment::query()
             ->where('company_id', $companyId)
-            ->whereKey($relievesId)
-            ->with(['employee:id,rank_id', 'currentPhase'])
+            ->whereKey((int) $relievesId)
             ->lockForUpdate()
             ->first();
 
-        if ($source === null) {
-            throw ValidationException::withMessages([
-                'relieves_crew_assignment_id' => 'The selected assignment could not be found.',
-            ]);
+        $existing = $exceptPlanningId !== null
+            ? CrewPlanningAssignment::query()->whereKey($exceptPlanningId)->first()
+            : null;
+
+        $validator = Validator::make([], []);
+
+        ValidatesCrewPlanningReliefLink::validate($validator, [
+            'company_id' => $companyId,
+            'relieves_crew_assignment_id' => $relievesId,
+            'vessel_id' => $attributes['vessel_id'] ?? null,
+            'position_id' => $attributes['position_id'] ?? null,
+            'employee_id' => null,
+        ], $existing, $actor);
+
+        if ($validator->errors()->isNotEmpty()) {
+            throw ValidationException::withMessages($validator->errors()->toArray());
         }
+    }
 
-        if ($actor !== null && $source->employee !== null
-            && ! EmployeeVisibilityScope::canAccess($actor, $source->employee, $companyId)) {
-            throw ValidationException::withMessages([
-                'relieves_crew_assignment_id' => 'The selected assignment could not be found.',
-            ]);
-        }
-
-        if ($source->status !== CrewAssignmentStatus::Active
-            || $source->currentPhase?->phase_code !== CrewPhaseCode::OnVessel
-            || $source->currentPhase?->status !== CrewPhaseStatus::Active) {
-            throw ValidationException::withMessages([
-                'relieves_crew_assignment_id' => 'Relief can only be planned for an active On Vessel assignment.',
-            ]);
-        }
-
-        if ($source->vessel_id === null || $source->rank_id === null) {
-            throw ValidationException::withMessages([
-                'relieves_crew_assignment_id' => 'The assignment being relieved must have a vessel and rank.',
-            ]);
-        }
-
-        $vesselId = $attributes['vessel_id'] ?? null;
-        $rankId = $attributes['rank_id'] ?? null;
-
-        if ($vesselId === null || $vesselId === '') {
-            throw ValidationException::withMessages([
-                'vessel_id' => 'A vessel is required when planning relief.',
-            ]);
-        }
-
-        if ((int) $vesselId !== (int) $source->vessel_id) {
-            throw ValidationException::withMessages([
-                'relieves_crew_assignment_id' => 'The relief assignment must be on the same vessel as the assignment being relieved.',
-            ]);
-        }
-
-        $sourceRankId = $source->rank_id ?? $source->employee?->rank_id;
-
-        if ($rankId === null || $rankId === '') {
-            throw ValidationException::withMessages([
-                'rank_id' => 'A rank is required when planning relief.',
-            ]);
-        }
-
-        if ($sourceRankId !== null && (int) $sourceRankId !== (int) $rankId) {
-            throw ValidationException::withMessages([
-                'relieves_crew_assignment_id' => 'The relief assignment must be for the same rank as the assignment being relieved.',
-            ]);
-        }
-
-        if ($this->reliefResolver->hasActiveOperationalRelief($companyId, $relievesId, $exceptPlanningId)) {
-            throw ValidationException::withMessages([
-                'relieves_crew_assignment_id' => 'An active relief plan already exists for this assignment.',
-            ]);
-        }
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private static function normalizePositionAndRank(int $companyId, array $attributes): array
+    {
+        return $attributes;
     }
 }

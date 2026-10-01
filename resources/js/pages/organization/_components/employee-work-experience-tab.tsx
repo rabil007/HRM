@@ -533,7 +533,7 @@ export function EmployeeWorkExperienceTab({
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
-                                                The held position or rank
+                                                The held position
                                                 {isFieldRequired('job_title')
                                                     ? ''
                                                     : ' (optional)'}

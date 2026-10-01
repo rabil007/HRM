@@ -84,7 +84,7 @@ final class CrewJoinVesselSignoffApplier
 
         if ($choice === self::CHOICE_TOUR && ! $tour->hasTour()) {
             throw ValidationException::withMessages([
-                'planned_signoff_choice' => 'No Tour of Duty suggestion is available for this rank.',
+                'planned_signoff_choice' => 'No Tour of Duty suggestion is available for this position.',
             ]);
         }
 

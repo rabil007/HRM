@@ -168,10 +168,11 @@ final class VesselManningHealthQuery
 
         $manning = VesselManning::query()
             ->where('company_id', $companyId)
+            ->whereNotNull('position_id')
             ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
-            ->with(['vessel:id,name', 'rank:id,name'])
+            ->with(['vessel:id,name', 'position:id,title'])
             ->orderBy('vessel_id')
-            ->orderBy('rank_id')
+            ->orderBy('position_id')
             ->get();
 
         $projection = $this->projectedManningQuery->forCompany(
@@ -182,7 +183,7 @@ final class VesselManningHealthQuery
         );
 
         $onboardQuery = CurrentOnboardCrewQuery::applyConstraint(CrewAssignment::query(), $companyId)
-            ->whereNotNull('rank_id')
+            ->whereNotNull('position_id')
             ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId));
 
         if ($includeDetails) {
@@ -190,7 +191,7 @@ final class VesselManningHealthQuery
                 'employee' => fn ($q) => $q
                     ->where('company_id', $companyId)
                     ->select(['id', 'company_id', 'name', 'employee_no', 'status']),
-                'rank:id,name',
+                'position:id,title',
                 'currentPhase' => fn ($q) => $q->where('company_id', $companyId),
             ]);
         }
@@ -200,7 +201,7 @@ final class VesselManningHealthQuery
             'company_id',
             'employee_id',
             'vessel_id',
-            'rank_id',
+            'position_id',
             'status',
             'planned_signoff_at',
             'current_phase_id',
@@ -213,7 +214,7 @@ final class VesselManningHealthQuery
                 continue;
             }
 
-            $key = $this->vesselRankKey((int) $assignment->vessel_id, (int) $assignment->rank_id);
+            $key = $this->vesselPositionKey((int) $assignment->vessel_id, (int) $assignment->position_id);
             $onboardByKey[$key] = ($onboardByKey[$key] ?? 0) + 1;
         }
 
@@ -240,7 +241,7 @@ final class VesselManningHealthQuery
         bool $includeCrewDetails,
         ?User $user,
     ): array {
-        $rows = $this->buildRankRows($companyId, $vesselId, $snapshot, $includeCrewDetails, $user, loadRelief: true);
+        $rows = $this->buildPositionRows($companyId, $vesselId, $snapshot, $includeCrewDetails, $user, loadRelief: true);
         $summary = $this->summarizeVessel($vesselId, $rows, $snapshot);
 
         $signoffsWithin14 = 0;
@@ -283,7 +284,7 @@ final class VesselManningHealthQuery
             'ready_reliefs' => $readyReliefs,
             'projected_shortfall_days' => $summary['projected_shortfall_days'],
             'include_crew_details' => $includeCrewDetails,
-            'ranks' => $rows,
+            'positions' => $rows,
         ];
     }
 
@@ -302,7 +303,7 @@ final class VesselManningHealthQuery
      */
     private function presentCompact(int $vesselId, array $snapshot): array
     {
-        $rows = $this->buildRankRows(0, $vesselId, $snapshot, includeDetails: false, user: null, loadRelief: false);
+        $rows = $this->buildPositionRows(0, $vesselId, $snapshot, includeDetails: false, user: null, loadRelief: false);
         $summary = $this->summarizeVessel($vesselId, $rows, $snapshot);
         $status = VesselManningHealthStatus::from($summary['status']);
 
@@ -322,7 +323,7 @@ final class VesselManningHealthQuery
      * @param  array<string, mixed>  $snapshot
      * @return list<array<string, mixed>>
      */
-    private function buildRankRows(
+    private function buildPositionRows(
         int $companyId,
         int $vesselId,
         array $snapshot,
@@ -331,21 +332,23 @@ final class VesselManningHealthQuery
         bool $loadRelief = false,
     ): array {
         $manning = $snapshot['manning']->filter(
-            fn (VesselManning $row): bool => (int) $row->vessel_id === $vesselId && (int) $row->required_count >= 1,
+            fn (VesselManning $row): bool => (int) $row->vessel_id === $vesselId
+                && $row->position_id !== null
+                && (int) $row->required_count >= 1,
         )->values();
 
         if ($manning->isEmpty()) {
             return [];
         }
 
-        $projectionByRank = [];
+        $projectionByPosition = [];
 
         foreach ($snapshot['projection']['items'] as $item) {
             if ((int) $item['vessel_id'] !== $vesselId) {
                 continue;
             }
 
-            $projectionByRank[(int) $item['rank_id']] = $item;
+            $projectionByPosition[(int) $item['position_id']] = $item;
         }
 
         $onboardForVessel = $snapshot['onboard_assignments']->filter(
@@ -374,11 +377,11 @@ final class VesselManningHealthQuery
         $rows = [];
 
         foreach ($manning as $line) {
-            $rankId = (int) $line->rank_id;
+            $positionId = (int) $line->position_id;
             $required = (int) $line->required_count;
-            $key = $this->vesselRankKey($vesselId, $rankId);
+            $key = $this->vesselPositionKey($vesselId, $positionId);
             $onboard = (int) ($snapshot['onboard_by_key'][$key] ?? 0);
-            $projected = $projectionByRank[$rankId] ?? null;
+            $projected = $projectionByPosition[$positionId] ?? null;
             $minimumProjected = $projected !== null ? (int) $projected['minimum_projected_count'] : $onboard;
             $maximumProjected = $projected !== null ? (int) $projected['maximum_projected_count'] : $onboard;
             $maximumGap = $projected !== null ? (int) $projected['maximum_gap'] : max(0, $required - $onboard);
@@ -398,12 +401,12 @@ final class VesselManningHealthQuery
                 $status = VesselManningHealthStatus::Healthy;
             }
 
-            $rankOnboard = $onboardForVessel->filter(
-                fn (CrewAssignment $assignment): bool => (int) $assignment->rank_id === $rankId,
+            $positionOnboard = $onboardForVessel->filter(
+                fn (CrewAssignment $assignment): bool => (int) $assignment->position_id === $positionId,
             )->values();
 
-            $reliefContext = $this->reliefContextForRank(
-                $rankOnboard,
+            $reliefContext = $this->reliefContextForPosition(
+                $positionOnboard,
                 $reliefBySource,
                 $mobilisationByAssignment,
                 $includeDetails,
@@ -412,7 +415,7 @@ final class VesselManningHealthQuery
             $signoffs = [];
 
             if ($includeDetails) {
-                foreach ($rankOnboard as $assignment) {
+                foreach ($positionOnboard as $assignment) {
                     $signoff = $assignment->planned_signoff_at?->copy()->timezone($snapshot['timezone'])->toDateString();
 
                     if ($signoff === null) {
@@ -430,9 +433,11 @@ final class VesselManningHealthQuery
                 }
             }
 
+            $positionName = (string) ($line->position?->title ?? '');
+
             $rows[] = [
-                'rank_id' => $rankId,
-                'rank_name' => (string) ($line->rank?->name ?? ''),
+                'position_id' => $positionId,
+                'position_name' => $positionName,
                 'required' => $required,
                 'onboard' => $onboard,
                 'projected' => $minimumProjected,
@@ -441,7 +446,7 @@ final class VesselManningHealthQuery
                 'next_gap_date' => $status === VesselManningHealthStatus::AtRisk ? $nextGapDate : ($status === VesselManningHealthStatus::Critical ? $snapshot['from'] : null),
                 'status' => $status->value,
                 'status_label' => $status->label(),
-                'reason' => $this->rankReason($status, $line->rank?->name ?? '', $required, $onboard, $minimumProjected, $nextGapDate, $signoffs, $reliefContext, $overlapExcess),
+                'reason' => $this->positionReason($status, $positionName, $required, $onboard, $minimumProjected, $nextGapDate, $signoffs, $reliefContext, $overlapExcess),
                 'overlap_excess' => $overlapExcess,
                 'relief_summary' => $reliefContext['summary'],
                 'relief_status' => $reliefContext['status'],
@@ -457,7 +462,7 @@ final class VesselManningHealthQuery
     }
 
     /**
-     * @param  Collection<int, CrewAssignment>  $rankOnboard
+     * @param  Collection<int, CrewAssignment>  $positionOnboard
      * @param  Collection<int, mixed>  $reliefBySource
      * @param  Collection<int, CrewAssignment>  $mobilisationByAssignment
      * @return array{
@@ -469,13 +474,13 @@ final class VesselManningHealthQuery
      *     reliefs: list<array<string, mixed>>
      * }
      */
-    private function reliefContextForRank(
-        Collection $rankOnboard,
+    private function reliefContextForPosition(
+        Collection $positionOnboard,
         Collection $reliefBySource,
         Collection $mobilisationByAssignment,
         bool $includeDetails,
     ): array {
-        if ($rankOnboard->isEmpty()) {
+        if ($positionOnboard->isEmpty()) {
             return [
                 'summary' => 'No Relief',
                 'status' => CrewReliefStatus::NoRelief->value,
@@ -500,7 +505,7 @@ final class VesselManningHealthQuery
         $hasAnyRelief = false;
         $mobilisationLabel = null;
 
-        foreach ($rankOnboard as $source) {
+        foreach ($positionOnboard as $source) {
             $plan = $reliefBySource->get((int) $source->id);
             $result = $this->reliefResolver->forPreloadedPlan($source, $plan);
             $status = $result->status;
@@ -596,7 +601,7 @@ final class VesselManningHealthQuery
                 'next_gap_date' => null,
                 'overlap_excess' => 0,
                 'projected_shortfall_days' => 0,
-                'reason' => 'Configure required crew by rank before vessel manning health can be evaluated.',
+                'reason' => 'Configure required crew by position before vessel manning health can be evaluated.',
             ];
         }
 
@@ -622,7 +627,7 @@ final class VesselManningHealthQuery
                 $hasCritical = true;
                 $criticalReasons[] = sprintf(
                     '%s currently %d / %d',
-                    (string) $row['rank_name'],
+                    (string) $row['position_name'],
                     (int) $row['onboard'],
                     (int) $row['required'],
                 );
@@ -715,9 +720,9 @@ final class VesselManningHealthQuery
      * @param  list<array<string, mixed>>  $signoffs
      * @param  array<string, mixed>  $reliefContext
      */
-    private function rankReason(
+    private function positionReason(
         VesselManningHealthStatus $status,
-        string $rankName,
+        string $positionName,
         int $required,
         int $onboard,
         int $projected,
@@ -735,7 +740,7 @@ final class VesselManningHealthQuery
         }
 
         if ($status === VesselManningHealthStatus::AtRisk) {
-            $parts = [sprintf('%s becomes %d / %d', $rankName, $projected, $required)];
+            $parts = [sprintf('%s becomes %d / %d', $positionName, $projected, $required)];
 
             $soonest = collect($signoffs)
                 ->filter(fn (array $row): bool => is_string($row['planned_signoff_at'] ?? null))
@@ -778,9 +783,9 @@ final class VesselManningHealthQuery
         return CarbonImmutable::parse($date)->format('j M Y');
     }
 
-    private function vesselRankKey(int $vesselId, int $rankId): string
+    private function vesselPositionKey(int $vesselId, int $positionId): string
     {
-        return $vesselId.'|'.$rankId;
+        return $vesselId.'|'.$positionId;
     }
 
     private function canViewManning(?User $user): bool

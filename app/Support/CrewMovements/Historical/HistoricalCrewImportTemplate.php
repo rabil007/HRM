@@ -4,7 +4,7 @@ namespace App\Support\CrewMovements\Historical;
 
 use App\Models\Client;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -70,7 +70,7 @@ final class HistoricalCrewImportTemplate
             ['Enter the movement dates you know so OMS-HRM can determine where each crew member currently is.'],
             [''],
             ['HOW TO FILL'],
-            ['1. Enter Employee No, Rank and Vessel.'],
+            ['1. Enter Employee No, Position and Vessel.'],
             ['2. Enter the known Sign-On Standby dates.'],
             ['3. Enter the known Onsite / On Vessel dates.'],
             ['4. Enter the known Sign-Off Standby dates.'],
@@ -88,7 +88,8 @@ final class HistoricalCrewImportTemplate
             ['- Leave unknown information blank.'],
             ['- Only the latest movement may remain open.'],
             ['- If all movement periods are closed, enter Home Date.'],
-            ['- Use names from Reference Data for Vessel, Rank and Client.'],
+            ['- Use names from Reference Data for Vessel, Position and Client.'],
+            ['- Legacy spreadsheet header "Rank" is still accepted as a Position title alias.'],
             ['- Employee is identified by Employee No (not by name).'],
             ['- Formula cells (=...) are not allowed — use plain values only.'],
             ['- Maximum 5,000 Past Crew Data rows per workbook.'],
@@ -138,7 +139,7 @@ final class HistoricalCrewImportTemplate
             HistoricalCrewImportColumns::EMPLOYEE_NO => 'EXAMPLE001',
             HistoricalCrewImportColumns::EMPLOYEE => '',
             HistoricalCrewImportColumns::VESSEL => 'Example Vessel',
-            HistoricalCrewImportColumns::RANK => 'Example Rank',
+            HistoricalCrewImportColumns::RANK => 'Example Position',
             HistoricalCrewImportColumns::CLIENT => '',
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM => '2024-01-05',
             HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO => '2024-01-14',
@@ -265,20 +266,20 @@ final class HistoricalCrewImportTemplate
 
     private function writeRankReference(Worksheet $sheet, int $startRow): int
     {
-        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Ranks');
+        $sheet->setCellValueByColumnAndRow(1, $startRow, 'Positions');
         $sheet->getStyleByColumnAndRow(1, $startRow)->getFont()->setBold(true)->setSize(12);
 
         $headerRow = $startRow + 1;
-        foreach (['Rank', 'Status'] as $index => $header) {
+        foreach (['Position', 'Status'] as $index => $header) {
             $sheet->setCellValueByColumnAndRow($index + 1, $headerRow, $header);
             $sheet->getStyleByColumnAndRow($index + 1, $headerRow)->getFont()->setBold(true);
         }
 
         $row = $headerRow + 1;
 
-        foreach (Rank::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']) as $rank) {
-            $this->writeSafeString($sheet, 1, $row, (string) $rank->name);
-            $this->writeSafeString($sheet, 2, $row, $rank->is_active ? 'Active' : 'Inactive');
+        foreach (Position::query()->whereNull('deleted_at')->orderBy('title')->get(['id', 'title', 'status']) as $position) {
+            $this->writeSafeString($sheet, 1, $row, (string) $position->title);
+            $this->writeSafeString($sheet, 2, $row, $position->status === 'active' ? 'Active' : 'Inactive');
             $row++;
         }
 

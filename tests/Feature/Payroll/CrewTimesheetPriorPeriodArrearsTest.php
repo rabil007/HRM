@@ -11,7 +11,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\Payroll\CrewTimesheetImportSchema;
 use App\Support\Payroll\ValidateCrewTimesheetOperationalIntegrity;
@@ -45,7 +45,8 @@ function makePriorPeriodArrearsTimesheetFixtures(): array
     $employee = createCrewEmployeeWithContract($company, 'PPA-'.uniqid(), 100, 50, 25);
     $vessel = makeCrewMovementVessel('PPA Vessel');
     $client = Client::query()->create(['name' => 'PPA Client '.uniqid(), 'is_active' => true]);
-    $rank = Rank::query()->create(['name' => 'PPA Rank '.uniqid(), 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'PPA Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
 
     $timesheet = CrewTimesheet::factory()->create([
         'company_id' => $company->id,

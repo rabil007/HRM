@@ -71,6 +71,9 @@ final class SeaServicesImport
     }
 
     /**
+     * Generated templates use Position. "Rank" remains accepted only as a
+     * legacy textual header alias for a Position title (not Rank IDs/tables).
+     *
      * @return list<string>
      */
     public function headers(): array
@@ -80,11 +83,26 @@ final class SeaServicesImport
             'Employee Name',
             'Vessel Type',
             'Vessel',
-            'Rank',
+            'Position',
             'Start Date',
             'End Date',
             'Client',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function acceptedHeadersForColumn(int $index): array
+    {
+        $header = $this->headers()[$index] ?? '';
+
+        // Legacy textual header alias only — Position title lookup, not Rank domain.
+        if ($header === 'Position') {
+            return ['Position', 'Rank'];
+        }
+
+        return [$header];
     }
 
     private function resolveSheet(UploadedFile $file): Worksheet
@@ -111,7 +129,12 @@ final class SeaServicesImport
                 1,
             ) ?? '')));
 
-            if ($actual !== mb_strtolower($header)) {
+            $accepted = array_map(
+                static fn (string $candidate): string => mb_strtolower($candidate),
+                $this->acceptedHeadersForColumn($index),
+            );
+
+            if (! in_array($actual, $accepted, true)) {
                 throw new \InvalidArgumentException('The uploaded file does not match the Sea Services template.');
             }
         }

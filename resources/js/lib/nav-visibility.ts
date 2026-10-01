@@ -72,7 +72,6 @@ export const SETTINGS_HUB_VIEW_PERMISSIONS: readonly string[] = [
     'settings.master-data.banks.view',
     'settings.master-data.vessel-types.view',
     'settings.master-data.vessels.view',
-    'settings.master-data.ranks.view',
     'settings.master-data.clients.view',
     'settings.master-data.projects.view',
     'settings.master-data.hotels.view',

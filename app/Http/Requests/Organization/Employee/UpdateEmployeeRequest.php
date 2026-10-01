@@ -9,6 +9,7 @@ use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -41,9 +42,9 @@ class UpdateEmployeeRequest extends FormRequest
             'position_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('positions', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
+                CrewPositionCatalog::existsCompanyPositionRule($companyId),
             ],
-            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
+
             'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
             'employee_no' => $this->employeeNumberRules($companyId, $employeeId),

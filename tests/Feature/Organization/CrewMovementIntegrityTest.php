@@ -11,7 +11,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
@@ -31,7 +31,7 @@ afterEach(function (): void {
 });
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewMovementIntegrityFixtures(): array
 {
@@ -74,7 +74,7 @@ test('cancelling after actual standby preserves elapsed phase as completed histo
     $vessel = makeCrewMovementVessel('Cancel Standby Vessel', $company);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     $id = $assignment->id;
@@ -110,7 +110,7 @@ test('cancelled assignment completed standby remains visible to crew timesheet p
     $fixtures['assignment']->delete();
     $service = app(CrewMovementService::class);
     $assignment = $service->createDraft($fixtures['company']->id, $fixtures['employee']->id, [
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'vessel_id' => $fixtures['vessel']->id,
     ], $fixtures['user']->id);
     $id = $assignment->id;
@@ -158,7 +158,7 @@ test('actual movement actions reject future occurred_at timestamps', function (s
             $sourceVessel,
         ),
         default => tap(
-            $service->createDraft($company->id, $employee->id, ['rank_id' => $rank->id], $user->id),
+            $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id),
             function (CrewAssignment $draft) use ($service, $company, $user): void {
                 if ($draft->currentPhase?->phase_code === CrewPhaseCode::PreMobilisation) {
                     $service->perform($company->id, $draft->id, CrewMovementAction::ApproveMobilisation, [
@@ -171,12 +171,12 @@ test('actual movement actions reject future occurred_at timestamps', function (s
 
     if ($action === 'transfer_vessel') {
         $extraPayload['vessel_id'] = $destinationVessel->id;
-        $extraPayload['rank_id'] = $rank->id;
+        $extraPayload['position_id'] = $rank->id;
     }
 
     if ($action === 'join_vessel') {
         $extraPayload['vessel_id'] = $sourceVessel->id;
-        $extraPayload['rank_id'] = $rank->id;
+        $extraPayload['position_id'] = $rank->id;
         $extraPayload['planned_signoff_choice'] = 'tour_of_duty';
     }
 
@@ -273,7 +273,7 @@ test('cancelled assignment with completed standby does not remain active in curr
     $vessel = makeCrewMovementVessel('Status Resolver Vessel', $company);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
     $id = $assignment->id;

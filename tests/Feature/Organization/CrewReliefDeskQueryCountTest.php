@@ -18,7 +18,7 @@ it('keeps relief desk query count bounded as onboard rows grow', function () {
 
     $makeOnboard = function (int $index) use ($fixtures, $today): void {
         $employee = Employee::factory()->forCompany($fixtures['company'])->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'status' => 'active',
         ]);
 

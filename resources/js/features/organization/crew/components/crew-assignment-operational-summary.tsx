@@ -170,7 +170,7 @@ export function CrewAssignmentOperationalSummary({
                     label="Current station"
                     value={assignment.vessel?.name ?? 'No vessel assigned'}
                     detail={
-                        [assignment.rank?.name, assignment.client?.name]
+                        [assignment.position?.name, assignment.client?.name]
                             .filter(Boolean)
                             .join(' · ') || 'Position details are not assigned'
                     }

@@ -30,7 +30,7 @@ final class CrewReliefExport implements FromCollection, WithHeadings, WithMappin
         return [
             'Current Crew',
             'Employee No',
-            'Rank',
+            'Position',
             'Vessel',
             'Client',
             'Joined Date',
@@ -62,7 +62,7 @@ final class CrewReliefExport implements FromCollection, WithHeadings, WithMappin
         return [
             $employee !== null ? $employee['name'] : '—',
             $employee !== null ? ($employee['employee_no'] ?? '—') : '—',
-            $row['rank']['name'] ?? '—',
+            $row['position']['name'] ?? '—',
             $row['vessel']['name'] ?? '—',
             $row['client']['name'] ?? '—',
             $row['joined_date'] ?? '—',

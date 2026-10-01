@@ -6,7 +6,6 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Support\Documents\DocumentTemplateMergeFields;
 
 function createMergeFieldsTestCompany(string $name = 'Test Co'): Company
@@ -37,6 +36,8 @@ function createMergeFieldsTestCompany(string $name = 'Test Co'): Company
 test('labelFor maps merge keys to designer labels', function () {
     expect(DocumentTemplateMergeFields::labelFor('{{employee_name}}'))->toBe('Employee Full Name')
         ->and(DocumentTemplateMergeFields::labelFor('employee_name'))->toBe('Employee Full Name')
+        ->and(DocumentTemplateMergeFields::labelFor('{{position_name}}'))->toBe('Position')
+        ->and(DocumentTemplateMergeFields::labelFor('{{rank_name}}'))->toBe('Position (legacy {{rank_name}} alias)')
         ->and(DocumentTemplateMergeFields::labelFor('{{today}}'))->toBe('Today\'s Date')
         ->and(DocumentTemplateMergeFields::labelFor(''))->toBeNull()
         ->and(DocumentTemplateMergeFields::labelFor('placement-001'))->toBeNull();
@@ -106,7 +107,8 @@ test('values for employee maps employee attributes to placeholders', function ()
         'include_in_attendance_leave' => true,
     ]);
     $position = Position::query()->create(['company_id' => $company->id, 'title' => 'First Officer']);
-    $rank = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Captain', 'status' => 'active', 'is_crew_position' => true]);
     $nationality = Country::query()->updateOrCreate(
         ['code' => 'PH'],
         ['name' => 'Philippines', 'dial_code' => '+63', 'is_active' => true],
@@ -116,7 +118,7 @@ test('values for employee maps employee attributes to placeholders', function ()
         'company_id' => $company->id,
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'nationality_id' => $nationality->id,
         'passport_number' => 'P99887766',
         'emirates_id' => '784-2000-1234567-1',
@@ -133,7 +135,7 @@ test('values for employee maps employee attributes to placeholders', function ()
     expect($values['{{email}}'])->toBe('john.doe@atlantic.com');
     expect($values['{{company_name}}'])->toBe('Atlantic Shipping');
     expect($values['{{department_name}}'])->toBe('Deck');
-    expect($values['{{position_name}}'])->toBe('First Officer');
+    expect($values['{{position_name}}'])->toBe('Captain');
     expect($values['{{rank_name}}'])->toBe('Captain');
     expect($values['{{nationality}}'])->toBe('Philippines');
     expect($values['{{emirates_id}}'])->toBe('784-2000-1234567-1');

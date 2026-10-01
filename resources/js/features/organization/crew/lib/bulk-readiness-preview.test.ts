@@ -21,22 +21,22 @@ const formOptions = {
             id: 10,
             name: 'Abdul Hamid Kadir',
             employee_no: '2073',
-            rank_id: 1,
+            position_id: 1,
         },
         {
             id: 11,
             name: 'John Mathew',
             employee_no: '2088',
-            rank_id: 1,
+            position_id: 1,
         },
         {
             id: 12,
             name: 'Mohammed Ali',
             employee_no: '2099',
-            rank_id: 1,
+            position_id: 1,
         },
     ],
-    ranks: [{ id: 1, name: 'Able Seaman' }],
+    positions: [{ id: 1, name: 'Able Seaman' }],
     vessels: [
         { id: 5, name: 'Sea Eagle' },
         { id: 8, name: 'Sea Falcon' },
@@ -115,22 +115,22 @@ const rows: BulkPreviewRowInput[] = [
     {
         key: 'row-1',
         employee_id: 10,
-        rank_id: 1,
+        position_id: 1,
     },
     {
         key: 'row-2',
         employee_id: 11,
-        rank_id: 1,
+        position_id: 1,
     },
     {
         key: 'row-3',
         employee_id: 12,
-        rank_id: 1,
+        position_id: 1,
     },
     {
         key: 'row-4',
         employee_id: null,
-        rank_id: null,
+        position_id: null,
     },
 ];
 
@@ -318,8 +318,8 @@ describe('bulk readiness preview helpers', () => {
 
     it('requires a blank row when all blocked rows are removed', () => {
         const blockedOnly: BulkPreviewRowInput[] = [
-            { key: 'row-a', employee_id: 10, rank_id: 1 },
-            { key: 'row-b', employee_id: 11, rank_id: 1 },
+            { key: 'row-a', employee_id: 10, position_id: 1 },
+            { key: 'row-b', employee_id: 11, position_id: 1 },
         ];
 
         const removal = removeBlockedBulkRows(blockedOnly, formOptions);
@@ -331,7 +331,7 @@ describe('bulk readiness preview helpers', () => {
 
     it('returns null when no blocked rows remain to remove', () => {
         const readyOnly: BulkPreviewRowInput[] = [
-            { key: 'row-ready', employee_id: 12, rank_id: 1 },
+            { key: 'row-ready', employee_id: 12, position_id: 1 },
         ];
 
         assert.equal(removeBlockedBulkRows(readyOnly, formOptions), null);
@@ -339,13 +339,13 @@ describe('bulk readiness preview helpers', () => {
 
     it('leaves single mode after removing all blocked rows from a two-row batch', () => {
         const blockedOnly: BulkPreviewRowInput[] = [
-            { key: 'row-a', employee_id: 10, rank_id: 1 },
-            { key: 'row-b', employee_id: 11, rank_id: 1 },
+            { key: 'row-a', employee_id: 10, position_id: 1 },
+            { key: 'row-b', employee_id: 11, position_id: 1 },
         ];
         const removal = removeBlockedBulkRows(blockedOnly, formOptions);
         const nextRows =
             removal?.ensureMinimumOneRow === true
-                ? [{ key: 'row-blank', employee_id: null, rank_id: null }]
+                ? [{ key: 'row-blank', employee_id: null, position_id: null }]
                 : (removal?.rows ?? []);
 
         assert.equal(isBulkCreateMode(nextRows.length), false);
@@ -353,13 +353,13 @@ describe('bulk readiness preview helpers', () => {
 
     it('does not keep removed preview row keys after blocked removal', () => {
         const blockedOnly: BulkPreviewRowInput[] = [
-            { key: 'row-a', employee_id: 10, rank_id: 1 },
-            { key: 'row-b', employee_id: 11, rank_id: 1 },
+            { key: 'row-a', employee_id: 10, position_id: 1 },
+            { key: 'row-b', employee_id: 11, position_id: 1 },
         ];
         const removal = removeBlockedBulkRows(blockedOnly, formOptions);
         const nextRows =
             removal?.ensureMinimumOneRow === true
-                ? [{ key: 'row-blank', employee_id: null, rank_id: null }]
+                ? [{ key: 'row-blank', employee_id: null, position_id: null }]
                 : (removal?.rows ?? []);
         const previewRowKey = null;
 
@@ -373,7 +373,7 @@ describe('bulk readiness preview helpers', () => {
     });
 
     it('keeps submission disabled when only a blank row remains', () => {
-        const blankOnly = [{ employee_id: null, rank_id: null }];
+        const blankOnly = [{ employee_id: null, position_id: null }];
         const summary = summarizeBulkRows(blankOnly, () => null);
 
         assert.equal(summary.incompleteCount, 1);
@@ -382,9 +382,9 @@ describe('bulk readiness preview helpers', () => {
 
     it('still allows a ready row after removing one blocked row from a mixed batch', () => {
         const mixed: BulkPreviewRowInput[] = [
-            { key: 'row-blocked', employee_id: 10, rank_id: 1 },
-            { key: 'row-ready-a', employee_id: 12, rank_id: 1 },
-            { key: 'row-ready-b', employee_id: 12, rank_id: 1 },
+            { key: 'row-blocked', employee_id: 10, position_id: 1 },
+            { key: 'row-ready-a', employee_id: 12, position_id: 1 },
+            { key: 'row-ready-b', employee_id: 12, position_id: 1 },
         ];
         const removal = removeBlockedBulkRows(mixed, formOptions);
 

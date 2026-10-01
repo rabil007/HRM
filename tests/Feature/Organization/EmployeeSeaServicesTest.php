@@ -8,7 +8,7 @@ use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -29,7 +29,7 @@ test('guests cannot manage sea services', function () {
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => 1,
         'vessel_id' => 1,
-        'rank_id' => 1,
+        'position_id' => 1,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ])->assertRedirect(route('login'));
@@ -93,7 +93,7 @@ test('users without permission cannot manage sea services', function () {
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => 1,
         'vessel_id' => 1,
-        'rank_id' => 1,
+        'position_id' => 1,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ])->assertForbidden();
@@ -151,9 +151,10 @@ test('employee show page includes sea services', function () {
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Chief Officer',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Officer',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $client = Client::query()->create([
@@ -175,7 +176,7 @@ test('employee show page includes sea services', function () {
         ->create([
             'vessel_type_id' => $vesselType->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => $client->id,
             'start_date' => '2020-01-01',
             'end_date' => '2020-06-22',
@@ -259,10 +260,12 @@ test('users with permission can add update delete and reorder sea services', fun
         'is_active' => true,
     ]);
 
-    $rankCaptain = Rank::query()->create([
-        'name' => 'Captain',
-        'is_active' => true,
+    $rankCaptain = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Captain',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
+    $captainPosition = ensureRankMappedPosition($company, $rankCaptain);
 
     $clientX = Client::query()->create([
         'name' => 'Client X',
@@ -288,7 +291,8 @@ test('users with permission can add update delete and reorder sea services', fun
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $vesselA->id,
         'vessel_id' => $vesselAlpha->id,
-        'rank_id' => $rankCaptain->id,
+        'position_id' => $captainPosition->id,
+        'position_id' => $rankCaptain->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-03-11',
         'client_id' => $clientX->id,
@@ -307,14 +311,14 @@ test('users with permission can add update delete and reorder sea services', fun
 
     $second = EmployeeSeaService::factory()->forEmployee($employee)->create([
         'vessel_type_id' => $vesselB->id,
-        'rank_id' => $rankCaptain->id,
+        'position_id' => $rankCaptain->id,
         'sort_order' => 5,
     ]);
 
     $this->put(route('organization.employees.sea-services.update', [$employee, $row]), [
         'vessel_type_id' => $vesselAPlus->id,
         'vessel_id' => $vesselAlphaPlus->id,
-        'rank_id' => $rankCaptain->id,
+        'position_id' => $rankCaptain->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-04-02',
     ])->assertRedirect();
@@ -396,9 +400,10 @@ test('store requires vessel id and rejects inactive vessel type', function () {
         'is_active' => false,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Able Seaman',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Able Seaman',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $inactiveTypeVessel = Vessel::query()->create([
@@ -411,7 +416,7 @@ test('store requires vessel id and rejects inactive vessel type', function () {
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $inactiveVesselType->id,
         'vessel_id' => $inactiveTypeVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ])->assertSessionHasErrors('vessel_type_id');
@@ -423,7 +428,7 @@ test('store requires vessel id and rejects inactive vessel type', function () {
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $activeVesselType->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -438,7 +443,7 @@ test('store requires vessel id and rejects inactive vessel type', function () {
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $activeVesselType->id,
         'vessel_id' => $activeVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-03-01',
         'end_date' => '2024-01-01',
     ])->assertSessionHasErrors('end_date');
@@ -527,15 +532,16 @@ test('company A cannot create or update sea service using company B vessel', fun
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Tenant Rank',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Tenant Rank',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $foreignVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -545,7 +551,7 @@ test('company A cannot create or update sea service using company B vessel', fun
     $row = EmployeeSeaService::factory()->forEmployee($employee)->create([
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $ownVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ]);
@@ -553,7 +559,7 @@ test('company A cannot create or update sea service using company B vessel', fun
     $this->put(route('organization.employees.sea-services.update', [$employee, $row]), [
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $foreignVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-03-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -666,9 +672,10 @@ test('sea service import appends rows for the employee from the shared template'
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Second Officer',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Second Officer',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $client = Client::query()->create([
@@ -695,7 +702,7 @@ test('sea service import appends rows for the employee from the shared template'
             'name' => $employee->name,
             'vessel_type' => $vesselType->name,
             'vessel' => 'MV North Star',
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'start_date' => '2023-01-01',
             'end_date' => '2023-09-11',
             'client' => $client->name,
@@ -711,7 +718,7 @@ test('sea service import appends rows for the employee from the shared template'
     expect($importedRow)->not->toBeNull()
         ->and($importedRow->load('vessel')->vessel?->name)->toBe('MV North Star')
         ->and($importedRow->vessel_type_id)->toBe($vesselType->id)
-        ->and($importedRow->rank_id)->toBe($rank->id)
+        ->and($importedRow->position_id)->toBe($rank->id)
         ->and($importedRow->client_id)->toBe($client->id)
         ->and($importedRow->start_date?->toDateString())->toBe('2023-01-01')
         ->and($importedRow->end_date?->toDateString())->toBe('2023-09-11')
@@ -766,7 +773,8 @@ test('sea service import accepts day-first date formats for multiple rows', func
     ]);
 
     $vesselType = VesselType::query()->create(['name' => 'new', 'is_active' => true]);
-    Rank::query()->create(['name' => 'rank', 'is_active' => true]);
+    Position::query()->create([
+        'company_id' => $company->id, 'title' => 'rank', 'status' => 'active', 'is_crew_position' => true]);
 
     foreach (['BES SINCERE', 'CREST MARS', 'BES SAVVY'] as $vesselName) {
         Vessel::query()->create([
@@ -842,9 +850,10 @@ test('sea service import preview marks missing vessel type as invalid', function
 
     grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
-    Rank::query()->create([
-        'name' => 'Appointed Person',
-        'is_active' => true,
+    Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Appointed Person',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     Vessel::query()->create([
@@ -890,7 +899,8 @@ test('sea service import rejects rows for a different employee number', function
     ]);
 
     $vesselType = VesselType::query()->create(['name' => 'Tanker', 'is_active' => true]);
-    $rank = Rank::query()->create(['name' => 'Chief Officer', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Chief Officer', 'status' => 'active', 'is_crew_position' => true]);
     Vessel::query()->create([
         'company_id' => $company->id,
         'name' => 'MT Scope',
@@ -906,7 +916,7 @@ test('sea service import rejects rows for a different employee number', function
             'name' => 'Other',
             'vessel_type' => $vesselType->name,
             'vessel' => 'MT Scope',
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'start_date' => '2024-01-01',
             'end_date' => '2024-06-01',
         ],
@@ -967,23 +977,24 @@ test('users with permission can bulk delete sea service records', function () {
 
     grantCompanyPermissions($user, $company, ['employees.view', 'sea_services.view', 'sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
-    $rank = Rank::query()->create([
-        'name' => 'Chief Officer',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Chief Officer',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $first = EmployeeSeaService::factory()->forEmployee($employee)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'sort_order' => 0,
     ]);
 
     $second = EmployeeSeaService::factory()->forEmployee($employee)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'sort_order' => 1,
     ]);
 
     $third = EmployeeSeaService::factory()->forEmployee($employee)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'sort_order' => 2,
     ]);
 
@@ -1011,17 +1022,18 @@ test('bulk delete ignores sea service records from another employee', function (
 
     grantCompanyPermissions($user, $company, ['employees.view', 'sea_services.view', 'sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
-    $rank = Rank::query()->create([
-        'name' => 'Master',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Master',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $ownRecord = EmployeeSeaService::factory()->forEmployee($employee)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     $otherRecord = EmployeeSeaService::factory()->forEmployee($otherEmployee)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     $this->delete(route('organization.employees.sea-services.bulk-destroy', $employee), [
@@ -1064,7 +1076,8 @@ test('hidden employee sea service mutations return not found', function () {
     restrictUserToDepartments($user, $company, [$marineDept->id]);
 
     $vesselType = VesselType::query()->create(['name' => 'Hidden Scope Type', 'is_active' => true]);
-    $rank = Rank::query()->create(['name' => 'Hidden Scope Rank', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Hidden Scope Rank', 'status' => 'active', 'is_crew_position' => true]);
     $vessel = Vessel::query()->create([
         'company_id' => $company->id,
         'name' => 'Hidden Scope Vessel',
@@ -1076,14 +1089,14 @@ test('hidden employee sea service mutations return not found', function () {
         'company_id' => $company->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'sort_order' => 0,
     ]);
 
     $payload = [
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ];
@@ -1164,7 +1177,7 @@ test('manual sea service can be edited and deleted via controller', function () 
         'company_id' => $employee->company_id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-04-01',
         'crew_assignment_phase_id' => null,
@@ -1174,7 +1187,7 @@ test('manual sea service can be edited and deleted via controller', function () 
     $this->put(route('organization.employees.sea-services.update', [$employee, $seaService]), [
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-05-01',
     ])->assertRedirect()->assertSessionHas('success');
@@ -1197,7 +1210,7 @@ test('synchronized sea service cannot be edited via controller', function () {
         'company_id' => $employee->company_id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2026-09-01',
         'end_date' => null,
         'crew_assignment_phase_id' => $phase->id,
@@ -1206,10 +1219,12 @@ test('synchronized sea service cannot be edited via controller', function () {
     $this->put(route('organization.employees.sea-services.update', [$employee, $syncService]), [
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2026-09-01',
         'end_date' => '2026-10-01',
-    ])->assertSessionHasErrors('error');
+    ])->assertSessionHasErrors([
+        'error' => 'This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, position, or service dates.',
+    ]);
 
     expect($syncService->fresh()->end_date)->toBeNull();
 });
@@ -1223,7 +1238,7 @@ test('synchronized sea service cannot be deleted via controller', function () {
         'company_id' => $employee->company_id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2026-09-01',
         'end_date' => null,
         'crew_assignment_phase_id' => $phase->id,

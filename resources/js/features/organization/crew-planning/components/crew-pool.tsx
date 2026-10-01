@@ -52,8 +52,8 @@ function DraggableCrewItem({
         type: 'crew',
         employeeId: employee.id,
         employeeName: employee.name,
-        rankId: employee.rank_id,
-        rankName: employee.rank_name,
+        positionId: employee.position_id,
+        positionName: employee.position_name,
     };
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -84,7 +84,7 @@ function DraggableCrewItem({
                     {employee.name}
                 </div>
                 <div className="truncate text-[10px] text-muted-foreground/70">
-                    {employee.rank_name}
+                    {employee.position_name}
                 </div>
             </div>
             <GripVertical className="h-3 w-3 shrink-0 text-muted-foreground/30" />
@@ -110,7 +110,7 @@ export function CrewPool({ employees }: Props): ReactElement {
         return employees.filter(
             (employee) =>
                 employee.name.toLowerCase().includes(lowerSearch) ||
-                employee.rank_name.toLowerCase().includes(lowerSearch),
+                employee.position_name.toLowerCase().includes(lowerSearch),
         );
     }, [employees, lowerSearch]);
 
@@ -139,7 +139,7 @@ export function CrewPool({ employees }: Props): ReactElement {
                         <Input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search by name or rank…"
+                            placeholder="Search by name or position…"
                             className="h-7 rounded-md pr-7 pl-7 text-xs"
                             aria-label="Search crew"
                         />

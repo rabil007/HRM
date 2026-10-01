@@ -5,6 +5,7 @@ namespace App\Http\Requests\Organization;
 use App\Models\CrewAssignment;
 use App\Support\CrewMovements\Historical\HistoricalCrewAssignmentData;
 use App\Support\Employees\HistoricalCompanyEmployeeRule;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -27,9 +28,14 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
+    protected function prepareForValidation(): void {}
+
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        if ($companyId < 1) {
+            $companyId = (int) ($this->user()?->current_company_id ?? 0);
+        }
 
         return [
             'employee_id' => [
@@ -42,7 +48,7 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
                 'integer',
                 Rule::exists('vessels', 'id')->where('company_id', $companyId),
             ],
-            'rank_id' => ['required', 'integer', Rule::exists('ranks', 'id')],
+            'position_id' => ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
             'sign_on_standby_from' => ['nullable', 'date'],
             'sign_on_standby_to' => ['nullable', 'date'],
@@ -123,6 +129,9 @@ class PreviewHistoricalCrewAssignmentRequest extends FormRequest
     public function toData(): HistoricalCrewAssignmentData
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        if ($companyId < 1) {
+            $companyId = (int) ($this->user()?->current_company_id ?? 0);
+        }
         $timezone = CompanyTimezone::forCompanyId($companyId);
 
         return HistoricalCrewAssignmentData::fromArray(

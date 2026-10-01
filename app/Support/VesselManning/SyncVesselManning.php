@@ -5,12 +5,11 @@ namespace App\Support\VesselManning;
 use App\Models\Company;
 use App\Models\Vessel;
 use App\Models\VesselManning;
-use Illuminate\Support\Collection;
 
 final class SyncVesselManning
 {
     /**
-     * @param  list<array{rank_id: int, required_count: int}>  $requirements
+     * @param  list<array{position_id: int, required_count: int}>  $requirements
      */
     public static function sync(Company $company, Vessel $vessel, array $requirements): void
     {
@@ -19,30 +18,38 @@ final class SyncVesselManning
 
         abort_unless((int) $vessel->company_id === $companyId, 404);
 
-        /** @var Collection<int, array{rank_id: int, required_count: int}> $incoming */
-        $incoming = collect($requirements)
-            ->map(fn (array $row) => [
-                'rank_id' => (int) $row['rank_id'],
-                'required_count' => (int) $row['required_count'],
-            ])
-            ->keyBy('rank_id');
+        /** @var array<int, array{position_id: int, required_count: int}> $incoming */
+        $incoming = [];
+        foreach ($requirements as $row) {
+            $positionId = (int) ($row['position_id'] ?? 0);
+            if ($positionId > 0) {
+                $incoming[$positionId] = [
+                    'position_id' => $positionId,
+                    'required_count' => (int) ($row['required_count'] ?? 0),
+                ];
+            }
+        }
 
         $existing = VesselManning::query()
             ->withTrashed()
             ->where('company_id', $companyId)
             ->where('vessel_id', $vesselId)
+            ->whereNotNull('position_id')
             ->get()
-            ->keyBy('rank_id');
+            ->keyBy(fn (VesselManning $line): int => (int) $line->position_id);
 
-        foreach ($incoming as $rankId => $row) {
-            $record = $existing->get($rankId);
+        foreach ($incoming as $positionId => $row) {
+            $record = $existing->get($positionId);
 
             if ($record instanceof VesselManning) {
                 if ($record->trashed()) {
                     $record->restore();
                 }
 
-                $record->update(['required_count' => $row['required_count']]);
+                $record->update([
+                    'position_id' => $positionId,
+                    'required_count' => $row['required_count'],
+                ]);
 
                 continue;
             }
@@ -50,17 +57,23 @@ final class SyncVesselManning
             VesselManning::query()->create([
                 'company_id' => $companyId,
                 'vessel_id' => $vesselId,
-                'rank_id' => $rankId,
+                'position_id' => $positionId,
                 'required_count' => $row['required_count'],
             ]);
         }
 
-        $incomingRankIds = $incoming->keys()->all();
+        $incomingPositionIds = array_keys($incoming);
 
         VesselManning::query()
             ->where('company_id', $companyId)
             ->where('vessel_id', $vesselId)
-            ->when($incomingRankIds !== [], fn ($query) => $query->whereNotIn('rank_id', $incomingRankIds))
-            ->delete();
+            ->get()
+            ->each(function (VesselManning $line) use ($incomingPositionIds): void {
+                $positionId = $line->position_id !== null ? (int) $line->position_id : null;
+
+                if ($positionId === null || ! in_array($positionId, $incomingPositionIds, true)) {
+                    $line->delete();
+                }
+            });
     }
 }

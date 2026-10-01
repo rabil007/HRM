@@ -33,6 +33,7 @@ final class HistoricalCrewAssignmentData
         public readonly int $companyId,
         public readonly int $employeeId,
         public readonly int $vesselId,
+        public readonly int $positionId,
         public readonly int $rankId,
         public readonly ?int $clientId,
         public readonly string $timezone,
@@ -63,6 +64,10 @@ final class HistoricalCrewAssignmentData
         string $timezone,
         string $source = self::SOURCE_MANUAL,
     ): self {
+        $positionId = isset($data['position_id']) && $data['position_id'] !== '' && $data['position_id'] !== null
+            ? (int) $data['position_id']
+            : 0;
+
         $signOnStandbyFrom = self::parseTimestamp($data['sign_on_standby_from'] ?? null, $timezone);
         $signOnStandbyTo = self::parseTimestamp($data['sign_on_standby_to'] ?? null, $timezone);
         $signOffStandbyFrom = self::parseTimestamp($data['sign_off_standby_from'] ?? null, $timezone);
@@ -72,7 +77,8 @@ final class HistoricalCrewAssignmentData
             companyId: $companyId,
             employeeId: (int) ($data['employee_id'] ?? 0),
             vesselId: (int) ($data['vessel_id'] ?? 0),
-            rankId: (int) ($data['rank_id'] ?? 0),
+            positionId: $positionId,
+            rankId: 0,
             clientId: isset($data['client_id']) && $data['client_id'] !== '' && $data['client_id'] !== null
                 ? (int) $data['client_id']
                 : null,

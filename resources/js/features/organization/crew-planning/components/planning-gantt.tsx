@@ -12,7 +12,7 @@ import type {
     PlanningProjection,
     PlanningProjectionPeriod,
 } from '../types';
-import { PlanningGanttRow, RANK_LABEL_WIDTH } from './planning-gantt-row';
+import { PlanningGanttRow, POSITION_LABEL_WIDTH } from './planning-gantt-row';
 
 type Props = {
     rows: GanttVesselGroup[];
@@ -29,12 +29,12 @@ type Props = {
     onRowClick?: (
         rowKey: string,
         vesselId: number,
-        rankId: number,
+        positionId: number,
         estimatedDate: string,
     ) => void;
     onGapClick?: (
         vesselId: number,
-        rankId: number,
+        positionId: number,
         period: PlanningProjectionPeriod,
     ) => void;
     onEditBar?: (bar: GanttBar) => void;
@@ -139,7 +139,7 @@ export function PlanningGantt({
         return (
             <div className="flex flex-1 items-center justify-center py-24 text-sm text-muted-foreground">
                 {showCoverage
-                    ? 'No vessels or ranks to display for this range.'
+                    ? 'No vessels or positions to display for this range.'
                     : 'No planned assignments in this date range.'}
             </div>
         );
@@ -156,9 +156,9 @@ export function PlanningGantt({
                 <div className="flex">
                     <div
                         className="sticky left-0 z-30 flex shrink-0 items-center border-r bg-background px-3 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase"
-                        style={{ width: RANK_LABEL_WIDTH }}
+                        style={{ width: POSITION_LABEL_WIDTH }}
                     >
-                        Rank
+                        Position
                     </div>
                     <div
                         className="flex"
@@ -182,7 +182,7 @@ export function PlanningGantt({
                 <div className="flex border-t border-border/50">
                     <div
                         className="sticky left-0 z-30 shrink-0 border-r bg-background"
-                        style={{ width: RANK_LABEL_WIDTH }}
+                        style={{ width: POSITION_LABEL_WIDTH }}
                     />
                     <div
                         className="flex"
@@ -237,12 +237,16 @@ export function PlanningGantt({
                         <div
                             className="flex border-b border-border/60 bg-muted/30"
                             style={{
-                                minWidth: timelineMinWidth + RANK_LABEL_WIDTH,
+                                minWidth:
+                                    timelineMinWidth + POSITION_LABEL_WIDTH,
                             }}
                         >
                             <div
                                 className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r border-border/60 bg-muted/30 px-3"
-                                style={{ width: RANK_LABEL_WIDTH, height: 36 }}
+                                style={{
+                                    width: POSITION_LABEL_WIDTH,
+                                    height: 36,
+                                }}
                             >
                                 <Ship className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
                                 <span className="truncate text-[11px] font-bold tracking-widest text-foreground/60 uppercase">
@@ -257,10 +261,11 @@ export function PlanningGantt({
                                 }}
                             />
                         </div>
-                        {vessel.ranks.map((rank) => {
-                            const rowBars = barsByRow.get(rank.row_key) ?? [];
+                        {vessel.positions.map((position) => {
+                            const rowBars =
+                                barsByRow.get(position.row_key) ?? [];
                             const isHighlightedRow =
-                                highlightedRowKey === rank.row_key;
+                                highlightedRowKey === position.row_key;
                             const matchesSearch =
                                 lowerSearch !== '' &&
                                 rowBars.some((b) =>
@@ -271,12 +276,12 @@ export function PlanningGantt({
 
                             return (
                                 <PlanningGanttRow
-                                    key={rank.row_key}
-                                    rowKey={rank.row_key}
-                                    rankName={rank.rank_name}
+                                    key={position.row_key}
+                                    rowKey={position.row_key}
+                                    positionName={position.position_name}
                                     vesselId={vessel.vessel_id}
-                                    rankId={rank.rank_id}
-                                    requiredCount={rank.required_count}
+                                    positionId={position.position_id}
+                                    requiredCount={position.required_count}
                                     bars={rowBars}
                                     rangeFrom={rangeFrom}
                                     rangeTo={rangeTo}
@@ -289,7 +294,7 @@ export function PlanningGantt({
                                     can={can}
                                     planningBackQuery={planningBackQuery}
                                     projection={
-                                        projectionByRow.get(rank.row_key) ??
+                                        projectionByRow.get(position.row_key) ??
                                         null
                                     }
                                     showCoverage={showCoverage}

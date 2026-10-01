@@ -93,7 +93,7 @@ export function AddPastDataDialog({
     const form = useForm<HistoricalCrewAssignmentFormData>({
         employee_id: '',
         vessel_id: '',
-        rank_id: '',
+        position_id: '',
         client_id: '',
         sign_on_standby_from: '',
         sign_on_standby_to: '',
@@ -111,9 +111,9 @@ export function AddPastDataDialog({
         (employee) => employee.id === Number(form.data.employee_id),
     );
     const employeeCurrentRankName =
-        selectedEmployee?.rank_id != null
-            ? (formOptions.ranks.find(
-                  (rank) => rank.id === selectedEmployee.rank_id,
+        selectedEmployee?.position_id != null
+            ? (formOptions.positions.find(
+                  (rank) => rank.id === selectedEmployee.position_id,
               )?.name ?? null)
             : null;
 
@@ -142,7 +142,7 @@ export function AddPastDataDialog({
             return {
                 ...prev,
                 employee_id: empId,
-                rank_id: employeeChanged ? '' : prev.rank_id,
+                position_id: employeeChanged ? '' : prev.position_id,
             };
         });
     };
@@ -169,8 +169,8 @@ export function AddPastDataDialog({
             localErrors.vessel_id = 'Please select a vessel.';
         }
 
-        if (!form.data.rank_id) {
-            localErrors.rank_id = 'Please select a rank.';
+        if (!form.data.position_id) {
+            localErrors.position_id = 'Please select a position.';
         }
 
         const hasMovementDate = MOVEMENT_DATE_KEYS.some((key) => {
@@ -198,7 +198,7 @@ export function AddPastDataDialog({
         const payload = {
             employee_id: Number(form.data.employee_id),
             vessel_id: Number(form.data.vessel_id),
-            rank_id: Number(form.data.rank_id),
+            position_id: Number(form.data.position_id),
             client_id: form.data.client_id ? Number(form.data.client_id) : null,
             sign_on_standby_from: form.data.sign_on_standby_from || null,
             sign_on_standby_to: form.data.sign_on_standby_to || null,
@@ -449,30 +449,31 @@ export function AddPastDataDialog({
 
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-rank">
-                                                    Rank{' '}
+                                                    Position{' '}
                                                     <span className="text-destructive">
                                                         *
                                                     </span>
                                                 </Label>
                                                 <AppSelect
                                                     value={String(
-                                                        form.data.rank_id || '',
+                                                        form.data.position_id ||
+                                                            '',
                                                     )}
                                                     onValueChange={(val) =>
                                                         form.setData(
-                                                            'rank_id',
+                                                            'position_id',
                                                             val
                                                                 ? Number(val)
                                                                 : '',
                                                         )
                                                     }
-                                                    placeholder="Select rank..."
-                                                    searchPlaceholder="Search rank..."
+                                                    placeholder="Select position..."
+                                                    searchPlaceholder="Search position..."
                                                 >
                                                     <AppSelectItem value="">
-                                                        Select rank...
+                                                        Select position...
                                                     </AppSelectItem>
-                                                    {formOptions.ranks.map(
+                                                    {formOptions.positions.map(
                                                         (r) => (
                                                             <AppSelectItem
                                                                 key={r.id}
@@ -488,7 +489,7 @@ export function AddPastDataDialog({
                                                 {employeeCurrentRankName ? (
                                                     <p className="text-xs text-muted-foreground">
                                                         Employee&apos;s current
-                                                        rank:{' '}
+                                                        position:{' '}
                                                         {
                                                             employeeCurrentRankName
                                                         }{' '}
@@ -498,7 +499,7 @@ export function AddPastDataDialog({
                                                 ) : null}
                                                 <InputError
                                                     message={
-                                                        form.errors.rank_id
+                                                        form.errors.position_id
                                                     }
                                                 />
                                             </div>
@@ -684,10 +685,10 @@ export function AddPastDataDialog({
                                         </div>
                                         <div>
                                             <span className="block text-xs text-muted-foreground">
-                                                Rank
+                                                Position
                                             </span>
                                             <span className="font-semibold text-foreground">
-                                                {previewData.rank.name}
+                                                {previewData.position.name}
                                             </span>
                                         </div>
                                         <div>

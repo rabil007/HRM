@@ -17,7 +17,7 @@ describe('Crew assignment edit parity context', () => {
                     employee_no: '1001',
                     image: null,
                 },
-                rank: { id: 1, name: 'AB' },
+                position: { id: 1, name: 'AB' },
                 vessel: { id: 5, name: 'Vessel A' },
                 client: null,
                 current_phase: {
@@ -45,7 +45,7 @@ describe('Crew assignment edit parity context', () => {
             },
             formData: {
                 employee_id: 10,
-                rank_id: 1,
+                position_id: 1,
                 client_id: null,
                 vessel_id: 6,
                 planned_join_at: '2026-10-15',
@@ -56,7 +56,7 @@ describe('Crew assignment edit parity context', () => {
                 { id: 5, name: 'Vessel A' },
                 { id: 6, name: 'Vessel B' },
             ],
-            ranks: [{ id: 1, name: 'AB' }],
+            positions: [{ id: 1, name: 'AB' }],
             permissions: {
                 perform_movement: true,
                 view_planning: true,

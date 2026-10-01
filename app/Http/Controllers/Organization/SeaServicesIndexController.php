@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
-use App\Models\Rank;
 use App\Models\VesselType;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceDepartmentTree;
 use App\Support\SeaServices\SeaServiceDirectoryFilters;
 use App\Support\SeaServices\SeaServiceDirectoryQuery;
@@ -34,7 +34,7 @@ class SeaServicesIndexController extends Controller
             'search' => $filters->search,
             'vessel_id' => $filters->vesselId,
             'vessel_type_id' => $filters->vesselTypeId,
-            'rank_id' => $filters->rankId,
+            'position_id' => $filters->positionId,
             'client_id' => $filters->clientId,
             'active' => $filters->active,
             'start_date' => $filters->startDate,
@@ -66,13 +66,7 @@ class SeaServicesIndexController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'ranks' => Rank::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $row) => ['id' => $row->id, 'name' => $row->name])
-                ->values()
-                ->all(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'clients' => Client::query()
                 ->where('is_active', true)
                 ->orderBy('name')

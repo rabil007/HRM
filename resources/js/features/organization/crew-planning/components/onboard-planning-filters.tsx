@@ -29,12 +29,12 @@ function cleanParams(
 export function OnboardPlanningFilters({
     filters,
     vessels,
-    ranks,
+    positions,
     perPage,
 }: {
     filters: PlanningFilters;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
     perPage: number;
 }) {
     const [isSearching, setIsSearching] = useState(false);
@@ -71,7 +71,7 @@ export function OnboardPlanningFilters({
             view: 'onboard-vessels',
             search: filters.search || undefined,
             vessel_id: filters.vessel_id ?? undefined,
-            rank_id: filters.rank_id ?? undefined,
+            position_id: filters.position_id ?? undefined,
             from: filters.from || undefined,
             to: filters.to || undefined,
             per_page: perPage,
@@ -120,23 +120,30 @@ export function OnboardPlanningFilters({
             </AppSelect>
 
             <AppSelect
-                value={filters.rank_id !== null ? String(filters.rank_id) : ''}
+                value={
+                    filters.position_id !== null
+                        ? String(filters.position_id)
+                        : ''
+                }
                 onValueChange={(value) =>
                     visit({
                         ...baseParams(),
-                        rank_id: value === '' ? undefined : Number(value),
+                        position_id: value === '' ? undefined : Number(value),
                         page: 1,
                     })
                 }
-                placeholder="All ranks"
-                searchPlaceholder="Search ranks..."
+                placeholder="All positions"
+                searchPlaceholder="Search positions..."
                 size="sm"
                 className="w-40"
             >
-                <AppSelectItem value="">All ranks</AppSelectItem>
-                {ranks.map((rank) => (
-                    <AppSelectItem key={rank.id} value={String(rank.id)}>
-                        {rank.name}
+                <AppSelectItem value="">All positions</AppSelectItem>
+                {positions.map((position) => (
+                    <AppSelectItem
+                        key={position.id}
+                        value={String(position.id)}
+                    >
+                        {position.name}
                     </AppSelectItem>
                 ))}
             </AppSelect>

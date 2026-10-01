@@ -49,7 +49,7 @@ type VesselDetails = {
 };
 
 type VesselSummary = {
-    manning_ranks: number;
+    manning_positions: number;
     sea_services: number;
     active_crew: number;
 };
@@ -316,10 +316,10 @@ export default function VesselDetailsPage({
                                 <Anchor className="h-5 w-5 text-primary" />
                                 <div className="min-w-0">
                                     <div className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                        Manning ranks
+                                        Manning positions
                                     </div>
                                     <div className="truncate text-sm font-semibold">
-                                        {summary.manning_ranks}
+                                        {summary.manning_positions}
                                     </div>
                                 </div>
                             </div>

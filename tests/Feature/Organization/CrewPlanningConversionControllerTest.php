@@ -15,12 +15,12 @@ test('authorized user is redirected to unified start form from planning', functi
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'status' => 'active']);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2027-04-01',
         'planned_leave_date' => '2027-09-30',
@@ -46,12 +46,12 @@ test('legacy conversion redirect does not create duplicate planning rows', funct
         'crew_operations.movements.perform',
     ]);
     $user->update(['current_company_id' => $company->id]);
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'status' => 'active']);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2027-04-01',
     ]);
@@ -78,7 +78,7 @@ test('vacant planning row can open unified create handoff with vessel prefill', 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2027-06-01',
         'planned_leave_date' => '2027-09-01',
@@ -92,7 +92,7 @@ test('vacant planning row can open unified create handoff with vessel prefill', 
             ->where('planning_context.planning_assignment_id', $planning->id)
             ->where('planning_context.employee_id', null)
             ->where('planning_context.vessel_id', $vessel->id)
-            ->where('planning_context.rank_id', $rank->id)
+            ->where('planning_context.position_id', $rank->id)
         );
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
@@ -106,12 +106,12 @@ test('user without movement permission receives 403 on legacy conversion redirec
         'crew_operations.assignments.create',
     ]);
     $user->update(['current_company_id' => $company->id]);
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'status' => 'active']);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2027-04-01',
     ]);
@@ -129,12 +129,12 @@ test('user without planning view permission receives 403 on legacy conversion re
         'crew_operations.movements.perform',
     ]);
     $user->update(['current_company_id' => $company->id]);
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'status' => 'active']);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2027-04-01',
     ]);
@@ -155,12 +155,12 @@ test('cross company planning row cannot open start handoff and returns 404', fun
         'crew_operations.movements.perform',
     ]);
     $user->update(['current_company_id' => $company->id]);
-    $otherEmployee = Employee::factory()->create(['company_id' => $otherCompany->id, 'rank_id' => $rank->id, 'status' => 'active']);
+    $otherEmployee = Employee::factory()->create(['company_id' => $otherCompany->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $otherPlanning = CrewPlanningAssignment::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $otherEmployee->id,
         'planned_join_date' => '2027-04-01',
     ]);
@@ -179,12 +179,12 @@ test('existing edit and delete behavior for unlinked planning rows still works',
         'crew_operations.planning.delete',
     ]);
     $user->update(['current_company_id' => $company->id]);
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'status' => 'active']);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2027-04-01',
     ]);
@@ -192,7 +192,7 @@ test('existing edit and delete behavior for unlinked planning rows still works',
     $this->actingAs($user)
         ->put(route('organization.crew-planning.assignments.update', $planning), [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_join_date' => '2027-05-01',
         ])
         ->assertRedirect()

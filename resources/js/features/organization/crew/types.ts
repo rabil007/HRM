@@ -75,8 +75,8 @@ export type CrewMovementContext = {
     days_in_training: number | null;
     vessel_id: number | null;
     vessel_name: string | null;
-    rank_id: number | null;
-    rank_name: string | null;
+    position_id: number | null;
+    position_name: string | null;
     client_id: number | null;
     client_name: string | null;
     planned_join_at: string | null;
@@ -135,7 +135,7 @@ export type CrewRelievesContext = {
     source_assignment_no: string;
     source_employee: CrewReliefEmployee | null;
     source_vessel: { id: number; name: string } | null;
-    source_rank: { id: number; name: string } | null;
+    source_position: { id: number; name: string } | null;
     source_planned_signoff_at: string | null;
 };
 
@@ -152,7 +152,7 @@ export interface CrewAssignmentListItem
         employee_no: string | null;
         image?: string | null;
     } | null;
-    rank: {
+    position: {
         id: number;
         name: string;
     } | null;
@@ -200,7 +200,7 @@ export interface CrewAssignmentDetail
         employee_no: string | null;
         image?: string | null;
     } | null;
-    rank: {
+    position: {
         id: number;
         name: string;
         max_tour_of_duty_days?: number | null;
@@ -238,7 +238,7 @@ export interface CrewAssignmentDetail
     updated_at: string | null;
     company_timezone?: string;
     can_apply_tour_of_duty?: boolean;
-    current_rank_tour_days?: number | null;
+    current_position_tour_days?: number | null;
     suggested_planned_signoff_at?: string | null;
     phase_timeline: PhaseTimelineItem[];
     warnings: CrewAssignmentWarning[];
@@ -329,7 +329,7 @@ export interface CrewAssignmentWarning {
 
 export interface CrewAssignmentFormData {
     employee_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
@@ -340,7 +340,7 @@ export interface CrewAssignmentFormData {
 
 export interface CrewAssignmentCreateFormData {
     employee_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     client_id: number | null;
     vessel_id: number | null;
     planned_join_at: string;
@@ -353,7 +353,7 @@ export interface CrewAssignmentCreateFormData {
 
 export type BulkAddCrewRow = {
     employee_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     planned_arrival_at?: string | null;
 };
 
@@ -371,11 +371,11 @@ export interface CrewAssignmentFormOptions {
         id: number;
         name: string;
         employee_no: string | null;
-        rank_id: number | null;
+        position_id: number | null;
         image?: string | null;
         nationality_name?: string | null;
     }>;
-    ranks: Array<{
+    positions: Array<{
         id: number;
         name: string;
         max_tour_of_duty_days?: number | null;
@@ -430,8 +430,8 @@ export type CrewPlanningStartContext = {
     planning_assignment_id: number;
     employee_id: number | null;
     employee_name: string | null;
-    rank_id: number | null;
-    rank_name: string | null;
+    position_id: number | null;
+    position_name: string | null;
     vessel_id: number | null;
     vessel_name: string | null;
     client_id: number | null;
@@ -468,7 +468,7 @@ export interface CurrentCrewHomeRow {
         employee_no: string | null;
         image?: string | null;
     };
-    rank: {
+    position: {
         id: number;
         name: string;
     } | null;
@@ -507,7 +507,7 @@ export interface CrewAssignmentFilterOptions {
         client_id?: number | null;
         client_ids?: number[];
     }>;
-    ranks: Array<{ id: number; name: string }>;
+    positions: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
     employees: Array<{
         id: number;
@@ -540,7 +540,7 @@ export interface CrewAssignmentFilters {
     phase: string;
     status: string;
     vessel_id: string;
-    rank_id: string;
+    position_id: string;
     client_id: string;
     employee_id: string;
     planned_join_from: string;
@@ -698,7 +698,7 @@ export interface CrewMovementActionFormData {
     planned_end_at: string;
     remarks: string;
     vessel_id: number | null;
-    rank_id: number | null;
+    position_id: number | null;
     client_id: number | null;
     planned_signoff_at: string;
     planned_travel_at: string;
@@ -782,7 +782,7 @@ export interface HistoricalCrewAssignmentPreviewData {
         id: number;
         name: string;
     };
-    rank: {
+    position: {
         id: number;
         name: string;
     };
@@ -830,7 +830,7 @@ export type HistoricalAccommodationChoice =
 export interface HistoricalCrewAssignmentFormData {
     employee_id: string | number;
     vessel_id: string | number;
-    rank_id: string | number;
+    position_id: string | number;
     client_id: string | number;
     sign_on_standby_from?: string;
     sign_on_standby_to?: string;
@@ -846,13 +846,13 @@ export interface HistoricalEmployeeOption {
     id: number;
     name: string;
     employee_no: string | null;
-    rank_id: number | null;
+    position_id: number | null;
     status: string;
 }
 
 export interface HistoricalFormOptions {
     employees: HistoricalEmployeeOption[];
-    ranks: Array<{
+    positions: Array<{
         id: number;
         name: string;
         is_active?: boolean;
@@ -889,7 +889,7 @@ export interface HistoricalImportPreviewRow {
         id: number | null;
         name: string | null;
     };
-    rank: {
+    position: {
         id: number | null;
         name: string | null;
     };
@@ -967,7 +967,7 @@ export interface HistoricalImportBatchRow {
     employee_no: string | null;
     employee_name: string | null;
     vessel: string | null;
-    rank: string | null;
+    position: string | null;
     status: string;
     status_label: string;
     assignment_no: string | null;

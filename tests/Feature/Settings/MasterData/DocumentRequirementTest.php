@@ -5,7 +5,6 @@ use App\Models\DocumentRequirement;
 use App\Models\DocumentType;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\User;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
@@ -104,17 +103,13 @@ test('requirement can persist multiple selected departments', function () {
         ->toBe([$crew->id, $accounts->id]);
 });
 
-test('requirement can apply to positions and ranks', function () {
+test('requirement can apply to positions', function () {
     ['company' => $company, 'passportType' => $passportType] = actingAsDocumentTypeManager();
 
     $position = Position::query()->create([
         'company_id' => $company->id,
         'title' => 'Able Seaman',
         'status' => 'active',
-    ]);
-    $rank = Rank::query()->create([
-        'name' => 'Captain Req '.uniqid(),
-        'is_active' => true,
     ]);
 
     $this->put("/settings/master-data/document-types/{$passportType->id}", [
@@ -123,17 +118,15 @@ test('requirement can apply to positions and ranks', function () {
         'is_required' => true,
         'required_for_all' => false,
         'position_ids' => [$position->id],
-        'rank_ids' => [$rank->id],
     ])->assertRedirect();
 
     $requirement = DocumentRequirement::query()
         ->where('company_id', $company->id)
         ->where('document_type_id', $passportType->id)
-        ->with(['positions', 'ranks'])
+        ->with(['positions'])
         ->first();
 
-    expect($requirement->positions->pluck('id')->all())->toBe([$position->id])
-        ->and($requirement->ranks->pluck('id')->all())->toBe([$rank->id]);
+    expect($requirement->positions->pluck('id')->all())->toBe([$position->id]);
 });
 
 test('switching a document type to optional keeps the previous scope selection', function () {

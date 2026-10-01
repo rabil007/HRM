@@ -5,45 +5,57 @@ import type {
 } from '../types';
 import type { PlannedSignoffChoice } from './tour-of-duty';
 
-export type CrewRankTourOption = CrewAssignmentFormOptions['ranks'][number];
+export type CrewPositionTourOption =
+    CrewAssignmentFormOptions['positions'][number];
 
-export function rankHasResolvedTour(
-    rank: CrewRankTourOption | undefined,
+/** @deprecated use CrewPositionTourOption */
+export type CrewRankTourOption = CrewPositionTourOption;
+
+export function positionHasResolvedTour(
+    position: CrewPositionTourOption | undefined,
 ): boolean {
     const days =
-        rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
+        position?.max_tour_of_duty_days ?? position?.resolved_tour_of_duty_days;
 
     return days != null && days > 0;
 }
 
+/** @deprecated use positionHasResolvedTour */
+export const rankHasResolvedTour = positionHasResolvedTour;
+
 /** Default sign-off choice for a new destination assignment (no existing_plan). */
 export function defaultDestinationTourSignoffChoice(
-    rank: CrewRankTourOption | undefined,
+    position: CrewPositionTourOption | undefined,
 ): Exclude<PlannedSignoffChoice, 'existing_plan'> {
-    return rankHasResolvedTour(rank) ? 'tour_of_duty' : 'manual_override';
+    return positionHasResolvedTour(position)
+        ? 'tour_of_duty'
+        : 'manual_override';
 }
 
-export function findRankTourOption(
-    ranks: CrewRankTourOption[] | undefined,
-    rankId: number | null | undefined,
-): CrewRankTourOption | undefined {
-    if (rankId == null || !ranks) {
+export function findPositionTourOption(
+    positions: CrewPositionTourOption[] | undefined,
+    positionId: number | null | undefined,
+): CrewPositionTourOption | undefined {
+    if (positionId == null || !positions) {
         return undefined;
     }
 
-    return ranks.find((rank) => rank.id === rankId);
+    return positions.find((position) => position.id === positionId);
 }
 
+/** @deprecated use findPositionTourOption */
+export const findRankTourOption = findPositionTourOption;
+
 /**
- * When destination rank changes, prefer Tour when available without wiping a
+ * When destination position changes, prefer Tour when available without wiping a
  * deliberate manual override the user has started filling in.
  */
-export function nextSignoffChoiceForRankChange(params: {
+export function nextSignoffChoiceForPositionChange(params: {
     previousChoice: PlannedSignoffChoice;
-    nextRank: CrewRankTourOption | undefined;
+    nextPosition: CrewPositionTourOption | undefined;
     hasManualOverrideInput: boolean;
 }): Exclude<PlannedSignoffChoice, 'existing_plan'> {
-    const nextHasTour = rankHasResolvedTour(params.nextRank);
+    const nextHasTour = positionHasResolvedTour(params.nextPosition);
 
     if (!nextHasTour) {
         return 'manual_override';
@@ -57,6 +69,20 @@ export function nextSignoffChoiceForRankChange(params: {
     }
 
     return 'tour_of_duty';
+}
+
+/** @deprecated use nextSignoffChoiceForPositionChange */
+export function nextSignoffChoiceForRankChange(params: {
+    previousChoice: PlannedSignoffChoice;
+    nextRank?: CrewPositionTourOption | undefined;
+    nextPosition?: CrewPositionTourOption | undefined;
+    hasManualOverrideInput: boolean;
+}): Exclude<PlannedSignoffChoice, 'existing_plan'> {
+    return nextSignoffChoiceForPositionChange({
+        previousChoice: params.previousChoice,
+        nextPosition: params.nextPosition ?? params.nextRank,
+        hasManualOverrideInput: params.hasManualOverrideInput,
+    });
 }
 
 export function hasManualOverrideInput(data: {
@@ -107,7 +133,7 @@ export function normalizeTourSignoffPayload(
         if (data.starting_phase === 'p0') {
             payload.planned_signoff_at = '';
             payload.vessel_id = null;
-            payload.rank_id = null;
+            payload.position_id = null;
             payload.client_id = null;
         }
 

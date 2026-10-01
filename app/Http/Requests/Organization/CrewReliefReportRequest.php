@@ -22,7 +22,7 @@ class CrewReliefReportRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:255'],
             'vessel_id' => ['nullable', 'integer'],
             'client_id' => ['nullable', 'integer'],
-            'rank_id' => ['nullable', 'integer'],
+
             'planned_signoff_from' => ['nullable', 'date'],
             'planned_signoff_to' => [
                 'nullable',

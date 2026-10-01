@@ -6,7 +6,6 @@ import type {
     DocumentTypeRow,
     PositionOption,
     ProjectOption,
-    RankOption,
 } from '@/features/organization/documents/configuration/types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -16,7 +15,6 @@ export default function DocumentTypes({
     search = '',
     departments = [],
     positions = [],
-    ranks = [],
     projects = [],
     open_document_type = null,
 }: {
@@ -25,7 +23,6 @@ export default function DocumentTypes({
     search?: string;
     departments?: DepartmentOption[];
     positions?: PositionOption[];
-    ranks?: RankOption[];
     projects?: ProjectOption[];
     open_document_type?: DocumentTypeRow | null;
 }) {
@@ -39,7 +36,6 @@ export default function DocumentTypes({
                 search={search}
                 departments={departments}
                 positions={positions}
-                ranks={ranks}
                 projects={projects}
                 openDocumentType={open_document_type}
             />

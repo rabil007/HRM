@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\CrewMovementCorrectionStatus;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -30,9 +30,10 @@ function makeCorrectionVisibilityFixtures(): array
         'crew_operations.corrections.override',
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Visibility Rank '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Visibility Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     $vessel = makeCrewMovementVessel('Visibility Vessel', $company);
@@ -269,7 +270,8 @@ test('foreign company correction access is denied with 404', function () {
 
     $foreignFixtures = makeCrewAssignmentFixtures();
     $otherCompany = $foreignFixtures['company'];
-    $foreignRank = Rank::query()->create(['name' => 'Foreign Rank '.uniqid(), 'is_active' => true]);
+    $foreignRank = Position::query()->create([
+        'company_id' => $otherCompany->id, 'title' => 'Foreign Rank '.uniqid(), 'status' => 'active', 'is_crew_position' => true]);
     $foreignVessel = makeCrewMovementVessel('Foreign Vessel', $otherCompany);
     $foreignAssignment = makeActiveOnVesselAssignment($otherCompany, $foreignFixtures['employee'], $foreignRank, $foreignVessel);
 

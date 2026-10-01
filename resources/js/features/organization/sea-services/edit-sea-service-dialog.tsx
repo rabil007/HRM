@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { RankOption } from '@/features/organization/employees/types';
+import type { CrewPositionOption } from '@/features/organization/employees/types';
 import type { SeaServiceListItem } from '@/features/organization/sea-services/types';
 import { actions } from '@/lib/design-system';
 import type {
@@ -31,7 +31,7 @@ export function EditSeaServiceDialog({
     onOpenChange,
     vesselTypes,
     vessels,
-    ranks,
+    positions,
     clients,
     partialReloadKeys = ['sea_services'],
 }: {
@@ -40,14 +40,14 @@ export function EditSeaServiceDialog({
     onOpenChange: (open: boolean) => void;
     vesselTypes: VesselTypeOption[];
     vessels: VesselOption[];
-    ranks: RankOption[];
+    positions: CrewPositionOption[];
     clients: ClientOption[];
     partialReloadKeys?: string[];
 }): ReactElement {
     const editForm = useForm({
         vessel_type_id: '',
         vessel_id: '',
-        rank_id: '',
+        position_id: '',
         start_date: '',
         end_date: '',
         client_id: '',
@@ -64,7 +64,7 @@ export function EditSeaServiceDialog({
                 seaService.vessel_id != null
                     ? String(seaService.vessel_id)
                     : '',
-            rank_id: String(seaService.rank_id ?? ''),
+            position_id: String(seaService.position_id ?? ''),
             start_date: seaService.start_date ?? '',
             end_date: seaService.end_date ?? '',
             client_id:
@@ -150,26 +150,26 @@ export function EditSeaServiceDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Rank</Label>
+                        <Label>Position</Label>
                         <AppSelect
-                            value={editForm.data.rank_id}
+                            value={editForm.data.position_id}
                             onValueChange={(value) =>
-                                editForm.setData('rank_id', value)
+                                editForm.setData('position_id', value)
                             }
-                            placeholder="Select rank"
+                            placeholder="Select position"
                         >
-                            {ranks.map((rank) => (
+                            {positions.map((position) => (
                                 <AppSelectItem
-                                    key={rank.id}
-                                    value={String(rank.id)}
+                                    key={position.id}
+                                    value={String(position.id)}
                                 >
-                                    {rank.name}
+                                    {position.name}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
-                        {editForm.errors.rank_id ? (
+                        {editForm.errors.position_id ? (
                             <p className="text-sm text-destructive">
-                                {editForm.errors.rank_id}
+                                {editForm.errors.position_id}
                             </p>
                         ) : null}
                     </div>
@@ -267,10 +267,10 @@ export function EditSeaServiceDialog({
                                     data.vessel_id === ''
                                         ? null
                                         : Number.parseInt(data.vessel_id, 10),
-                                rank_id:
-                                    data.rank_id === ''
+                                position_id:
+                                    data.position_id === ''
                                         ? null
-                                        : Number.parseInt(data.rank_id, 10),
+                                        : Number.parseInt(data.position_id, 10),
                                 start_date: data.start_date,
                                 end_date: data.end_date,
                                 client_id:

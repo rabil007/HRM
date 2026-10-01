@@ -50,16 +50,18 @@ export function CrewAssignmentEditContextPanel({
     const employeeOption = employee
         ? formOptions.employees.find((item) => item.id === employee.id)
         : null;
-    const rankName =
-        formOptions.ranks.find((rank) => rank.id === formData.rank_id)?.name ??
-        assignment.rank?.name ??
+    const positionName =
+        formOptions.positions.find(
+            (position) => position.id === formData.position_id,
+        )?.name ??
+        assignment.position?.name ??
         null;
 
     const guidance = buildAssignmentEditGuidance({
         assignment,
         formData,
         vessels: formOptions.vessels,
-        ranks: formOptions.ranks,
+        positions: formOptions.positions,
         permissions,
     });
 
@@ -77,7 +79,7 @@ export function CrewAssignmentEditContextPanel({
                     <GuidanceEmployeeIdentity
                         name={employee.name}
                         employeeNo={employee.employee_no}
-                        rankName={rankName}
+                        positionName={positionName}
                         nationalityName={employeeOption?.nationality_name}
                         image={employee.image ?? employeeOption?.image}
                     />

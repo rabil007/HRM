@@ -44,8 +44,8 @@ function chipValueLabel(
         return match ? match.name : value;
     }
 
-    if (key === 'rank_id') {
-        const match = options.ranks.find((r) => String(r.id) === value);
+    if (key === 'position_id') {
+        const match = options.positions.find((r) => String(r.id) === value);
 
         return match ? match.name : value;
     }
@@ -72,7 +72,7 @@ function chipValueLabel(
 const FILTER_LABELS: Partial<Record<keyof CrewReliefFilters, string>> = {
     vessel_id: 'Vessel',
     client_id: 'Client',
-    rank_id: 'Rank',
+    position_id: 'Position',
     readiness: 'Readiness',
     attention: 'Attention',
     planned_signoff_from: 'Sign-off from',
@@ -129,7 +129,7 @@ export function CrewReliefContent(props: CrewReliefProps) {
             count++;
         }
 
-        if (filters.rank_id) {
+        if (filters.position_id) {
             count++;
         }
 
@@ -227,7 +227,7 @@ export function CrewReliefContent(props: CrewReliefProps) {
                         className="mb-0"
                         value={searchInput}
                         onChange={changeSearch}
-                        placeholder="Search crew name, staff ID, vessel, rank, client, or remarks..."
+                        placeholder="Search crew name, staff ID, vessel, position, client, or remarks..."
                         right={
                             <div className="flex items-center gap-2">
                                 {isLoading && (

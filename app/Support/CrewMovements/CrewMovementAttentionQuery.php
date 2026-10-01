@@ -118,12 +118,12 @@ class CrewMovementAttentionQuery
                     'date' => null,
                 ];
             }
-            if ($assignment->rank_id === null) {
+            if ($assignment->position_id === null) {
                 $warnings[] = [
                     'code' => 'missing_rank',
                     'severity' => 'critical',
-                    'label' => 'Missing Rank',
-                    'message' => 'Rank not assigned before/during join',
+                    'label' => 'Missing Position',
+                    'message' => 'Position not assigned before/during join',
                     'date' => null,
                 ];
             }

@@ -1,12 +1,16 @@
 import type { CrewAssignmentFormOptions } from '../types';
 
-export type CrewRankTourOption = CrewAssignmentFormOptions['ranks'][number];
+export type CrewPositionTourOption =
+    CrewAssignmentFormOptions['positions'][number];
+
+/** @deprecated use CrewPositionTourOption */
+export type CrewRankTourOption = CrewPositionTourOption;
 
 export function resolveJoinTourDays(
-    rank: CrewRankTourOption | undefined,
+    position: CrewPositionTourOption | undefined,
 ): number | null {
     const days =
-        rank?.max_tour_of_duty_days ?? rank?.resolved_tour_of_duty_days;
+        position?.max_tour_of_duty_days ?? position?.resolved_tour_of_duty_days;
 
     return days != null && days > 0 ? days : null;
 }

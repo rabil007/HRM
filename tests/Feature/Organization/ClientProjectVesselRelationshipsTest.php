@@ -218,14 +218,14 @@ test('crew assignment rejects mismatched client and vessel', function () {
 
     $this->post('/organization/crew', [
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $nmdc->id,
         'vessel_id' => $vessel->id,
     ])->assertSessionHasErrors('client_id');
 
     $this->post('/organization/crew', [
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ])->assertRedirect();
 
@@ -254,7 +254,7 @@ test('transfer vessel resolves destination client from destination vessel', func
     $destination = $service->perform($company->id, $assignment->id, CrewMovementAction::TransferVessel, [
         'occurred_at' => '2026-02-01 08:00:00',
         'vessel_id' => $vesselB->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect((int) $destination->vessel_id)->toBe((int) $vesselB->id)
@@ -288,14 +288,14 @@ test('redeploy destination client matches destination vessel', function () {
         'occurred_at' => '2026-02-02 08:00:00',
         'starting_phase' => CrewPhaseCode::OnVessel->value,
         'vessel_id' => $vesselB->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect((int) $destination->vessel_id)->toBe((int) $vesselB->id)
         ->and((int) $destination->client_id)->toBe((int) $nmdc->id);
 
     $assignment2Employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $assignment2 = makeActiveOnVesselAssignment($company, $assignment2Employee, $rank, $vesselA, [
@@ -310,7 +310,7 @@ test('redeploy destination client matches destination vessel', function () {
         'occurred_at' => '2026-02-02 08:00:00',
         'starting_phase' => CrewPhaseCode::OnVessel->value,
         'vessel_id' => $vesselB->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $adnoc->id,
     ], $user->id))->toThrow(CrewMovementException::class);
 });
@@ -331,7 +331,7 @@ test('legacy unassigned vessel cannot be used for new crew assignment or draft',
 
     $this->post('/organization/crew', [
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'vessel_id' => $vessel->id,
     ])->assertSessionHasErrors('vessel_id');
@@ -339,7 +339,7 @@ test('legacy unassigned vessel cannot be used for new crew assignment or draft',
     $service = app(CrewMovementService::class);
 
     expect(fn () => $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
     ], $user->id))->toThrow(CrewMovementException::class);
@@ -349,7 +349,7 @@ test('empty pre-mobilisation draft without vessel remains allowed', function () 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     expect($assignment->vessel_id)->toBeNull()
@@ -368,19 +368,19 @@ test('join and transfer reject legacy unassigned destination vessel', function (
     $unassigned->update(['client_id' => null]);
 
     $draft = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
     ], $user->id);
 
     expect(fn () => $service->perform($company->id, $draft->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-02-01 08:00:00',
         'vessel_id' => $unassigned->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
     ], $user->id))->toThrow(CrewMovementException::class);
 
     $transferEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $onVessel = makeActiveOnVesselAssignment($company, $transferEmployee, $rank, $mapped, [
@@ -390,7 +390,7 @@ test('join and transfer reject legacy unassigned destination vessel', function (
     expect(fn () => $service->perform($company->id, $onVessel->id, CrewMovementAction::TransferVessel, [
         'occurred_at' => '2026-02-02 08:00:00',
         'vessel_id' => $unassigned->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id))->toThrow(CrewMovementException::class);
 });
 
@@ -412,7 +412,7 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
 
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertRedirect();
@@ -420,7 +420,7 @@ test('crew planning conversion snapshots vessel client onto assignment', functio
     $planning = CrewPlanningAssignment::query()
         ->where('company_id', $company->id)
         ->where('vessel_id', $vessel->id)
-        ->where('rank_id', $rank->id)
+        ->where('position_id', $rank->id)
         ->whereNull('employee_id')
         ->whereNull('crew_assignment_id')
         ->first();
@@ -447,7 +447,7 @@ test('crew planning rejects legacy unassigned vessel', function () {
 
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -593,7 +593,7 @@ test('crew planning create rejects inactive mapped vessel', function () {
 
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -616,7 +616,7 @@ test('crew planning update rejects changing to inactive vessel', function () {
 
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $activeVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertRedirect();
@@ -628,7 +628,7 @@ test('crew planning update rejects changing to inactive vessel', function () {
 
     $this->put("/organization/crew-planning/assignments/{$planning->id}", [
         'vessel_id' => $inactiveVessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -642,7 +642,7 @@ test('createDraft rejects inactive vessel directly', function () {
     $vessel->update(['is_active' => false]);
 
     expect(fn () => app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id))->toThrow(CrewMovementException::class);
 
@@ -658,7 +658,7 @@ test('planning conversion fails when vessel becomes inactive after planning', fu
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
@@ -686,7 +686,7 @@ test('editable legacy assignment can update remarks and planned date without cha
     $legacyVessel->update(['client_id' => null]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_at' => '2026-08-01',
         'remarks' => 'Original remarks',
     ], $user->id);
@@ -697,7 +697,7 @@ test('editable legacy assignment can update remarks and planned date without cha
     ]);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => null,
         'vessel_id' => $legacyVessel->id,
         'planned_join_at' => '2026-08-15',
@@ -731,19 +731,19 @@ test('legacy assignment cannot change to another unassigned vessel or mismatched
     $client = Client::query()->create(['name' => 'Legacy Mismatch Client', 'is_active' => true]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $assignment->update(['vessel_id' => $legacyA->id, 'client_id' => null]);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => null,
         'vessel_id' => $legacyB->id,
         'remarks' => 'Swap legacy vessel',
     ])->assertSessionHasErrors('vessel_id');
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'vessel_id' => $legacyA->id,
         'remarks' => 'Add client to legacy vessel',
@@ -768,12 +768,12 @@ test('legacy assignment can change to a valid active mapped vessel', function ()
     $mappedVessel = makeCrewMovementVessel('Mapped Destination', $company, $clientB);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $assignment->update(['vessel_id' => $legacyVessel->id, 'client_id' => null]);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $clientB->id,
         'vessel_id' => $mappedVessel->id,
         'remarks' => 'Moved to mapped vessel',
@@ -800,12 +800,12 @@ test('legacy assignment update still rejects cross-company vessel', function () 
     $foreignVessel = makeCrewMovementVessel('Foreign Vessel', $otherCompany);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     $assignment->update(['vessel_id' => $legacyVessel->id, 'client_id' => null]);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => null,
         'vessel_id' => $foreignVessel->id,
         'remarks' => 'Cross company attempt',
@@ -822,7 +822,7 @@ test('createDraft rejects active vessel whose client is inactive', function () {
     $client->update(['is_active' => false]);
 
     expect(fn () => app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id))->toThrow(CrewMovementException::class);
 
@@ -844,7 +844,7 @@ test('crew planning create rejects active vessel whose client is inactive', func
 
     $this->post('/organization/crew-planning/assignments', [
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
     ])->assertSessionHasErrors('vessel_id');
@@ -859,7 +859,7 @@ test('planning conversion fails when vessel client becomes inactive after planni
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $employee->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-04-01',
@@ -883,7 +883,7 @@ test('join and transfer reject active vessel whose current client is inactive', 
     $destination = makeCrewMovementVessel('Destination Later Inactive', $company, $client);
 
     $draft = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
     ], $user->id);
 
@@ -892,13 +892,13 @@ test('join and transfer reject active vessel whose current client is inactive', 
     expect(fn () => $service->perform($company->id, $draft->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-02-01 08:00:00',
         'vessel_id' => $mapped->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
     ], $user->id))->toThrow(CrewMovementException::class);
 
     $client->update(['is_active' => true]);
     $transferEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     $onVessel = makeActiveOnVesselAssignment($company, $transferEmployee, $rank, $mapped, [
@@ -909,7 +909,7 @@ test('join and transfer reject active vessel whose current client is inactive', 
     expect(fn () => $service->perform($company->id, $onVessel->id, CrewMovementAction::TransferVessel, [
         'occurred_at' => '2026-02-02 08:00:00',
         'vessel_id' => $destination->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
     ], $user->id))->toThrow(CrewMovementException::class);
 });
@@ -927,7 +927,7 @@ test('inactive existing vessel with unchanged client allows remarks edit', funct
     $vessel = makeCrewMovementVessel('Inactive Continuity Vessel', $company, $client);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
         'remarks' => 'Before',
@@ -936,7 +936,7 @@ test('inactive existing vessel with unchanged client allows remarks edit', funct
     $vessel->update(['is_active' => false]);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'vessel_id' => $vessel->id,
         'remarks' => 'After remarks',
@@ -963,7 +963,7 @@ test('inactive existing vessel rejects client-only change', function () {
     $vessel = makeCrewMovementVessel('Inactive Client Change Vessel', $company, $clientA);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $clientA->id,
     ], $user->id);
@@ -974,7 +974,7 @@ test('inactive existing vessel rejects client-only change', function () {
     ]);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $clientB->id,
         'vessel_id' => $vessel->id,
         'remarks' => 'Client-only change on inactive vessel',
@@ -997,7 +997,7 @@ test('existing inactive client snapshot survives remarks and planned date edits'
     $vessel = makeCrewMovementVessel('Snapshot Inactive Client Vessel', $company, $client);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
         'planned_join_at' => '2026-08-01',
@@ -1007,7 +1007,7 @@ test('existing inactive client snapshot survives remarks and planned date edits'
     $client->update(['is_active' => false]);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-08-01',
@@ -1015,7 +1015,7 @@ test('existing inactive client snapshot survives remarks and planned date edits'
     ])->assertRedirect(route('organization.crew-assignments.show', $assignment));
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-08-20',
@@ -1045,13 +1045,13 @@ test('cannot change crew assignment client to another inactive client', function
     $vesselB->update(['client_id' => $clientB->id, 'is_active' => true]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vesselA->id,
         'client_id' => $clientA->id,
     ], $user->id);
 
     $this->put(route('organization.crew-assignments.update', $assignment), [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $clientB->id,
         'vessel_id' => $vesselB->id,
         'remarks' => 'Switch to inactive client',
@@ -1075,13 +1075,13 @@ test('inactive existing vessel cannot become a new selection on another assignme
     $inactiveVessel->update(['is_active' => false]);
 
     $otherEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
     $this->post('/organization/crew', [
         'employee_id' => $otherEmployee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'client_id' => $client->id,
         'vessel_id' => $inactiveVessel->id,
     ])->assertSessionHasErrors('vessel_id');

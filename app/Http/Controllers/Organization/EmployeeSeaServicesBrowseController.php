@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\VesselType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceAccess;
 use App\Support\SeaServices\SeaServiceEmployeeBrowseQuery;
 use App\Support\SeaServices\SeaServicePagePermissions;
@@ -50,13 +50,7 @@ class EmployeeSeaServicesBrowseController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'ranks' => Rank::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $row) => ['id' => $row->id, 'name' => $row->name])
-                ->values()
-                ->all(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'clients' => Client::query()
                 ->where('is_active', true)
                 ->orderBy('name')

@@ -5,7 +5,6 @@ use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
-use App\Models\Rank;
 use App\Models\SssaOption;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
@@ -292,8 +291,10 @@ test('single-valued concepts still reject conflicting equals values', function (
         'status' => 'active',
         'include_in_attendance_leave' => true,
     ]);
-    Rank::query()->create(['name' => 'Captain Conflict', 'is_active' => true]);
-    Rank::query()->create(['name' => 'AB Conflict', 'is_active' => true]);
+    Position::query()->create([
+        'company_id' => $fixtures['company']->id, 'title' => 'Captain Conflict', 'status' => 'active', 'is_crew_position' => true]);
+    Position::query()->create([
+        'company_id' => $fixtures['company']->id, 'title' => 'AB Conflict', 'status' => 'active', 'is_crew_position' => true]);
     Country::query()->create([
         'code' => 'PHL',
         'name' => 'Philippines',

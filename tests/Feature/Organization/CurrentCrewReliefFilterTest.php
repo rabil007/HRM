@@ -31,7 +31,7 @@ it('filters current crew by relief status no relief', function () {
     );
 
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $plannedVessel = makeCrewMovementVessel('Filter Planned Relief Vessel');
@@ -50,9 +50,9 @@ it('filters current crew by relief status no relief', function () {
     CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,
         'vessel_id' => $plannedVessel->id,
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'employee_id' => Employee::factory()->forCompany($fixtures['company'])->create([
-            'rank_id' => $fixtures['rank']->id,
+            'position_id' => $fixtures['rank']->id,
             'status' => 'active',
         ])->id,
         'relieves_crew_assignment_id' => $withPlan->id,
@@ -105,7 +105,7 @@ it('matches current crew relief filters to daily dashboard risk and action signa
     );
 
     $readyEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $readySource = makeActiveOnVesselAssignment(
@@ -116,13 +116,13 @@ it('matches current crew relief filters to daily dashboard risk and action signa
         ['planned_signoff_at' => '2026-09-01 00:00:00'],
     );
     $reliefEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
-        'rank_id' => $fixtures['rank']->id,
+        'position_id' => $fixtures['rank']->id,
         'status' => 'active',
     ]);
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $companyId,
         'vessel_id' => $readySource->vessel_id,
-        'rank_id' => $readySource->rank_id,
+        'position_id' => $readySource->position_id,
         'employee_id' => $reliefEmployee->id,
         'relieves_crew_assignment_id' => $readySource->id,
         'planned_join_date' => '2026-09-01',

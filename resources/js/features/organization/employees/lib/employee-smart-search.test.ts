@@ -45,7 +45,6 @@ const emptyFilters = {
     nationality_id: '',
     visa_type_id: '',
     company_visa_type_id: '',
-    rank_id: '',
     client_id: '',
     project_id: '',
     approval_location_id: '',
@@ -120,7 +119,6 @@ describe('employee smart search filter allowlist', () => {
             'department_id',
             'position_id',
             'nationality_id',
-            'rank_id',
             'gender_id',
             'visa_type_id',
             'company_visa_type_id',
@@ -240,13 +238,13 @@ describe('employee smart search owned filter replacement', () => {
                 ...emptyFilters,
                 status: 'active',
                 nationality_id: '5',
-                rank_id: '8',
+                position_id: '8',
                 manager_id: '10',
             },
             {
                 status: 'active',
                 nationality_id: '5',
-                rank_id: '8',
+                position_id: '8',
             },
             {
                 status: 'active',
@@ -254,34 +252,34 @@ describe('employee smart search owned filter replacement', () => {
             },
         );
 
-        assert.equal(filters.rank_id, '');
+        assert.equal(filters.position_id, '');
         assert.equal(filters.manager_id, '10');
-        assert.equal('rank_id' in owned, false);
+        assert.equal('position_id' in owned, false);
     });
 
     it('preserves a manually overridden previous AI filter', () => {
         const { filters } = replaceSmartSearchOwnedFilters(
-            { ...emptyFilters, rank_id: '44', status: 'active' },
-            { rank_id: '8', status: 'active' },
+            { ...emptyFilters, position_id: '44', status: 'active' },
+            { position_id: '8', status: 'active' },
             { status: 'active' },
         );
 
-        assert.equal(filters.rank_id, '44');
+        assert.equal(filters.position_id, '44');
         assert.equal(filters.status, 'active');
     });
 
     it('removes a stale Smart Search chip after a manual override', () => {
         const owned = reconcileSmartSearchOwnership(
-            { ...emptyFilters, rank_id: '44' },
-            { rank_id: '8' },
+            { ...emptyFilters, position_id: '44' },
+            { position_id: '8' },
         );
 
         assert.deepEqual(owned, {});
         assert.deepEqual(
             smartSearchResolvedPreview(
-                [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
-                { rank_id: '8' },
-                { ...emptyFilters, rank_id: '44' },
+                [{ key: 'rank:equals', label: 'Position', value: 'AB' }],
+                { position_id: '8' },
+                { ...emptyFilters, position_id: '44' },
             ),
             [],
         );
@@ -307,12 +305,12 @@ describe('employee smart search owned filter replacement', () => {
 
     it('editing AB down to A removes still-owned AB filters', () => {
         const { filters } = replaceSmartSearchOwnedFilters(
-            { ...emptyFilters, rank_id: '8', manager_id: '10' },
-            { rank_id: '8' },
+            { ...emptyFilters, position_id: '8', manager_id: '10' },
+            { position_id: '8' },
             {},
         );
 
-        assert.equal(filters.rank_id, '');
+        assert.equal(filters.position_id, '');
         assert.equal(filters.manager_id, '10');
     });
 });
@@ -325,7 +323,7 @@ describe('employee smart search inertia race', () => {
         const appliedA = replaceSmartSearchOwnedFilters(working, owned, {
             status: 'active',
             nationality_id: 'ph',
-            rank_id: 'ab',
+            position_id: 'ab',
         });
         working = appliedA.filters;
         owned = appliedA.owned;
@@ -342,9 +340,9 @@ describe('employee smart search inertia race', () => {
         });
 
         assert.equal(appliedB.filters.nationality_id, 'in');
-        assert.equal(appliedB.filters.rank_id, '');
+        assert.equal(appliedB.filters.position_id, '');
         assert.equal(appliedB.filters.status, 'active');
-        assert.equal('rank_id' in appliedB.owned, false);
+        assert.equal('position_id' in appliedB.owned, false);
     });
 
     it('adopts server props when no Smart Search apply is pending', () => {
@@ -450,7 +448,7 @@ describe('employee smart search preview', () => {
                 label: 'Nationality',
                 value: 'Philippines',
             },
-            { key: 'rank:equals', label: 'Rank', value: 'AB' },
+            { key: 'rank:equals', label: 'Position', value: 'AB' },
         ]);
 
         assert.deepEqual(
@@ -459,7 +457,7 @@ describe('employee smart search preview', () => {
                 'HR status · Active',
                 'Department · Crewing',
                 'Nationality · Philippines',
-                'Rank · AB',
+                'Position · AB',
             ],
         );
         assert.equal(
@@ -470,8 +468,8 @@ describe('employee smart search preview', () => {
 
     it('shows partial resolved plus unsupported terms', () => {
         const result = parsed({
-            filters: { rank_id: '8' },
-            applied: [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
+            filters: { position_id: '8' },
+            applied: [{ key: 'rank:equals', label: 'Position', value: 'AB' }],
             unresolved: [],
             ambiguous: [],
             unsupported: ['valid STCW'],
@@ -479,7 +477,7 @@ describe('employee smart search preview', () => {
 
         assert.deepEqual(result.unsupported, ['valid STCW']);
         assert.deepEqual(smartSearchResolvedPreview(result.applied), [
-            { key: 'rank:equals', title: 'Rank', label: 'AB' },
+            { key: 'rank:equals', title: 'Position', label: 'AB' },
         ]);
         assert.equal(hasApplyableSmartSearchFilters(result.filters), true);
     });
@@ -514,7 +512,10 @@ describe('employee directory empty state and override copy', () => {
     });
 
     it('uses Smart-specific empty-state copy only when owned filters are active', () => {
-        assert.equal(hasActiveSmartSearchOwnedFilters({ rank_id: '8' }), true);
+        assert.equal(
+            hasActiveSmartSearchOwnedFilters({ position_id: '8' }),
+            true,
+        );
         assert.equal(
             employeeDirectoryEmptyStateTitle(true),
             'No employees match the Smart Search and current directory filters.',
@@ -546,20 +547,20 @@ describe('employee directory empty state and override copy', () => {
 
     it('drops ownership and does not say unsupported after a manual override', () => {
         const owned = reconcileSmartSearchOwnership(
-            { ...emptyFilters, rank_id: '44' },
-            { rank_id: '8' },
+            { ...emptyFilters, position_id: '44' },
+            { position_id: '8' },
         );
         const result = parsed({
-            filters: { rank_id: '8' },
-            applied: [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
+            filters: { position_id: '8' },
+            applied: [{ key: 'rank:equals', label: 'Position', value: 'AB' }],
             unresolved: [],
             ambiguous: [],
             unsupported: [],
         });
         const previewChips = smartSearchResolvedPreview(
             result.applied,
-            { rank_id: '8' },
-            { ...emptyFilters, rank_id: '44' },
+            { position_id: '8' },
+            { ...emptyFilters, position_id: '44' },
         );
 
         assert.deepEqual(owned, {});
@@ -587,7 +588,7 @@ describe('employee active filter count', () => {
                 ...emptyFilters,
                 missing_fields: 'email,date_of_birth,nationality',
                 present_fields: 'passport_number',
-                rank_id: '5',
+                position_id: '5',
             }),
             5,
         );
@@ -677,7 +678,7 @@ describe('employee smart search unresolved copy', () => {
 
         assert.equal(
             formatUnresolvedItem(result.unresolved[0]),
-            'Rank "XYZ" — No matching value found.',
+            'Position "XYZ" — No matching value found.',
         );
         assert.equal(
             formatUnresolvedItem(result.ambiguous[0]),

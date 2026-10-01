@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { VesselManningContent } from '@/features/organization/vessel-manning/index';
 import type {
-    RankOption,
+    PositionOption,
     VesselManningItem,
     VesselManningPagePermissions,
     VesselTypeOption,
@@ -13,7 +13,7 @@ type Props = {
     pagination: PaginationMeta;
     search: string;
     filters: { vessel_type_id: number | null };
-    ranks: RankOption[];
+    crew_positions: PositionOption[];
     vessel_types: VesselTypeOption[];
     can: VesselManningPagePermissions;
 };
@@ -23,7 +23,7 @@ export default function VesselManningIndex({
     pagination,
     search,
     filters,
-    ranks,
+    crew_positions,
     vessel_types,
     can,
 }: Props) {
@@ -35,7 +35,7 @@ export default function VesselManningIndex({
                 pagination={pagination}
                 search={search}
                 filters={filters}
-                ranks={ranks}
+                crew_positions={crew_positions}
                 vessel_types={vessel_types}
                 can={can}
             />

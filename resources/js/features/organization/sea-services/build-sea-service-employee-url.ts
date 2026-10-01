@@ -21,8 +21,8 @@ export function buildSeaServiceEmployeeUrl(
         query.vessel_type_id = back.vessel_type_id.trim();
     }
 
-    if (back.rank_id?.trim()) {
-        query.rank_id = back.rank_id.trim();
+    if (back.position_id?.trim()) {
+        query.position_id = back.position_id.trim();
     }
 
     if (back.client_id?.trim()) {

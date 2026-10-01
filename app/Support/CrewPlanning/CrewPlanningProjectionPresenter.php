@@ -32,8 +32,8 @@ final class CrewPlanningProjectionPresenter
      *         row_key: string,
      *         vessel_id: int,
      *         vessel_name: string,
-     *         rank_id: int,
-     *         rank_name: string,
+     *         position_id: int,
+     *         position_name: string,
      *         required_count: int,
      *         status: string,
      *         next_gap_date: string|null,
@@ -49,13 +49,17 @@ final class CrewPlanningProjectionPresenter
      *     }>
      * }
      */
-    public static function present(array $queryResult): array
+    public static function present(array $queryResult, int $companyId = 0): array
     {
         $rows = [];
 
         foreach ($queryResult['items'] as $item) {
             $vesselId = (int) $item['vessel_id'];
-            $rankId = (int) $item['rank_id'];
+            $positionId = (int) ($item['position_id'] ?? 0);
+
+            if ($positionId < 1) {
+                continue;
+            }
 
             $periods = [];
 
@@ -70,11 +74,11 @@ final class CrewPlanningProjectionPresenter
             }
 
             $rows[] = [
-                'row_key' => self::rowKey($vesselId, $rankId),
+                'row_key' => self::rowKey($vesselId, $positionId),
                 'vessel_id' => $vesselId,
                 'vessel_name' => (string) $item['vessel_name'],
-                'rank_id' => $rankId,
-                'rank_name' => (string) $item['rank_name'],
+                'position_id' => $positionId,
+                'position_name' => (string) ($item['position_name'] ?? ''),
                 'required_count' => (int) $item['required_count'],
                 'status' => (string) $item['status'],
                 'next_gap_date' => $item['next_gap_date'] !== null
@@ -101,8 +105,8 @@ final class CrewPlanningProjectionPresenter
         ];
     }
 
-    public static function rowKey(int $vesselId, int $rankId): string
+    public static function rowKey(int $vesselId, int $positionId): string
     {
-        return "vessel:{$vesselId}|rank:{$rankId}";
+        return CrewPlanningGanttQuery::rowKey($vesselId, $positionId);
     }
 }

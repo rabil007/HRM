@@ -16,7 +16,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Hotel;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Models\Vessel;
@@ -41,6 +41,7 @@ use App\Support\CrewPlanning\LinkVacantCrewPlanningSlot;
 use App\Support\CrewPlanning\ResolvePlanningStartHandoff;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
@@ -210,7 +211,7 @@ class CrewAssignmentController extends Controller
             $planningBackQuery = array_filter([
                 'view' => $request->query('view'),
                 'vessel_id' => $request->query('vessel_id'),
-                'rank_id' => $request->query('rank_id'),
+                'position_id' => $request->query('position_id'),
                 'from' => $request->query('from'),
                 'to' => $request->query('to'),
                 'search' => $request->query('search'),
@@ -220,10 +221,14 @@ class CrewAssignmentController extends Controller
         }
 
         $intent = $request->query('intent') === 'plan' ? 'plan' : ($request->query('intent') === 'start' ? 'start' : null);
+        $prefillPositionId = ($request->query('position_id') !== null && $request->query('position_id') !== '')
+            ? (int) $request->query('position_id')
+            : null;
+
         $prefill = array_filter([
             'employee_id' => $request->query('employee_id') ? (int) $request->query('employee_id') : null,
             'vessel_id' => $request->query('vessel_id') ? (int) $request->query('vessel_id') : null,
-            'rank_id' => $request->query('rank_id') ? (int) $request->query('rank_id') : null,
+            'position_id' => $prefillPositionId,
             'client_id' => $request->query('client_id') ? (int) $request->query('client_id') : null,
             'planned_join_at' => $request->query('planned_join_at') ?? $request->query('from'),
             'planned_signoff_at' => $request->query('planned_signoff_at') ?? $request->query('to'),
@@ -279,8 +284,8 @@ class CrewAssignmentController extends Controller
                         $validated['vessel_id'] = (int) $slot->vessel_id;
                     }
 
-                    if ($slot->rank_id !== null) {
-                        $validated['rank_id'] = (int) $slot->rank_id;
+                    if ($slot->position_id !== null) {
+                        $validated['position_id'] = (int) $slot->position_id;
                     }
 
                     if (($validated['vessel_id'] ?? null) === null || ($validated['vessel_id'] ?? '') === '') {
@@ -289,9 +294,9 @@ class CrewAssignmentController extends Controller
                         ]);
                     }
 
-                    if (($validated['rank_id'] ?? null) === null || ($validated['rank_id'] ?? '') === '') {
+                    if (($validated['position_id'] ?? null) === null || ($validated['position_id'] ?? '') === '') {
                         throw ValidationException::withMessages([
-                            'rank_id' => 'Rank is required when linking a planning slot.',
+                            'position_id' => 'Position is required when linking a planning slot.',
                         ]);
                     }
                 }
@@ -301,7 +306,7 @@ class CrewAssignmentController extends Controller
                         $companyId,
                         (int) $validated['employee_id'],
                         [
-                            'rank_id' => $validated['rank_id'] ?? null,
+                            'position_id' => $validated['position_id'] ?? null,
                             'client_id' => $validated['client_id'] ?? null,
                             'vessel_id' => $validated['vessel_id'] ?? null,
                             'planned_join_at' => $validated['planned_join_at'] ?? null,
@@ -317,7 +322,7 @@ class CrewAssignmentController extends Controller
                         $companyId,
                         (int) $validated['employee_id'],
                         [
-                            'rank_id' => $validated['rank_id'] ?? null,
+                            'position_id' => $validated['position_id'] ?? null,
                             'client_id' => $validated['client_id'] ?? null,
                             'vessel_id' => $validated['vessel_id'] ?? null,
                             'planned_join_at' => $validated['planned_join_at'] ?? null,
@@ -332,7 +337,7 @@ class CrewAssignmentController extends Controller
                         $companyId,
                         (int) $validated['employee_id'],
                         [
-                            'rank_id' => $validated['rank_id'] ?? null,
+                            'position_id' => $validated['position_id'] ?? null,
                             'client_id' => $validated['client_id'] ?? null,
                             'vessel_id' => $validated['vessel_id'] ?? null,
                             'planned_join_at' => $validated['planned_join_at'] ?? null,
@@ -397,7 +402,7 @@ class CrewAssignmentController extends Controller
         $eagerLoads = [
             'company:id,timezone',
             'employee',
-            'rank',
+            'position',
             'client',
             'vessel',
             'currentPhase',
@@ -406,7 +411,7 @@ class CrewAssignmentController extends Controller
             'phases.employeeTraining:id,source_crew_assignment_phase_id',
             'planningAssignment.relievedAssignment.employee',
             'planningAssignment.relievedAssignment.vessel',
-            'planningAssignment.relievedAssignment.rank',
+            'planningAssignment.relievedAssignment.position',
             'previousAssignment:id,assignment_no,status,vessel_id,source,closed_at',
             'previousAssignment.vessel:id,name',
             'nextAssignments:id,assignment_no,status,vessel_id,source,previous_assignment_id,started_at',
@@ -425,6 +430,13 @@ class CrewAssignmentController extends Controller
         }
 
         $assignment->load($eagerLoads);
+
+        CrewPositionCatalog::hydrateCanonicalPositions(collect([$assignment]), $companyId);
+
+        $relievedSource = $assignment->planningAssignment?->relievedAssignment;
+        if ($relievedSource !== null) {
+            CrewPositionCatalog::hydrateCanonicalPositions(collect([$relievedSource]), $companyId);
+        }
 
         $detail = CrewAssignmentPresenter::detail($assignment, $request->user());
         $correctionPresenter = app(CrewMovementCorrectionPresenter::class);
@@ -469,7 +481,7 @@ class CrewAssignmentController extends Controller
 
         $assignment->load([
             'employee',
-            'rank',
+            'position',
             'client',
             'vessel',
             'currentPhase',
@@ -493,18 +505,18 @@ class CrewAssignmentController extends Controller
             'employees' => $employeeQuery
                 ->with(['nationalityRef:id,name'])
                 ->orderBy('name')
-                ->get(['id', 'name', 'employee_no', 'rank_id', 'image', 'nationality_id'])
+                ->get(['id', 'name', 'employee_no', 'position_id', 'image', 'nationality_id'])
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
                     'employee_no' => $e->employee_no,
-                    'rank_id' => $e->rank_id,
+                    'position_id' => $e->position_id,
                     'image' => $e->image,
                     'nationality_name' => $e->nationalityRef?->name,
                 ])
                 ->values()
                 ->all(),
-            'ranks' => $this->activeRanks(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'vessels' => $this->vesselOptionsForAssignment($companyId, $assignment),
             'clients' => $this->clientOptionsForAssignment($assignment),
             'courses' => $this->activeCourses(),
@@ -547,13 +559,9 @@ class CrewAssignmentController extends Controller
      */
     private function activeRanks(): array
     {
-        return Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (Rank $rank) => ['id' => $rank->id, 'name' => $rank->name])
-            ->values()
-            ->all();
+        return CrewPositionCatalog::crewPositionOptions(
+            (int) request()->attributes->get('current_company_id'),
+        );
     }
 
     /**
@@ -566,20 +574,18 @@ class CrewAssignmentController extends Controller
      *     resolved_tour_of_duty_days: int|null
      * }>
      */
-    private function activeRanksWithTour(int $companyId): array
+    /**
+     * @return list<array{id: int, name: string, max_tour_of_duty_days: int|null, resolved_tour_of_duty_days: int|null}>
+     */
+    private function crewPositionsWithTour(int $companyId): array
     {
-        return Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'max_tour_of_duty_days'])
-            ->map(fn (Rank $rank): array => [
-                'id' => $rank->id,
-                'name' => $rank->name,
-                'max_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
-                'resolved_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
-            ])
-            ->values()
-            ->all();
+        return array_map(
+            static fn (array $position): array => [
+                ...$position,
+                'resolved_tour_of_duty_days' => $position['max_tour_of_duty_days'],
+            ],
+            CrewPositionCatalog::crewPositionOptions($companyId),
+        );
     }
 
     /**
@@ -713,7 +719,7 @@ class CrewAssignmentController extends Controller
     /**
      * @return array{
      *     employees: list<array<string, mixed>>,
-     *     ranks: list<array<string, mixed>>,
+     *     positions: list<array<string, mixed>>,
      *     vessels: list<array<string, mixed>>,
      *     clients: list<array<string, mixed>>,
      *     courses: list<array<string, mixed>>,
@@ -726,7 +732,7 @@ class CrewAssignmentController extends Controller
     {
         return [
             'employees' => [],
-            'ranks' => $this->activeRanksWithTour($companyId),
+            'positions' => $this->crewPositionsWithTour($companyId),
             'vessels' => $this->activeVessels($companyId),
             'clients' => $this->activeClients(),
             'courses' => $this->activeCourses(),
@@ -739,8 +745,8 @@ class CrewAssignmentController extends Controller
 
     /**
      * @return array{
-     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null, status: string}>,
-     *     ranks: list<array<string, mixed>>,
+     *     employees: list<array{id: int, name: string, employee_no: string|null, position_id: int|null, status: string}>,
+     *     positions: list<array<string, mixed>>,
      *     vessels: list<array<string, mixed>>,
      *     clients: list<array<string, mixed>>,
      *     company_timezone: string
@@ -756,12 +762,12 @@ class CrewAssignmentController extends Controller
 
         $employees = $employeeQuery
             ->orderBy('name')
-            ->get(['id', 'name', 'employee_no', 'rank_id', 'status'])
+            ->get(['id', 'name', 'employee_no', 'position_id', 'status'])
             ->map(fn (Employee $employee) => [
                 'id' => $employee->id,
                 'name' => $employee->name,
                 'employee_no' => $employee->employee_no,
-                'rank_id' => $employee->rank_id,
+                'position_id' => $employee->position_id,
                 'status' => $employee->status,
             ])
             ->values()
@@ -769,11 +775,55 @@ class CrewAssignmentController extends Controller
 
         return [
             'employees' => $employees,
-            'ranks' => $this->historicalRanksWithTour(),
+            'positions' => $this->historicalPositionsWithTour($companyId),
             'vessels' => $this->historicalVessels($companyId),
             'clients' => $this->historicalClients(),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
         ];
+    }
+
+    /**
+     * Historical backfill may reference inactive crew Positions. Live form options stay active-only.
+     *
+     * @return list<array{
+     *     id: int,
+     *     name: string,
+     *     is_active: bool,
+     *     max_tour_of_duty_days: int|null,
+     *     resolved_tour_of_duty_days: int|null
+     * }>
+     */
+    private function historicalPositionsWithTour(int $companyId): array
+    {
+        return Position::query()
+            ->where('company_id', $companyId)
+            ->where('is_crew_position', true)
+            ->whereNull('deleted_at')
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderBy('title')
+            ->get(['id', 'title', 'status', 'max_tour_of_duty_days'])
+            ->map(function ($position): array {
+                $isActive = $position->status === 'active';
+                $label = (string) $position->title;
+
+                if (! $isActive) {
+                    $label .= ' — Inactive';
+                }
+
+                $tourDays = $position->max_tour_of_duty_days !== null
+                    ? (int) $position->max_tour_of_duty_days
+                    : null;
+
+                return [
+                    'id' => (int) $position->id,
+                    'name' => $label,
+                    'is_active' => $isActive,
+                    'max_tour_of_duty_days' => $tourDays,
+                    'resolved_tour_of_duty_days' => $tourDays,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -789,28 +839,16 @@ class CrewAssignmentController extends Controller
      */
     private function historicalRanksWithTour(): array
     {
-        return Rank::query()
-            ->orderByDesc('is_active')
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active', 'max_tour_of_duty_days'])
-            ->map(function (Rank $rank): array {
-                $isActive = (bool) $rank->is_active;
-                $label = (string) $rank->name;
-
-                if (! $isActive) {
-                    $label .= ' — Inactive';
-                }
-
-                return [
-                    'id' => (int) $rank->id,
-                    'name' => $label,
-                    'is_active' => $isActive,
-                    'max_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
-                    'resolved_tour_of_duty_days' => $rank->max_tour_of_duty_days !== null ? (int) $rank->max_tour_of_duty_days : null,
-                ];
-            })
-            ->values()
-            ->all();
+        return array_map(
+            static fn (array $position): array => [
+                ...$position,
+                'is_active' => true,
+                'resolved_tour_of_duty_days' => $position['max_tour_of_duty_days'],
+            ],
+            CrewPositionCatalog::crewPositionOptions(
+                (int) request()->attributes->get('current_company_id'),
+            ),
+        );
     }
 
     /**

@@ -37,8 +37,9 @@ final class VesselIndexQuery
                 'client:id,name',
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
-                    ->with('rank:id,name')
-                    ->orderBy('rank_id'),
+                    ->with('position:id,title')
+                    ->orderBy('position_id')
+                    ->orderBy('position_id'),
             ])
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $inner) use ($search): void {
@@ -97,7 +98,7 @@ final class VesselIndexQuery
      *     certificate_original_filename: string|null,
      *     certificate_url: string|null,
      *     is_active: bool,
-     *     manning: list<array{id: int, rank_id: int, rank_name: string, required_count: int}>,
+     *     manning: list<array{id: int, position_id: int, position_name: string, required_count: int}>,
      *     total_required: int,
      *     ranks_configured: int
      * }
@@ -112,8 +113,8 @@ final class VesselIndexQuery
         $lines = $manning
             ->map(fn (VesselManning $line) => [
                 'id' => $line->id,
-                'rank_id' => $line->rank_id,
-                'rank_name' => $line->rank?->name ?? '',
+                'position_id' => (int) ($line->position_id ?? 0),
+                'position_name' => (string) ($line->position?->title ?? ''),
                 'required_count' => $line->required_count,
             ])
             ->values()
@@ -162,8 +163,9 @@ final class VesselIndexQuery
                 'client:id,name',
                 'manning' => fn ($query) => $query
                     ->where('company_id', $companyId)
-                    ->with('rank:id,name')
-                    ->orderBy('rank_id'),
+                    ->with('position:id,title')
+                    ->orderBy('position_id')
+                    ->orderBy('position_id'),
             ])
             ->whereKey($vessel->id)
             ->first();

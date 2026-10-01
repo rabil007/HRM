@@ -24,7 +24,7 @@ type Props = {
     filters: PlanningFilters;
     today: string;
     vessels: PlanningOption[];
-    ranks: PlanningOption[];
+    positions: PlanningOption[];
     employees: PlanningPoolEmployee[];
     can: PlanningPagePermissions;
     projection?: PlanningProjection | null;
@@ -42,7 +42,7 @@ export default function CrewPlanningIndex({
     filters,
     today,
     vessels,
-    ranks,
+    positions,
     employees,
     can,
     projection = null,
@@ -62,7 +62,7 @@ export default function CrewPlanningIndex({
                 filters={filters}
                 today={today}
                 vessels={vessels}
-                ranks={ranks}
+                positions={positions}
                 employees={employees}
                 can={can}
                 projection={projection}

@@ -36,7 +36,7 @@ import type { PaginationMeta } from '@/types/pagination';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
 import { vesselManningHasWriteActions } from './types';
 import type {
-    RankOption,
+    PositionOption,
     VesselManningFormData,
     VesselManningItem,
     VesselManningPagePermissions,
@@ -93,7 +93,7 @@ export function VesselManningContent({
     pagination,
     search: initialSearch,
     filters: initialFilters,
-    ranks,
+    crew_positions,
     vessel_types,
     can,
 }: {
@@ -101,7 +101,7 @@ export function VesselManningContent({
     pagination: PaginationMeta;
     search: string;
     filters: { vessel_type_id: number | null };
-    ranks: RankOption[];
+    crew_positions: PositionOption[];
     vessel_types: VesselTypeOption[];
     can: VesselManningPagePermissions;
 }) {
@@ -194,7 +194,7 @@ export function VesselManningContent({
             <PageHeader
                 kicker="Crew Operations"
                 title="Vessel Manning"
-                description="Define how many crew of each rank each vessel needs."
+                description="Define how many crew of each position each vessel needs."
             />
 
             {/* Metrics Overview Grid */}
@@ -311,7 +311,7 @@ export function VesselManningContent({
                         <DataTableHeaderRow>
                             <DataTableHead>Vessel</DataTableHead>
                             <DataTableHead>Vessel type</DataTableHead>
-                            <DataTableHead>Ranks configured</DataTableHead>
+                            <DataTableHead>Positions configured</DataTableHead>
                             <DataTableHead>Total required</DataTableHead>
                             <DataTableHead className="text-right">
                                 Actions
@@ -346,7 +346,7 @@ export function VesselManningContent({
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.manning.length === 0 ? (
                                         <span className="text-muted-foreground">
-                                            No ranks configured
+                                            No positions configured
                                         </span>
                                     ) : (
                                         <div className="flex flex-wrap gap-1.5">
@@ -356,7 +356,7 @@ export function VesselManningContent({
                                                     variant="outline"
                                                     className="border-primary/20 bg-primary/5 px-2 py-0.5 font-medium text-foreground"
                                                 >
-                                                    {line.rank_name}
+                                                    {line.position_name}
                                                     <span className="ml-1 text-xs font-bold text-primary">
                                                         ×{line.required_count}
                                                     </span>
@@ -419,7 +419,7 @@ export function VesselManningContent({
                         }
                     }}
                     vessel={editingVessel}
-                    ranks={ranks}
+                    crew_positions={crew_positions}
                     form={form}
                     onSubmit={submit}
                 />

@@ -20,7 +20,7 @@ final class EmployeeProfileTemplateRequestRules
         'employee_sea_services' => [
             'vessel_type_id',
             'vessel_id',
-            'rank_id',
+            'position_id',
             'start_date',
             'end_date',
         ],

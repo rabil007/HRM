@@ -38,7 +38,7 @@ class GenerateBulkDocumentsRequest extends FormRequest
             'nationality_id' => ['nullable', 'string'],
             'visa_type_id' => ['nullable', 'string'],
             'company_visa_type_id' => ['nullable', 'string'],
-            'rank_id' => ['nullable', 'string'],
+
             'approval_location_id' => ['nullable', 'string'],
             'sssa_option_id' => ['nullable', 'string'],
             'crew_status' => ['nullable', 'string'],
@@ -81,7 +81,7 @@ class GenerateBulkDocumentsRequest extends FormRequest
             'nationality_id',
             'visa_type_id',
             'company_visa_type_id',
-            'rank_id',
+
             'approval_location_id',
             'sssa_option_id',
             'crew_status',

@@ -96,7 +96,9 @@ export function CrewAssignmentIdentity({
                 </span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-muted-foreground/90 md:text-sm">
-                <span>{assignment.rank?.name ?? 'Rank Unassigned'}</span>
+                <span>
+                    {assignment.position?.name ?? 'Position Unassigned'}
+                </span>
                 <span>·</span>
                 <span>{assignment.vessel?.name ?? 'Vessel Unassigned'}</span>
                 {assignment.client?.name ? (

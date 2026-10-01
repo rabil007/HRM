@@ -18,7 +18,7 @@ final class SeaServiceEmployeeBrowseQuery
         $seaServices = EmployeeSeaService::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with(['vesselType:id,name', 'vessel:id,name', 'rank:id,name', 'client:id,name'])
+            ->with(['vesselType:id,name', 'vessel:id,name', 'position:id,title', 'client:id,name'])
             ->latestServiceFirst()
             ->get()
             ->map(fn (EmployeeSeaService $seaService) => SeaServiceListResource::toProfileArray($seaService))

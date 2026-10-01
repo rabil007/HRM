@@ -78,7 +78,7 @@ test('create-only user can still save as draft', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'draft',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect(route('dashboard'));
 
@@ -101,7 +101,7 @@ test('omitted current stage starts active travel in with matching timestamps', f
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-09-20',
             'remarks' => 'Started from ops desk',
@@ -136,7 +136,7 @@ test('explicit pre-mobilisation start assignment creates active p0', function ()
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'current_stage' => 'p0',
         ])
         ->assertRedirect();
@@ -157,7 +157,7 @@ test('explicit start without stage_started_at uses identical company-local times
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'current_stage' => 'p1',
         ])
         ->assertRedirect();
@@ -178,7 +178,7 @@ test('save as draft does not require stage started at and stays planned p0', fun
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'draft',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_join_at' => '2026-09-20',
         ])
         ->assertRedirect();
@@ -317,7 +317,7 @@ test('browser supplied current stage is ignored by store endpoint and defaults t
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'current_stage' => $stage,
             'stage_started_at' => '2026-09-15T08:30',
@@ -348,7 +348,7 @@ test('manual quick create preserves planned sign-off and ignores travel input', 
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-09-20',
             'planned_signoff_at' => '2026-11-01',
@@ -472,7 +472,7 @@ test('active p0 exposes record arrival as the available mobilisation action', fu
     $user->update(['current_company_id' => $company->id]);
 
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'stage_started_at' => '2026-09-15 08:00:00',
     ], $user->id)->load(['currentPhase', 'employee', 'company']);
 
@@ -513,7 +513,7 @@ test('existing linked planning is preserved when an already-linked assignment la
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-09-20',
         'planned_signoff_at' => '2026-12-01',
@@ -536,11 +536,11 @@ test('list presenter keeps planned join values for expected vessel join display'
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
 
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_join_at' => '2026-09-20',
         'current_stage' => 'p0',
         'stage_started_at' => '2026-09-15 08:00:00',
-    ], $user->id)->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'company']);
+    ], $user->id)->load(['employee', 'position', 'vessel', 'client', 'currentPhase', 'company']);
 
     $item = CrewAssignmentPresenter::listItem($assignment);
 
@@ -558,7 +558,7 @@ test('direct start with future arrival and no expected join succeeds without inv
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_arrival_at' => '2026-09-26',
             'planned_join_at' => '',
             'planned_signoff_at' => null,
@@ -586,7 +586,7 @@ test('direct start with no arrival and no expected join keeps planned_join_at nu
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
@@ -607,7 +607,7 @@ test('direct start with valid arrival before expected join persists both forecas
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_arrival_at' => '2026-09-26',
             'planned_join_at' => '2026-09-27',
         ])
@@ -629,7 +629,7 @@ test('direct start with arrival after expected join is blocked', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_arrival_at' => '2026-09-28',
             'planned_join_at' => '2026-09-27',
         ])
@@ -650,7 +650,7 @@ test('save as planned still requires expected vessel join', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_arrival_at' => '2026-09-26',
             'planned_join_at' => '',
             'planned_signoff_at' => '2026-11-30',
@@ -670,7 +670,7 @@ test('planned to active keeps expected join and signoff forecasts on the same as
     $service = app(CrewMovementService::class);
 
     $planned = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
@@ -697,7 +697,7 @@ test('open-ended direct start conflicts with a future confirmed planned assignme
     $service = app(CrewMovementService::class);
 
     $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
@@ -709,7 +709,7 @@ test('open-ended direct start conflicts with a future confirmed planned assignme
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertSessionHasErrors(['employee_id']);
 
@@ -727,7 +727,7 @@ test('direct start with known end before a future plan is allowed', function () 
     $service = app(CrewMovementService::class);
 
     $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
@@ -739,7 +739,7 @@ test('direct start with known end before a future plan is allowed', function () 
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_at' => '2026-09-30',
         ])
         ->assertRedirect()
@@ -759,7 +759,7 @@ test('direct start with known end overlapping a future plan is blocked', functio
     $service = app(CrewMovementService::class);
 
     $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
@@ -771,7 +771,7 @@ test('direct start with known end overlapping a future plan is blocked', functio
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_at' => '2026-10-15',
         ])
         ->assertSessionHasErrors(['employee_id']);
@@ -790,7 +790,7 @@ test('start conflict payload keeps planned_join_at null when join was not suppli
     $service = app(CrewMovementService::class);
 
     $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
@@ -802,7 +802,7 @@ test('start conflict payload keeps planned_join_at null when join was not suppli
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertSessionHasErrors(['employee_id', 'conflict']);
 
@@ -822,7 +822,7 @@ test('direct start with sign-off before operational start is blocked', function 
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_join_at' => null,
             'planned_signoff_at' => '2026-09-20',
         ])
@@ -841,7 +841,7 @@ test('direct start with sign-off after operational start succeeds with null plan
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_at' => '2026-09-30',
         ])
         ->assertRedirect()
@@ -863,7 +863,7 @@ test('direct start with same-day expected sign-off is not rejected by assignment
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_signoff_at' => '2026-09-25',
         ])
         ->assertRedirect()
@@ -884,7 +884,7 @@ test('direct start still blocks when expected sign-off is before expected vessel
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_join_at' => '2026-09-27',
             'planned_signoff_at' => '2026-09-26',
         ])
@@ -908,7 +908,7 @@ test('save as planned does not apply assignment start versus sign-off ordering',
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
@@ -933,7 +933,7 @@ test('planned to active with future expected sign-off keeps forecasts on the sam
     $service = app(CrewMovementService::class);
 
     $planned = $service->createPlanned($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',

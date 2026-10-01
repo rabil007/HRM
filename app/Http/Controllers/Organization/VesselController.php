@@ -14,7 +14,6 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
 use App\Models\Vessel;
 use App\Models\VesselManning;
 use App\Models\VesselType;
@@ -22,6 +21,7 @@ use App\Support\Activity\RecentActivityQuery;
 use App\Support\MasterData\MasterDataUsage;
 use App\Support\MasterData\MasterDataUsageSummary;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\RecentItems\RecordRecentItem;
 use App\Support\VesselManning\SyncVesselManning;
 use App\Support\VesselManning\VesselManningHealthQuery;
@@ -162,7 +162,7 @@ class VesselController extends Controller
             'vessel_types' => $this->vesselTypes(),
             'clients' => $this->clients(),
             'summary' => [
-                'manning_ranks' => VesselManning::query()
+                'manning_positions' => VesselManning::query()
                     ->where('company_id', $companyId)
                     ->where('vessel_id', $record->id)
                     ->count(),
@@ -181,7 +181,7 @@ class VesselController extends Controller
                     ->count(),
             ],
             'can' => VesselPagePermissions::for($user),
-            'ranks' => $this->activeRanks(),
+            'crew_positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'manning_can' => VesselManningPagePermissions::for($user),
             'manning_health' => (new VesselManningHealthQuery)->forVessel($companyId, (int) $record->id, $user),
             'recent_activity' => RecentActivityQuery::for(
@@ -389,18 +389,6 @@ class VesselController extends Controller
                 'name' => $client->name,
                 'is_active' => (bool) $client->is_active,
             ])
-            ->all();
-    }
-
-    /**
-     * @return list<array{id: int, name: string}>
-     */
-    private function activeRanks(): array
-    {
-        return Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
             ->all();
     }
 

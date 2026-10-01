@@ -10,7 +10,7 @@ final class SeaServiceDirectoryFilters
         public readonly string $search = '',
         public readonly string $vesselId = '',
         public readonly string $vesselTypeId = '',
-        public readonly string $rankId = '',
+        public readonly string $positionId = '',
         public readonly string $clientId = '',
         public readonly string $active = '',
         public readonly string $startDate = '',
@@ -21,6 +21,7 @@ final class SeaServiceDirectoryFilters
 
     public static function fromRequest(Request $request): self
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
         $active = (string) $request->query('active', '');
 
         if (in_array($active, ['1', 'true', 'yes', 'active'], true)) {
@@ -29,11 +30,13 @@ final class SeaServiceDirectoryFilters
             $active = '';
         }
 
+        $positionId = (string) ($request->query('position_id') ?? '');
+
         return new self(
             search: trim((string) $request->query('search', '')),
             vesselId: (string) $request->query('vessel_id', ''),
             vesselTypeId: (string) $request->query('vessel_type_id', ''),
-            rankId: (string) $request->query('rank_id', ''),
+            positionId: $positionId,
             clientId: (string) $request->query('client_id', ''),
             active: $active,
             startDate: (string) $request->query('start_date', ''),
@@ -62,8 +65,8 @@ final class SeaServiceDirectoryFilters
             $query['vessel_type_id'] = $this->vesselTypeId;
         }
 
-        if ($this->rankId !== '') {
-            $query['rank_id'] = $this->rankId;
+        if ($this->positionId !== '') {
+            $query['position_id'] = $this->positionId;
         }
 
         if ($this->clientId !== '') {

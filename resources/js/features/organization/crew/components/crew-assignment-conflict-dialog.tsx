@@ -26,8 +26,8 @@ export type ConflictDialogData = {
         status_label: string;
         vessel_id: number | null;
         vessel_name: string | null;
-        rank_id: number | null;
-        rank_name: string | null;
+        position_id: number | null;
+        position_name: string | null;
         planned_join_at: string | null;
         planned_signoff_at: string | null;
         current_phase_code: string | null;
@@ -36,8 +36,8 @@ export type ConflictDialogData = {
     new_assignment?: {
         vessel_id: number | null;
         vessel_name: string | null;
-        rank_id: number | null;
-        rank_name: string | null;
+        position_id: number | null;
+        position_name: string | null;
         planned_join_at: string | null;
         planned_signoff_at: string | null;
     } | null;
@@ -191,9 +191,9 @@ export function CrewAssignmentConflictDialog({
                                 <span>
                                     {existing.vessel_name ?? 'No vessel'}
                                 </span>
-                                {existing.rank_name ? (
+                                {existing.position_name ? (
                                     <span className="text-xs text-muted-foreground">
-                                        • {existing.rank_name}
+                                        • {existing.position_name}
                                     </span>
                                 ) : null}
                             </div>
@@ -231,9 +231,9 @@ export function CrewAssignmentConflictDialog({
                             <div className="flex items-center gap-2 font-medium text-foreground">
                                 <Ship className="h-4 w-4 text-primary" />
                                 <span>{next.vessel_name ?? 'No vessel'}</span>
-                                {next.rank_name ? (
+                                {next.position_name ? (
                                     <span className="text-xs text-muted-foreground">
-                                        • {next.rank_name}
+                                        • {next.position_name}
                                     </span>
                                 ) : null}
                             </div>

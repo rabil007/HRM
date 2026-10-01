@@ -3,7 +3,7 @@
 use App\Enums\CrewPhaseCode;
 use App\Exports\CurrentCrewOnboardVesselsExport;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\VesselManning;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
 use Illuminate\Support\Str;
@@ -51,7 +51,7 @@ test('vessel view excludes inactive employees with a leftover active p4 assignme
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
 
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     makeActiveOnVesselAssignment($company, $inactive, $rank, $vessel);
 
@@ -70,7 +70,7 @@ test('vessel view groups onboard counts by vessel', function () {
 
     foreach (range(1, 3) as $index) {
         $extra = Employee::factory()->forCompany($company)->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'name' => "Vessel A Crew {$index}",
         ]);
         makeActiveOnVesselAssignment($company, $extra, $rank, $vesselA);
@@ -78,7 +78,7 @@ test('vessel view groups onboard counts by vessel', function () {
 
     foreach (range(1, 2) as $index) {
         $extra = Employee::factory()->forCompany($company)->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'name' => "Vessel B Crew {$index}",
         ]);
         makeActiveOnVesselAssignment($company, $extra, $rank, $vesselB);
@@ -102,7 +102,7 @@ test('vessel view uses vessel manning for required count and gap', function () {
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 6,
     ]);
 
@@ -110,7 +110,7 @@ test('vessel view uses vessel manning for required count and gap', function () {
 
     foreach (range(1, 3) as $index) {
         $extra = Employee::factory()->forCompany($company)->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'name' => "Manning Crew {$index}",
         ]);
         makeActiveOnVesselAssignment($company, $extra, $rank, $vessel);
@@ -128,12 +128,13 @@ test('vessel view uses vessel manning for required count and gap', function () {
 
 test('vessel view rank filter keeps only matching onboard crew', function () {
     ['user' => $user, 'company' => $company, 'employee' => $chief, 'rank' => $chiefRank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
-    $abRank = Rank::query()->create([
-        'name' => 'Able Seaman '.Str::uuid()->toString(),
-        'is_active' => true,
+    $abRank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Able Seaman '.Str::uuid()->toString(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
     $ab = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $abRank->id,
+        'position_id' => $abRank->id,
         'name' => 'ABLE SEAMAN CREW',
     ]);
 
@@ -143,7 +144,7 @@ test('vessel view rank filter keeps only matching onboard crew', function () {
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.index', [
             'view' => 'vessel',
-            'rank_id' => $chiefRank->id,
+            'position_id' => $chiefRank->id,
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
@@ -158,12 +159,12 @@ test('vessel view search shows only vessels containing matching onboard crew', f
     $vesselA = makeCrewMovementVessel('SEARCH VESSEL A', $company);
     $vesselB = makeCrewMovementVessel('SEARCH VESSEL B', $company);
     $arief = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'ARIEF POERNAMA',
         'employee_no' => 'EMP-ARIEF',
     ]);
     $other = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'OTHER CREW',
     ]);
 
@@ -192,12 +193,12 @@ test('vessel view pagination is vessel-aware and does not split a vessel roster'
 
     foreach ([$first, $second, $third] as $index => $vessel) {
         $employee = Employee::factory()->forCompany($company)->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'name' => "Pagination Crew {$index}",
         ]);
         makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
         $secondEmployee = Employee::factory()->forCompany($company)->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'name' => "Pagination Mate {$index}",
         ]);
         makeActiveOnVesselAssignment($company, $secondEmployee, $rank, $vessel);
@@ -272,7 +273,7 @@ test('vessel view export includes filtered current p4 crew beyond the current pa
     foreach (range(1, 4) as $index) {
         $vessel = makeCrewMovementVessel("Export Vessel {$index}", $company);
         $employee = Employee::factory()->forCompany($company)->create([
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'name' => "Export Crew {$index}",
             'employee_no' => "EXP-{$index}",
         ]);
@@ -280,7 +281,7 @@ test('vessel view export includes filtered current p4 crew beyond the current pa
     }
 
     $p3Employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'P3 NOT ONBOARD',
     ]);
     makeCurrentCrewPhaseAssignment(
@@ -312,10 +313,17 @@ test('vessel view export includes filtered current p4 crew beyond the current pa
     Excel::assertDownloaded(
         'current-crew-onboard-vessels-'.now()->toDateString().'.xlsx',
         function (CurrentCrewOnboardVesselsExport $export) use ($p3Employee): bool {
+            $headings = $export->headings();
+            $first = $export->collection()->first();
+            $mapped = $first !== null ? $export->map($first) : [];
+
             return $export->collection()->count() === 4
                 && $export->collection()->doesntContain('employee_id', $p3Employee->id)
-                && in_array('Vessel', $export->headings(), true)
-                && in_array('Days Onboard', $export->headings(), true);
+                && in_array('Vessel', $headings, true)
+                && in_array('Position', $headings, true)
+                && ! in_array('Rank', $headings, true)
+                && in_array('Days Onboard', $headings, true)
+                && filled($mapped[4] ?? null);
         },
     );
 });
@@ -327,13 +335,13 @@ test('vessel view export selected ids are revalidated and ignore invalid records
     $kept = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $otherEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'OTHER ONBOARD',
     ]);
     $other = makeActiveOnVesselAssignment($company, $otherEmployee, $rank, $vessel);
 
     $p3Employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'P3 NOT ONBOARD',
     ]);
     $p3 = makeCurrentCrewPhaseAssignment(
@@ -378,11 +386,11 @@ test('vessel view export selected ids still respect active filters', function ()
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCurrentCrewVesselViewFixtures();
     $vessel = makeCrewMovementVessel('Filter Vessel', $company);
     $arief = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'ARIEF POERNAMA',
     ]);
     $other = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'OTHER CREW',
     ]);
     $ariefAssignment = makeActiveOnVesselAssignment($company, $arief, $rank, $vessel);
@@ -500,7 +508,7 @@ test('all export scope ignores client assignment ids', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
     $kept = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
     $otherEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'SECOND ONBOARD',
     ]);
     $other = makeActiveOnVesselAssignment($company, $otherEmployee, $rank, $vessel);
@@ -532,7 +540,7 @@ test('selected export scope revalidates mixed valid p3 foreign and garbage ids',
     $kept = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $p3Employee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'name' => 'P3 NOT ONBOARD',
     ]);
     $p3 = makeCurrentCrewPhaseAssignment(

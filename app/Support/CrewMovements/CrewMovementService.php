@@ -15,12 +15,12 @@ use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -80,7 +80,7 @@ final class CrewMovementService
                 'company_id' => $companyId,
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
-                'rank_id' => $masters['rankId'],
+                'position_id' => $masters['positionId'],
                 'client_id' => $masters['clientId'],
                 'vessel_id' => $masters['vesselId'],
                 'status' => CrewAssignmentStatus::Draft,
@@ -160,9 +160,9 @@ final class CrewMovementService
                 ]);
             }
 
-            if ($masters['rankId'] === null) {
+            if ($masters['positionId'] === null) {
                 throw ValidationException::withMessages([
-                    'rank_id' => 'Rank is required when saving as Planned.',
+                    'position_id' => 'Position is required when saving as Planned.',
                 ]);
             }
 
@@ -174,7 +174,7 @@ final class CrewMovementService
                 plannedSignoffAt: $plannedSignoffAt,
                 plannedArrivalAt: $plannedArrivalAt,
                 vesselId: $masters['vesselId'],
-                rankId: $masters['rankId'],
+                positionId: $masters['positionId'],
                 clientId: $masters['clientId'],
                 relievesCrewAssignmentId: $relievesId,
                 actor: $actor,
@@ -188,7 +188,7 @@ final class CrewMovementService
                 'company_id' => $companyId,
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
-                'rank_id' => $masters['rankId'],
+                'position_id' => $masters['positionId'],
                 'client_id' => $masters['clientId'],
                 'vessel_id' => $masters['vesselId'],
                 'status' => CrewAssignmentStatus::Planned,
@@ -298,6 +298,7 @@ final class CrewMovementService
 
     /**
      * @param  array{
+     *     position_id: int|null,
      *     rank_id: int|null,
      *     client_id: int|null,
      *     vessel_id: int|null,
@@ -321,9 +322,9 @@ final class CrewMovementService
                 ]);
             }
 
-            if ($candidate['rank_id'] === null) {
+            if ($candidate['position_id'] === null) {
                 throw ValidationException::withMessages([
-                    'rank_id' => 'Rank is required for Planned assignments.',
+                    'position_id' => 'Position is required for Planned assignments.',
                 ]);
             }
 
@@ -367,6 +368,7 @@ final class CrewMovementService
 
     /**
      * @param  array{
+     *     position_id: int|null,
      *     rank_id: int|null,
      *     client_id: int|null,
      *     vessel_id: int|null,
@@ -396,7 +398,7 @@ final class CrewMovementService
                 plannedSignoffAt: $candidate['planned_signoff_at'],
                 plannedArrivalAt: $candidate['planned_arrival_at'],
                 vesselId: $candidate['vessel_id'],
-                rankId: $candidate['rank_id'],
+                positionId: $candidate['position_id'],
                 clientId: $candidate['client_id'],
                 currentAssignmentId: (int) $assignment->id,
                 actor: $actor,
@@ -416,7 +418,7 @@ final class CrewMovementService
                 plannedArrivalAt: $candidate['planned_arrival_at'],
                 operationalStartAt: $assignment->started_at,
                 vesselId: $candidate['vessel_id'],
-                rankId: $candidate['rank_id'],
+                positionId: $candidate['position_id'],
                 clientId: $candidate['client_id'],
                 currentAssignmentId: (int) $assignment->id,
                 actor: $actor,
@@ -481,7 +483,7 @@ final class CrewMovementService
                 plannedArrivalAt: $plannedArrivalAt,
                 operationalStartAt: $startedAt,
                 vesselId: $masters['vesselId'],
-                rankId: $masters['rankId'],
+                positionId: $masters['positionId'],
                 clientId: $masters['clientId'],
                 relievesCrewAssignmentId: $relievesId,
                 actor: $actor,
@@ -494,7 +496,7 @@ final class CrewMovementService
                 'company_id' => $companyId,
                 'assignment_no' => $assignmentNo,
                 'employee_id' => $employeeId,
-                'rank_id' => $masters['rankId'],
+                'position_id' => $masters['positionId'],
                 'client_id' => $masters['clientId'],
                 'vessel_id' => $masters['vesselId'],
                 'status' => CrewAssignmentStatus::Active,
@@ -618,7 +620,7 @@ final class CrewMovementService
             plannedArrivalAt: $assignment->planned_arrival_at,
             operationalStartAt: $occurredAt,
             vesselId: $assignment->vessel_id !== null ? (int) $assignment->vessel_id : null,
-            rankId: $assignment->rank_id !== null ? (int) $assignment->rank_id : null,
+            positionId: $assignment->position_id !== null ? (int) $assignment->position_id : null,
             clientId: $assignment->client_id !== null ? (int) $assignment->client_id : null,
             currentAssignmentId: (int) $assignment->id,
         );
@@ -894,17 +896,17 @@ final class CrewMovementService
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $vesselId = (int) ($payload['vessel_id'] ?? 0);
-        $rankId = (int) ($payload['rank_id'] ?? 0);
+        $positionId = $this->resolvePayloadPositionId((int) $assignment->company_id, $payload, $assignment);
 
-        if ($vesselId <= 0 || $rankId <= 0) {
+        if ($vesselId <= 0 || $positionId === null) {
             throw CrewMovementException::make(
-                'Join vessel requires vessel_id and rank_id.',
+                'Join vessel requires vessel_id and position_id.',
                 'join_vessel_missing_fields',
             );
         }
 
         $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $vesselId, 'vessel');
-        $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $rankId, 'rank');
+        $this->assertCrewPosition((int) $assignment->company_id, $positionId);
 
         $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
         $clientId = $this->resolveOperationalClientId(
@@ -916,7 +918,7 @@ final class CrewMovementService
 
         $signoff = $this->resolveOnVesselTourSignoff(
             companyId: (int) $assignment->company_id,
-            rankId: $rankId,
+            positionId: $positionId,
             actualJoinAt: $occurredAt,
             payload: $payload,
             existingPlannedSignoff: $assignment->planned_signoff_at,
@@ -942,7 +944,7 @@ final class CrewMovementService
 
         $assignment->update([
             'vessel_id' => $vesselId,
-            'rank_id' => $rankId,
+            'position_id' => $positionId,
             'client_id' => $clientId,
             'planned_signoff_at' => $signoff['planned_signoff_at'],
             'tour_of_duty_days' => $signoff['tour_of_duty_days'],
@@ -1131,11 +1133,11 @@ final class CrewMovementService
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $destinationVesselId = (int) ($payload['vessel_id'] ?? 0);
-        $destinationRankId = (int) ($payload['rank_id'] ?? 0);
+        $destinationPositionId = $this->resolvePayloadPositionId((int) $assignment->company_id, $payload, $assignment);
 
-        if ($destinationVesselId <= 0 || $destinationRankId <= 0) {
+        if ($destinationVesselId <= 0 || $destinationPositionId === null) {
             throw CrewMovementException::make(
-                'Destination vessel and rank are required for vessel transfer.',
+                'Destination vessel and position are required for vessel transfer.',
                 'transfer_destination_required',
             );
         }
@@ -1148,7 +1150,7 @@ final class CrewMovementService
         }
 
         $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $destinationVesselId, 'vessel');
-        $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $destinationRankId, 'rank');
+        $this->assertCrewPosition((int) $assignment->company_id, $destinationPositionId);
 
         $destinationClientId = $this->resolveOperationalClientId(
             companyId: (int) $assignment->company_id,
@@ -1160,7 +1162,7 @@ final class CrewMovementService
         );
 
         $sourceVesselId = $assignment->vessel_id;
-        $sourceRankId = $assignment->rank_id;
+        $sourcePositionId = $assignment->position_id;
         $sourceTourDays = $assignment->tour_of_duty_days;
         $sourcePlannedSignoff = $assignment->planned_signoff_at?->toDateTimeString();
         $sourceP4ActualStart = $current->actual_start_at?->toDateTimeString();
@@ -1168,7 +1170,7 @@ final class CrewMovementService
         // Resolve destination Tour before mutating source so validation failures roll back cleanly.
         $signoff = $this->resolveOnVesselTourSignoff(
             companyId: (int) $assignment->company_id,
-            rankId: $destinationRankId,
+            positionId: $destinationPositionId,
             actualJoinAt: $occurredAt,
             payload: $payload,
             existingPlannedSignoff: null,
@@ -1196,7 +1198,7 @@ final class CrewMovementService
             startedAt: $occurredAt,
             plannedJoinAt: null,
             vesselId: $destinationVesselId,
-            rankId: $destinationRankId,
+            positionId: $destinationPositionId,
             clientId: $destinationClientId,
             plannedSignoffAt: $signoff['planned_signoff_at'],
             remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
@@ -1222,7 +1224,6 @@ final class CrewMovementService
             $actorId,
             $signoff,
             [
-                'source_rank_id' => $sourceRankId,
                 'source_tour_of_duty_days' => $sourceTourDays,
                 'source_planned_signoff_at' => $sourcePlannedSignoff,
                 'source_p4_actual_start_at' => $sourceP4ActualStart,
@@ -1266,14 +1267,14 @@ final class CrewMovementService
         ]);
 
         $destinationVesselId = isset($payload['vessel_id']) ? (int) $payload['vessel_id'] : null;
-        $destinationRankId = isset($payload['rank_id']) ? (int) $payload['rank_id'] : null;
+        $destinationPositionId = $this->resolvePayloadPositionId((int) $assignment->company_id, $payload, $assignment);
         $submittedClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
 
         if ($startingPhase === CrewPhaseCode::OnVessel) {
             if ($destinationVesselId === null || $destinationVesselId <= 0
-                || $destinationRankId === null || $destinationRankId <= 0) {
+                || $destinationPositionId === null) {
                 throw CrewMovementException::make(
-                    'Destination vessel and rank are required when redeploying directly to On Vessel.',
+                    'Destination vessel and position are required when redeploying directly to On Vessel.',
                     'redeploy_p4_destination_required',
                 );
             }
@@ -1296,8 +1297,8 @@ final class CrewMovementService
             );
         }
 
-        if ($destinationRankId) {
-            $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $destinationRankId, 'rank');
+        if ($destinationPositionId !== null) {
+            $this->assertCrewPosition((int) $assignment->company_id, $destinationPositionId);
         }
 
         $destinationClientId = $isDraftStart
@@ -1317,7 +1318,7 @@ final class CrewMovementService
         if ($isDirectOnVessel) {
             $signoff = $this->resolveOnVesselTourSignoff(
                 companyId: (int) $assignment->company_id,
-                rankId: (int) $destinationRankId,
+                positionId: (int) $destinationPositionId,
                 actualJoinAt: $occurredAt,
                 payload: $payload,
                 existingPlannedSignoff: null,
@@ -1374,9 +1375,9 @@ final class CrewMovementService
             plannedJoinAt: null,
             plannedArrivalAt: $destinationPlannedArrivalAt,
             vesselId: $resolvedVesselId,
-            rankId: $isDraftStart
-                ? $destinationRankId
-                : ($destinationRankId ?? $assignment->rank_id),
+            positionId: $isDraftStart
+                ? $destinationPositionId
+                : ($destinationPositionId ?? $assignment->position_id),
             clientId: $destinationClientId,
             plannedSignoffAt: $isDraftStart
                 ? null
@@ -1632,7 +1633,7 @@ final class CrewMovementService
         ?CarbonInterface $plannedArrivalAt = null,
         ?CarbonInterface $plannedJoinAt = null,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
         ?int $clientId = null,
         ?CarbonInterface $plannedSignoffAt = null,
         ?string $remarks = null,
@@ -1647,7 +1648,7 @@ final class CrewMovementService
             'company_id' => $companyId,
             'assignment_no' => $assignmentNo,
             'employee_id' => $employeeId,
-            'rank_id' => $rankId,
+            'position_id' => $positionId,
             'client_id' => $clientId,
             'vessel_id' => $vesselId,
             'status' => $status,
@@ -1698,7 +1699,10 @@ final class CrewMovementService
 
     /**
      * @param  array<string, mixed>  $attributes
-     * @return array{vesselId: int|null, clientId: int|null, rankId: int|null}
+     * @return array{vesselId: int|null, clientId: int|null, positionId: int|null, rankId: int|null}
+     */
+    /**
+     * @return array{vesselId: int|null, clientId: int|null, positionId: int|null}
      */
     private function resolveCreateMasters(int $companyId, Employee $employee, array $attributes): array
     {
@@ -1708,16 +1712,37 @@ final class CrewMovementService
         $submittedClientId = isset($attributes['client_id']) && $attributes['client_id'] !== null && (int) $attributes['client_id'] > 0
             ? (int) $attributes['client_id']
             : null;
-        $rankId = isset($attributes['rank_id']) && $attributes['rank_id'] !== null && (int) $attributes['rank_id'] > 0
-            ? (int) $attributes['rank_id']
-            : ($employee->rank_id !== null ? (int) $employee->rank_id : null);
+
+        $positionId = isset($attributes['position_id']) && $attributes['position_id'] !== null && (int) $attributes['position_id'] > 0
+            ? (int) $attributes['position_id']
+            : null;
+
+        if ($positionId === null && $employee->position_id !== null) {
+            $positionId = (int) $employee->position_id;
+        }
+
+        if ($positionId !== null) {
+            $usable = CrewPositionCatalog::crewPositionsQuery($companyId)
+                ->whereKey($positionId)
+                ->exists();
+
+            if (! $usable) {
+                // Allow employee HR positions that are not marked crew for draft only when already set —
+                // still require company ownership and non-deleted.
+                $usable = CrewPositionCatalog::companyPositionsQuery($companyId)
+                    ->whereKey($positionId)
+                    ->exists();
+            }
+
+            if (! $usable) {
+                throw ValidationException::withMessages([
+                    'position_id' => 'The selected position is invalid for this company.',
+                ]);
+            }
+        }
 
         if ($vesselId !== null) {
             $this->assertCompanyOwnedMaster($companyId, Vessel::class, $vesselId, 'vessel');
-        }
-
-        if ($rankId !== null) {
-            $this->assertCompanyOwnedMaster($companyId, Rank::class, $rankId, 'rank');
         }
 
         $clientId = $vesselId !== null
@@ -1731,7 +1756,7 @@ final class CrewMovementService
         return [
             'vesselId' => $vesselId,
             'clientId' => $clientId,
-            'rankId' => $rankId,
+            'positionId' => $positionId,
         ];
     }
 
@@ -1868,7 +1893,7 @@ final class CrewMovementService
                 'destination_assignment_id' => $destination->id,
                 'source_vessel_id' => $sourceVesselId,
                 'destination_vessel_id' => $destinationVesselId,
-                'destination_rank_id' => $destination->rank_id,
+                'destination_position_id' => $destination->position_id,
                 'occurred_at' => $occurredAt->toDateTimeString(),
                 'tour_of_duty_days' => $signoff['tour_of_duty_days'],
                 'planned_signoff_at' => $signoff['planned_signoff_at']?->toDateTimeString(),
@@ -1911,7 +1936,7 @@ final class CrewMovementService
                 'destination_assignment_id' => $destination->id,
                 'starting_phase' => $startingPhase->value,
                 'destination_vessel_id' => $destinationVesselId,
-                'destination_rank_id' => $destination->rank_id,
+                'destination_position_id' => $destination->position_id,
                 'destination_client_id' => $destinationClientId,
                 'occurred_at' => $occurredAt->toDateTimeString(),
                 'tour_of_duty_days' => $signoff['tour_of_duty_days'] ?? null,
@@ -1936,14 +1961,14 @@ final class CrewMovementService
      */
     private function resolveOnVesselTourSignoff(
         int $companyId,
-        int $rankId,
+        int $positionId,
         CarbonInterface $actualJoinAt,
         array $payload,
         ?CarbonInterface $existingPlannedSignoff = null,
     ): array {
         $tour = $this->tourOfDutyResolver->resolve(
             $companyId,
-            $rankId,
+            $positionId,
             $actualJoinAt,
         );
 
@@ -1953,6 +1978,38 @@ final class CrewMovementService
             $existingPlannedSignoff,
             $actualJoinAt,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolvePayloadPositionId(
+        int $companyId,
+        array $payload,
+        ?CrewAssignment $fallbackAssignment = null,
+    ): ?int {
+        if (isset($payload['position_id']) && $payload['position_id'] !== null && (int) $payload['position_id'] > 0) {
+            return (int) $payload['position_id'];
+        }
+
+        if ($fallbackAssignment?->position_id !== null && (int) $fallbackAssignment->position_id > 0) {
+            return (int) $fallbackAssignment->position_id;
+        }
+
+        return null;
+    }
+
+    private function assertCrewPosition(int $companyId, int $positionId): void
+    {
+        $usable = CrewPositionCatalog::crewPositionsQuery($companyId)
+            ->whereKey($positionId)
+            ->exists();
+
+        if (! $usable) {
+            throw ValidationException::withMessages([
+                'position_id' => 'The selected position is invalid for this company.',
+            ]);
+        }
     }
 
     /**

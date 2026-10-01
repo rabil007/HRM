@@ -8,7 +8,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Services\Settings\SettingService;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\Departments\DepartmentManagerExportContext;
@@ -24,17 +24,18 @@ use Spatie\Permission\Models\Role;
 
 test('employee directory crew status batch query count stays bounded', function () {
     ['company' => $company] = makePayrollFixtures();
-    $rank = Rank::query()->create(['name' => 'Perf Rank', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Perf Rank', 'status' => 'active', 'is_crew_position' => true]);
     $firstEmployee = Employee::factory()->forCompany($company)->create([
         'status' => 'active',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     $firstVessel = makeCrewMovementVessel('Perf First Vessel');
     CrewAssignment::query()->create([
         'company_id' => $company->id,
         'assignment_no' => 'CA-PERF-FIRST',
         'employee_id' => $firstEmployee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $firstVessel->id,
         'status' => CrewAssignmentStatus::Completed,
         'started_at' => CarbonImmutable::today()->subDays(20),
@@ -51,7 +52,7 @@ test('employee directory crew status batch query count stays bounded', function 
 
     $employees = Employee::factory()->count(10)->forCompany($company)->create([
         'status' => 'active',
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     foreach ($employees as $index => $employee) {
@@ -60,7 +61,7 @@ test('employee directory crew status batch query count stays bounded', function 
             'company_id' => $company->id,
             'assignment_no' => "CA-PERF-DONE-{$index}",
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'status' => CrewAssignmentStatus::Completed,
             'started_at' => CarbonImmutable::today()->subDays(30),

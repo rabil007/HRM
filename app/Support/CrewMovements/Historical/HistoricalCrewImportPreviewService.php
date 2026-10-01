@@ -6,7 +6,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\SeaServiceSyncService;
@@ -109,7 +109,7 @@ final class HistoricalCrewImportPreviewService
      * @return array{
      *     employeesByNo: array<string, Employee>,
      *     vesselsByName: array<string, list<Vessel>>,
-     *     ranksByName: array<string, list<Rank>>,
+     *     ranksByName: array<string, list<object>>,
      *     clientsByName: array<string, list<Client>>
      * }
      */
@@ -143,10 +143,10 @@ final class HistoricalCrewImportPreviewService
 
         $ranksByName = [];
 
-        foreach (Rank::query()->get(['id', 'name', 'is_active']) as $rank) {
-            $key = mb_strtolower(trim((string) $rank->name));
+        foreach (Position::query()->where('company_id', $companyId)->whereNull('deleted_at')->get(['id', 'title', 'status', 'is_crew_position']) as $position) {
+            $key = mb_strtolower(trim((string) $position->title));
             $ranksByName[$key] ??= [];
-            $ranksByName[$key][] = $rank;
+            $ranksByName[$key][] = $position;
         }
 
         $clientsByName = [];
@@ -169,7 +169,7 @@ final class HistoricalCrewImportPreviewService
      * @param  array{
      *     employeesByNo: array<string, Employee>,
      *     vesselsByName: array<string, list<Vessel>>,
-     *     ranksByName: array<string, list<Rank>>,
+     *     ranksByName: array<string, list<object>>,
      *     clientsByName: array<string, list<Client>>
      * }  $lookups
      */
@@ -187,10 +187,10 @@ final class HistoricalCrewImportPreviewService
             }
         }
 
-        $ranksById = [];
+        $positionsById = [];
         foreach ($lookups['ranksByName'] as $matches) {
-            foreach ($matches as $rank) {
-                $ranksById[(int) $rank->id] = $rank;
+            foreach ($matches as $position) {
+                $positionsById[(int) $position->id] = $position;
             }
         }
 
@@ -243,7 +243,7 @@ final class HistoricalCrewImportPreviewService
         return new HistoricalCrewBulkValidationContext(
             employeesById: $employeesById,
             vesselsById: $vesselsById,
-            ranksById: $ranksById,
+            positionsById: $positionsById,
             clientsById: $clientsById,
             assignmentsByEmployeeId: $assignmentsByEmployeeId,
             seaServicesByEmployeeId: $seaServicesByEmployeeId,
@@ -255,7 +255,7 @@ final class HistoricalCrewImportPreviewService
      * @param  array{
      *     employeesByNo: array<string, Employee>,
      *     vesselsByName: array<string, list<Vessel>>,
-     *     ranksByName: array<string, list<Rank>>,
+     *     ranksByName: array<string, list<object>>,
      *     clientsByName: array<string, list<Client>>
      * }  $lookups
      * @return array<string, mixed>
@@ -279,7 +279,7 @@ final class HistoricalCrewImportPreviewService
                 $resolveErrors[$required] = match ($required) {
                     HistoricalCrewImportColumns::EMPLOYEE_NO => 'employee_no is required.',
                     HistoricalCrewImportColumns::VESSEL => 'vessel is required.',
-                    HistoricalCrewImportColumns::RANK => 'rank is required.',
+                    HistoricalCrewImportColumns::RANK => 'position is required.',
                     default => "{$required} is required.",
                 };
             }
@@ -335,10 +335,10 @@ final class HistoricalCrewImportPreviewService
             $matches = $lookups['ranksByName'][mb_strtolower(trim($rankName))] ?? [];
 
             if ($matches === []) {
-                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Rank \"{$rankName}\" was not found.";
+                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Position \"{$rankName}\" was not found.";
             } elseif (count($matches) > 1) {
-                $ids = collect($matches)->map(fn (Rank $r) => '#'.$r->id)->implode(', ');
-                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Rank \"{$rankName}\" is ambiguous ({$ids}).";
+                $ids = collect($matches)->map(fn ($r) => '#'.$r->id)->implode(', ');
+                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Position \"{$rankName}\" is ambiguous ({$ids}).";
             } else {
                 $rank = $matches[0];
             }
@@ -370,7 +370,7 @@ final class HistoricalCrewImportPreviewService
                     data: [
                         'employee_id' => (int) $employee->id,
                         'vessel_id' => (int) $vessel->id,
-                        'rank_id' => (int) $rank->id,
+                        'position_id' => (int) $rank->id,
                         'client_id' => $client?->id,
                         'sign_on_standby_from' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_FROM] ?? null,
                         'sign_on_standby_to' => $parsedRow->raw[HistoricalCrewImportColumns::SIGN_ON_STANDBY_TO] ?? null,
@@ -431,8 +431,8 @@ final class HistoricalCrewImportPreviewService
             'employee_name' => $employee?->name,
             'vessel_id' => $vessel?->id,
             'vessel_name' => $vessel?->name ?? $vesselName,
-            'rank_id' => $rank?->id,
-            'rank_name' => $rank?->name ?? $rankName,
+            'position_id' => $rank?->id,
+            'position_name' => $rank?->title ?? $rankName,
             'client_id' => $client?->id,
             'client_name' => $client?->name ?? $clientName,
             'joined_vessel_at' => $parsedRow->onsiteFrom(),
@@ -636,9 +636,9 @@ final class HistoricalCrewImportPreviewService
                 'id' => $row['vessel_id'],
                 'name' => $row['vessel_name'],
             ],
-            'rank' => [
-                'id' => $row['rank_id'],
-                'name' => $row['rank_name'],
+            'position' => [
+                'id' => $row['position_id'],
+                'name' => $row['position_name'],
             ],
             'client' => $row['client_id'] !== null || $row['client_name'] !== null
                 ? [

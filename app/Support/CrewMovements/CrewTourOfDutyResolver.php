@@ -2,7 +2,7 @@
 
 namespace App\Support\CrewMovements;
 
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Validation\ValidationException;
@@ -14,27 +14,31 @@ final class CrewTourOfDutyResolver
     ) {}
 
     /**
-     * Resolve Tour of Duty from global Rank Master data.
+     * Resolve Tour of Duty from the assignment Position master data.
+     *
+     * Uses the assignment-specific Position — never fall back to Employee.position_id.
      */
     public function resolve(
         int $companyId,
-        int $rankId,
+        int $positionId,
         CarbonInterface $actualJoinAt,
     ): CrewTourOfDutyResult {
         $timezone = CompanyTimezone::forCompanyId($companyId);
 
-        $rank = Rank::query()
-            ->whereKey($rankId)
+        $position = Position::query()
+            ->where('company_id', $companyId)
+            ->whereKey($positionId)
+            ->whereNull('deleted_at')
             ->first();
 
-        if ($rank === null) {
+        if ($position === null) {
             throw ValidationException::withMessages([
-                'rank_id' => 'The selected rank is invalid for this company.',
+                'position_id' => 'The selected position is invalid for this company.',
             ]);
         }
 
-        $days = $rank->max_tour_of_duty_days !== null && (int) $rank->max_tour_of_duty_days > 0
-            ? (int) $rank->max_tour_of_duty_days
+        $days = $position->max_tour_of_duty_days !== null && (int) $position->max_tour_of_duty_days > 0
+            ? (int) $position->max_tour_of_duty_days
             : null;
 
         $suggested = $days !== null

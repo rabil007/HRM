@@ -9,6 +9,7 @@ use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationsSetting;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Departments\BuildDepartmentTree;
@@ -550,12 +551,12 @@ final class CrewOperationsSettings
     }
 
     /**
-     * All active ranked employees for the planning crew sidebar and assign picker.
+     * All active crew-position employees for the planning crew sidebar and assign picker.
      *
      * Scoped by the user's role employee visibility scope.
      * Does not exclude employees based on deployment or crew availability status.
      *
-     * @return list<array{id: int, name: string, rank_id: int, rank_name: string}>
+     * @return list<array{id: int, name: string, position_id: int, position_name: string}>
      */
     public static function poolEmployees(int $companyId, ?User $user = null): array
     {
@@ -563,27 +564,36 @@ final class CrewOperationsSettings
             ->where('employees.company_id', $companyId)
             ->active()
             ->whereNull('employees.termination_date')
-            ->whereNotNull('employees.rank_id');
+            ->whereNotNull('employees.position_id');
 
         $query = EmployeeVisibilityScope::apply($query, $user, $companyId);
 
-        return $query
-            ->join('ranks', 'employees.rank_id', '=', 'ranks.id')
-            ->whereNull('ranks.deleted_at')
-            ->where('ranks.is_active', true)
+        $employees = $query
+            ->with(['position:id,title'])
             ->orderBy('employees.name')
             ->get([
                 'employees.id',
                 'employees.name',
-                'employees.rank_id',
-                'ranks.name as rank_name',
-            ])
-            ->map(fn (Employee $employee) => [
-                'id' => (int) $employee->id,
-                'name' => (string) $employee->name,
-                'rank_id' => (int) $employee->rank_id,
-                'rank_name' => (string) $employee->rank_name,
-            ])
+                'employees.position_id',
+            ]);
+
+        return $employees
+            ->map(function (Employee $employee): ?array {
+                $position = $employee->position;
+
+                if ($position === null || (int) ($employee->position_id ?? 0) < 1) {
+                    return null;
+                }
+
+                return [
+                    'id' => (int) $employee->id,
+                    'name' => (string) $employee->name,
+                    'position_id' => (int) $position->id,
+                    'position_name' => (string) $position->title,
+                ];
+            })
+            ->filter()
+            ->values()
             ->all();
     }
 }

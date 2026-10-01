@@ -103,7 +103,7 @@ export function CrewMembersSection({
                 </h2>
                 <p className="text-xs text-muted-foreground">
                     {compact
-                        ? 'Rank defaults from the employee profile and can be changed per row.'
+                        ? 'Position defaults from the employee profile and can be changed per row.'
                         : 'Assign who this mobilisation cycle belongs to.'}
                 </p>
             </div>
@@ -125,7 +125,7 @@ export function CrewMembersSection({
                             <TableHeader>
                                 <DataTableHeaderRow>
                                     <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead>Rank</DataTableHead>
+                                    <DataTableHead>Position</DataTableHead>
                                     <DataTableHead>Arrival Date</DataTableHead>
                                     <DataTableHead>
                                         Operational Status
@@ -246,7 +246,7 @@ function SingleCrewMemberCard({
                 showOperationalStatus
                 selectedEmployeeIds={selectedEmployeeIds}
                 employeeErrorKey="employee_id"
-                rankErrorKey="rank_id"
+                positionErrorKey="position_id"
                 arrivalErrorKey="planned_arrival_at"
             />
         </div>
@@ -310,12 +310,12 @@ function BulkDesktopRow({
                 />
             </td>
             <td className={dataTableCellClass()}>
-                <RankSelect
+                <PositionSelect
                     index={index}
                     row={row}
                     formOptions={formOptions}
                     onChangeRow={onChangeRow}
-                    error={bulkFieldError(errors, `crew.${index}.rank_id`)}
+                    error={bulkFieldError(errors, `crew.${index}.position_id`)}
                 />
             </td>
             <td className={dataTableCellClass()}>
@@ -427,13 +427,13 @@ function BulkMobileCard({
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor={`bulk-rank-${index}`}>Rank</Label>
-                <RankSelect
+                <Label htmlFor={`bulk-position-${index}`}>Position</Label>
+                <PositionSelect
                     index={index}
                     row={row}
                     formOptions={formOptions}
                     onChangeRow={onChangeRow}
-                    error={bulkFieldError(errors, `crew.${index}.rank_id`)}
+                    error={bulkFieldError(errors, `crew.${index}.position_id`)}
                 />
             </div>
 
@@ -500,7 +500,7 @@ function EmployeeSelect({
                     onChangeRow(index, {
                         ...row,
                         employee_id: employeeId,
-                        rank_id: employee?.rank_id ?? null,
+                        position_id: employee?.position_id ?? null,
                     });
                 }}
                 variant="dark"
@@ -531,7 +531,7 @@ function EmployeeSelect({
     );
 }
 
-function RankSelect({
+function PositionSelect({
     index,
     row,
     formOptions,
@@ -547,25 +547,28 @@ function RankSelect({
     return (
         <div className="space-y-1.5">
             <AppSelect
-                value={row.rank_id?.toString() ?? ''}
+                value={row.position_id?.toString() ?? ''}
                 onValueChange={(value) =>
                     onChangeRow(index, {
                         ...row,
-                        rank_id: value ? Number(value) : null,
+                        position_id: value ? Number(value) : null,
                     })
                 }
                 variant="dark"
-                placeholder="Select rank..."
-                searchPlaceholder="Search rank..."
+                placeholder="Select position..."
+                searchPlaceholder="Search position..."
             >
-                <AppSelectItem value="">Select rank...</AppSelectItem>
-                {formOptions.ranks.map((rank) => (
-                    <AppSelectItem key={rank.id} value={String(rank.id)}>
-                        {rank.name}
+                <AppSelectItem value="">Select position...</AppSelectItem>
+                {formOptions.positions.map((position) => (
+                    <AppSelectItem
+                        key={position.id}
+                        value={String(position.id)}
+                    >
+                        {position.name}
                     </AppSelectItem>
                 ))}
             </AppSelect>
-            <InputError message={error} id={`bulk-rank-${index}-error`} />
+            <InputError message={error} id={`bulk-position-${index}-error`} />
         </div>
     );
 }

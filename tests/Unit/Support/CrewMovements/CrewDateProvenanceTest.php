@@ -41,7 +41,7 @@ test('vessel transfer planned join copied from actual is excluded from planned j
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',
@@ -170,7 +170,7 @@ test('blank planned dates stay blank and never fall back to actual dates', funct
         $assignment->fresh([
             'company',
             'employee',
-            'rank',
+            'position',
             'vessel',
             'client',
             'currentPhase',

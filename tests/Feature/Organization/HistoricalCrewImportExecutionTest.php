@@ -36,7 +36,7 @@ test('ready rows import as active historical_import with batch linkage and sea s
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
             'remarks' => 'Phase 3 import',
@@ -114,7 +114,7 @@ test('ready rows with home import as completed historical assignment', function 
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
                     'travel_home_date' => '2024-07-22',
@@ -149,7 +149,7 @@ test('partial import skips blocked rows and imports ready plus warning rows', fu
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
             'travel_home_date' => '2024-07-23',
@@ -157,7 +157,7 @@ test('partial import skips blocked rows and imports ready plus warning rows', fu
         [
             'employee_no' => 'MISSING-999',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2023-06-01',
         ],
@@ -200,7 +200,7 @@ test('idempotent double submit returns same batch without duplicating assignment
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-02-01',
         'disembark_date' => '2024-08-01',
     ];
@@ -240,7 +240,7 @@ test('reimporting same historical interval is blocked by domain overlap', functi
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-03-01',
         'disembark_date' => '2024-09-01',
     ];
@@ -279,7 +279,7 @@ test('final import revalidation blocks row when overlapping assignment appears a
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-04-01',
             'disembark_date' => '2024-10-01',
         ],
@@ -296,7 +296,7 @@ test('final import revalidation blocks row when overlapping assignment appears a
         ->post(route('organization.crew-assignments.historical.store'), [
             'employee_id' => $employee->id,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'onsite_from' => '2024-04-01',
             'onsite_to' => '2024-10-01',
             'sign_off_standby_from' => '2024-10-01',
@@ -309,7 +309,7 @@ test('final import revalidation blocks row when overlapping assignment appears a
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-04-01',
                     'disembark_date' => '2024-10-01',
                 ],
@@ -358,7 +358,7 @@ test('hidden employee cannot be imported and remains indistinguishable from miss
                 [
                     'employee_no' => 'HID-55',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
                 ],
@@ -393,7 +393,7 @@ test('historical import does not mutate active assignment planning stays alerts 
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
                     'travel_home_date' => '2024-07-20',
@@ -435,7 +435,7 @@ test('importing older history before an active assignment updates previous linka
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
                     'travel_home_date' => '2024-07-20',
@@ -472,14 +472,14 @@ test('one failed or blocked employee does not prevent other successful imports',
         [
             'employee_no' => '3220',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2023-06-01',
         ],
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-01',
             'disembark_date' => '2024-06-30',
         ],
@@ -521,14 +521,14 @@ test('batch detail and result workbook download work for company actor', functio
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
         [
             'employee_no' => 'NOPE',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-01',
             'disembark_date' => '2023-02-01',
             'remarks' => '=CMD()',
@@ -580,7 +580,7 @@ test('result workbook reports Sign-On Standby as last movement for open P2A', fu
         [
             'employee_no' => 'TRAIN01',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'sign_on_standby_from' => '2024-09-03',
         ],
     ]);
@@ -632,7 +632,7 @@ test('result workbook reports Sign-Off Standby as last movement for Active P5 en
         [
             'employee_no' => 'P5RES01',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-15',
             'disembark_date' => '2024-07-20',
         ],
@@ -676,7 +676,7 @@ test('result workbook reports Home / Available as last movement for Completed P6
         [
             'employee_no' => 'P6RES01',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2023-01-15',
             'disembark_date' => '2023-07-20',
             'travel_home_date' => '2023-07-23',
@@ -725,7 +725,7 @@ test('result workbook stays On Vessel after later live disembarkation', function
                 [
                     'employee_no' => 'AUDITP4',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                 ],
             ]),
@@ -803,7 +803,7 @@ test('result workbook stays Sign-On Standby after later live join vessel', funct
                 [
                     'employee_no' => 'AUDITTEND',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'sign_on_standby_from' => '2024-09-10',
                 ],
             ]),
@@ -825,7 +825,7 @@ test('result workbook stays Sign-On Standby after later live join vessel', funct
         [
             'occurred_at' => '2025-04-01 12:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ],
         $user->id,
     );
@@ -873,14 +873,14 @@ test('cross company employee and vessel remain blocked on import', function () {
                 [
                     'employee_no' => $foreignEmployee->employee_no,
                     'vessel' => $localVessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
                 ],
                 [
                     'employee_no' => 'LOCAL-MISSING',
                     'vessel' => $foreignVessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
                 ],
@@ -910,7 +910,7 @@ test('company_id injection from client is ignored for batches', function () {
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-15',
                     'disembark_date' => '2024-07-20',
                 ],
@@ -944,7 +944,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-01',
                     'disembark_date' => '2024-01-10',
                     'travel_home_date' => '2024-01-10',
@@ -952,7 +952,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-10',
                     'disembark_date' => '2024-01-20',
                     'travel_home_date' => '2024-01-20',
@@ -970,7 +970,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-01',
                     'disembark_date' => '2024-01-10',
                     'travel_home_date' => '2024-01-10',
@@ -978,7 +978,7 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-11',
                     'disembark_date' => '2024-01-20',
                     'travel_home_date' => '2024-01-20',
@@ -1015,7 +1015,7 @@ test('hundreds of rows validate without exploding query count', function () {
             $rows[] = [
                 'employee_no' => $employee->employee_no,
                 'vessel' => $vessel->name,
-                'rank' => $rank->name,
+                'rank' => $rank->title,
                 'vessel_join_date' => "{$year}-01-01",
                 'disembark_date' => "{$year}-06-01",
                 'travel_home_date' => "{$year}-06-01",

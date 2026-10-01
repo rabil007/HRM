@@ -7,13 +7,14 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -23,6 +24,7 @@ final class CrewMovementHistoryQuery
         'assignment_no',
         'employee_name',
         'rank',
+        'position',
         'vessel',
         'client',
         'status',
@@ -45,10 +47,13 @@ final class CrewMovementHistoryQuery
      */
     public function paginate(int $perPage = 25): LengthAwarePaginator
     {
-        return $this->ordered($this->filteredQuery())
+        $paginator = $this->ordered($this->filteredQuery())
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray($assignment));
+            ->withQueryString();
+
+        CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
+
+        return $paginator->through(fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray($assignment));
     }
 
     /**
@@ -106,7 +111,8 @@ final class CrewMovementHistoryQuery
             $query->with([
                 'company:id,timezone',
                 'employee:id,company_id,employee_no,name',
-                'rank:id,name',
+                'position:id,title',
+                'position:id,title',
                 'vessel:id,name',
                 'client:id,name',
                 'currentPhase:id,crew_assignment_id,phase_code,status,actual_start_at,actual_end_at',
@@ -143,15 +149,15 @@ final class CrewMovementHistoryQuery
                 'accommodationStays.hotel:id,name',
                 'accommodationStays.roomType:id,name',
                 'accommodationStays.startedFromPhase:id,phase_code',
-                'previousAssignment:id,company_id,assignment_no,source,status,vessel_id,rank_id,client_id,started_at,closed_at,current_phase_id',
+                'previousAssignment:id,company_id,assignment_no,source,status,vessel_id,position_id,client_id,started_at,closed_at,current_phase_id',
                 'previousAssignment.vessel:id,name',
-                'previousAssignment.rank:id,name',
+                'previousAssignment.position:id,title',
                 'previousAssignment.client:id,name',
                 'previousAssignment.currentPhase:id,phase_code',
                 'previousAssignment.phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
-                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,source,status,vessel_id,rank_id,client_id,started_at,closed_at,current_phase_id',
+                'nextAssignments:id,company_id,previous_assignment_id,assignment_no,source,status,vessel_id,position_id,client_id,started_at,closed_at,current_phase_id',
                 'nextAssignments.vessel:id,name',
-                'nextAssignments.rank:id,name',
+                'nextAssignments.position:id,title',
                 'nextAssignments.client:id,name',
                 'nextAssignments.currentPhase:id,phase_code',
                 'nextAssignments.phases:id,crew_assignment_id,phase_code,sequence,status,actual_start_at',
@@ -171,7 +177,8 @@ final class CrewMovementHistoryQuery
                             ->orWhere('employee_no', 'like', $like))
                         ->orWhereHas('vessel', fn (Builder $vessel) => $vessel->where('name', 'like', $like))
                         ->orWhereHas('client', fn (Builder $client) => $client->where('name', 'like', $like))
-                        ->orWhereHas('rank', fn (Builder $rank) => $rank->where('name', 'like', $like))
+                        ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', $like))
+                        ->orWhereHas('position', fn (Builder $position) => $position->where('title', 'like', $like))
                         ->orWhereHas('previousAssignment', fn (Builder $previous) => $previous
                             ->where('company_id', $this->companyId)
                             ->where('assignment_no', 'like', $like))
@@ -199,7 +206,10 @@ final class CrewMovementHistoryQuery
                 fn (Builder $phase) => $phase->where('phase_code', $this->filters->currentPhase),
             ))
             ->when($this->filters->vesselId !== '', fn (Builder $inner) => $inner->where('crew_assignments.vessel_id', $this->filters->vesselId))
-            ->when($this->filters->rankId !== '', fn (Builder $inner) => $inner->where('crew_assignments.rank_id', $this->filters->rankId))
+            ->when(
+                $this->filters->positionId !== '',
+                fn (Builder $inner) => $inner->where('crew_assignments.position_id', (int) $this->filters->positionId),
+            )
             ->when($this->filters->clientId !== '', fn (Builder $inner) => $inner->where('crew_assignments.client_id', $this->filters->clientId))
             ->when($this->filters->source !== '', fn (Builder $inner) => $inner->where('crew_assignments.source', $this->filters->source))
             ->when($this->filters->plannedArrivalFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.planned_arrival_at', '>=', $this->filters->plannedArrivalFrom))
@@ -313,8 +323,8 @@ final class CrewMovementHistoryQuery
                 Employee::query()->select('name')->whereColumn('employees.id', 'crew_assignments.employee_id'),
                 $direction,
             ),
-            'rank' => $query->orderBy(
-                Rank::query()->select('name')->whereColumn('ranks.id', 'crew_assignments.rank_id'),
+            'rank', 'position' => $query->orderBy(
+                Position::query()->select('title')->whereColumn('positions.id', 'crew_assignments.position_id'),
                 $direction,
             ),
             'vessel' => $query->orderBy(

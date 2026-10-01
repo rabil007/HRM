@@ -60,7 +60,7 @@ export type ReliefDeskMobileCardModel = {
 export function reliefDeskMobileCardModel(
     row: ReliefDeskRow,
 ): ReliefDeskMobileCardModel {
-    const vesselRank = [row.vessel?.name, row.rank?.name]
+    const vesselPosition = [row.vessel?.name, row.position?.name]
         .filter((part): part is string => Boolean(part))
         .join(' · ');
 
@@ -71,7 +71,7 @@ export function reliefDeskMobileCardModel(
             : (reliefName ?? row.relief_status_label);
 
     return {
-        title: vesselRank || 'Unassigned vessel',
+        title: vesselPosition || 'Unassigned vessel',
         subtitle: [
             row.employee?.name ?? 'Unassigned',
             reliefDeskDutySummary(row),

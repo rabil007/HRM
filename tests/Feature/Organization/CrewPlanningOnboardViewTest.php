@@ -85,7 +85,7 @@ test('crew planning onboard view excludes p5 crew', function () {
 test('crew planning onboard view excludes inactive employees with leftover active p4', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = makeCrewPlanningOnboardFixtures();
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     makeActiveOnVesselAssignment($company, $inactive, $rank, $vessel);
 
@@ -126,7 +126,7 @@ test('crew planning onboard view matches crew assignments vessel view for the sa
             'view' => 'vessel',
             'search' => $employee->name,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]))
         ->assertOk()
         ->inertiaProps('vessels');
@@ -136,7 +136,7 @@ test('crew planning onboard view matches crew assignments vessel view for the sa
             'view' => 'onboard-vessels',
             'search' => $employee->name,
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]))
         ->assertOk()
         ->inertiaProps('onboard_vessels');

@@ -21,7 +21,6 @@ use App\Models\Gender;
 use App\Models\LeaveType;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\Vessel;
@@ -117,7 +116,7 @@ final class SavedViewCatalog
     /**
      * @return array<string, string>
      */
-    public static function forApply(SavedViewPage $page, mixed $raw): array
+    public static function forApply(SavedViewPage $page, mixed $raw, ?int $companyId = null): array
     {
         if (! is_array($raw)) {
             return [];
@@ -168,7 +167,6 @@ final class SavedViewCatalog
                 'nationality_id' => ['type' => 'id', 'model' => Country::class, 'company' => false],
                 'visa_type_id' => ['type' => 'id', 'model' => VisaType::class, 'company' => false],
                 'company_visa_type_id' => ['type' => 'id', 'model' => CompanyVisaType::class, 'company' => false],
-                'rank_id' => ['type' => 'id', 'model' => Rank::class, 'company' => false],
                 'client_id' => ['type' => 'id', 'model' => Client::class, 'company' => false],
                 'project_id' => ['type' => 'id', 'model' => Project::class, 'company' => false],
                 'approval_location_id' => ['type' => 'id', 'model' => ApprovalLocation::class, 'company' => false],
@@ -189,7 +187,7 @@ final class SavedViewCatalog
                 'phase' => ['type' => 'enum', 'values' => CrewPhaseCode::values()],
                 'status' => ['type' => 'enum', 'values' => CrewAssignmentStatus::values()],
                 'vessel_id' => ['type' => 'id', 'model' => Vessel::class, 'company' => true],
-                'rank_id' => ['type' => 'id', 'model' => Rank::class, 'company' => false],
+                'position_id' => ['type' => 'id', 'model' => Position::class, 'company' => true],
                 'client_id' => ['type' => 'id', 'model' => Client::class, 'company' => false],
                 'employee_id' => ['type' => 'id', 'model' => Employee::class, 'company' => true],
                 'planned_join_from' => ['type' => 'date'],
@@ -261,10 +259,6 @@ final class SavedViewCatalog
         };
     }
 
-    /**
-     * @param  array<string, mixed>  $raw
-     * @return array<string, mixed>
-     */
     private static function migrateLegacyEmployeeFilters(array $raw, bool $rejectInvalid): array
     {
         unset($raw['branch_id'], $raw['crew_status']);

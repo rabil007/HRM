@@ -35,6 +35,8 @@ class StorePositionRequest extends FormRequest
             'min_salary' => ['nullable', 'numeric', 'min:0'],
             'max_salary' => ['nullable', 'numeric', 'min:0'],
             'status' => ['nullable', 'in:active,inactive'],
+            'is_crew_position' => ['nullable', 'boolean'],
+            'max_tour_of_duty_days' => ['nullable', 'integer', 'min:1', 'max:365'],
             'attachment' => [
                 'nullable',
                 File::types(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'])->max('10mb'),

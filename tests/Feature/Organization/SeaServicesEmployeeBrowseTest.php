@@ -6,7 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -64,9 +64,10 @@ function makeSeaServicesBrowseFixtures(): array
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Browse Rank '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Browse Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     return compact('company', 'branch', 'employee', 'vesselType', 'vessel', 'rank');
@@ -105,7 +106,7 @@ test('employee sea services browse page loads records for the employee', functio
         'employee_id' => $employee->id,
         'vessel_type_id' => $vesselType->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'start_date' => '2023-01-01',
         'end_date' => '2023-06-30',
         'total_months' => $duration['months'],

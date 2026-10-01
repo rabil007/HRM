@@ -749,7 +749,7 @@ export default function CrewOperationsSettings({
                             </div>
                             <div className="flex gap-2.5 rounded-xl bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
                                 <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                                This default applies to every rank unless a
+                                This default applies to every position unless a
                                 specific rule overrides it.
                             </div>
                         </CardContent>

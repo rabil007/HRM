@@ -9,7 +9,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewMovementService;
@@ -23,7 +23,7 @@ afterEach(function (): void {
 });
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewMovementActionFixtures(): array
 {
@@ -49,7 +49,7 @@ test('users without movement permission cannot perform actions', function () {
     ]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -64,7 +64,7 @@ test('approve mobilisation advances draft to travel in', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -88,12 +88,15 @@ test('transfer vessel redirects to the new destination assignment', function () 
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $sourceVessel);
 
     $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::TransferVessel->value,
             'occurred_at' => '2026-06-01 08:00:00',
             'vessel_id' => $destinationVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]);
+
+    $response->assertSessionDoesntHaveErrors();
 
     $destination = CrewAssignment::query()
         ->where('company_id', $company->id)
@@ -132,7 +135,7 @@ test('confirm disembarkation creates sea service', function () {
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -147,7 +150,7 @@ test('confirm disembarkation creates sea service', function () {
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $assignment = CrewAssignment::query()->findOrFail($id);
@@ -187,7 +190,7 @@ test('users without movement permission do not receive action availability valid
     ]);
 
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
 
@@ -206,7 +209,7 @@ test('cross-company movement action is rejected', function () {
     ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
 
     $foreign = app(CrewMovementService::class)->createDraft($otherCompany->id, $otherEmployee->id, [
-        'rank_id' => $otherRank->id,
+        'position_id' => $otherRank->id,
     ]);
 
     $this->actingAs($user)
@@ -226,7 +229,7 @@ test('users without cancel permission cannot cancel', function () {
     ]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -242,7 +245,7 @@ test('cancel assignment succeeds with reason', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -260,7 +263,7 @@ test('record arrival rejects invalid next phase', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
     app(CrewMovementService::class)->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
         'occurred_at' => '2026-01-01 08:00:00',
@@ -323,7 +326,7 @@ test('plan signoff requires override reason', function () {
 test('active p0 rejects crafted approve mobilisation at http boundary without creating p1', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
 
@@ -358,7 +361,7 @@ test('redeploy with starting phase p1 is rejected at http boundary', function ()
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::Redeploy->value,
             'vessel_id' => $newVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'starting_phase' => 'p1',
             'occurred_at' => '2026-02-02 08:00:00',
         ])
@@ -382,7 +385,7 @@ test('redeploy with starting phase p3 is rejected at http boundary', function ()
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::Redeploy->value,
             'vessel_id' => $newVessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'starting_phase' => 'p3',
             'occurred_at' => '2026-02-02 08:00:00',
         ])
@@ -392,7 +395,7 @@ test('redeploy with starting phase p3 is rejected at http boundary', function ()
 test('record arrival on active p0 transitions to join standby and sets actual arrival date', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'planned_arrival_at' => '2026-01-04 10:00:00',
         'planned_join_at' => '2026-01-05',
         'stage_started_at' => '2026-01-01 08:00:00',

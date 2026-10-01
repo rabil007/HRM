@@ -200,7 +200,7 @@ function editMobilisationAction(): ReadinessAction {
     return {
         key: 'edit_mobilisation',
         label: 'Edit Mobilisation',
-        description: 'Update vessel, rank, or dates on this mobilisation',
+        description: 'Update vessel, position, or dates on this mobilisation',
         kind: 'link',
         emphasis: 'secondary',
     };

@@ -36,7 +36,7 @@ final class CrewReliefDeskFilters
         return [
             'search' => '',
             'vessel_id' => null,
-            'rank_id' => null,
+            'position_id' => null,
             'client_id' => null,
             'relief_status' => '',
             'relief_risk' => '',
@@ -54,7 +54,8 @@ final class CrewReliefDeskFilters
     public static function fromRequest(Request $request): array
     {
         $vesselId = $request->query('vessel_id');
-        $rankId = $request->query('rank_id');
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $positionId = (string) ($request->query('position_id') ?? '');
         $clientId = $request->query('client_id');
         $horizon = trim((string) $request->query('horizon', self::HORIZON_DEFAULT));
         $focus = trim((string) $request->query('focus', ''));
@@ -80,7 +81,7 @@ final class CrewReliefDeskFilters
         return [
             'search' => trim((string) $request->query('search', '')),
             'vessel_id' => $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
-            'rank_id' => $rankId !== null && $rankId !== '' ? (int) $rankId : null,
+            'position_id' => $positionId !== '' ? (int) $positionId : null,
             'client_id' => $clientId !== null && $clientId !== '' ? (int) $clientId : null,
             'relief_status' => $reliefStatus,
             'relief_risk' => $reliefRisk,
@@ -103,8 +104,8 @@ final class CrewReliefDeskFilters
             'vessel_id' => $filters['vessel_id'] !== null && $filters['vessel_id'] !== ''
                 ? (int) $filters['vessel_id']
                 : null,
-            'rank_id' => $filters['rank_id'] !== null && $filters['rank_id'] !== ''
-                ? (int) $filters['rank_id']
+            'position_id' => $filters['position_id'] !== null && $filters['position_id'] !== ''
+                ? (int) $filters['position_id']
                 : null,
             'client_id' => $filters['client_id'] !== null && $filters['client_id'] !== ''
                 ? (int) $filters['client_id']
@@ -125,7 +126,7 @@ final class CrewReliefDeskFilters
     {
         return trim((string) ($filters['search'] ?? '')) !== ''
             || ($filters['vessel_id'] ?? null) !== null
-            || ($filters['rank_id'] ?? null) !== null
+            || ($filters['position_id'] ?? null) !== null
             || ($filters['client_id'] ?? null) !== null
             || trim((string) ($filters['relief_status'] ?? '')) !== ''
             || trim((string) ($filters['relief_risk'] ?? '')) !== ''

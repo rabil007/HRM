@@ -8,7 +8,7 @@ use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -86,25 +86,28 @@ final class HistoricalCrewAssignmentValidator
             'message' => $vesselMessage,
         ];
 
-        $rank = $bulk?->rank($data->rankId) ?? Rank::query()->find($data->rankId);
-        $rankValid = true;
-        $rankMessage = null;
+        $position = $data->positionId > 0
+            ? ($bulk?->position($data->positionId) ?? Position::query()
+                ->where('company_id', $data->companyId)
+                ->whereKey($data->positionId)
+                ->whereNull('deleted_at')
+                ->first())
+            : null;
+        $positionValid = $position !== null;
+        $positionMessage = $positionValid
+            ? 'Position is valid.'
+            : 'The selected position is invalid.';
 
-        if ($rank === null) {
-            $rankValid = false;
-            $rankMessage = 'The selected rank is invalid.';
-            $errors['rank_id'] = $rankMessage;
-        } else {
-            $rankMessage = 'Rank is valid.';
-            if (! $rank->is_active) {
-                $warnings[] = "Rank '{$rank->name}' is currently inactive in master data.";
-            }
+        if (! $positionValid) {
+            $errors['position_id'] = $positionMessage;
+        } elseif ($position->status !== 'active' || ! $position->is_crew_position) {
+            $warnings[] = "Position '{$position->title}' is not an active crew position in master data.";
         }
 
         $checks[] = [
-            'code' => 'rank',
-            'passed' => $rankValid,
-            'message' => $rankMessage,
+            'code' => 'position',
+            'passed' => $positionValid,
+            'message' => $positionMessage,
         ];
 
         $client = null;
@@ -339,7 +342,7 @@ final class HistoricalCrewAssignmentValidator
                     seaStartDate: $seaStartDate,
                     seaEndDate: $seaEndDate,
                     seaDays: $hasCompletedSea ? $seaDuration['days'] : 0,
-                    proposedRankName: $rank?->name,
+                    proposedRankName: $position?->title,
                     existingForEmployee: $existingSeaServices,
                 );
 
@@ -448,10 +451,10 @@ final class HistoricalCrewAssignmentValidator
                 'id' => (int) $vessel->id,
                 'name' => (string) $vessel->name,
             ] : ['id' => $data->vesselId, 'name' => 'Unknown'],
-            rank: $rank !== null ? [
-                'id' => (int) $rank->id,
-                'name' => (string) $rank->name,
-            ] : ['id' => $data->rankId, 'name' => 'Unknown'],
+            position: $position !== null ? [
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
+            ] : ['id' => $data->positionId, 'name' => 'Unknown'],
             client: $client !== null ? [
                 'id' => (int) $client->id,
                 'name' => (string) $client->name,

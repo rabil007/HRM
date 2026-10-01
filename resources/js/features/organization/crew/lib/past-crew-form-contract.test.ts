@@ -75,7 +75,7 @@ describe('Past Crew Data form contract', () => {
         );
 
         assert.match(optionsBlock, /employees:/);
-        assert.match(optionsBlock, /ranks:/);
+        assert.match(optionsBlock, /positions:/);
         assert.match(optionsBlock, /vessels:/);
         assert.match(optionsBlock, /clients:/);
         assert.match(optionsBlock, /company_timezone:/);

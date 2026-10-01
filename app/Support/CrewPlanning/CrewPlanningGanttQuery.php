@@ -9,6 +9,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\User;
 use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,21 +20,25 @@ final class CrewPlanningGanttQuery
     /**
      * Gantt rows derived from planned and active assignments in range, grouped by vessel.
      *
+     * Temporary compatibility: callers may still pass projection rows that were built
+     * from legacy `vessel:<id>|rank:<rank_id>` keys; those are normalized to
+     * `vessel:<id>|position:<position_id>` before merge. New keys always use position:.
+     *
      * @param  list<array{
      *     row_key: string,
      *     vessel_id: int,
      *     vessel_name: string,
-     *     rank_id: int,
-     *     rank_name: string,
+     *     position_id: int,
+     *     position_name: string,
      *     required_count: int
      * }>|null  $projectionPositions
      * @return list<array{
      *     vessel_id: int,
      *     vessel_name: string,
-     *     ranks: list<array{
+     *     positions: list<array{
      *         row_key: string,
-     *         rank_id: int,
-     *         rank_name: string,
+     *         position_id: int,
+     *         position_name: string,
      *         required_count: int
      *     }>
      * }>
@@ -43,11 +48,11 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
         ?array $projectionPositions = null,
         ?User $user = null,
     ): array {
-        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $rankId, $user);
+        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $positionId, $user);
 
         $grouped = [];
 
@@ -60,14 +65,14 @@ final class CrewPlanningGanttQuery
                 $grouped[$vId] = [
                     'vessel_id' => $vId,
                     'vessel_name' => (string) $first['vessel_name'],
-                    'ranks' => [],
+                    'positions' => [],
                 ];
             }
 
-            $grouped[$vId]['ranks'][$rowKey] = [
+            $grouped[$vId]['positions'][$rowKey] = [
                 'row_key' => $rowKey,
-                'rank_id' => (int) $first['rank_id'],
-                'rank_name' => (string) $first['rank_name'],
+                'position_id' => (int) $first['position_id'],
+                'position_name' => (string) $first['position_name'],
                 'required_count' => $rowItems->count(),
             ];
         }
@@ -76,9 +81,19 @@ final class CrewPlanningGanttQuery
             $result = [];
 
             foreach ($grouped as $vesselGroup) {
-                $vesselGroup['ranks'] = array_values($vesselGroup['ranks']);
+                $positions = array_values($vesselGroup['positions']);
+                usort(
+                    $positions,
+                    fn (array $left, array $right): int => strcasecmp($left['position_name'], $right['position_name']),
+                );
+                $vesselGroup['positions'] = $positions;
                 $result[] = $vesselGroup;
             }
+
+            usort(
+                $result,
+                fn (array $left, array $right): int => strcasecmp($left['vessel_name'], $right['vessel_name']),
+            );
 
             return $result;
         }
@@ -91,17 +106,17 @@ final class CrewPlanningGanttQuery
                 $grouped[$vId] = [
                     'vessel_id' => $vId,
                     'vessel_name' => (string) $position['vessel_name'],
-                    'ranks' => [],
+                    'positions' => [],
                 ];
             }
 
-            if (isset($grouped[$vId]['ranks'][$rowKey])) {
-                $grouped[$vId]['ranks'][$rowKey]['required_count'] = (int) $position['required_count'];
+            if (isset($grouped[$vId]['positions'][$rowKey])) {
+                $grouped[$vId]['positions'][$rowKey]['required_count'] = (int) $position['required_count'];
             } else {
-                $grouped[$vId]['ranks'][$rowKey] = [
+                $grouped[$vId]['positions'][$rowKey] = [
                     'row_key' => $rowKey,
-                    'rank_id' => (int) $position['rank_id'],
-                    'rank_name' => (string) $position['rank_name'],
+                    'position_id' => (int) $position['position_id'],
+                    'position_name' => (string) $position['position_name'],
                     'required_count' => (int) $position['required_count'],
                 ];
             }
@@ -110,12 +125,12 @@ final class CrewPlanningGanttQuery
         $result = [];
 
         foreach ($grouped as $vesselGroup) {
-            $ranks = array_values($vesselGroup['ranks']);
+            $positions = array_values($vesselGroup['positions']);
             usort(
-                $ranks,
-                fn (array $left, array $right): int => strcasecmp($left['rank_name'], $right['rank_name']),
+                $positions,
+                fn (array $left, array $right): int => strcasecmp($left['position_name'], $right['position_name']),
             );
-            $vesselGroup['ranks'] = $ranks;
+            $vesselGroup['positions'] = $positions;
             $result[] = $vesselGroup;
         }
 
@@ -137,10 +152,10 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
         ?User $user = null,
     ): array {
-        return self::allPlanningItems($companyId, $from, $to, $vesselId, $rankId, $user)
+        return self::allPlanningItems($companyId, $from, $to, $vesselId, $positionId, $user)
             ->map(function (array $item) use ($to): array {
                 $displayEnd = $item['leave_date'] ?? $to;
                 $joinDate = $item['join_date'];
@@ -157,7 +172,7 @@ final class CrewPlanningGanttQuery
                     'planned_leave_date' => $leaveDate,
                     'is_open_ended' => $leaveDate === null,
                     'total_days' => $joinDate ? CrewPlanningAssignmentDuration::inclusiveDays($joinDate, $displayEnd) : 0,
-                    'rank_name' => $item['rank_name'],
+                    'position_name' => $item['position_name'],
                     'vessel_name' => $item['vessel_name'],
                     'notes' => $item['notes'],
                     'crew_assignment_id' => $item['crew_assignment_id'],
@@ -167,7 +182,7 @@ final class CrewPlanningGanttQuery
                     'relieves_employee_name' => $item['relieves_employee_name'],
                     'relieves_assignment_no' => $item['relieves_assignment_no'],
                     'relieves_vessel_name' => $item['relieves_vessel_name'],
-                    'relieves_rank_name' => $item['relieves_rank_name'],
+                    'relieves_position_name' => $item['relieves_position_name'],
                     'relieves_planned_signoff_at' => $item['relieves_planned_signoff_at'],
                     'is_assigned' => $item['is_assigned'],
                     'planning_kind' => $item['planning_kind'],
@@ -179,22 +194,22 @@ final class CrewPlanningGanttQuery
     }
 
     /**
-     * Tree data: vessels and ranks with planned crew in range.
+     * Tree data: vessels and positions with planned crew in range.
      *
      * @param  list<array{
      *     row_key: string,
      *     vessel_id: int,
      *     vessel_name: string,
-     *     rank_id: int,
-     *     rank_name: string,
+     *     position_id: int,
+     *     position_name: string,
      *     required_count: int
      * }>|null  $projectionPositions
      * @return list<array{
      *     vessel_id: int,
      *     vessel_name: string,
-     *     ranks: list<array{
-     *         rank_id: int,
-     *         rank_name: string,
+     *     positions: list<array{
+     *         position_id: int,
+     *         position_name: string,
      *         required_count: int,
      *         crew: list<array{
      *             employee_id: int|null,
@@ -210,11 +225,11 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId = null,
-        ?int $rankId = null,
+        ?int $positionId = null,
         ?array $projectionPositions = null,
         ?User $user = null,
     ): array {
-        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $rankId, $user);
+        $items = self::allPlanningItems($companyId, $from, $to, $vesselId, $positionId, $user);
 
         $grouped = [];
 
@@ -227,13 +242,13 @@ final class CrewPlanningGanttQuery
                 $grouped[$vId] = [
                     'vessel_id' => $vId,
                     'vessel_name' => (string) $first['vessel_name'],
-                    'ranks' => [],
+                    'positions' => [],
                 ];
             }
 
-            $grouped[$vId]['ranks'][$rowKey] = [
-                'rank_id' => (int) $first['rank_id'],
-                'rank_name' => (string) $first['rank_name'],
+            $grouped[$vId]['positions'][$rowKey] = [
+                'position_id' => (int) $first['position_id'],
+                'position_name' => (string) $first['position_name'],
                 'required_count' => $rowItems->count(),
                 'crew' => $rowItems
                     ->map(fn (array $item): array => [
@@ -251,9 +266,19 @@ final class CrewPlanningGanttQuery
             $result = [];
 
             foreach ($grouped as $vesselGroup) {
-                $vesselGroup['ranks'] = array_values($vesselGroup['ranks']);
+                $positions = array_values($vesselGroup['positions']);
+                usort(
+                    $positions,
+                    fn (array $left, array $right): int => strcasecmp($left['position_name'], $right['position_name']),
+                );
+                $vesselGroup['positions'] = $positions;
                 $result[] = $vesselGroup;
             }
+
+            usort(
+                $result,
+                fn (array $left, array $right): int => strcasecmp($left['vessel_name'], $right['vessel_name']),
+            );
 
             return $result;
         }
@@ -266,16 +291,16 @@ final class CrewPlanningGanttQuery
                 $grouped[$vId] = [
                     'vessel_id' => $vId,
                     'vessel_name' => (string) $position['vessel_name'],
-                    'ranks' => [],
+                    'positions' => [],
                 ];
             }
 
-            if (isset($grouped[$vId]['ranks'][$rowKey])) {
-                $grouped[$vId]['ranks'][$rowKey]['required_count'] = (int) $position['required_count'];
+            if (isset($grouped[$vId]['positions'][$rowKey])) {
+                $grouped[$vId]['positions'][$rowKey]['required_count'] = (int) $position['required_count'];
             } else {
-                $grouped[$vId]['ranks'][$rowKey] = [
-                    'rank_id' => (int) $position['rank_id'],
-                    'rank_name' => (string) $position['rank_name'],
+                $grouped[$vId]['positions'][$rowKey] = [
+                    'position_id' => (int) $position['position_id'],
+                    'position_name' => (string) $position['position_name'],
                     'required_count' => (int) $position['required_count'],
                     'crew' => [],
                 ];
@@ -285,12 +310,12 @@ final class CrewPlanningGanttQuery
         $result = [];
 
         foreach ($grouped as $vesselGroup) {
-            $ranks = array_values($vesselGroup['ranks']);
+            $positions = array_values($vesselGroup['positions']);
             usort(
-                $ranks,
-                fn (array $left, array $right): int => strcasecmp($left['rank_name'], $right['rank_name']),
+                $positions,
+                fn (array $left, array $right): int => strcasecmp($left['position_name'], $right['position_name']),
             );
-            $vesselGroup['ranks'] = $ranks;
+            $vesselGroup['positions'] = $positions;
             $result[] = $vesselGroup;
         }
 
@@ -311,8 +336,8 @@ final class CrewPlanningGanttQuery
      *     row_key: string,
      *     vessel_id: int,
      *     vessel_name: string,
-     *     rank_id: int,
-     *     rank_name: string,
+     *     position_id: int,
+     *     position_name: string,
      *     employee_id: int|null,
      *     employee_name: string,
      *     join_date: string|null,
@@ -325,7 +350,7 @@ final class CrewPlanningGanttQuery
      *     relieves_employee_name: string|null,
      *     relieves_assignment_no: string|null,
      *     relieves_vessel_name: string|null,
-     *     relieves_rank_name: string|null,
+     *     relieves_position_name: string|null,
      *     relieves_planned_signoff_at: string|null,
      *     is_assigned: bool,
      *     planning_kind: string,
@@ -337,7 +362,7 @@ final class CrewPlanningGanttQuery
         string $from,
         string $to,
         ?int $vesselId,
-        ?int $rankId,
+        ?int $positionId,
         ?User $user = null,
     ): Collection {
         $timezone = CompanyTimezone::forCompanyId($companyId);
@@ -348,7 +373,7 @@ final class CrewPlanningGanttQuery
         $assignmentQuery = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
+            ->whereNotNull('position_id')
             ->whereIn('status', [CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active])
             ->where(function (Builder $q) use ($fromTimestamp, $toTimestamp): void {
                 $q->where(function (Builder $planned) use ($fromTimestamp, $toTimestamp): void {
@@ -378,7 +403,7 @@ final class CrewPlanningGanttQuery
                     });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId));
+            ->when($positionId !== null, fn (Builder $query) => $query->where('crew_assignments.position_id', $positionId));
 
         if ($user !== null) {
             $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
@@ -397,22 +422,39 @@ final class CrewPlanningGanttQuery
             }
         }
 
-        $assignmentItems = $assignmentQuery
+        $assignments = $assignmentQuery
             ->with([
                 'employee:id,name,employee_no,status,department_id,user_id',
-                'rank:id,name',
+                'position:id,title',
                 'vessel:id,name',
                 'relievedAssignment.employee:id,name,employee_no',
                 'relievedAssignment.vessel:id,name',
-                'relievedAssignment.rank:id,name',
+                'relievedAssignment.position:id,title',
                 'currentPhase',
                 'phases',
             ])
             ->orderBy('vessel_id')
-            ->orderBy('rank_id')
+            ->orderBy('position_id')
             ->orderBy('planned_join_at')
-            ->get()
-            ->map(function (CrewAssignment $assignment) use ($user, $companyId, $timezone): array {
+            ->get();
+
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $companyId);
+
+        $relievedAssignments = $assignments
+            ->map(fn (CrewAssignment $assignment): mixed => $assignment->relievedAssignment)
+            ->filter()
+            ->unique(fn (CrewAssignment $source): int => (int) $source->id)
+            ->values();
+        CrewPositionCatalog::hydrateCanonicalPositions($relievedAssignments, $companyId);
+
+        $assignmentItems = $assignments
+            ->map(function (CrewAssignment $assignment) use ($user, $companyId, $timezone): ?array {
+                $position = $assignment->position;
+
+                if ($position === null) {
+                    return null;
+                }
+
                 $onVesselPhase = $assignment->phases
                     ->filter(fn ($p) => $p->phase_code === CrewPhaseCode::OnVessel)
                     ->sortByDesc('sequence')
@@ -431,13 +473,15 @@ final class CrewPlanningGanttQuery
                     || $user === null
                     || EmployeeVisibilityScope::canAccess($user, $relievedEmployee, $companyId);
 
+                $positionId = (int) $position->id;
+
                 return [
                     'id' => $assignment->id,
-                    'row_key' => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}",
+                    'row_key' => self::rowKey((int) $assignment->vessel_id, $positionId),
                     'vessel_id' => (int) $assignment->vessel_id,
                     'vessel_name' => $assignment->vessel?->name ?? 'Unassigned Vessel',
-                    'rank_id' => (int) $assignment->rank_id,
-                    'rank_name' => $assignment->rank?->name ?? 'Unassigned Rank',
+                    'position_id' => $positionId,
+                    'position_name' => (string) $position->title,
                     'employee_id' => $assignment->employee_id,
                     'employee_name' => $assignment->employee?->name ?? 'Vacant',
                     'join_date' => $joinDate,
@@ -450,20 +494,24 @@ final class CrewPlanningGanttQuery
                     'relieves_employee_name' => $canSeeRelievedEmployee ? $assignment->relievedAssignment?->employee?->name : null,
                     'relieves_assignment_no' => $canSeeRelievedEmployee ? $assignment->relievedAssignment?->assignment_no : null,
                     'relieves_vessel_name' => $canSeeRelievedEmployee ? $assignment->relievedAssignment?->vessel?->name : null,
-                    'relieves_rank_name' => $canSeeRelievedEmployee ? $assignment->relievedAssignment?->rank?->name : null,
+                    'relieves_position_name' => $canSeeRelievedEmployee
+                        ? $assignment->relievedAssignment?->position?->title
+                        : null,
                     'relieves_planned_signoff_at' => $canSeeRelievedEmployee ? $assignment->relievedAssignment?->planned_signoff_at?->copy()->timezone($timezone)->toDateString() : null,
                     'is_assigned' => $assignment->status === CrewAssignmentStatus::Active,
                     'planning_kind' => $planningKind,
                     'planning_kind_label' => self::planningKindLabel($planningKind),
                 ];
-            });
+            })
+            ->filter()
+            ->values();
 
         // 2. Legacy / unlinked CrewPlanningAssignment records
         $planQuery = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->whereNull('crew_assignment_id')
             ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
+            ->whereNotNull('position_id')
             ->where('planned_join_date', '<=', $to)
             ->where(function (Builder $query) use ($from): void {
                 $query->where('planned_leave_date', '>=', $from)
@@ -482,7 +530,7 @@ final class CrewPlanningGanttQuery
                     });
             })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId));
+            ->when($positionId !== null, fn (Builder $query) => $query->where('crew_planning_assignments.position_id', $positionId));
 
         if ($user !== null) {
             $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
@@ -501,20 +549,37 @@ final class CrewPlanningGanttQuery
             }
         }
 
-        $planItems = $planQuery
+        $plans = $planQuery
             ->with([
                 'vessel:id,name',
-                'rank:id,name',
+                'position:id,title',
                 'employee:id,name,employee_no,status,department_id,user_id',
                 'relievedAssignment.employee:id,name,employee_no',
                 'relievedAssignment.vessel:id,name',
-                'relievedAssignment.rank:id,name',
+                'relievedAssignment.position:id,title',
             ])
             ->orderBy('vessel_id')
-            ->orderBy('rank_id')
+            ->orderBy('position_id')
             ->orderBy('planned_join_date')
-            ->get()
-            ->map(function (CrewPlanningAssignment $plan) use ($user, $companyId, $timezone): array {
+            ->get();
+
+        CrewPositionCatalog::hydrateCanonicalPositions($plans, $companyId);
+
+        $relievedPlans = $plans
+            ->map(fn (CrewPlanningAssignment $plan): mixed => $plan->relievedAssignment)
+            ->filter()
+            ->unique(fn (CrewAssignment $source): int => (int) $source->id)
+            ->values();
+        CrewPositionCatalog::hydrateCanonicalPositions($relievedPlans, $companyId);
+
+        $planItems = $plans
+            ->map(function (CrewPlanningAssignment $plan) use ($user, $companyId, $timezone): ?array {
+                $position = $plan->position;
+
+                if ($position === null) {
+                    return null;
+                }
+
                 $joinDate = $plan->planned_join_date?->toDateString();
                 $leaveDate = $plan->planned_leave_date?->toDateString();
 
@@ -527,13 +592,15 @@ final class CrewPlanningGanttQuery
                     || $user === null
                     || EmployeeVisibilityScope::canAccess($user, $relievedEmployee, $companyId);
 
+                $positionId = (int) $position->id;
+
                 return [
                     'id' => $plan->id,
-                    'row_key' => "vessel:{$plan->vessel_id}|rank:{$plan->rank_id}",
+                    'row_key' => self::rowKey((int) $plan->vessel_id, $positionId),
                     'vessel_id' => (int) $plan->vessel_id,
                     'vessel_name' => $plan->vessel?->name ?? 'Unassigned Vessel',
-                    'rank_id' => (int) $plan->rank_id,
-                    'rank_name' => $plan->rank?->name ?? 'Unassigned Rank',
+                    'position_id' => $positionId,
+                    'position_name' => (string) $position->title,
                     'employee_id' => $plan->employee_id,
                     'employee_name' => $plan->employee?->name ?? 'Vacant',
                     'join_date' => $joinDate,
@@ -546,15 +613,30 @@ final class CrewPlanningGanttQuery
                     'relieves_employee_name' => $canSeeRelievedEmployee ? $plan->relievedAssignment?->employee?->name : null,
                     'relieves_assignment_no' => $canSeeRelievedEmployee ? $plan->relievedAssignment?->assignment_no : null,
                     'relieves_vessel_name' => $canSeeRelievedEmployee ? $plan->relievedAssignment?->vessel?->name : null,
-                    'relieves_rank_name' => $canSeeRelievedEmployee ? $plan->relievedAssignment?->rank?->name : null,
+                    'relieves_position_name' => $canSeeRelievedEmployee
+                        ? $plan->relievedAssignment?->position?->title
+                        : null,
                     'relieves_planned_signoff_at' => $canSeeRelievedEmployee ? $plan->relievedAssignment?->planned_signoff_at?->copy()->timezone($timezone)->toDateString() : null,
                     'is_assigned' => false,
                     'planning_kind' => $kind,
                     'planning_kind_label' => self::planningKindLabel($kind),
                 ];
-            });
+            })
+            ->filter()
+            ->values();
 
-        return $assignmentItems->concat($planItems);
+        return $assignmentItems->concat($planItems)
+            ->sortBy([
+                fn (array $item): string => (string) $item['vessel_name'],
+                fn (array $item): string => (string) $item['position_name'],
+                fn (array $item): string => (string) ($item['join_date'] ?? ''),
+            ])
+            ->values();
+    }
+
+    public static function rowKey(int $vesselId, int $positionId): string
+    {
+        return "vessel:{$vesselId}|position:{$positionId}";
     }
 
     /**

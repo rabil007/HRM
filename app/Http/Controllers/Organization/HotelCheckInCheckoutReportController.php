@@ -8,9 +8,9 @@ use App\Exports\HotelCheckInCheckoutExport;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Hotel;
-use App\Models\Rank;
 use App\Models\RoomType;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Reports\HotelCheckInCheckoutFilters;
 use App\Support\Reports\HotelCheckInCheckoutPagePermissions;
 use App\Support\Reports\HotelCheckInCheckoutQuery;
@@ -33,7 +33,7 @@ class HotelCheckInCheckoutReportController extends Controller
     public function index(Request $request): Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $filters = HotelCheckInCheckoutFilters::fromRequest($request);
+        $filters = HotelCheckInCheckoutFilters::fromRequest($request, $companyId);
         $timezone = $this->companyTimezone($companyId);
         $query = new HotelCheckInCheckoutQuery($companyId, $filters, $timezone, $request->user());
         $paginator = $query->paginate($this->resolvePerPage($request, default: 25, allowed: [25, 50, 100]));
@@ -84,7 +84,7 @@ class HotelCheckInCheckoutReportController extends Controller
                     ])
                     ->all(),
                 'vessels' => ResolvesCompanyVessels::activeOptions($companyId),
-                'ranks' => $this->activeOptions(Rank::query()),
+                'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
                 'clients' => $this->activeOptions(Client::query()),
             ],
             'company_today' => Carbon::now($timezone)->toDateString(),
@@ -95,7 +95,7 @@ class HotelCheckInCheckoutReportController extends Controller
     public function export(Request $request): BinaryFileResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $filters = HotelCheckInCheckoutFilters::fromRequest($request);
+        $filters = HotelCheckInCheckoutFilters::fromRequest($request, $companyId);
         $timezone = $this->companyTimezone($companyId);
         $query = new HotelCheckInCheckoutQuery($companyId, $filters, $timezone, $request->user());
         $export = HotelCheckInCheckoutExport::forQuery($query->exportQuery(), $timezone);

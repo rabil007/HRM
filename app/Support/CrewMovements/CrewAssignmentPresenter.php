@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
@@ -55,10 +56,7 @@ class CrewAssignmentPresenter
                 'employee_no' => $assignment->employee->employee_no,
                 'image' => $assignment->employee->image,
             ] : null,
-            'rank' => $assignment->rank ? [
-                'id' => $assignment->rank->id,
-                'name' => $assignment->rank->name,
-            ] : null,
+            'position' => self::positionPayload($assignment),
             'vessel' => $assignment->vessel ? [
                 'id' => $assignment->vessel->id,
                 'name' => $assignment->vessel->name,
@@ -193,11 +191,7 @@ class CrewAssignmentPresenter
                 'employee_no' => $assignment->employee->employee_no,
                 'image' => $assignment->employee->image,
             ] : null,
-            'rank' => $assignment->rank ? [
-                'id' => $assignment->rank->id,
-                'name' => $assignment->rank->name,
-                'max_tour_of_duty_days' => $assignment->rank->max_tour_of_duty_days !== null ? (int) $assignment->rank->max_tour_of_duty_days : null,
-            ] : null,
+            'position' => self::positionPayload($assignment, includeTourDays: true),
             'vessel' => $assignment->vessel ? [
                 'id' => $assignment->vessel->id,
                 'name' => $assignment->vessel->name,
@@ -243,7 +237,7 @@ class CrewAssignmentPresenter
             'company_timezone' => $timezone,
             'is_editable' => CrewAssignmentEditability::isEditable($assignment),
             'can_apply_tour_of_duty' => $tourRepair !== null && ($tourRepair['is_eligible'] ?? false),
-            'current_rank_tour_days' => $tourRepair !== null ? ($tourRepair['tour_of_duty_days'] ?? null) : null,
+            'current_position_tour_days' => $tourRepair !== null ? ($tourRepair['tour_of_duty_days'] ?? null) : null,
             'suggested_planned_signoff_at' => $tourRepair !== null && isset($tourRepair['calculated_planned_signoff_at']) && $tourRepair['calculated_planned_signoff_at'] !== null
                 ? $tourRepair['calculated_planned_signoff_at']->copy()->timezone($timezone)->toDateString()
                 : null,
@@ -324,8 +318,8 @@ class CrewAssignmentPresenter
             ),
             'vessel_id' => $assignment->vessel_id,
             'vessel_name' => $assignment->vessel?->name,
-            'rank_id' => $assignment->rank_id,
-            'rank_name' => $assignment->rank?->name,
+            'position_id' => self::resolvedPositionId($assignment),
+            'position_name' => self::positionPayload($assignment)['name'] ?? null,
             'client_id' => $assignment->client_id,
             'client_name' => $assignment->client?->name,
             'planned_join_at' => $assignment->planned_join_at?->toDateString(),
@@ -404,49 +398,92 @@ class CrewAssignmentPresenter
     }
 
     /**
+     * Present Position from an already-loaded relation only.
+     *
+     * Callers must eager-load `position` or run
+     * {@see CrewPositionCatalog::hydrateCanonicalPositions()} before presenting.
+     * Never lazy-loads; unresolved Position returns null.
+     *
+     * @return array{id: int, name: string, max_tour_of_duty_days?: int|null}|null
+     */
+    private static function positionPayload(CrewAssignment $assignment, bool $includeTourDays = false): ?array
+    {
+        if (! $assignment->relationLoaded('position') || $assignment->position === null) {
+            return null;
+        }
+
+        $position = $assignment->position;
+
+        $payload = [
+            'id' => (int) $position->id,
+            'name' => (string) $position->title,
+        ];
+
+        if ($includeTourDays) {
+            $payload['max_tour_of_duty_days'] = $position->max_tour_of_duty_days !== null
+                ? (int) $position->max_tour_of_duty_days
+                : null;
+        }
+
+        return $payload;
+    }
+
+    private static function resolvedPositionId(CrewAssignment $assignment): ?int
+    {
+        return CrewPositionCatalog::resolveCrewAssignmentPositionId((int) $assignment->company_id, $assignment->position_id !== null ? (int) $assignment->position_id : null);
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private static function relievesContext(CrewAssignment $assignment, ?User $user = null): ?array
     {
+        if (! $assignment->relationLoaded('planningAssignment')) {
+            return null;
+        }
+
         $planning = $assignment->planningAssignment;
 
         if ($planning === null || $planning->relieves_crew_assignment_id === null) {
             return null;
         }
 
-        $source = $planning->relationLoaded('relievedAssignment')
-            ? $planning->relievedAssignment
-            : $planning->relievedAssignment()->with(['employee', 'vessel', 'rank'])->first();
+        // Never query here — callers must eager-load relievedAssignment (+ hydrate Position).
+        if (! $planning->relationLoaded('relievedAssignment')) {
+            return null;
+        }
+
+        $source = $planning->relievedAssignment;
 
         if ($source === null || (int) $source->company_id !== (int) $assignment->company_id) {
             return null;
         }
 
+        $sourceEmployee = $source->relationLoaded('employee') ? $source->employee : null;
+
         if ($user !== null
-            && $source->employee !== null
-            && ! EmployeeVisibilityScope::canAccess($user, $source->employee, (int) $assignment->company_id)) {
+            && $sourceEmployee !== null
+            && ! EmployeeVisibilityScope::canAccess($user, $sourceEmployee, (int) $assignment->company_id)) {
             return null;
         }
 
         $timezone = self::companyTimezone($source);
+        $sourceVessel = $source->relationLoaded('vessel') ? $source->vessel : null;
 
         return [
             'planning_assignment_id' => (int) $planning->id,
             'source_assignment_id' => (int) $source->id,
             'source_assignment_no' => $source->assignment_no,
-            'source_employee' => $source->employee ? [
-                'id' => $source->employee->id,
-                'name' => $source->employee->name,
-                'employee_no' => $source->employee->employee_no,
+            'source_employee' => $sourceEmployee ? [
+                'id' => $sourceEmployee->id,
+                'name' => $sourceEmployee->name,
+                'employee_no' => $sourceEmployee->employee_no,
             ] : null,
-            'source_vessel' => $source->vessel ? [
-                'id' => $source->vessel->id,
-                'name' => $source->vessel->name,
+            'source_vessel' => $sourceVessel ? [
+                'id' => $sourceVessel->id,
+                'name' => $sourceVessel->name,
             ] : null,
-            'source_rank' => $source->rank ? [
-                'id' => $source->rank->id,
-                'name' => $source->rank->name,
-            ] : null,
+            'source_position' => self::positionPayload($source),
             'source_planned_signoff_at' => $source->planned_signoff_at
                 ?->copy()
                 ->timezone($timezone)

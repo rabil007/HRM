@@ -149,7 +149,7 @@ describe('training correction form', () => {
         assert.equal(values.remarks, '');
         assert.equal(values['details.provider'], 'ABC Academy');
 
-        for (const field of ['vessel_id', 'rank_id', 'client_id']) {
+        for (const field of ['vessel_id', 'position_id', 'client_id']) {
             assert.equal(
                 initialCorrectionFieldValue(field, {
                     value: 7,

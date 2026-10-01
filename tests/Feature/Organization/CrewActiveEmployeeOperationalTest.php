@@ -20,11 +20,11 @@ test('current crew excludes inactive and terminated employees from operational l
     makeActiveOnVesselAssignment($company, $active, $rank, $vessel);
 
     $inactive = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'inactive',
     ]);
     $terminated = Employee::factory()->forCompany($company)->terminated()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     $foreignFixtures = makeCrewAssignmentFixtures();
 
@@ -56,7 +56,7 @@ test('current crew completed history still includes inactive employees', functio
     $assignment = CrewAssignment::factory()
         ->forEmployee($employee)
         ->completed()
-        ->create(['rank_id' => $rank->id]);
+        ->create(['position_id' => $rank->id]);
 
     $employee->update(['status' => 'terminated']);
 
@@ -76,7 +76,7 @@ test('crew operations dashboard onboard now excludes inactive employees', functi
     makeActiveOnVesselAssignment($company, $active, $rank, $vessel);
 
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     makeActiveOnVesselAssignment($company, $inactive, $rank, $vessel);
 
@@ -94,14 +94,14 @@ test('vessel manning actual onboard count excludes inactive employees', function
     VesselManning::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'required_count' => 2,
     ]);
 
     makeActiveOnVesselAssignment($company, $active, $rank, $vessel);
 
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     makeActiveOnVesselAssignment($company, $inactive, $rank, $vessel);
 
@@ -122,13 +122,13 @@ test('crew planning gantt keeps past bars for inactive employees and excludes cu
     ['company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Gantt Vessel', $company);
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     $past = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $inactive->id,
         'planned_join_date' => '2026-01-01',
         'planned_leave_date' => '2026-06-30',
@@ -137,7 +137,7 @@ test('crew planning gantt keeps past bars for inactive employees and excludes cu
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => $inactive->id,
         'planned_join_date' => '2026-09-01',
         'planned_leave_date' => '2026-12-31',
@@ -146,7 +146,7 @@ test('crew planning gantt keeps past bars for inactive employees and excludes cu
     $vacant = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'employee_id' => null,
         'planned_join_date' => '2026-09-01',
         'planned_leave_date' => '2026-12-31',
@@ -172,7 +172,7 @@ test('crew assignment mutations reject inactive employee ids and planning create
     $user->update(['current_company_id' => $company->id]);
     $vessel = makeCrewMovementVessel('Reject Vessel', $company);
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     grantCompanyPermissions($user, $company, [
@@ -185,7 +185,7 @@ test('crew assignment mutations reject inactive employee ids and planning create
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'employee_id' => $inactive->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
         ])
         ->assertSessionHasErrors('employee_id');
@@ -193,7 +193,7 @@ test('crew assignment mutations reject inactive employee ids and planning create
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'employee_id' => $inactive->id,
             'planned_join_date' => '2027-02-01',
             'planned_leave_date' => '2027-08-31',
@@ -203,7 +203,7 @@ test('crew assignment mutations reject inactive employee ids and planning create
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'planned_join_date' => '2027-02-01',
             'planned_leave_date' => '2027-08-31',
         ])
@@ -213,7 +213,7 @@ test('crew assignment mutations reject inactive employee ids and planning create
     $planning = CrewPlanningAssignment::query()
         ->where('company_id', $company->id)
         ->where('vessel_id', $vessel->id)
-        ->where('rank_id', $rank->id)
+        ->where('position_id', $rank->id)
         ->whereDate('planned_join_date', '2027-02-01')
         ->first();
 
@@ -232,7 +232,7 @@ test('crew movement history retains completed assignments after termination', fu
     $assignment = CrewAssignment::factory()
         ->forEmployee($employee)
         ->completed()
-        ->create(['rank_id' => $rank->id]);
+        ->create(['position_id' => $rank->id]);
 
     $this->actingAs($user)
         ->from(route('organization.employees.show', $employee))

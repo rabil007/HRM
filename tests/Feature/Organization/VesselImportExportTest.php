@@ -7,7 +7,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -667,7 +667,8 @@ test('vessel import changing client does not rewrite crew assignment or sea serv
     ['user' => $user, 'company' => $company, 'vesselType' => $vesselType, 'client' => $client, 'otherClient' => $otherClient] = makeVesselImportExportFixtures();
 
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    $rank = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
+    $rank = Position::query()->create([
+        'company_id' => $company->id, 'title' => 'Master', 'status' => 'active', 'is_crew_position' => true]);
 
     $vessel = Vessel::query()->create([
         'company_id' => $company->id,

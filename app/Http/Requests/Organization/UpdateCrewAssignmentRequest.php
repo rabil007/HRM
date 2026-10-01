@@ -9,6 +9,7 @@ use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\CrewMovements\CrewAssignmentUpdateCandidate;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -42,9 +43,14 @@ class UpdateCrewAssignmentRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        if ($companyId < 1) {
+            $companyId = (int) ($this->user()?->current_company_id ?? 0);
+        }
         $vesselId = $this->input('vessel_id');
         $clientId = $this->input('client_id');
 
+        // Auto-resolve client from vessel when client is blank.
+        // Auto-resolve client from vessel when client is blank.
         if (($clientId === null || $clientId === '')
             && $vesselId !== null
             && $vesselId !== ''
@@ -67,7 +73,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
         $existingClientId = $this->existingAssignment()?->client_id;
 
         return [
-            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
+            'position_id' => ['nullable', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
             'client_id' => [
                 'nullable',
                 'integer',
@@ -125,8 +131,8 @@ class UpdateCrewAssignmentRequest extends FormRequest
                     $validator->errors()->add('vessel_id', 'Vessel is required for Planned assignments.');
                 }
 
-                if ($candidate['rank_id'] === null) {
-                    $validator->errors()->add('rank_id', 'Rank is required for Planned assignments.');
+                if ($candidate['position_id'] === null) {
+                    $validator->errors()->add('position_id', 'Position is required for Planned assignments.');
                 }
 
                 if ($candidate['planned_join_at'] === null) {
@@ -153,7 +159,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
                     plannedArrivalAt: $candidate['planned_arrival_at'],
                     operationalStartAt: $action === 'start' ? $assignment->started_at : null,
                     vesselId: $candidate['vessel_id'],
-                    rankId: $candidate['rank_id'],
+                    positionId: $candidate['position_id'],
                     clientId: $candidate['client_id'],
                     currentAssignmentId: (int) $assignment->id,
                     actor: $this->user(),
@@ -215,7 +221,7 @@ class UpdateCrewAssignmentRequest extends FormRequest
         $payload = [];
 
         foreach ([
-            'rank_id',
+            'position_id',
             'client_id',
             'vessel_id',
             'planned_arrival_at',

@@ -115,7 +115,6 @@ class EmployeeController extends Controller
             'company_visa_types' => fn () => $formOptions()['company_visa_types'],
             'approval_locations' => fn () => $formOptions()['approval_locations'],
             'sssa_options' => fn () => $formOptions()['sssa_options'],
-            'ranks' => fn () => $formOptions()['ranks'],
             'clients' => fn () => $formOptions()['clients'],
             'projects' => fn () => $formOptions()['projects'],
             'banks' => fn () => $formOptions()['banks'],
@@ -160,7 +159,7 @@ class EmployeeController extends Controller
                 'branch:id,name',
                 'department:id,name',
                 'position:id,title',
-                'rank:id,name',
+                'position:id,title',
                 'project:id,title',
                 'client:id,name',
                 'manager:id,name,employee_no',
@@ -296,7 +295,6 @@ class EmployeeController extends Controller
             'branch_id',
             'department_id',
             'position_id',
-            'rank_id',
             'project_id',
             'client_id',
             'date_of_birth',
@@ -319,6 +317,8 @@ class EmployeeController extends Controller
                 $data[$key] = null;
             }
         }
+
+        unset($data['rank_id']);
 
         $data['status'] = $data['status'] ?? $employee->status;
 

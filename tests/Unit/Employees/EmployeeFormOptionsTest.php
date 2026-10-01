@@ -100,9 +100,8 @@ test('employee form options for create returns nested onboarding option keys', f
         'religions',
         'genders',
         'banks',
-        'ranks',
         'projects',
         'clients',
         'document_types',
-    ]);
+    ])->and($options)->not->toHaveKey('ranks');
 });

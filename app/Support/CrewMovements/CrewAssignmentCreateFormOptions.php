@@ -5,10 +5,10 @@ namespace App\Support\CrewMovements;
 use App\Models\Client;
 use App\Models\Course;
 use App\Models\Employee;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
 
@@ -20,10 +20,10 @@ final class CrewAssignmentCreateFormOptions
      * Restricted assignment details stay hidden without assignments.view.
      *
      * @return array{
-     *     employees: list<array{id: int, name: string, employee_no: string|null, rank_id: int|null, image: string|null, nationality_name: string|null}>,
+     *     employees: list<array{id: int, name: string, employee_no: string|null, position_id: int|null, image: string|null, nationality_name: string|null}>,
      *     active_on_vessel_by_employee: array<int, array<string, mixed>>,
      *     employee_status_by_employee: array<int, array<string, mixed>>,
-     *     ranks: list<array{id: int, name: string}>,
+     *     positions: list<array{id: int, name: string, max_tour_of_duty_days: int|null}>,
      *     vessels: list<array{id: int, name: string, client_id: int|null, is_active: bool}>,
      *     clients: list<array{id: int, name: string}>,
      *     courses: list<array{id: int, name: string}>,
@@ -95,7 +95,7 @@ final class CrewAssignmentCreateFormOptions
         $employeeModels = $employeeQuery
             ->with(['nationalityRef:id,name'])
             ->orderBy('name')
-            ->get(['id', 'name', 'employee_no', 'rank_id', 'image', 'nationality_id']);
+            ->get(['id', 'name', 'employee_no', 'position_id', 'image', 'nationality_id']);
 
         $employeeIds = $employeeModels->pluck('id')->map(fn ($id) => (int) $id)->all();
 
@@ -123,7 +123,7 @@ final class CrewAssignmentCreateFormOptions
                     'id' => $employee->id,
                     'name' => $employee->name,
                     'employee_no' => $employee->employee_no,
-                    'rank_id' => $employee->rank_id,
+                    'position_id' => $employee->position_id,
                     'image' => $employee->image,
                     'nationality_name' => $employee->nationalityRef?->name,
                 ])
@@ -131,7 +131,7 @@ final class CrewAssignmentCreateFormOptions
                 ->all(),
             'active_on_vessel_by_employee' => $activeOnVessel,
             'employee_status_by_employee' => $employeeStatusByEmployee,
-            'ranks' => self::activeRanks(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'vessels' => self::activeVessels($companyId),
             'clients' => self::activeClients(),
             'courses' => self::activeCourses(),
@@ -212,20 +212,6 @@ final class CrewAssignmentCreateFormOptions
         }
 
         return null;
-    }
-
-    /**
-     * @return list<array{id: int, name: string}>
-     */
-    private static function activeRanks(): array
-    {
-        return Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (Rank $rank) => ['id' => $rank->id, 'name' => $rank->name])
-            ->values()
-            ->all();
     }
 
     /**

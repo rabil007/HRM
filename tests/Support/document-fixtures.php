@@ -18,7 +18,6 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\Position;
 use App\Models\Project;
-use App\Models\Rank;
 use App\Models\User;
 use App\Support\Documents\DocumentTemplateLayoutValidationFailureLogger;
 use App\Support\Documents\DocumentTemplateLayoutValidationFingerprint;
@@ -104,6 +103,21 @@ function makeDocumentRequirement(
     bool $isActive = true,
     array $projectIds = [],
 ): DocumentRequirement {
+    // Temporary Phase 2: legacy rank scope arguments map onto Position scopes.
+    if ($rankIds !== [] && $positionIds === []) {
+        $company = Company::query()->findOrFail($companyId);
+
+        foreach ($rankIds as $rankId) {
+            $rank = Position::query()->find((int) $rankId);
+
+            if ($rank === null) {
+                continue;
+            }
+
+            $positionIds[] = ensureRankMappedPosition($company, $rank)->id;
+        }
+    }
+
     $requirement = DocumentRequirement::query()->create([
         'company_id' => $companyId,
         'document_type_id' => $documentTypeId,
@@ -112,11 +126,10 @@ function makeDocumentRequirement(
     ]);
 
     $requirement->departments()->sync($departmentIds);
-    $requirement->positions()->sync($positionIds);
-    $requirement->ranks()->sync($rankIds);
+    $requirement->positions()->sync(array_values(array_unique($positionIds)));
     $requirement->projects()->sync($projectIds);
 
-    return $requirement->fresh(['departments', 'positions', 'ranks', 'projects']) ?? $requirement;
+    return $requirement->fresh(['departments', 'positions', 'projects']) ?? $requirement;
 }
 
 /**
@@ -124,8 +137,8 @@ function makeDocumentRequirement(
  *     crew: Department,
  *     marine: Department,
  *     seafarer: Position,
- *     captain: Rank,
- *     chiefEngineer: Rank,
+ *     captain: Position,
+ *     chiefEngineer: Position,
  *     adnoc: Project,
  *     aramco: Project,
  *     otherProject: Project
@@ -134,6 +147,7 @@ function makeDocumentRequirement(
 function makeDocumentRequirementMatchScopes(int $companyId): array
 {
     $suffix = uniqid();
+    $company = Company::query()->findOrFail($companyId);
 
     $crew = Department::query()->create([
         'company_id' => $companyId,
@@ -154,14 +168,18 @@ function makeDocumentRequirementMatchScopes(int $companyId): array
         'title' => 'Seafarer',
         'status' => 'active',
     ]);
-    $captain = Rank::query()->create([
-        'name' => 'Captain '.$suffix,
-        'is_active' => true,
+    $captain = Position::query()->create([
+        'company_id' => $companyId,
+        'title' => 'Captain '.$suffix,
+        'status' => 'active', 'is_crew_position' => true,
     ]);
-    $chiefEngineer = Rank::query()->create([
-        'name' => 'Chief Engineer '.$suffix,
-        'is_active' => true,
+    $chiefEngineer = Position::query()->create([
+        'company_id' => $companyId,
+        'title' => 'Chief Engineer '.$suffix,
+        'status' => 'active', 'is_crew_position' => true,
     ]);
+    $captainPosition = ensureRankMappedPosition($company, $captain);
+    $chiefEngineerPosition = ensureRankMappedPosition($company, $chiefEngineer);
     $adnoc = Project::query()->create([
         'title' => 'ADNOC '.$suffix,
         'is_active' => true,
@@ -180,7 +198,9 @@ function makeDocumentRequirementMatchScopes(int $companyId): array
         'marine',
         'seafarer',
         'captain',
+        'captainPosition',
         'chiefEngineer',
+        'chiefEngineerPosition',
         'adnoc',
         'aramco',
         'otherProject',

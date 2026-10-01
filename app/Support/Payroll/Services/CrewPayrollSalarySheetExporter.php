@@ -80,7 +80,7 @@ final class CrewPayrollSalarySheetExporter
             ->with([
                 'segments.assignment.vessel',
                 'segments.assignment.client',
-                'segments.assignment.rank',
+                'segments.assignment.position',
             ])
             ->get()
             ->keyBy('employee_id');
@@ -516,7 +516,7 @@ final class CrewPayrollSalarySheetExporter
             'assignment' => $assignment?->assignment_no,
             'vessel' => $assignment?->vessel?->name,
             'client' => $assignment?->client?->name,
-            'rank' => $assignment?->rank?->name,
+            'rank' => $assignment?->position?->title,
             'category' => $segment->pay_category?->label(),
             'from' => $segment->from_date?->format('d-m-Y'),
             'to' => $segment->to_date?->format('d-m-Y'),

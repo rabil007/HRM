@@ -17,7 +17,7 @@ function assignment(
             name: 'Mohammed Rabil',
             employee_no: 'EMP-0012',
         },
-        rank: { id: 1, name: 'Engineer' },
+        position: { id: 1, name: 'Engineer' },
         vessel: { id: 8, name: 'Horizon' },
         client: null,
         current_phase: {
@@ -46,8 +46,8 @@ function assignment(
             days_in_training: null,
             vessel_id: 8,
             vessel_name: 'Horizon',
-            rank_id: 1,
-            rank_name: 'Engineer',
+            position_id: 1,
+            position_name: 'Engineer',
             client_id: null,
             client_name: null,
             planned_join_at: '2026-08-01',
@@ -120,7 +120,7 @@ describe('crewAssignmentMobileCardModel', () => {
 
     it('keeps the assignment number when rank is missing', () => {
         const model = crewAssignmentMobileCardModel(
-            assignment({ rank: null }),
+            assignment({ position: null }),
             {
                 update: true,
                 performMovement: true,

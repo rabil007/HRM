@@ -6,6 +6,7 @@ use App\Models\CrewAssignment;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselManning;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -106,19 +107,20 @@ final class CurrentCrewVesselQuery
         CurrentCrewQuery::eagerLoadForList($query);
 
         $assignments = $query
-            ->with(['vessel', 'rank', 'employee'])
-            ->get()
-            ->sortBy([
-                fn (CrewAssignment $assignment): string => (string) ($assignment->vessel?->name ?? ''),
-                fn (CrewAssignment $assignment): string => (string) ($assignment->rank?->name ?? ''),
-                fn (CrewAssignment $assignment): string => (string) ($assignment->employee?->name ?? ''),
-            ])
-            ->values();
+            ->with(['vessel', 'position', 'employee'])
+            ->get();
 
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $companyId);
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
         CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
-        return $assignments;
+        return $assignments
+            ->sortBy([
+                fn (CrewAssignment $assignment): string => (string) ($assignment->vessel?->name ?? ''),
+                fn (CrewAssignment $assignment): string => (string) ($assignment->position?->title ?? ''),
+                fn (CrewAssignment $assignment): string => (string) ($assignment->employee?->name ?? ''),
+            ])
+            ->values();
     }
 
     /**
@@ -138,12 +140,13 @@ final class CurrentCrewVesselQuery
         CurrentCrewQuery::eagerLoadForList($query);
 
         $assignments = $query->get();
+        CrewPositionCatalog::hydrateCanonicalPositions($assignments, $companyId);
         CurrentCrewQuery::attachReliefReadiness($assignments, $companyId);
         CurrentCrewQuery::attachMobilisationReadiness($assignments, $companyId);
 
         return $assignments
             ->sortBy([
-                fn (CrewAssignment $assignment): string => (string) ($assignment->rank?->name ?? ''),
+                fn (CrewAssignment $assignment): string => (string) ($assignment->position?->title ?? ''),
                 fn (CrewAssignment $assignment): string => (string) ($assignment->employee?->name ?? ''),
             ])
             ->groupBy(fn (CrewAssignment $assignment): int => (int) $assignment->vessel_id);
@@ -164,8 +167,8 @@ final class CurrentCrewVesselQuery
             ->where('company_id', $companyId)
             ->whereIn('vessel_id', $vesselIds);
 
-        if (! empty($filters['rank_id'])) {
-            $query->where('rank_id', (int) $filters['rank_id']);
+        if (! empty($filters['position_id'])) {
+            $query->where('vessel_manning.position_id', (int) $filters['position_id']);
         }
 
         return $query

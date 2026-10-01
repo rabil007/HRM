@@ -40,8 +40,8 @@ export type CrewOperationsManningReliefRisk = {
     risk: string;
     vessel_id: number | null;
     vessel_name: string;
-    rank_id: number | null;
-    rank_name: string;
+    position_id?: number | null;
+    position_name?: string;
     when: string;
     href: string | null;
     employee_name?: string | null;
@@ -50,8 +50,8 @@ export type CrewOperationsManningReliefRisk = {
 export type CrewOperationsProjectedManningCriticalPosition = {
     vessel_id: number;
     vessel_name: string;
-    rank_id: number;
-    rank_name: string;
+    position_id: number;
+    position_name: string;
     required_count: number;
     minimum_projected_count: number;
     maximum_gap: number;

@@ -16,6 +16,14 @@ final class HistoricalCrewImportColumns
 
     public const VESSEL = 'vessel';
 
+    /**
+     * Legacy textual Excel header alias only.
+     *
+     * Incoming sheets may still label the occupational column "Rank".
+     * The value is always resolved as a Position title → position_id.
+     * Do not treat this as a Rank model / ranks table / Rank ID dependency.
+     * Generated templates use the Position display label.
+     */
     public const RANK = 'rank';
 
     public const CLIENT = 'client';
@@ -80,7 +88,9 @@ final class HistoricalCrewImportColumns
         return [
             self::EMPLOYEE_NO => 'Employee No',
             self::EMPLOYEE => 'Employee Name',
-            self::RANK => 'Rank',
+            // Generated/current template header. Legacy spreadsheet header "Rank"
+            // remains accepted via headerAliases() as a textual Position title alias.
+            self::RANK => 'Position',
             self::VESSEL => 'Vessel',
             self::CLIENT => 'Client',
             self::SIGN_ON_STANDBY_FROM => 'Sign-On Standby From',
@@ -323,6 +333,8 @@ final class HistoricalCrewImportColumns
         $aliases['employee number'] = self::EMPLOYEE_NO;
         $aliases['employee'] = self::EMPLOYEE;
         $aliases['employee name'] = self::EMPLOYEE;
+        // Legacy textual header alias only — Position title lookup, not Rank domain.
+        $aliases['rank'] = self::RANK;
         $aliases['onsite / on vessel from'] = self::ONSITE_FROM;
         $aliases['onsite / on vessel to'] = self::ONSITE_TO;
         $aliases['home / available'] = self::HOME_AVAILABLE_FROM;

@@ -34,7 +34,7 @@ const FILTER_LABELS: Partial<
     check_out_from: 'Check-out from',
     check_out_to: 'Check-out to',
     vessel_id: 'Vessel',
-    rank_id: 'Rank',
+    position_id: 'Position',
     client_id: 'Client',
 };
 
@@ -81,8 +81,8 @@ function chipValueLabel(
         return match ? match.name : value;
     }
 
-    if (key === 'rank_id') {
-        const match = options.ranks.find((r) => String(r.id) === value);
+    if (key === 'position_id') {
+        const match = options.positions.find((r) => String(r.id) === value);
 
         return match ? match.name : value;
     }

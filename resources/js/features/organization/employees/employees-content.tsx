@@ -97,7 +97,6 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    RankOption,
     ReligionOption,
     RoleOption,
     SssaOption,
@@ -124,7 +123,6 @@ export function EmployeesContent({
     company_visa_types,
     approval_locations,
     sssa_options,
-    ranks,
     clients,
     projects,
     banks: _banks,
@@ -152,7 +150,6 @@ export function EmployeesContent({
     company_visa_types: CompanyVisaTypeOption[];
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
-    ranks: RankOption[];
     clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];
@@ -195,7 +192,6 @@ export function EmployeesContent({
             nationality_id: initialFilters.nationality_id ?? '',
             visa_type_id: initialFilters.visa_type_id ?? '',
             company_visa_type_id: initialFilters.company_visa_type_id ?? '',
-            rank_id: initialFilters.rank_id ?? '',
             client_id: initialFilters.client_id ?? '',
             project_id: initialFilters.project_id ?? '',
             approval_location_id: initialFilters.approval_location_id ?? '',
@@ -500,7 +496,6 @@ export function EmployeesContent({
                     companyVisaTypes: company_visa_types,
                     approvalLocations: approval_locations,
                     sssaOptions: sssa_options,
-                    ranks,
                     clients,
                     projects,
                     roles,
@@ -817,7 +812,6 @@ export function EmployeesContent({
                 companyVisaTypes={company_visa_types}
                 approvalLocations={approval_locations}
                 sssaOptions={sssa_options}
-                ranks={ranks}
                 clients={clients}
                 projects={projects}
                 roles={roles}

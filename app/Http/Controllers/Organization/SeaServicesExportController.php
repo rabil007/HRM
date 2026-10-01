@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Exports\SeaServicesExport;
 use App\Http\Controllers\Controller;
 use App\Support\Organization\SelectedRecordIds;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceDirectoryFilters;
 use App\Support\SeaServices\SeaServiceDirectoryQuery;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -27,7 +28,10 @@ class SeaServicesExportController extends Controller
             $query->whereKey($selectedIds);
         }
 
-        $export = new SeaServicesExport($query);
+        $seaServices = $query->get();
+        CrewPositionCatalog::hydrateCanonicalPositions($seaServices, $companyId);
+
+        $export = new SeaServicesExport($seaServices);
 
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "sea_services_{$timestamp}";
@@ -37,7 +41,6 @@ class SeaServicesExportController extends Controller
         }
 
         if ($format === 'pdf') {
-            $seaServices = $query->get();
             $pdf = Pdf::loadView('exports.sea-services', [
                 'seaServices' => $seaServices,
                 'generatedAt' => now(),

@@ -86,14 +86,14 @@ test('interrupted importing batch resumes without duplicating assignments', func
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-01',
             'disembark_date' => '2024-03-01',
         ],
         [
             'employee_no' => '3220',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-04-01',
             'disembark_date' => '2024-06-01',
         ],
@@ -128,7 +128,7 @@ test('interrupted importing batch resumes without duplicating assignments', func
             data: [
                 'employee_id' => $employee->id,
                 'vessel_id' => $vessel->id,
-                'rank_id' => $rank->id,
+                'position_id' => $rank->id,
                 'onsite_from' => '2024-01-01',
                 'onsite_to' => '2024-03-01',
                 'sign_off_standby_from' => '2024-03-01',
@@ -181,7 +181,7 @@ test('active importing batch rejects concurrent retry until stale', function () 
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-03-01',
     ];
@@ -258,7 +258,7 @@ test('different workbook with same idempotency key is rejected', function () {
                 [
                     'employee_no' => '3119',
                     'vessel' => $vessel->name,
-                    'rank' => $rank->name,
+                    'rank' => $rank->title,
                     'vessel_join_date' => '2024-01-01',
                     'disembark_date' => '2024-03-01',
                 ],
@@ -327,7 +327,7 @@ test('row persist failure rolls back assignment creation', function () {
             [
                 'employee_no' => '3119',
                 'vessel' => $vessel->name,
-                'rank' => $rank->name,
+                'rank' => $rank->title,
                 'vessel_join_date' => '2024-01-01',
                 'disembark_date' => '2024-03-01',
             ],
@@ -354,7 +354,7 @@ test('concurrent idempotency collision reloads existing batch instead of raw sql
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-03-01',
     ];
@@ -421,7 +421,7 @@ test('completed batch same workbook returns existing result without reimport', f
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-03-01',
     ];
@@ -470,7 +470,7 @@ test('completed batch different workbook is rejected', function () {
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-03-01',
     ];
@@ -515,14 +515,14 @@ test('failed batch resumes remaining rows without duplicating imported assignmen
         [
             'employee_no' => '3119',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-01-01',
             'disembark_date' => '2024-03-01',
         ],
         [
             'employee_no' => '3220',
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'vessel_join_date' => '2024-04-01',
             'disembark_date' => '2024-06-01',
         ],
@@ -557,7 +557,7 @@ test('failed batch resumes remaining rows without duplicating imported assignmen
             data: [
                 'employee_id' => $employee->id,
                 'vessel_id' => $vessel->id,
-                'rank_id' => $rank->id,
+                'position_id' => $rank->id,
                 'onsite_from' => '2024-01-01',
                 'onsite_to' => '2024-03-01',
                 'sign_off_standby_from' => '2024-03-01',
@@ -623,7 +623,7 @@ test('failed row without assignment is retried on resume', function () {
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-03-01',
     ];
@@ -695,7 +695,7 @@ test('stale claim refreshes progress so a second request is treated as active', 
     $row = [
         'employee_no' => '3119',
         'vessel' => $vessel->name,
-        'rank' => $rank->name,
+        'rank' => $rank->title,
         'vessel_join_date' => '2024-01-01',
         'disembark_date' => '2024-03-01',
     ];

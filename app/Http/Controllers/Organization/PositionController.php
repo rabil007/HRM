@@ -12,6 +12,7 @@ use App\Models\Company;
 use App\Models\Department;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\MasterData\MasterDataUsage;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Positions\PositionAttachmentStorage;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -80,6 +81,8 @@ class PositionController extends Controller
             'min_salary' => $position->min_salary,
             'max_salary' => $position->max_salary,
             'status' => $position->status,
+            'is_crew_position' => (bool) $position->is_crew_position,
+            'max_tour_of_duty_days' => $position->max_tour_of_duty_days,
             'attachment' => $this->attachmentData($position),
             'created_at' => $position->created_at,
         ]);
@@ -155,6 +158,8 @@ class PositionController extends Controller
                 'min_salary' => $position->min_salary,
                 'max_salary' => $position->max_salary,
                 'status' => $position->status,
+                'is_crew_position' => (bool) $position->is_crew_position,
+                'max_tour_of_duty_days' => $position->max_tour_of_duty_days,
                 'attachment' => $this->attachmentData($position),
                 'created_at' => $position->created_at,
                 'updated_at' => $position->updated_at,
@@ -181,13 +186,16 @@ class PositionController extends Controller
         unset($data['attachment']);
         $data['company_id'] = $companyId;
 
-        foreach (['description', 'grade', 'min_salary', 'max_salary'] as $key) {
+        foreach (['description', 'grade', 'min_salary', 'max_salary', 'max_tour_of_duty_days'] as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;
             }
         }
 
         $data['status'] = $data['status'] ?? 'active';
+        $data['is_crew_position'] = array_key_exists('is_crew_position', $data)
+            ? (bool) $data['is_crew_position']
+            : true;
 
         $scopeAttributes = ['company_id' => $companyId];
         if (isset($data['department_id'])) {
@@ -255,13 +263,17 @@ class PositionController extends Controller
         unset($data['attachment'], $data['remove_attachment']);
         $data['company_id'] = $companyId;
 
-        foreach (['description', 'grade', 'min_salary', 'max_salary'] as $key) {
+        foreach (['description', 'grade', 'min_salary', 'max_salary', 'max_tour_of_duty_days'] as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;
             }
         }
 
         $data['status'] = $data['status'] ?? 'active';
+
+        if (array_key_exists('is_crew_position', $data)) {
+            $data['is_crew_position'] = (bool) $data['is_crew_position'];
+        }
 
         $previousPath = null;
         $storedPath = null;
@@ -321,6 +333,10 @@ class PositionController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $position->company_id === $companyId, 404);
+
+        if ($blocked = MasterDataUsage::denyDeleteRedirect($position, 'organization.positions', $companyId)) {
+            return $blocked;
+        }
 
         $position->delete();
 

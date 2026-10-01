@@ -9,7 +9,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\EmployeeTraining;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentEditability;
@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewEditabilityFixtures(array $permissions = [
     'crew_operations.assignments.view',
@@ -41,7 +41,7 @@ function makeCrewEditabilityFixtures(array $permissions = [
 function makeAssignmentWithPhase(
     Company $company,
     Employee $employee,
-    Rank $rank,
+    Position $rank,
     Vessel $vessel,
     CrewPhaseCode $phaseCode,
     CrewAssignmentStatus $status = CrewAssignmentStatus::Active,
@@ -52,7 +52,7 @@ function makeAssignmentWithPhase(
         'company_id' => $company->id,
         'assignment_no' => 'CA-2026-'.Str::upper(Str::random(6)),
         'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => $status,
         'started_at' => $started,
@@ -78,7 +78,7 @@ test('1. Draft assignment allows opening edit page and updating planning fields'
     $vessel = makeCrewMovementVessel('Draft Vessel');
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-09-01',
     ], $user->id);
@@ -98,18 +98,18 @@ test('1. Draft assignment allows opening edit page and updating planning fields'
                 ->where('0.image', $employee->fresh()->image)
                 ->etc()));
 
-    $newRank = Rank::query()->create(['name' => 'New Draft Rank '.Str::uuid(), 'is_active' => true]);
+    $newRank = Position::query()->create(['company_id' => $company->id, 'title' => 'New Draft Rank '.Str::uuid(), 'status' => 'active', 'is_crew_position' => true]);
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $newRank->id,
+            'position_id' => $newRank->id,
             'planned_join_at' => '2026-09-15',
             'remarks' => 'Updated draft planning',
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
 
     expect($assignment->fresh())
-        ->rank_id->toBe($newRank->id)
+        ->position_id->toBe($newRank->id)
         ->planned_join_at->toDateString()->toBe('2026-09-15')
         ->remarks->toBe('Updated draft planning');
 });
@@ -287,11 +287,11 @@ test('9. Crew index payload exposes is_editable true for pre-P4 and false for P4
     $vessel = makeCrewMovementVessel('Index Editability Vessel');
 
     $preP4 = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
-    $emp2 = Employee::factory()->forCompany($company)->create(['rank_id' => $rank->id, 'status' => 'active']);
+    $emp2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $p4 = makeActiveOnVesselAssignment($company, $emp2, $rank, $vessel);
 
     $this->actingAs($user)
@@ -320,7 +320,7 @@ test('generic editability follows draft and pre-p4 mobilisation only', function 
 
     if ($status === CrewAssignmentStatus::Draft) {
         $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
         ]);
     } else {
@@ -368,7 +368,7 @@ test('11. User without assignments.update permission cannot access edit or updat
     ]);
 
     $draft = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -402,7 +402,7 @@ test('13. Tenant isolation remains intact for edit and update routes', function 
     ['company' => $otherCompany, 'employee' => $otherEmp, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
 
     $otherDraft = app(CrewMovementService::class)->createDraft($otherCompany->id, $otherEmp->id, [
-        'rank_id' => $otherRank->id,
+        'position_id' => $otherRank->id,
     ]);
 
     $this->actingAs($user)
@@ -462,7 +462,7 @@ test('16. clearing optional edit fields nulls planned sign-off but preserves pla
     $vessel->update(['client_id' => $client->id]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
         'planned_join_at' => '2026-08-01',
@@ -472,7 +472,7 @@ test('16. clearing optional edit fields nulls planned sign-off but preserves pla
     ], $user->id);
 
     expect($assignment->vessel_id)->toBe($vessel->id)
-        ->and($assignment->rank_id)->toBe($rank->id)
+        ->and($assignment->position_id)->toBe($rank->id)
         ->and($assignment->client_id)->toBe($client->id)
         ->and($assignment->planned_join_at->toDateString())->toBe('2026-08-01')
         ->and($assignment->planned_signoff_at->toDateString())->toBe('2026-11-01')
@@ -482,7 +482,7 @@ test('16. clearing optional edit fields nulls planned sign-off but preserves pla
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
             'vessel_id' => null,
-            'rank_id' => null,
+            'position_id' => null,
             'client_id' => null,
             'planned_join_at' => null,
             'planned_signoff_at' => null,
@@ -494,7 +494,7 @@ test('16. clearing optional edit fields nulls planned sign-off but preserves pla
     $fresh = $assignment->fresh();
 
     expect($fresh->vessel_id)->toBeNull()
-        ->and($fresh->rank_id)->toBeNull()
+        ->and($fresh->position_id)->toBeNull()
         ->and($fresh->client_id)->toBeNull()
         ->and($fresh->planned_join_at)->toBeNull()
         ->and($fresh->planned_signoff_at)->toBeNull()
@@ -510,7 +510,7 @@ test('17. partial update preserves omitted fields without nulling them', functio
     $vessel->update(['client_id' => $client->id]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
         'planned_join_at' => '2026-08-01',
@@ -529,7 +529,7 @@ test('17. partial update preserves omitted fields without nulling them', functio
 
     expect($fresh->remarks)->toBe('Updated remarks only')
         ->and($fresh->vessel_id)->toBe($vessel->id)
-        ->and($fresh->rank_id)->toBe($rank->id)
+        ->and($fresh->position_id)->toBe($rank->id)
         ->and($fresh->client_id)->toBe($client->id)
         ->and($fresh->planned_join_at->toDateString())->toBe('2026-08-01')
         ->and($fresh->planned_signoff_at?->toDateString())->toBe('2026-11-01')
@@ -575,7 +575,7 @@ test('19. normal edit payload updates expected vessel join and planned sign-off 
     $vessel->update(['client_id' => $client->id]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
         'planned_join_at' => '2026-08-01',
@@ -595,7 +595,7 @@ test('19. normal edit payload updates expected vessel join and planned sign-off 
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => $client->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-09-20',
@@ -618,7 +618,7 @@ test('20. expected vessel join before existing planned sign-off is allowed', fun
     $vessel = makeCrewMovementVessel('Join Before Signoff Vessel');
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-08-01',
         'planned_signoff_at' => '2026-11-01',
@@ -627,7 +627,7 @@ test('20. expected vessel join before existing planned sign-off is allowed', fun
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-10-15',
             'remarks' => 'Keep remarks',
@@ -643,7 +643,7 @@ test('21. expected vessel join equal to existing planned sign-off is allowed', f
     $vessel = makeCrewMovementVessel('Join Equal Signoff Vessel');
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-08-01',
         'planned_signoff_at' => '2026-11-01',
@@ -651,7 +651,7 @@ test('21. expected vessel join equal to existing planned sign-off is allowed', f
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-11-01',
         ])
@@ -668,7 +668,7 @@ test('22. expected vessel join after existing planned sign-off is rejected and p
     $vessel->update(['client_id' => $client->id]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'client_id' => $client->id,
         'planned_join_at' => '2026-08-01',
@@ -680,7 +680,7 @@ test('22. expected vessel join after existing planned sign-off is rejected and p
     $this->actingAs($user)
         ->from(route('organization.crew-assignments.edit', $assignment))
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'client_id' => $client->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-12-01',
@@ -691,7 +691,7 @@ test('22. expected vessel join after existing planned sign-off is rejected and p
 
     $fresh = $assignment->fresh();
 
-    expect($fresh->rank_id)->toBe($rank->id)
+    expect($fresh->position_id)->toBe($rank->id)
         ->and($fresh->client_id)->toBe($client->id)
         ->and($fresh->vessel_id)->toBe($vessel->id)
         ->and($fresh->planned_join_at?->toDateString())->toBe('2026-08-01')
@@ -705,7 +705,7 @@ test('24. edit assignment updates planned arrival date and logs activity', funct
     $vessel = makeCrewMovementVessel('Arrival Edit Vessel');
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-09-21',
         'planned_arrival_at' => '2026-09-18',
@@ -720,7 +720,7 @@ test('24. edit assignment updates planned arrival date and logs activity', funct
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-09-21',
             'planned_arrival_at' => '2026-09-20',
@@ -737,7 +737,7 @@ test('25. edit assignment rejects arrival date after expected vessel join', func
     $vessel = makeCrewMovementVessel('Arrival Validation Vessel');
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-09-21',
         'planned_arrival_at' => '2026-09-18',
@@ -746,7 +746,7 @@ test('25. edit assignment rejects arrival date after expected vessel join', func
     $this->actingAs($user)
         ->from(route('organization.crew-assignments.edit', $assignment))
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-09-21',
             'planned_arrival_at' => '2026-09-22',
@@ -761,19 +761,19 @@ test('26. edit assignment cannot change employee through update payload', functi
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Employee Lock Vessel');
     $otherEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
             'employee_id' => $otherEmployee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_arrival_at' => '2026-09-20',
         ])
@@ -787,7 +787,7 @@ test('23. expected vessel join may be updated when planned sign-off is absent', 
     $vessel = makeCrewMovementVessel('Join Without Signoff Vessel');
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-08-01',
         'remarks' => 'No sign-off yet',
@@ -797,7 +797,7 @@ test('23. expected vessel join may be updated when planned sign-off is absent', 
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-12-01',
             'remarks' => 'No sign-off yet',

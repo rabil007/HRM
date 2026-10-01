@@ -32,7 +32,7 @@ test('start assignment creates active p0 only', function () {
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'start',
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'current_stage' => 'p1',
         ])
@@ -49,7 +49,7 @@ test('start assignment creates active p0 only', function () {
 test('p0 record arrival transitions to join standby', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeLegacyPhaseCleanupFixtures();
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
 
@@ -71,7 +71,7 @@ test('p2a available actions exclude mark ready', function () {
     $service = app(CrewMovementService::class);
 
     $assignment = $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
@@ -97,7 +97,7 @@ test('crafted mark ready from p2a is rejected at http boundary', function () {
     $service = app(CrewMovementService::class);
 
     $assignment = $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
@@ -123,7 +123,7 @@ test('p2a join vessel reaches on vessel', function () {
     $service = app(CrewMovementService::class);
 
     $assignment = $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
@@ -137,7 +137,7 @@ test('p2a join vessel reaches on vessel', function () {
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-01-10 12:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
 
@@ -150,7 +150,7 @@ test('training loop returns to join standby and rejects crafted p3 completion', 
     $service = app(CrewMovementService::class);
 
     $assignment = $service->startAssignment($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'stage_started_at' => '2026-01-01 08:00:00',
     ], $user->id);
@@ -225,7 +225,7 @@ test('legacy p3 join vessel reaches on vessel', function () {
             'action' => CrewMovementAction::JoinVessel->value,
             'occurred_at' => '2026-01-10 12:00:00',
             'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment));
 

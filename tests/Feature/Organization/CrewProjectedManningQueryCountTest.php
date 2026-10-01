@@ -5,7 +5,7 @@ use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
 use Illuminate\Support\Facades\DB;
 
-it('keeps projected manning query count bounded as vessel and rank rows grow', function () {
+it('keeps projected manning query count bounded as vessel and position rows grow', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $companyId = (int) $fixtures['company']->id;
 
@@ -15,14 +15,14 @@ it('keeps projected manning query count bounded as vessel and rank rows grow', f
             VesselManning::query()->create([
                 'company_id' => $fixtures['company']->id,
                 'vessel_id' => $vessel->id,
-                'rank_id' => $fixtures['rank']->id,
+                'position_id' => $fixtures['position']->id,
                 'required_count' => 1,
             ]);
 
             $employee = $i === 0 && $count === 1
                 ? $fixtures['employee']
-                : Employee::factory()->forCompany($fixtures['company'])->create([
-                    'rank_id' => $fixtures['rank']->id,
+                : Employee::factory()->forCompany($fixtures['company'])->create(['position_id' => $fixtures['position']->id,
+
                     'status' => 'active',
                 ]);
 

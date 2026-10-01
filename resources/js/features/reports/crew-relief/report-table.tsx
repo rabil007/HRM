@@ -25,7 +25,7 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
             <TableHeader>
                 <TableRow>
                     <DataTableHead>Current Crew</DataTableHead>
-                    <DataTableHead>Rank</DataTableHead>
+                    <DataTableHead>Position</DataTableHead>
                     <DataTableHead>Vessel</DataTableHead>
                     <DataTableHead>Client</DataTableHead>
                     <DataTableHead>Joined</DataTableHead>
@@ -110,10 +110,10 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
                                 </div>
                             </TableCell>
 
-                            {/* Rank */}
+                            {/* Position */}
                             <TableCell className={dataTableCellClass()}>
                                 <span className="font-medium">
-                                    {row.rank?.name ?? '—'}
+                                    {row.position?.name ?? '—'}
                                 </span>
                             </TableCell>
 

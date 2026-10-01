@@ -3,7 +3,7 @@
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Http\Request;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -27,9 +27,10 @@ function makeDirectoryCompletenessFixtures(): array
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'ABP',
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'ABP',
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);

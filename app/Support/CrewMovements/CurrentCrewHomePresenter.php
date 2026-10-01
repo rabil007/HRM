@@ -36,9 +36,9 @@ final class CurrentCrewHomePresenter
                 'employee_no' => $employee->employee_no,
                 'image' => $employee->image,
             ],
-            'rank' => $employee->rank ? [
-                'id' => (int) $employee->rank->id,
-                'name' => (string) $employee->rank->name,
+            'position' => $employee->position ? [
+                'id' => (int) $employee->position->id,
+                'name' => (string) $employee->position->title,
             ] : null,
             'last_vessel' => self::lastVessel($resolved, $assignment),
             'home_since' => self::formatDateTime($item['home_since'] ?? null, $timezone),

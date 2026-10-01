@@ -11,6 +11,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Hotel;
 use App\Models\RoomType;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Reports\HotelCheckInCheckoutFilters;
 use App\Support\Reports\HotelCheckInCheckoutQuery;
 use Carbon\CarbonImmutable;
@@ -54,7 +55,7 @@ test('basic listing returns stay with employee, hotel, stay type, dates, assignm
         ->create([
             'company_id' => $company->id,
             'assignment_no' => 'CA-HOTEL-001',
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]);
 
     $phase = CrewAssignmentPhase::factory()->create([
@@ -475,7 +476,7 @@ test('query relationship loading does not scale with row count (N+1 regression)'
         $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
             'company_id' => $company->id,
             'assignment_no' => "CA-N1-A{$i}",
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]);
         CrewAccommodationStay::query()->create([
             'company_id' => $company->id,
@@ -492,6 +493,7 @@ test('query relationship loading does not scale with row count (N+1 regression)'
     $filters = new HotelCheckInCheckoutFilters;
     $query = new HotelCheckInCheckoutQuery($company->id, $filters, 'UTC', $user);
 
+    // CrewPositionCatalog has no cache after Rank removal
     DB::enableQueryLog();
     DB::flushQueryLog();
     $query->paginate(25);
@@ -502,7 +504,7 @@ test('query relationship loading does not scale with row count (N+1 regression)'
         $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
             'company_id' => $company->id,
             'assignment_no' => "CA-N1-B{$i}",
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
         ]);
         CrewAccommodationStay::query()->create([
             'company_id' => $company->id,
@@ -516,6 +518,7 @@ test('query relationship loading does not scale with row count (N+1 regression)'
         ]);
     }
 
+    // CrewPositionCatalog has no cache after Rank removal
     DB::flushQueryLog();
     $query->paginate(25);
     $queriesForTwelve = count(DB::getQueryLog());

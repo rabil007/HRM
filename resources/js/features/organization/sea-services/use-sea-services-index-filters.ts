@@ -24,7 +24,7 @@ export function useSeaServicesIndexFilters({
     initialSearch,
     initialVesselId,
     initialVesselTypeId,
-    initialRankId,
+    initialPositionId,
     initialClientId,
     initialActive,
     initialStartDate,
@@ -37,7 +37,7 @@ export function useSeaServicesIndexFilters({
     initialSearch: string;
     initialVesselId: string;
     initialVesselTypeId: string;
-    initialRankId: string;
+    initialPositionId: string;
     initialClientId: string;
     initialActive: string;
     initialStartDate: string;
@@ -53,7 +53,7 @@ export function useSeaServicesIndexFilters({
             search: initialSearch || undefined,
             vessel_id: initialVesselId || undefined,
             vessel_type_id: initialVesselTypeId || undefined,
-            rank_id: initialRankId || undefined,
+            position_id: initialPositionId || undefined,
             client_id: initialClientId || undefined,
             active: initialActive || undefined,
             start_date: initialStartDate || undefined,
@@ -66,7 +66,7 @@ export function useSeaServicesIndexFilters({
             initialSearch,
             initialVesselId,
             initialVesselTypeId,
-            initialRankId,
+            initialPositionId,
             initialClientId,
             initialActive,
             initialStartDate,
@@ -88,7 +88,7 @@ export function useSeaServicesIndexFilters({
                     'search',
                     'vessel_id',
                     'vessel_type_id',
-                    'rank_id',
+                    'position_id',
                     'client_id',
                     'active',
                     'start_date',
@@ -140,7 +140,7 @@ export function useSeaServicesIndexFilters({
                 ...baseParams(),
                 vessel_id: next.vessel_id || undefined,
                 vessel_type_id: next.vessel_type_id || undefined,
-                rank_id: next.rank_id || undefined,
+                position_id: next.position_id || undefined,
                 client_id: next.client_id || undefined,
                 start_date: next.start_date || undefined,
                 end_date: next.end_date || undefined,

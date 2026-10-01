@@ -19,7 +19,7 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -71,7 +71,7 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-10 12:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     if ($targetPhase === CrewPhaseCode::OnVessel) {
@@ -181,7 +181,7 @@ test('days in phase is a whole number', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Days Whole');
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel)
-        ->load(['currentPhase', 'phases', 'company', 'employee', 'rank', 'vessel']);
+        ->load(['currentPhase', 'phases', 'company', 'employee', 'position', 'vessel']);
 
     $detail = CrewAssignmentPresenter::detail($assignment);
 

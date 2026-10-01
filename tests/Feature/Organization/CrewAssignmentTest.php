@@ -234,7 +234,7 @@ test('crew assignment show page renders successfully with corrections without la
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
         'company_id' => $company->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'assignment_no' => 'CA-SHOW-CORR-01',
         'status' => 'active',

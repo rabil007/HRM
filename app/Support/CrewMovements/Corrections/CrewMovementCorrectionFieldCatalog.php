@@ -39,7 +39,7 @@ final class CrewMovementCorrectionFieldCatalog
 
         return [
             'vessel_id',
-            'rank_id',
+            'position_id',
             'client_id',
         ];
     }
@@ -59,7 +59,7 @@ final class CrewMovementCorrectionFieldCatalog
     {
         return in_array($field, [
             'vessel_id',
-            'rank_id',
+            'position_id',
             'client_id',
         ], true);
     }

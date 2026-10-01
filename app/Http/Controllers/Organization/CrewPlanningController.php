@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
-use App\Models\Rank;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
@@ -18,6 +17,7 @@ use App\Support\CrewPlanning\CrewPlanningProjectionPresenter;
 use App\Support\CrewPlanning\CrewReliefDeskFilters;
 use App\Support\CrewPlanning\CrewReliefDeskQuery;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Vessels\ResolvesCompanyVessels;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -51,8 +51,8 @@ class CrewPlanningController extends Controller
         $vesselId = $request->query('vessel_id');
         $vesselId = $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null;
 
-        $rankId = $request->query('rank_id');
-        $rankId = $rankId !== null && $rankId !== '' ? (int) $rankId : null;
+        $positionIdString = (string) ($request->query('position_id') ?? '');
+        $positionId = $positionIdString !== '' ? (int) $positionIdString : null;
 
         $search = trim((string) $request->query('search', ''));
         $can = CrewPlanningPagePermissions::for($request->user());
@@ -61,14 +61,14 @@ class CrewPlanningController extends Controller
             'view' => $view,
             'filters' => [
                 'vessel_id' => $vesselId,
-                'rank_id' => $rankId,
+                'position_id' => $positionId,
                 'from' => $from,
                 'to' => $to,
                 'search' => $search,
             ],
             'today' => CarbonImmutable::today()->toDateString(),
             'vessels' => $this->activeVessels($companyId),
-            'ranks' => $this->activeRanks(),
+            'positions' => CrewPositionCatalog::crewPositionOptions($companyId),
             'can' => $can,
             'relief_desk' => $this->emptyReliefDesk(),
         ];
@@ -138,8 +138,9 @@ class CrewPlanningController extends Controller
                     $from,
                     $to,
                     $vesselId,
-                    $rankId,
+                    $positionId,
                 ),
+                $companyId,
             );
             $projectionPositions = $projection['rows'];
         }
@@ -151,7 +152,7 @@ class CrewPlanningController extends Controller
                 $from,
                 $to,
                 $vesselId,
-                $rankId,
+                $positionId,
                 $projectionPositions,
                 $request->user(),
             ),
@@ -160,7 +161,7 @@ class CrewPlanningController extends Controller
                 $from,
                 $to,
                 $vesselId,
-                $rankId,
+                $positionId,
                 $request->user(),
             ),
             'tree' => CrewPlanningGanttQuery::tree(
@@ -168,7 +169,7 @@ class CrewPlanningController extends Controller
                 $from,
                 $to,
                 $vesselId,
-                $rankId,
+                $positionId,
                 $projectionPositions,
                 $request->user(),
             ),
@@ -243,7 +244,7 @@ class CrewPlanningController extends Controller
     /**
      * @return array{
      *     vessel_id: int|null,
-     *     rank_id: int|null,
+     *     position_id: int|null,
      *     relieves_crew_assignment_id: int|null,
      *     planned_join_date: string|null,
      *     open_create: bool,
@@ -260,8 +261,8 @@ class CrewPlanningController extends Controller
         $vesselIdRaw = $request->query('vessel_id');
         $vesselId = $vesselIdRaw !== null && $vesselIdRaw !== '' ? (int) $vesselIdRaw : null;
 
-        $rankIdRaw = $request->query('rank_id');
-        $rankId = $rankIdRaw !== null && $rankIdRaw !== '' ? (int) $rankIdRaw : null;
+        $positionIdString = (string) ($request->query('position_id') ?? '');
+        $positionId = $positionIdString !== '' ? (int) $positionIdString : null;
 
         $plannedJoinDate = $this->nullableDate($request->query('planned_join_date'));
         $planningAssignmentIdRaw = $request->query('planning_assignment_id');
@@ -290,7 +291,7 @@ class CrewPlanningController extends Controller
                 );
 
                 $vesselId ??= $plan->vessel_id !== null ? (int) $plan->vessel_id : null;
-                $rankId ??= $plan->rank_id !== null ? (int) $plan->rank_id : null;
+                $positionId ??= CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $plan->position_id !== null ? (int) $plan->position_id : null);
             }
         }
 
@@ -306,7 +307,7 @@ class CrewPlanningController extends Controller
             } else {
                 $relievesEmployeeName = $source->employee?->name;
                 $vesselId ??= $source->vessel_id !== null ? (int) $source->vessel_id : null;
-                $rankId ??= $source->rank_id !== null ? (int) $source->rank_id : null;
+                $positionId ??= CrewPositionCatalog::resolveCrewAssignmentPositionId($companyId, $source->position_id !== null ? (int) $source->position_id : null);
                 $plannedJoinDate ??= $source->planned_signoff_at?->toDateString();
             }
         }
@@ -317,7 +318,7 @@ class CrewPlanningController extends Controller
 
         return [
             'vessel_id' => $vesselId,
-            'rank_id' => $rankId,
+            'position_id' => $positionId,
             'relieves_crew_assignment_id' => $relievesId,
             'planned_join_date' => $plannedJoinDate,
             'open_create' => $openCreate,
@@ -365,10 +366,8 @@ class CrewPlanningController extends Controller
      */
     private function activeRanks(): array
     {
-        return Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->all();
+        return CrewPositionCatalog::crewPositionOptions(
+            (int) request()->attributes->get('current_company_id'),
+        );
     }
 }

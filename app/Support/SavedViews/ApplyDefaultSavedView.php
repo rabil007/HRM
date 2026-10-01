@@ -37,7 +37,7 @@ final class ApplyDefaultSavedView
             return null;
         }
 
-        $filters = SavedViewCatalog::forApply($page, $view->filters ?? []);
+        $filters = SavedViewCatalog::forApply($page, $view->filters ?? [], $companyId);
 
         if ($filters === []) {
             return null;

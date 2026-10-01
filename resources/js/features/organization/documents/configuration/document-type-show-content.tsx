@@ -36,7 +36,6 @@ import type {
     DocumentTypeDetail,
     PositionOption,
     ProjectOption,
-    RankOption,
 } from '@/features/organization/documents/configuration/types';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import {
@@ -104,7 +103,6 @@ export function DocumentTypeShowContent({
     can,
     departments = [],
     positions = [],
-    ranks = [],
     projects = [],
     recentActivity,
     canViewAudit,
@@ -113,7 +111,6 @@ export function DocumentTypeShowContent({
     can: { update: boolean; delete: boolean };
     departments?: DepartmentOption[];
     positions?: PositionOption[];
-    ranks?: RankOption[];
     projects?: ProjectOption[];
     recentActivity: RecentActivityItem[];
     canViewAudit: boolean;
@@ -153,7 +150,6 @@ export function DocumentTypeShowContent({
     const positionNames = requirement.targets.positions.map(
         (item) => item.title,
     );
-    const rankNames = requirement.targets.ranks.map((item) => item.name);
     const projectNames = requirement.targets.projects.map((item) => item.title);
 
     return (
@@ -298,10 +294,6 @@ export function DocumentTypeShowContent({
                                         names={positionNames}
                                     />
                                     <TargetGroup
-                                        label="Ranks"
-                                        names={rankNames}
-                                    />
-                                    <TargetGroup
                                         label="Projects"
                                         names={projectNames}
                                     />
@@ -407,7 +399,6 @@ export function DocumentTypeShowContent({
                 canUpdate={can.update}
                 departments={departments}
                 positions={positions}
-                ranks={ranks}
                 projects={projects}
                 onSubmit={submit}
             />
@@ -429,7 +420,6 @@ export default function DocumentTypeShowPage({
     can,
     departments = [],
     positions = [],
-    ranks = [],
     projects = [],
     recent_activity,
     can_view_audit,
@@ -438,7 +428,6 @@ export default function DocumentTypeShowPage({
     can: { update: boolean; delete: boolean };
     departments?: DepartmentOption[];
     positions?: PositionOption[];
-    ranks?: RankOption[];
     projects?: ProjectOption[];
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
@@ -451,7 +440,6 @@ export default function DocumentTypeShowPage({
                 can={can}
                 departments={departments}
                 positions={positions}
-                ranks={ranks}
                 projects={projects}
                 recentActivity={recent_activity}
                 canViewAudit={can_view_audit}

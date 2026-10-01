@@ -20,7 +20,7 @@ it('keeps other allowed actions when a recommendation is present', function () {
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     );
 
@@ -46,7 +46,7 @@ it('does not recommend legacy mark ready even when supplied as an allowed action
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     );
 
@@ -81,7 +81,7 @@ it('rejects crafted mark ready from join standby at the http boundary', function
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     );
 
@@ -117,7 +117,7 @@ it('still forbids movement without permission when a recommendation exists', fun
     $assignment = app(CrewMovementService::class)->createDraft(
         $fixtures['company']->id,
         $fixtures['employee']->id,
-        ['rank_id' => $fixtures['rank']->id],
+        ['position_id' => $fixtures['rank']->id],
         $fixtures['user']->id,
     );
 

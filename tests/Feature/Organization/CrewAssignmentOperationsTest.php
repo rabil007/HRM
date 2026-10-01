@@ -5,13 +5,13 @@ use App\Enums\CrewPhaseCode;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMovementService;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * @return array{user: User, company: Company, employee: Employee, rank: Rank}
+ * @return array{user: User, company: Company, employee: Employee, rank: Position}
  */
 function makeCrewAssignmentOperationsFixtures(array $permissions = [
     'crew_operations.assignments.view',
@@ -48,7 +48,7 @@ test('authorized users can view crew assignments index', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
 
     app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -59,7 +59,7 @@ test('authorized users can view crew assignments index', function () {
             ->has('assignments')
             ->has('summary')
             ->has('filter_options')
-            ->has('form_options.ranks')
+            ->has('form_options.positions')
             ->has('form_options.vessels')
             ->has('form_options.clients')
             ->has('form_options.courses')
@@ -74,7 +74,7 @@ test('cross-company assignment show returns not found', function () {
     ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
 
     $foreign = app(CrewMovementService::class)->createDraft($otherCompany->id, $otherEmployee->id, [
-        'rank_id' => $otherRank->id,
+        'position_id' => $otherRank->id,
     ]);
 
     $this->actingAs($user)
@@ -91,7 +91,7 @@ test('authorized users can open create with global master data options', functio
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew/create')
             ->has('form_options.employees')
-            ->has('form_options.ranks')
+            ->has('form_options.positions')
             ->has('form_options.vessels')
             ->has('form_options.clients')
             ->has('form_options.courses')
@@ -105,7 +105,7 @@ test('authorized users can create a draft assignment', function () {
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
             'planned_join_at' => '2026-08-01',
             'remarks' => 'Created via UI',
@@ -136,7 +136,7 @@ test('search filters crew assignments', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $this->actingAs($user)
@@ -152,12 +152,12 @@ test('phase filter works on crew assignments index', function () {
     $vessel = makeCrewMovementVessel('Phase Filter Vessel');
 
     app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
     $otherEmployee = Employee::factory()->forCompany($company)->create([
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'status' => 'active',
     ]);
     makeActiveOnVesselAssignment($company, $otherEmployee, $rank, $vessel, [
@@ -181,7 +181,7 @@ test('company A cannot create a crew assignment using company B vessel', functio
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'employee_id' => $employee->id,
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $otherVessel->id,
             'planned_join_at' => '2026-08-01',
         ])
@@ -198,13 +198,13 @@ test('company A cannot update a crew assignment using company B vessel', functio
     $otherVessel = makeCrewMovementVessel('Foreign Company B Vessel Update', $otherCompany);
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $ownVessel->id,
     ], $user->id);
 
     $this->actingAs($user)
         ->put(route('organization.crew-assignments.update', $assignment), [
-            'rank_id' => $rank->id,
+            'position_id' => $rank->id,
             'vessel_id' => $otherVessel->id,
             'planned_join_at' => '2026-08-01',
         ])

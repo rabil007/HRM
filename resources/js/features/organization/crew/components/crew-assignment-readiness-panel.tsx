@@ -72,7 +72,7 @@ export function CrewAssignmentReadinessPanel({
     plannedJoinAt = null,
     transferPrefill,
     planningEmployeeName = null,
-    planningRankName = null,
+    planningPositionName = null,
     className,
 }: {
     employeeId: number | null;
@@ -85,11 +85,11 @@ export function CrewAssignmentReadinessPanel({
     plannedJoinAt?: string | null;
     transferPrefill?: {
         vessel_id?: number | null;
-        rank_id?: number | null;
+        position_id?: number | null;
         client_id?: number | null;
     };
     planningEmployeeName?: string | null;
-    planningRankName?: string | null;
+    planningPositionName?: string | null;
     className?: string;
 }): ReactElement {
     const employee =
@@ -106,11 +106,12 @@ export function CrewAssignmentReadinessPanel({
             ? (formOptions.active_on_vessel_by_employee?.[String(employeeId)] ??
               null)
             : null;
-    const rankName =
-        planningRankName ??
-        (employee?.rank_id != null
-            ? (formOptions.ranks.find((rank) => rank.id === employee.rank_id)
-                  ?.name ?? null)
+    const positionName =
+        planningPositionName ??
+        (employee?.position_id != null
+            ? (formOptions.positions.find(
+                  (position) => position.id === employee.position_id,
+              )?.name ?? null)
             : null);
     const destinationVesselName =
         destinationVesselId != null
@@ -151,7 +152,7 @@ export function CrewAssignmentReadinessPanel({
                         <GuidanceEmployeeIdentity
                             name={employeeName}
                             employeeNo={employee?.employee_no}
-                            rankName={rankName}
+                            positionName={positionName}
                             nationalityName={employee?.nationality_name}
                             image={employee?.image}
                         />

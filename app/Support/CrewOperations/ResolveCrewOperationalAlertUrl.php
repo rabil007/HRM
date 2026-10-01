@@ -42,14 +42,14 @@ final class ResolveCrewOperationalAlertUrl
         if ($user->can('crew_operations.planning.view')) {
             $params = [];
             $vesselId = $alert->context['vessel_id'] ?? null;
-            $rankId = $alert->context['rank_id'] ?? null;
+            $positionId = $alert->context['position_id'] ?? null;
 
             if (is_numeric($vesselId)) {
                 $params['vessel_id'] = (int) $vesselId;
             }
 
-            if (is_numeric($rankId)) {
-                $params['rank_id'] = (int) $rankId;
+            if (is_numeric($positionId)) {
+                $params['position_id'] = (int) $positionId;
             }
 
             return route('organization.crew-planning.index', $params);

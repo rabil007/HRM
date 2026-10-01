@@ -60,7 +60,7 @@ test('join vessel movement creates open sea service immediately inside transacti
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -75,7 +75,7 @@ test('join vessel movement creates open sea service immediately inside transacti
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $activePhase = $assignment->fresh()->currentPhase;
@@ -96,7 +96,7 @@ test('planned sign-off keeps sea service open and actual disembarkation updates 
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -111,7 +111,7 @@ test('planned sign-off keeps sea service open and actual disembarkation updates 
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $seaService = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
@@ -213,7 +213,7 @@ test('transfer closes source sea service and opens destination sea service', fun
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vesselA->id,
     ], $user->id);
 
@@ -228,7 +228,7 @@ test('transfer closes source sea service and opens destination sea service', fun
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-03 08:00:00',
         'vessel_id' => $vesselA->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $sourcePhase = $assignment->fresh()->currentPhase;
@@ -240,7 +240,7 @@ test('transfer closes source sea service and opens destination sea service', fun
     $destination = $service->perform($company->id, $id, CrewMovementAction::TransferVessel, [
         'occurred_at' => '2026-10-15 10:00:00',
         'vessel_id' => $vesselB->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $sourceSea->refresh();
@@ -286,7 +286,7 @@ test('approved correction on active P4 join date updates existing open sea servi
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
     ], $user->id);
 
@@ -301,7 +301,7 @@ test('approved correction on active P4 join date updates existing open sea servi
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-03 08:00:00',
         'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ], $user->id);
 
     $seaService = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();

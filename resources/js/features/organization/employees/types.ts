@@ -70,9 +70,11 @@ export type SssaOption = {
     name: string;
 };
 
-export type RankOption = {
+/** Crew / occupational role option (formerly Rank catalog). */
+export type CrewPositionOption = {
     id: number;
     name: string;
+    max_tour_of_duty_days?: number | null;
 };
 
 export type ClientOption = {

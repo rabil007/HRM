@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\CrewPlanning;
 
 use App\Http\Requests\Organization\CrewPlanning\Concerns\ValidatesCrewPlanningAssignmentFields;
+use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -30,7 +31,7 @@ class StoreCrewPlanningAssignmentRequest extends FormRequest
                     ->where('company_id', $companyId)
                     ->where('is_active', true),
             ],
-            'rank_id' => ['required', 'integer', Rule::exists('ranks', 'id')],
+            'position_id' => ['required', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
             'employee_id' => $this->crewPlanningEmployeeIdMustBeAbsentRule(),
             'planned_join_date' => ['required', 'date'],
             'planned_leave_date' => ['required', 'date', 'after_or_equal:planned_join_date'],

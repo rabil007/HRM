@@ -17,8 +17,8 @@ beforeEach(function () {
     $this->rank = $this->fixtures['rank'];
     $this->rank->update([
         'name' => 'Chief Officer '.uniqid(),
-        'max_tour_of_duty_days' => 90,
     ]);
+    setMappedCrewTourOfDutyDays($this->company, $this->rank, 90);
     $this->vessel = makeCrewMovementVessel('E2E Tour Vessel');
     $this->service = app(CrewMovementService::class);
 });
@@ -39,7 +39,7 @@ function advanceToReadyForE2ETour(CrewMovementService $service, int $companyId, 
 
 it('uses Rank Master tour suggestion on join vessel', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
         'planned_join_at' => '2026-08-10 00:00:00',
         'planned_signoff_at' => '2026-11-08 00:00:00',
@@ -50,7 +50,7 @@ it('uses Rank Master tour suggestion on join vessel', function () {
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
@@ -69,7 +69,7 @@ it('uses Rank Master tour suggestion on join vessel', function () {
 
 it('keeps existing planning leave when existing_plan is chosen', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
         'planned_join_at' => '2026-08-10 00:00:00',
         'planned_signoff_at' => '2026-11-08 00:00:00',
@@ -80,7 +80,7 @@ it('keeps existing planning leave when existing_plan is chosen', function () {
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'existing_plan',
     ], $this->user->id);
 
@@ -93,7 +93,7 @@ it('keeps existing planning leave when existing_plan is chosen', function () {
 
 it('stores manual override with required reason', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
         'planned_join_at' => '2026-08-10 00:00:00',
         'planned_signoff_at' => '2026-11-08 00:00:00',
@@ -104,7 +104,7 @@ it('stores manual override with required reason', function () {
     expect(fn () => $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'manual_override',
         'planned_signoff_at' => '2026-09-30',
     ], $this->user->id))->toThrow(ValidationException::class);
@@ -112,7 +112,7 @@ it('stores manual override with required reason', function () {
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'manual_override',
         'planned_signoff_at' => '2026-09-30',
         'planned_signoff_override_reason' => 'Client requested earlier relief',
@@ -128,7 +128,7 @@ it('stores manual override with required reason', function () {
 
 it('keeps snapshotted tour after later Rank Master changes', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
     ], $this->user->id);
 
@@ -137,11 +137,11 @@ it('keeps snapshotted tour after later Rank Master changes', function () {
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 
-    $this->rank->update(['max_tour_of_duty_days' => 120]);
+    setMappedCrewTourOfDutyDays($this->company, $this->rank, 120);
 
     $assignment->refresh();
 
@@ -149,12 +149,12 @@ it('keeps snapshotted tour after later Rank Master changes', function () {
         ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-11-10');
 
     $otherEmployee = Employee::factory()->forCompany($this->company)->create([
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'status' => 'active',
     ]);
     $otherVessel = makeCrewMovementVessel('Future E2E Vessel');
     $future = $this->service->createDraft($this->company->id, $otherEmployee->id, [
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'vessel_id' => $otherVessel->id,
     ], $this->user->id);
 
@@ -163,7 +163,7 @@ it('keeps snapshotted tour after later Rank Master changes', function () {
     $this->service->perform($this->company->id, $future->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-01 10:00:00',
         'vessel_id' => $otherVessel->id,
-        'rank_id' => $this->rank->id,
+        'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
     ], $this->user->id);
 

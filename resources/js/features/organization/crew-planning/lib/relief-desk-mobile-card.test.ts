@@ -19,7 +19,7 @@ function row(overrides: Partial<ReliefDeskRow> = {}): ReliefDeskRow {
             name: 'Ocean Star',
             href: '/organization/vessels/2',
         },
-        rank: { id: 3, name: 'AB' },
+        position: { id: 3, name: 'AB' },
         current_phase_code: 'p4',
         current_phase_label: 'On Vessel',
         current_duty_day: 82,

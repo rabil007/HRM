@@ -20,14 +20,14 @@ it('keeps vessel index health query count bounded as vessels grow', function () 
             VesselManning::query()->create([
                 'company_id' => $fixtures['company']->id,
                 'vessel_id' => $vessel->id,
-                'rank_id' => $fixtures['rank']->id,
+                'position_id' => $fixtures['rank']->id,
                 'required_count' => 1,
             ]);
 
             $employee = $i === 0 && $count === 1
                 ? $fixtures['employee']
                 : Employee::factory()->forCompany($fixtures['company'])->create([
-                    'rank_id' => $fixtures['rank']->id,
+                    'position_id' => $fixtures['rank']->id,
                     'status' => 'active',
                 ]);
 

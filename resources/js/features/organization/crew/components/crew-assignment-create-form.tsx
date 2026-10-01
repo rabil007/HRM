@@ -79,7 +79,7 @@ function newCrewRow(): CrewMemberRowState {
     return {
         key: `crew-row-${nextRowKey}`,
         employee_id: null,
-        rank_id: null,
+        position_id: null,
     };
 }
 
@@ -88,7 +88,7 @@ function createInitialRows(
     planningContext?: CrewPlanningStartContext | null,
     prefill?: {
         employee_id?: number | null;
-        rank_id?: number | null;
+        position_id?: number | null;
     } | null,
 ): {
     rows: CrewMemberRowState[];
@@ -98,7 +98,7 @@ function createInitialRows(
         const row: CrewMemberRowState = {
             key: 'crew-row-planning',
             employee_id: planningContext.employee_id,
-            rank_id: planningContext.rank_id,
+            position_id: planningContext.position_id,
             planned_arrival_at: planningContext.planned_arrival_at ?? null,
         };
 
@@ -119,8 +119,8 @@ function createInitialRows(
                 row.employee_id = prefill.employee_id;
             }
 
-            if (prefill.rank_id) {
-                row.rank_id = prefill.rank_id;
+            if (prefill.position_id) {
+                row.position_id = prefill.position_id;
             }
         }
 
@@ -186,7 +186,7 @@ export function CrewAssignmentCreateForm({
     prefill?: {
         employee_id?: number | null;
         vessel_id?: number | null;
-        rank_id?: number | null;
+        position_id?: number | null;
         client_id?: number | null;
         planned_join_at?: string | null;
         planned_signoff_at?: string | null;
@@ -261,9 +261,9 @@ export function CrewAssignmentCreateForm({
         crew:
             restoredBulkSession?.form.crew ??
             initialRows.rows.map(
-                ({ employee_id, rank_id, planned_arrival_at }) => ({
+                ({ employee_id, position_id, planned_arrival_at }) => ({
                     employee_id,
-                    rank_id,
+                    position_id,
                     planned_arrival_at: planned_arrival_at ?? null,
                 }),
             ),
@@ -430,7 +430,7 @@ export function CrewAssignmentCreateForm({
     };
     const transferPrefill = {
         vessel_id: form.data.vessel_id,
-        rank_id: singleRow?.rank_id ?? null,
+        position_id: singleRow?.position_id ?? null,
         client_id: form.data.client_id,
     };
     const bulkRowValidationError = findBulkRowValidationError(formErrors);
@@ -467,7 +467,7 @@ export function CrewAssignmentCreateForm({
                 nextCrew = [
                     {
                         employee_id: blankRow.employee_id,
-                        rank_id: blankRow.rank_id,
+                        position_id: blankRow.position_id,
                     },
                 ];
                 nextKeysResolved = [blankRow.key];
@@ -527,11 +527,13 @@ export function CrewAssignmentCreateForm({
         setRowKeys(nextRows.map((row) => row.key));
         form.setData(
             'crew',
-            nextRows.map(({ employee_id, rank_id, planned_arrival_at }) => ({
-                employee_id,
-                rank_id,
-                planned_arrival_at,
-            })),
+            nextRows.map(
+                ({ employee_id, position_id, planned_arrival_at }) => ({
+                    employee_id,
+                    position_id,
+                    planned_arrival_at,
+                }),
+            ),
         );
         setBulkSidebarMode('summary');
         setPreviewRowKey(null);
@@ -594,7 +596,7 @@ export function CrewAssignmentCreateForm({
                 plannedJoinAt={form.data.planned_join_at || null}
                 transferPrefill={transferPrefill}
                 planningEmployeeName={planning_context?.employee_name ?? null}
-                planningRankName={planning_context?.rank_name ?? null}
+                planningPositionName={planning_context?.position_name ?? null}
             />
         );
     };
@@ -636,7 +638,7 @@ export function CrewAssignmentCreateForm({
 
             return {
                 employee_id: row?.employee_id ?? null,
-                rank_id: row?.rank_id ?? null,
+                position_id: row?.position_id ?? null,
                 client_id: form.data.client_id,
                 vessel_id: form.data.vessel_id,
                 planned_join_at: form.data.planned_join_at,
@@ -673,7 +675,7 @@ export function CrewAssignmentCreateForm({
             remarks: data.remarks,
             crew: data.crew.map((row) => ({
                 employee_id: row.employee_id,
-                rank_id: row.rank_id,
+                position_id: row.position_id,
                 planned_arrival_at: row.planned_arrival_at || null,
             })),
         }));
@@ -890,8 +892,8 @@ export function CrewAssignmentCreateForm({
                                                         {
                                                             employee_id:
                                                                 next.employee_id,
-                                                            rank_id:
-                                                                next.rank_id,
+                                                            position_id:
+                                                                next.position_id,
                                                         },
                                                     ]);
                                                 }}
@@ -958,8 +960,8 @@ export function CrewAssignmentCreateForm({
                                                     planning_context?.employee_name ??
                                                     null
                                                 }
-                                                planningRankName={
-                                                    planning_context?.rank_name ??
+                                                planningPositionName={
+                                                    planning_context?.position_name ??
                                                     null
                                                 }
                                             />
@@ -1173,7 +1175,7 @@ export function CrewAssignmentCreateForm({
                     destinationVesselName={destinationVessel?.name}
                     prefill={{
                         vessel_id: form.data.vessel_id,
-                        rank_id: singleRow?.rank_id ?? null,
+                        position_id: singleRow?.position_id ?? null,
                         client_id: form.data.client_id,
                     }}
                 />

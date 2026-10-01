@@ -31,7 +31,7 @@ class CrewAssignment extends Model
         'company_id',
         'assignment_no',
         'employee_id',
-        'rank_id',
+        'position_id',
         'client_id',
         'vessel_id',
         'status',
@@ -62,7 +62,7 @@ class CrewAssignment extends Model
         return LogOptions::defaults()
             ->logOnly([
                 'employee_id',
-                'rank_id',
+                'position_id',
                 'client_id',
                 'vessel_id',
                 'status',
@@ -95,7 +95,7 @@ class CrewAssignment extends Model
         return [
             'company_id' => 'integer',
             'employee_id' => 'integer',
-            'rank_id' => 'integer',
+            'position_id' => 'integer',
             'client_id' => 'integer',
             'vessel_id' => 'integer',
             'current_phase_id' => 'integer',
@@ -127,9 +127,9 @@ class CrewAssignment extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function rank(): BelongsTo
+    public function position(): BelongsTo
     {
-        return $this->belongsTo(Rank::class);
+        return $this->belongsTo(Position::class);
     }
 
     public function client(): BelongsTo

@@ -32,7 +32,7 @@ final class CrewReliefDeskPresenter
         $tour = (new CrewTourProgress)->forAssignment($source, null, $timezone);
         $employee = $this->tenantEmployee($source, $companyId);
         $vessel = $this->tenantVessel($source, $companyId);
-        $rank = $source->rank;
+        $position = $source->position;
         $canViewAssignments = $user->can('crew_operations.assignments.view');
         $canCreatePlanning = $user->can('crew_operations.planning.create');
         $canViewEmployees = $user->can('employees.view');
@@ -79,9 +79,9 @@ final class CrewReliefDeskPresenter
                     ? route('organization.vessels.show', $vessel)
                     : null,
             ] : null,
-            'rank' => $rank !== null ? [
-                'id' => (int) $rank->id,
-                'name' => (string) $rank->name,
+            'position' => $position !== null ? [
+                'id' => (int) $position->id,
+                'name' => (string) $position->title,
             ] : null,
             'current_phase_code' => $source->currentPhase?->phase_code->value,
             'current_phase_label' => $source->currentPhase?->phase_code->label(),
@@ -190,7 +190,7 @@ final class CrewReliefDeskPresenter
     {
         return route('organization.crew-planning.index', array_filter([
             'vessel_id' => $source->vessel_id,
-            'rank_id' => $source->rank_id,
+            'position_id' => $source->position_id,
             'relieves_crew_assignment_id' => $source->id,
             'planned_join_date' => $source->planned_signoff_at?->toDateString(),
             'open_create' => 1,
@@ -201,7 +201,7 @@ final class CrewReliefDeskPresenter
     {
         $params = [
             'vessel_id' => $source->vessel_id,
-            'rank_id' => $source->rank_id,
+            'position_id' => $source->position_id,
         ];
 
         if ($relief->reliefPlanningAssignmentId !== null) {

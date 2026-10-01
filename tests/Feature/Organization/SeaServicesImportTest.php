@@ -6,7 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
+use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -39,6 +39,8 @@ test('sea services template lists active employees', function () {
 
     expect($importHeaders = app(SeaServicesImport::class)->headers())
         ->toHaveCount(8)
+        ->toContain('Position')
+        ->not->toContain('Rank')
         ->not->toContain('Is Offshore');
 
     foreach ($importHeaders as $columnIndex => $header) {
@@ -65,7 +67,7 @@ test('sea services import preview rejects unknown employee numbers', function ()
             'name' => 'Unknown',
             'vessel_type' => $vesselType->name,
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'start_date' => '2024-01-15',
             'end_date' => '2024-06-15',
             'client' => null,
@@ -93,7 +95,7 @@ test('sea services import creates new records', function () {
             'name' => $employee->name,
             'vessel_type' => $vesselType->name,
             'vessel' => $vessel->name,
-            'rank' => $rank->name,
+            'rank' => $rank->title,
             'start_date' => '2024-03-01',
             'end_date' => '2024-09-01',
             'client' => null,
@@ -110,7 +112,7 @@ test('sea services import creates new records', function () {
     $created = EmployeeSeaService::query()
         ->where('employee_id', $employee->id)
         ->where('vessel_id', $vessel->id)
-        ->where('rank_id', $rank->id)
+        ->where('position_id', $rank->id)
         ->first();
 
     expect($created)->not->toBeNull()
@@ -204,9 +206,10 @@ function makeSeaServicesImportFixtures(): array
         'is_active' => true,
     ]);
 
-    $rank = Rank::query()->create([
-        'name' => 'Import Rank '.uniqid(),
-        'is_active' => true,
+    $rank = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Import Rank '.uniqid(),
+        'status' => 'active', 'is_crew_position' => true,
     ]);
 
     return compact('user', 'company', 'employee', 'vesselType', 'vessel', 'rank');

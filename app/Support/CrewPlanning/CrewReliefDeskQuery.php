@@ -164,7 +164,7 @@ final class CrewReliefDeskQuery
         $assignments = $query
             ->with([
                 'employee:id,company_id,name,employee_no',
-                'rank:id,name',
+                'position:id,title',
                 'vessel:id,company_id,name',
                 'client:id,name',
                 'currentPhase',
@@ -217,7 +217,7 @@ final class CrewReliefDeskQuery
                         });
                     })
                     ->orWhereHas('vessel', fn (Builder $v) => $v->where('name', 'like', '%'.$search.'%'))
-                    ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
+                    ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('reliefPlanningAssignments', function (Builder $planning) use ($search, $companyId, $user): void {
                         $planning->where('company_id', $companyId)
@@ -233,8 +233,8 @@ final class CrewReliefDeskQuery
             $query->where('vessel_id', (int) $filters['vessel_id']);
         }
 
-        if (! empty($filters['rank_id'])) {
-            $query->where('rank_id', (int) $filters['rank_id']);
+        if (! empty($filters['position_id'])) {
+            $query->where('position_id', (int) $filters['position_id']);
         }
 
         if (! empty($filters['client_id'])) {

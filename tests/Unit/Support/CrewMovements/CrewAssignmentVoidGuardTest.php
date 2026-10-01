@@ -7,7 +7,7 @@ use App\Support\CrewMovements\CrewMovementService;
 it('returns no blockers for a plain draft assignment', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
 
     expect(app(CrewAssignmentVoidGuard::class)->blockers($assignment, $company->id))->toBe([]);
@@ -16,7 +16,7 @@ it('returns no blockers for a plain draft assignment', function () {
 it('returns already_voided for soft-deleted assignment', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
-        'rank_id' => $rank->id,
+        'position_id' => $rank->id,
     ]);
     $assignment->forceFill([
         'voided_at' => now(),

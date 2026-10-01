@@ -19,7 +19,7 @@ class CrewReliefReportController extends Controller
     public function index(CrewReliefReportRequest $request): Response
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $filters = CrewReliefReportFilters::fromRequest($request);
+        $filters = CrewReliefReportFilters::fromRequest($request, $companyId);
         $page = (int) $request->query('page', 1);
 
         $query = new CrewReliefReportQuery($companyId, $filters, $request->user());
@@ -38,7 +38,7 @@ class CrewReliefReportController extends Controller
     public function export(CrewReliefReportRequest $request): BinaryFileResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $filters = CrewReliefReportFilters::fromRequest($request);
+        $filters = CrewReliefReportFilters::fromRequest($request, $companyId);
 
         $query = new CrewReliefReportQuery($companyId, $filters, $request->user());
         $export = new CrewReliefExport($query->exportCollection());
