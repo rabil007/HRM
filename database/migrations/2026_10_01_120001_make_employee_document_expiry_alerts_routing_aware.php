@@ -9,32 +9,47 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->foreignId('notification_rule_id')
-                ->nullable()
-                ->after('company_id')
-                ->constrained('document_expiry_notification_rules')
-                ->nullOnDelete();
-        });
+        if (! Schema::hasColumn('employee_document_expiry_alerts', 'notification_rule_id')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->foreignId('notification_rule_id')
+                    ->nullable()
+                    ->after('company_id')
+                    ->constrained('document_expiry_notification_rules')
+                    ->nullOnDelete();
+            });
+        }
 
-        // Replace company-wide unique key with routing-aware uniqueness.
-        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->dropUnique('employee_document_expiry_alerts_document_expiry_unique');
-        });
+        // MySQL may be using the composite unique as the supporting index for
+        // employee_document_id_foreign — add a dedicated index before dropping it.
+        if (! $this->hasIndex('employee_document_expiry_alerts_employee_document_id_index')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->index('employee_document_id', 'employee_document_expiry_alerts_employee_document_id_index');
+            });
+        }
 
-        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->unique(
-                ['notification_rule_id', 'employee_document_id', 'expiry_date_at_alert_time'],
-                'employee_document_expiry_alerts_rule_document_expiry_unique',
-            );
-        });
+        if ($this->hasIndex('employee_document_expiry_alerts_document_expiry_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->dropUnique('employee_document_expiry_alerts_document_expiry_unique');
+            });
+        }
+
+        if (! $this->hasIndex('employee_document_expiry_alerts_rule_document_expiry_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->unique(
+                    ['notification_rule_id', 'employee_document_id', 'expiry_date_at_alert_time'],
+                    'employee_document_expiry_alerts_rule_document_expiry_unique',
+                );
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->dropUnique('employee_document_expiry_alerts_rule_document_expiry_unique');
-        });
+        if ($this->hasIndex('employee_document_expiry_alerts_rule_document_expiry_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->dropUnique('employee_document_expiry_alerts_rule_document_expiry_unique');
+            });
+        }
 
         // Legacy uniqueness cannot coexist with multiple rule rows for the same document/expiry.
         // Keep surviving rows by deleting duplicates that share the old unique key before restore.
@@ -59,12 +74,47 @@ return new class extends Migration
             SQL);
         }
 
-        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->unique(
-                ['employee_document_id', 'expiry_date_at_alert_time'],
-                'employee_document_expiry_alerts_document_expiry_unique',
+        if (! $this->hasIndex('employee_document_expiry_alerts_document_expiry_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->unique(
+                    ['employee_document_id', 'expiry_date_at_alert_time'],
+                    'employee_document_expiry_alerts_document_expiry_unique',
+                );
+            });
+        }
+
+        if (Schema::hasColumn('employee_document_expiry_alerts', 'notification_rule_id')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->dropConstrainedForeignId('notification_rule_id');
+            });
+        }
+
+        if ($this->hasIndex('employee_document_expiry_alerts_employee_document_id_index')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->dropIndex('employee_document_expiry_alerts_employee_document_id_index');
+            });
+        }
+    }
+
+    private function hasIndex(string $indexName): bool
+    {
+        $connection = Schema::getConnection();
+        $driver = $connection->getDriverName();
+
+        if ($driver === 'sqlite') {
+            $indexes = $connection->select(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'employee_document_expiry_alerts' AND name = ?",
+                [$indexName],
             );
-            $table->dropConstrainedForeignId('notification_rule_id');
-        });
+
+            return $indexes !== [];
+        }
+
+        $indexes = $connection->select(
+            'SHOW INDEX FROM employee_document_expiry_alerts WHERE Key_name = ?',
+            [$indexName],
+        );
+
+        return $indexes !== [];
     }
 };

@@ -25,9 +25,11 @@ return new class extends Migration
         Schema::create('document_expiry_notification_rule_document_types', function (Blueprint $table) {
             $table->id();
             $table->foreignId('rule_id')
-                ->constrained('document_expiry_notification_rules')
+                ->constrained('document_expiry_notification_rules', 'id', 'fk_doc_expiry_rule_dt_rule')
                 ->cascadeOnDelete();
-            $table->foreignId('document_type_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('document_type_id')
+                ->constrained('document_types', 'id', 'fk_doc_expiry_rule_dt_type')
+                ->cascadeOnDelete();
             $table->timestamps();
 
             $table->unique(['rule_id', 'document_type_id'], 'doc_expiry_rule_document_type_unique');
@@ -36,17 +38,22 @@ return new class extends Migration
         Schema::create('document_expiry_notification_rule_recipients', function (Blueprint $table) {
             $table->id();
             $table->foreignId('rule_id')
-                ->constrained('document_expiry_notification_rules')
+                ->constrained('document_expiry_notification_rules', 'id', 'fk_doc_expiry_rule_rcpt_rule')
                 ->cascadeOnDelete();
-            $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('company_id')
+                ->constrained('companies', 'id', 'fk_doc_expiry_rule_rcpt_company')
+                ->cascadeOnDelete();
             $table->string('recipient_kind', 16);
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('user_id')
+                ->nullable()
+                ->constrained('users', 'id', 'fk_doc_expiry_rule_rcpt_user')
+                ->nullOnDelete();
             $table->string('email')->nullable();
             $table->string('delivery_type', 8);
             $table->timestamps();
 
-            $table->index(['rule_id', 'delivery_type']);
-            $table->index(['company_id', 'recipient_kind']);
+            $table->index(['rule_id', 'delivery_type'], 'doc_expiry_rule_rcpt_delivery_idx');
+            $table->index(['company_id', 'recipient_kind'], 'doc_expiry_rule_rcpt_kind_idx');
         });
     }
 
