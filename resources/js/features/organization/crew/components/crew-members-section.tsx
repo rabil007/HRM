@@ -125,7 +125,7 @@ export function CrewMembersSection({
                             <TableHeader>
                                 <DataTableHeaderRow>
                                     <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead>Rank</DataTableHead>
+                                    <DataTableHead>Position</DataTableHead>
                                     <DataTableHead>Arrival Date</DataTableHead>
                                     <DataTableHead>
                                         Operational Status

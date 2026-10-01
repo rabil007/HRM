@@ -654,3 +654,55 @@ test('rank position status conflicts block readiness without activating position
 
     expect($seed['position_a']->fresh()->status)->toBe('inactive');
 });
+
+test('soft deleted company with rank position conflict still blocks destructive removal', function () {
+    restoreLegacyRankConsolidationSchema();
+
+    $seed = seedLegacyRankCompany('delco');
+
+    DB::table('rank_position_mappings')->insert([
+        'company_id' => $seed['company']->id,
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_a']->id,
+        'match_type' => 'exact',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::table('employees')->where('id', $seed['employee']->id)->update([
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_b']->id,
+    ]);
+
+    $assignmentId = DB::table('crew_assignments')->insertGetId([
+        'company_id' => $seed['company']->id,
+        'employee_id' => $seed['employee']->id,
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_b']->id,
+        'status' => 'active',
+        'assignment_no' => 'CA-DEL-1',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Soft-delete the company without restoring it for readiness.
+    $seed['company']->delete();
+    expect($seed['company']->fresh()->trashed())->toBeTrue();
+
+    $global = (new RankRemovalReadiness)->report();
+    $targeted = (new RankRemovalReadiness)->report((int) $seed['company']->id);
+
+    expect($global['ready'])->toBeFalse()
+        ->and($targeted['ready'])->toBeFalse()
+        ->and($targeted['totals']['employees_position_conflict'])->toBeGreaterThan(0)
+        ->and($targeted['totals']['crew_assignments_position_conflict'])->toBeGreaterThan(0);
+
+    expect(fn () => RankRemovalGuards::assertReadyOrFail())
+        ->toThrow(RuntimeException::class);
+
+    expect(fn () => RankRemovalGuards::assertReadyOrFail((int) $seed['company']->id))
+        ->toThrow(RuntimeException::class);
+
+    expect(Schema::hasTable('ranks'))->toBeTrue()
+        ->and(DB::table('crew_assignments')->where('id', $assignmentId)->exists())->toBeTrue();
+});

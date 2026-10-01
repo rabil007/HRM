@@ -277,7 +277,7 @@ describe('employee smart search owned filter replacement', () => {
         assert.deepEqual(owned, {});
         assert.deepEqual(
             smartSearchResolvedPreview(
-                [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
+                [{ key: 'rank:equals', label: 'Position', value: 'AB' }],
                 { position_id: '8' },
                 { ...emptyFilters, position_id: '44' },
             ),
@@ -448,7 +448,7 @@ describe('employee smart search preview', () => {
                 label: 'Nationality',
                 value: 'Philippines',
             },
-            { key: 'rank:equals', label: 'Rank', value: 'AB' },
+            { key: 'rank:equals', label: 'Position', value: 'AB' },
         ]);
 
         assert.deepEqual(
@@ -457,7 +457,7 @@ describe('employee smart search preview', () => {
                 'HR status · Active',
                 'Department · Crewing',
                 'Nationality · Philippines',
-                'Rank · AB',
+                'Position · AB',
             ],
         );
         assert.equal(
@@ -469,7 +469,7 @@ describe('employee smart search preview', () => {
     it('shows partial resolved plus unsupported terms', () => {
         const result = parsed({
             filters: { position_id: '8' },
-            applied: [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
+            applied: [{ key: 'rank:equals', label: 'Position', value: 'AB' }],
             unresolved: [],
             ambiguous: [],
             unsupported: ['valid STCW'],
@@ -477,7 +477,7 @@ describe('employee smart search preview', () => {
 
         assert.deepEqual(result.unsupported, ['valid STCW']);
         assert.deepEqual(smartSearchResolvedPreview(result.applied), [
-            { key: 'rank:equals', title: 'Rank', label: 'AB' },
+            { key: 'rank:equals', title: 'Position', label: 'AB' },
         ]);
         assert.equal(hasApplyableSmartSearchFilters(result.filters), true);
     });
@@ -552,7 +552,7 @@ describe('employee directory empty state and override copy', () => {
         );
         const result = parsed({
             filters: { position_id: '8' },
-            applied: [{ key: 'rank:equals', label: 'Rank', value: 'AB' }],
+            applied: [{ key: 'rank:equals', label: 'Position', value: 'AB' }],
             unresolved: [],
             ambiguous: [],
             unsupported: [],
@@ -678,7 +678,7 @@ describe('employee smart search unresolved copy', () => {
 
         assert.equal(
             formatUnresolvedItem(result.unresolved[0]),
-            'Rank "XYZ" — No matching value found.',
+            'Position "XYZ" — No matching value found.',
         );
         assert.equal(
             formatUnresolvedItem(result.ambiguous[0]),

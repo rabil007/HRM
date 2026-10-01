@@ -122,8 +122,8 @@ class CrewMovementAttentionQuery
                 $warnings[] = [
                     'code' => 'missing_rank',
                     'severity' => 'critical',
-                    'label' => 'Missing Rank',
-                    'message' => 'Rank not assigned before/during join',
+                    'label' => 'Missing Position',
+                    'message' => 'Position not assigned before/during join',
                     'date' => null,
                 ];
             }

@@ -27,7 +27,7 @@ class RankRemovalReadinessCommand extends Command
 
             $companyId = (int) $companyOption;
 
-            if (Company::query()->whereKey($companyId)->doesntExist()) {
+            if (Company::withTrashed()->whereKey($companyId)->doesntExist()) {
                 $this->error("Company [{$companyId}] was not found.");
 
                 return self::FAILURE;

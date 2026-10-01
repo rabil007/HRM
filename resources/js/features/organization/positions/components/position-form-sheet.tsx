@@ -308,8 +308,7 @@ export function PositionFormSheet({
                                 </div>
                                 <div className="text-xs text-muted-foreground/80">
                                     When disabled, this Position will not be
-                                    offered in Crew Operations after Rank is
-                                    consolidated into Position.
+                                    offered in Crew Operations.
                                 </div>
                             </div>
                             <Switch

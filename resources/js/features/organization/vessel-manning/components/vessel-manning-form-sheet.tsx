@@ -227,7 +227,7 @@ export function VesselManningFormSheet({
                                                 variant="ghost"
                                                 size="icon"
                                                 className="mt-7 shrink-0 rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-destructive/10 hover:text-destructive"
-                                                aria-label="Remove rank row"
+                                                aria-label="Remove position row"
                                                 onClick={() => removeRow(index)}
                                             >
                                                 <Minus className="h-4 w-4" />

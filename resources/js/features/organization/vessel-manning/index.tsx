@@ -194,7 +194,7 @@ export function VesselManningContent({
             <PageHeader
                 kicker="Crew Operations"
                 title="Vessel Manning"
-                description="Define how many crew of each rank each vessel needs."
+                description="Define how many crew of each position each vessel needs."
             />
 
             {/* Metrics Overview Grid */}
@@ -311,7 +311,7 @@ export function VesselManningContent({
                         <DataTableHeaderRow>
                             <DataTableHead>Vessel</DataTableHead>
                             <DataTableHead>Vessel type</DataTableHead>
-                            <DataTableHead>Ranks configured</DataTableHead>
+                            <DataTableHead>Positions configured</DataTableHead>
                             <DataTableHead>Total required</DataTableHead>
                             <DataTableHead className="text-right">
                                 Actions
@@ -346,7 +346,7 @@ export function VesselManningContent({
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.manning.length === 0 ? (
                                         <span className="text-muted-foreground">
-                                            No ranks configured
+                                            No positions configured
                                         </span>
                                     ) : (
                                         <div className="flex flex-wrap gap-1.5">

@@ -75,6 +75,8 @@ test('authorized user can download historical import template with required shee
     }
 
     expect($headerRow)->toBe(HistoricalCrewImportColumns::displayHeaders())
+        ->and($headerRow)->toContain('Position *')
+        ->and($headerRow)->not->toContain('Rank *')
         ->and($headerRow)->toContain('Sign-On Standby From')
         ->and($headerRow)->toContain('Onsite From')
         ->and($headerRow)->toContain('Sign-Off Standby From')

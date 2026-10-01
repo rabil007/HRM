@@ -39,6 +39,8 @@ test('sea services template lists active employees', function () {
 
     expect($importHeaders = app(SeaServicesImport::class)->headers())
         ->toHaveCount(8)
+        ->toContain('Position')
+        ->not->toContain('Rank')
         ->not->toContain('Is Offshore');
 
     foreach ($importHeaders as $columnIndex => $header) {

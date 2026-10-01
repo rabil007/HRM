@@ -39,7 +39,7 @@ final class EmployeeExportFieldRegistry
             'branch' => ['label' => 'Branch', 'group' => 'employee', 'permission' => null],
             'department' => ['label' => 'Department', 'group' => 'employee', 'permission' => null],
             'position' => ['label' => 'Position', 'group' => 'employee', 'permission' => null],
-            'rank' => ['label' => 'Rank', 'group' => 'employee', 'permission' => null],
+            'rank' => ['label' => 'Position', 'group' => 'employee', 'permission' => null],
             'project' => ['label' => 'Project', 'group' => 'employee', 'permission' => null],
             'client' => ['label' => 'Client', 'group' => 'employee', 'permission' => null],
             'manager' => ['label' => 'Manager', 'group' => 'employee', 'permission' => null],

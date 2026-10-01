@@ -138,6 +138,22 @@ Position is the **only** occupational/job-role catalog. Rank has been retired.
 
 Operators must resolve these explicitly. Automatic backfill never overwrites existing `position_id`, never silently merges manning counts, and never picks a TOD/status winner.
 
+Readiness enumerates **all companies including soft-deleted** (`Company::withTrashed()`), matching the automatic backfill which also processes deleted tenants.
+
+### Final terminology policy
+
+Position is the only OMS-HRM occupational master.
+
+“Rank” may remain only for:
+
+- historical immutable activity/correction snapshots (`rank_id` / `rank_name` payloads)
+- legacy spreadsheet header aliases that resolve Position titles
+- smart-search natural-language synonym `rank` → Position display
+- external maritime document terminology where the printed form requires Rank
+- migration / readiness infrastructure and docs
+
+Active application UI, validation messages, reports, exports, and operational alerts must say **Position**.
+
 ### Destructive migration policy
 
 Rollback requires **database backup restore + previous application version**. Migration `down()` throws and does not recreate Rank data.

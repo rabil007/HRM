@@ -121,7 +121,7 @@ export function ConfirmDisembarkationForm({
                     </span>
                 </div>
                 <div>
-                    <span className="text-muted-foreground">Rank: </span>
+                    <span className="text-muted-foreground">Position: </span>
                     <span className="font-medium">
                         {context.position_name ?? 'Not set'}
                     </span>

@@ -239,8 +239,8 @@ final class SeaServiceImportOrchestrator
                         'row' => $rowNumber,
                         'field' => 'rank',
                         'message' => $rankName === ''
-                            ? 'Rank is required.'
-                            : "Rank '{$rankName}' was not found or is inactive.",
+                            ? 'Position is required.'
+                            : "Position '{$rankName}' was not found or is inactive.",
                     ];
                 }
 

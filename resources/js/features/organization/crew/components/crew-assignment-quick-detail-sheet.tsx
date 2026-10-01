@@ -250,7 +250,7 @@ function QuickDetailContent({
                                 assignment.position?.name,
                             ]
                                 .filter(Boolean)
-                                .join(' · ') || 'Rank not assigned'}
+                                .join(' · ') || 'Position not assigned'}
                         </SheetDescription>
                         <p className="mt-1 text-[11px] text-muted-foreground">
                             <span className="font-mono">

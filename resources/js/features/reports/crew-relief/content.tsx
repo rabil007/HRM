@@ -227,7 +227,7 @@ export function CrewReliefContent(props: CrewReliefProps) {
                         className="mb-0"
                         value={searchInput}
                         onChange={changeSearch}
-                        placeholder="Search crew name, staff ID, vessel, rank, client, or remarks..."
+                        placeholder="Search crew name, staff ID, vessel, position, client, or remarks..."
                         right={
                             <div className="flex items-center gap-2">
                                 {isLoading && (

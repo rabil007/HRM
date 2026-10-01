@@ -76,15 +76,16 @@ final class DocumentTemplateMergeFields
             ],
             [
                 'key' => '{{position_name}}',
-                'label' => 'Position Title',
+                'label' => 'Position',
                 'category' => 'Employee',
                 'sample' => 'Chief Engineer',
             ],
             [
+                // Deprecated legacy alias — same Position title as {{position_name}}.
                 'key' => '{{rank_name}}',
-                'label' => 'Rank',
+                'label' => 'Position (legacy {{rank_name}} alias)',
                 'category' => 'Employee',
-                'sample' => 'Captain',
+                'sample' => 'Chief Engineer',
             ],
 
             // Manager (department effective manager)
@@ -199,7 +200,8 @@ final class DocumentTemplateMergeFields
             '{{nationality}}' => (string) ($employee->nationalityRef?->name ?? ''),
             '{{emirates_id}}' => (string) ($employee->emirates_id ?? ''),
             '{{position_name}}' => (string) ($employee->position?->title ?? $employee->position?->name ?? ''),
-            '{{rank_name}}' => (string) ($employee->position?->title ?? ''),
+            // Deprecated legacy alias — returns the same Position title.
+            '{{rank_name}}' => (string) ($employee->position?->title ?? $employee->position?->name ?? ''),
             '{{manager_name}}' => (string) ($manager?->name ?? ''),
             '{{company_name}}' => (string) ($employee->company?->name ?? ''),
             '{{department_name}}' => (string) ($employee->department?->name ?? ''),

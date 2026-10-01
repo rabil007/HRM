@@ -449,7 +449,7 @@ export function AddPastDataDialog({
 
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="historical-rank">
-                                                    Rank{' '}
+                                                    Position{' '}
                                                     <span className="text-destructive">
                                                         *
                                                     </span>
@@ -467,11 +467,11 @@ export function AddPastDataDialog({
                                                                 : '',
                                                         )
                                                     }
-                                                    placeholder="Select rank..."
-                                                    searchPlaceholder="Search rank..."
+                                                    placeholder="Select position..."
+                                                    searchPlaceholder="Search position..."
                                                 >
                                                     <AppSelectItem value="">
-                                                        Select rank...
+                                                        Select position...
                                                     </AppSelectItem>
                                                     {formOptions.positions.map(
                                                         (r) => (

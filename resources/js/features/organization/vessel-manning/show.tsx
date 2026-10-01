@@ -258,9 +258,9 @@ export function VesselManningShowContent({
                         <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-white/10 dark:bg-white/3">
                             <Anchor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                             <div className="text-sm text-muted-foreground">
-                                Vessel and rank master data are managed in
+                                Vessel and position master data are managed in
                                 Settings. This page only defines how many crew
-                                of each rank this vessel needs.
+                                of each position this vessel needs.
                             </div>
                         </div>
                     </CardContent>
@@ -270,13 +270,13 @@ export function VesselManningShowContent({
             <Card className="mt-6 glass-card dark:border-white/5 dark:bg-white/5">
                 <CardHeader className="border-b border-border pb-4 dark:border-white/5">
                     <CardTitle className="text-base font-bold">
-                        Rank requirements
+                        Position requirements
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     {vessel.manning.length === 0 ? (
                         <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-                            No ranks configured yet.
+                            No positions configured yet.
                             {vesselManningHasWriteActions(can) ? (
                                 <>
                                     {' '}
@@ -294,7 +294,7 @@ export function VesselManningShowContent({
                         <Table className="min-w-[640px]">
                             <TableHeader>
                                 <DataTableHeaderRow>
-                                    <DataTableHead>Rank</DataTableHead>
+                                    <DataTableHead>Position</DataTableHead>
                                     <DataTableHead>Required</DataTableHead>
                                 </DataTableHeaderRow>
                             </TableHeader>

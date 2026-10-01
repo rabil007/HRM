@@ -365,7 +365,7 @@ export function CrewFiltersSheet({
                 <div>
                     <p className="text-sm font-medium">Needs attention</p>
                     <p className="text-xs text-muted-foreground">
-                        Overdue plans, stale phases, missing vessel/rank
+                        Overdue plans, stale phases, missing vessel/position
                     </p>
                 </div>
                 <Switch

@@ -326,8 +326,8 @@ export function SeaServicesImportDialog({
                     <DialogTitle>Import sea services</DialogTitle>
                     <DialogDescription>
                         {isEmployeeScoped
-                            ? `Download the template for ${employee.name}, fill vessel / rank / dates on each row, then upload. Empty rows are skipped. Preview validates master-data names before import.`
-                            : 'Download the template with active employees pre-filled, fill vessel, rank and dates, then upload. Rows with no sea service data are skipped. Multiple rows per employee are allowed.'}
+                            ? `Download the template for ${employee.name}, fill vessel / position / dates on each row, then upload. Empty rows are skipped. Preview validates master-data names before import.`
+                            : 'Download the template with active employees pre-filled, fill vessel, position and dates, then upload. Rows with no sea service data are skipped. Multiple rows per employee are allowed.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -341,11 +341,11 @@ export function SeaServicesImportDialog({
                             <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
                                 <li>
                                     Use the downloaded template headers exactly
-                                    (Employee No, Vessel Type, Vessel, Rank,
+                                    (Employee No, Vessel Type, Vessel, Position,
                                     Start Date, End Date, Client).
                                 </li>
                                 <li>
-                                    Vessel type, vessel, rank, and client must
+                                    Vessel type, vessel, position, and client must
                                     match active names in Settings → Master
                                     Data.
                                 </li>
@@ -355,7 +355,7 @@ export function SeaServicesImportDialog({
                                     date.
                                 </li>
                                 <li>
-                                    Leave vessel / rank / dates blank to skip a
+                                    Leave vessel / position / dates blank to skip a
                                     pre-filled employee row. Only rows with sea
                                     service data are imported.
                                 </li>
@@ -452,7 +452,7 @@ export function SeaServicesImportDialog({
                                     <Info className="h-4 w-4" />
                                     <AlertDescription>
                                         All rows are skipped because vessel,
-                                        rank, or dates are empty. Fill those
+                                        position, or dates are empty. Fill those
                                         columns for the rows you want to import,
                                         then re-upload.
                                     </AlertDescription>
@@ -462,7 +462,7 @@ export function SeaServicesImportDialog({
                             <SearchBar
                                 value={searchQuery}
                                 onChange={setSearchQuery}
-                                placeholder="Search by employee no., vessel, or rank…"
+                                placeholder="Search by employee no., vessel, or position…"
                                 className="mb-0"
                                 inputClassName="py-2 text-sm"
                             />
@@ -489,7 +489,7 @@ export function SeaServicesImportDialog({
                                             ) : null}
                                             <TableHead>Vessel type</TableHead>
                                             <TableHead>Vessel</TableHead>
-                                            <TableHead>Rank</TableHead>
+                                            <TableHead>Position</TableHead>
                                             <TableHead>Dates</TableHead>
                                             <TableHead>Status</TableHead>
                                             <TableHead>Action</TableHead>

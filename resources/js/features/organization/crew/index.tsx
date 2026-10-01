@@ -465,7 +465,7 @@ export function CurrentCrewContent({
                                             Crew Member
                                         </DataTableHead>
                                         <DataTableHead className="w-[140px]">
-                                            Rank
+                                            Position
                                         </DataTableHead>
                                         <DataTableHead className="w-[160px]">
                                             Last Vessel

@@ -109,7 +109,7 @@ final class HistoricalCrewImportPreviewService
      * @return array{
      *     employeesByNo: array<string, Employee>,
      *     vesselsByName: array<string, list<Vessel>>,
-     *     ranksByName: array<string, list<Rank>>,
+     *     ranksByName: array<string, list<object>>,
      *     clientsByName: array<string, list<Client>>
      * }
      */
@@ -169,7 +169,7 @@ final class HistoricalCrewImportPreviewService
      * @param  array{
      *     employeesByNo: array<string, Employee>,
      *     vesselsByName: array<string, list<Vessel>>,
-     *     ranksByName: array<string, list<Rank>>,
+     *     ranksByName: array<string, list<object>>,
      *     clientsByName: array<string, list<Client>>
      * }  $lookups
      */
@@ -255,7 +255,7 @@ final class HistoricalCrewImportPreviewService
      * @param  array{
      *     employeesByNo: array<string, Employee>,
      *     vesselsByName: array<string, list<Vessel>>,
-     *     ranksByName: array<string, list<Rank>>,
+     *     ranksByName: array<string, list<object>>,
      *     clientsByName: array<string, list<Client>>
      * }  $lookups
      * @return array<string, mixed>
@@ -279,7 +279,7 @@ final class HistoricalCrewImportPreviewService
                 $resolveErrors[$required] = match ($required) {
                     HistoricalCrewImportColumns::EMPLOYEE_NO => 'employee_no is required.',
                     HistoricalCrewImportColumns::VESSEL => 'vessel is required.',
-                    HistoricalCrewImportColumns::RANK => 'rank is required.',
+                    HistoricalCrewImportColumns::RANK => 'position is required.',
                     default => "{$required} is required.",
                 };
             }
@@ -335,10 +335,10 @@ final class HistoricalCrewImportPreviewService
             $matches = $lookups['ranksByName'][mb_strtolower(trim($rankName))] ?? [];
 
             if ($matches === []) {
-                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Rank \"{$rankName}\" was not found.";
+                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Position \"{$rankName}\" was not found.";
             } elseif (count($matches) > 1) {
-                $ids = collect($matches)->map(fn (Rank $r) => '#'.$r->id)->implode(', ');
-                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Rank \"{$rankName}\" is ambiguous ({$ids}).";
+                $ids = collect($matches)->map(fn ($r) => '#'.$r->id)->implode(', ');
+                $resolveErrors[HistoricalCrewImportColumns::RANK] = "Position \"{$rankName}\" is ambiguous ({$ids}).";
             } else {
                 $rank = $matches[0];
             }

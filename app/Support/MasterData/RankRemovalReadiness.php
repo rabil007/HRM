@@ -77,9 +77,10 @@ final class RankRemovalReadiness
             ];
         }
 
+        // Include soft-deleted companies — backfill already processes every tenant row.
         $companies = $companyId !== null
-            ? Company::query()->whereKey($companyId)->get(['id', 'name'])
-            : Company::query()->orderBy('id')->get(['id', 'name']);
+            ? Company::withTrashed()->whereKey($companyId)->get(['id', 'name'])
+            : Company::withTrashed()->orderBy('id')->get(['id', 'name']);
 
         $companyReports = [];
         $totals = $this->emptyTotals();

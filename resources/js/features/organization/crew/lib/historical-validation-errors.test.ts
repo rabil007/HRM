@@ -27,7 +27,7 @@ describe('mapHistoricalValidationErrors', () => {
                 'All entered movement periods are closed. Enter Home Date, or leave the employee’s current movement period open.',
             ],
             sea_service: [
-                'Matches existing Sea Service record #52 with conflicting rank.',
+                'Matches existing Sea Service record #52 with conflicting position.',
             ],
             employee_id: ['Employee not found'],
         });

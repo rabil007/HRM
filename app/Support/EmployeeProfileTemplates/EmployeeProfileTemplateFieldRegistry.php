@@ -78,7 +78,8 @@ final class EmployeeProfileTemplateFieldRegistry
                 'branch_id' => 'Branch',
                 'department_id' => 'Department',
                 'position_id' => 'Position',
-                'rank_id' => 'Rank',
+                // Legacy profile-template field key — displays Position, not Rank catalog.
+                'rank_id' => 'Position',
                 'project_id' => 'Project name',
                 'client_id' => 'Client',
                 'date_of_birth' => 'Date of birth',
@@ -160,7 +161,8 @@ final class EmployeeProfileTemplateFieldRegistry
             'employee_sea_services' => [
                 'vessel_type_id' => 'Vessel type',
                 'vessel_id' => 'Vessel',
-                'rank_id' => 'Rank',
+                // Legacy profile-template field key — displays Position, not Rank catalog.
+                'rank_id' => 'Position',
                 'start_date' => 'Start date',
                 'end_date' => 'End date',
                 'client_id' => 'Client',

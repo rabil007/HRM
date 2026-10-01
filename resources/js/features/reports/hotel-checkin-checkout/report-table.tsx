@@ -165,7 +165,7 @@ export function HotelCheckInCheckoutReportTable({
                                 onSort={onSort}
                             />
                         </TableHead>
-                        <TableHead>Rank</TableHead>
+                        <TableHead>Position</TableHead>
                         <TableHead>
                             <SortHeader
                                 label="Hotel"

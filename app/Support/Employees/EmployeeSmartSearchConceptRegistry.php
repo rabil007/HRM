@@ -108,7 +108,8 @@ final class EmployeeSmartSearchConceptRegistry
                 'aliases' => [],
             ],
             'rank' => [
-                'label' => 'Rank',
+                // Synonym concept: natural-language "rank" resolves to Position.
+                'label' => 'Position',
                 'operators' => [self::OPERATOR_EQUALS, self::OPERATOR_MISSING, self::OPERATOR_PRESENT],
                 'lookup' => self::LOOKUP_NAMED,
                 'filter_key' => 'position_id',

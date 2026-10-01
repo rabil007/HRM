@@ -18,7 +18,7 @@ const CREW_PHASE_GUIDE: Record<
 > = {
     p0: {
         typicalActivity:
-            'Prepare mobilisation, confirm vessel / rank / dates, and readiness checks.',
+            'Prepare mobilisation, confirm vessel / position / dates, and readiness checks.',
         usuallyNext:
             'Start / continue mobilisation, then Record Arrival when appropriate.',
     },
