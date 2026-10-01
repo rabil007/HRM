@@ -108,21 +108,23 @@ test('documents view alone does not grant templates access', function () {
         ->and(DocumentsModuleAccess::canEnter($user))->toBeTrue();
 });
 
-test('resolve bulk view prefers the module route default over the query string', function () {
-    $request = Request::create('/organization/documents/generate', 'GET', ['view' => 'signatures']);
-    $route = new Route(['GET'], 'organization/documents/generate', fn () => 'ok');
-    $route->defaults('module_view', 'roster');
-    $route->bind($request);
-    $request->setRouteResolver(fn () => $route);
+test('resolve bulk view uses the canonical activity query and safely falls back', function () {
+    $activity = Request::create('/organization/documents/generate', 'GET', ['view' => 'activity']);
+    $activityRoute = new Route(['GET'], 'organization/documents/generate', fn () => 'ok');
+    $activityRoute->bind($activity);
+    $activity->setRouteResolver(fn () => $activityRoute);
 
-    expect(DocumentsModuleAccess::resolveBulkView($request))->toBe('roster');
-});
+    $legacy = Request::create('/organization/documents/generate', 'GET', ['view' => 'history']);
+    $legacyRoute = new Route(['GET'], 'organization/documents/generate', fn () => 'ok');
+    $legacyRoute->bind($legacy);
+    $legacy->setRouteResolver(fn () => $legacyRoute);
 
-test('resolve bulk view falls back to the legacy query string', function () {
-    $request = Request::create('/organization/documents/bulk', 'GET', ['view' => 'history']);
-    $route = new Route(['GET'], 'organization/documents/bulk', fn () => 'ok');
-    $route->bind($request);
-    $request->setRouteResolver(fn () => $route);
+    $invalid = Request::create('/organization/documents/generate', 'GET', ['view' => 'signatures']);
+    $invalidRoute = new Route(['GET'], 'organization/documents/generate', fn () => 'ok');
+    $invalidRoute->bind($invalid);
+    $invalid->setRouteResolver(fn () => $invalidRoute);
 
-    expect(DocumentsModuleAccess::resolveBulkView($request))->toBe('history');
+    expect(DocumentsModuleAccess::resolveBulkView($activity))->toBe('history')
+        ->and(DocumentsModuleAccess::resolveBulkView($legacy))->toBe('history')
+        ->and(DocumentsModuleAccess::resolveBulkView($invalid))->toBe('roster');
 });
