@@ -960,10 +960,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents/bulk', RedirectLegacyBulkDocumentsController::class)
             ->name('organization.documents.bulk');
         Route::get('organization/documents/generate', BulkDocumentsController::class)
-            ->defaults('module_view', 'roster')
             ->name('organization.documents.generate');
-        Route::get('organization/documents/activity', BulkDocumentsController::class)
-            ->defaults('module_view', 'history')
+        Route::get('organization/documents/activity', RedirectLegacyBulkDocumentsController::class)
+            ->defaults('legacy_view', 'history')
             ->name('organization.documents.activity');
         Route::get('organization/documents/bulk/selection', BulkDocumentSelectionController::class)
             ->name('organization.documents.bulk.selection');
