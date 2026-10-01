@@ -13,6 +13,19 @@ class ExportEmployeesRequest extends FormRequest
         return (bool) $this->user();
     }
 
+    protected function prepareForValidation(): void
+    {
+        $fields = $this->input('fields');
+
+        if (! is_array($fields)) {
+            return;
+        }
+
+        $this->merge([
+            'fields' => EmployeeExportFieldRegistry::normalizeLegacyFieldKeys($fields),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */

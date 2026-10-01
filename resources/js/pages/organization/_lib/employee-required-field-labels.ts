@@ -65,8 +65,6 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     certificate_path: 'Certificate file',
     vessel_type_id: 'Vessel type',
     vessel_id: 'Vessel',
-    /** Phase 3: remove when sea-service templates use position_id only */
-    rank_id: 'Position',
     document_type_id: 'Document type',
     title: 'Title',
     document_number: 'Document number',

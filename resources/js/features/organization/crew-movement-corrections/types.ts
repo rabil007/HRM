@@ -122,6 +122,8 @@ export const CORRECTION_FIELD_LABELS: Record<string, string> = {
     'details.course': 'Training Course',
     'details.course_id': 'Training Course',
     vessel_id: 'Vessel',
+    position_id: 'Position',
+    // Historical Rank-era correction payloads only — keep label as Rank.
     rank_id: 'Rank',
     client_id: 'Client',
     company_visa_type_id: 'Visa Type',

@@ -1222,7 +1222,9 @@ test('synchronized sea service cannot be edited via controller', function () {
         'position_id' => $rank->id,
         'start_date' => '2026-09-01',
         'end_date' => '2026-10-01',
-    ])->assertSessionHasErrors('error');
+    ])->assertSessionHasErrors([
+        'error' => 'This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, position, or service dates.',
+    ]);
 
     expect($syncService->fresh()->end_date)->toBeNull();
 });

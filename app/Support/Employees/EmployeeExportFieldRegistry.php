@@ -39,7 +39,6 @@ final class EmployeeExportFieldRegistry
             'branch' => ['label' => 'Branch', 'group' => 'employee', 'permission' => null],
             'department' => ['label' => 'Department', 'group' => 'employee', 'permission' => null],
             'position' => ['label' => 'Position', 'group' => 'employee', 'permission' => null],
-            'rank' => ['label' => 'Position', 'group' => 'employee', 'permission' => null],
             'project' => ['label' => 'Project', 'group' => 'employee', 'permission' => null],
             'client' => ['label' => 'Client', 'group' => 'employee', 'permission' => null],
             'manager' => ['label' => 'Manager', 'group' => 'employee', 'permission' => null],
@@ -123,6 +122,29 @@ final class EmployeeExportFieldRegistry
     }
 
     /**
+     * Normalize legacy request/export field keys before sanitization.
+     *
+     * Old URLs/requests may still send fields[]=rank; that alias maps to the
+     * canonical position field and must not create a duplicate column.
+     *
+     * @param  list<mixed>  $keys
+     * @return list<string>
+     */
+    public static function normalizeLegacyFieldKeys(array $keys): array
+    {
+        return collect($keys)
+            ->map(function (mixed $key): string {
+                $normalized = trim((string) $key);
+
+                return $normalized === 'rank' ? 'position' : $normalized;
+            })
+            ->filter(fn (string $key): bool => $key !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  list<string>  $keys
      * @return list<string>
      */
@@ -130,9 +152,8 @@ final class EmployeeExportFieldRegistry
     {
         $definitions = self::definitions();
 
-        return collect($keys)
-            ->map(fn (mixed $key): string => trim((string) $key))
-            ->filter(fn (string $key): bool => $key !== '' && isset($definitions[$key]))
+        return collect(self::normalizeLegacyFieldKeys($keys))
+            ->filter(fn (string $key): bool => isset($definitions[$key]))
             ->unique()
             ->values()
             ->filter(function (string $key) use ($definitions, $user): bool {

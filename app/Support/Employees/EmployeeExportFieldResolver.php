@@ -59,7 +59,6 @@ final class EmployeeExportFieldResolver
             'branch' => $employee->branch?->name,
             'department' => $employee->department?->name,
             'position' => $employee->position?->title,
-            'rank' => $employee->position?->title,
             'project' => $employee->project?->title,
             'client' => $employee->client?->name,
             'manager' => $this->departmentManagerContext->managerNameForEmployee($employee),

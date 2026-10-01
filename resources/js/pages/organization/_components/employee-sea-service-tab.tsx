@@ -57,10 +57,7 @@ import {
 import { calculateSeaServiceDuration } from '@/pages/organization/_lib/calculate-sea-service-duration';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
-import {
-    isEmptyTemplateFieldValue,
-    omitHiddenTemplateRecordFields,
-} from '@/pages/organization/_lib/template-field-visibility';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type {
     ClientOption,
@@ -75,39 +72,12 @@ const SEA_SERVICE_RELOAD = {
     only: ['sea_services'],
 };
 
-const SEA_SERVICE_TEMPLATE_FIELD_ALIASES = {
-    /** Phase 3: remove when profile templates use position_id only */
-    position_id: 'rank_id',
-} as const;
-
 function resolveSeaServiceRowPositionId(row: SeaServiceItem): number | null {
     return row.position_id ?? null;
 }
 
 function resolveSeaServiceRowPositionName(row: SeaServiceItem): string | null {
     return row.position_name ?? null;
-}
-
-function showSeaServicePositionField(
-    showField: (fieldKey: string) => boolean,
-): boolean {
-    return showField('position_id') || showField('rank_id');
-}
-
-function normalizeSeaServiceTemplateFormData(
-    formData: Record<string, unknown>,
-): Record<string, unknown> {
-    const positionValue = formData.position_id;
-    const rankValue = formData.rank_id;
-
-    if (
-        isEmptyTemplateFieldValue(rankValue) &&
-        !isEmptyTemplateFieldValue(positionValue)
-    ) {
-        return { ...formData, rank_id: positionValue };
-    }
-
-    return formData;
 }
 
 function buildSeaServicePayload(
@@ -143,7 +113,6 @@ function buildSeaServicePayload(
                     : Number.parseInt(data.client_id, 10),
         },
         templateFields,
-        SEA_SERVICE_TEMPLATE_FIELD_ALIASES,
     );
 }
 
@@ -270,13 +239,6 @@ export function EmployeeSeaServiceTab({
             TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_sea_services,
     });
 
-    const focusSeaServiceField = useCallback(
-        (field: string) => {
-            focusMissingField(field === 'rank_id' ? 'position_id' : field);
-        },
-        [focusMissingField],
-    );
-
     const [dialogOpen, setDialogOpen] = useState(false);
     const [seaServiceImportOpen, setSeaServiceImportOpen] = useState(false);
     const [editingRow, setEditingRow] = useState<SeaServiceItem | null>(null);
@@ -317,10 +279,7 @@ export function EmployeeSeaServiceTab({
     });
 
     const templateValidationFormData = useMemo(
-        () =>
-            normalizeSeaServiceTemplateFormData(
-                employeeForm.data as Record<string, unknown>,
-            ),
+        () => employeeForm.data as Record<string, unknown>,
         [employeeForm.data],
     );
 
@@ -597,7 +556,7 @@ export function EmployeeSeaServiceTab({
                                     Vessel
                                 </th>
                             ) : null}
-                            {showSeaServicePositionField(showField) ? (
+                            {showField('position_id') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Position
                                 </th>
@@ -705,7 +664,7 @@ export function EmployeeSeaServiceTab({
                                             : '—'}
                                     </td>
                                 ) : null}
-                                {showSeaServicePositionField(showField) ? (
+                                {showField('position_id') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -901,13 +860,13 @@ export function EmployeeSeaServiceTab({
 
                     <EmployeeMissingRequiredFieldsAlert
                         missingFields={missingRequiredFieldsList}
-                        onFocusField={focusSeaServiceField}
+                        onFocusField={focusMissingField}
                     />
 
                     <div className="space-y-4 py-1">
                         {showField('vessel_id') ||
                         showField('vessel_type_id') ||
-                        showSeaServicePositionField(showField) ||
+                        showField('position_id') ||
                         showField('client_id') ? (
                             <>
                                 <div className="flex items-center gap-2">
@@ -1078,36 +1037,25 @@ export function EmployeeSeaServiceTab({
                                             )}
                                         </RecordFormField>
                                     ) : null}
-                                    {showSeaServicePositionField(showField) ? (
+                                    {showField('position_id') ? (
                                         <RecordFormField
                                             field="position_id"
-                                            highlightMissing={
-                                                isMissingRequired(
-                                                    'position_id',
-                                                ) ||
-                                                isMissingRequired('rank_id')
-                                            }
+                                            highlightMissing={isMissingRequired(
+                                                'position_id',
+                                            )}
                                         >
                                             <Label
                                                 className={recordFieldLabelClass(
                                                     isMissingRequired(
                                                         'position_id',
-                                                    ) ||
-                                                        isMissingRequired(
-                                                            'rank_id',
-                                                        ),
+                                                    ),
                                                 )}
                                             >
                                                 Position
                                                 <RequiredIndicator
-                                                    show={
-                                                        isFieldRequired(
-                                                            'position_id',
-                                                        ) ||
-                                                        isFieldRequired(
-                                                            'rank_id',
-                                                        )
-                                                    }
+                                                    show={isFieldRequired(
+                                                        'position_id',
+                                                    )}
                                                 />
                                             </Label>
                                             <CreatableSelect
@@ -1159,8 +1107,7 @@ export function EmployeeSeaServiceTab({
                                                     Position held on board
                                                     {isFieldRequired(
                                                         'position_id',
-                                                    ) ||
-                                                    isFieldRequired('rank_id')
+                                                    )
                                                         ? ''
                                                         : ' (optional)'}
                                                 </p>
@@ -1472,13 +1419,8 @@ export function EmployeeSeaServiceTab({
                                     ) => {
                                         Object.entries(errors).forEach(
                                             ([key, message]) => {
-                                                const formKey =
-                                                    key === 'rank_id'
-                                                        ? 'position_id'
-                                                        : key;
-
                                                 employeeForm.setError(
-                                                    formKey as keyof typeof employeeForm.data,
+                                                    key as keyof typeof employeeForm.data,
                                                     message,
                                                 );
                                             },

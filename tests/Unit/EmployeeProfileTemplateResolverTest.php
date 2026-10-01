@@ -70,3 +70,117 @@ test('personal tab visibility is always true when stored false', function () {
 
     expect($normalized['tabs']['personal']['visible'])->toBeTrue();
 });
+
+test('defaults expose position_id once and do not advertise rank_id', function () {
+    $defaults = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $labels = EmployeeProfileTemplateFieldRegistry::fieldsByTable();
+
+    expect($labels['employees'])->toHaveKey('position_id')
+        ->and($labels['employees'])->not->toHaveKey('rank_id')
+        ->and($labels['employee_sea_services'])->toHaveKey('position_id')
+        ->and($labels['employee_sea_services'])->not->toHaveKey('rank_id')
+        ->and($defaults['fields']['employees'])->toHaveKey('position_id')
+        ->and($defaults['fields']['employees'])->not->toHaveKey('rank_id')
+        ->and($defaults['fields']['employee_sea_services']['position_id']['required'])->toBeTrue()
+        ->and($defaults['fields']['employee_sea_services'])->not->toHaveKey('rank_id');
+});
+
+test('legacy employees rank_id config resolves onto position_id', function () {
+    $template = new EmployeeProfileTemplate([
+        'configuration_json' => [
+            'version' => 1,
+            'tabs' => [],
+            'fields' => [
+                'employees' => [
+                    'rank_id' => [
+                        'visible' => false,
+                        'required' => true,
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    $resolved = EmployeeProfileTemplateResolver::resolve($template);
+
+    expect($resolved['fields']['employees']['position_id']['visible'])->toBeFalse()
+        ->and($resolved['fields']['employees']['position_id']['required'])->toBeTrue()
+        ->and($resolved['fields']['employees'])->not->toHaveKey('rank_id');
+});
+
+test('employees position_id wins when both legacy and canonical keys exist', function () {
+    $template = new EmployeeProfileTemplate([
+        'configuration_json' => [
+            'version' => 1,
+            'tabs' => [],
+            'fields' => [
+                'employees' => [
+                    'rank_id' => [
+                        'visible' => false,
+                        'required' => false,
+                    ],
+                    'position_id' => [
+                        'visible' => true,
+                        'required' => true,
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    $resolved = EmployeeProfileTemplateResolver::resolve($template);
+
+    expect($resolved['fields']['employees']['position_id']['visible'])->toBeTrue()
+        ->and($resolved['fields']['employees']['position_id']['required'])->toBeTrue()
+        ->and($resolved['fields']['employees'])->not->toHaveKey('rank_id');
+});
+
+test('legacy employee_sea_services rank_id required resolves onto position_id', function () {
+    $template = new EmployeeProfileTemplate([
+        'configuration_json' => [
+            'version' => 1,
+            'tabs' => [],
+            'fields' => [
+                'employee_sea_services' => [
+                    'rank_id' => [
+                        'visible' => true,
+                        'required' => true,
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    $resolved = EmployeeProfileTemplateResolver::resolve($template);
+
+    expect($resolved['fields']['employee_sea_services']['position_id']['visible'])->toBeTrue()
+        ->and($resolved['fields']['employee_sea_services']['position_id']['required'])->toBeTrue()
+        ->and($resolved['fields']['employee_sea_services'])->not->toHaveKey('rank_id');
+});
+
+test('normalize for storage persists position_id and drops legacy rank_id', function () {
+    $normalized = EmployeeProfileTemplateResolver::normalizeForStorage([
+        'version' => 1,
+        'tabs' => [],
+        'fields' => [
+            'employees' => [
+                'rank_id' => [
+                    'visible' => false,
+                    'required' => true,
+                ],
+            ],
+            'employee_sea_services' => [
+                'rank_id' => [
+                    'visible' => true,
+                    'required' => false,
+                ],
+            ],
+        ],
+    ]);
+
+    expect($normalized['fields']['employees']['position_id']['visible'])->toBeFalse()
+        ->and($normalized['fields']['employees']['position_id']['required'])->toBeTrue()
+        ->and($normalized['fields']['employees'])->not->toHaveKey('rank_id')
+        ->and($normalized['fields']['employee_sea_services']['position_id']['required'])->toBeFalse()
+        ->and($normalized['fields']['employee_sea_services'])->not->toHaveKey('rank_id');
+});

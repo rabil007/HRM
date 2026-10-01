@@ -74,7 +74,7 @@ class EmployeeSeaServiceController extends Controller
 
         if ($seaService->isSynchronized()) {
             throw ValidationException::withMessages([
-                'error' => 'This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, rank, or service dates.',
+                'error' => 'This Sea Service record is synchronized from Crew Operations. Use Crew Movement Correction to change vessel, position, or service dates.',
             ]);
         }
 
