@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Organization\DocumentExpiryNotification;
 
+use App\Enums\DocumentExpiryNotificationDeliveryType;
+use App\Enums\DocumentExpiryNotificationRecipientKind;
 use App\Models\DocumentExpiryNotificationRule;
 
 class UpdateDocumentExpiryNotificationRuleRequest extends StoreDocumentExpiryNotificationRuleRequest
@@ -17,7 +19,7 @@ class UpdateDocumentExpiryNotificationRuleRequest extends StoreDocumentExpiryNot
             return [];
         }
 
-        $rule->loadMissing(['toRecipients:id,document_expiry_notification_rule_id,user_id', 'ccRecipients:id,document_expiry_notification_rule_id,user_id']);
+        $rule->loadMissing(['toRecipients:id,rule_id,user_id', 'ccRecipients:id,rule_id,user_id']);
 
         return $rule->toRecipients
             ->merge($rule->ccRecipients)
@@ -25,6 +27,38 @@ class UpdateDocumentExpiryNotificationRuleRequest extends StoreDocumentExpiryNot
             ->filter()
             ->map(fn ($id): int => (int) $id)
             ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    protected function grandfatheredOrphanedRecipientIds(string $deliveryType): array
+    {
+        $rule = $this->routeRule();
+
+        if ($rule === null) {
+            return [];
+        }
+
+        $rule->loadMissing(['toRecipients', 'ccRecipients']);
+
+        $recipients = $deliveryType === DocumentExpiryNotificationDeliveryType::Cc->value
+            ? $rule->ccRecipients
+            : $rule->toRecipients;
+
+        return $recipients
+            ->filter(function ($recipient) {
+                $kind = $recipient->recipient_kind instanceof DocumentExpiryNotificationRecipientKind
+                    ? $recipient->recipient_kind->value
+                    : (string) $recipient->recipient_kind;
+
+                return $kind === DocumentExpiryNotificationRecipientKind::User->value
+                    && $recipient->user_id === null;
+            })
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
             ->values()
             ->all();
     }

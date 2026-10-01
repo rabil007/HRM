@@ -20,8 +20,8 @@ class DocumentExpiryNotificationRulePresenter
      *     all_document_types: bool,
      *     document_types: list<array{id: int, title: string, is_active: bool}>,
      *     document_types_summary: string,
-     *     to: list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>,
-     *     cc: list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>,
+     *     to: list<array{id: int, kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>,
+     *     cc: list<array{id: int, kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>,
      *     to_summary: string,
      *     cc_summary: string,
      *     status_label: string
@@ -148,7 +148,7 @@ class DocumentExpiryNotificationRulePresenter
      * @param  Collection<int, DocumentExpiryNotificationRuleRecipient>  $recipients
      * @param  array<int, true>  $eligibleUserIds
      * @param  array<int, true>  $companyMemberUserIds
-     * @return list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>
+     * @return list<array{id: int, kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>
      */
     private function presentRecipients(
         Collection $recipients,
@@ -160,15 +160,31 @@ class DocumentExpiryNotificationRulePresenter
                 $kind = $recipient->recipient_kind instanceof DocumentExpiryNotificationRecipientKind
                     ? $recipient->recipient_kind->value
                     : (string) $recipient->recipient_kind;
+                $recipientId = (int) $recipient->id;
 
                 if ($kind === DocumentExpiryNotificationRecipientKind::User->value) {
                     $userId = $recipient->user_id !== null ? (int) $recipient->user_id : null;
-                    $belongsToCompany = $userId !== null && isset($companyMemberUserIds[$userId]);
-                    $eligible = $userId !== null && isset($eligibleUserIds[$userId]);
+
+                    // User soft-deleted from the platform (FK nullOnDelete) — keep visible, never mail.
+                    if ($userId === null) {
+                        return [
+                            'id' => $recipientId,
+                            'kind' => $kind,
+                            'user_id' => null,
+                            'name' => null,
+                            'email' => null,
+                            'label' => 'Deleted / unavailable user',
+                            'eligible' => false,
+                        ];
+                    }
+
+                    $belongsToCompany = isset($companyMemberUserIds[$userId]);
+                    $eligible = isset($eligibleUserIds[$userId]);
 
                     // Never expose another company's user profile from a stale foreign ID.
                     if (! $belongsToCompany) {
                         return [
+                            'id' => $recipientId,
                             'kind' => $kind,
                             'user_id' => $userId,
                             'name' => null,
@@ -179,10 +195,25 @@ class DocumentExpiryNotificationRulePresenter
                     }
 
                     $user = $recipient->user;
-                    $name = $user instanceof User ? $user->name : null;
-                    $email = $user instanceof User ? $user->email : null;
+
+                    // Soft-deleted or otherwise unloadable users stay visible but never mail.
+                    if (! $user instanceof User) {
+                        return [
+                            'id' => $recipientId,
+                            'kind' => $kind,
+                            'user_id' => $userId,
+                            'name' => null,
+                            'email' => null,
+                            'label' => 'Deleted / unavailable user',
+                            'eligible' => false,
+                        ];
+                    }
+
+                    $name = $user->name;
+                    $email = $user->email;
 
                     return [
+                        'id' => $recipientId,
                         'kind' => $kind,
                         'user_id' => $userId,
                         'name' => $name,
@@ -197,6 +228,7 @@ class DocumentExpiryNotificationRulePresenter
                 $email = (string) ($recipient->email ?? '');
 
                 return [
+                    'id' => $recipientId,
                     'kind' => $kind,
                     'user_id' => null,
                     'name' => null,

@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -58,6 +59,9 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -72,8 +76,55 @@ jobs:
             git -c diff.renames=false diff --name-only "$from_ref" "$to_ref" | sed '/^$/d'
           }
 
+          resolve_last_deployed_sha() {
+            # Prefer the most recent Full Deploy run whose Deploy Backend step succeeded.
+            local runs_json run_id head_sha jobs_json backend_conclusion
+
+            if ! command -v jq >/dev/null 2>&1; then
+              echo "jq unavailable; cannot resolve last deployed SHA." >&2
+              return 1
+            fi
+
+            runs_json="$(curl -fsSL \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&status=completed&per_page=30")"
+
+            mapfile -t run_rows < <(echo "$runs_json" | jq -r '.workflow_runs[] | select(.conclusion=="success") | "\(.id) \(.head_sha)"')
+
+            for row in "${run_rows[@]:-}"; do
+              run_id="${row%% *}"
+              head_sha="${row##* }"
+
+              if [[ -z "$run_id" || -z "$head_sha" ]]; then
+                continue
+              fi
+
+              jobs_json="$(curl -fsSL \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=50")"
+
+              backend_conclusion="$(echo "$jobs_json" | jq -r '
+                .jobs[]
+                | .steps[]?
+                | select(.name=="Deploy Backend")
+                | .conclusion
+                ' | head -n 1)"
+
+              if [[ "$backend_conclusion" == "success" ]]; then
+                echo "$head_sha"
+                return 0
+              fi
+            done
+
+            return 1
+          }
+
           detection_failed=false
           changed_files=()
+          since_deploy_files=()
+          since_deploy_file=""
 
           if [[ "$EVENT_NAME" == 'pull_request' ]]; then
             if [[ -z "${PR_BASE_SHA:-}" || -z "${PR_HEAD_SHA:-}" || "$PR_BASE_SHA" =~ ^0+$ || "$PR_HEAD_SHA" =~ ^0+$ ]]; then
@@ -93,6 +144,23 @@ jobs:
             else
               echo "Push classify: before=${PUSH_BEFORE} sha=${PUSH_SHA}"
               mapfile -t changed_files < <(collect_changed_files "$PUSH_BEFORE" "$PUSH_SHA")
+
+              if [[ "${GITHUB_REF_NAME}" == "main" || "${GITHUB_REF_NAME}" == "master" ]]; then
+                if last_deployed_sha="$(resolve_last_deployed_sha)"; then
+                  echo "Last successful Deploy Backend revision: ${last_deployed_sha}"
+                  if git cat-file -e "${last_deployed_sha}^{commit}" 2>/dev/null; then
+                    mapfile -t since_deploy_files < <(collect_changed_files "$last_deployed_sha" "$PUSH_SHA")
+                    since_deploy_file="$(mktemp)"
+                    printf '%s\n' "${since_deploy_files[@]}" > "$since_deploy_file"
+                    echo "Since-deploy changed files (${#since_deploy_files[@]}):"
+                    printf '  - %s\n' "${since_deploy_files[@]}"
+                  else
+                    echo "Last deployed SHA ${last_deployed_sha} is not in this clone; using immediate push range only for deploy."
+                  fi
+                else
+                  echo "No prior successful Deploy Backend found; using immediate push range only for deploy."
+                fi
+              fi
             fi
           fi
 
@@ -101,7 +169,7 @@ jobs:
             exit 0
           fi
 
-          if [[ ${#changed_files[@]} -eq 0 ]]; then
+          if [[ ${#changed_files[@]} -eq 0 && ${#since_deploy_files[@]} -eq 0 ]]; then
             echo "No changed files detected; fail-safe full CI."
             php .github/scripts/ci.php classify --fail-safe
             exit 0
@@ -110,7 +178,12 @@ jobs:
           echo "Changed files (${#changed_files[@]}):"
           printf '  - %s\n' "${changed_files[@]}"
 
-          printf '%s\n' "${changed_files[@]}" | php .github/scripts/ci.php classify --paths-file=-
+          if [[ -n "$since_deploy_file" ]]; then
+            printf '%s\n' "${changed_files[@]}" | php .github/scripts/ci.php classify --paths-file=- --since-deploy-paths-file="$since_deploy_file"
+            rm -f "$since_deploy_file"
+          else
+            printf '%s\n' "${changed_files[@]}" | php .github/scripts/ci.php classify --paths-file=-
+          fi
 
       - name: Write CI plan
         run: |

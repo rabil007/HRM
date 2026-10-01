@@ -33,10 +33,14 @@ class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
             'to_user_ids.*' => ['integer'],
             'to_emails' => ['nullable', 'array'],
             'to_emails.*' => ['string', 'email:rfc', 'max:255'],
+            'to_orphaned_recipient_ids' => ['nullable', 'array'],
+            'to_orphaned_recipient_ids.*' => ['integer'],
             'cc_user_ids' => ['nullable', 'array'],
             'cc_user_ids.*' => ['integer'],
             'cc_emails' => ['nullable', 'array'],
             'cc_emails.*' => ['string', 'email:rfc', 'max:255'],
+            'cc_orphaned_recipient_ids' => ['nullable', 'array'],
+            'cc_orphaned_recipient_ids.*' => ['integer'],
         ];
     }
 
@@ -54,9 +58,13 @@ class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
                 $ccUserIds = $this->uniqueIds('cc_user_ids');
                 $toEmails = $this->normalizedEmails('to_emails');
                 $ccEmails = $this->normalizedEmails('cc_emails');
+                $toOrphanedIds = $this->uniqueIds('to_orphaned_recipient_ids');
+                $ccOrphanedIds = $this->uniqueIds('cc_orphaned_recipient_ids');
 
                 $this->rejectIneligibleUsers($validator, $companyId, $toUserIds, 'to_user_ids');
                 $this->rejectIneligibleUsers($validator, $companyId, $ccUserIds, 'cc_user_ids');
+                $this->rejectInvalidOrphanedRecipients($validator, $toOrphanedIds, 'to_orphaned_recipient_ids', 'to');
+                $this->rejectInvalidOrphanedRecipients($validator, $ccOrphanedIds, 'cc_orphaned_recipient_ids', 'cc');
 
                 if (! $this->boolean('all_document_types')) {
                     $documentTypeIds = $this->uniqueIds('document_type_ids');
@@ -138,11 +146,37 @@ class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
     }
 
     /**
+     * @return list<int>
+     */
+    public function toOrphanedRecipientIds(): array
+    {
+        return $this->uniqueIds('to_orphaned_recipient_ids');
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function ccOrphanedRecipientIds(): array
+    {
+        return $this->uniqueIds('cc_orphaned_recipient_ids');
+    }
+
+    /**
      * User IDs already configured on the rule being updated (empty on create).
      *
      * @return list<int>
      */
     protected function grandfatheredUserIds(): array
+    {
+        return [];
+    }
+
+    /**
+     * Orphaned recipient row IDs already on the rule (user deleted → user_id null).
+     *
+     * @return list<int>
+     */
+    protected function grandfatheredOrphanedRecipientIds(string $deliveryType): array
     {
         return [];
     }
@@ -249,6 +283,33 @@ class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
                     'One or more selected document types are invalid or inactive.',
                 );
             }
+        }
+    }
+
+    /**
+     * @param  list<int>  $recipientIds
+     */
+    private function rejectInvalidOrphanedRecipients(
+        Validator $validator,
+        array $recipientIds,
+        string $field,
+        string $deliveryType,
+    ): void {
+        if ($recipientIds === []) {
+            return;
+        }
+
+        $allowed = array_fill_keys($this->grandfatheredOrphanedRecipientIds($deliveryType), true);
+        $invalid = array_values(array_filter(
+            $recipientIds,
+            fn (int $id): bool => ! isset($allowed[$id]),
+        ));
+
+        if ($invalid !== []) {
+            $validator->errors()->add(
+                $field,
+                'One or more deleted recipients are invalid for this rule.',
+            );
         }
     }
 }

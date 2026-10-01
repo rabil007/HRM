@@ -122,6 +122,69 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
 }
 
 /**
+ * Merge immediate push classification with cumulative changes since the last
+ * successful deploy so a test-only follow-up commit still deploys prior
+ * application changes that never shipped.
+ *
+ * @param  array{
+ *     pint: bool,
+ *     frontend_static: bool,
+ *     frontend_build: bool,
+ *     pest: bool,
+ *     pdf_renderer: bool,
+ *     deploy: bool,
+ *     docs_only: bool,
+ *     scope: string
+ * }  $immediate
+ * @param  array{
+ *     pint: bool,
+ *     frontend_static: bool,
+ *     frontend_build: bool,
+ *     pest: bool,
+ *     pdf_renderer: bool,
+ *     deploy: bool,
+ *     docs_only: bool,
+ *     scope: string
+ * }  $sinceLastDeploy
+ * @return array{
+ *     pint: bool,
+ *     frontend_static: bool,
+ *     frontend_build: bool,
+ *     pest: bool,
+ *     pdf_renderer: bool,
+ *     deploy: bool,
+ *     docs_only: bool,
+ *     scope: string
+ * }
+ */
+function oms_ci_merge_immediate_with_undeployed(array $immediate, array $sinceLastDeploy): array
+{
+    $deploy = (bool) $sinceLastDeploy['deploy'];
+
+    $result = [
+        'pint' => (bool) $immediate['pint'] || ($deploy && (bool) $sinceLastDeploy['pint']),
+        'frontend_static' => (bool) $immediate['frontend_static'] || ($deploy && (bool) $sinceLastDeploy['frontend_static']),
+        'frontend_build' => (bool) $immediate['frontend_build'] || ($deploy && (bool) $sinceLastDeploy['frontend_build']),
+        'pest' => (bool) $immediate['pest'] || ($deploy && (bool) $sinceLastDeploy['pest']),
+        'pdf_renderer' => (bool) $immediate['pdf_renderer'] || ($deploy && (bool) $sinceLastDeploy['pdf_renderer']),
+        'deploy' => $deploy,
+        'docs_only' => false,
+        'scope' => '',
+    ];
+
+    if (! $deploy && (bool) $immediate['docs_only'] && (bool) $sinceLastDeploy['docs_only']) {
+        $result['docs_only'] = true;
+        $result['scope'] = 'docs-only';
+
+        return $result;
+    }
+
+    $result['scope'] = oms_ci_scope_from_flags($result);
+
+    return $result;
+}
+
+/**
  * @return array{
  *     pint: bool,
  *     frontend_static: bool,
@@ -755,9 +818,11 @@ function oms_ci_cli_classify(array $argv): int
 {
     $detectionFailed = in_array('--fail-safe', $argv, true);
     $paths = [];
+    $sinceDeployPaths = null;
 
     if (! $detectionFailed) {
         $pathsFile = oms_ci_cli_option($argv, '--paths-file') ?? '-';
+        $sinceDeployPathsFile = oms_ci_cli_option($argv, '--since-deploy-paths-file');
 
         if ($pathsFile === '-') {
             $stdin = stream_get_contents(STDIN);
@@ -775,12 +840,34 @@ function oms_ci_cli_classify(array $argv): int
 
             $paths = preg_split('/\r\n|\r|\n/', rtrim($contents, "\r\n")) ?: [];
         }
+
+        if ($sinceDeployPathsFile !== null && $sinceDeployPathsFile !== '') {
+            $sinceContents = file_get_contents($sinceDeployPathsFile);
+
+            if ($sinceContents === false) {
+                fwrite(STDERR, "Unable to read since-deploy paths file: {$sinceDeployPathsFile}\n");
+
+                return 1;
+            }
+
+            $sinceDeployPaths = preg_split('/\r\n|\r|\n/', rtrim($sinceContents, "\r\n")) ?: [];
+        }
     }
 
-    $result = oms_ci_classify_paths(
+    $immediate = oms_ci_classify_paths(
         array_values(array_filter($paths, fn (string $path): bool => $path !== '')),
         $detectionFailed,
     );
+
+    if (is_array($sinceDeployPaths)) {
+        $sinceLastDeploy = oms_ci_classify_paths(
+            array_values(array_filter($sinceDeployPaths, fn (string $path): bool => $path !== '')),
+            false,
+        );
+        $result = oms_ci_merge_immediate_with_undeployed($immediate, $sinceLastDeploy);
+    } else {
+        $result = $immediate;
+    }
 
     oms_ci_emit_outputs([
         'pint' => oms_ci_bool_string($result['pint']),

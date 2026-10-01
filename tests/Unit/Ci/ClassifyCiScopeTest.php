@@ -102,6 +102,28 @@ test('frontend component changes skip pest and pdf', function () {
     ]);
 });
 
+test('undeployed application changes keep deploy true across a tests-only follow-up commit', function () {
+    $immediate = oms_ci_classify_paths(['tests/Feature/Organization/DocumentExpiryAlertTest.php']);
+    $sinceLastDeploy = oms_ci_classify_paths([
+        'app/Services/DocumentExpiryAlertService.php',
+        'database/migrations/2026_10_01_125956_convert_employee_document_expiry_alert_delivery_keys_to_recipient_identities.php',
+        'resources/js/features/organization/documents/configuration/notification-routing-form-sheet.tsx',
+        'tests/Feature/Organization/DocumentExpiryAlertTest.php',
+    ]);
+
+    expect($immediate['deploy'])->toBeFalse()
+        ->and($sinceLastDeploy['deploy'])->toBeTrue()
+        ->and(oms_ci_merge_immediate_with_undeployed($immediate, $sinceLastDeploy))->toMatchArray([
+            'pint' => true,
+            'pest' => true,
+            'frontend_static' => true,
+            'frontend_build' => true,
+            'pdf_renderer' => false,
+            'deploy' => true,
+            'docs_only' => false,
+        ]);
+});
+
 test('pdf overlay preflight changes run pest pint pdf and deploy without frontend', function () {
     expect(oms_ci_classify_paths(['app/Support/Documents/PdfOverlayLayoutPreflight.php']))->toMatchArray([
         'pint' => true,

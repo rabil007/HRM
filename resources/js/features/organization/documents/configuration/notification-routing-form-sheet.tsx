@@ -442,22 +442,48 @@ export function NotificationRoutingFormSheet({
                                 Users
                             </p>
                             <ChipList
-                                items={selectedToUsers.map((user) => ({
-                                    key: String(user.id),
-                                    label: user.name,
-                                    hint: user.email || undefined,
-                                    warning: user.eligible
-                                        ? undefined
-                                        : 'No longer eligible',
-                                }))}
-                                onRemove={(key) =>
+                                items={[
+                                    ...selectedToUsers.map((user) => ({
+                                        key: `user:${user.id}`,
+                                        label: user.name,
+                                        hint: user.email || undefined,
+                                        warning: user.eligible
+                                            ? undefined
+                                            : 'No longer eligible',
+                                    })),
+                                    ...form.data.to_orphaned_recipient_ids.map(
+                                        (recipientId) => ({
+                                            key: `orphan:${recipientId}`,
+                                            label: 'Deleted / unavailable user',
+                                            warning: 'Will not receive email',
+                                        }),
+                                    ),
+                                ]}
+                                onRemove={(key) => {
+                                    if (key.startsWith('orphan:')) {
+                                        const recipientId = Number(
+                                            key.slice('orphan:'.length),
+                                        );
+                                        form.setData(
+                                            'to_orphaned_recipient_ids',
+                                            form.data.to_orphaned_recipient_ids.filter(
+                                                (id) => id !== recipientId,
+                                            ),
+                                        );
+
+                                        return;
+                                    }
+
+                                    const userId = Number(
+                                        key.slice('user:'.length),
+                                    );
                                     form.setData(
                                         'to_user_ids',
                                         form.data.to_user_ids.filter(
-                                            (id) => id !== Number(key),
+                                            (id) => id !== userId,
                                         ),
-                                    )
-                                }
+                                    );
+                                }}
                             />
                             <SearchableAddList
                                 options={availableToUsers.map((user) => ({
@@ -524,22 +550,48 @@ export function NotificationRoutingFormSheet({
                                 Users
                             </p>
                             <ChipList
-                                items={selectedCcUsers.map((user) => ({
-                                    key: String(user.id),
-                                    label: user.name,
-                                    hint: user.email || undefined,
-                                    warning: user.eligible
-                                        ? undefined
-                                        : 'No longer eligible',
-                                }))}
-                                onRemove={(key) =>
+                                items={[
+                                    ...selectedCcUsers.map((user) => ({
+                                        key: `user:${user.id}`,
+                                        label: user.name,
+                                        hint: user.email || undefined,
+                                        warning: user.eligible
+                                            ? undefined
+                                            : 'No longer eligible',
+                                    })),
+                                    ...form.data.cc_orphaned_recipient_ids.map(
+                                        (recipientId) => ({
+                                            key: `orphan:${recipientId}`,
+                                            label: 'Deleted / unavailable user',
+                                            warning: 'Will not receive email',
+                                        }),
+                                    ),
+                                ]}
+                                onRemove={(key) => {
+                                    if (key.startsWith('orphan:')) {
+                                        const recipientId = Number(
+                                            key.slice('orphan:'.length),
+                                        );
+                                        form.setData(
+                                            'cc_orphaned_recipient_ids',
+                                            form.data.cc_orphaned_recipient_ids.filter(
+                                                (id) => id !== recipientId,
+                                            ),
+                                        );
+
+                                        return;
+                                    }
+
+                                    const userId = Number(
+                                        key.slice('user:'.length),
+                                    );
                                     form.setData(
                                         'cc_user_ids',
                                         form.data.cc_user_ids.filter(
-                                            (id) => id !== Number(key),
+                                            (id) => id !== userId,
                                         ),
-                                    )
-                                }
+                                    );
+                                }}
                             />
                             <SearchableAddList
                                 options={availableCcUsers.map((user) => ({

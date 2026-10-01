@@ -5,6 +5,7 @@ use App\Models\DocumentType;
 use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentExpiryNotification\MigrateLegacyDocumentExpiryAlertRecipients;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -405,6 +406,90 @@ test('inactive configured document type remains visible and removable on the rou
         ->assertRedirect();
 
     expect($rule->fresh()->documentTypes()->pluck('document_types.id')->all())->toBe([$passportType->id]);
+});
+
+test('deleted user recipient remains visible as unavailable and removable', function () {
+    $admin = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($admin, $company, [
+        'documents.notification-routing.view',
+        'documents.notification-routing.update',
+    ]);
+
+    $doomed = User::factory()->create([
+        'name' => 'Doomed User',
+        'email' => 'doomed@example.com',
+        'status' => 'active',
+    ]);
+    attachActiveCompanyMember($doomed, $company->id);
+    grantCompanyPermissions($doomed, $company, ['documents.view'], 'routing-doomed-role');
+
+    $rule = createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Deleted user rule',
+        'to_user_ids' => [$doomed->id],
+        'to_emails' => ['fallback@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    $orphanedRecipientId = (int) $rule->toRecipients()->where('user_id', $doomed->id)->value('id');
+
+    // Simulate FK nullOnDelete after the referenced user is permanently removed.
+    DB::table('document_expiry_notification_rule_recipients')
+        ->where('id', $orphanedRecipientId)
+        ->update(['user_id' => null]);
+
+    expect($rule->fresh()->toRecipients()->where('id', $orphanedRecipientId)->value('user_id'))->toBeNull();
+
+    $this->actingAs($admin)
+        ->get(route('organization.documents.configuration.notification-routing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/configuration/notification-routing')
+            ->where('rules.0.to', function ($recipients) use ($orphanedRecipientId) {
+                $deleted = collect($recipients)->firstWhere('id', $orphanedRecipientId);
+
+                return $deleted !== null
+                    && $deleted['user_id'] === null
+                    && $deleted['eligible'] === false
+                    && $deleted['label'] === 'Deleted / unavailable user'
+                    && $deleted['email'] === null
+                    && $deleted['name'] === null;
+            })
+        );
+
+    $this->actingAs($admin)
+        ->put(route('organization.documents.configuration.notification-routing.update', $rule), [
+            'name' => 'Deleted user rule',
+            'enabled' => true,
+            'all_document_types' => true,
+            'document_type_ids' => [],
+            'to_user_ids' => [],
+            'to_emails' => ['fallback@example.com'],
+            'to_orphaned_recipient_ids' => [$orphanedRecipientId],
+            'cc_user_ids' => [],
+            'cc_emails' => [],
+            'cc_orphaned_recipient_ids' => [],
+        ])
+        ->assertRedirect();
+
+    expect($rule->fresh()->toRecipients()->where('recipient_kind', 'user')->whereNull('user_id')->count())->toBe(1);
+
+    $this->actingAs($admin)
+        ->put(route('organization.documents.configuration.notification-routing.update', $rule), [
+            'name' => 'Deleted user rule',
+            'enabled' => true,
+            'all_document_types' => true,
+            'document_type_ids' => [],
+            'to_user_ids' => [],
+            'to_emails' => ['fallback@example.com'],
+            'to_orphaned_recipient_ids' => [],
+            'cc_user_ids' => [],
+            'cc_emails' => [],
+            'cc_orphaned_recipient_ids' => [],
+        ])
+        ->assertRedirect();
+
+    expect($rule->fresh()->toRecipients()->where('recipient_kind', 'user')->whereNull('user_id')->exists())->toBeFalse();
 });
 
 test('foreign company user id is not exposed as a stale recipient profile', function () {

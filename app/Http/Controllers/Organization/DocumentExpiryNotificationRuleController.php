@@ -118,6 +118,8 @@ class DocumentExpiryNotificationRuleController extends Controller
             $request->ccEmails(),
             $request->user(),
             isCreate: true,
+            toOrphanedRecipientIds: $request->toOrphanedRecipientIds(),
+            ccOrphanedRecipientIds: $request->ccOrphanedRecipientIds(),
         );
 
         return back()->with('success', 'Notification routing rule created.');
@@ -144,6 +146,8 @@ class DocumentExpiryNotificationRuleController extends Controller
             $request->ccEmails(),
             $request->user(),
             isCreate: false,
+            toOrphanedRecipientIds: $request->toOrphanedRecipientIds(),
+            ccOrphanedRecipientIds: $request->ccOrphanedRecipientIds(),
         );
 
         return back()->with('success', 'Notification routing rule updated.');

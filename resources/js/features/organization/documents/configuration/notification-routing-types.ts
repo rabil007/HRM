@@ -1,4 +1,5 @@
 export type NotificationRoutingRecipient = {
+    id: number;
     kind: 'user' | 'email';
     user_id: number | null;
     name: string | null;
@@ -41,8 +42,10 @@ export type NotificationRoutingFormData = {
     document_type_ids: number[];
     to_user_ids: number[];
     to_emails: string[];
+    to_orphaned_recipient_ids: number[];
     cc_user_ids: number[];
     cc_emails: string[];
+    cc_orphaned_recipient_ids: number[];
 };
 
 export type DocumentTypeExpiryNotificationRuleSummary = {
@@ -61,8 +64,10 @@ export const emptyNotificationRoutingFormData =
         document_type_ids: [],
         to_user_ids: [],
         to_emails: [],
+        to_orphaned_recipient_ids: [],
         cc_user_ids: [],
         cc_emails: [],
+        cc_orphaned_recipient_ids: [],
     });
 
 export function ruleToFormData(
@@ -94,6 +99,12 @@ export function ruleToFormData(
                 (recipient) => recipient.kind === 'email' && recipient.email,
             )
             .map((recipient) => recipient.email as string),
+        to_orphaned_recipient_ids: rule.to
+            .filter(
+                (recipient) =>
+                    recipient.kind === 'user' && recipient.user_id === null,
+            )
+            .map((recipient) => recipient.id),
         cc_user_ids: rule.cc
             .filter(
                 (recipient) => recipient.kind === 'user' && recipient.user_id,
@@ -104,5 +115,11 @@ export function ruleToFormData(
                 (recipient) => recipient.kind === 'email' && recipient.email,
             )
             .map((recipient) => recipient.email as string),
+        cc_orphaned_recipient_ids: rule.cc
+            .filter(
+                (recipient) =>
+                    recipient.kind === 'user' && recipient.user_id === null,
+            )
+            .map((recipient) => recipient.id),
     };
 }

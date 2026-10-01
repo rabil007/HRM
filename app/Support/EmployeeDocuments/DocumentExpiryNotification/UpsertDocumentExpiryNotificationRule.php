@@ -19,6 +19,8 @@ class UpsertDocumentExpiryNotificationRule
      * @param  list<string>  $toEmails
      * @param  list<int>  $ccUserIds
      * @param  list<string>  $ccEmails
+     * @param  list<int>  $toOrphanedRecipientIds
+     * @param  list<int>  $ccOrphanedRecipientIds
      */
     public function handle(
         DocumentExpiryNotificationRule $rule,
@@ -33,6 +35,8 @@ class UpsertDocumentExpiryNotificationRule
         array $ccEmails,
         User $actor,
         bool $isCreate = false,
+        array $toOrphanedRecipientIds = [],
+        array $ccOrphanedRecipientIds = [],
     ): DocumentExpiryNotificationRule {
         $documentTypeIds = $allDocumentTypes
             ? []
@@ -46,6 +50,9 @@ class UpsertDocumentExpiryNotificationRule
             $this->normalizeEmails($ccEmails),
             array_map(strtolower(...), $toEmails),
         ));
+
+        $toOrphanedRecipientIds = array_values(array_unique(array_map('intval', $toOrphanedRecipientIds)));
+        $ccOrphanedRecipientIds = array_values(array_unique(array_map('intval', $ccOrphanedRecipientIds)));
 
         // Remove CC users whose live email collides with a TO manual email (case-insensitive).
         $toEmailSet = array_map(strtolower(...), $toEmails);
@@ -61,6 +68,8 @@ class UpsertDocumentExpiryNotificationRule
             $toEmails,
             $ccUserIds,
             $ccEmails,
+            $toOrphanedRecipientIds,
+            $ccOrphanedRecipientIds,
             $toEmailSet,
             $actor,
             $isCreate,
@@ -72,6 +81,15 @@ class UpsertDocumentExpiryNotificationRule
             ]);
 
             $before = $this->snapshot($rule);
+
+            $orphanedToKeep = $this->orphanedRecipientsToPreserve(
+                $rule->toRecipients,
+                $toOrphanedRecipientIds,
+            );
+            $orphanedCcKeep = $this->orphanedRecipientsToPreserve(
+                $rule->ccRecipients,
+                $ccOrphanedRecipientIds,
+            );
 
             $rule->fill([
                 'company_id' => $companyId,
@@ -120,6 +138,19 @@ class UpsertDocumentExpiryNotificationRule
                 ];
             }
 
+            foreach ($orphanedToKeep as $_) {
+                $inserts[] = [
+                    'rule_id' => $rule->id,
+                    'company_id' => $companyId,
+                    'recipient_kind' => DocumentExpiryNotificationRecipientKind::User->value,
+                    'user_id' => null,
+                    'email' => null,
+                    'delivery_type' => DocumentExpiryNotificationDeliveryType::To->value,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
             $ccUsers = User::query()
                 ->whereIn('id', $ccUserIds)
                 ->get(['id', 'email'])
@@ -157,6 +188,19 @@ class UpsertDocumentExpiryNotificationRule
                 ];
             }
 
+            foreach ($orphanedCcKeep as $_) {
+                $inserts[] = [
+                    'rule_id' => $rule->id,
+                    'company_id' => $companyId,
+                    'recipient_kind' => DocumentExpiryNotificationRecipientKind::User->value,
+                    'user_id' => null,
+                    'email' => null,
+                    'delivery_type' => DocumentExpiryNotificationDeliveryType::Cc->value,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
             if ($inserts !== []) {
                 DocumentExpiryNotificationRuleRecipient::query()->insert($inserts);
             }
@@ -173,6 +217,35 @@ class UpsertDocumentExpiryNotificationRule
 
             return $rule;
         });
+    }
+
+    /**
+     * @param  Collection<int, DocumentExpiryNotificationRuleRecipient>|iterable<int, DocumentExpiryNotificationRuleRecipient>  $recipients
+     * @param  list<int>  $requestedIds
+     * @return list<int>
+     */
+    private function orphanedRecipientsToPreserve(iterable $recipients, array $requestedIds): array
+    {
+        if ($requestedIds === []) {
+            return [];
+        }
+
+        $requested = array_fill_keys($requestedIds, true);
+
+        return collect($recipients)
+            ->filter(function (DocumentExpiryNotificationRuleRecipient $recipient) use ($requested): bool {
+                $kind = $recipient->recipient_kind instanceof DocumentExpiryNotificationRecipientKind
+                    ? $recipient->recipient_kind->value
+                    : (string) $recipient->recipient_kind;
+
+                return $kind === DocumentExpiryNotificationRecipientKind::User->value
+                    && $recipient->user_id === null
+                    && isset($requested[(int) $recipient->id]);
+            })
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
     }
 
     /**
