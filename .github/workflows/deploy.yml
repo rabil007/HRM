@@ -165,6 +165,9 @@ jobs:
           VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
           # HRM default. Set repository variable DEPLOY_APP_DIR=cms on OMS-CMS.
           DEPLOY_APP_DIR: ${{ vars.DEPLOY_APP_DIR || 'hrm' }}
+          # Authenticate private-repo fetch on Hostinger (HTTPS remotes have no stored credentials).
+          DEPLOY_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_GIT_REPO: ${{ github.repository }}
         run: |
           if [[ ! "$VALIDATED_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
             echo "ERROR: Invalid validated SHA format: $VALIDATED_SHA"
@@ -176,12 +179,24 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "$DEPLOY_GIT_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "ERROR: Invalid DEPLOY_GIT_REPO: $DEPLOY_GIT_REPO"
+            exit 1
+          fi
+
+          if [ -z "$DEPLOY_GIT_TOKEN" ]; then
+            echo "ERROR: DEPLOY_GIT_TOKEN is empty"
+            exit 1
+          fi
+
           echo "Deploying revision ${VALIDATED_SHA:0:7} ($VALIDATED_SHA) to ${DEPLOY_APP_DIR}..."
 
-          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 "bash -s -- \"$VALIDATED_SHA\" \"$DEPLOY_APP_DIR\"" << 'EOF'
+          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 "bash -s -- \"$VALIDATED_SHA\" \"$DEPLOY_APP_DIR\" \"$DEPLOY_GIT_TOKEN\" \"$DEPLOY_GIT_REPO\"" << 'EOF'
             set -e
             TARGET_SHA="$1"
             APP_DIR="$2"
+            GIT_TOKEN="$3"
+            GIT_REPO="$4"
 
             if [[ ! "$TARGET_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
               echo "ERROR: Invalid target SHA: $TARGET_SHA"
@@ -193,10 +208,21 @@ jobs:
               exit 1
             fi
 
+            if [[ ! "$GIT_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+              echo "ERROR: Invalid GIT_REPO: $GIT_REPO"
+              exit 1
+            fi
+
+            if [ -z "$GIT_TOKEN" ]; then
+              echo "ERROR: GIT_TOKEN is empty"
+              exit 1
+            fi
+
             cd ~/domains/overseas-ms.com/public_html/"$APP_DIR" || exit 1
 
             echo "Fetching and resetting to validated revision ${TARGET_SHA:0:7}..."
-            git fetch origin
+            # Do not write credentials into .git/config; fetch the exact SHA from this workflow's repo.
+            git fetch --depth 1 "https://x-access-token:${GIT_TOKEN}@github.com/${GIT_REPO}.git" "$TARGET_SHA"
             git reset --hard "$TARGET_SHA"
 
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
