@@ -4,8 +4,7 @@ export type DocumentsModuleSection =
     | 'generate'
     | 'requests'
     | 'templates'
-    | 'configuration'
-    | 'activity';
+    | 'configuration';
 
 export const DOCUMENTS_MODULE_PATHS: Record<DocumentsModuleSection, string> = {
     overview: '/organization/documents',
@@ -14,7 +13,6 @@ export const DOCUMENTS_MODULE_PATHS: Record<DocumentsModuleSection, string> = {
     requests: '/organization/documents/requests',
     templates: '/organization/documents/templates',
     configuration: '/organization/documents/configuration',
-    activity: '/organization/documents/activity',
 };
 
 export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
@@ -24,7 +22,6 @@ export const DOCUMENTS_MODULE_LABELS: Record<DocumentsModuleSection, string> = {
     requests: 'My Tasks',
     templates: 'Templates',
     configuration: 'Document Types',
-    activity: 'Activity',
 };
 
 const DOCUMENTS_MODULE_ORDER: DocumentsModuleSection[] = [
@@ -34,7 +31,6 @@ const DOCUMENTS_MODULE_ORDER: DocumentsModuleSection[] = [
     'generate',
     'requests',
     'configuration',
-    'activity',
 ];
 
 function normalizePath(url: string): { path: string; search: string } {
@@ -171,18 +167,14 @@ export function documentsModuleSectionFromUrl(
         return 'requests';
     }
 
-    if (path === DOCUMENTS_MODULE_PATHS.activity) {
-        return 'activity';
+    if (path === '/organization/documents/activity') {
+        return 'generate';
     }
 
     if (
         path === '/organization/documents/bulk' ||
         path.startsWith('/organization/documents/bulk/')
     ) {
-        if (view === 'history') {
-            return 'activity';
-        }
-
         return 'generate';
     }
 
@@ -210,7 +202,7 @@ export function canViewDocumentsModuleSection(
         return permissions.includes('documents.view');
     }
 
-    if (section === 'generate' || section === 'activity') {
+    if (section === 'generate') {
         return permissions.includes('bulk_documents.view');
     }
 
