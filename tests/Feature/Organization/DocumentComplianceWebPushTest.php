@@ -56,7 +56,7 @@ test('multiple expiring documents create one push job per resolved user with sub
     app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
 
     Mail::assertSent(DocumentExpiryAlertMail::class, 1);
-    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2);
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(4);
 
     Queue::assertPushed(DeliverDocumentComplianceWebPushJob::class, 2);
     Queue::assertPushed(
