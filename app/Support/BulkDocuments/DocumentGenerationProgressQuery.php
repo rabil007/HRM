@@ -29,15 +29,11 @@ final class DocumentGenerationProgressQuery
             return null;
         }
 
-        $activeQuery = DocumentGenerationRun::query()
+        $activeRun = DocumentGenerationRun::query()
             ->forCompany($companyId)
             ->where('document_generation_template_id', $template->id)
             ->where('triggered_by', $userId)
-            ->whereIn('status', ['queued', 'running']);
-
-        $this->applyVisibleItemsConstraint($activeQuery, $user, $companyId);
-
-        $activeRun = $activeQuery
+            ->whereIn('status', ['queued', 'running'])
             ->latest('id')
             ->first();
 
@@ -45,18 +41,14 @@ final class DocumentGenerationProgressQuery
             return $this->presenter->fromCompanyTemplateRunForUser($activeRun, $user, $companyId);
         }
 
-        $latestQuery = DocumentGenerationRun::query()
+        $latestRun = DocumentGenerationRun::query()
             ->forCompany($companyId)
             ->where('document_generation_template_id', $template->id)
             ->where('triggered_by', $userId)
             ->when(
                 $publishedVersion !== null,
                 fn ($query) => $query->where('document_generation_template_version_id', $publishedVersion->id),
-            );
-
-        $this->applyVisibleItemsConstraint($latestQuery, $user, $companyId);
-
-        $latestRun = $latestQuery
+            )
             ->latest('id')
             ->first();
 
@@ -89,14 +81,4 @@ final class DocumentGenerationProgressQuery
         return $this->presenter->fromBuiltInRun($run);
     }
 
-    private function applyVisibleItemsConstraint($query, ?User $user, int $companyId): void
-    {
-        if ($user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
-            return;
-        }
-
-        $query->whereHas('items.employee', function ($employeeQuery) use ($user, $companyId): void {
-            EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
-        });
-    }
 }
