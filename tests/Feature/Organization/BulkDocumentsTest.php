@@ -559,7 +559,7 @@ test('bulk documents history view returns paginated activity', function () {
         'triggered_by' => $user->id,
     ]);
 
-    $this->get(route('organization.documents.activity'))
+    $this->get(route('organization.documents.generate', ['view' => 'activity']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('organization/documents/bulk/index')
@@ -658,7 +658,8 @@ test('bulk documents history view respects employee filters for email batches', 
         'triggered_by' => $user->id,
     ]);
 
-    $this->get(route('organization.documents.activity', [
+    $this->get(route('organization.documents.generate', [
+        'view' => 'activity',
         'department_id' => $operationsDepartment->id,
     ]))
         ->assertOk()
@@ -668,7 +669,8 @@ test('bulk documents history view respects employee filters for email batches', 
             ->where('activity.0.kind', 'email')
             ->where('activity.0.id', $batch->id));
 
-    $this->get(route('organization.documents.activity', [
+    $this->get(route('organization.documents.generate', [
+        'view' => 'activity',
         'department_id' => $hrDepartment->id,
     ]))
         ->assertOk()
