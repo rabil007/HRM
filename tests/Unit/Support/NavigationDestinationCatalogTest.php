@@ -45,7 +45,6 @@ test('documents destinations form one unified group without a standalone bulk ge
         'Generate & Track',
         'My Tasks',
         'Document Types',
-        'Activity',
     ])
         ->and(array_column($documents, 'href'))->not->toContain('/organization/documents/bulk')
         ->and(array_column($documents, 'label'))->not->toContain('Bulk generate');
