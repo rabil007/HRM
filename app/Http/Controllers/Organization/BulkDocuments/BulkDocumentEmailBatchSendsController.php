@@ -18,8 +18,16 @@ class BulkDocumentEmailBatchSendsController extends Controller
             abort(404);
         }
 
-        return response()->json(
-            BulkDocumentEmailBatchSendsQuery::forBatch($batch),
+        $payload = BulkDocumentEmailBatchSendsQuery::forBatch(
+            $batch,
+            $request->user(),
+            $companyId,
         );
+
+        if ($payload === null) {
+            abort(404);
+        }
+
+        return response()->json($payload);
     }
 }
