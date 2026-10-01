@@ -140,3 +140,39 @@ export function requirementFormFieldSelector(
 
     return `#${field}, [data-requirement-field="${field}"]`;
 }
+
+/**
+ * Resolves whether "Create separate requirement" should submit for approval,
+ * based on the intent captured before the duplicate dialog opened.
+ */
+export function resolveDuplicateCreateSeparateIntent(
+    pendingSubmitForApproval: boolean,
+): boolean {
+    return pendingSubmitForApproval;
+}
+
+export type DuplicateDialogDecision =
+    | 'create_separate'
+    | 'return_and_review'
+    | 'dismiss';
+
+/**
+ * After a duplicate-dialog decision, returns whether submit-for-approval should
+ * be applied and whether the pending intent must be cleared.
+ */
+export function resolveDuplicateDialogSubmitIntent(
+    pendingSubmitForApproval: boolean,
+    decision: DuplicateDialogDecision,
+): { submitForApproval: boolean; clearPendingIntent: boolean } {
+    if (decision === 'create_separate') {
+        return {
+            submitForApproval: pendingSubmitForApproval,
+            clearPendingIntent: true,
+        };
+    }
+
+    return {
+        submitForApproval: false,
+        clearPendingIntent: true,
+    };
+}

@@ -52,8 +52,12 @@ class RepeatRequirementRequest extends FormRequest
                 'nullable',
                 'integer',
                 function (string $attribute, mixed $value, \Closure $fail) use ($companyId): void {
-                    if ($value !== null && ! RecruiterOptionsQuery::isValidForCompany((int) $value, $companyId)) {
-                        $fail('The selected recruiter is invalid or does not belong to this company.');
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    if (! RecruiterOptionsQuery::isEligibleApprover((int) $value, $companyId)) {
+                        $fail('The selected recruiter must be an active company member with recruitment approval permission.');
                     }
                 },
             ],

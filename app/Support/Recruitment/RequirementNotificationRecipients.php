@@ -9,74 +9,112 @@ use Illuminate\Support\Facades\Log;
 final class RequirementNotificationRecipients
 {
     /**
-     * @return array{to: string|null, cc: list<string>, skipped_user_ids: list<int>}
+     * @param  list<User>  $additionalCcUsers
+     * @return array{
+     *     to_user_id: int|null,
+     *     cc_user_ids: list<int>,
+     *     skipped: list<array{user_id: int, reason: string}>
+     * }
      */
-    public static function resolve(
+    public static function resolveUserIds(
         RecruitmentRequirement $requirement,
         ?User $primaryRecipient,
-        bool $includeRequesterInCc = true,
-        bool $excludePrimaryFromCc = true,
+        array $additionalCcUsers = [],
+        bool $primaryMustBeEligibleApprover = false,
     ): array {
-        $requirement->loadMissing([
-            'creator:id,name,email',
-            'notificationRecipients.user:id,name,email',
-        ]);
-
-        $toEmail = self::usableEmail($primaryRecipient);
-        $cc = [];
+        $companyId = (int) $requirement->company_id;
         $skipped = [];
-        $seen = [];
+        $toUserId = null;
 
-        if ($toEmail !== null) {
-            $seen[strtolower($toEmail)] = true;
-        }
+        if ($primaryRecipient !== null) {
+            $primaryCheck = self::evaluateRecipient(
+                $primaryRecipient,
+                $companyId,
+                requireApprovePermission: $primaryMustBeEligibleApprover,
+            );
 
-        $candidates = [];
-
-        if ($includeRequesterInCc && $requirement->creator !== null) {
-            $candidates[] = $requirement->creator;
-        }
-
-        foreach ($requirement->notificationRecipients as $recipient) {
-            if ($recipient->user !== null) {
-                $candidates[] = $recipient->user;
+            if ($primaryCheck['eligible']) {
+                $toUserId = (int) $primaryRecipient->id;
+            } else {
+                $skipped[] = [
+                    'user_id' => (int) $primaryRecipient->id,
+                    'reason' => $primaryCheck['reason'] ?? 'ineligible',
+                ];
             }
         }
 
-        foreach ($candidates as $user) {
-            $email = self::usableEmail($user);
-            if ($email === null) {
-                $skipped[] = (int) $user->id;
+        $ccUserIds = [];
+        $seenUserIds = $toUserId !== null ? [$toUserId => true] : [];
+
+        foreach ($additionalCcUsers as $user) {
+            if (! $user instanceof User) {
+                continue;
+            }
+
+            $userId = (int) $user->id;
+            if (isset($seenUserIds[$userId])) {
+                continue;
+            }
+
+            $check = self::evaluateRecipient($user, $companyId, requireApprovePermission: false);
+            if (! $check['eligible']) {
+                $skipped[] = [
+                    'user_id' => $userId,
+                    'reason' => $check['reason'] ?? 'ineligible',
+                ];
 
                 continue;
             }
 
-            $key = strtolower($email);
-            if (isset($seen[$key])) {
-                continue;
-            }
-
-            if ($excludePrimaryFromCc && $primaryRecipient !== null && (int) $user->id === (int) $primaryRecipient->id) {
-                continue;
-            }
-
-            $seen[$key] = true;
-            $cc[] = $email;
+            $seenUserIds[$userId] = true;
+            $ccUserIds[] = $userId;
         }
 
         if ($skipped !== []) {
-            Log::info('Recruitment requirement notification skipped recipients without usable email.', [
+            Log::info('Recruitment requirement notification skipped ineligible recipients.', [
                 'requirement_id' => $requirement->id,
-                'company_id' => $requirement->company_id,
-                'skipped_user_ids' => $skipped,
+                'company_id' => $companyId,
+                'skipped' => $skipped,
             ]);
         }
 
         return [
-            'to' => $toEmail,
-            'cc' => $cc,
-            'skipped_user_ids' => $skipped,
+            'to_user_id' => $toUserId,
+            'cc_user_ids' => $ccUserIds,
+            'skipped' => $skipped,
         ];
+    }
+
+    /**
+     * @return array{eligible: bool, reason: string|null, email: string|null}
+     */
+    public static function evaluateRecipient(
+        User $user,
+        int $companyId,
+        bool $requireApprovePermission = false,
+    ): array {
+        if ($user->deleted_at !== null) {
+            return ['eligible' => false, 'reason' => 'deleted', 'email' => null];
+        }
+
+        if ($user->status !== 'active') {
+            return ['eligible' => false, 'reason' => 'inactive', 'email' => null];
+        }
+
+        if (! CompanyUserOptionsQuery::isActiveCompanyMember((int) $user->id, $companyId)) {
+            return ['eligible' => false, 'reason' => 'not_company_member', 'email' => null];
+        }
+
+        if ($requireApprovePermission && ! RecruiterOptionsQuery::isEligibleApprover((int) $user->id, $companyId)) {
+            return ['eligible' => false, 'reason' => 'missing_approve_permission', 'email' => null];
+        }
+
+        $email = self::usableEmail($user);
+        if ($email === null) {
+            return ['eligible' => false, 'reason' => 'no_usable_email', 'email' => null];
+        }
+
+        return ['eligible' => true, 'reason' => null, 'email' => $email];
     }
 
     public static function usableEmail(?User $user): ?string
@@ -91,5 +129,28 @@ final class RequirementNotificationRecipients
         }
 
         return $email;
+    }
+
+    /**
+     * Deduplicate email addresses (normalized lowercase) preserving order.
+     *
+     * @param  list<string>  $emails
+     * @return list<string>
+     */
+    public static function dedupeEmails(array $emails): array
+    {
+        $seen = [];
+        $result = [];
+
+        foreach ($emails as $email) {
+            $key = strtolower(trim($email));
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $result[] = $email;
+        }
+
+        return $result;
     }
 }

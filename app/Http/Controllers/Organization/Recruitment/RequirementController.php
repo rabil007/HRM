@@ -12,6 +12,7 @@ use App\Models\Position;
 use App\Models\Project;
 use App\Models\RecruitmentRequirement;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Recruitment\CompanyUserOptionsQuery;
 use App\Support\Recruitment\DuplicateRequirementDetector;
 use App\Support\Recruitment\DuplicateRequirementDto;
 use App\Support\Recruitment\RecruiterOptionsQuery;
@@ -91,12 +92,14 @@ class RequirementController extends Controller
             ->all();
 
         $recruiters = RecruiterOptionsQuery::forCompany($companyId);
+        $notificationUsers = CompanyUserOptionsQuery::forCompany($companyId);
 
         $options = [
             'clients' => $clients,
             'projects' => $projects,
             'positions' => $positions,
             'recruiters' => $recruiters,
+            'notification_users' => $notificationUsers,
         ];
 
         return Inertia::render('organization/recruitment/requirements/index', [
@@ -198,12 +201,14 @@ class RequirementController extends Controller
             ->all();
 
         $recruiters = RecruiterOptionsQuery::forCompany($companyId);
+        $notificationUsers = CompanyUserOptionsQuery::forCompany($companyId);
 
         $options = [
             'clients' => $clients,
             'projects' => $projects,
             'positions' => $positions,
             'recruiters' => $recruiters,
+            'notification_users' => $notificationUsers,
         ];
 
         return Inertia::render('organization/recruitment/requirements/show', [

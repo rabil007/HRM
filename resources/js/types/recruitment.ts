@@ -137,6 +137,9 @@ export type RequirementDetail = RequirementIndexRow & {
     on_hold_seconds: number;
     recruitment_duration_label: string | null;
     recruitment_clock_state: RecruitmentClockState;
+    duration_is_estimated?: boolean;
+    duration_estimate_note?: string | null;
+    closed_seconds?: number;
     approved_at: string | null;
     approved_at_formatted: string | null;
     approved_by_name: string | null;

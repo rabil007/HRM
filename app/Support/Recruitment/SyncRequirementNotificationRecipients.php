@@ -70,7 +70,7 @@ final class SyncRequirementNotificationRecipients
             return [];
         }
 
-        $validIds = RecruiterOptionsQuery::baseQuery($companyId)
+        $validIds = CompanyUserOptionsQuery::baseQuery($companyId)
             ->whereIn('users.id', $ids)
             ->pluck('users.id')
             ->map(fn ($id): int => (int) $id)

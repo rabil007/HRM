@@ -8,6 +8,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Support\Recruitment\GenerateRequirementNumber;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -36,6 +37,12 @@ final class RepeatRequirementAction
             }
 
             $companyId = (int) $source->company_id;
+            $assignedTo = array_key_exists('assigned_to', $data)
+                ? ($data['assigned_to'] !== null ? (int) $data['assigned_to'] : null)
+                : ($source->assigned_to !== null ? (int) $source->assigned_to : null);
+
+            RecruiterOptionsQuery::assertEligibleApprover($assignedTo, $companyId, required: false);
+
             $newNumber = GenerateRequirementNumber::next($companyId);
 
             $newRequirement = RecruitmentRequirement::create([
@@ -48,7 +55,7 @@ final class RepeatRequirementAction
                 'required_by_date' => $data['required_by_date'],
                 'location' => $data['location'] ?? $source->location,
                 'priority' => $data['priority'] ?? $source->priority,
-                'assigned_to' => $data['assigned_to'] ?? $source->assigned_to,
+                'assigned_to' => $assignedTo,
                 'notes' => $data['notes'] ?? null,
                 'status' => RequirementStatus::Draft,
                 'repeated_from_id' => $source->id,

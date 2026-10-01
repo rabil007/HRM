@@ -53,6 +53,7 @@ import {
     firstInvalidRequirementField,
     isRequirementFormDirty,
     requirementFormFieldSelector,
+    resolveDuplicateDialogSubmitIntent,
 } from '../lib/requirement-form';
 import type { RequirementFormSnapshot } from '../lib/requirement-form';
 import type { FormPositionLineInput, SimilarRequirementMatch } from '../types';
@@ -452,10 +453,10 @@ export function RequirementFormSheet({
         }
 
         const submitForApproval = pendingSubmitForApprovalRef.current;
-        pendingSubmitForApprovalRef.current = false;
 
         // If editing or forcing create, proceed directly
         if (isEditing || data.force_create) {
+            pendingSubmitForApprovalRef.current = false;
             submitRequisition(data.force_create, submitForApproval);
 
             return;
@@ -463,6 +464,7 @@ export function RequirementFormSheet({
 
         // Check if required basic info is present before calling similarity check
         if (!data.client_id || !data.required_by_date) {
+            pendingSubmitForApprovalRef.current = false;
             submitRequisition(false, submitForApproval);
 
             return;
@@ -473,6 +475,7 @@ export function RequirementFormSheet({
         );
 
         if (validPositions.length === 0) {
+            pendingSubmitForApprovalRef.current = false;
             submitRequisition(false, submitForApproval);
 
             return;
@@ -505,6 +508,7 @@ export function RequirementFormSheet({
                 const resData = await response.json();
 
                 if (resData.has_duplicates && resData.duplicates?.length > 0) {
+                    // Keep pendingSubmitForApprovalRef until the duplicate dialog resolves.
                     setDuplicateMatches(resData.duplicates);
                     setIsDuplicateDialogOpen(true);
                     setIsCheckingDuplicates(false);
@@ -518,6 +522,7 @@ export function RequirementFormSheet({
             setIsCheckingDuplicates(false);
         }
 
+        pendingSubmitForApprovalRef.current = false;
         submitRequisition(false, submitForApproval);
     };
 
@@ -529,6 +534,7 @@ export function RequirementFormSheet({
         targetRequirementId: number,
         reason: string,
     ) => {
+        pendingSubmitForApprovalRef.current = false;
         router.post(
             RequirementAddHeadcountController.url(targetRequirementId),
             {
@@ -1263,18 +1269,45 @@ export function RequirementFormSheet({
             {/* Duplicate Decision Dialog */}
             <DuplicateDecisionDialog
                 open={isDuplicateDialogOpen}
-                onOpenChange={setIsDuplicateDialogOpen}
+                onOpenChange={(open) => {
+                    setIsDuplicateDialogOpen(open);
+
+                    if (!open) {
+                        // Closing without an explicit create-separate decision
+                        // clears stale submit intent (return/review, dismiss, Esc).
+                        const decision = resolveDuplicateDialogSubmitIntent(
+                            pendingSubmitForApprovalRef.current,
+                            'dismiss',
+                        );
+
+                        if (decision.clearPendingIntent) {
+                            pendingSubmitForApprovalRef.current = false;
+                        }
+                    }
+                }}
                 matches={duplicateMatches}
                 onAddHeadcount={handleAddHeadcountToMatch}
                 onCreateSeparateBatch={() => {
-                    setIsDuplicateDialogOpen(false);
-                    submitRequisition(
-                        true,
+                    // Capture intent before closing — onOpenChange(false) also
+                    // clears the ref, so read it first.
+                    const decision = resolveDuplicateDialogSubmitIntent(
                         pendingSubmitForApprovalRef.current,
+                        'create_separate',
                     );
                     pendingSubmitForApprovalRef.current = false;
+                    setIsDuplicateDialogOpen(false);
+                    submitRequisition(true, decision.submitForApproval);
                 }}
                 onReturnAndReview={() => {
+                    const decision = resolveDuplicateDialogSubmitIntent(
+                        pendingSubmitForApprovalRef.current,
+                        'return_and_review',
+                    );
+
+                    if (decision.clearPendingIntent) {
+                        pendingSubmitForApprovalRef.current = false;
+                    }
+
                     setIsDuplicateDialogOpen(false);
                 }}
                 isSubmitting={busy}

@@ -54,8 +54,12 @@ class StoreRequirementRequest extends FormRequest
                 'nullable',
                 'integer',
                 function (string $attribute, mixed $value, \Closure $fail) use ($companyId): void {
-                    if ($value !== null && ! RecruiterOptionsQuery::isValidForCompany((int) $value, $companyId)) {
-                        $fail('The selected recruiter is not eligible for this company.');
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    if (! RecruiterOptionsQuery::isEligibleApprover((int) $value, $companyId)) {
+                        $fail('The selected recruiter must be an active company member with recruitment approval permission.');
                     }
                 },
             ],
@@ -140,6 +144,8 @@ class StoreRequirementRequest extends FormRequest
             if ((bool) $this->boolean('submit_for_approval')) {
                 if ($assignedToId === null) {
                     $validator->errors()->add('assigned_to', 'An assigned recruiter is required before submitting for approval.');
+                } elseif (! RecruiterOptionsQuery::isEligibleApprover($assignedToId, $companyId)) {
+                    $validator->errors()->add('assigned_to', 'The selected recruiter must be an active company member with recruitment approval permission.');
                 }
 
                 if (! ($this->user()?->can('recruitment.requirements.submit') ?? false)) {

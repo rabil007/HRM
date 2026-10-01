@@ -37,11 +37,23 @@ class UpdateRequirementRequest extends FormRequest
         if ($isPending) {
             return [
                 'assigned_to' => [
-                    'nullable',
+                    'required',
                     'integer',
-                    function (string $attribute, mixed $value, \Closure $fail) use ($companyId): void {
-                        if ($value !== null && ! RecruiterOptionsQuery::isValidForCompany((int) $value, $companyId)) {
-                            $fail('The selected recruiter is invalid or does not belong to this company.');
+                    function (string $attribute, mixed $value, \Closure $fail) use ($companyId, $requirement): void {
+                        if ($value === null || $value === '') {
+                            $fail('An assigned recruiter is required while the requirement is pending approval.');
+
+                            return;
+                        }
+
+                        if (! RecruiterOptionsQuery::isEligibleApprover((int) $value, $companyId)) {
+                            $fail('The selected recruiter must be an active company member with recruitment approval permission.');
+
+                            return;
+                        }
+
+                        if ($requirement?->created_by !== null && (int) $requirement->created_by === (int) $value) {
+                            $fail('The requester cannot also be the assigned recruiter. Self-approval is not allowed.');
                         }
                     },
                 ],
@@ -67,9 +79,19 @@ class UpdateRequirementRequest extends FormRequest
             'assigned_to' => [
                 'nullable',
                 'integer',
-                function (string $attribute, mixed $value, \Closure $fail) use ($companyId): void {
-                    if ($value !== null && ! RecruiterOptionsQuery::isValidForCompany((int) $value, $companyId)) {
-                        $fail('The selected recruiter is invalid or does not belong to this company.');
+                function (string $attribute, mixed $value, \Closure $fail) use ($companyId, $requirement): void {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    if (! RecruiterOptionsQuery::isEligibleApprover((int) $value, $companyId)) {
+                        $fail('The selected recruiter must be an active company member with recruitment approval permission.');
+
+                        return;
+                    }
+
+                    if ($requirement?->created_by !== null && (int) $requirement->created_by === (int) $value) {
+                        $fail('The requester cannot also be the assigned recruiter. Self-approval is not allowed.');
                     }
                 },
             ],

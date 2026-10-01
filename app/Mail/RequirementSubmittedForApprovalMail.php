@@ -3,13 +3,12 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class RequirementSubmittedForApprovalMail extends Mailable implements ShouldQueue
+class RequirementSubmittedForApprovalMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -20,7 +19,7 @@ class RequirementSubmittedForApprovalMail extends Mailable implements ShouldQueu
         public string $subjectLine,
         public string $organizationName,
         public string $requirementNumber,
-        public string $requesterName,
+        public string $submitterName,
         public array $details,
         public string $requirementUrl,
         public bool $includeCompanyFooter = true,

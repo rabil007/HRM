@@ -5,6 +5,7 @@ import {
     dedupeNotificationRecipientIds,
     firstInvalidRequirementField,
     isRequirementFormDirty,
+    resolveDuplicateDialogSubmitIntent,
 } from './requirement-form.ts';
 
 describe('requirement form helpers', () => {
@@ -75,5 +76,24 @@ describe('requirement form helpers', () => {
             'notification_recipient_ids',
         );
         assert.equal(firstInvalidRequirementField({}), null);
+    });
+
+    it('preserves save-and-submit intent through duplicate create-separate decision', () => {
+        assert.deepEqual(
+            resolveDuplicateDialogSubmitIntent(true, 'create_separate'),
+            { submitForApproval: true, clearPendingIntent: true },
+        );
+        assert.deepEqual(
+            resolveDuplicateDialogSubmitIntent(false, 'create_separate'),
+            { submitForApproval: false, clearPendingIntent: true },
+        );
+        assert.deepEqual(
+            resolveDuplicateDialogSubmitIntent(true, 'return_and_review'),
+            { submitForApproval: false, clearPendingIntent: true },
+        );
+        assert.deepEqual(resolveDuplicateDialogSubmitIntent(true, 'dismiss'), {
+            submitForApproval: false,
+            clearPendingIntent: true,
+        });
     });
 });

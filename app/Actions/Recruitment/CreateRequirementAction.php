@@ -10,6 +10,7 @@ use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
 use App\Support\Recruitment\GenerateRequirementNumber;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
 use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use Illuminate\Http\UploadedFile;
@@ -33,6 +34,11 @@ final class CreateRequirementAction
 
         try {
             $requirement = DB::transaction(function () use ($companyId, $userId, $data, $attachment, &$storedFilePath): RecruitmentRequirement {
+                $assignedTo = array_key_exists('assigned_to', $data)
+                    ? ($data['assigned_to'] !== null ? (int) $data['assigned_to'] : null)
+                    : null;
+                RecruiterOptionsQuery::assertEligibleApprover($assignedTo, $companyId, required: false);
+
                 $requirementNumber = GenerateRequirementNumber::next($companyId);
                 $status = RequirementStatus::Draft;
 
@@ -46,7 +52,7 @@ final class CreateRequirementAction
                     'required_by_date' => $data['required_by_date'],
                     'location' => $data['location'] ?? null,
                     'priority' => $data['priority'],
-                    'assigned_to' => $data['assigned_to'] ?? null,
+                    'assigned_to' => $assignedTo,
                     'notes' => $data['notes'] ?? null,
                     'status' => $status,
                     'repeated_from_id' => $data['repeated_from_id'] ?? null,

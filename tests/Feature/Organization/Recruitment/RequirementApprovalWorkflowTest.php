@@ -2,6 +2,7 @@
 
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
+use App\Jobs\DeliverRequirementLifecycleEmailJob;
 use App\Mail\RequirementApprovedMail;
 use App\Mail\RequirementReturnedMail;
 use App\Mail\RequirementSubmittedForApprovalMail;
@@ -17,7 +18,6 @@ use App\Models\RecruitmentRequirementNotificationRecipient;
 use App\Models\RecruitmentRequirementStatusTransition;
 use App\Models\User;
 use App\Support\Recruitment\CalculateActiveRecruitmentDuration;
-use App\Support\Recruitment\SendRequirementLifecycleEmails;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Permission;
@@ -230,7 +230,7 @@ test('submission moves draft to pending approval and queues recruiter email with
         ->where('to_status', RequirementStatus::PendingApproval->value)
         ->exists())->toBeTrue();
 
-    Mail::assertQueued(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
         return $mail->hasTo('recruiter@example.com')
             && $mail->hasCc('requester@example.com')
             && $mail->hasCc('cc.user@example.com');
@@ -252,7 +252,7 @@ test('duplicate to and cc addresses are removed', function () {
         ->post("/organization/recruitment/requirements/{$req->id}/submit")
         ->assertRedirect();
 
-    Mail::assertQueued(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
         $cc = collect($mail->cc)->pluck('address')->map(fn ($e) => strtolower((string) $e))->all();
 
         return $mail->hasTo('recruiter@example.com')
@@ -372,7 +372,7 @@ test('approval moves pending to open, sets timestamps, starts clock, and emails 
         ->and($duration['recruitment_started_at'])->not->toBeNull()
         ->and($duration['active_recruitment_seconds'])->not->toBeNull();
 
-    Mail::assertQueued(RequirementApprovedMail::class, function (RequirementApprovedMail $mail) {
+    Mail::assertSent(RequirementApprovedMail::class, function (RequirementApprovedMail $mail) {
         return $mail->hasTo('requester@example.com');
     });
 });
@@ -402,7 +402,7 @@ test('return requires a reason and returned requirements can be edited and resub
     expect($req->fresh()->status)->toBe(RequirementStatus::Returned)
         ->and($req->fresh()->return_reason)->toBe('Please clarify headcount for deck officers.');
 
-    Mail::assertQueued(RequirementReturnedMail::class, function (RequirementReturnedMail $mail) {
+    Mail::assertSent(RequirementReturnedMail::class, function (RequirementReturnedMail $mail) {
         return $mail->hasTo('requester@example.com');
     });
 
@@ -428,7 +428,7 @@ test('return requires a reason and returned requirements can be edited and resub
         ->assertRedirect();
 
     expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
-    Mail::assertQueued(RequirementSubmittedForApprovalMail::class);
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class);
 });
 
 test('pending requirements cannot change core fields via generic update', function () {
@@ -455,23 +455,29 @@ test('pending requirements cannot change core fields via generic update', functi
         ->and($fresh->notes)->toBeNull();
 });
 
-test('lifecycle email sender swallows mail exceptions without throwing', function () {
+test('lifecycle email job skips safely when recruiter becomes ineligible before delivery', function () {
     $req = createDraftRequirement($this);
-    $req->update(['status' => RequirementStatus::PendingApproval]);
-    $req->load([
-        'client',
-        'project',
-        'assignedRecruiter',
-        'creator',
-        'lines.position',
-        'company',
-        'notificationRecipients.user',
-    ]);
 
-    Mail::shouldReceive('to')->andThrow(new RuntimeException('SMTP unavailable'));
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
 
-    expect(fn () => SendRequirementLifecycleEmails::submittedForApproval($req))
-        ->not->toThrow(Throwable::class);
+    // Strip approve permission after transition but before a deferred re-send.
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+    $this->recruiter->revokePermissionTo('recruitment.requirements.approve');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    Mail::fake();
+
+    (new DeliverRequirementLifecycleEmailJob(
+        (int) $req->id,
+        (int) $this->companyA->id,
+        'submitted',
+    ))->handle();
+
+    Mail::assertNothingSent();
+    expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
 });
 
 test('email failures do not reverse successful transitions', function () {
@@ -631,4 +637,163 @@ test('cross-company requirement actions remain tenant scoped', function () {
         ->withSession(['current_company_id' => $this->companyB->id])
         ->post("/organization/recruitment/requirements/{$req->id}/approve")
         ->assertNotFound();
+});
+
+test('user without approve permission cannot be assigned as recruiter', function () {
+    $viewer = createApprovalTestUser($this->companyA, ['recruitment.requirements.view'], [
+        'email' => 'viewer.only@example.com',
+    ]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'request_received_date' => now()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(7)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $viewer->id,
+            'positions' => [
+                ['position_id' => $this->position->id, 'required_headcount' => 1],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+});
+
+test('submission fails if recruiter lost approval permission or company membership', function () {
+    $req = createDraftRequirement($this);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+    $this->recruiter->revokePermissionTo('recruitment.requirements.approve');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+
+    // Restore approve, then remove company membership.
+    $this->recruiter->givePermissionTo('recruitment.requirements.approve');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    DB::table('company_user')
+        ->where('company_id', $this->companyA->id)
+        ->where('user_id', $this->recruiter->id)
+        ->update(['status' => 'inactive']);
+    $this->recruiter->update(['company_id' => $this->companyB->id]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+});
+
+test('pending approval cannot be reassigned to null or requester', function () {
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$req->id}", [
+            'assigned_to' => null,
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$req->id}", [
+            'assigned_to' => $this->requester->id,
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+});
+
+test('submitter is cc when different from requester and deduped when same', function () {
+    $submitter = createApprovalTestUser($this->companyA, allRecruitmentApprovalPermissions(), [
+        'email' => 'alt.submitter@example.com',
+        'name' => 'Alt Submitter',
+    ]);
+
+    $req = createDraftRequirement($this);
+
+    Mail::fake();
+
+    $this->actingAs($submitter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
+        return $mail->hasTo('recruiter@example.com')
+            && $mail->hasCc('requester@example.com')
+            && $mail->hasCc('alt.submitter@example.com')
+            && $mail->submitterName === 'Alt Submitter';
+    });
+
+    Mail::fake();
+
+    // Return then resubmit by same requester (creator === submitter).
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/return", [
+            'return_reason' => 'Need clearer notes before recruiting.',
+        ])
+        ->assertRedirect();
+
+    Mail::fake();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/resubmit")
+        ->assertRedirect();
+
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
+        $cc = collect($mail->cc)->pluck('address')->map(fn ($e) => strtolower((string) $e))->all();
+
+        return $mail->hasTo('recruiter@example.com')
+            && $mail->hasCc('requester@example.com')
+            && count(array_filter($cc, fn ($e) => $e === 'requester@example.com')) === 1;
+    });
+});
+
+test('queued job skips recipients who lost company access before execution', function () {
+    $req = createDraftRequirement($this);
+
+    RecruitmentRequirementNotificationRecipient::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'user_id' => $this->ccUser->id,
+    ]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    DB::table('company_user')
+        ->where('company_id', $this->companyA->id)
+        ->where('user_id', $this->ccUser->id)
+        ->update(['status' => 'inactive']);
+    $this->ccUser->update(['company_id' => null, 'status' => 'inactive']);
+
+    Mail::fake();
+
+    (new DeliverRequirementLifecycleEmailJob(
+        (int) $req->id,
+        (int) $this->companyA->id,
+        'submitted',
+    ))->handle();
+
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
+        return $mail->hasTo('recruiter@example.com')
+            && $mail->hasCc('requester@example.com')
+            && ! $mail->hasCc('cc.user@example.com');
+    });
 });

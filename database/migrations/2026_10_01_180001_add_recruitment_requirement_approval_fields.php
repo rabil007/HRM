@@ -27,18 +27,66 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('recruitment_requirements', function (Blueprint $table) {
-            $table->dropIndex('idx_recruitment_req_company_submitted_at');
-            $table->dropIndex('idx_recruitment_req_company_approved_at');
-            $table->dropConstrainedForeignId('submitted_by');
-            $table->dropConstrainedForeignId('approved_by');
-            $table->dropConstrainedForeignId('returned_by');
+        $driver = Schema::getConnection()->getDriverName();
+
+        Schema::table('recruitment_requirements', function (Blueprint $table) use ($driver) {
+            $this->dropForeignForColumn($table, $driver, 'fk_req_submitted_by', 'submitted_by');
+            $this->dropForeignForColumn($table, $driver, 'fk_req_approved_by', 'approved_by');
+            $this->dropForeignForColumn($table, $driver, 'fk_req_returned_by', 'returned_by');
+
+            $this->dropIndexIfPresent($table, $driver, 'idx_recruitment_req_company_submitted_at', ['company_id', 'submitted_at']);
+            $this->dropIndexIfPresent($table, $driver, 'idx_recruitment_req_company_approved_at', ['company_id', 'approved_at']);
+
             $table->dropColumn([
                 'submitted_at',
+                'submitted_by',
                 'approved_at',
+                'approved_by',
                 'returned_at',
+                'returned_by',
                 'return_reason',
             ]);
         });
+    }
+
+    private function dropForeignForColumn(Blueprint $table, string $driver, string $customName, string $columnName): void
+    {
+        if ($driver === 'sqlite') {
+            try {
+                $table->dropForeign([$columnName]);
+            } catch (Throwable) {
+                // SQLite may recreate tables without named FKs.
+            }
+
+            return;
+        }
+
+        try {
+            $table->dropForeign($customName);
+        } catch (Throwable) {
+            try {
+                $table->dropForeign([$columnName]);
+            } catch (Throwable) {
+                // Foreign key already absent.
+            }
+        }
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function dropIndexIfPresent(Blueprint $table, string $driver, string $indexName, array $columns): void
+    {
+        try {
+            $table->dropIndex($indexName);
+        } catch (Throwable) {
+            if ($driver === 'sqlite') {
+                try {
+                    $table->dropIndex($columns);
+                } catch (Throwable) {
+                    // Index already absent or SQLite rebuilt the table.
+                }
+            }
+        }
     }
 };

@@ -6,6 +6,7 @@ use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\User;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\SendRequirementLifecycleEmails;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -38,6 +39,12 @@ final class SubmitRequirementForApprovalAction
                     'assigned_to' => 'An assigned recruiter is required before submitting for approval.',
                 ]);
             }
+
+            RecruiterOptionsQuery::assertEligibleApprover(
+                (int) $locked->assigned_to,
+                (int) $locked->company_id,
+                required: true,
+            );
 
             if ((int) $locked->created_by === (int) $locked->assigned_to) {
                 throw ValidationException::withMessages([
@@ -79,6 +86,7 @@ final class SubmitRequirementForApprovalAction
             return $locked->fresh([
                 'assignedRecruiter',
                 'creator',
+                'submitter',
                 'client',
                 'project',
                 'lines.position',
