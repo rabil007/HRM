@@ -70,7 +70,29 @@ export function CompanyDocumentSettingsSheet({
     }, [open, settings]);
 
     const submit = () => {
-        form.put(update.url(companyId), {
+        form.transform((data) => {
+            const payload: Record<string, unknown> = {
+                document_type: data.document_type,
+                signatory_name: data.signatory_name,
+                signatory_title: data.signatory_title,
+                footer_text: data.footer_text,
+                effective_from: data.effective_from,
+                effective_to: data.effective_to,
+                _method: 'put',
+            };
+
+            if (data.signature instanceof File) {
+                payload.signature = data.signature;
+            }
+
+            if (data.stamp instanceof File) {
+                payload.stamp = data.stamp;
+            }
+
+            return payload;
+        });
+
+        form.post(update.url(companyId), {
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => onOpenChange(false),

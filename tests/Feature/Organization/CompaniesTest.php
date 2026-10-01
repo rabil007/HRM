@@ -381,6 +381,55 @@ test('updating a company with remove_logo removes and deletes the logo', functio
     expect(Storage::disk('public')->exists($logoPath))->toBeFalse();
 });
 
+test('company logo upload accepts post with method spoofing like inertia formdata saves', function () {
+    // Regression guard: real HTTP PUT + multipart does not populate $_FILES / body fields
+    // in production PHP. The company form frontend must POST with `_method=put`.
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'SPO',
+        'name' => 'Spoofland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'SPO',
+        'name' => 'Spoof Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Spoof',
+        'slug' => 'acme-spoof',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['companies.update']);
+
+    $this->post("/organization/companies/{$company->id}", [
+        '_method' => 'put',
+        'name' => 'Company 1',
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'logo' => UploadedFile::fake()->image('company-logo.png'),
+    ])->assertRedirect('/organization/companies');
+
+    $company->refresh();
+    expect($company->name)->toBe('Company 1');
+    expect($company->logo)->not->toBeNull();
+    Storage::disk('public')->assertExists($company->logo);
+});
+
 test('updating a company with a new logo replaces and deletes the old logo', function () {
     Storage::fake('public');
 

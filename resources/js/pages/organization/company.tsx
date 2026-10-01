@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyDocumentSettingsSheet } from '@/features/organization/companies/components/company-document-settings-sheet';
 import { CompanyFormSheet } from '@/features/organization/companies/components/company-form-sheet';
+import { buildCompanyFormPayload } from '@/features/organization/companies/lib/company-form-payload';
 import type {
     Company as SheetCompany,
     CompanyDocumentSettings,
@@ -291,7 +292,9 @@ export default function CompanyDetails({
     };
 
     const submit = () => {
-        form.put(`/organization/companies/${company.id}`, {
+        form.transform((data) => buildCompanyFormPayload(data, true));
+
+        form.post(`/organization/companies/${company.id}`, {
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => setEditOpen(false),

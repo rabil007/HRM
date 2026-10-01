@@ -34,6 +34,7 @@ import { CompanyDeleteDialog } from './components/company-delete-dialog';
 import { CompanyFiltersSheet } from './components/company-filters-sheet';
 import type { CompanyFilters } from './components/company-filters-sheet';
 import { CompanyFormSheet } from './components/company-form-sheet';
+import { buildCompanyFormPayload } from './lib/company-form-payload';
 import type { Company, CompanyFormData, Country, Currency } from './types';
 
 export function CompaniesContent({
@@ -210,21 +211,20 @@ export function CompaniesContent({
     };
 
     const submit = () => {
-        if (crud.currentEntity) {
-            form.put(`/organization/companies/${crud.currentEntity.id}`, {
+        const spoofPut = crud.currentEntity !== null;
+
+        form.transform((data) => buildCompanyFormPayload(data, spoofPut));
+
+        form.post(
+            spoofPut
+                ? `/organization/companies/${crud.currentEntity!.id}`
+                : '/organization/companies',
+            {
                 preserveScroll: true,
                 forceFormData: true,
                 onSuccess: () => crud.setIsSheetOpen(false),
-            });
-
-            return;
-        }
-
-        form.post('/organization/companies', {
-            preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => crud.setIsSheetOpen(false),
-        });
+            },
+        );
     };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
