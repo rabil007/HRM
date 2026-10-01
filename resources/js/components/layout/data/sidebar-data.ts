@@ -30,7 +30,6 @@ import {
     Waves,
     BarChart3,
     FilePenLine,
-    History,
     Folder,
     ShieldCheck,
     Database,
@@ -54,7 +53,6 @@ import {
 } from '@/routes/organization';
 import { index as crewMovementCorrections } from '@/routes/organization/crew-movement-corrections';
 import {
-    activity as documentsActivity,
     generate as documentsGenerate,
     library as documentsLibrary,
     requests as documentsRequests,
@@ -188,11 +186,6 @@ const baseSidebarData: SidebarData = {
                             title: 'Document Types',
                             url: documentsConfiguration.url(),
                             icon: SlidersHorizontal,
-                        },
-                        {
-                            title: 'Activity',
-                            url: documentsActivity.url(),
-                            icon: History,
                         },
                     ],
                 },
