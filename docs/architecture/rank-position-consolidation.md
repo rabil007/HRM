@@ -119,13 +119,24 @@ Position is the **only** occupational/job-role catalog. Rank has been retired.
 
 - Automatic Rank→Position mapping + operational backfill migration (`2026_09_30_200000_…`) so an existing Rank-backed production DB can migrate through this single PR without a previously deployed prepare command
 - Permanent helper: `App\Support\MasterData\Migrations\BackfillRankToPositionBeforeRemoval`
-- Hardened readiness (soft-deleted rows, Rank/Position conflicts, cross-company Positions, deleted/missing Positions, saved-view conflicts)
+- Hardened readiness (soft-deleted rows, Rank/Position conflicts, cross-company Positions, deleted/missing Positions, saved-view conflicts, **remaining saved-view `rank_id` filters**, **Vessel Manning Position collisions**, **Rank/Position TOD disagreements**, **active Rank → inactive Position**)
 - `CrewProjectedManningQuery` is Position-native
-- Saved-view `rank_id` filters migrated to `position_id` (migration `210000`, after backfill)
-- Destructive guarded schema removal (migration `220000`): drops `document_requirement_rank`, all live `rank_id` FKs/columns, `rank_position_mappings`, `ranks`, and Rank master-data permissions
+- Saved-view `rank_id` filters migrated to `position_id` (migration `210000`, after backfill). Destructive removal requires **zero** remaining `rank_id` filters even when mappings exist
+- Destructive guarded schema removal (migration `220000`): drops `document_requirement_rank`, all live `rank_id` FKs/columns, `rank_position_mappings`, `ranks`, and Rank master-data permissions — aborts before first DROP (and before Vessel Manning unique-index swap) when readiness fails
 - Rank master-data UI/routes/controllers removed
 - Readiness command: `php artisan master-data:rank-removal-readiness` (read-only; non-zero when unsafe)
 - Staged production runbook: `docs/runbooks/rank-removal-phase-3b.md`
+
+### Destructive readiness blockers (must all be zero)
+
+| Category | Meaning |
+| --- | --- |
+| `saved_views_remaining_rank_filter` | Any saved view still persists `rank_id` (mapping existence is not enough) |
+| `vessel_manning_position_collisions` | Duplicate `(company_id, vessel_id, position_id)` after backfill — would break Position unique index |
+| `rank_position_tod_conflicts` | Mapped Rank and Position both have `max_tour_of_duty_days` and disagree |
+| `rank_position_status_conflicts` | Non-deleted active Rank mapped to non-active Position |
+
+Operators must resolve these explicitly. Automatic backfill never overwrites existing `position_id`, never silently merges manning counts, and never picks a TOD/status winner.
 
 ### Destructive migration policy
 

@@ -62,7 +62,8 @@ class RankRemovalReadinessCommand extends Command
 
             foreach ($companyReport['counts'] as $key => $count) {
                 if ((int) $count > 0) {
-                    $this->warn(sprintf('  - %s: %d', $key, $count));
+                    $label = RankRemovalReadiness::TOTAL_LABELS[$key] ?? $key;
+                    $this->warn(sprintf('  - %s: %d', $label, $count));
                 }
             }
         }
@@ -70,8 +71,26 @@ class RankRemovalReadinessCommand extends Command
         $this->newLine();
         $this->line('Totals:');
 
+        $highlightKeys = [
+            'rank_position_tod_conflicts',
+            'rank_position_status_conflicts',
+            'vessel_manning_position_collisions',
+            'saved_views_remaining_rank_filter',
+        ];
+
+        foreach ($highlightKeys as $key) {
+            $count = (int) ($report['totals'][$key] ?? 0);
+            $label = RankRemovalReadiness::TOTAL_LABELS[$key] ?? $key;
+            $this->line(sprintf('  %s: %d', $label, $count));
+        }
+
         foreach ($report['totals'] as $key => $count) {
-            $this->line(sprintf('  %s: %d', $key, $count));
+            if (in_array($key, $highlightKeys, true)) {
+                continue;
+            }
+
+            $label = RankRemovalReadiness::TOTAL_LABELS[$key] ?? $key;
+            $this->line(sprintf('  %s: %d', $label, $count));
         }
 
         $this->newLine();
@@ -84,6 +103,7 @@ class RankRemovalReadinessCommand extends Command
 
         $this->error('Ready for Rank removal: NO');
         $this->error('Resolve unresolved Rank→Position coverage before running the destructive migration.');
+        $this->error('Do not delete operational history solely to clear readiness — resolve Positioning conflicts explicitly.');
 
         return self::FAILURE;
     }

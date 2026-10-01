@@ -368,7 +368,6 @@ describe('employee active filters - chip generation & label resolution', () => {
             role_id: '999',
             client_id: '999',
             project_id: '999',
-            rank_id: '999',
             nationality_id: '999',
             gender_id: '999',
             visa_type_id: '999',

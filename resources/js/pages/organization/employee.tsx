@@ -162,7 +162,6 @@ function EmployeeDetailsPage({
     sssa_options,
     banks,
     sea_service_positions,
-    ranks,
     projects,
     profile_clients,
     vessel_types,
@@ -744,15 +743,15 @@ function EmployeeDetailsPage({
                             }
                             profileTemplates={profile_templates}
                             employee={localEmployee}
-                            departments={departments}
-                            positions={positions}
-                            projects={projects}
-                            clients={profile_clients}
-                            countries={countries}
-                            genders={genders}
-                            religions={religions}
-                            visa_types={visa_types}
-                            company_visa_types={company_visa_types}
+                            departments={departments ?? []}
+                            positions={positions ?? []}
+                            projects={projects ?? []}
+                            clients={profile_clients ?? []}
+                            countries={countries ?? []}
+                            genders={genders ?? []}
+                            religions={religions ?? []}
+                            visa_types={visa_types ?? []}
+                            company_visa_types={company_visa_types ?? []}
                             form={form}
                             activeField={activeField}
                             setActiveField={setActiveField}
@@ -1107,9 +1106,7 @@ function EmployeeDetailsPage({
                                             vessel_types={vessel_types ?? []}
                                             vessels={vessels ?? []}
                                             positions={
-                                                sea_service_positions ??
-                                                ranks ??
-                                                []
+                                                sea_service_positions ?? []
                                             }
                                             clients={clients ?? []}
                                             employeePositionId={

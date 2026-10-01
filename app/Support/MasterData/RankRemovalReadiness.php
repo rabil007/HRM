@@ -27,6 +27,38 @@ final class RankRemovalReadiness
     ];
 
     /**
+     * Human-readable labels for CLI / troubleshooting output.
+     *
+     * @var array<string, string>
+     */
+    public const TOTAL_LABELS = [
+        'employees_missing_position' => 'Employees missing Position',
+        'employees_position_conflict' => 'Employees Rank/Position conflict',
+        'employees_invalid_position' => 'Employees invalid Position',
+        'crew_assignments_missing_position' => 'Crew assignments missing Position',
+        'crew_assignments_position_conflict' => 'Crew assignments Rank/Position conflict',
+        'crew_assignments_invalid_position' => 'Crew assignments invalid Position',
+        'crew_planning_assignments_missing_position' => 'Crew planning missing Position',
+        'crew_planning_assignments_position_conflict' => 'Crew planning Rank/Position conflict',
+        'crew_planning_assignments_invalid_position' => 'Crew planning invalid Position',
+        'employee_sea_services_missing_position' => 'Sea services missing Position',
+        'employee_sea_services_position_conflict' => 'Sea services Rank/Position conflict',
+        'employee_sea_services_invalid_position' => 'Sea services invalid Position',
+        'vessel_manning_missing_position' => 'Vessel manning missing Position',
+        'vessel_manning_position_conflict' => 'Vessel manning Rank/Position conflict',
+        'vessel_manning_invalid_position' => 'Vessel manning invalid Position',
+        'vessel_manning_position_collisions' => 'Vessel Manning Position collisions',
+        'document_requirements_missing_position' => 'Document requirements missing Position pivot',
+        'saved_views_unmapped_rank_filter' => 'Saved views with unmapped rank_id',
+        'saved_views_rank_position_conflict' => 'Saved views Rank/Position filter conflict',
+        'saved_views_remaining_rank_filter' => 'Saved views still using rank_id',
+        'rank_position_tod_conflicts' => 'Rank/Position TOD conflicts',
+        'rank_position_status_conflicts' => 'Rank/Position status conflicts',
+        'broken_mappings' => 'Broken Rank→Position mappings',
+        'missing_required_position_schema' => 'Tables missing required position_id schema',
+    ];
+
+    /**
      * @return array{
      *     ready: bool,
      *     already_removed: bool,
@@ -104,9 +136,13 @@ final class RankRemovalReadiness
             'vessel_manning_missing_position' => [],
             'vessel_manning_position_conflict' => [],
             'vessel_manning_invalid_position' => [],
+            'vessel_manning_position_collisions' => [],
             'document_requirements_missing_position' => [],
             'saved_views_unmapped_rank_filter' => [],
             'saved_views_rank_position_conflict' => [],
+            'saved_views_remaining_rank_filter' => [],
+            'rank_position_tod_conflicts' => [],
+            'rank_position_status_conflicts' => [],
             'broken_mappings' => [],
         ];
 
@@ -118,9 +154,13 @@ final class RankRemovalReadiness
             $details["{$prefix}_invalid_position"] = $inspection['invalid'];
         }
 
+        $details['vessel_manning_position_collisions'] = $this->vesselManningPositionCollisions($companyId)->all();
         $details['document_requirements_missing_position'] = $this->documentRequirementsMissingPosition($companyId)->all();
         $details['saved_views_unmapped_rank_filter'] = $this->savedViewsUnmappedRankFilters($companyId)->all();
         $details['saved_views_rank_position_conflict'] = $this->savedViewsRankPositionConflicts($companyId)->all();
+        $details['saved_views_remaining_rank_filter'] = $this->savedViewsRemainingRankFilters($companyId)->all();
+        $details['rank_position_tod_conflicts'] = $this->rankPositionTodConflicts($companyId)->all();
+        $details['rank_position_status_conflicts'] = $this->rankPositionStatusConflicts($companyId)->all();
         $details['broken_mappings'] = $this->brokenMappings($companyId)->pluck('id')->all();
 
         $counts = [];
@@ -158,9 +198,13 @@ final class RankRemovalReadiness
             'vessel_manning_missing_position' => 0,
             'vessel_manning_position_conflict' => 0,
             'vessel_manning_invalid_position' => 0,
+            'vessel_manning_position_collisions' => 0,
             'document_requirements_missing_position' => 0,
             'saved_views_unmapped_rank_filter' => 0,
             'saved_views_rank_position_conflict' => 0,
+            'saved_views_remaining_rank_filter' => 0,
+            'rank_position_tod_conflicts' => 0,
+            'rank_position_status_conflicts' => 0,
             'broken_mappings' => 0,
             'missing_required_position_schema' => 0,
         ];
@@ -262,6 +306,59 @@ final class RankRemovalReadiness
     }
 
     /**
+     * Detect duplicate (company, vessel, position) keys that would break the
+     * Position unique index after Rank-keyed uniqueness is dropped.
+     *
+     * Includes soft-deleted vessel_manning rows. Does not merge counts.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function vesselManningPositionCollisions(int $companyId): Collection
+    {
+        if (! Schema::hasTable('vessel_manning') || ! Schema::hasColumn('vessel_manning', 'position_id')) {
+            return collect();
+        }
+
+        $columns = ['id', 'company_id', 'vessel_id', 'position_id', 'required_count'];
+
+        if (Schema::hasColumn('vessel_manning', 'rank_id')) {
+            $columns[] = 'rank_id';
+        }
+
+        $rows = DB::table('vessel_manning')
+            ->where('company_id', $companyId)
+            ->whereNotNull('position_id')
+            ->get($columns);
+
+        return $rows
+            ->groupBy(fn (object $row): string => (int) $row->vessel_id.'|'.(int) $row->position_id)
+            ->filter(fn (Collection $group): bool => $group->count() > 1)
+            ->map(function (Collection $group) use ($companyId): array {
+                /** @var object $first */
+                $first = $group->first();
+
+                return [
+                    'company_id' => $companyId,
+                    'vessel_id' => (int) $first->vessel_id,
+                    'position_id' => (int) $first->position_id,
+                    'row_ids' => $group->map(fn (object $row): int => (int) $row->id)->values()->all(),
+                    'rank_ids' => $group
+                        ->map(fn (object $row): ?int => isset($row->rank_id) && $row->rank_id !== null
+                            ? (int) $row->rank_id
+                            : null)
+                        ->filter()
+                        ->values()
+                        ->all(),
+                    'required_counts' => $group
+                        ->map(fn (object $row): int => (int) $row->required_count)
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->values();
+    }
+
+    /**
      * @return array<int, int>
      */
     private function mappingsForCompany(int $companyId): array
@@ -356,6 +453,35 @@ final class RankRemovalReadiness
     }
 
     /**
+     * Final destructive gate: ANY persisted rank_id filter blocks removal,
+     * even when a Rank→Position mapping exists (saved-view conversion must run).
+     *
+     * @return Collection<int, int>
+     */
+    private function savedViewsRemainingRankFilters(int $companyId): Collection
+    {
+        if (! Schema::hasTable('saved_views')) {
+            return collect();
+        }
+
+        $remaining = collect();
+
+        $views = DB::table('saved_views')
+            ->where('company_id', $companyId)
+            ->get(['id', 'filters']);
+
+        foreach ($views as $view) {
+            $filters = $this->decodeFilters($view->filters);
+
+            if (array_key_exists('rank_id', $filters)) {
+                $remaining->push((int) $view->id);
+            }
+        }
+
+        return $remaining->values();
+    }
+
+    /**
      * @return Collection<int, array<string, mixed>>
      */
     private function savedViewsRankPositionConflicts(int $companyId): Collection
@@ -405,6 +531,102 @@ final class RankRemovalReadiness
         }
 
         return $conflicts->values();
+    }
+
+    /**
+     * Flag mapped Rank/Position pairs where both TOD values are set and disagree.
+     * Does not pick a winner — operators must resolve before destructive removal.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function rankPositionTodConflicts(int $companyId): Collection
+    {
+        if (! Schema::hasTable('rank_position_mappings') || ! Schema::hasTable('ranks')) {
+            return collect();
+        }
+
+        $conflicts = collect();
+
+        $rows = DB::table('rank_position_mappings as rpm')
+            ->join('ranks as r', 'r.id', '=', 'rpm.rank_id')
+            ->join('positions as p', 'p.id', '=', 'rpm.position_id')
+            ->where('rpm.company_id', $companyId)
+            ->whereNotNull('r.max_tour_of_duty_days')
+            ->whereNotNull('p.max_tour_of_duty_days')
+            ->select([
+                'rpm.company_id',
+                'rpm.rank_id',
+                'r.name as rank_name',
+                'r.max_tour_of_duty_days as rank_tod_days',
+                'rpm.position_id',
+                'p.title as position_title',
+                'p.max_tour_of_duty_days as position_tod_days',
+            ])
+            ->get();
+
+        foreach ($rows as $row) {
+            if ((int) $row->rank_tod_days === (int) $row->position_tod_days) {
+                continue;
+            }
+
+            $conflicts->push([
+                'company_id' => (int) $row->company_id,
+                'rank_id' => (int) $row->rank_id,
+                'rank_name' => (string) $row->rank_name,
+                'rank_tod_days' => (int) $row->rank_tod_days,
+                'position_id' => (int) $row->position_id,
+                'position_title' => (string) $row->position_title,
+                'position_tod_days' => (int) $row->position_tod_days,
+            ]);
+        }
+
+        return $conflicts->values();
+    }
+
+    /**
+     * Flag active (non-deleted) Ranks mapped to inactive Positions.
+     * Does not auto-activate Positions.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function rankPositionStatusConflicts(int $companyId): Collection
+    {
+        if (! Schema::hasTable('rank_position_mappings') || ! Schema::hasTable('ranks')) {
+            return collect();
+        }
+
+        $query = DB::table('rank_position_mappings as rpm')
+            ->join('ranks as r', 'r.id', '=', 'rpm.rank_id')
+            ->join('positions as p', 'p.id', '=', 'rpm.position_id')
+            ->where('rpm.company_id', $companyId)
+            ->where('r.is_active', true)
+            ->where('p.status', '!=', 'active')
+            ->select([
+                'rpm.company_id',
+                'rpm.rank_id',
+                'r.name as rank_name',
+                'r.is_active as rank_is_active',
+                'rpm.position_id',
+                'p.title as position_title',
+                'p.status as position_status',
+            ]);
+
+        if (Schema::hasColumn('ranks', 'deleted_at')) {
+            $query->whereNull('r.deleted_at');
+        }
+
+        return $query
+            ->get()
+            ->map(fn (object $row): array => [
+                'company_id' => (int) $row->company_id,
+                'rank_id' => (int) $row->rank_id,
+                'rank_name' => (string) $row->rank_name,
+                'rank_is_active' => (bool) $row->rank_is_active,
+                'position_id' => (int) $row->position_id,
+                'position_title' => (string) $row->position_title,
+                'position_status' => (string) $row->position_status,
+            ])
+            ->values();
     }
 
     /**

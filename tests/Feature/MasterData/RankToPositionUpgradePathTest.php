@@ -59,12 +59,10 @@ function restoreLegacyRankConsolidationSchema(): void
 
     foreach (['employees', 'crew_assignments', 'crew_planning_assignments', 'employee_sea_services', 'vessel_manning'] as $table) {
         if (Schema::hasTable($table) && ! Schema::hasColumn($table, 'rank_id')) {
-            Schema::table($table, function (Blueprint $blueprint) use ($table): void {
-                if ($table === 'vessel_manning') {
-                    $blueprint->foreignId('rank_id')->constrained('ranks')->restrictOnDelete();
-                } else {
-                    $blueprint->foreignId('rank_id')->nullable()->constrained('ranks')->nullOnDelete();
-                }
+            Schema::table($table, function (Blueprint $blueprint): void {
+                // Unsigned only — avoid SQLite FK recreate issues when the
+                // destructive migration later drops rank_id in Pest.
+                $blueprint->unsignedBigInteger('rank_id')->nullable();
             });
         }
 
@@ -273,12 +271,18 @@ test('legacy production upgrade path migrates rank data through backfill saved v
 
     expect((new RankRemovalReadiness)->report((int) $company->id)['ready'])->toBeTrue();
 
-    // Destructive DDL is guarded; once ready, RankRemovalGuards must allow removal.
-    // Full SQLite column/table DROP after re-adding Rank FKs is covered by fresh
-    // migrate CI and RankRemovalGuardsTest — assert the guard gate here.
-    RankRemovalGuards::assertReadyOrFail((int) $company->id);
+    // Exercise the real destructive migration (guard + DDL), not only the guard.
+    $destructiveMigration = require database_path('migrations/2026_09_30_220000_remove_rank_schema_phase_3b.php');
+    $destructiveMigration->up();
 
-    expect(Schema::hasTable('ranks'))->toBeTrue()
+    expect(Schema::hasTable('ranks'))->toBeFalse()
+        ->and(Schema::hasTable('rank_position_mappings'))->toBeFalse()
+        ->and(Schema::hasTable('document_requirement_rank'))->toBeFalse()
+        ->and(Schema::hasColumn('employees', 'rank_id'))->toBeFalse()
+        ->and(Schema::hasColumn('crew_assignments', 'rank_id'))->toBeFalse()
+        ->and(Schema::hasColumn('crew_planning_assignments', 'rank_id'))->toBeFalse()
+        ->and(Schema::hasColumn('employee_sea_services', 'rank_id'))->toBeFalse()
+        ->and(Schema::hasColumn('vessel_manning', 'rank_id'))->toBeFalse()
         ->and(DB::table('employees')->where('id', $employee->id)->value('position_id'))->toBe($expectedPositionId)
         ->and(DB::table('crew_assignments')->where('id', $assignmentId)->value('position_id'))->toBe($expectedPositionId)
         ->and(DB::table('crew_planning_assignments')->where('id', $planningId)->value('position_id'))->toBe($expectedPositionId)
@@ -287,6 +291,10 @@ test('legacy production upgrade path migrates rank data through backfill saved v
         ->and(DB::table('document_requirement_position')->where('document_requirement_id', $docReq->id)->where('position_id', $expectedPositionId)->exists())->toBeTrue()
         ->and(DB::table('crew_assignments')->where('id', $assignmentId)->value('deleted_at'))->not->toBeNull()
         ->and(DB::table('employee_sea_services')->where('id', $seaServiceId)->value('deleted_at'))->not->toBeNull();
+
+    $view->refresh();
+    expect($view->filters)->toMatchArray(['position_id' => $expectedPositionId, 'status' => 'active'])
+        ->and($view->filters)->not->toHaveKey('rank_id');
 });
 
 test('rank position conflict blocks destructive removal and preserves schema', function () {
@@ -448,4 +456,201 @@ test('backfill never reuses another company position', function () {
     expect((int) $mappedPosition->company_id)->toBe($companyA['company']->id)
         ->and((int) $mappedPosition->id)->not->toBe($companyB['position_a']->id)
         ->and((string) $mapping->match_type)->toBe('created');
+});
+
+test('mappable saved view rank_id still blocks destructive guard until conversion runs', function () {
+    restoreLegacyRankConsolidationSchema();
+
+    $seed = seedLegacyRankCompany('svrem');
+
+    DB::table('employees')->where('id', $seed['employee']->id)->update([
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_a']->id,
+    ]);
+
+    DB::table('rank_position_mappings')->insert([
+        'company_id' => $seed['company']->id,
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_a']->id,
+        'match_type' => 'exact',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    SavedView::query()->create([
+        'company_id' => $seed['company']->id,
+        'user_id' => $seed['user']->id,
+        'page_key' => SavedViewPage::Crew,
+        'name' => 'Still Rank Filtered',
+        'filters' => ['rank_id' => $seed['rank_id']],
+        'is_default' => false,
+    ]);
+
+    $before = (new RankRemovalReadiness)->report((int) $seed['company']->id);
+
+    expect($before['ready'])->toBeFalse()
+        ->and($before['totals']['saved_views_remaining_rank_filter'])->toBe(1)
+        ->and($before['totals']['saved_views_unmapped_rank_filter'])->toBe(0);
+
+    expect(fn () => RankRemovalGuards::assertReadyOrFail((int) $seed['company']->id))
+        ->toThrow(RuntimeException::class, 'saved_views_remaining_rank_filter');
+
+    (new MigrateSavedViewRankFilters)->apply();
+
+    $after = (new RankRemovalReadiness)->report((int) $seed['company']->id);
+
+    expect($after['totals']['saved_views_remaining_rank_filter'])->toBe(0)
+        ->and($after['ready'])->toBeTrue();
+});
+
+test('vessel manning position collisions block destructive removal and keep rank schema', function () {
+    restoreLegacyRankConsolidationSchema();
+
+    $seed = seedLegacyRankCompany('vmcol');
+    $company = $seed['company'];
+    $vessel = $seed['vessel'];
+    $position = $seed['position_a'];
+
+    $rankA = $seed['rank_id'];
+    $rankB = (int) DB::table('ranks')->insertGetId([
+        'name' => $position->title,
+        'is_active' => true,
+        'max_tour_of_duty_days' => 90,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::table('employees')->where('id', $seed['employee']->id)->update([
+        'rank_id' => $rankA,
+        'position_id' => $position->id,
+    ]);
+
+    // Fresh installs already have the Position unique index from Phase 3B. Drop it
+    // so legacy Rank-keyed duplicates can be reproduced after backfill.
+    try {
+        Schema::table('vessel_manning', function (Blueprint $table): void {
+            $table->dropUnique('uq_vessel_manning_company_vessel_position');
+        });
+    } catch (Throwable) {
+        try {
+            Schema::table('vessel_manning', function (Blueprint $table): void {
+                $table->dropUnique(['company_id', 'vessel_id', 'position_id']);
+            });
+        } catch (Throwable) {
+            // Index may already be absent in some test rebuild paths.
+        }
+    }
+
+    $rowA = DB::table('vessel_manning')->insertGetId([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rankA,
+        'position_id' => null,
+        'required_count' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $rowB = DB::table('vessel_manning')->insertGetId([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rankB,
+        'position_id' => null,
+        'required_count' => 2,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    (new BackfillRankToPositionBeforeRemoval)->run();
+
+    expect(DB::table('vessel_manning')->where('id', $rowA)->value('position_id'))->toBe($position->id)
+        ->and(DB::table('vessel_manning')->where('id', $rowB)->value('position_id'))->toBe($position->id);
+
+    SavedView::query()->where('company_id', $company->id)->delete();
+
+    $report = (new RankRemovalReadiness)->report((int) $company->id);
+
+    expect($report['ready'])->toBeFalse()
+        ->and($report['totals']['vessel_manning_position_collisions'])->toBeGreaterThan(0);
+
+    expect(fn () => RankRemovalGuards::assertReadyOrFail((int) $company->id))
+        ->toThrow(RuntimeException::class, 'vessel_manning_position_collisions');
+
+    expect(Schema::hasTable('ranks'))->toBeTrue()
+        ->and(Schema::hasColumn('vessel_manning', 'rank_id'))->toBeTrue();
+});
+
+test('rank position tod conflicts block readiness without changing either value', function () {
+    restoreLegacyRankConsolidationSchema();
+
+    $seed = seedLegacyRankCompany('tod');
+
+    DB::table('ranks')->where('id', $seed['rank_id'])->update([
+        'max_tour_of_duty_days' => 90,
+    ]);
+    $seed['position_a']->update([
+        'max_tour_of_duty_days' => 75,
+    ]);
+
+    DB::table('employees')->where('id', $seed['employee']->id)->update([
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_a']->id,
+    ]);
+
+    DB::table('rank_position_mappings')->insert([
+        'company_id' => $seed['company']->id,
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_a']->id,
+        'match_type' => 'exact',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $report = (new RankRemovalReadiness)->report((int) $seed['company']->id);
+
+    expect($report['ready'])->toBeFalse()
+        ->and($report['totals']['rank_position_tod_conflicts'])->toBe(1);
+
+    expect(fn () => RankRemovalGuards::assertReadyOrFail((int) $seed['company']->id))
+        ->toThrow(RuntimeException::class, 'rank_position_tod_conflicts');
+
+    expect((int) DB::table('ranks')->where('id', $seed['rank_id'])->value('max_tour_of_duty_days'))->toBe(90)
+        ->and((int) $seed['position_a']->fresh()->max_tour_of_duty_days)->toBe(75);
+});
+
+test('rank position status conflicts block readiness without activating position', function () {
+    restoreLegacyRankConsolidationSchema();
+
+    $seed = seedLegacyRankCompany('st');
+
+    DB::table('ranks')->where('id', $seed['rank_id'])->update([
+        'is_active' => true,
+    ]);
+    $seed['position_a']->update([
+        'status' => 'inactive',
+    ]);
+
+    DB::table('employees')->where('id', $seed['employee']->id)->update([
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_a']->id,
+    ]);
+
+    DB::table('rank_position_mappings')->insert([
+        'company_id' => $seed['company']->id,
+        'rank_id' => $seed['rank_id'],
+        'position_id' => $seed['position_a']->id,
+        'match_type' => 'exact',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $report = (new RankRemovalReadiness)->report((int) $seed['company']->id);
+
+    expect($report['ready'])->toBeFalse()
+        ->and($report['totals']['rank_position_status_conflicts'])->toBe(1);
+
+    expect(fn () => RankRemovalGuards::assertReadyOrFail((int) $seed['company']->id))
+        ->toThrow(RuntimeException::class, 'rank_position_status_conflicts');
+
+    expect($seed['position_a']->fresh()->status)->toBe('inactive');
 });

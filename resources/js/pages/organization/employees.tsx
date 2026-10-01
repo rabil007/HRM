@@ -14,7 +14,6 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    CrewPositionOption,
     ReligionOption,
     RoleOption,
     SssaOption,
@@ -43,7 +42,6 @@ export default function Employees({
     company_visa_types,
     approval_locations,
     sssa_options,
-    ranks,
     clients,
     projects,
     banks,
@@ -66,7 +64,6 @@ export default function Employees({
         nationality_id: string;
         visa_type_id: string;
         company_visa_type_id: string;
-        rank_id: string;
         client_id: string;
         project_id: string;
         approval_location_id: string;
@@ -90,7 +87,6 @@ export default function Employees({
     approvalLocations?: never;
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
-    ranks: CrewPositionOption[];
     clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];
@@ -124,7 +120,6 @@ export default function Employees({
                 company_visa_types={company_visa_types}
                 approval_locations={approval_locations}
                 sssa_options={sssa_options}
-                ranks={ranks}
                 clients={clients}
                 projects={projects}
                 banks={banks}

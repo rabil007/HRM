@@ -97,7 +97,6 @@ import type {
     ManagerOption,
     PositionOption,
     ProjectOption,
-    CrewPositionOption,
     ReligionOption,
     RoleOption,
     SssaOption,
@@ -151,8 +150,6 @@ export function EmployeesContent({
     company_visa_types: CompanyVisaTypeOption[];
     approval_locations: ApprovalLocationOption[];
     sssa_options: SssaOption[];
-    /** @deprecated Phase 2 — Position filters are canonical; Rank prop ignored. */
-    ranks?: CrewPositionOption[];
     clients: ClientOption[];
     projects: ProjectOption[];
     banks: BankOption[];
@@ -195,7 +192,6 @@ export function EmployeesContent({
             nationality_id: initialFilters.nationality_id ?? '',
             visa_type_id: initialFilters.visa_type_id ?? '',
             company_visa_type_id: initialFilters.company_visa_type_id ?? '',
-            rank_id: initialFilters.rank_id ?? '',
             client_id: initialFilters.client_id ?? '',
             project_id: initialFilters.project_id ?? '',
             approval_location_id: initialFilters.approval_location_id ?? '',

@@ -11,7 +11,6 @@ export type EmployeeListQuery = {
     nationality_id?: string;
     visa_type_id?: string;
     company_visa_type_id?: string;
-    rank_id?: string;
     client_id?: string;
     project_id?: string;
     approval_location_id?: string;
@@ -63,10 +62,6 @@ export function buildEmployeeListQuery(
 
     if (filters.company_visa_type_id) {
         query.company_visa_type_id = filters.company_visa_type_id;
-    }
-
-    if (filters.rank_id) {
-        query.rank_id = filters.rank_id;
     }
 
     if (filters.client_id) {

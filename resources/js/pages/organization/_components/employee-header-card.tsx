@@ -193,11 +193,11 @@ function optionLabel(
 export function EmployeeHeaderCard({
     canUpdate,
     employee,
-    departments,
-    positions,
-    countries,
-    genders,
-    religions,
+    departments = [],
+    positions = [],
+    countries = [],
+    genders = [],
+    religions = [],
     visa_types = [],
     company_visa_types = [],
     projects = [],
@@ -217,11 +217,11 @@ export function EmployeeHeaderCard({
 }: {
     canUpdate: boolean;
     employee: any;
-    departments: Option[];
-    positions: Option[];
-    countries: CountryOption[];
-    genders: Option[];
-    religions: Option[];
+    departments?: Option[];
+    positions?: Option[];
+    countries?: CountryOption[];
+    genders?: Option[];
+    religions?: Option[];
     visa_types?: Option[];
     company_visa_types?: Option[];
     projects?: Array<{
@@ -499,7 +499,10 @@ export function EmployeeHeaderCard({
                                         field: 'department_id',
                                         label: 'Department',
                                         current:
-                                            departmentItems.find(
+                                            (Array.isArray(departmentItems)
+                                                ? departmentItems
+                                                : []
+                                            ).find(
                                                 (d) =>
                                                     String(d.id) ===
                                                     String(
@@ -512,7 +515,10 @@ export function EmployeeHeaderCard({
                                             )?.name ??
                                             employee.department?.name ??
                                             '—',
-                                        items: departmentItems.map((d) => ({
+                                        items: (Array.isArray(departmentItems)
+                                            ? departmentItems
+                                            : []
+                                        ).map((d) => ({
                                             id: d.id,
                                             label: d.name ?? `#${d.id}`,
                                             value: String(d.id),
@@ -525,7 +531,10 @@ export function EmployeeHeaderCard({
                                         field: 'position_id',
                                         label: 'Position',
                                         current:
-                                            positionItems.find(
+                                            (Array.isArray(positionItems)
+                                                ? positionItems
+                                                : []
+                                            ).find(
                                                 (p) =>
                                                     String(p.id) ===
                                                     String(
@@ -537,7 +546,10 @@ export function EmployeeHeaderCard({
                                             )?.title ??
                                             employee.position?.title ??
                                             '—',
-                                        items: positionItems.map((p) => ({
+                                        items: (Array.isArray(positionItems)
+                                            ? positionItems
+                                            : []
+                                        ).map((p) => ({
                                             id: p.id,
                                             label: p.title ?? `#${p.id}`,
                                             value: String(p.id),

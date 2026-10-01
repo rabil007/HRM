@@ -45,7 +45,6 @@ final class EmployeeProfilePageData
             'branch:id,name',
             'department:id,name',
             'position:id,title',
-            'position:id,title',
             'project:id,title',
             'client:id,name',
             'user:id,name,email,avatar',
@@ -632,7 +631,6 @@ final class EmployeeProfilePageData
                 ->with([
                     'vesselType:id,name',
                     'vessel:id,name,vessel_type_id,grt,bhp',
-                    'position:id,title',
                     'position:id,title',
                     'client:id,name',
                 ])

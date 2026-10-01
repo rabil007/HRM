@@ -16,6 +16,13 @@ final class HistoricalCrewImportColumns
 
     public const VESSEL = 'vessel';
 
+    /**
+     * Legacy textual Excel header alias only.
+     *
+     * Incoming sheets may still label the occupational column "Rank".
+     * The value is always resolved as a Position title → position_id.
+     * Do not treat this as a Rank model / ranks table / Rank ID dependency.
+     */
     public const RANK = 'rank';
 
     public const CLIENT = 'client';
@@ -80,6 +87,7 @@ final class HistoricalCrewImportColumns
         return [
             self::EMPLOYEE_NO => 'Employee No',
             self::EMPLOYEE => 'Employee Name',
+            // Legacy textual header alias only — value resolves to Position title.
             self::RANK => 'Rank',
             self::VESSEL => 'Vessel',
             self::CLIENT => 'Client',

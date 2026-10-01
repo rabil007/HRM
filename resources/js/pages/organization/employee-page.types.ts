@@ -45,8 +45,6 @@ export type EmployeeDetails = {
     branch: { id: number; name: string | null } | null;
     department: { id: number; name: string | null } | null;
     position: { id: number; title: string | null } | null;
-    rank_id?: number | null;
-    rank?: { id: number; name: string | null } | null;
     project_id?: number | null;
     project?: { id: number; title: string | null } | null;
     client_id?: number | null;
@@ -401,8 +399,6 @@ export type EmployeePageProps = {
     sssa_options: SssaOption[];
     banks: BankOption[];
     sea_service_positions: CrewPositionOption[];
-    /** @deprecated Use sea_service_positions */
-    ranks?: CrewPositionOption[];
     projects: ProjectOption[];
     profile_clients: ClientOption[];
     vessel_types?: VesselTypeOption[];

@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\MasterData\RankRemovalGuards;
+use App\Support\MasterData\RankRemovalReadiness;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -114,23 +115,42 @@ return new class extends Migration
             $this->dropIndexIfExists($table, 'cpa_company_vessel_rank', ['company_id', 'vessel_id', 'rank_id']);
         }
 
-        Schema::table($table, function (Blueprint $blueprint) use ($table, $driver): void {
-            if ($driver === 'sqlite') {
-                // SQLite cannot ALTER DROP a column that still appears in an FK definition.
-                $blueprint->dropConstrainedForeignId('rank_id');
+        if ($driver === 'sqlite') {
+            $this->dropRankIdSqlite($table);
+        } else {
+            Schema::table($table, function (Blueprint $blueprint) use ($table, $driver): void {
+                $this->dropForeignForColumn($blueprint, $driver, $table.'_rank_id_foreign', 'rank_id');
 
-                return;
-            }
-
-            $this->dropForeignForColumn($blueprint, $driver, $table.'_rank_id_foreign', 'rank_id');
-
-            if (Schema::hasColumn($table, 'rank_id')) {
-                $blueprint->dropColumn('rank_id');
-            }
-        });
+                if (Schema::hasColumn($table, 'rank_id')) {
+                    $blueprint->dropColumn('rank_id');
+                }
+            });
+        }
 
         if ($table === 'crew_planning_assignments' && Schema::hasColumn($table, 'position_id')) {
             $this->ensureIndex($table, 'cpa_company_vessel_position', ['company_id', 'vessel_id', 'position_id']);
+        }
+    }
+
+    /**
+     * SQLite cannot ALTER-DROP a column that still appears in an FK definition.
+     * Fresh installs use dropConstrainedForeignId; upgrade-path tests may re-add
+     * rank_id without an FK, in which case a plain dropColumn is required.
+     */
+    private function dropRankIdSqlite(string $table): void
+    {
+        try {
+            Schema::table($table, function (Blueprint $blueprint): void {
+                $blueprint->dropConstrainedForeignId('rank_id');
+            });
+        } catch (Throwable) {
+            if (! Schema::hasColumn($table, 'rank_id')) {
+                return;
+            }
+
+            Schema::table($table, function (Blueprint $blueprint): void {
+                $blueprint->dropColumn('rank_id');
+            });
         }
     }
 
@@ -139,17 +159,38 @@ return new class extends Migration
      */
     private function dropIndexIfExists(string $table, string $indexName, array $columns): void
     {
-        Schema::table($table, function (Blueprint $blueprint) use ($indexName, $columns): void {
-            try {
-                $blueprint->dropIndex($indexName);
-            } catch (Throwable) {
-                try {
-                    $blueprint->dropIndex($columns);
-                } catch (Throwable) {
-                    // Index already absent.
-                }
+        $sm = Schema::getConnection()->getSchemaBuilder();
+        $indexes = method_exists($sm, 'getIndexes')
+            ? collect($sm->getIndexes($table))->pluck('name')->all()
+            : [];
+
+        if ($indexes !== [] && ! in_array($indexName, $indexes, true)) {
+            // Named index absent — also skip column-based drop when we can enumerate.
+            $hasColumnIndex = collect(method_exists($sm, 'getIndexes') ? $sm->getIndexes($table) : [])
+                ->contains(function (array $index) use ($columns): bool {
+                    $indexColumns = $index['columns'] ?? [];
+
+                    return $indexColumns === $columns;
+                });
+
+            if (! $hasColumnIndex) {
+                return;
             }
-        });
+        }
+
+        try {
+            Schema::table($table, function (Blueprint $blueprint) use ($indexName): void {
+                $blueprint->dropIndex($indexName);
+            });
+        } catch (Throwable) {
+            try {
+                Schema::table($table, function (Blueprint $blueprint) use ($columns): void {
+                    $blueprint->dropIndex($columns);
+                });
+            } catch (Throwable) {
+                // Index already absent.
+            }
+        }
     }
 
     /**
@@ -173,6 +214,10 @@ return new class extends Migration
 
     private function replaceVesselManningUniqueIndex(string $driver): void
     {
+        // Defense in depth: never drop the Rank unique / create Position unique
+        // while duplicate (company, vessel, position) rows exist.
+        $this->assertNoVesselManningPositionCollisions();
+
         try {
             Schema::table('vessel_manning', function (Blueprint $table): void {
                 $table->dropUnique('uq_vessel_manning_company_vessel_rank');
@@ -201,6 +246,19 @@ return new class extends Migration
                     );
                 });
             }
+        }
+    }
+
+    private function assertNoVesselManningPositionCollisions(): void
+    {
+        $report = (new RankRemovalReadiness)->report();
+        $collisions = (int) ($report['totals']['vessel_manning_position_collisions'] ?? 0);
+
+        if ($collisions > 0) {
+            throw new RuntimeException(
+                "Rank removal blocked — vessel_manning_position_collisions={$collisions}. "
+                .'Resolve duplicate (company, vessel, position) Vessel Manning rows before replacing the unique index.'
+            );
         }
     }
 

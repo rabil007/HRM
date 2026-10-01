@@ -45,7 +45,6 @@ const emptyFilters = {
     nationality_id: '',
     visa_type_id: '',
     company_visa_type_id: '',
-    rank_id: '',
     client_id: '',
     project_id: '',
     approval_location_id: '',

@@ -197,8 +197,6 @@ export type EmployeeSeaServiceTabProps = {
     positions?: Array<CrewPositionOption>;
     clients: ClientOption[];
     employeePositionId?: number | null;
-    /** @deprecated Phase 3B — use `positions` */
-    ranks?: CrewPositionOption[];
     canManage: boolean;
     canCreate?: boolean;
     canUpdate?: boolean;
@@ -237,7 +235,6 @@ export function EmployeeSeaServiceTab({
     positions: positionsProp,
     clients,
     employeePositionId: employeePositionIdProp,
-    ranks: ranksProp,
     canManage,
     canCreate,
     canUpdate,
@@ -246,10 +243,7 @@ export function EmployeeSeaServiceTab({
     templateFields = null,
     standalone = false,
 }: EmployeeSeaServiceTabProps): ReactElement {
-    const positions = useMemo(
-        () => positionsProp ?? ranksProp ?? [],
-        [positionsProp, ranksProp],
-    );
+    const positions = useMemo(() => positionsProp ?? [], [positionsProp]);
     const employeePositionId = employeePositionIdProp ?? null;
     const positionSelectLabelKey = useMemo(
         () => resolvePositionSelectLabelKey(positions),

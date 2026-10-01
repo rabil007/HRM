@@ -8,7 +8,6 @@ export type EmployeeFilters = {
     nationality_id: string;
     visa_type_id: string;
     company_visa_type_id: string;
-    rank_id: string;
     client_id: string;
     project_id: string;
     approval_location_id: string;
@@ -28,7 +27,6 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     nationality_id: '',
     visa_type_id: '',
     company_visa_type_id: '',
-    rank_id: '',
     client_id: '',
     project_id: '',
     approval_location_id: '',
