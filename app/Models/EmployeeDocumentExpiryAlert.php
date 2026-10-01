@@ -15,6 +15,7 @@ class EmployeeDocumentExpiryAlert extends Model
         'notification_rule_id',
         'employee_document_id',
         'expiry_date_at_alert_time',
+        'delivery_key',
         'alerted_at',
     ];
 

@@ -28,7 +28,7 @@ class DocumentExpiryNotificationRuleController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $documentTypeId = $request->integer('document_type_id') ?: null;
 
-        $rules = DocumentExpiryNotificationRule::query()
+        $rulesQuery = DocumentExpiryNotificationRule::query()
             ->where('company_id', $companyId)
             ->with([
                 'documentTypes:id,title',
@@ -36,7 +36,26 @@ class DocumentExpiryNotificationRuleController extends Controller
                 'ccRecipients.user:id,name,email',
             ])
             ->orderByDesc('enabled')
-            ->orderBy('name')
+            ->orderBy('name');
+
+        $highlightDocumentType = null;
+
+        if ($documentTypeId !== null) {
+            $highlightDocumentType = DocumentType::query()
+                ->whereKey($documentTypeId)
+                ->first(['id', 'title']);
+
+            if ($highlightDocumentType !== null) {
+                $rulesQuery->where(function ($query) use ($documentTypeId): void {
+                    $query->where('all_document_types', true)
+                        ->orWhereHas('documentTypes', function ($documentTypes) use ($documentTypeId): void {
+                            $documentTypes->where('document_types.id', $documentTypeId);
+                        });
+                });
+            }
+        }
+
+        $rules = $rulesQuery
             ->get()
             ->map(fn (DocumentExpiryNotificationRule $rule): array => $presenter->present($rule))
             ->values()
@@ -62,20 +81,13 @@ class DocumentExpiryNotificationRuleController extends Controller
             ->values()
             ->all();
 
-        $highlightDocumentType = null;
-
-        if ($documentTypeId !== null) {
-            $highlightDocumentType = DocumentType::query()
-                ->whereKey($documentTypeId)
-                ->first(['id', 'title']);
-        }
-
         return Inertia::render('organization/documents/configuration/notification-routing', [
             'rules' => $rules,
             'document_types' => $documentTypes,
             'company_users' => $companyUsers,
             'highlight_document_type_id' => $highlightDocumentType?->id,
             'highlight_document_type_title' => $highlightDocumentType?->title,
+            'filtered_by_document_type' => $highlightDocumentType !== null,
             'can' => [
                 'view' => true,
                 'update' => $request->user()?->can('documents.notification-routing.update') ?? false,

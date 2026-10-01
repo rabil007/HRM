@@ -8,6 +8,8 @@ use App\Models\Company;
 use App\Models\DocumentExpiryNotificationRule;
 use App\Models\DocumentExpiryNotificationRuleRecipient;
 use App\Models\EmailTemplate;
+use App\Models\EmployeeDocumentExpiryAlert;
+use App\Services\DocumentExpiryAlertService;
 use App\Support\Email\CommaSeparatedEmailList;
 use Illuminate\Support\Facades\DB;
 
@@ -103,6 +105,16 @@ class MigrateLegacyDocumentExpiryAlertRecipients
                 if ($inserts !== []) {
                     DocumentExpiryNotificationRuleRecipient::query()->insert($inserts);
                 }
+
+                // Preserve historical company-wide dedupe against the migrated rule.
+                EmployeeDocumentExpiryAlert::query()
+                    ->where('company_id', $company->id)
+                    ->whereNull('notification_rule_id')
+                    ->update([
+                        'notification_rule_id' => $rule->id,
+                        'delivery_key' => DocumentExpiryAlertService::LegacyDeliveryKey,
+                        'updated_at' => now(),
+                    ]);
 
                 $created++;
             });

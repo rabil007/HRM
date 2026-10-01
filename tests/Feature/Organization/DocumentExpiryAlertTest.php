@@ -3,11 +3,13 @@
 use App\Jobs\SendDocumentExpiryAlertJob;
 use App\Mail\DocumentExpiryAlertMail;
 use App\Models\Department;
+use App\Models\DocumentExpiryNotificationRule;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocumentExpiryAlert;
 use App\Models\User;
 use App\Services\DocumentExpiryAlertService;
+use App\Support\EmployeeDocuments\DocumentExpiryNotification\MigrateLegacyDocumentExpiryAlertRecipients;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -418,4 +420,319 @@ test('multiple rules receive separate matching summaries and independent dedupli
     $service->sendForCompany($company->id);
 
     Mail::assertSentCount(2);
+});
+
+test('successful batch is recorded when a later visibility batch fails and is not resent', function () {
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $marineEmployee, 'passportType' => $passportType] = makeDocumentFixtures();
+    $marineDepartmentId = (int) $marineEmployee->department_id;
+
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF-'.uniqid(),
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $officeEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'department_id' => $officeDepartment->id,
+        'name' => 'Office Person',
+        'employee_no' => 'OFF-001',
+        'status' => 'active',
+    ]);
+
+    $hr = User::factory()->create(['email' => 'hr-manager@example.com', 'status' => 'active']);
+    grantCompanyPermissions($hr, $company, ['documents.view'], 'expiry-hr-role');
+
+    $crewing = User::factory()->create(['email' => 'crewing@example.com', 'status' => 'active']);
+    grantCompanyPermissions($crewing, $company, ['documents.view'], 'expiry-crewing-role');
+    restrictTestRoleEmployeeVisibility($crewing, $company, [$marineDepartmentId], 'expiry-crewing-role');
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'to_emails' => [],
+        'cc_user_ids' => [$crewing->id],
+        'cc_emails' => [],
+    ]);
+
+    $marineDoc = createEmployeePdfDocument(
+        $company->id,
+        $marineEmployee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$marineEmployee->id}/passport/m.pdf",
+        'Marine.pdf',
+    );
+    $marineDoc->update(['expiry_date' => '2026-06-20']);
+
+    $officeDoc = createEmployeePdfDocument(
+        $company->id,
+        $officeEmployee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$officeEmployee->id}/passport/o.pdf",
+        'Office.pdf',
+    );
+    $officeDoc->update(['expiry_date' => '2026-06-18']);
+
+    $sendCount = 0;
+    $failOnSendNumber = 2;
+
+    Mail::shouldReceive('to')->andReturnUsing(function () use (&$sendCount, &$failOnSendNumber) {
+        $sendCount++;
+        $pending = Mockery::mock();
+        $pending->shouldReceive('cc')->andReturnSelf();
+
+        if ($sendCount === $failOnSendNumber) {
+            $pending->shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP batch failure'));
+        } else {
+            $pending->shouldReceive('send')->once()->andReturnNull();
+        }
+
+        return $pending;
+    });
+
+    $service = app(DocumentExpiryAlertService::class);
+
+    expect(fn () => $service->sendForCompany($company->id))
+        ->toThrow(RuntimeException::class, 'SMTP batch failure');
+
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2)
+        ->and($sendCount)->toBe(2);
+
+    $failOnSendNumber = -1;
+    $service->sendForCompany($company->id);
+
+    expect($sendCount)->toBe(3)
+        ->and(EmployeeDocumentExpiryAlert::query()->count())->toBe(3);
+});
+
+test('unrestricted TO and restricted CC receive privacy-safe separate summaries', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $marineEmployee, 'passportType' => $passportType] = makeDocumentFixtures();
+    $marineDepartmentId = (int) $marineEmployee->department_id;
+
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF-'.uniqid(),
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $officeEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'department_id' => $officeDepartment->id,
+        'name' => 'Office Person',
+        'employee_no' => 'OFF-001',
+        'status' => 'active',
+    ]);
+
+    $hr = User::factory()->create(['email' => 'hr-manager@example.com', 'status' => 'active']);
+    grantCompanyPermissions($hr, $company, ['documents.view'], 'expiry-hr-role');
+
+    $crewing = User::factory()->create(['email' => 'crewing@example.com', 'status' => 'active']);
+    grantCompanyPermissions($crewing, $company, ['documents.view'], 'expiry-crewing-role');
+    restrictTestRoleEmployeeVisibility($crewing, $company, [$marineDepartmentId], 'expiry-crewing-role');
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'to_emails' => [],
+        'cc_user_ids' => [$crewing->id],
+        'cc_emails' => [],
+    ]);
+
+    $marineDoc = createEmployeePdfDocument(
+        $company->id,
+        $marineEmployee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$marineEmployee->id}/passport/m.pdf",
+        'Marine.pdf',
+    );
+    $marineDoc->update(['expiry_date' => '2026-06-20']);
+
+    $officeDoc = createEmployeePdfDocument(
+        $company->id,
+        $officeEmployee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$officeEmployee->id}/passport/o.pdf",
+        'Office.pdf',
+    );
+    $officeDoc->update(['expiry_date' => '2026-06-18']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSentCount(2);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) {
+        return $mail->hasTo('hr-manager@example.com')
+            && ! $mail->hasCc('crewing@example.com')
+            && count($mail->rows) === 2
+            && collect($mail->rows)->pluck('employee_name')->contains('Office Person')
+            && collect($mail->rows)->pluck('employee_name')->contains('Test Employee');
+    });
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) {
+        return $mail->hasTo('crewing@example.com')
+            && count($mail->rows) === 1
+            && $mail->rows[0]['employee_name'] === 'Test Employee'
+            && collect($mail->rows)->pluck('employee_name')->doesntContain('Office Person');
+    });
+});
+
+test('restricted CC with no visible employees receives nothing', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $officeEmployee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR-'.uniqid(),
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $hr = User::factory()->create(['email' => 'hr-manager@example.com', 'status' => 'active']);
+    grantCompanyPermissions($hr, $company, ['documents.view'], 'expiry-hr-role-2');
+
+    $crewing = User::factory()->create(['email' => 'crewing@example.com', 'status' => 'active']);
+    grantCompanyPermissions($crewing, $company, ['documents.view'], 'expiry-crewing-role-2');
+    restrictTestRoleEmployeeVisibility($crewing, $company, [(int) $marineDepartment->id], 'expiry-crewing-role-2');
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$hr->id],
+        'to_emails' => [],
+        'cc_user_ids' => [$crewing->id],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $officeEmployee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$officeEmployee->id}/passport/a.pdf",
+        'Office.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSentCount(1);
+    Mail::assertSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('hr-manager@example.com'));
+    Mail::assertNotSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('crewing@example.com'));
+});
+
+test('internal recipient without documents.view is skipped at send time', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $member = User::factory()->create(['email' => 'member@example.com', 'status' => 'active']);
+    attachActiveCompanyMember($member, $company->id);
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$member->id],
+        'to_emails' => ['fallback@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('fallback@example.com'));
+    Mail::assertNotSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('member@example.com'));
+});
+
+test('inactive document types do not generate new expiry notification emails', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    createDocumentExpiryNotificationRule($company->id);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    $passportType->update(['is_active' => false]);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertNothingSent();
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(0);
+
+    $passportType->update(['is_active' => true]);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSentCount(1);
+});
+
+test('legacy null-rule expiry alerts suppress duplicates after migration into routing rule', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    EmployeeDocumentExpiryAlert::query()->create([
+        'company_id' => $company->id,
+        'notification_rule_id' => null,
+        'employee_document_id' => $doc->id,
+        'expiry_date_at_alert_time' => '2026-06-20',
+        'delivery_key' => DocumentExpiryAlertService::LegacyDeliveryKey,
+        'alerted_at' => now(),
+    ]);
+
+    configureDocumentExpiryAlertTemplate([
+        'to_preset' => 'legacy-to@example.com',
+        'cc_preset' => null,
+    ]);
+
+    app(MigrateLegacyDocumentExpiryAlertRecipients::class)->handle();
+
+    $rule = DocumentExpiryNotificationRule::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'Employee Documents (migrated)')
+        ->first();
+
+    expect($rule)->not->toBeNull()
+        ->and(EmployeeDocumentExpiryAlert::query()->where('notification_rule_id', $rule->id)->count())->toBe(1);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertNothingSent();
+
+    $doc->update(['expiry_date' => '2026-06-25']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('legacy-to@example.com'));
 });

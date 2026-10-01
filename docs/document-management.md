@@ -476,11 +476,13 @@ Each company-scoped rule defines:
 
 - Rule name and enabled state
 - Document types: **All document types** (includes future types) or a selected multi-select set
-- TO / CC recipients: OMS-HRM users (active company members) and/or manual/external emails
+- TO / CC recipients: OMS-HRM users (active company members with `documents.view`) and/or manual/external emails
 
-Delivery sends one consolidated summary email per enabled rule. Internal user recipients only see employees allowed by `EmployeeVisibilityScope`. Manual emails are trusted administrator-configured addresses and are clearly labelled in the UI. Deduplication is per `(notification_rule_id, employee_document_id, expiry_date_at_alert_time)`.
+Delivery groups recipients by identical employee-visibility document sets and sends one consolidated summary email per group. Restricted CC recipients receive their own filtered summary (promoted to TO for that email) instead of being dropped from an unrestricted message. Internal users are filtered by `EmployeeVisibilityScope`; manual emails are trusted administrator-configured addresses. Inactive Document Types do not generate new alerts.
 
-The Document Type detail page shows an **Expiry Notifications** card with matching rules and a **Manage Notifications** link into Notification Routing filtered by that type.
+Deduplication is per `(notification_rule_id, employee_document_id, expiry_date_at_alert_time, delivery_key)`. Each successful recipient-cohort email is recorded immediately so a later cohort SMTP failure does not cause the successful cohort to resend on retry. Pre-routing ledger rows (`notification_rule_id` null) are backfilled onto the migrated company rule with `delivery_key=legacy` so the same document+expiry is not immediately re-eligible.
+
+The Document Type detail page shows an **Expiry Notifications** card with matching rules and a **Manage Notifications** link into Notification Routing filtered to rules that cover that type (explicit selection or all-types). Unrelated rules are hidden in that filtered view, with a **Show all rules** escape hatch.
 
 The `document_expiry_alert` Email Template still controls channel enabled state, daily dispatch time, and company footer. Template TO/CC presets are retired; legacy values are migrated into routing rules once (see [email-configuration.md](./email-configuration.md)).
 

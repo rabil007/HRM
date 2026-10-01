@@ -9,11 +9,17 @@ use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Spatie\Permission\PermissionRegistrar;
 
 class ResolveDocumentExpiryNotificationRecipients
 {
+    public const RequiredDocumentPermission = 'documents.view';
+
     /**
      * Active company members who can be selected as routing recipients.
+     *
+     * Internal users must have active membership, a usable email, and
+     * documents.view in the target company.
      *
      * @return Collection<int, User>
      */
@@ -23,6 +29,7 @@ class ResolveDocumentExpiryNotificationRecipients
             ->orderBy('name')
             ->get(['id', 'name', 'email'])
             ->filter(fn (User $user): bool => $this->hasUsableEmail($user))
+            ->filter(fn (User $user): bool => $this->userCanViewDocuments($user, $companyId))
             ->values();
     }
 
@@ -42,6 +49,7 @@ class ResolveDocumentExpiryNotificationRecipients
             ->whereIn('users.id', $userIds)
             ->get(['id', 'name', 'email'])
             ->filter(fn (User $user): bool => $this->hasUsableEmail($user))
+            ->filter(fn (User $user): bool => $this->userCanViewDocuments($user, $companyId))
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
             ->values()
@@ -142,6 +150,20 @@ class ResolveDocumentExpiryNotificationRecipients
     public function userCanSeeEmployee(User $user, int $companyId, int $employeeId): bool
     {
         return EmployeeVisibilityScope::canAccessId($user, $employeeId, $companyId);
+    }
+
+    public function userCanViewDocuments(User $user, int $companyId): bool
+    {
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeamId = $registrar->getPermissionsTeamId();
+
+        try {
+            $registrar->setPermissionsTeamId($companyId);
+
+            return $user->can(self::RequiredDocumentPermission);
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeamId);
+        }
     }
 
     /**

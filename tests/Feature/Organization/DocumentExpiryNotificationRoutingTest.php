@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\DocumentExpiryNotificationRule;
+use App\Models\DocumentType;
 use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentExpiryNotification\MigrateLegacyDocumentExpiryAlertRecipients;
@@ -64,6 +65,7 @@ test('authorized user can create a routing rule with users and manual emails', f
         'status' => 'active',
     ]);
     attachActiveCompanyMember($recipient, $company->id);
+    grantCompanyPermissions($recipient, $company, ['documents.view'], 'routing-recipient-role');
 
     $this->actingAs($user)
         ->post(route('organization.documents.configuration.notification-routing.store'), [
@@ -192,4 +194,81 @@ test('legacy template TO/CC presets migrate into company routing rules once', fu
 
     expect($secondPass)->toBe(0)
         ->and(DocumentExpiryNotificationRule::query()->where('company_id', $company->id)->count())->toBe(1);
+});
+
+test('notification routing index filters rules by document type', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'documents.notification-routing.view',
+        'documents.notification-routing.update',
+    ]);
+
+    $medicalType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Medical Certificate'],
+        ['is_active' => true],
+    );
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Passport watchers',
+        'all_document_types' => false,
+        'document_type_ids' => [$passportType->id],
+        'to_emails' => ['passport@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Medical watchers',
+        'all_document_types' => false,
+        'document_type_ids' => [$medicalType->id],
+        'to_emails' => ['medical@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'All types',
+        'all_document_types' => true,
+        'to_emails' => ['all@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.documents.configuration.notification-routing', [
+            'document_type_id' => $passportType->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/configuration/notification-routing')
+            ->where('filtered_by_document_type', true)
+            ->where('highlight_document_type_id', $passportType->id)
+            ->has('rules', 2)
+            ->where('rules.0.name', 'All types')
+            ->where('rules.1.name', 'Passport watchers')
+        );
+});
+
+test('cannot select company members without documents.view as recipients', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'documents.notification-routing.update',
+    ]);
+
+    $memberWithoutDocs = User::factory()->create([
+        'email' => 'no-docs@example.com',
+        'status' => 'active',
+    ]);
+    attachActiveCompanyMember($memberWithoutDocs, $company->id);
+
+    $this->actingAs($user)
+        ->post(route('organization.documents.configuration.notification-routing.store'), [
+            'name' => 'Needs docs permission',
+            'enabled' => true,
+            'all_document_types' => true,
+            'to_user_ids' => [$memberWithoutDocs->id],
+            'to_emails' => [],
+            'cc_user_ids' => [],
+            'cc_emails' => [],
+        ])
+        ->assertSessionHasErrors('to_user_ids');
 });

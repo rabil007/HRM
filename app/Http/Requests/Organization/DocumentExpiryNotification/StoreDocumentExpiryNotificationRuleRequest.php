@@ -9,7 +9,7 @@ use Illuminate\Validation\Validator;
 
 class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
 {
-    public const IneligibleRecipientMessage = 'One or more selected recipients are not active members of this company.';
+    public const IneligibleRecipientMessage = 'One or more selected recipients are not active members of this company with documents.view access.';
 
     public const DuplicateRecipientMessage = 'The same recipient cannot appear more than once across TO and CC.';
 

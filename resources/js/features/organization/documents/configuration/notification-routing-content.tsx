@@ -56,6 +56,7 @@ export function NotificationRoutingContent({
     companyUsers,
     highlightDocumentTypeId = null,
     highlightDocumentTypeTitle = null,
+    filteredByDocumentType = false,
     can,
 }: {
     rules: NotificationRoutingRule[];
@@ -63,6 +64,7 @@ export function NotificationRoutingContent({
     companyUsers: NotificationRoutingCompanyUser[];
     highlightDocumentTypeId?: number | null;
     highlightDocumentTypeTitle?: string | null;
+    filteredByDocumentType?: boolean;
     can: { view: boolean; update: boolean };
 }): ReactElement {
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -76,14 +78,20 @@ export function NotificationRoutingContent({
     );
 
     useEffect(() => {
-        if (highlightDocumentTypeId && can.update && rules.length === 0) {
+        if (
+            filteredByDocumentType &&
+            highlightDocumentTypeId &&
+            can.update &&
+            rules.length === 0
+        ) {
             setCurrentRule(null);
             form.setData(ruleToFormData(null, highlightDocumentTypeId));
             setSheetOpen(true);
         }
-        // Open once when arriving from Document Type "Manage Notifications".
+        // Open once when arriving from Document Type "Manage Notifications"
+        // and no matching rules exist for that type.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [highlightDocumentTypeId]);
+    }, [filteredByDocumentType, highlightDocumentTypeId]);
 
     const openCreate = () => {
         setCurrentRule(null);
@@ -151,13 +159,27 @@ export function NotificationRoutingContent({
                 }
             />
 
-            {highlightDocumentTypeTitle ? (
-                <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
-                    Showing routing for document type{' '}
-                    <span className="font-semibold">
-                        {highlightDocumentTypeTitle}
-                    </span>
-                    .
+            {filteredByDocumentType && highlightDocumentTypeTitle ? (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+                    <p>
+                        Showing rules for document type{' '}
+                        <span className="font-semibold">
+                            {highlightDocumentTypeTitle}
+                        </span>{' '}
+                        (including rules that apply to all document types).
+                    </p>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 rounded-xl"
+                        onClick={() =>
+                            router.get(
+                                '/organization/documents/configuration/notification-routing',
+                            )
+                        }
+                    >
+                        Show all rules
+                    </Button>
                 </div>
             ) : null}
 
@@ -166,8 +188,16 @@ export function NotificationRoutingContent({
                     icon={
                         <Bell className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" />
                     }
-                    title="No notification routing rules"
-                    description="Create a rule to decide who receives employee document expiry alerts for selected document types."
+                    title={
+                        filteredByDocumentType
+                            ? 'No matching notification rules'
+                            : 'No notification routing rules'
+                    }
+                    description={
+                        filteredByDocumentType
+                            ? 'No routing rules currently cover this document type. Create one to control who receives its employee expiry alerts.'
+                            : 'Create a rule to decide who receives employee document expiry alerts for selected document types.'
+                    }
                     action={
                         can.update ? (
                             <Button
@@ -195,24 +225,8 @@ export function NotificationRoutingContent({
                         </TableHeader>
                         <TableBody>
                             {rules.map((rule) => {
-                                const highlighted =
-                                    highlightDocumentTypeId != null &&
-                                    (rule.all_document_types ||
-                                        rule.document_types.some(
-                                            (type) =>
-                                                type.id ===
-                                                highlightDocumentTypeId,
-                                        ));
-
                                 return (
-                                    <TableRow
-                                        key={rule.id}
-                                        className={
-                                            highlighted
-                                                ? 'bg-primary/5'
-                                                : undefined
-                                        }
-                                    >
+                                    <TableRow key={rule.id}>
                                         <TableCell className="font-medium">
                                             {rule.name}
                                         </TableCell>
@@ -362,6 +376,7 @@ export default function NotificationRoutingPage({
     company_users,
     highlight_document_type_id = null,
     highlight_document_type_title = null,
+    filtered_by_document_type = false,
     can,
 }: {
     rules: NotificationRoutingRule[];
@@ -369,6 +384,7 @@ export default function NotificationRoutingPage({
     company_users: NotificationRoutingCompanyUser[];
     highlight_document_type_id?: number | null;
     highlight_document_type_title?: string | null;
+    filtered_by_document_type?: boolean;
     can: { view: boolean; update: boolean };
 }): ReactElement {
     return (
@@ -380,6 +396,7 @@ export default function NotificationRoutingPage({
                 companyUsers={company_users}
                 highlightDocumentTypeId={highlight_document_type_id}
                 highlightDocumentTypeTitle={highlight_document_type_title}
+                filteredByDocumentType={filtered_by_document_type}
                 can={can}
             />
         </>
