@@ -66,7 +66,7 @@ final class DocumentGenerationRunPresenter
         ?User $user,
         int $companyId,
     ): ?array {
-        if (EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+        if ($user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
             return $this->fromCompanyTemplateRun($run);
         }
 
