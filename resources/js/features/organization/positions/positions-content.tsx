@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
+import { useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -23,6 +24,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useHasPermission } from '@/hooks/use-has-permission';
 import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
@@ -33,6 +35,7 @@ import { PositionDeleteDialog } from './components/position-delete-dialog';
 import { PositionFiltersSheet } from './components/position-filters-sheet';
 import type { PositionFilters } from './components/position-filters-sheet';
 import { PositionFormSheet } from './components/position-form-sheet';
+import { PositionImportDialog } from './components/position-import-dialog';
 import { PositionTreeView } from './components/position-tree-view';
 import type { DepartmentOption, Position, PositionFormData } from './types';
 
@@ -62,6 +65,8 @@ export function PositionsContent({
     const crud = useOrganizationCrudList<Position>({
         viewKey: 'positions:view',
     });
+    const canCreate = useHasPermission('positions.create');
+    const [importOpen, setImportOpen] = useState(false);
 
     const filters: PositionFilters = {
         department_id: initialFilters.department_id,
@@ -218,13 +223,26 @@ export function PositionsContent({
                         buttonVariant="secondary"
                         buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                     />
-                    <Button
-                        onClick={handleAdd}
-                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Position
-                    </Button>
+                    {canCreate ? (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setImportOpen(true)}
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                        >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Import CSV
+                        </Button>
+                    ) : null}
+                    {canCreate ? (
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Position
+                        </Button>
+                    ) : null}
                 </>
             }
             search={{
@@ -389,6 +407,11 @@ export function PositionsContent({
                 onOpenChange={crud.setIsDeleteDialogOpen}
                 position={crud.currentEntity}
                 onConfirm={confirmDelete}
+            />
+
+            <PositionImportDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
             />
         </OrganizationListPageShell>
     );

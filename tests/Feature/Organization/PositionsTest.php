@@ -623,3 +623,99 @@ test('unused position can be deleted after rank consolidation mapping removal', 
 
     $this->assertSoftDeleted('positions', ['id' => $unused->id]);
 });
+
+test('users can download positions import template', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('Import Template Co', 'ITC');
+    grantCompanyPermissions($user, $company, ['positions.view']);
+
+    $this->actingAs($user)
+        ->get('/organization/positions/import/template')
+        ->assertOk()
+        ->assertHeader('content-disposition', 'attachment; filename="positions-import-template.csv"');
+});
+
+test('users can import positions from csv for the active company', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('Import Positions Co', 'IPC');
+    $other = createPositionTestCompany('Other Import Co', 'OIC');
+
+    Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck',
+        'code' => 'DECK',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Existing Mate',
+        'status' => 'inactive',
+        'is_crew_position' => false,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'positions.view',
+        'positions.create',
+        'positions.update',
+    ]);
+
+    $csvContent = "title,department,description,grade,min_salary,max_salary,status,is_crew_position,max_tour_of_duty_days\n"
+        ."Master,Deck,Senior deck officer,A,5000,8000,active,yes,90\n"
+        ."Existing Mate,,,B,,,active,yes,60\n"
+        ."Orphan Role,Missing Dept,,,,,,,yes,\n";
+
+    $this->actingAs($user)
+        ->from('/organization/positions')
+        ->post('/organization/positions/import', [
+            'file' => UploadedFile::fake()->createWithContent('positions.csv', $csvContent),
+        ])
+        ->assertRedirect('/organization/positions')
+        ->assertSessionHas('success');
+
+    expect(Position::query()->where('company_id', $company->id)->where('title', 'Master')->exists())->toBeTrue();
+    expect(Position::query()->where('company_id', $company->id)->where('title', 'Existing Mate')->value('status'))->toBe('active');
+    expect(Position::query()->where('company_id', $company->id)->where('title', 'Orphan Role')->exists())->toBeFalse();
+    expect(Position::query()->where('company_id', $other->id)->count())->toBe(0);
+});
+
+test('users without create permission cannot import positions', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('No Import Co', 'NIC');
+    grantCompanyPermissions($user, $company, ['positions.view']);
+
+    $csvContent = "title,status\nBlocked Role,active\n";
+
+    $this->actingAs($user)
+        ->post('/organization/positions/import', [
+            'file' => UploadedFile::fake()->createWithContent('positions.csv', $csvContent),
+        ])
+        ->assertForbidden();
+});
+
+test('positions import accepts exported csv headers', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('Export Roundtrip Co', 'ERC');
+    grantCompanyPermissions($user, $company, [
+        'positions.view',
+        'positions.create',
+        'positions.update',
+    ]);
+
+    $csvContent = "ID,Company,Department,Title,Description,Grade,Min Salary,Max Salary,Status,Is Crew Position,Max Tour Of Duty Days,Attachment,Created At\n"
+        ."99,Export Roundtrip Co,,Chief Officer,Bridge lead,C,4000,7000,active,yes,75,,\n";
+
+    $this->actingAs($user)
+        ->post('/organization/positions/import', [
+            'file' => UploadedFile::fake()->createWithContent('positions-export.csv', $csvContent),
+        ])
+        ->assertRedirect('/organization/positions')
+        ->assertSessionHas('success');
+
+    $position = Position::query()->where('company_id', $company->id)->where('title', 'Chief Officer')->first();
+    expect($position)->not->toBeNull();
+    expect($position->grade)->toBe('C');
+    expect((bool) $position->is_crew_position)->toBeTrue();
+    expect($position->max_tour_of_duty_days)->toBe(75);
+});

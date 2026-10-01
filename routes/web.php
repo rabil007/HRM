@@ -497,6 +497,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/positions', [PositionController::class, 'index'])->middleware('can:positions.view')->name('organization.positions');
     Route::get('organization/positions/export', [PositionController::class, 'export'])->middleware('can:positions.export')->name('organization.positions.export');
+    Route::get('organization/positions/import/template', [PositionController::class, 'importTemplate'])->middleware('can:positions.view')->name('organization.positions.import.template');
+    Route::post('organization/positions/import', [PositionController::class, 'import'])->middleware('can:positions.create')->name('organization.positions.import');
     Route::get('organization/positions/{position}/attachment/preview', [PositionAttachmentController::class, 'preview'])->middleware('can:positions.view')->name('organization.positions.attachment.preview');
     Route::get('organization/positions/{position}/attachment/download', [PositionAttachmentController::class, 'download'])->middleware('can:positions.view')->name('organization.positions.attachment.download');
     Route::get('organization/positions/{position}', [PositionController::class, 'show'])->middleware('can:positions.view')->name('organization.positions.show');

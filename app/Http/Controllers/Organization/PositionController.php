@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Exports\PositionsExport;
 use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\Position\ImportPositionsRequest;
 use App\Http\Requests\Organization\Position\StorePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionStatusRequest;
@@ -14,11 +15,13 @@ use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\MasterData\MasterDataUsage;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Positions\ImportPositionsFromCsv;
 use App\Support\Positions\PositionAttachmentStorage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -357,6 +360,34 @@ class PositionController extends Controller
         return redirect()
             ->route('organization.positions')
             ->with('success', 'Position status updated successfully.');
+    }
+
+    public function importTemplate(): Response
+    {
+        $csv = "title,department,description,grade,min_salary,max_salary,status,is_crew_position,max_tour_of_duty_days\n"
+            ."Master,Deck,Senior deck officer,A,5000,8000,active,yes,90\n"
+            ."Chief Engineer,Engine,,B,,,active,yes,90\n";
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="positions-import-template.csv"',
+        ]);
+    }
+
+    public function import(ImportPositionsRequest $request, ImportPositionsFromCsv $importer): RedirectResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $result = $importer->handle($request->file('file'), $companyId);
+
+        if (! $result['ok']) {
+            return redirect()
+                ->route('organization.positions')
+                ->withErrors(['file' => $result['error']]);
+        }
+
+        return redirect()
+            ->route('organization.positions')
+            ->with('success', $result['message']);
     }
 
     public function export(Request $request)

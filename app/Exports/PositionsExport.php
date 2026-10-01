@@ -36,6 +36,8 @@ class PositionsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             'Min Salary',
             'Max Salary',
             'Status',
+            'Is Crew Position',
+            'Max Tour Of Duty Days',
             'Attachment',
             'Created At',
         ];
@@ -53,6 +55,8 @@ class PositionsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $position->min_salary,
             $position->max_salary,
             $position->status,
+            $position->is_crew_position ? 'yes' : 'no',
+            $position->max_tour_of_duty_days,
             $position->attachment_original_name,
             optional($position->created_at)->toDateTimeString(),
         ];
