@@ -830,6 +830,15 @@ test('restricted activity email batch exposes only visible recipients and visibl
         ->assertJsonCount(1, 'sends')
         ->assertJsonPath('sends.0.employee.id', $marine->id);
 
+    $this->get(route('organization.documents.generate', [
+        'document_type_key' => 'salary_certificate',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('latest_email_batch.id', $batch->id)
+            ->where('latest_email_batch.total_selected', 1)
+            ->where('latest_email_batch.sent_count', 1));
+
     BulkDocumentGenerationRun::query()->create([
         'company_id' => $company->id,
         'document_type_key' => 'salary_certificate',
@@ -883,6 +892,13 @@ test('restricted activity email batch returns not found when every recipient is 
 
     $this->getJson(route('organization.documents.bulk.email-batches.sends', ['batch' => $batch->id]))
         ->assertNotFound();
+
+    $this->get(route('organization.documents.generate', [
+        'document_type_key' => 'salary_certificate',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('latest_email_batch', null));
 
     $this->get(route('organization.documents.generate', [
         'view' => 'activity',
