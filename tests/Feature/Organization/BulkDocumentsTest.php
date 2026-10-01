@@ -128,7 +128,7 @@ test('resolve email template returns wired template per document type', function
         ->and($certificateReminder?->slug)->toBe('bulk_salary_certificate');
 });
 
-test('modern generate route resolves roster view with module_view_locked', function () {
+test('generate route defaults to the employee roster view', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -141,10 +141,10 @@ test('modern generate route resolves roster view with module_view_locked', funct
         ->assertInertia(fn ($page) => $page
             ->component('organization/documents/bulk/index')
             ->where('view', 'roster')
-            ->where('module_view_locked', true));
+            ->where('module_view_locked', false));
 });
 
-test('modern generate route ignores conflicting legacy view query params', function () {
+test('generate route supports activity and safely ignores unsupported view values', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -152,20 +152,26 @@ test('modern generate route ignores conflicting legacy view query params', funct
 
     Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
+    $this->get(route('organization.documents.generate').'?view=activity')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('view', 'history')
+            ->where('module_view_locked', false));
+
     $this->get(route('organization.documents.generate').'?view=history')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('view', 'roster')
-            ->where('module_view_locked', true));
+            ->where('view', 'history')
+            ->where('module_view_locked', false));
 
     $this->get(route('organization.documents.generate').'?view=signatures')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('view', 'roster')
-            ->where('module_view_locked', true));
+            ->where('module_view_locked', false));
 });
 
-test('modern activity route resolves history view with module_view_locked', function () {
+test('legacy activity route redirects to the canonical activity workspace and preserves supported filters', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -173,33 +179,18 @@ test('modern activity route resolves history view with module_view_locked', func
 
     Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
-    $this->get(route('organization.documents.activity'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('organization/documents/bulk/index')
-            ->where('view', 'history')
-            ->where('module_view_locked', true));
-});
-
-test('modern activity route ignores conflicting legacy view query params', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
-
-    Employee::factory()->forCompany($company)->create(['status' => 'active']);
-
-    $this->get(route('organization.documents.activity').'?view=roster')
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('view', 'history')
-            ->where('module_view_locked', true));
-
-    $this->get(route('organization.documents.activity').'?view=signatures')
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->where('view', 'history')
-            ->where('module_view_locked', true));
+    $this->get(route('organization.documents.activity', [
+        'document_type_key' => 'salary_certificate',
+        'search' => 'captain',
+        'page' => 2,
+        'company_id' => 999,
+        'unexpected' => 'drop-me',
+    ]))->assertRedirect(route('organization.documents.generate', [
+        'view' => 'activity',
+        'document_type_key' => 'salary_certificate',
+        'search' => 'captain',
+        'page' => 2,
+    ]));
 });
 
 test('legacy bulk route redirects to generate', function () {
@@ -226,7 +217,7 @@ test('legacy bulk query views redirect to current module destinations', function
         ->assertRedirect(route('organization.documents.generate'));
 
     $this->get(route('organization.documents.bulk').'?view=history')
-        ->assertRedirect(route('organization.documents.activity'));
+        ->assertRedirect(route('organization.documents.generate', ['view' => 'activity']));
 });
 
 test('bulk documents page exposes wired email template for active document type', function () {
