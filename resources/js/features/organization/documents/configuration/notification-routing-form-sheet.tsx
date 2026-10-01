@@ -352,7 +352,7 @@ export function NotificationRoutingFormSheet({
                         )}
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/10 p-4">
                         <div>
                             <Label className={fieldLabelClass}>
                                 TO recipients
@@ -431,8 +431,16 @@ export function NotificationRoutingFormSheet({
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <Label className={fieldLabelClass}>CC recipients</Label>
+                    <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/10 p-4">
+                        <div>
+                            <Label className={fieldLabelClass}>
+                                CC recipients
+                            </Label>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Optional. Restricted internal users receive only
+                                the employees they are allowed to see.
+                            </p>
+                        </div>
 
                         <div className="space-y-2">
                             <p className="text-xs font-semibold text-muted-foreground">
@@ -501,7 +509,6 @@ export function NotificationRoutingFormSheet({
                             />
                         </div>
                     </div>
-
                     <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
                         <div>
                             <p className="text-sm font-medium">Enabled</p>
