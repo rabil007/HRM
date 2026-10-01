@@ -121,8 +121,10 @@ final class DocumentsModuleAccess
     }
 
     /**
-     * Resolve Generate / Activity for explicit module routes first,
-     * then fall back to the legacy bulk `view` query string.
+     * Resolve the internal Generate & Track workspace view.
+     *
+     * The canonical URL uses ?view=activity for history. The legacy
+     * ?view=history value remains accepted for backward compatibility.
      *
      * @return 'roster'|'history'
      */
@@ -134,7 +136,9 @@ final class DocumentsModuleAccess
             return $moduleView === 'history' ? 'history' : 'roster';
         }
 
-        return $request->query('view') === 'history' ? 'history' : 'roster';
+        return in_array($request->query('view'), ['activity', 'history'], true)
+            ? 'history'
+            : 'roster';
     }
 
     /**
