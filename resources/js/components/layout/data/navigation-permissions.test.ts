@@ -390,7 +390,6 @@ describe('Documents navigation', () => {
         '/organization/documents/generate',
         '/organization/documents/requests',
         '/organization/documents/configuration',
-        '/organization/documents/activity',
     ];
 
     it('shows overview and library only for documents.view', () => {
@@ -406,13 +405,12 @@ describe('Documents navigation', () => {
         );
     });
 
-    it('shows generate templates and activity for bulk_documents.view', () => {
+    it('shows templates and Generate & Track for bulk_documents.view', () => {
         assert.deepEqual(
             visibleGroupUrls(documentsUrls, ['bulk_documents.view']),
             [
                 '/organization/documents/templates',
                 '/organization/documents/generate',
-                '/organization/documents/activity',
             ],
         );
         assert.equal(
