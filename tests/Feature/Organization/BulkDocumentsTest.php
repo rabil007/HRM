@@ -795,6 +795,163 @@ test('bulk email batch sends endpoint returns recipient rows for history drill-d
         ->assertJsonPath('sends.0.status', 'sent');
 });
 
+test('restricted activity email batch exposes only visible recipients and visible aggregate counts', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+    $this->actingAs($user);
+
+    $batch = BulkDocumentEmailBatch::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_certificate',
+        'subject' => 'Scoped batch',
+        'total_selected' => 2,
+        'sent_count' => 2,
+        'failed_count' => 0,
+        'skipped_no_email_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    foreach ([$marine, $office] as $employee) {
+        BulkDocumentEmailSend::query()->create([
+            'batch_id' => $batch->id,
+            'employee_id' => $employee->id,
+            'recipient_email' => strtolower(str_replace(' ', '.', $employee->name)).'@example.com',
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
+    }
+
+    $this->getJson(route('organization.documents.bulk.email-batches.sends', ['batch' => $batch->id]))
+        ->assertOk()
+        ->assertJsonPath('batch.total_selected', 1)
+        ->assertJsonPath('batch.sent_count', 1)
+        ->assertJsonCount(1, 'sends')
+        ->assertJsonPath('sends.0.employee.id', $marine->id);
+
+    BulkDocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_certificate',
+        'filters' => ['status' => 'active'],
+        'status' => 'completed',
+        'total_targeted' => 2,
+        'generated_count' => 2,
+        'replaced_count' => 0,
+        'skipped_count' => 0,
+        'failed_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    $this->get(route('organization.documents.generate', [
+        'view' => 'activity',
+        'document_type_key' => 'salary_certificate',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('activity', 1)
+            ->where('activity.0.kind', 'email')
+            ->where('activity.0.id', $batch->id)
+            ->where('activity.0.sent_count', 1));
+});
+
+test('restricted activity email batch returns not found when every recipient is hidden', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+    $this->actingAs($user);
+
+    $batch = BulkDocumentEmailBatch::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_certificate',
+        'subject' => 'Hidden batch',
+        'total_selected' => 1,
+        'sent_count' => 1,
+        'failed_count' => 0,
+        'skipped_no_email_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    BulkDocumentEmailSend::query()->create([
+        'batch_id' => $batch->id,
+        'employee_id' => $office->id,
+        'recipient_email' => 'hidden@example.com',
+        'status' => 'sent',
+        'sent_at' => now(),
+    ]);
+
+    $this->getJson(route('organization.documents.bulk.email-batches.sends', ['batch' => $batch->id]))
+        ->assertNotFound();
+
+    $this->get(route('organization.documents.generate', [
+        'view' => 'activity',
+        'document_type_key' => 'salary_certificate',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('activity', 0));
+});
+
+test('restricted custom template activity recalculates run counts from visible employees only', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+    $this->actingAs($user);
+
+    $template = DocumentGenerationTemplate::factory()
+        ->forCompany($company)
+        ->active()
+        ->content()
+        ->create(['name' => 'Scoped Employment Letter']);
+
+    $version = DocumentGenerationTemplateVersion::factory()
+        ->forTemplate($template)
+        ->published()
+        ->create();
+
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'filters' => ['status' => 'active'],
+        'status' => 'completed',
+        'total_targeted' => 2,
+        'generated_count' => 1,
+        'skipped_count' => 0,
+        'failed_count' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $marine->id,
+        'status' => 'completed',
+    ]);
+
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $office->id,
+        'status' => 'failed',
+        'error_message' => 'Hidden employee failure',
+    ]);
+
+    $this->get(route('organization.documents.generate', [
+        'view' => 'activity',
+        'document_type_key' => "custom_{$template->id}",
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('activity', 1)
+            ->where('activity.0.generated_count', 1)
+            ->where('activity.0.failed_count', 0));
+});
+
 test('bulk email batch sends endpoint returns not found for other company batches', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
