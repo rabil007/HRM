@@ -92,8 +92,8 @@ class BulkDocumentsController extends Controller
             'not_emailed' => 'not_emailed',
             default => 'all',
         };
-        $view = $isCustom ? 'roster' : DocumentsModuleAccess::resolveBulkView($request);
-        $moduleViewLocked = $request->route('module_view') !== null;
+        $view = DocumentsModuleAccess::resolveBulkView($request);
+        $moduleViewLocked = false;
         $formOptions = EmployeeFormOptions::for($companyId);
 
         if ($isCustom && $customTemplate !== null && $customVersion !== null) {
