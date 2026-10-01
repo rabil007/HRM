@@ -93,6 +93,7 @@ final class DocumentGenerationRunPresenter
         $totalTargeted = $items->count();
 
         $status = match (true) {
+            $run->status === 'failed' && $pendingCount > 0 && $processedCount === 0 => 'failed',
             $processingCount > 0 => 'running',
             $pendingCount > 0 && $processedCount > 0 => 'running',
             $pendingCount > 0 => 'queued',
