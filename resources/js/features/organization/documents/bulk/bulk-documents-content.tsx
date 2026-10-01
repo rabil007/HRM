@@ -639,15 +639,18 @@ export function BulkDocumentsContent({
     const setPerPage = useCallback(
         (perPage: number) => {
             router.get(
-                documentsSectionUrl(view),
-                buildQuery(
-                    document_type_key,
-                    filters,
-                    searchInput,
-                    processFilter,
-                    email_filter,
-                    { perPage },
-                ),
+                documentsSectionUrl(),
+                {
+                    ...buildQuery(
+                        document_type_key,
+                        filters,
+                        searchInput,
+                        processFilter,
+                        email_filter,
+                        { perPage },
+                    ),
+                    ...(view === 'history' ? { view: 'activity' } : {}),
+                },
                 { preserveState: true, preserveScroll: true, replace: true },
             );
         },
