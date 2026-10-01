@@ -165,14 +165,41 @@ class BulkDocumentsController extends Controller
                     'email_filter' => $emailFilter,
                 ]);
             }
-            $activityPaginator = BulkDocumentActivityQuery::paginate(
-                $companyId,
-                $documentTypeKey,
-                $filters,
-                $perPage,
-                $page,
-                $user,
-            );
+            $activityPaginator = $isCustom && $customTemplate !== null
+                ? BulkDocumentActivityQuery::paginateCustom(
+                    $companyId,
+                    $customTemplate,
+                    $filters,
+                    $perPage,
+                    $page,
+                    $user,
+                )
+                : BulkDocumentActivityQuery::paginate(
+                    $companyId,
+                    $documentTypeKey,
+                    $filters,
+                    $perPage,
+                    $page,
+                    $user,
+                );
+
+            $counts = $isCustom && $customTemplate !== null && $customVersion !== null
+                ? CustomDocumentRosterQuery::counts(
+                    $companyId,
+                    $customTemplate,
+                    $customVersion,
+                    $filters,
+                    null,
+                    $user,
+                )
+                : BulkDocumentRosterQuery::counts(
+                    $companyId,
+                    $documentTypeKey,
+                    $filters,
+                    null,
+                    $emailFilter,
+                    $user,
+                );
 
             return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
                 $request,
@@ -182,15 +209,17 @@ class BulkDocumentsController extends Controller
                 $formOptions,
                 $customTemplates,
                 $moduleViewLocked,
+                $customTemplate,
+                $customVersion,
             ) + [
                 'view' => 'history',
                 'activity' => $activityPaginator->items(),
                 'employees' => [],
-                'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters, null, $emailFilter, $user),
+                'counts' => $counts,
                 'pagination' => $this->paginationMeta($activityPaginator),
                 'process_filter' => $processFilter,
                 'generation_filter' => $generationFilter,
-                'email_filter' => $emailFilter,
+                'email_filter' => $isCustom ? 'all' : $emailFilter,
             ]);
         }
 
