@@ -1,96 +1,19 @@
 import { Link } from '@inertiajs/react';
-import {
-    AlertTriangle,
-    Ban,
-    CheckCircle2,
-    Clock,
-    Copy,
-    Edit3,
-    Flame,
-    MoreHorizontal,
-    PauseCircle,
-    PlayCircle,
-    RotateCcw,
-    Users,
-} from 'lucide-react';
+import { CheckCircle2, Clock, Copy, Flame, PlayCircle } from 'lucide-react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { RequirementIndexRow } from '@/types/recruitment';
+import { RequirementActionMenu } from './requirement-action-menu';
+import type { RequirementActionHandlers } from './requirement-action-menu';
+import {
+    RequirementDeadlineBadge,
+    RequirementStatusBadge,
+} from './requirement-status-badge';
 
-type Props = {
+type Props = RequirementActionHandlers & {
     row: RequirementIndexRow;
-    onEdit: (row: RequirementIndexRow) => void;
-    onOpen: (row: RequirementIndexRow) => void;
-    onHold: (row: RequirementIndexRow) => void;
-    onResume: (row: RequirementIndexRow) => void;
-    onExtend: (row: RequirementIndexRow) => void;
-    onChangeHeadcount: (row: RequirementIndexRow) => void;
-    onFill: (row: RequirementIndexRow) => void;
-    onCancel: (row: RequirementIndexRow) => void;
-    onReopen: (row: RequirementIndexRow) => void;
-    onRepeat: (row: RequirementIndexRow) => void;
 };
-
-function StatusBadge({ row }: { row: RequirementIndexRow }) {
-    return (
-        <Badge
-            variant="outline"
-            className={cn(
-                'px-2 py-0 text-xs font-semibold',
-                row.status === 'open' &&
-                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-                row.status === 'draft' &&
-                    'border-zinc-500/30 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
-                row.status === 'on_hold' &&
-                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
-                row.status === 'completed' &&
-                    'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400',
-                row.status === 'cancelled' &&
-                    'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
-            )}
-        >
-            {row.status_label}
-        </Badge>
-    );
-}
-
-function DeadlineHealthBadge({ row }: { row: RequirementIndexRow }) {
-    if (!row.deadline_health) {
-        return null;
-    }
-
-    return (
-        <Badge
-            variant="outline"
-            className={cn(
-                'gap-1 px-1.5 py-0 text-xs font-medium',
-                row.deadline_health === 'overdue' &&
-                    'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
-                row.deadline_health === 'due_soon' &&
-                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
-                row.deadline_health === 'on_track' &&
-                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-            )}
-        >
-            {row.deadline_health === 'overdue' && (
-                <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
-            )}
-            {row.deadline_health === 'due_soon' && (
-                <Clock className="h-2.5 w-2.5" aria-hidden="true" />
-            )}
-            {row.days_label}
-        </Badge>
-    );
-}
 
 export function RequirementMobileCard({
     row,
@@ -106,8 +29,19 @@ export function RequirementMobileCard({
     onRepeat,
 }: Props) {
     const showUrl = RequirementController.show.url(row.id);
+    const handlers = {
+        onEdit,
+        onOpen,
+        onHold,
+        onResume,
+        onExtend,
+        onChangeHeadcount,
+        onFill,
+        onCancel,
+        onReopen,
+        onRepeat,
+    };
 
-    // Build the one contextual primary action
     const primaryAction = (() => {
         if (row.next_action === 'open' && row.can_open) {
             return (
@@ -146,7 +80,7 @@ export function RequirementMobileCard({
                     className="h-10 gap-1.5 border-sky-500/40 text-xs text-sky-700 hover:bg-sky-500/10 dark:text-sky-400"
                 >
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    Mark Filled
+                    Mark filled
                 </Button>
             );
         }
@@ -182,7 +116,6 @@ export function RequirementMobileCard({
         return null;
     })();
 
-    // Two-letter initials (first + last name initial)
     const recruiterInitials = (() => {
         const name = row.assigned_recruiter_name;
 
@@ -206,7 +139,6 @@ export function RequirementMobileCard({
                 row.deadline_health === 'overdue' && 'border-rose-500/30',
             )}
         >
-            {/* Row 1: req number + priority | status badge */}
             <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     {row.priority === 'urgent' && (
@@ -231,10 +163,12 @@ export function RequirementMobileCard({
                         </span>
                     )}
                 </div>
-                <StatusBadge row={row} />
+                <RequirementStatusBadge
+                    status={row.status}
+                    label={row.status_label}
+                />
             </div>
 
-            {/* Row 2: Client / Project */}
             <div className="mt-3">
                 <span
                     className="block truncate text-base font-semibold text-foreground"
@@ -250,18 +184,17 @@ export function RequirementMobileCard({
                 )}
             </div>
 
-            {/* Row 3: Positions summary */}
             {row.positions_summary.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                    {row.positions_summary.slice(0, 2).map((p) => (
+                    {row.positions_summary.slice(0, 2).map((position) => (
                         <span
-                            key={p.id}
+                            key={position.id}
                             className="inline-flex max-w-full items-center truncate rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs font-medium text-foreground/80"
-                            title={`${p.position_title} — ${p.required_headcount} headcount`}
+                            title={`${position.position_title} — ${position.required_headcount} headcount`}
                         >
-                            {p.position_title}
+                            {position.position_title}
                             <span className="ml-1 font-semibold text-muted-foreground">
-                                ×{p.required_headcount}
+                                ×{position.required_headcount}
                             </span>
                         </span>
                     ))}
@@ -290,7 +223,10 @@ export function RequirementMobileCard({
                     <p className="text-sm font-medium">
                         {row.required_by_date_formatted || 'No deadline'}
                     </p>
-                    <DeadlineHealthBadge row={row} />
+                    <RequirementDeadlineBadge
+                        health={row.deadline_health}
+                        label={row.days_label}
+                    />
                 </div>
             </div>
 
@@ -317,162 +253,16 @@ export function RequirementMobileCard({
                     </div>
                 </div>
 
-                {/* Actions */}
                 <div
                     className="flex items-center gap-1"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {primaryAction}
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
-                                aria-label={`More actions for ${row.requirement_number}`}
-                            >
-                                <MoreHorizontal
-                                    className="h-4 w-4"
-                                    aria-hidden="true"
-                                />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem asChild>
-                                <Link
-                                    href={showUrl}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <Edit3
-                                        className="h-4 w-4 text-muted-foreground"
-                                        aria-hidden="true"
-                                    />
-                                    <span>View Details</span>
-                                </Link>
-                            </DropdownMenuItem>
-
-                            {row.can_edit && (
-                                <DropdownMenuItem
-                                    onClick={() => onEdit(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <Edit3
-                                        className="h-4 w-4 text-muted-foreground"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Edit Requirement</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_change_headcount && (
-                                <DropdownMenuItem
-                                    onClick={() => onChangeHeadcount(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <Users
-                                        className="h-4 w-4 text-muted-foreground"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Revise Headcount</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_extend && (
-                                <DropdownMenuItem
-                                    onClick={() => onExtend(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <Clock
-                                        className="h-4 w-4 text-muted-foreground"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Extend Deadline</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_hold && (
-                                <DropdownMenuItem
-                                    onClick={() => onHold(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <PauseCircle
-                                        className="h-4 w-4 text-amber-700 dark:text-amber-400"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Put On Hold</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_resume && (
-                                <DropdownMenuItem
-                                    onClick={() => onResume(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <PlayCircle
-                                        className="h-4 w-4 text-emerald-700 dark:text-emerald-400"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Resume Requirement</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_fill && (
-                                <DropdownMenuItem
-                                    onClick={() => onFill(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <CheckCircle2
-                                        className="h-4 w-4 text-sky-700 dark:text-sky-400"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Mark as Filled</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_reopen && (
-                                <DropdownMenuItem
-                                    onClick={() => onReopen(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <RotateCcw
-                                        className="h-4 w-4 text-primary"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Reopen Requirement</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_repeat && (
-                                <DropdownMenuItem
-                                    onClick={() => onRepeat(row)}
-                                    className="cursor-pointer gap-2"
-                                >
-                                    <Copy
-                                        className="h-4 w-4 text-primary"
-                                        aria-hidden="true"
-                                    />
-                                    <span>Repeat Requirement</span>
-                                </DropdownMenuItem>
-                            )}
-
-                            {row.can_cancel && (
-                                <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onClick={() => onCancel(row)}
-                                        className="cursor-pointer gap-2 text-rose-700 focus:text-rose-700 dark:text-rose-400 dark:focus:text-rose-400"
-                                    >
-                                        <Ban
-                                            className="h-4 w-4"
-                                            aria-hidden="true"
-                                        />
-                                        <span>Cancel Requirement</span>
-                                    </DropdownMenuItem>
-                                </>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RequirementActionMenu
+                        row={row}
+                        {...handlers}
+                        triggerClassName="h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
+                    />
                 </div>
             </div>
         </div>

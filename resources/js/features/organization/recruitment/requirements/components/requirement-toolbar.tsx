@@ -13,6 +13,7 @@ import type {
     RequirementFilters,
     RequirementIndexProps,
 } from '@/types/recruitment';
+import { RequirementActiveFilters } from './requirement-active-filters';
 
 type Props = Pick<
     RequirementIndexProps,
@@ -41,68 +42,14 @@ export function RequirementToolbar({
     onOpenFilters,
     onReset,
 }: Props) {
-    const chips: {
-        key: keyof RequirementFilters;
-        label: string;
-        value: string | number;
-    }[] = [];
-    const criteria = [
-        {
-            key: 'client_id' as const,
-            label: 'Client',
-            value: options.clients.find(
-                (item) => String(item.id) === String(filters.client_id),
-            )?.name,
-        },
-        {
-            key: 'project_id' as const,
-            label: 'Project',
-            value: options.projects.find(
-                (item) => String(item.id) === String(filters.project_id),
-            )?.title,
-        },
-        {
-            key: 'position_id' as const,
-            label: 'Position',
-            value: options.positions.find(
-                (item) => String(item.id) === String(filters.position_id),
-            )?.title,
-        },
-        {
-            key: 'assigned_to' as const,
-            label: 'Recruiter',
-            value: options.recruiters.find(
-                (item) => String(item.id) === String(filters.assigned_to),
-            )?.name,
-        },
-        {
-            key: 'priority' as const,
-            label: 'Priority',
-            value: filters.priority === 'urgent' ? 'Urgent' : 'Normal',
-        },
-        {
-            key: 'deadline_health' as const,
-            label: 'Deadline',
-            value:
-                filters.deadline_health === 'due_soon'
-                    ? 'Due in 7 days'
-                    : filters.deadline_health === 'overdue'
-                      ? 'Overdue'
-                      : 'On track',
-        },
-    ];
-
-    for (const criterion of criteria) {
-        const selected = filters[criterion.key];
-
-        if (selected) {
-            chips.push({
-                key: criterion.key,
-                label: criterion.label,
-                value: criterion.value ?? selected,
-            });
-        }
-    }
+    const sheetFilterCount = [
+        filters.client_id,
+        filters.project_id,
+        filters.position_id,
+        filters.assigned_to,
+        filters.priority,
+        filters.deadline_health,
+    ].filter(Boolean).length;
 
     const quickFilters = [
         {
@@ -174,7 +121,7 @@ export function RequirementToolbar({
                 >
                     {isLoading
                         ? 'Updating requirements…'
-                        : `${total.toLocaleString()} ${total === 1 ? 'requirement' : 'requirements'}${chips.length || filters.search ? ' matching' : ''}`}
+                        : `${total.toLocaleString()} ${total === 1 ? 'requirement' : 'requirements'}${sheetFilterCount || searchInput ? ' matching' : ''}`}
                 </p>
             </div>
             <div className="space-y-3 p-4">
@@ -212,8 +159,8 @@ export function RequirementToolbar({
                         className="h-10 gap-2"
                         onClick={onOpenFilters}
                         aria-label={
-                            chips.length
-                                ? `Filters active (${chips.length})`
+                            sheetFilterCount
+                                ? `Filters active (${sheetFilterCount})`
                                 : 'Open filters'
                         }
                     >
@@ -222,9 +169,9 @@ export function RequirementToolbar({
                             aria-hidden="true"
                         />
                         <span className="hidden sm:inline">Filters</span>
-                        {chips.length > 0 && (
+                        {sheetFilterCount > 0 && (
                             <span className="rounded bg-primary/10 px-1.5 text-xs text-primary">
-                                {chips.length}
+                                {sheetFilterCount}
                             </span>
                         )}
                     </Button>
@@ -263,39 +210,14 @@ export function RequirementToolbar({
                         )}
                     </div>
                 )}
-                {(chips.length > 0 || filters.search) && (
-                    <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                        {chips.map((chip) => (
-                            <button
-                                key={chip.key}
-                                type="button"
-                                aria-label={`Remove ${chip.label.toLowerCase()} filter`}
-                                onClick={() => onChange({ [chip.key]: null })}
-                                className="inline-flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                            >
-                                <span className="truncate">
-                                    <span className="text-muted-foreground">
-                                        {chip.label}:
-                                    </span>{' '}
-                                    {chip.value}
-                                </span>
-                                <X
-                                    className="size-3 shrink-0"
-                                    aria-hidden="true"
-                                />
-                            </button>
-                        ))}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onReset}
-                            className="h-8 text-xs text-muted-foreground"
-                        >
-                            Clear search & filters
-                        </Button>
-                    </div>
-                )}
+                <RequirementActiveFilters
+                    filters={filters}
+                    options={options}
+                    searchInput={searchInput}
+                    onChange={onChange}
+                    onClearAll={onReset}
+                    className="border-t pt-3"
+                />
             </div>
         </div>
     );

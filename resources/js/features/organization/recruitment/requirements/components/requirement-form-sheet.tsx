@@ -8,11 +8,21 @@ import {
     Trash2,
     Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import RequirementAddHeadcountController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementAddHeadcountController';
 import RequirementCheckSimilarController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementCheckSimilarController';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,6 +47,13 @@ import type {
     RequirementDetail,
     UserOption,
 } from '@/types/recruitment';
+import {
+    createRequirementFormSnapshot,
+    firstInvalidRequirementField,
+    isRequirementFormDirty,
+    requirementFormFieldSelector,
+} from '../lib/requirement-form';
+import type { RequirementFormSnapshot } from '../lib/requirement-form';
 import type { FormPositionLineInput, SimilarRequirementMatch } from '../types';
 import { DuplicateDecisionDialog } from './duplicate-decision-dialog';
 
@@ -76,7 +93,7 @@ export function RequirementFormSheet({
         line_notes: '',
     };
 
-    const { data, setData, processing, errors, reset, clearErrors } = useForm<{
+    const { data, setData, errors, reset, clearErrors } = useForm<{
         client_id: string;
         project_id: string;
         client_reference_number: string;
@@ -106,67 +123,165 @@ export function RequirementFormSheet({
     });
 
     const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [duplicateMatches, setDuplicateMatches] = useState<
         SimilarRequirementMatch[]
     >([]);
     const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+    const [baseline, setBaseline] = useState<RequirementFormSnapshot | null>(
+        null,
+    );
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+    const pendingCloseRef = useRef(false);
+    const formBodyRef = useRef<HTMLDivElement | null>(null);
+
+    const currentSnapshot = useMemo(
+        () =>
+            createRequirementFormSnapshot({
+                client_id: data.client_id,
+                project_id: data.project_id,
+                client_reference_number: data.client_reference_number,
+                location: data.location,
+                assigned_to: data.assigned_to,
+                request_received_date: data.request_received_date,
+                required_by_date: data.required_by_date,
+                priority: data.priority,
+                notes: data.notes,
+                positions: data.positions,
+                attachment: data.attachment,
+            }),
+        [data],
+    );
+
+    const isDirty = isRequirementFormDirty(baseline, currentSnapshot);
+    const busy = isSubmitting || isCheckingDuplicates;
 
     useEffect(() => {
         if (!open) {
             clearErrors();
+            setBaseline(null);
+            setConfirmDiscardOpen(false);
+            pendingCloseRef.current = false;
+            setIsSubmitting(false);
 
             return;
         }
 
-        if (initialRequirement) {
-            setData({
-                client_id: String(initialRequirement.client_id),
-                project_id: initialRequirement.project_id
-                    ? String(initialRequirement.project_id)
-                    : '',
-                client_reference_number:
-                    initialRequirement.client_reference_number || '',
-                location: initialRequirement.location || '',
-                assigned_to: initialRequirement.assigned_to
-                    ? String(initialRequirement.assigned_to)
-                    : '',
-                request_received_date:
-                    initialRequirement.request_received_date || today,
-                required_by_date: initialRequirement.required_by_date || '',
-                priority: initialRequirement.priority || 'normal',
-                notes: initialRequirement.notes || '',
-                positions:
-                    initialRequirement.lines &&
-                    initialRequirement.lines.length > 0
-                        ? initialRequirement.lines.map((l) => ({
-                              id: l.id,
-                              position_id: String(l.position_id),
-                              required_headcount: l.required_headcount,
-                              line_notes: l.line_notes || '',
-                          }))
-                        : [{ ...defaultPositionLine }],
-                attachment: null,
-                force_create: false,
-            });
-        } else {
+        const nextData = initialRequirement
+            ? {
+                  client_id: String(initialRequirement.client_id),
+                  project_id: initialRequirement.project_id
+                      ? String(initialRequirement.project_id)
+                      : '',
+                  client_reference_number:
+                      initialRequirement.client_reference_number || '',
+                  location: initialRequirement.location || '',
+                  assigned_to: initialRequirement.assigned_to
+                      ? String(initialRequirement.assigned_to)
+                      : '',
+                  request_received_date:
+                      initialRequirement.request_received_date || today,
+                  required_by_date: initialRequirement.required_by_date || '',
+                  priority: initialRequirement.priority || 'normal',
+                  notes: initialRequirement.notes || '',
+                  positions:
+                      initialRequirement.lines &&
+                      initialRequirement.lines.length > 0
+                          ? initialRequirement.lines.map((l) => ({
+                                id: l.id,
+                                position_id: String(l.position_id),
+                                required_headcount: l.required_headcount,
+                                line_notes: l.line_notes || '',
+                            }))
+                          : [{ ...defaultPositionLine }],
+                  attachment: null as File | null,
+                  force_create: false,
+              }
+            : {
+                  client_id: '',
+                  project_id: '',
+                  client_reference_number: '',
+                  location: '',
+                  assigned_to: '',
+                  request_received_date: today,
+                  required_by_date: '',
+                  priority: 'normal' as const,
+                  notes: '',
+                  positions: [{ ...defaultPositionLine }],
+                  attachment: null as File | null,
+                  force_create: false,
+              };
+
+        if (!initialRequirement) {
             reset();
-            setData({
-                client_id: '',
-                project_id: '',
-                client_reference_number: '',
-                location: '',
-                assigned_to: '',
-                request_received_date: today,
-                required_by_date: '',
-                priority: 'normal',
-                notes: '',
-                positions: [{ ...defaultPositionLine }],
-                attachment: null,
-                force_create: false,
-            });
         }
+
+        setData(nextData);
+        setBaseline(
+            createRequirementFormSnapshot({
+                ...nextData,
+                attachment: null,
+            }),
+        );
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, initialRequirement]);
+
+    useEffect(() => {
+        if (!open || !isDirty) {
+            return;
+        }
+
+        const handler = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+        };
+
+        window.addEventListener('beforeunload', handler);
+
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [open, isDirty]);
+
+    const focusFirstInvalidField = (
+        nextErrors: Record<string, string | undefined>,
+    ) => {
+        const field = firstInvalidRequirementField(nextErrors);
+
+        if (!field || !formBodyRef.current) {
+            return;
+        }
+
+        const selector = requirementFormFieldSelector(field);
+        const target = formBodyRef.current.querySelector<HTMLElement>(selector);
+
+        target?.focus();
+        target?.scrollIntoView({
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)')
+                .matches
+                ? 'auto'
+                : 'smooth',
+            block: 'center',
+        });
+    };
+
+    const requestClose = () => {
+        if (busy) {
+            return;
+        }
+
+        if (isDirty) {
+            pendingCloseRef.current = true;
+            setConfirmDiscardOpen(true);
+
+            return;
+        }
+
+        onOpenChange(false);
+    };
+
+    const confirmDiscard = () => {
+        setConfirmDiscardOpen(false);
+        pendingCloseRef.current = false;
+        onOpenChange(false);
+    };
 
     const filteredProjects = useMemo(() => {
         return filterProjectsByClient(options.projects, data.client_id);
@@ -209,6 +324,12 @@ export function RequirementFormSheet({
     };
 
     const submitRequisition = (force = false) => {
+        if (isSubmitting) {
+            return;
+        }
+
+        setIsSubmitting(true);
+
         if (isEditing && initialRequirement) {
             router.post(
                 RequirementController.update.url(initialRequirement.id),
@@ -227,8 +348,10 @@ export function RequirementFormSheet({
                 },
                 {
                     preserveScroll: true,
+                    forceFormData: true,
                     onSuccess: () => {
                         toast.success('Requirement updated successfully.');
+                        setBaseline(currentSnapshot);
                         onOpenChange(false);
                         onSuccess?.();
                     },
@@ -237,7 +360,9 @@ export function RequirementFormSheet({
                             errs.request_received_date ||
                                 'Please resolve the errors highlighted below.',
                         );
+                        focusFirstInvalidField(errs);
                     },
+                    onFinish: () => setIsSubmitting(false),
                 },
             );
 
@@ -253,6 +378,7 @@ export function RequirementFormSheet({
             },
             {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => {
                     toast.success('Requirement created successfully.');
                     onOpenChange(false);
@@ -268,13 +394,20 @@ export function RequirementFormSheet({
                             'Please resolve the errors highlighted below.',
                         );
                     }
+
+                    focusFirstInvalidField(errs);
                 },
+                onFinish: () => setIsSubmitting(false),
             },
         );
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (busy) {
+            return;
+        }
 
         // If editing or forcing create, proceed directly
         if (isEditing || data.force_create) {
@@ -380,20 +513,44 @@ export function RequirementFormSheet({
 
     return (
         <>
-            <Sheet open={open} onOpenChange={onOpenChange}>
+            <Sheet
+                open={open}
+                onOpenChange={(nextOpen) => {
+                    if (!nextOpen) {
+                        requestClose();
+
+                        return;
+                    }
+
+                    onOpenChange(true);
+                }}
+            >
                 <SheetContent
                     side="right"
                     className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-3xl"
+                    onInteractOutside={(event) => {
+                        if (isDirty || busy) {
+                            event.preventDefault();
+                            requestClose();
+                        }
+                    }}
+                    onEscapeKeyDown={(event) => {
+                        if (isDirty || busy) {
+                            event.preventDefault();
+                            requestClose();
+                        }
+                    }}
                 >
                     <SheetHeader className="border-b border-border/60 p-6">
                         <SheetTitle className="text-xl font-bold tracking-tight">
                             {isEditing
                                 ? `Edit ${initialRequirement?.requirement_number}`
-                                : 'Add Recruitment Requirement'}
+                                : 'Create requirement'}
                         </SheetTitle>
                         <SheetDescription className="mt-1 text-xs text-muted-foreground/80">
-                            Capture incoming client requisition, target delivery
-                            dates, required positions and headcounts.
+                            Capture the client request, required roles,
+                            headcount, ownership, and target delivery date.
+                            Server validation remains the source of truth.
                         </SheetDescription>
                     </SheetHeader>
 
@@ -401,7 +558,10 @@ export function RequirementFormSheet({
                         onSubmit={handleSubmit}
                         className="flex flex-1 flex-col overflow-hidden"
                     >
-                        <div className="flex-1 space-y-6 overflow-y-auto p-6">
+                        <div
+                            ref={formBodyRef}
+                            className="flex-1 space-y-6 overflow-y-auto p-6"
+                        >
                             {/* SECTION 1: Client Request */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 border-b border-border/40 pb-2">
@@ -412,13 +572,21 @@ export function RequirementFormSheet({
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div className="space-y-1.5">
+                                    <div
+                                        className="space-y-1.5"
+                                        data-requirement-field="client_id"
+                                    >
                                         <Label className="text-xs font-semibold">
                                             Client{' '}
                                             <span className="text-rose-500">
                                                 *
                                             </span>
                                         </Label>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Choose the client requesting these
+                                            roles. Projects are filtered to this
+                                            client.
+                                        </p>
                                         <AppSelect
                                             value={
                                                 data.client_id
@@ -704,7 +872,10 @@ export function RequirementFormSheet({
                             </div>
 
                             {/* SECTION 3: Positions Required Repeater */}
-                            <div className="space-y-4">
+                            <div
+                                className="space-y-4"
+                                data-requirement-field="positions"
+                            >
                                 <div className="flex items-center justify-between border-b border-border/40 pb-2">
                                     <div className="flex items-center gap-2">
                                         <span className="flex h-2 w-2 rounded-full bg-primary" />
@@ -973,27 +1144,56 @@ export function RequirementFormSheet({
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => onOpenChange(false)}
-                                disabled={processing || isCheckingDuplicates}
+                                onClick={requestClose}
+                                disabled={busy}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={processing || isCheckingDuplicates}
+                                disabled={busy}
                                 className="gap-2"
                             >
-                                {(processing || isCheckingDuplicates) && (
+                                {busy && (
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                 )}
                                 {isEditing
-                                    ? 'Save Changes'
-                                    : 'Submit Requisition'}
+                                    ? 'Save changes'
+                                    : 'Create requirement'}
                             </Button>
                         </SheetFooter>
                     </form>
                 </SheetContent>
             </Sheet>
+
+            <AlertDialog
+                open={confirmDiscardOpen}
+                onOpenChange={setConfirmDiscardOpen}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Discard unsaved changes?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You have unsaved requirement details. Closing now
+                            discards those changes.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            onClick={() => {
+                                pendingCloseRef.current = false;
+                            }}
+                        >
+                            Keep editing
+                        </AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDiscard}>
+                            Discard changes
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Duplicate Decision Dialog */}
             <DuplicateDecisionDialog
@@ -1008,7 +1208,7 @@ export function RequirementFormSheet({
                 onReturnAndReview={() => {
                     setIsDuplicateDialogOpen(false);
                 }}
-                isSubmitting={processing}
+                isSubmitting={busy}
             />
         </>
     );

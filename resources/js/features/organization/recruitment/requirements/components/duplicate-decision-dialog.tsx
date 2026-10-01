@@ -7,7 +7,6 @@ import {
     Plus,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -20,6 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { SimilarRequirementMatch } from '../types';
+import { RequirementStatusBadge } from './requirement-status-badge';
 
 type Props = {
     open: boolean;
@@ -120,19 +120,13 @@ export function DuplicateDecisionDialog({
                                                 </span>
                                             )}
                                         </div>
-                                        <Badge
-                                            variant="outline"
-                                            className={
-                                                match.status === 'open'
-                                                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
-                                                    : 'border-amber-500/20 bg-amber-500/10 text-amber-500'
-                                            }
-                                        >
-                                            {match.status_label ??
+                                        <RequirementStatusBadge
+                                            status={match.status}
+                                            label={
+                                                match.status_label ??
                                                 match.status
-                                                    .replace('_', ' ')
-                                                    .toUpperCase()}
-                                        </Badge>
+                                            }
+                                        />
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 text-muted-foreground">
                                         <div>

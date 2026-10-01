@@ -9,15 +9,18 @@ import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
-import { Badge } from '@/components/ui/badge';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 import type {
     RequirementLine,
     RequirementShowProps,
 } from '@/types/recruitment';
 import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { RequirementFormSheet } from './components/requirement-form-sheet';
+import {
+    RequirementPriorityBadge,
+    RequirementStatusBadge,
+} from './components/requirement-status-badge';
+import { RequirementWhatsNextPanel } from './components/requirement-whats-next-panel';
 import { RequirementAttachmentsCard } from './components/show/requirement-attachments-card';
 import { RequirementDetailsCard } from './components/show/requirement-details-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
@@ -27,6 +30,7 @@ import { ChangeHeadcountDialog } from './components/workflow/change-headcount-di
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
+import type { RequirementWhatsNextAction } from './lib/requirement-whats-next';
 
 export function RequirementsShowContent({
     requirement,
@@ -54,6 +58,8 @@ export function RequirementsShowContent({
     const [targetLineForHeadcount, setTargetLineForHeadcount] =
         useState<RequirementLine | null>(null);
 
+    const [isWorkflowProcessing, setIsWorkflowProcessing] = useState(false);
+
     useEffect(() => {
         if (typeof window === 'undefined') {
             return;
@@ -69,55 +75,84 @@ export function RequirementsShowContent({
         }
     }, []);
 
-    const handleOpen = () => {
+    const runWorkflow = (
+        url: string,
+        successMessage: string,
+        errorMessage: string,
+    ) => {
+        setIsWorkflowProcessing(true);
         router.post(
-            RequirementOpenController.url(requirement.id),
+            url,
             {},
             {
                 preserveScroll: true,
-                onSuccess: () => toast.success('Requirement opened.'),
-                onError: () => toast.error('Failed to open requirement.'),
+                onSuccess: () => toast.success(successMessage),
+                onError: () => toast.error(errorMessage),
+                onFinish: () => setIsWorkflowProcessing(false),
             },
+        );
+    };
+
+    const handleOpen = () => {
+        runWorkflow(
+            RequirementOpenController.url(requirement.id),
+            'Requirement opened.',
+            'Failed to open requirement.',
         );
     };
 
     const handleHold = () => {
-        router.post(
+        runWorkflow(
             RequirementHoldController.url(requirement.id),
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () => toast.success('Requirement put on hold.'),
-                onError: () =>
-                    toast.error('Failed to put requirement on hold.'),
-            },
+            'Requirement put on hold.',
+            'Failed to put requirement on hold.',
         );
     };
 
     const handleResume = () => {
-        router.post(
+        runWorkflow(
             RequirementResumeController.url(requirement.id),
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () => toast.success('Requirement resumed.'),
-                onError: () => toast.error('Failed to resume requirement.'),
-            },
+            'Requirement resumed.',
+            'Failed to resume requirement.',
         );
     };
 
     const handleFill = () => {
-        router.post(
+        runWorkflow(
             RequirementFillController.url(requirement.id),
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () =>
-                    toast.success('Requirement marked as completed.'),
-                onError: () =>
-                    toast.error('Failed to mark requirement as filled.'),
-            },
+            'Requirement marked as completed.',
+            'Failed to mark requirement as filled.',
         );
+    };
+
+    const handleWhatsNext = (
+        action: Exclude<RequirementWhatsNextAction, null>,
+    ) => {
+        switch (action) {
+            case 'open':
+                handleOpen();
+                break;
+            case 'resume':
+                handleResume();
+                break;
+            case 'fill':
+                handleFill();
+                break;
+            case 'extend':
+                setIsExtendOpen(true);
+                break;
+            case 'repeat':
+                setIsRepeatOpen(true);
+                break;
+            case 'edit':
+                setIsEditOpen(true);
+                break;
+            case 'reopen':
+                setIsReopenOpen(true);
+                break;
+            default:
+                break;
+        }
     };
 
     return (
@@ -135,53 +170,30 @@ export function RequirementsShowContent({
             <DetailsHeader
                 kicker="Recruitment / Requirements"
                 title={requirement.requirement_number}
-                description={`${requirement.client_name}${requirement.project_title ? ` • ${requirement.project_title}` : ''}`}
+                description={`${requirement.client_name}${requirement.project_title ? ` • ${requirement.project_title}` : ''}${requirement.required_by_date_formatted ? ` • Required by ${requirement.required_by_date_formatted}` : ''}`}
                 backHref={RequirementController.index.url()}
                 backLabel="Requirements"
                 badges={
                     <>
-                        <Badge
-                            variant="outline"
-                            className={cn(
-                                'px-2.5 py-0.5 text-xs font-semibold',
-                                requirement.status === 'open' &&
-                                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
-                                requirement.status === 'draft' &&
-                                    'border-zinc-500/30 bg-zinc-500/10 text-zinc-400',
-                                requirement.status === 'on_hold' &&
-                                    'border-amber-500/30 bg-amber-500/10 text-amber-500',
-                                requirement.status === 'completed' &&
-                                    'border-sky-500/30 bg-sky-500/10 text-sky-500',
-                                requirement.status === 'cancelled' &&
-                                    'border-rose-500/30 bg-rose-500/10 text-rose-500',
-                            )}
-                        >
-                            {requirement.status_label}
-                        </Badge>
-                        {requirement.priority === 'urgent' && (
-                            <Badge
-                                variant="outline"
-                                className="gap-1 border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 font-bold text-rose-500"
-                            >
-                                Urgent
-                            </Badge>
-                        )}
+                        <RequirementStatusBadge
+                            status={requirement.status}
+                            label={requirement.status_label}
+                        />
+                        <RequirementPriorityBadge
+                            priority={requirement.priority}
+                        />
                     </>
                 }
             />
 
-            {/*
-             * Two-column layout:
-             * – Mobile/sm: single column, operational priority order
-             *   (Overview → Positions → Details → Attachments → Activity)
-             * – lg+: main (2/3) + sidebar (1/3)
-             *   Sidebar: Overview card + Activity
-             *   Main: Positions, Details, Attachments
-             */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                {/* ── Sidebar (renders first on mobile for operational priority) ── */}
                 <div className="order-1 space-y-6 lg:order-2 lg:col-span-1">
-                    {/* Overview: status + progress + actions */}
+                    <RequirementWhatsNextPanel
+                        requirement={requirement}
+                        onAction={handleWhatsNext}
+                        processing={isWorkflowProcessing}
+                    />
+
                     <RequirementOverviewCard
                         requirement={requirement}
                         onEdit={() => setIsEditOpen(true)}
@@ -199,7 +211,6 @@ export function RequirementsShowContent({
                         onRepeat={() => setIsRepeatOpen(true)}
                     />
 
-                    {/* Activity timeline */}
                     {recent_activity && recent_activity.length > 0 && (
                         <RecentActivityCard
                             items={
@@ -210,9 +221,7 @@ export function RequirementsShowContent({
                     )}
                 </div>
 
-                {/* ── Main content column ── */}
                 <div className="order-2 space-y-6 lg:order-1 lg:col-span-2">
-                    {/* Position Lines */}
                     <RequirementPositionLinesCard
                         requirement={requirement}
                         onChangeLineHeadcount={(line) => {
@@ -221,10 +230,8 @@ export function RequirementsShowContent({
                         }}
                     />
 
-                    {/* Requirement Specifications & Details */}
                     <RequirementDetailsCard requirement={requirement} />
 
-                    {/* Attachments */}
                     <RequirementAttachmentsCard
                         requirement={requirement}
                         canDownload={can.download_attachments}

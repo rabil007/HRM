@@ -85,7 +85,12 @@ export function RequirementsContent({
         });
 
     const handleFilterChange = (changes: Partial<RequirementFilters>) => {
-        resetSearchInput(searchInput);
+        if ('search' in changes) {
+            resetSearchInput(String(changes.search ?? ''));
+        } else {
+            resetSearchInput(searchInput);
+        }
+
         navigate({ search: searchInput, ...changes });
     };
 
@@ -222,7 +227,7 @@ export function RequirementsContent({
             <PageHeader
                 kicker="Recruitment"
                 title="Requirements"
-                description="Manage staffing requests, keep deadlines in sight, and move recruitment forward."
+                description="Track staffing requests by client, role, and deadline — then take the next recruitment action."
                 right={
                     can.create ? (
                         <Button
@@ -233,7 +238,7 @@ export function RequirementsContent({
                             className="h-10 gap-2 rounded-lg shadow-xs"
                         >
                             <Plus className="h-4 w-4" />
-                            Add Requirement
+                            Create requirement
                         </Button>
                     ) : null
                 }

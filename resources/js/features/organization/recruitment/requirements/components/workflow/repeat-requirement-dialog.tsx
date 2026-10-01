@@ -21,6 +21,8 @@ import type {
     RequirementIndexRow,
     UserOption,
 } from '@/types/recruitment';
+import { resolveRequirementRepeatFieldGroups } from '../../lib/requirement-repeat-copy';
+import { RequirementStatusBadge } from '../requirement-status-badge';
 
 type Props = {
     open: boolean;
@@ -70,6 +72,8 @@ export function RepeatRequirementDialog({
         return null;
     }
 
+    const repeatGroups = resolveRequirementRepeatFieldGroups();
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post(RequirementRepeatController.url(requirement.id), {
@@ -99,47 +103,75 @@ export function RepeatRequirementDialog({
                             </div>
                             <div>
                                 <DialogTitle className="text-lg font-bold">
-                                    Repeat Requirement
+                                    Repeat requirement
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-muted-foreground">
-                                    Clone positions and client details from{' '}
-                                    {requirement.requirement_number} into a new
-                                    requisition.
+                                    Create a separate draft from{' '}
+                                    {requirement.requirement_number}. History
+                                    and approvals stay on the original.
                                 </DialogDescription>
                             </div>
                         </div>
                     </DialogHeader>
 
                     <div className="my-5 space-y-4">
-                        <div className="space-y-1 rounded-lg border border-border/70 bg-muted/30 p-3 text-xs">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">
-                                    Client:
-                                </span>
-                                <span className="font-semibold text-foreground">
-                                    {requirement.client_name}
-                                </span>
-                            </div>
-                            {requirement.project_title && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                        Project:
-                                    </span>
-                                    <span className="font-semibold text-foreground">
-                                        {requirement.project_title}
-                                    </span>
+                        <div className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-3 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p className="font-semibold text-foreground">
+                                        Copying {requirement.requirement_number}
+                                    </p>
+                                    <p className="text-muted-foreground">
+                                        {requirement.client_name}
+                                        {requirement.project_title
+                                            ? ` · ${requirement.project_title}`
+                                            : ''}
+                                    </p>
                                 </div>
-                            )}
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">
-                                    Positions:
-                                </span>
-                                <span className="font-semibold text-foreground">
-                                    {requirement.positions_count} position
-                                    line(s) ({requirement.total_headcount}{' '}
-                                    headcount)
-                                </span>
+                                <RequirementStatusBadge
+                                    status={requirement.status}
+                                    label={requirement.status_label}
+                                />
                             </div>
+                            <p className="text-muted-foreground">
+                                Positions: {requirement.positions_count} ·
+                                Headcount: {requirement.total_headcount}
+                            </p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="rounded-md border border-border/60 bg-card/60 p-2.5">
+                                    <p className="font-semibold text-foreground">
+                                        {repeatGroups.copied.title}
+                                    </p>
+                                    <p className="mt-1 text-muted-foreground">
+                                        {repeatGroups.copied.description}
+                                    </p>
+                                    <ul className="mt-2 list-disc space-y-1 pl-4 text-foreground/90">
+                                        {repeatGroups.copied.fields.map(
+                                            (field) => (
+                                                <li key={field}>{field}</li>
+                                            ),
+                                        )}
+                                    </ul>
+                                </div>
+                                <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2.5">
+                                    <p className="font-semibold text-foreground">
+                                        {repeatGroups.review.title}
+                                    </p>
+                                    <p className="mt-1 text-muted-foreground">
+                                        {repeatGroups.review.description}
+                                    </p>
+                                    <ul className="mt-2 list-disc space-y-1 pl-4 text-foreground/90">
+                                        {repeatGroups.review.fields.map(
+                                            (field) => (
+                                                <li key={field}>{field}</li>
+                                            ),
+                                        )}
+                                    </ul>
+                                </div>
+                            </div>
+                            <p className="text-muted-foreground">
+                                {repeatGroups.note}
+                            </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">

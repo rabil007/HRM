@@ -1,18 +1,15 @@
 import {
-    AlertTriangle,
     Ban,
     CheckCircle2,
     Clock,
     Copy,
     Edit3,
-    Flame,
     MoreHorizontal,
     PauseCircle,
     PlayCircle,
     RotateCcw,
     Users,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -24,6 +21,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { RequirementDetail } from '@/types/recruitment';
+import {
+    RequirementDeadlineBadge,
+    RequirementPriorityBadge,
+    RequirementStatusBadge,
+} from '../requirement-status-badge';
 
 type Props = {
     requirement: RequirementDetail;
@@ -52,9 +54,6 @@ export function RequirementOverviewCard({
     onReopen,
     onRepeat,
 }: Props) {
-    const isTargetReached = requirement.progress.is_target_reached;
-
-    // Determine the single primary action
     const primaryAction = (() => {
         if (requirement.can_open) {
             return (
@@ -64,7 +63,7 @@ export function RequirementOverviewCard({
                     className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
                 >
                     <PlayCircle className="h-4 w-4" aria-hidden="true" />
-                    Open Requirement
+                    Open requirement
                 </Button>
             );
         }
@@ -77,7 +76,7 @@ export function RequirementOverviewCard({
                     className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
                 >
                     <PlayCircle className="h-4 w-4" aria-hidden="true" />
-                    Resume Requirement
+                    Resume requirement
                 </Button>
             );
         }
@@ -90,16 +89,14 @@ export function RequirementOverviewCard({
                     className="w-full gap-1.5 bg-sky-600 text-white hover:bg-sky-700 sm:w-auto"
                 >
                     <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    Mark as Filled
+                    Mark as filled
                 </Button>
             );
         }
 
-        // For completed/cancelled: informational (no primary destructive action)
         return null;
     })();
 
-    // Secondary actions in overflow menu
     const hasSecondaryActions =
         requirement.can_edit ||
         requirement.can_extend ||
@@ -110,126 +107,55 @@ export function RequirementOverviewCard({
         requirement.can_cancel;
 
     return (
-        <Card className="overflow-hidden glass-card border-border/70">
+        <Card className="overflow-hidden border-border/70 shadow-xs">
             <CardContent className="space-y-4 p-5">
-                {/* Status badges row */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                        variant="outline"
-                        className={cn(
-                            'px-2.5 py-1 text-xs font-semibold',
-                            requirement.status === 'open' &&
-                                'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
-                            requirement.status === 'draft' &&
-                                'border-zinc-500/30 bg-zinc-500/10 text-zinc-400',
-                            requirement.status === 'on_hold' &&
-                                'border-amber-500/30 bg-amber-500/10 text-amber-500',
-                            requirement.status === 'completed' &&
-                                'border-sky-500/30 bg-sky-500/10 text-sky-500',
-                            requirement.status === 'cancelled' &&
-                                'border-rose-500/30 bg-rose-500/10 text-rose-500',
-                        )}
-                    >
-                        {requirement.status_label}
-                    </Badge>
-
-                    {requirement.priority === 'urgent' && (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 border-rose-500/30 bg-rose-500/10 font-bold text-rose-500"
-                        >
-                            <Flame
-                                className="h-3 w-3 fill-rose-500"
-                                aria-hidden="true"
-                            />
-                            Urgent
-                        </Badge>
-                    )}
-
-                    {requirement.deadline_health && (
-                        <Badge
-                            variant="outline"
-                            className={cn(
-                                'gap-1 text-xs font-medium',
-                                requirement.deadline_health === 'overdue' &&
-                                    'border-rose-500/30 bg-rose-500/10 text-rose-500',
-                                requirement.deadline_health === 'due_soon' &&
-                                    'border-amber-500/30 bg-amber-500/10 text-amber-500',
-                                requirement.deadline_health === 'on_track' &&
-                                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
-                            )}
-                        >
-                            {requirement.deadline_health === 'overdue' && (
-                                <AlertTriangle
-                                    className="h-3 w-3"
-                                    aria-hidden="true"
-                                />
-                            )}
-                            {requirement.deadline_health === 'due_soon' && (
-                                <Clock className="h-3 w-3" aria-hidden="true" />
-                            )}
-                            {requirement.days_label}
-                        </Badge>
-                    )}
-
-                    {isTargetReached && requirement.status === 'open' && (
-                        <Badge className="bg-emerald-500 font-semibold text-white">
-                            Target Reached
-                        </Badge>
-                    )}
+                    <RequirementStatusBadge
+                        status={requirement.status}
+                        label={requirement.status_label}
+                    />
+                    <RequirementPriorityBadge priority={requirement.priority} />
+                    <RequirementDeadlineBadge
+                        health={requirement.deadline_health}
+                        label={requirement.days_label}
+                    />
                 </div>
 
-                {/* Headcount progress */}
-                <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                            <Users className="h-3.5 w-3.5" aria-hidden="true" />
-                            Total Headcount Required:{' '}
-                            <strong className="text-foreground">
-                                {requirement.progress.target}
-                            </strong>
-                        </span>
-                        <span className="font-semibold text-foreground tabular-nums">
-                            {requirement.progress.filled} /{' '}
-                            {requirement.progress.target} (
-                            {requirement.progress.percentage}%)
-                        </span>
+                <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                    <div>
+                        <p className="text-xs text-muted-foreground">
+                            Staffing target
+                        </p>
+                        <p className="mt-1 text-xl font-semibold tabular-nums">
+                            {requirement.total_headcount}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {requirement.positions_count}{' '}
+                            {requirement.positions_count === 1
+                                ? 'role'
+                                : 'roles'}
+                        </p>
                     </div>
-                    <div
-                        className="h-2 w-full overflow-hidden rounded-full bg-muted/60"
-                        role="progressbar"
-                        aria-valuenow={requirement.progress.percentage}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-label={`${requirement.progress.percentage}% headcount filled`}
-                    >
-                        <div
-                            className={cn(
-                                'h-full transition-all duration-500',
-                                requirement.progress.percentage >= 100
-                                    ? 'bg-emerald-500'
-                                    : 'bg-primary',
-                            )}
-                            style={{
-                                width: `${Math.min(100, requirement.progress.percentage)}%`,
-                            }}
-                        />
-                    </div>
-                </div>
-
-                {/* Required by date */}
-                {requirement.required_by_date_formatted && (
-                    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs">
-                        <span className="text-muted-foreground">
+                    <div>
+                        <p className="text-xs text-muted-foreground">
                             Required by
-                        </span>
-                        <span className="font-semibold text-foreground">
-                            {requirement.required_by_date_formatted}
-                        </span>
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">
+                            {requirement.required_by_date_formatted ||
+                                'No deadline'}
+                        </p>
+                        {requirement.assigned_recruiter_name ? (
+                            <p className="truncate text-xs text-muted-foreground">
+                                Owner: {requirement.assigned_recruiter_name}
+                            </p>
+                        ) : (
+                            <p className="text-xs text-muted-foreground">
+                                Owner: Unassigned
+                            </p>
+                        )}
                     </div>
-                )}
+                </div>
 
-                {/* Action row: primary + overflow menu */}
                 {(primaryAction || hasSecondaryActions) && (
                     <div className="flex items-center gap-2 pt-1">
                         {primaryAction}
@@ -267,7 +193,7 @@ export function RequirementOverviewCard({
                                                 className="h-4 w-4 text-muted-foreground"
                                                 aria-hidden="true"
                                             />
-                                            <span>Edit Requisition</span>
+                                            <span>Edit requirement</span>
                                         </DropdownMenuItem>
                                     )}
 
@@ -280,7 +206,7 @@ export function RequirementOverviewCard({
                                                 className="h-4 w-4 text-muted-foreground"
                                                 aria-hidden="true"
                                             />
-                                            <span>Extend Deadline</span>
+                                            <span>Extend deadline</span>
                                         </DropdownMenuItem>
                                     )}
 
@@ -293,7 +219,7 @@ export function RequirementOverviewCard({
                                                 className="h-4 w-4 text-muted-foreground"
                                                 aria-hidden="true"
                                             />
-                                            <span>Revise Headcount</span>
+                                            <span>Revise headcount</span>
                                         </DropdownMenuItem>
                                     )}
 
@@ -306,7 +232,7 @@ export function RequirementOverviewCard({
                                                 className="h-4 w-4 text-amber-500"
                                                 aria-hidden="true"
                                             />
-                                            <span>Put On Hold</span>
+                                            <span>Put on hold</span>
                                         </DropdownMenuItem>
                                     )}
 
@@ -319,7 +245,7 @@ export function RequirementOverviewCard({
                                                 className="h-4 w-4 text-primary"
                                                 aria-hidden="true"
                                             />
-                                            <span>Reopen Requirement</span>
+                                            <span>Reopen requirement</span>
                                         </DropdownMenuItem>
                                     )}
 
@@ -332,7 +258,7 @@ export function RequirementOverviewCard({
                                                 className="h-4 w-4 text-primary"
                                                 aria-hidden="true"
                                             />
-                                            <span>Repeat Requirement</span>
+                                            <span>Repeat requirement</span>
                                         </DropdownMenuItem>
                                     )}
 
@@ -347,7 +273,7 @@ export function RequirementOverviewCard({
                                                     className="h-4 w-4"
                                                     aria-hidden="true"
                                                 />
-                                                <span>Cancel Requirement</span>
+                                                <span>Cancel requirement</span>
                                             </DropdownMenuItem>
                                         </>
                                     )}
