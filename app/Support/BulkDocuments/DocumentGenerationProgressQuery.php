@@ -80,5 +80,4 @@ final class DocumentGenerationProgressQuery
 
         return $this->presenter->fromBuiltInRun($run);
     }
-
 }
