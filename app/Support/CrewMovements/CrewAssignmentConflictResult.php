@@ -105,8 +105,8 @@ final class CrewAssignmentConflictResult
                 'status_label' => $existing['status_label'] ?? ucfirst($existing['status'] ?? ''),
                 'vessel_id' => $existing['vessel_id'] ?? null,
                 'vessel_name' => $existing['vessel_name'] ?? null,
-                'position_id' => $existing['position_id'] ?? $existing['rank_id'] ?? null,
-                'position_name' => $existing['position_name'] ?? $existing['rank_name'] ?? null,
+                'position_id' => $existing['position_id'] ?? null,
+                'position_name' => $existing['position_name'] ?? null,
                 'planned_join_at' => $existing['start_date'] ?? $existing['planned_join_at'] ?? null,
                 'planned_signoff_at' => $existing['end_date'] ?? $existing['planned_signoff_at'] ?? null,
                 'current_phase_code' => $existing['current_phase_code'] ?? null,
@@ -119,8 +119,8 @@ final class CrewAssignmentConflictResult
             $new = [
                 'vessel_id' => $new['vessel_id'] ?? null,
                 'vessel_name' => $new['vessel_name'] ?? null,
-                'position_id' => $new['position_id'] ?? $new['rank_id'] ?? null,
-                'position_name' => $new['position_name'] ?? $new['rank_name'] ?? null,
+                'position_id' => $new['position_id'] ?? null,
+                'position_name' => $new['position_name'] ?? null,
                 'planned_join_at' => array_key_exists('planned_join_at', $new)
                     ? $new['planned_join_at']
                     : ($new['start_date'] ?? null),

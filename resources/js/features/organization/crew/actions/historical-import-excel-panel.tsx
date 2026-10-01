@@ -797,7 +797,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                 <TableHead className="w-14">Row</TableHead>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Vessel</TableHead>
-                                <TableHead>Rank</TableHead>
+                                <TableHead>Position</TableHead>
                                 <TableHead>Assignment</TableHead>
                                 <TableHead className="w-36">Status</TableHead>
                             </TableRow>
@@ -826,7 +826,9 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                         <TableCell>
                                             {row.vessel ?? '—'}
                                         </TableCell>
-                                        <TableCell>{row.rank ?? '—'}</TableCell>
+                                        <TableCell>
+                                            {row.position ?? '—'}
+                                        </TableCell>
                                         <TableCell>
                                             {row.assignment_no ?? '—'}
                                         </TableCell>
@@ -980,7 +982,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                 <TableHead className="w-14">Row</TableHead>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Vessel</TableHead>
-                                <TableHead>Rank</TableHead>
+                                <TableHead>Position</TableHead>
                                 <TableHead>Last Movement</TableHead>
                                 <TableHead>Inferred State</TableHead>
                                 <TableHead className="w-24">Status</TableHead>
@@ -1019,7 +1021,7 @@ export function HistoricalImportExcelPanel(): ReactElement {
                                                 {row.vessel.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
-                                                {row.rank.name ?? '—'}
+                                                {row.position.name ?? '—'}
                                             </TableCell>
                                             <TableCell>
                                                 {row.last_movement?.display ??

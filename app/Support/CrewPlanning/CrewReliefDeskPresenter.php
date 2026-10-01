@@ -79,7 +79,7 @@ final class CrewReliefDeskPresenter
                     ? route('organization.vessels.show', $vessel)
                     : null,
             ] : null,
-            'rank' => $position !== null ? [
+            'position' => $position !== null ? [
                 'id' => (int) $position->id,
                 'name' => (string) $position->title,
             ] : null,

@@ -42,8 +42,6 @@ export type CrewOperationsManningReliefRisk = {
     vessel_name: string;
     position_id?: number | null;
     position_name?: string;
-    rank_id?: number | null;
-    rank_name?: string;
     when: string;
     href: string | null;
     employee_name?: string | null;

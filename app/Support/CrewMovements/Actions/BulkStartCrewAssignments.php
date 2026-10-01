@@ -28,7 +28,7 @@ final class BulkStartCrewAssignments
      *     vessel_id?: int|null,
      *     planned_join_at?: string|null,
      *     remarks?: string|null,
-     *     crew: list<array{employee_id: int, position_id?: int|null, rank_id?: int|null, planned_arrival_at?: string|null}>
+     *     crew: list<array{employee_id: int, position_id?: int|null, planned_arrival_at?: string|null}>
      * }  $payload
      * @return list<CrewAssignment>
      */
@@ -79,8 +79,8 @@ final class BulkStartCrewAssignments
     }
 
     /**
-     * @param  list<array{employee_id: int, position_id?: int|null, rank_id?: int|null, planned_arrival_at?: string|null}>  $crew
-     * @return list<array{index: int, employee_id: int, position_id: int|null, rank_id: int|null, planned_arrival_at: string|null}>
+     * @param  list<array{employee_id: int, position_id?: int|null, planned_arrival_at?: string|null}>  $crew
+     * @return list<array{index: int, employee_id: int, position_id: int|null, planned_arrival_at: string|null}>
      */
     private function rowsInLockOrder(array $crew): array
     {
@@ -92,9 +92,7 @@ final class BulkStartCrewAssignments
                 'employee_id' => (int) $row['employee_id'],
                 'position_id' => isset($row['position_id']) && $row['position_id'] !== null
                     ? (int) $row['position_id']
-                    : (isset($row['rank_id']) && $row['rank_id'] !== null
-                        ? (int) $row['rank_id']
-                        : null),
+                    : null,
                 'planned_arrival_at' => isset($row['planned_arrival_at']) && $row['planned_arrival_at'] !== ''
                     ? (string) $row['planned_arrival_at']
                     : null,
@@ -111,7 +109,7 @@ final class BulkStartCrewAssignments
     }
 
     /**
-     * @param  list<array{employee_id: int, rank_id?: int|null}>  $crew
+     * @param  list<array{employee_id: int, position_id?: int|null}>  $crew
      * @return array<int, string>
      */
     private function employeeNames(int $companyId, array $crew): array

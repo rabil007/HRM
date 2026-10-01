@@ -68,7 +68,7 @@ test('authorized user with create_historical permission can preview historical a
     $response->assertOk()
         ->assertJsonPath('employee.id', $employee->id)
         ->assertJsonPath('vessel.id', $vessel->id)
-        ->assertJsonPath('rank.id', $rank->id)
+        ->assertJsonPath('position.id', $rank->id)
         ->assertJsonPath('sea_service.days', 188)
         ->assertJsonPath('sea_service.status', 'will_create')
         ->assertJsonPath('checks.0.passed', true);
@@ -569,7 +569,7 @@ test('preview response matches the canonical contract exactly', function () {
         'valid',
         'employee',
         'vessel',
-        'rank',
+        'position',
         'client',
         'summary',
         'timeline',
@@ -580,7 +580,7 @@ test('preview response matches the canonical contract exactly', function () {
 
     expect($data['employee'])->toHaveKeys(['id', 'name', 'employee_no']);
     expect($data['vessel'])->toHaveKeys(['id', 'name']);
-    expect($data['rank'])->toHaveKeys(['id', 'name']);
+    expect($data['position'])->toHaveKeys(['id', 'name']);
     expect($data['summary'])->toMatchArray([
         'onsite_from' => '15 Jan 2024',
         'onsite_to' => '20 Jul 2024',

@@ -455,10 +455,6 @@ final class HistoricalCrewAssignmentValidator
                 'id' => (int) $position->id,
                 'name' => (string) $position->title,
             ] : ['id' => $data->positionId, 'name' => 'Unknown'],
-            rank: $position !== null ? [
-                'id' => (int) $position->id,
-                'name' => (string) $position->title,
-            ] : ($data->positionId > 0 ? ['id' => $data->positionId, 'name' => 'Unknown'] : null),
             client: $client !== null ? [
                 'id' => (int) $client->id,
                 'name' => (string) $client->name,

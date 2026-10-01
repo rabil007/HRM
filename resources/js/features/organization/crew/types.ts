@@ -472,11 +472,6 @@ export interface CurrentCrewHomeRow {
         id: number;
         name: string;
     } | null;
-    /** Temporary: home list may still send rank until presenter migrates. */
-    rank?: {
-        id: number;
-        name: string;
-    } | null;
     last_vessel: {
         id: number;
         name: string;
@@ -787,7 +782,7 @@ export interface HistoricalCrewAssignmentPreviewData {
         id: number;
         name: string;
     };
-    rank: {
+    position: {
         id: number;
         name: string;
     };
@@ -894,7 +889,7 @@ export interface HistoricalImportPreviewRow {
         id: number | null;
         name: string | null;
     };
-    rank: {
+    position: {
         id: number | null;
         name: string | null;
     };
@@ -972,7 +967,7 @@ export interface HistoricalImportBatchRow {
     employee_no: string | null;
     employee_name: string | null;
     vessel: string | null;
-    rank: string | null;
+    position: string | null;
     status: string;
     status_label: string;
     assignment_no: string | null;

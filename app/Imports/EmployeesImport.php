@@ -206,11 +206,6 @@ class EmployeesImport
     /**
      * @var array<string, int>|null
      */
-    private ?array $rankMap = null;
-
-    /**
-     * @var array<string, int>|null
-     */
     private ?array $visaTypeMap = null;
 
     public function __construct(public int $companyId, public int $actorId) {}
@@ -615,7 +610,6 @@ class EmployeesImport
                         'gender_id' => $resolved['gender_id'] ?? null,
                         'religion_id' => $resolved['religion_id'] ?? null,
                         'nationality_id' => $resolved['nationality_id'] ?? null,
-                        'position_id' => $resolved['position_id'] ?? $resolved['rank_id'] ?? null,
                         'visa_type_id' => $resolved['visa_type_id'] ?? null,
                         'company_visa_type_id' => $resolved['company_visa_type_id'] ?? null,
                         'status' => $row['status'] ?: 'active',
@@ -865,12 +859,13 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap, 'client' => $this->clientMap, 'rank' => $this->rankMap, 'visa_type' => $this->visaTypeMap, 'sponsor' => $this->companyVisaTypeMap] as $key => $map) {
+        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap, 'client' => $this->clientMap, 'rank' => $this->positionMap, 'visa_type' => $this->visaTypeMap, 'sponsor' => $this->companyVisaTypeMap] as $key => $map) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
 
                 if (! isset($map[$name])) {
-                    $unresolved[$key] = sprintf('"%s" not found in %s.', $row[$key], $key);
+                    $label = $key === 'rank' ? 'positions' : $key;
+                    $unresolved[$key] = sprintf('"%s" not found in %s.', $row[$key], $label);
                 }
             }
         }
@@ -932,7 +927,6 @@ class EmployeesImport
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
-            'position_id' => null,
             'visa_type_id' => null,
             'company_visa_type_id' => null,
         ];
@@ -954,7 +948,7 @@ class EmployeesImport
                     'nationality' => $this->countryMap,
                     'project' => $this->projectMap,
                     'client' => $this->clientMap,
-                    'rank' => $this->rankMap,
+                    'rank' => $this->positionMap,
                     'visa_type' => $this->visaTypeMap,
                     'sponsor' => $this->companyVisaTypeMap,
                     default => [],
@@ -962,8 +956,6 @@ class EmployeesImport
                 $resolved[$field] = $map[$name] ?? null;
             }
         }
-
-        unset($resolved['rank_id']);
 
         return $resolved;
     }
@@ -1030,9 +1022,6 @@ class EmployeesImport
             ->pluck('id', 'name')
             ->mapWithKeys(fn ($id, $name) => [self::normalize((string) $name) => (int) $id])
             ->all();
-
-        // Rank catalog removed — legacy Rank import column is ignored.
-        $this->rankMap = [];
 
         $this->visaTypeMap = VisaType::query()
             ->where('is_active', true)

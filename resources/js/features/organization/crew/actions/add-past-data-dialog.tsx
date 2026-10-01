@@ -489,7 +489,7 @@ export function AddPastDataDialog({
                                                 {employeeCurrentRankName ? (
                                                     <p className="text-xs text-muted-foreground">
                                                         Employee&apos;s current
-                                                        rank:{' '}
+                                                        position:{' '}
                                                         {
                                                             employeeCurrentRankName
                                                         }{' '}
@@ -685,10 +685,10 @@ export function AddPastDataDialog({
                                         </div>
                                         <div>
                                             <span className="block text-xs text-muted-foreground">
-                                                Rank
+                                                Position
                                             </span>
                                             <span className="font-semibold text-foreground">
-                                                {previewData.rank.name}
+                                                {previewData.position.name}
                                             </span>
                                         </div>
                                         <div>

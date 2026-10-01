@@ -45,7 +45,7 @@ export function CrewHomeTableRow({ row }: { row: CurrentCrewHomeRow }) {
             </TableCell>
 
             <TableCell className={cn(dataTableCellClass(), 'min-w-[140px]')}>
-                {row.position?.name ?? row.rank?.name ?? '—'}
+                {row.position?.name ?? '—'}
             </TableCell>
 
             <TableCell className={cn(dataTableCellClass(), 'min-w-[160px]')}>

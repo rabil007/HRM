@@ -39,7 +39,7 @@ export function CrewHomeMobileCard({ row }: { row: CurrentCrewHomeRow }) {
                     <div>
                         <p className="text-muted-foreground">Position</p>
                         <p className="font-medium">
-                            {row.position?.name ?? row.rank?.name ?? '—'}
+                            {row.position?.name ?? '—'}
                         </p>
                     </div>
                     <div>

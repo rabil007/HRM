@@ -117,12 +117,15 @@ Position is the **only** occupational/job-role catalog. Rank has been retired.
 
 ### Delivered
 
+- Automatic Rank→Position mapping + operational backfill migration (`2026_09_30_200000_…`) so an existing Rank-backed production DB can migrate through this single PR without a previously deployed prepare command
+- Permanent helper: `App\Support\MasterData\Migrations\BackfillRankToPositionBeforeRemoval`
+- Hardened readiness (soft-deleted rows, Rank/Position conflicts, cross-company Positions, deleted/missing Positions, saved-view conflicts)
 - `CrewProjectedManningQuery` is Position-native
-- Saved-view `rank_id` filters migrated to `position_id` (migration A)
-- Destructive guarded schema removal (migration B): drops `document_requirement_rank`, all live `rank_id` FKs/columns, `rank_position_mappings`, `ranks`, and Rank master-data permissions
+- Saved-view `rank_id` filters migrated to `position_id` (migration `210000`, after backfill)
+- Destructive guarded schema removal (migration `220000`): drops `document_requirement_rank`, all live `rank_id` FKs/columns, `rank_position_mappings`, `ranks`, and Rank master-data permissions
 - Rank master-data UI/routes/controllers removed
 - Readiness command: `php artisan master-data:rank-removal-readiness` (read-only; non-zero when unsafe)
-- Production runbook: `docs/runbooks/rank-removal-phase-3b.md`
+- Staged production runbook: `docs/runbooks/rank-removal-phase-3b.md`
 
 ### Destructive migration policy
 

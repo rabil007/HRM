@@ -432,8 +432,7 @@ final class HistoricalCrewImportPreviewService
             'vessel_id' => $vessel?->id,
             'vessel_name' => $vessel?->name ?? $vesselName,
             'position_id' => $rank?->id,
-            'rank_id' => $rank?->id,
-            'rank_name' => $rank?->title ?? $rankName,
+            'position_name' => $rank?->title ?? $rankName,
             'client_id' => $client?->id,
             'client_name' => $client?->name ?? $clientName,
             'joined_vessel_at' => $parsedRow->onsiteFrom(),
@@ -637,9 +636,9 @@ final class HistoricalCrewImportPreviewService
                 'id' => $row['vessel_id'],
                 'name' => $row['vessel_name'],
             ],
-            'rank' => [
-                'id' => $row['rank_id'],
-                'name' => $row['rank_name'],
+            'position' => [
+                'id' => $row['position_id'],
+                'name' => $row['position_name'],
             ],
             'client' => $row['client_id'] !== null || $row['client_name'] !== null
                 ? [

@@ -85,7 +85,7 @@ function resolveSeaServiceRowPositionId(row: SeaServiceItem): number | null {
 }
 
 function resolveSeaServiceRowPositionName(row: SeaServiceItem): string | null {
-    return row.position_name ?? row.rank_name ?? null;
+    return row.position_name ?? null;
 }
 
 function showSeaServicePositionField(

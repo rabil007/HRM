@@ -43,21 +43,23 @@ return new class extends Migration
 
         $this->assertNoOrphanRankColumns();
 
-        if (Schema::hasTable('document_requirement_rank')) {
-            Schema::drop('document_requirement_rank');
-        }
+        Schema::withoutForeignKeyConstraints(function (): void {
+            if (Schema::hasTable('document_requirement_rank')) {
+                Schema::drop('document_requirement_rank');
+            }
 
-        foreach ($this->rankIdTables as $table) {
-            $this->dropRankIdFromTable($table);
-        }
+            foreach ($this->rankIdTables as $table) {
+                $this->dropRankIdFromTable($table);
+            }
 
-        if (Schema::hasTable('rank_position_mappings')) {
-            Schema::drop('rank_position_mappings');
-        }
+            if (Schema::hasTable('rank_position_mappings')) {
+                Schema::drop('rank_position_mappings');
+            }
 
-        if (Schema::hasTable('ranks')) {
-            Schema::drop('ranks');
-        }
+            if (Schema::hasTable('ranks')) {
+                Schema::drop('ranks');
+            }
+        });
 
         $this->removeRankPermissions();
     }
@@ -82,13 +84,10 @@ return new class extends Migration
                 );
             }
 
+            // Include soft-deleted historical rows — SoftDeletes must not hide orphans.
             $orphanCount = DB::table($table)
                 ->whereNotNull('rank_id')
                 ->whereNull('position_id')
-                ->when(
-                    Schema::hasColumn($table, 'deleted_at'),
-                    fn ($q) => $q->whereNull('deleted_at'),
-                )
                 ->count();
 
             if ($orphanCount > 0) {

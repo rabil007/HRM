@@ -142,3 +142,104 @@ test('saved view rank filter migration fails when mapping is missing', function 
     expect(fn () => (new MigrateSavedViewRankFilters)->apply())
         ->toThrow(RuntimeException::class, 'no tenant Rank→Position mapping');
 });
+
+test('saved view with matching rank and position filters drops rank_id after validation', function () {
+    restoreTemporaryRankMappingSchema();
+
+    $user = User::factory()->create();
+    $company = makeSavedViewMigrationCompany();
+
+    $rankId = DB::table('ranks')->insertGetId([
+        'name' => 'Matched Rank',
+        'is_active' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Matched Position',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+
+    DB::table('rank_position_mappings')->insert([
+        'company_id' => $company->id,
+        'rank_id' => $rankId,
+        'position_id' => $position->id,
+        'match_type' => 'exact',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $view = SavedView::query()->create([
+        'company_id' => $company->id,
+        'user_id' => $user->id,
+        'page_key' => SavedViewPage::Crew,
+        'name' => 'Already Dual Filter',
+        'filters' => [
+            'rank_id' => $rankId,
+            'position_id' => $position->id,
+        ],
+        'is_default' => false,
+    ]);
+
+    (new MigrateSavedViewRankFilters)->apply();
+
+    $view->refresh();
+
+    expect($view->filters)->toMatchArray(['position_id' => $position->id])
+        ->and($view->filters)->not->toHaveKey('rank_id');
+});
+
+test('saved view rank filter migration fails on conflicting position_id', function () {
+    restoreTemporaryRankMappingSchema();
+
+    $user = User::factory()->create();
+    $company = makeSavedViewMigrationCompany();
+
+    $rankId = DB::table('ranks')->insertGetId([
+        'name' => 'Conflict Rank',
+        'is_active' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $mapped = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Mapped Position',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+
+    $other = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Other Position',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+
+    DB::table('rank_position_mappings')->insert([
+        'company_id' => $company->id,
+        'rank_id' => $rankId,
+        'position_id' => $mapped->id,
+        'match_type' => 'exact',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $view = SavedView::query()->create([
+        'company_id' => $company->id,
+        'user_id' => $user->id,
+        'page_key' => SavedViewPage::Employees,
+        'name' => 'Conflict Filter',
+        'filters' => [
+            'rank_id' => $rankId,
+            'position_id' => $other->id,
+        ],
+        'is_default' => false,
+    ]);
+
+    expect(fn () => (new MigrateSavedViewRankFilters)->apply())
+        ->toThrow(RuntimeException::class, "Saved view #{$view->id}");
+});
