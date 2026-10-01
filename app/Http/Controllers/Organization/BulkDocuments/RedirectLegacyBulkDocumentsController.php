@@ -23,6 +23,8 @@ class RedirectLegacyBulkDocumentsController extends Controller
                 'position_id' => $request->query('position_id'),
                 'company_visa_type_id' => $request->query('company_visa_type_id'),
                 'email_filter' => $request->query('email_filter'),
+                'process_filter' => $request->query('process_filter'),
+                'generation_filter' => $request->query('generation_filter'),
                 'per_page' => $request->query('per_page'),
                 'page' => $request->query('page'),
             ], static fn ($value): bool => $value !== null && $value !== '');
