@@ -32,6 +32,7 @@ use Database\Seeders\EmailTemplatesSeeder;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
@@ -604,7 +605,7 @@ test('company template activity uses custom generation runs without built-in reg
         'generated_count' => 1,
         'skipped_count' => 0,
         'failed_count' => 0,
-        'correlation_id' => (string) \Illuminate\Support\Str::uuid(),
+        'correlation_id' => (string) Str::uuid(),
         'triggered_by' => $user->id,
     ]);
 
