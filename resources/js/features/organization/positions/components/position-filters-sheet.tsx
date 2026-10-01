@@ -2,7 +2,6 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { DepartmentOption } from '../types';
 
 export type PositionFilters = {
     department_id: string;
@@ -13,63 +12,36 @@ export type PositionFilters = {
 export function PositionFiltersSheet({
     open,
     onOpenChange,
-    departments,
     value,
     onChange,
     onReset,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    departments: DepartmentOption[];
     value: PositionFilters;
     onChange: (next: PositionFilters) => void;
     onReset: () => void;
 }) {
-    const availableDepartments = departments ?? [];
-
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                        Status
-                    </Label>
-                    <AppSelect
-                        value={value.status}
-                        onValueChange={(v) =>
-                            onChange({
-                                ...value,
-                                status: v as PositionFilters['status'],
-                            })
-                        }
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="active">Active</AppSelectItem>
-                        <AppSelectItem value="inactive">Inactive</AppSelectItem>
-                    </AppSelect>
-                </div>
-            </div>
-
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                    Department
+                    Status
                 </Label>
                 <AppSelect
-                    value={value.department_id}
+                    value={value.status}
                     onValueChange={(v) =>
-                        onChange({ ...value, department_id: v })
+                        onChange({
+                            ...value,
+                            status: v as PositionFilters['status'],
+                        })
                     }
                     variant="dark"
-                    placeholder="All"
+                    placeholder="All statuses"
                 >
-                    <AppSelectItem value="">All</AppSelectItem>
-                    {availableDepartments.map((d) => (
-                        <AppSelectItem key={d.id} value={String(d.id)}>
-                            {d.name}
-                        </AppSelectItem>
-                    ))}
+                    <AppSelectItem value="">All statuses</AppSelectItem>
+                    <AppSelectItem value="active">Active</AppSelectItem>
+                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
                 </AppSelect>
             </div>
 
@@ -82,13 +54,16 @@ export function PositionFiltersSheet({
                 </Label>
                 <Input
                     id="filter-grade"
-                    placeholder="e.g. G5"
+                    placeholder="e.g. G5 / A"
                     className="h-11 rounded-xl border-white/10 bg-white/5 transition-all focus-visible:ring-primary/40"
                     value={value.grade}
                     onChange={(e) =>
                         onChange({ ...value, grade: e.target.value })
                     }
                 />
+                <p className="text-xs text-muted-foreground/80">
+                    Matches grades that contain this text.
+                </p>
             </div>
         </FiltersSheet>
     );

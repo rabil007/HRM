@@ -17,6 +17,8 @@ use App\Support\MasterData\MasterDataUsage;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Positions\ImportPositionsFromCsv;
 use App\Support\Positions\PositionAttachmentStorage;
+use App\Support\Positions\PositionDepartmentTree;
+use App\Support\Positions\ResolvePositionDepartmentFilterIds;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -48,12 +50,20 @@ class PositionController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
+        $departmentFilterIds = ResolvePositionDepartmentFilterIds::includingDescendants(
+            $companyId,
+            $departmentId,
+        );
+
         $paginator = Position::query()
             ->with([
                 'department:id,name',
             ])
             ->where('company_id', $companyId)
-            ->when($departmentId, fn ($q) => $q->where('department_id', $departmentId))
+            ->when(
+                $departmentFilterIds !== [],
+                fn ($q) => $q->whereIn('department_id', $departmentFilterIds),
+            )
             ->when($status, fn ($q) => $q->where('status', $status))
             ->when($grade, fn ($q) => $q->where('grade', 'like', "%{$grade}%"))
             ->when($search, function ($q) use ($search) {
@@ -114,6 +124,8 @@ class PositionController extends Controller
                 'grade' => $grade,
             ],
             'departments' => $departments,
+            'department_tree' => PositionDepartmentTree::for($companyId),
+            'department_tree_selected_id' => $departmentId !== '' ? (int) $departmentId : null,
         ]);
     }
 
@@ -405,8 +417,13 @@ class PositionController extends Controller
             ->where('company_id', $companyId)
             ->latest('id');
 
-        if ($departmentId !== '') {
-            $query->where('department_id', $departmentId);
+        $departmentFilterIds = ResolvePositionDepartmentFilterIds::includingDescendants(
+            $companyId,
+            $departmentId,
+        );
+
+        if ($departmentFilterIds !== []) {
+            $query->whereIn('department_id', $departmentFilterIds);
         }
 
         if ($status !== '') {

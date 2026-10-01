@@ -32,7 +32,7 @@ export function PositionCard({
             <a
                 href={`/organization/positions/${position.id}`}
                 className="absolute inset-0"
-                aria-label="View position details"
+                aria-label={`View ${position.title}`}
             />
 
             <CardHeader className="pb-3">
@@ -42,18 +42,31 @@ export function PositionCard({
                             {position.title}
                         </CardTitle>
                         <CardDescription className="mt-2 text-sm font-medium text-muted-foreground/85">
-                            {position.company.name ?? '—'}
                             {position.department?.name
-                                ? ` • ${position.department.name}`
-                                : ''}
+                                ? position.department.name
+                                : 'No department'}
                         </CardDescription>
                         <div className="mt-3 flex flex-wrap gap-2">
+                            <Badge
+                                variant="secondary"
+                                className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                            >
+                                {position.is_crew_position ? 'Crew' : 'Shore'}
+                            </Badge>
                             {position.grade ? (
                                 <Badge
                                     variant="secondary"
                                     className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
                                 >
-                                    {position.grade}
+                                    Grade {position.grade}
+                                </Badge>
+                            ) : null}
+                            {position.max_tour_of_duty_days ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                                >
+                                    {position.max_tour_of_duty_days}d tour
                                 </Badge>
                             ) : null}
                             {position.min_salary || position.max_salary ? (
@@ -61,7 +74,7 @@ export function PositionCard({
                                     variant="secondary"
                                     className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
                                 >
-                                    {position.min_salary ?? '—'} -{' '}
+                                    {position.min_salary ?? '—'} –{' '}
                                     {position.max_salary ?? '—'}
                                 </Badge>
                             ) : null}
@@ -84,7 +97,7 @@ export function PositionCard({
                 <div className="grid gap-2 pb-12">
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 dark:border-white/6 dark:bg-white/4">
                         <div className="text-xs font-semibold text-muted-foreground/80">
-                            ID
+                            Position ID
                         </div>
                         <div className="text-sm font-bold tabular-nums">
                             #{String(position.id).padStart(4, '0')}

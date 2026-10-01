@@ -75,7 +75,21 @@ test('authenticated users can view positions page', function () {
 
     grantCompanyPermissions($user, $company, ['positions.view']);
 
-    $this->get('/organization/positions')->assertOk();
+    Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck',
+        'code' => 'DECK',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $this->get('/organization/positions')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/positions')
+            ->has('department_tree')
+            ->where('department_tree_selected_id', null)
+            ->where('department_tree.0.name', 'All'));
 });
 
 test('authenticated users can view a position details page', function () {
@@ -622,6 +636,67 @@ test('unused position can be deleted after rank consolidation mapping removal', 
         ->assertSessionHasNoErrors();
 
     $this->assertSoftDeleted('positions', ['id' => $unused->id]);
+});
+
+test('parent department filter includes child department positions', function () {
+    $user = User::factory()->create();
+    $company = createPositionTestCompany('Parent Filter Co', 'PFC');
+    grantCompanyPermissions($user, $company, ['positions.view']);
+
+    $parent = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $child = Department::query()->create([
+        'company_id' => $company->id,
+        'parent_id' => $parent->id,
+        'name' => 'Deck',
+        'code' => 'DECK',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $parentPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $parent->id,
+        'title' => 'Marine Manager',
+        'status' => 'active',
+    ]);
+
+    $childPosition = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $child->id,
+        'title' => 'Able Seaman',
+        'status' => 'active',
+    ]);
+
+    $other = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Unassigned Role',
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get('/organization/positions?department_id='.$parent->id)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/positions')
+            ->where('department_tree_selected_id', $parent->id)
+            ->has('positions', 2)
+            ->where('pagination.total', 2));
+
+    $positionIds = collect($response->original->getData()['page']['props']['positions'])
+        ->pluck('id')
+        ->all();
+
+    expect($positionIds)
+        ->toContain($parentPosition->id)
+        ->toContain($childPosition->id)
+        ->not->toContain($other->id);
 });
 
 test('users can download positions import template', function () {

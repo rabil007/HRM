@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus, Upload } from 'lucide-react';
+import { Briefcase, Plus, Upload } from 'lucide-react';
 import { useState } from 'react';
 import {
     OrganizationDataTable,
@@ -15,6 +15,7 @@ import { ExportMenu } from '@/components/export-menu';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -24,12 +25,15 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import { useHasPermission } from '@/hooks/use-has-permission';
 import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
+import { PositionActiveFilters } from './components/position-active-filters';
 import { PositionCard } from './components/position-card';
 import { PositionDeleteDialog } from './components/position-delete-dialog';
 import { PositionFiltersSheet } from './components/position-filters-sheet';
@@ -47,6 +51,8 @@ export function PositionsContent({
     departments,
     tree_departments = [],
     tree_positions = [],
+    department_tree = [],
+    department_tree_selected_id = null,
 }: {
     positions: Position[];
     pagination: PaginationMeta;
@@ -55,6 +61,8 @@ export function PositionsContent({
     departments: DepartmentOption[];
     tree_departments?: any[];
     tree_positions?: any[];
+    department_tree?: DepartmentTreeNode[];
+    department_tree_selected_id?: number | null;
 }) {
     const list = useServerPaginationFilters({
         url: '/organization/positions',
@@ -75,10 +83,21 @@ export function PositionsContent({
     };
 
     const activeFiltersCount = [
-        initialFilters.department_id,
         initialFilters.status,
         initialFilters.grade.trim(),
     ].filter(Boolean).length;
+
+    const selectedDepartment = departments.find(
+        (department) =>
+            String(department.id) === String(initialFilters.department_id),
+    );
+
+    const hasSearchOrFilters = Boolean(
+        initialSearch.trim() ||
+        initialFilters.department_id ||
+        initialFilters.status ||
+        initialFilters.grade.trim(),
+    );
 
     const form = useForm<PositionFormData>({
         department_id: '',
@@ -197,10 +216,29 @@ export function PositionsContent({
 
     const resetFilters = () => {
         handleFiltersChange({
-            department_id: '',
+            ...filters,
             status: '',
             grade: '',
         });
+    };
+
+    const setDepartmentFilter = (departmentId: string) => {
+        handleFiltersChange({
+            ...filters,
+            department_id: departmentId,
+        });
+    };
+
+    const clearAllListFilters = () => {
+        router.get(
+            '/organization/positions',
+            { per_page: pagination.per_page },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
+        );
     };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
@@ -215,7 +253,7 @@ export function PositionsContent({
     return (
         <OrganizationListPageShell
             title="Positions"
-            description="Manage job positions and grades."
+            description="Define job roles used for employees and crew manning. Filter by department here, then refine by status or grade."
             headerRight={
                 <>
                     <ExportMenu
@@ -245,19 +283,55 @@ export function PositionsContent({
                     ) : null}
                 </>
             }
+            aboveSearch={
+                <div className="mb-4 space-y-1">
+                    <p className="text-sm font-semibold text-foreground">
+                        {pagination.total} position
+                        {pagination.total === 1 ? '' : 's'}
+                        {selectedDepartment
+                            ? ` in ${selectedDepartment.name}`
+                            : ''}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {selectedDepartment
+                            ? 'Includes positions in this department and its sub-departments.'
+                            : hasSearchOrFilters
+                              ? 'Results match your current search and filters.'
+                              : 'Showing all positions for the active company.'}
+                    </p>
+                </div>
+            }
             search={{
                 placeholder:
-                    'Search positions by title, description, grade, or attachment...',
+                    'Search by title, description, grade, or attachment…',
                 value: list.searchInput,
                 onChange: list.onSearchChange,
-                right:
-                    crud.view && crud.setView ? (
-                        <ViewToggle
-                            value={crud.view}
-                            onChange={crud.setView}
-                            showTreeView={true}
-                        />
-                    ) : null,
+                right: (
+                    <>
+                        {department_tree.length > 0 ? (
+                            <DepartmentFilterControls
+                                department_tree={department_tree}
+                                department_tree_selected_id={
+                                    department_tree_selected_id
+                                }
+                                department_tree_selected_position_id={null}
+                                showPositions={false}
+                                onSelectDepartment={(id) =>
+                                    setDepartmentFilter(
+                                        id != null ? String(id) : '',
+                                    )
+                                }
+                            />
+                        ) : null}
+                        {crud.view && crud.setView ? (
+                            <ViewToggle
+                                value={crud.view}
+                                onChange={crud.setView}
+                                showTreeView={true}
+                            />
+                        ) : null}
+                    </>
+                ),
             }}
             filtersButton={{
                 onClick: () => crud.setIsFiltersOpen(true),
@@ -267,6 +341,16 @@ export function PositionsContent({
                 <Pagination {...list.paginationProps} label="positions" />
             }
         >
+            <PositionActiveFilters
+                filters={filters}
+                search={list.searchInput}
+                departmentName={selectedDepartment?.name ?? null}
+                onClearSearch={() => list.onSearchChange('')}
+                onChange={handleFiltersChange}
+                onClearAll={clearAllListFilters}
+                className="mb-6"
+            />
+
             {crud.view === 'tree' ? (
                 <PositionTreeView
                     departments={tree_departments}
@@ -285,17 +369,18 @@ export function PositionsContent({
                     ))}
                 </div>
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1180px]">
+                <OrganizationDataTable minWidth="min-w-[1280px]">
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="pl-5">
                                 Position
                             </DataTableHead>
                             <DataTableHead>Department</DataTableHead>
-                            <DataTableHead>Description</DataTableHead>
+                            <DataTableHead>Type</DataTableHead>
                             <DataTableHead>Grade</DataTableHead>
-                            <DataTableHead>Min</DataTableHead>
-                            <DataTableHead>Max</DataTableHead>
+                            <DataTableHead>Tour days</DataTableHead>
+                            <DataTableHead>Min salary</DataTableHead>
+                            <DataTableHead>Max salary</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                             <DataTableHead>Attachment</DataTableHead>
                             <DataTableHead className="text-right">
@@ -317,20 +402,33 @@ export function PositionsContent({
                                 <TableCell
                                     className={dataTableCellPrimaryClass()}
                                 >
-                                    {position.title}
+                                    <div className="space-y-1">
+                                        <div>{position.title}</div>
+                                        {position.description ? (
+                                            <div className="line-clamp-1 text-xs font-medium text-muted-foreground">
+                                                {position.description}
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {position.department?.name ?? '—'}
                                 </TableCell>
-                                <TableCell
-                                    className={`${dataTableCellClass()} max-w-[260px]`}
-                                >
-                                    <span className="line-clamp-2">
-                                        {position.description ?? '—'}
-                                    </span>
+                                <TableCell className={dataTableCellClass()}>
+                                    <Badge
+                                        variant="secondary"
+                                        className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider uppercase dark:border-white/10 dark:bg-white/5"
+                                    >
+                                        {position.is_crew_position
+                                            ? 'Crew'
+                                            : 'Shore'}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {position.grade ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {position.max_tour_of_duty_days ?? '—'}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {position.min_salary ?? '—'}
@@ -381,7 +479,37 @@ export function PositionsContent({
             )}
 
             {positions.length === 0 ? (
-                <EmptyState title="No positions found." />
+                <EmptyState
+                    icon={
+                        <Briefcase className="mx-auto mb-3 h-8 w-8 text-muted-foreground/70" />
+                    }
+                    title={
+                        hasSearchOrFilters
+                            ? 'No positions match these filters'
+                            : 'No positions yet'
+                    }
+                    description={
+                        hasSearchOrFilters
+                            ? 'Try another department, clear filters, or search by a different title.'
+                            : 'Create a position or import a CSV export from another company environment.'
+                    }
+                    action={
+                        hasSearchOrFilters ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={clearAllListFilters}
+                            >
+                                Clear search & filters
+                            </Button>
+                        ) : canCreate ? (
+                            <Button type="button" onClick={handleAdd}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Position
+                            </Button>
+                        ) : null
+                    }
+                />
             ) : null}
 
             <PositionFormSheet
@@ -396,7 +524,6 @@ export function PositionsContent({
             <PositionFiltersSheet
                 open={crud.isFiltersOpen}
                 onOpenChange={crud.setIsFiltersOpen}
-                departments={departments}
                 value={filters}
                 onChange={handleFiltersChange}
                 onReset={resetFilters}
