@@ -133,8 +133,7 @@ export function documentsShowBackFromSection(
 export function documentsModuleSectionFromUrl(
     url: string,
 ): DocumentsModuleSection | null {
-    const { path, search } = normalizePath(url);
-    const view = new URLSearchParams(search).get('view');
+    const { path } = normalizePath(url);
 
     if (path === DOCUMENTS_MODULE_PATHS.overview) {
         return 'overview';
