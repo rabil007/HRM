@@ -41,9 +41,44 @@ final class RequirementPresenter
         $canReopenPerm = $user ? (bool) $user->can('recruitment.requirements.reopen') : true;
         $canCreate = $user ? (bool) $user->can('recruitment.requirements.create') : true;
         $canView = $user ? (bool) $user->can('recruitment.requirements.view') : true;
+        $canSubmitPerm = $user ? (bool) $user->can('recruitment.requirements.submit') : true;
+        $canApprovePerm = $user ? (bool) $user->can('recruitment.requirements.approve') : true;
 
         $isEditable = $requirement->status->isEditable();
-        $isHistory = in_array($requirement->status, [RequirementStatus::Completed, RequirementStatus::Cancelled], true);
+        $isHistory = in_array($requirement->status, RequirementStatus::historyListStatuses(), true);
+        $isAssignedRecruiter = $user !== null
+            && $requirement->assigned_to !== null
+            && (int) $requirement->assigned_to === (int) $user->id;
+        $blocksSelfApproval = $requirement->created_by !== null
+            && $requirement->assigned_to !== null
+            && (int) $requirement->created_by === (int) $requirement->assigned_to;
+
+        $canSubmit = $canSubmitPerm
+            && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned], true)
+            && $requirement->assigned_to !== null
+            && ! $blocksSelfApproval;
+
+        $canApprove = $canApprovePerm
+            && $requirement->status === RequirementStatus::PendingApproval
+            && $isAssignedRecruiter
+            && ! $blocksSelfApproval;
+
+        $canReturn = $canApprovePerm
+            && $requirement->status === RequirementStatus::PendingApproval
+            && $isAssignedRecruiter;
+
+        $canResubmit = $canSubmitPerm
+            && $requirement->status === RequirementStatus::Returned
+            && $requirement->assigned_to !== null
+            && ! $blocksSelfApproval;
+
+        $cancellableStatuses = [
+            RequirementStatus::Draft,
+            RequirementStatus::PendingApproval,
+            RequirementStatus::Returned,
+            RequirementStatus::Open,
+            RequirementStatus::OnHold,
+        ];
 
         return [
             'id' => (int) $requirement->id,
@@ -53,6 +88,7 @@ final class RequirementPresenter
             'project_id' => $requirement->project_id !== null ? (int) $requirement->project_id : null,
             'project_title' => $requirement->project?->title,
             'client_reference_number' => $requirement->client_reference_number,
+            'has_legacy_client_reference' => filled($requirement->client_reference_number),
             'location' => $requirement->location,
             'priority' => $requirement->priority->value,
             'priority_label' => $requirement->priority->label(),
@@ -78,14 +114,18 @@ final class RequirementPresenter
             'repeated_from_number' => $requirement->repeatedFrom?->requirement_number,
             'next_action' => self::computeNextAction($requirement, $deadlineHealth),
             'can_edit' => $canUpdate && $isEditable,
-            'can_open' => $canUpdate && $requirement->status === RequirementStatus::Draft,
+            'can_submit' => $canSubmit,
+            'can_approve' => $canApprove,
+            'can_return' => $canReturn,
+            'can_resubmit' => $canResubmit,
+            'can_open' => false,
             'can_hold' => $canUpdate && $requirement->status === RequirementStatus::Open,
             'can_resume' => $canUpdate && $requirement->status === RequirementStatus::OnHold,
-            'can_extend' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_extend_deadline' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_change_headcount' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_extend' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_extend_deadline' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_change_headcount' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
             'can_fill' => $canClose && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_cancel' => $canCancelPerm && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_cancel' => $canCancelPerm && in_array($requirement->status, $cancellableStatuses, true),
             'can_reopen' => $canReopenPerm && $isHistory,
             'can_repeat' => $canView && $canCreate && $isHistory,
         ];
@@ -101,6 +141,7 @@ final class RequirementPresenter
     ): array {
         $today ??= Carbon::today();
         $base = self::toIndexRow($requirement, $today, $user);
+        $duration = CalculateActiveRecruitmentDuration::for($requirement);
 
         $lines = $requirement->lines->map(function (RecruitmentRequirementLine $line): array {
             return [
@@ -130,19 +171,41 @@ final class RequirementPresenter
             ];
         })->all();
 
-        return array_merge($base, [
+        $notificationRecipients = $requirement->notificationRecipients
+            ->map(function ($recipient): ?array {
+                if ($recipient->user === null) {
+                    return null;
+                }
+
+                return [
+                    'id' => (int) $recipient->user->id,
+                    'name' => (string) $recipient->user->name,
+                    'email' => (string) $recipient->user->email,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        return array_merge($base, $duration, [
             'notes' => $requirement->notes,
             'cancellation_reason' => $requirement->cancellation_reason,
+            'return_reason' => $requirement->return_reason,
             'opened_at_formatted' => $requirement->opened_at?->format('d-m-Y H:i'),
+            'submitted_at_formatted' => $requirement->submitted_at?->format('d-m-Y H:i'),
+            'returned_at_formatted' => $requirement->returned_at?->format('d-m-Y H:i'),
             'completed_at_formatted' => $requirement->completed_at?->format('d-m-Y H:i'),
             'cancelled_at_formatted' => $requirement->cancelled_at?->format('d-m-Y H:i'),
             'created_at_formatted' => $requirement->created_at?->format('d-m-Y H:i'),
             'creator_name' => $requirement->creator?->name,
             'updater_name' => $requirement->updater?->name,
+            'submitter_name' => $requirement->submitter?->name,
+            'returner_name' => $requirement->returner?->name,
+            'notification_recipients' => $notificationRecipients,
             'lines' => $lines,
             'attachments' => $attachments,
             'progress' => [
-                'filled' => 0, // Extension point for Phase 2 Candidates
+                'filled' => 0,
                 'target' => $base['total_headcount'],
                 'percentage' => 0,
                 'is_target_reached' => false,
@@ -154,7 +217,7 @@ final class RequirementPresenter
         RecruitmentRequirement $requirement,
         CarbonInterface $today,
     ): ?RequirementDeadlineHealth {
-        if (in_array($requirement->status, [RequirementStatus::Completed, RequirementStatus::Cancelled], true)) {
+        if (in_array($requirement->status, RequirementStatus::historyListStatuses(), true)) {
             return null;
         }
 
@@ -199,7 +262,7 @@ final class RequirementPresenter
             return '—';
         }
 
-        if (in_array($requirement->status, [RequirementStatus::Completed, RequirementStatus::Cancelled], true)) {
+        if (in_array($requirement->status, RequirementStatus::historyListStatuses(), true)) {
             return $requirement->status->label();
         }
 
@@ -221,7 +284,9 @@ final class RequirementPresenter
         ?RequirementDeadlineHealth $health,
     ): string {
         return match ($requirement->status) {
-            RequirementStatus::Draft => 'open',
+            RequirementStatus::Draft => 'submit',
+            RequirementStatus::PendingApproval => 'approve',
+            RequirementStatus::Returned => 'resubmit',
             RequirementStatus::Open => $health === RequirementDeadlineHealth::Overdue ? 'extend' : 'fill',
             RequirementStatus::OnHold => 'resume',
             RequirementStatus::Completed => 'repeat',

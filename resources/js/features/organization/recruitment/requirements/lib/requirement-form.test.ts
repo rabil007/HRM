@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     createRequirementFormSnapshot,
+    dedupeNotificationRecipientIds,
     firstInvalidRequirementField,
     isRequirementFormDirty,
 } from './requirement-form.ts';
@@ -11,9 +12,9 @@ describe('requirement form helpers', () => {
         const baseline = createRequirementFormSnapshot({
             client_id: '1',
             project_id: '',
-            client_reference_number: '',
             location: '',
             assigned_to: '',
+            notification_recipient_ids: [],
             request_received_date: '2026-10-01',
             required_by_date: '2026-10-15',
             priority: 'normal',
@@ -29,9 +30,10 @@ describe('requirement form helpers', () => {
                 createRequirementFormSnapshot({
                     client_id: baseline.client_id,
                     project_id: baseline.project_id,
-                    client_reference_number: baseline.client_reference_number,
                     location: baseline.location,
                     assigned_to: baseline.assigned_to,
+                    notification_recipient_ids:
+                        baseline.notification_recipient_ids,
                     request_received_date: baseline.request_received_date,
                     required_by_date: baseline.required_by_date,
                     priority: baseline.priority,
@@ -41,6 +43,13 @@ describe('requirement form helpers', () => {
                 }),
             ),
             true,
+        );
+    });
+
+    it('dedupes notification recipient ids', () => {
+        assert.deepEqual(
+            dedupeNotificationRecipientIds([3, 3, 0, 5, -1]),
+            [3, 5],
         );
     });
 
@@ -58,6 +67,12 @@ describe('requirement form helpers', () => {
                 'positions.0.required_headcount': 'Min 1',
             }),
             'positions',
+        );
+        assert.equal(
+            firstInvalidRequirementField({
+                'notification_recipient_ids.0': 'Invalid',
+            }),
+            'notification_recipient_ids',
         );
         assert.equal(firstInvalidRequirementField({}), null);
     });

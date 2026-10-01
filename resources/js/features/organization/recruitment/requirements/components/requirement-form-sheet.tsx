@@ -49,6 +49,7 @@ import type {
 } from '@/types/recruitment';
 import {
     createRequirementFormSnapshot,
+    dedupeNotificationRecipientIds,
     firstInvalidRequirementField,
     isRequirementFormDirty,
     requirementFormFieldSelector,
@@ -56,6 +57,7 @@ import {
 import type { RequirementFormSnapshot } from '../lib/requirement-form';
 import type { FormPositionLineInput, SimilarRequirementMatch } from '../types';
 import { DuplicateDecisionDialog } from './duplicate-decision-dialog';
+import { RequirementNotificationRecipientsMultiSelect } from './requirement-notification-recipients-multi-select';
 
 type Props = {
     open: boolean;
@@ -66,6 +68,7 @@ type Props = {
         projects: ProjectOption[];
         positions: PositionOption[];
         recruiters: UserOption[];
+        notification_users?: UserOption[];
     };
     onSuccess?: () => void;
 };
@@ -96,9 +99,9 @@ export function RequirementFormSheet({
     const { data, setData, errors, reset, clearErrors } = useForm<{
         client_id: string;
         project_id: string;
-        client_reference_number: string;
         location: string;
         assigned_to: string;
+        notification_recipient_ids: number[];
         request_received_date: string;
         required_by_date: string;
         priority: 'normal' | 'urgent';
@@ -106,13 +109,14 @@ export function RequirementFormSheet({
         positions: FormPositionLineInput[];
         attachment: File | null;
         force_create?: boolean;
+        submit_for_approval?: boolean;
         _method?: string;
     }>({
         client_id: '',
         project_id: '',
-        client_reference_number: '',
         location: '',
         assigned_to: '',
+        notification_recipient_ids: [],
         request_received_date: today,
         required_by_date: '',
         priority: 'normal',
@@ -120,6 +124,7 @@ export function RequirementFormSheet({
         positions: [{ ...defaultPositionLine }],
         attachment: null,
         force_create: false,
+        submit_for_approval: false,
     });
 
     const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
@@ -133,16 +138,22 @@ export function RequirementFormSheet({
     );
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
     const pendingCloseRef = useRef(false);
+    const pendingSubmitForApprovalRef = useRef(false);
     const formBodyRef = useRef<HTMLDivElement | null>(null);
+
+    const notificationUserOptions = useMemo(
+        () => options.notification_users ?? options.recruiters,
+        [options.notification_users, options.recruiters],
+    );
 
     const currentSnapshot = useMemo(
         () =>
             createRequirementFormSnapshot({
                 client_id: data.client_id,
                 project_id: data.project_id,
-                client_reference_number: data.client_reference_number,
                 location: data.location,
                 assigned_to: data.assigned_to,
+                notification_recipient_ids: data.notification_recipient_ids,
                 request_received_date: data.request_received_date,
                 required_by_date: data.required_by_date,
                 priority: data.priority,
@@ -173,12 +184,14 @@ export function RequirementFormSheet({
                   project_id: initialRequirement.project_id
                       ? String(initialRequirement.project_id)
                       : '',
-                  client_reference_number:
-                      initialRequirement.client_reference_number || '',
                   location: initialRequirement.location || '',
                   assigned_to: initialRequirement.assigned_to
                       ? String(initialRequirement.assigned_to)
                       : '',
+                  notification_recipient_ids:
+                      initialRequirement.notification_recipients?.map(
+                          (recipient) => recipient.id,
+                      ) ?? [],
                   request_received_date:
                       initialRequirement.request_received_date || today,
                   required_by_date: initialRequirement.required_by_date || '',
@@ -200,9 +213,9 @@ export function RequirementFormSheet({
             : {
                   client_id: '',
                   project_id: '',
-                  client_reference_number: '',
                   location: '',
                   assigned_to: '',
+                  notification_recipient_ids: [],
                   request_received_date: today,
                   required_by_date: '',
                   priority: 'normal' as const,
@@ -323,7 +336,21 @@ export function RequirementFormSheet({
         setData('positions', next);
     };
 
-    const submitRequisition = (force = false) => {
+    const normalizedNotificationRecipientIds = useMemo(
+        () =>
+            dedupeNotificationRecipientIds(
+                data.notification_recipient_ids.filter((id) => {
+                    const assignedId = data.assigned_to
+                        ? Number(data.assigned_to)
+                        : null;
+
+                    return assignedId === null || id !== assignedId;
+                }),
+            ),
+        [data.assigned_to, data.notification_recipient_ids],
+    );
+
+    const submitRequisition = (force = false, submitForApproval = false) => {
         if (isSubmitting) {
             return;
         }
@@ -336,10 +363,10 @@ export function RequirementFormSheet({
                 {
                     client_id: data.client_id,
                     project_id: data.project_id || null,
-                    client_reference_number:
-                        data.client_reference_number || null,
                     location: data.location || null,
                     assigned_to: data.assigned_to || null,
+                    notification_recipient_ids:
+                        normalizedNotificationRecipientIds,
                     request_received_date: data.request_received_date,
                     priority: data.priority,
                     notes: data.notes || null,
@@ -372,7 +399,18 @@ export function RequirementFormSheet({
         router.post(
             RequirementController.store.url(),
             {
-                ...data,
+                client_id: data.client_id,
+                project_id: data.project_id || null,
+                location: data.location || null,
+                assigned_to: data.assigned_to || null,
+                notification_recipient_ids: normalizedNotificationRecipientIds,
+                request_received_date: data.request_received_date,
+                required_by_date: data.required_by_date,
+                priority: data.priority,
+                notes: data.notes || null,
+                positions: data.positions,
+                attachment: data.attachment,
+                submit_for_approval: submitForApproval,
                 ignore_duplicate_warning: force,
                 force_create: force,
             },
@@ -380,7 +418,11 @@ export function RequirementFormSheet({
                 preserveScroll: true,
                 forceFormData: true,
                 onSuccess: () => {
-                    toast.success('Requirement created successfully.');
+                    toast.success(
+                        submitForApproval
+                            ? 'Requirement saved and submitted for approval.'
+                            : 'Requirement saved as draft.',
+                    );
                     onOpenChange(false);
                     setIsDuplicateDialogOpen(false);
                     reset();
@@ -409,16 +451,19 @@ export function RequirementFormSheet({
             return;
         }
 
+        const submitForApproval = pendingSubmitForApprovalRef.current;
+        pendingSubmitForApprovalRef.current = false;
+
         // If editing or forcing create, proceed directly
         if (isEditing || data.force_create) {
-            submitRequisition(data.force_create);
+            submitRequisition(data.force_create, submitForApproval);
 
             return;
         }
 
         // Check if required basic info is present before calling similarity check
         if (!data.client_id || !data.required_by_date) {
-            submitRequisition(false);
+            submitRequisition(false, submitForApproval);
 
             return;
         }
@@ -428,7 +473,7 @@ export function RequirementFormSheet({
         );
 
         if (validPositions.length === 0) {
-            submitRequisition(false);
+            submitRequisition(false, submitForApproval);
 
             return;
         }
@@ -473,7 +518,11 @@ export function RequirementFormSheet({
             setIsCheckingDuplicates(false);
         }
 
-        submitRequisition(false);
+        submitRequisition(false, submitForApproval);
+    };
+
+    const queueSubmit = (submitForApproval: boolean) => {
+        pendingSubmitForApprovalRef.current = submitForApproval;
     };
 
     const handleAddHeadcountToMatch = (
@@ -665,56 +714,26 @@ export function RequirementFormSheet({
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="client_reference_number"
-                                            className="text-xs font-semibold"
-                                        >
-                                            Client Ref / PO #
-                                        </Label>
-                                        <Input
-                                            id="client_reference_number"
-                                            placeholder="e.g. PO-98421 or REQ-CLIENT-12"
-                                            value={data.client_reference_number}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'client_reference_number',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        {errors.client_reference_number && (
-                                            <p className="text-xs text-rose-500">
-                                                {errors.client_reference_number}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="location"
-                                            className="text-xs font-semibold"
-                                        >
-                                            Location / Base
-                                        </Label>
-                                        <Input
-                                            id="location"
-                                            placeholder="e.g. Dubai Offshore, Abu Dhabi HQ, Ras Laffan"
-                                            value={data.location}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'location',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        {errors.location && (
-                                            <p className="text-xs text-rose-500">
-                                                {errors.location}
-                                            </p>
-                                        )}
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="location"
+                                        className="text-xs font-semibold"
+                                    >
+                                        Location / Base
+                                    </Label>
+                                    <Input
+                                        id="location"
+                                        placeholder="e.g. Dubai Offshore, Abu Dhabi HQ, Ras Laffan"
+                                        value={data.location}
+                                        onChange={(e) =>
+                                            setData('location', e.target.value)
+                                        }
+                                    />
+                                    {errors.location && (
+                                        <p className="text-xs text-rose-500">
+                                            {errors.location}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
@@ -869,6 +888,24 @@ export function RequirementFormSheet({
                                         )}
                                     </div>
                                 </div>
+
+                                <RequirementNotificationRecipientsMultiSelect
+                                    options={notificationUserOptions}
+                                    assignedTo={data.assigned_to}
+                                    value={data.notification_recipient_ids}
+                                    onChange={(ids) =>
+                                        setData(
+                                            'notification_recipient_ids',
+                                            ids,
+                                        )
+                                    }
+                                    error={
+                                        typeof errors.notification_recipient_ids ===
+                                        'string'
+                                            ? errors.notification_recipient_ids
+                                            : undefined
+                                    }
+                                />
                             </div>
 
                             {/* SECTION 3: Positions Required Repeater */}
@@ -1140,27 +1177,55 @@ export function RequirementFormSheet({
                             </div>
                         </div>
 
-                        <SheetFooter className="flex flex-row items-center justify-between gap-3 border-t border-border/60 p-6">
+                        <SheetFooter className="flex flex-col gap-3 border-t border-border/60 p-6 sm:flex-row sm:items-center sm:justify-between">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={requestClose}
                                 disabled={busy}
+                                className="w-full sm:w-auto"
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                type="submit"
-                                disabled={busy}
-                                className="gap-2"
-                            >
-                                {busy && (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                )}
-                                {isEditing
-                                    ? 'Save changes'
-                                    : 'Create requirement'}
-                            </Button>
+                            {isEditing ? (
+                                <Button
+                                    type="submit"
+                                    disabled={busy}
+                                    className="w-full gap-2 sm:w-auto"
+                                    onClick={() => queueSubmit(false)}
+                                >
+                                    {busy && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Save changes
+                                </Button>
+                            ) : (
+                                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                                    <Button
+                                        type="submit"
+                                        variant="outline"
+                                        disabled={busy}
+                                        className="gap-2"
+                                        onClick={() => queueSubmit(false)}
+                                    >
+                                        {busy && (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        )}
+                                        Save as Draft
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={busy}
+                                        className="gap-2"
+                                        onClick={() => queueSubmit(true)}
+                                    >
+                                        {busy && (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        )}
+                                        Save and Submit for Approval
+                                    </Button>
+                                </div>
+                            )}
                         </SheetFooter>
                     </form>
                 </SheetContent>
@@ -1203,7 +1268,11 @@ export function RequirementFormSheet({
                 onAddHeadcount={handleAddHeadcountToMatch}
                 onCreateSeparateBatch={() => {
                     setIsDuplicateDialogOpen(false);
-                    submitRequisition(true);
+                    submitRequisition(
+                        true,
+                        pendingSubmitForApprovalRef.current,
+                    );
+                    pendingSubmitForApprovalRef.current = false;
                 }}
                 onReturnAndReview={() => {
                     setIsDuplicateDialogOpen(false);

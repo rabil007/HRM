@@ -37,6 +37,13 @@ class RecruitmentRequirement extends Model
         'status',
         'repeated_from_id',
         'opened_at',
+        'submitted_at',
+        'submitted_by',
+        'approved_at',
+        'approved_by',
+        'returned_at',
+        'returned_by',
+        'return_reason',
         'completed_at',
         'cancelled_at',
         'cancellation_reason',
@@ -52,6 +59,9 @@ class RecruitmentRequirement extends Model
             'project_id' => 'integer',
             'assigned_to' => 'integer',
             'repeated_from_id' => 'integer',
+            'submitted_by' => 'integer',
+            'approved_by' => 'integer',
+            'returned_by' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
             'priority' => RequirementPriority::class,
@@ -59,6 +69,9 @@ class RecruitmentRequirement extends Model
             'request_received_date' => 'date',
             'required_by_date' => 'date',
             'opened_at' => 'datetime',
+            'submitted_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'returned_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
@@ -79,6 +92,7 @@ class RecruitmentRequirement extends Model
                 'assigned_to',
                 'status',
                 'cancellation_reason',
+                'return_reason',
             ])
             ->logOnlyDirty();
     }
@@ -123,6 +137,16 @@ class RecruitmentRequirement extends Model
         return $this->hasMany(RecruitmentRequirementAttachment::class, 'recruitment_requirement_id');
     }
 
+    public function notificationRecipients(): HasMany
+    {
+        return $this->hasMany(RecruitmentRequirementNotificationRecipient::class, 'recruitment_requirement_id');
+    }
+
+    public function statusTransitions(): HasMany
+    {
+        return $this->hasMany(RecruitmentRequirementStatusTransition::class, 'recruitment_requirement_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -133,6 +157,21 @@ class RecruitmentRequirement extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    public function submitter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function returner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'returned_by');
+    }
+
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);
@@ -140,7 +179,7 @@ class RecruitmentRequirement extends Model
 
     public function scopeActive(Builder $query): Builder
     {
-        return $query->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open]);
+        return $query->whereIn('status', RequirementStatus::activeListStatuses());
     }
 
     public function scopeOnHold(Builder $query): Builder
@@ -150,6 +189,6 @@ class RecruitmentRequirement extends Model
 
     public function scopeHistory(Builder $query): Builder
     {
-        return $query->whereIn('status', [RequirementStatus::Completed, RequirementStatus::Cancelled]);
+        return $query->whereIn('status', RequirementStatus::historyListStatuses());
     }
 }

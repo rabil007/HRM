@@ -1,15 +1,15 @@
 import { Link } from '@inertiajs/react';
-import { CheckCircle2, Clock, Copy, PlayCircle } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import {
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
-import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { RequirementIndexRow } from '@/types/recruitment';
+import { RequirementIndexQuickAction } from '../lib/requirement-index-quick-action';
 import { RequirementActionMenu } from './requirement-action-menu';
 import type { RequirementActionHandlers } from './requirement-action-menu';
 import {
@@ -35,7 +35,10 @@ function getInitials(name: string): string {
 export function RequirementTableRow({
     row,
     onEdit,
-    onOpen,
+    onSubmit,
+    onApprove,
+    onReturn,
+    onResubmit,
     onHold,
     onResume,
     onExtend,
@@ -48,7 +51,10 @@ export function RequirementTableRow({
     const showUrl = RequirementController.show.url(row.id);
     const handlers = {
         onEdit,
-        onOpen,
+        onSubmit,
+        onApprove,
+        onReturn,
+        onResubmit,
         onHold,
         onResume,
         onExtend,
@@ -202,70 +208,18 @@ export function RequirementTableRow({
                     className="flex items-center justify-end gap-1.5"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {row.next_action === 'open' && row.can_open && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onOpen(row)}
-                            className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
-                        >
-                            <PlayCircle
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                            />
-                            Open
-                        </Button>
-                    )}
-                    {row.next_action === 'resume' && row.can_resume && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onResume(row)}
-                            className="h-8 gap-1 border-emerald-500/40 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
-                        >
-                            <PlayCircle
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                            />
-                            Resume
-                        </Button>
-                    )}
-                    {row.next_action === 'fill' && row.can_fill && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onFill(row)}
-                            className="h-8 gap-1 border-sky-500/40 text-xs text-sky-700 hover:bg-sky-500/10 dark:text-sky-400"
-                        >
-                            <CheckCircle2
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                            />
-                            Mark filled
-                        </Button>
-                    )}
-                    {row.next_action === 'extend' && row.can_extend && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onExtend(row)}
-                            className="h-8 gap-1 border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
-                        >
-                            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                            Extend
-                        </Button>
-                    )}
-                    {row.next_action === 'repeat' && row.can_repeat && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onRepeat(row)}
-                            className="h-8 gap-1 border-primary/40 text-xs text-primary hover:bg-primary/10"
-                        >
-                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                            Repeat
-                        </Button>
-                    )}
+                    <RequirementIndexQuickAction
+                        row={row}
+                        handlers={{
+                            onSubmit,
+                            onApprove,
+                            onResubmit,
+                            onResume,
+                            onFill,
+                            onExtend,
+                            onRepeat,
+                        }}
+                    />
 
                     <RequirementActionMenu row={row} {...handlers} />
                 </div>

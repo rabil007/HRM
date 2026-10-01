@@ -184,6 +184,7 @@ use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\PreviewVoidCrewAssignmentsController;
 use App\Http\Controllers\Organization\Recruitment\RecruitmentController;
 use App\Http\Controllers\Organization\Recruitment\RequirementAddHeadcountController;
+use App\Http\Controllers\Organization\Recruitment\RequirementApproveController;
 use App\Http\Controllers\Organization\Recruitment\RequirementAttachmentController;
 use App\Http\Controllers\Organization\Recruitment\RequirementCancelController;
 use App\Http\Controllers\Organization\Recruitment\RequirementChangeHeadcountController;
@@ -192,10 +193,12 @@ use App\Http\Controllers\Organization\Recruitment\RequirementController;
 use App\Http\Controllers\Organization\Recruitment\RequirementExtendDeadlineController;
 use App\Http\Controllers\Organization\Recruitment\RequirementFillController;
 use App\Http\Controllers\Organization\Recruitment\RequirementHoldController;
-use App\Http\Controllers\Organization\Recruitment\RequirementOpenController;
 use App\Http\Controllers\Organization\Recruitment\RequirementReopenController;
 use App\Http\Controllers\Organization\Recruitment\RequirementRepeatController;
+use App\Http\Controllers\Organization\Recruitment\RequirementResubmitController;
 use App\Http\Controllers\Organization\Recruitment\RequirementResumeController;
+use App\Http\Controllers\Organization\Recruitment\RequirementReturnController;
+use App\Http\Controllers\Organization\Recruitment\RequirementSubmitController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SeaServicesExportController;
 use App\Http\Controllers\Organization\SeaServiceShowController;
@@ -525,9 +528,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/recruitment/requirements/{requirement}', [RequirementController::class, 'update'])
         ->middleware('can:recruitment.requirements.update')
         ->name('organization.recruitment.requirements.update');
-    Route::post('organization/recruitment/requirements/{requirement}/open', RequirementOpenController::class)
-        ->middleware('can:recruitment.requirements.update')
-        ->name('organization.recruitment.requirements.open');
+    Route::post('organization/recruitment/requirements/{requirement}/submit', RequirementSubmitController::class)
+        ->middleware('can:recruitment.requirements.submit')
+        ->name('organization.recruitment.requirements.submit');
+    Route::post('organization/recruitment/requirements/{requirement}/approve', RequirementApproveController::class)
+        ->middleware('can:recruitment.requirements.approve')
+        ->name('organization.recruitment.requirements.approve');
+    Route::post('organization/recruitment/requirements/{requirement}/return', RequirementReturnController::class)
+        ->middleware('can:recruitment.requirements.approve')
+        ->name('organization.recruitment.requirements.return');
+    Route::post('organization/recruitment/requirements/{requirement}/resubmit', RequirementResubmitController::class)
+        ->middleware('can:recruitment.requirements.submit')
+        ->name('organization.recruitment.requirements.resubmit');
     Route::post('organization/recruitment/requirements/{requirement}/hold', RequirementHoldController::class)
         ->middleware('can:recruitment.requirements.update')
         ->name('organization.recruitment.requirements.hold');

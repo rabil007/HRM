@@ -82,6 +82,8 @@ beforeEach(function () {
         'recruitment.requirements.view',
         'recruitment.requirements.create',
         'recruitment.requirements.update',
+        'recruitment.requirements.submit',
+        'recruitment.requirements.approve',
         'recruitment.requirements.close',
         'recruitment.requirements.cancel',
         'recruitment.requirements.reopen',
@@ -256,6 +258,7 @@ test('can create a multi-line recruitment requirement with automatic sequence ge
     expect($requirement)->not->toBeNull()
         ->and($requirement->client_id)->toBe($this->client->id)
         ->and($requirement->project_id)->toBe($this->project->id)
+        ->and($requirement->client_reference_number)->toBeNull()
         ->and($requirement->priority->value)->toBe('urgent')
         ->and($requirement->status->value)->toBe('draft');
 
@@ -394,7 +397,15 @@ test('can add headcount to an existing requirement via add-headcount action', fu
     expect($line->fresh()->required_headcount)->toBe(5);
 });
 
-test('lifecycle transitions: draft -> open -> hold -> resume -> fill', function () {
+test('lifecycle transitions: draft -> submit -> approve -> hold -> resume -> fill', function () {
+    $recruiter = createRecruitmentTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.submit',
+        'recruitment.requirements.approve',
+        'recruitment.requirements.update',
+        'recruitment.requirements.close',
+    ]);
+
     $req = RecruitmentRequirement::query()->create([
         'company_id' => $this->companyA->id,
         'requirement_number' => 'REQ-2026-000001',
@@ -403,6 +414,7 @@ test('lifecycle transitions: draft -> open -> hold -> resume -> fill', function 
         'required_by_date' => now()->addDays(5),
         'priority' => 'normal',
         'status' => RequirementStatus::Draft,
+        'assigned_to' => $recruiter->id,
         'created_by' => $this->adminUserA->id,
     ]);
 
@@ -414,16 +426,25 @@ test('lifecycle transitions: draft -> open -> hold -> resume -> fill', function 
         'status' => RequirementLineStatus::Open,
     ]);
 
-    // 1. Open
+    // 1. Submit for approval
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
-        ->post("/organization/recruitment/requirements/{$req->id}/open")
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
+
+    // 2. Approve
+    $this->actingAs($recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/approve")
         ->assertRedirect();
 
     expect($req->fresh()->status)->toBe(RequirementStatus::Open)
-        ->and($req->fresh()->opened_at)->not->toBeNull();
+        ->and($req->fresh()->opened_at)->not->toBeNull()
+        ->and($req->fresh()->approved_at)->not->toBeNull();
 
-    // 2. Hold
+    // 3. Hold
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->post("/organization/recruitment/requirements/{$req->id}/hold")
@@ -432,7 +453,7 @@ test('lifecycle transitions: draft -> open -> hold -> resume -> fill', function 
     expect($req->fresh()->status)->toBe(RequirementStatus::OnHold)
         ->and($line->fresh()->status)->toBe(RequirementLineStatus::OnHold);
 
-    // 3. Resume
+    // 4. Resume
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->post("/organization/recruitment/requirements/{$req->id}/resume")
@@ -441,7 +462,7 @@ test('lifecycle transitions: draft -> open -> hold -> resume -> fill', function 
     expect($req->fresh()->status)->toBe(RequirementStatus::Open)
         ->and($line->fresh()->status)->toBe(RequirementLineStatus::Open);
 
-    // 4. Fill (Complete)
+    // 5. Fill (Complete)
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->post("/organization/recruitment/requirements/{$req->id}/fill")
@@ -901,11 +922,12 @@ test('recruiter assignment rejects users not belonging to current company', func
         ->assertJsonValidationErrors(['assigned_to']);
 });
 
-test('generic edit cannot alter required_by_date or lines and enforces date order', function () {
+test('generic edit cannot alter required_by_date, lines, or legacy client reference', function () {
     $req = RecruitmentRequirement::query()->create([
         'company_id' => $this->companyA->id,
         'requirement_number' => 'REQ-2026-000001',
         'client_id' => $this->client->id,
+        'client_reference_number' => 'LEGACY-REF-KEEP',
         'request_received_date' => now()->startOfDay(),
         'required_by_date' => now()->addDays(10)->startOfDay(),
         'priority' => 'normal',
@@ -923,7 +945,7 @@ test('generic edit cannot alter required_by_date or lines and enforces date orde
 
     $originalDeadline = $req->required_by_date->format('Y-m-d');
 
-    // 1. Generic edit with altered client reference number succeeds, but ignoring required_by_date and lines
+    // 1. Generic edit ignores client_reference_number, required_by_date, and lines
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->put("/organization/recruitment/requirements/{$req->id}", [
@@ -942,7 +964,7 @@ test('generic edit cannot alter required_by_date or lines and enforces date orde
         ->assertRedirect();
 
     $fresh = $req->fresh();
-    expect($fresh->client_reference_number)->toBe('REF-MODIFIED-99')
+    expect($fresh->client_reference_number)->toBe('LEGACY-REF-KEEP')
         ->and($fresh->priority->value)->toBe('urgent')
         ->and($fresh->required_by_date->format('Y-m-d'))->toBe($originalDeadline)
         ->and($line->fresh()->required_headcount)->toBe(3);

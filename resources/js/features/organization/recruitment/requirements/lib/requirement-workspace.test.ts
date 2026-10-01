@@ -113,6 +113,10 @@ describe('requirement workspace helpers', () => {
             repeated_from_number: null,
             next_action: 'fill',
             can_edit: true,
+            can_submit: false,
+            can_approve: false,
+            can_return: false,
+            can_resubmit: false,
             can_open: false,
             can_hold: true,
             can_resume: false,
@@ -135,6 +139,10 @@ describe('requirement workspace helpers', () => {
 
         assert.ok(groups.copied.fields.includes('Client and project'));
         assert.ok(groups.review.fields.includes('Required-by date'));
+        assert.equal(
+            groups.review.fields.includes('Client reference number'),
+            false,
+        );
         assert.match(groups.note, /new draft/i);
     });
 });

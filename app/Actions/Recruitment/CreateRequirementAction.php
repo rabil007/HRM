@@ -7,8 +7,11 @@ use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
 use App\Models\RecruitmentRequirementLine;
+use App\Models\User;
 use App\Support\Recruitment\GenerateRequirementNumber;
+use App\Support\Recruitment\RecordRequirementStatusTransition;
 use App\Support\Recruitment\RequirementAttachmentStorage;
+use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,19 +29,19 @@ final class CreateRequirementAction
         ?UploadedFile $attachment = null,
     ): RecruitmentRequirement {
         $storedFilePath = null;
+        $submitAfterCreate = (bool) ($data['submit_for_approval'] ?? false);
 
         try {
-            return DB::transaction(function () use ($companyId, $userId, $data, $attachment, &$storedFilePath): RecruitmentRequirement {
+            $requirement = DB::transaction(function () use ($companyId, $userId, $data, $attachment, &$storedFilePath): RecruitmentRequirement {
                 $requirementNumber = GenerateRequirementNumber::next($companyId);
-                $asOpen = (bool) ($data['as_open'] ?? false);
-                $status = $asOpen ? RequirementStatus::Open : RequirementStatus::Draft;
+                $status = RequirementStatus::Draft;
 
                 $requirement = RecruitmentRequirement::create([
                     'company_id' => $companyId,
                     'requirement_number' => $requirementNumber,
                     'client_id' => $data['client_id'],
                     'project_id' => $data['project_id'] ?? null,
-                    'client_reference_number' => $data['client_reference_number'] ?? null,
+                    'client_reference_number' => null,
                     'request_received_date' => $data['request_received_date'],
                     'required_by_date' => $data['required_by_date'],
                     'location' => $data['location'] ?? null,
@@ -47,7 +50,7 @@ final class CreateRequirementAction
                     'notes' => $data['notes'] ?? null,
                     'status' => $status,
                     'repeated_from_id' => $data['repeated_from_id'] ?? null,
-                    'opened_at' => $asOpen ? now() : null,
+                    'opened_at' => null,
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -61,6 +64,15 @@ final class CreateRequirementAction
                         'line_notes' => $lineData['line_notes'] ?? null,
                         'status' => RequirementLineStatus::Open,
                     ]);
+                }
+
+                if (array_key_exists('notification_recipient_ids', $data)) {
+                    SyncRequirementNotificationRecipients::sync(
+                        $requirement,
+                        is_array($data['notification_recipient_ids'] ?? null)
+                            ? $data['notification_recipient_ids']
+                            : [],
+                    );
                 }
 
                 if ($attachment instanceof UploadedFile) {
@@ -89,6 +101,13 @@ final class CreateRequirementAction
                         ->log('Original client request attachment uploaded.');
                 }
 
+                RecordRequirementStatusTransition::handle(
+                    $requirement,
+                    null,
+                    RequirementStatus::Draft,
+                    $userId,
+                );
+
                 activity('recruitment')
                     ->causedBy($userId)
                     ->performedOn($requirement)
@@ -99,7 +118,7 @@ final class CreateRequirementAction
                     ])
                     ->log("Requirement {$requirementNumber} created as {$status->label()}.");
 
-                return $requirement->load(['lines.position', 'client', 'project', 'attachments']);
+                return $requirement->load(['lines.position', 'client', 'project', 'attachments', 'notificationRecipients.user']);
             });
         } catch (Throwable $exception) {
             if ($storedFilePath !== null) {
@@ -108,5 +127,13 @@ final class CreateRequirementAction
 
             throw $exception;
         }
+
+        if ($submitAfterCreate) {
+            $actor = User::query()->findOrFail($userId);
+
+            return app(SubmitRequirementForApprovalAction::class)->execute($requirement, $actor);
+        }
+
+        return $requirement;
     }
 }

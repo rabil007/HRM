@@ -35,7 +35,7 @@ final class AddHeadcountToRequirementAction
                 ]);
             }
 
-            if (! in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Open, RequirementStatus::OnHold], true)) {
+            if (! in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true)) {
                 throw ValidationException::withMessages([
                     'requirement' => "Cannot add headcount to requirement {$requirement->requirement_number} because it is {$requirement->status->label()}.",
                 ]);

@@ -1,11 +1,13 @@
 import { router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import RequirementApproveController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementApproveController';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import RequirementFillController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementFillController';
 import RequirementHoldController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementHoldController';
-import RequirementOpenController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementOpenController';
+import RequirementResubmitController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResubmitController';
 import RequirementResumeController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResumeController';
+import RequirementSubmitController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementSubmitController';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
@@ -29,6 +31,7 @@ import { ChangeHeadcountDialog } from './components/workflow/change-headcount-di
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
+import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
 import {
     buildRequirementQuery,
     clearedRequirementFilters,
@@ -60,6 +63,8 @@ export function RequirementsContent({
     const [reopenDialogTarget, setReopenDialogTarget] =
         useState<RequirementIndexRow | null>(null);
     const [repeatDialogTarget, setRepeatDialogTarget] =
+        useState<RequirementIndexRow | null>(null);
+    const [returnDialogTarget, setReturnDialogTarget] =
         useState<RequirementIndexRow | null>(null);
 
     const baseUrl = RequirementController.index.url();
@@ -160,19 +165,6 @@ export function RequirementsContent({
     const hasActiveFilters = activeFilterCount > 0;
 
     // Simple workflow button handlers
-    const handleOpenRequirement = (row: RequirementIndexRow) => {
-        router.post(
-            RequirementOpenController.url(row.id),
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () =>
-                    toast.success(`${row.requirement_number} opened.`),
-                onError: () => toast.error('Failed to open requirement.'),
-            },
-        );
-    };
-
     const handleHoldRequirement = (row: RequirementIndexRow) => {
         router.post(
             RequirementHoldController.url(row.id),
@@ -213,6 +205,50 @@ export function RequirementsContent({
                 onError: () =>
                     toast.error('Failed to mark requirement as filled.'),
             },
+        );
+    };
+
+    const postWorkflow = (
+        row: RequirementIndexRow,
+        url: string,
+        successMessage: string,
+        errorMessage: string,
+    ) => {
+        router.post(
+            url,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => toast.success(successMessage),
+                onError: () => toast.error(errorMessage),
+            },
+        );
+    };
+
+    const handleSubmitRequirement = (row: RequirementIndexRow) => {
+        postWorkflow(
+            row,
+            RequirementSubmitController.url(row.id),
+            `${row.requirement_number} submitted for approval.`,
+            'Failed to submit requirement for approval.',
+        );
+    };
+
+    const handleApproveRequirement = (row: RequirementIndexRow) => {
+        postWorkflow(
+            row,
+            RequirementApproveController.url(row.id),
+            `${row.requirement_number} approved.`,
+            'Failed to approve requirement.',
+        );
+    };
+
+    const handleResubmitRequirement = (row: RequirementIndexRow) => {
+        postWorkflow(
+            row,
+            RequirementResubmitController.url(row.id),
+            `${row.requirement_number} resubmitted for approval.`,
+            'Failed to resubmit requirement.',
         );
     };
 
@@ -295,7 +331,10 @@ export function RequirementsContent({
                     }}
                     onClearFilters={handleClearAll}
                     onEdit={handleEditRequirement}
-                    onOpen={handleOpenRequirement}
+                    onSubmit={handleSubmitRequirement}
+                    onApprove={handleApproveRequirement}
+                    onReturn={(row) => setReturnDialogTarget(row)}
+                    onResubmit={handleResubmitRequirement}
                     onHold={handleHoldRequirement}
                     onResume={handleResumeRequirement}
                     onExtend={(row) => setExtendDialogTarget(row)}
@@ -372,6 +411,12 @@ export function RequirementsContent({
                 onOpenChange={(open) => !open && setRepeatDialogTarget(null)}
                 requirement={repeatDialogTarget}
                 recruiters={options.recruiters}
+            />
+
+            <ReturnRequirementDialog
+                open={Boolean(returnDialogTarget)}
+                onOpenChange={(open) => !open && setReturnDialogTarget(null)}
+                requirement={returnDialogTarget}
             />
         </Main>
     );

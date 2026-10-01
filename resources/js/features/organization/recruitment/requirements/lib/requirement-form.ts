@@ -3,12 +3,12 @@ import type { FormPositionLineInput } from '../types';
 export const REQUIREMENT_FORM_FIELD_ORDER = [
     'client_id',
     'project_id',
-    'client_reference_number',
     'location',
     'request_received_date',
     'required_by_date',
     'priority',
     'assigned_to',
+    'notification_recipient_ids',
     'positions',
     'notes',
     'attachment',
@@ -20,9 +20,9 @@ export type RequirementFormFieldKey =
 export type RequirementFormSnapshot = {
     client_id: string;
     project_id: string;
-    client_reference_number: string;
     location: string;
     assigned_to: string;
+    notification_recipient_ids: number[];
     request_received_date: string;
     required_by_date: string;
     priority: string;
@@ -50,12 +50,16 @@ function normalizePositions(positions: FormPositionLineInput[]): Array<{
     }));
 }
 
+export function dedupeNotificationRecipientIds(ids: number[]): number[] {
+    return [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+}
+
 export function createRequirementFormSnapshot(input: {
     client_id: string | number;
     project_id: string | number | '';
-    client_reference_number: string;
     location: string;
     assigned_to: string | number | '';
+    notification_recipient_ids?: number[];
     request_received_date: string;
     required_by_date: string;
     priority: string;
@@ -66,9 +70,11 @@ export function createRequirementFormSnapshot(input: {
     return {
         client_id: String(input.client_id ?? ''),
         project_id: String(input.project_id ?? ''),
-        client_reference_number: input.client_reference_number ?? '',
         location: input.location ?? '',
         assigned_to: String(input.assigned_to ?? ''),
+        notification_recipient_ids: dedupeNotificationRecipientIds(
+            input.notification_recipient_ids ?? [],
+        ),
         request_received_date: input.request_received_date ?? '',
         required_by_date: input.required_by_date ?? '',
         priority: input.priority ?? 'normal',
@@ -106,6 +112,14 @@ export function firstInvalidRequirementField(
         return 'positions';
     }
 
+    const nestedRecipientError = Object.keys(errors).find((key) =>
+        key.startsWith('notification_recipient_ids'),
+    );
+
+    if (nestedRecipientError) {
+        return 'notification_recipient_ids';
+    }
+
     return null;
 }
 
@@ -114,6 +128,10 @@ export function requirementFormFieldSelector(
 ): string {
     if (field === 'positions') {
         return '[data-requirement-field="positions"]';
+    }
+
+    if (field === 'notification_recipient_ids') {
+        return '[data-requirement-field="notification_recipient_ids"]';
     }
 
     if (field === 'attachment') {

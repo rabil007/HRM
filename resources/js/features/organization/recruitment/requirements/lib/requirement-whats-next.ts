@@ -4,6 +4,9 @@ import type {
 } from '@/types/recruitment';
 
 export type RequirementWhatsNextAction =
+    | 'submit'
+    | 'approve'
+    | 'resubmit'
     | 'open'
     | 'resume'
     | 'fill'
@@ -26,6 +29,9 @@ type RequirementCapabilities = Pick<
     | 'status'
     | 'status_label'
     | 'next_action'
+    | 'can_submit'
+    | 'can_approve'
+    | 'can_resubmit'
     | 'can_open'
     | 'can_resume'
     | 'can_fill'
@@ -47,6 +53,27 @@ const ACTION_COPY: Record<
         tone: RequirementWhatsNext['tone'];
     }
 > = {
+    submit: {
+        title: 'Submit for approval',
+        description:
+            'Send this draft to the assigned recruiter for approval before active recruitment can begin.',
+        ctaLabel: 'Submit for approval',
+        tone: 'primary',
+    },
+    approve: {
+        title: 'Approve this requirement',
+        description:
+            'Review the request details and approve to start the recruitment clock.',
+        ctaLabel: 'Approve requirement',
+        tone: 'success',
+    },
+    resubmit: {
+        title: 'Resubmit for approval',
+        description:
+            'Address the return feedback, then resubmit so the assigned recruiter can approve again.',
+        ctaLabel: 'Resubmit for approval',
+        tone: 'primary',
+    },
     open: {
         title: 'Open this requirement',
         description:
@@ -78,14 +105,14 @@ const ACTION_COPY: Record<
     repeat: {
         title: 'Repeat this requirement',
         description:
-            'Create a new draft with the same client and positions. Dates and ownership should be reviewed before opening.',
+            'Create a new draft with the same client and positions. Dates and ownership should be reviewed before submitting.',
         ctaLabel: 'Repeat requirement',
         tone: 'primary',
     },
     edit: {
         title: 'Review draft details',
         description:
-            'Update client, ownership, or notes before opening this draft for recruitment.',
+            'Update client, ownership, CC recipients, or notes before submitting for approval.',
         ctaLabel: 'Edit requirement',
         tone: 'neutral',
     },
@@ -103,6 +130,12 @@ function authorizedAction(
     preferred: RequirementWhatsNextAction,
 ): RequirementWhatsNextAction {
     switch (preferred) {
+        case 'submit':
+            return requirement.can_submit ? 'submit' : null;
+        case 'approve':
+            return requirement.can_approve ? 'approve' : null;
+        case 'resubmit':
+            return requirement.can_resubmit ? 'resubmit' : null;
         case 'open':
             return requirement.can_open ? 'open' : null;
         case 'resume':
@@ -125,6 +158,18 @@ function authorizedAction(
 function fallbackAction(
     requirement: RequirementCapabilities,
 ): RequirementWhatsNextAction {
+    if (requirement.can_approve) {
+        return 'approve';
+    }
+
+    if (requirement.can_submit) {
+        return 'submit';
+    }
+
+    if (requirement.can_resubmit) {
+        return 'resubmit';
+    }
+
     if (requirement.can_open) {
         return 'open';
     }

@@ -7,6 +7,8 @@ use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Support\Recruitment\GenerateRequirementNumber;
+use App\Support\Recruitment\RecordRequirementStatusTransition;
+use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -41,7 +43,7 @@ final class RepeatRequirementAction
                 'requirement_number' => $newNumber,
                 'client_id' => $source->client_id,
                 'project_id' => $source->project_id,
-                'client_reference_number' => $source->client_reference_number,
+                'client_reference_number' => null,
                 'request_received_date' => $data['request_received_date'],
                 'required_by_date' => $data['required_by_date'],
                 'location' => $data['location'] ?? $source->location,
@@ -66,6 +68,20 @@ final class RepeatRequirementAction
                 ]);
             }
 
+            if (array_key_exists('notification_recipient_ids', $data)) {
+                SyncRequirementNotificationRecipients::sync(
+                    $newRequirement,
+                    is_array($data['notification_recipient_ids']) ? $data['notification_recipient_ids'] : [],
+                );
+            }
+
+            RecordRequirementStatusTransition::handle(
+                $newRequirement,
+                null,
+                RequirementStatus::Draft,
+                $userId,
+            );
+
             activity('recruitment')
                 ->causedBy($userId)
                 ->performedOn($newRequirement)
@@ -77,7 +93,7 @@ final class RepeatRequirementAction
                 ])
                 ->log("Requirement {$newNumber} repeated from {$sourceRequirement->requirement_number}.");
 
-            return $newRequirement->load(['lines.position', 'client', 'project']);
+            return $newRequirement->load(['lines.position', 'client', 'project', 'notificationRecipients.user']);
         });
     }
 }

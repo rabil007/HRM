@@ -2,9 +2,13 @@
 
 namespace App\Actions\Recruitment;
 
+use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
+use App\Models\User;
 use App\Support\Recruitment\RequirementAttachmentStorage;
+use App\Support\Recruitment\SendRequirementLifecycleEmails;
+use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -23,36 +27,68 @@ final class UpdateRequirementAction
         ?UploadedFile $attachment = null,
     ): RecruitmentRequirement {
         $storedFilePath = null;
+        $reassignedRecruiterId = null;
 
         try {
-            return DB::transaction(function () use ($requirement, $userId, $data, $attachment, &$storedFilePath): RecruitmentRequirement {
+            $result = DB::transaction(function () use ($requirement, $userId, $data, $attachment, &$storedFilePath, &$reassignedRecruiterId): RecruitmentRequirement {
                 /** @var RecruitmentRequirement $locked */
                 $locked = RecruitmentRequirement::query()
                     ->where('id', $requirement->id)
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if (! $locked->status->isEditable()) {
+                $companyId = (int) $locked->company_id;
+                $previousAssignedTo = $locked->assigned_to !== null ? (int) $locked->assigned_to : null;
+
+                if ($locked->status->isEditable()) {
+                    $locked->update([
+                        'client_id' => $data['client_id'],
+                        'project_id' => $data['project_id'] ?? null,
+                        'request_received_date' => $data['request_received_date'],
+                        'location' => $data['location'] ?? null,
+                        'priority' => $data['priority'],
+                        'assigned_to' => $data['assigned_to'] ?? null,
+                        'notes' => $data['notes'] ?? null,
+                        'updated_by' => $userId,
+                    ]);
+                } elseif ($locked->status->allowsPendingReassignment()) {
+                    $newAssignedTo = array_key_exists('assigned_to', $data)
+                        ? ($data['assigned_to'] !== null ? (int) $data['assigned_to'] : null)
+                        : $previousAssignedTo;
+
+                    $locked->update([
+                        'assigned_to' => $newAssignedTo,
+                        'updated_by' => $userId,
+                    ]);
+                } else {
                     throw ValidationException::withMessages([
                         'status' => "Cannot edit a {$locked->status->label()} requirement.",
                     ]);
                 }
 
-                $companyId = (int) $locked->company_id;
+                if (array_key_exists('notification_recipient_ids', $data)) {
+                    SyncRequirementNotificationRecipients::sync(
+                        $locked,
+                        is_array($data['notification_recipient_ids']) ? $data['notification_recipient_ids'] : [],
+                    );
+                }
 
-                $locked->update([
-                    'client_id' => $data['client_id'],
-                    'project_id' => $data['project_id'] ?? null,
-                    'client_reference_number' => $data['client_reference_number'] ?? null,
-                    'request_received_date' => $data['request_received_date'],
-                    'location' => $data['location'] ?? null,
-                    'priority' => $data['priority'],
-                    'assigned_to' => $data['assigned_to'] ?? null,
-                    'notes' => $data['notes'] ?? null,
-                    'updated_by' => $userId,
-                ]);
+                $newAssignedTo = $locked->assigned_to !== null ? (int) $locked->assigned_to : null;
+                if (
+                    $locked->status === RequirementStatus::PendingApproval
+                    && $newAssignedTo !== null
+                    && $newAssignedTo !== $previousAssignedTo
+                ) {
+                    $reassignedRecruiterId = $newAssignedTo;
+                }
 
                 if ($attachment instanceof UploadedFile) {
+                    if (! $locked->status->isEditable()) {
+                        throw ValidationException::withMessages([
+                            'attachment' => 'Attachments can only be uploaded while the requirement is editable.',
+                        ]);
+                    }
+
                     $storage = new RequirementAttachmentStorage;
                     $fileMeta = $storage->store($locked, $attachment);
                     $storedFilePath = $fileMeta['file_path'];
@@ -87,7 +123,7 @@ final class UpdateRequirementAction
                     ])
                     ->log("Requirement {$locked->requirement_number} updated.");
 
-                return $locked->load(['lines.position', 'client', 'project', 'attachments']);
+                return $locked->load(['lines.position', 'client', 'project', 'attachments', 'notificationRecipients.user', 'assignedRecruiter', 'creator', 'company']);
             });
         } catch (Throwable $exception) {
             if ($storedFilePath !== null) {
@@ -96,5 +132,17 @@ final class UpdateRequirementAction
 
             throw $exception;
         }
+
+        if ($reassignedRecruiterId !== null) {
+            $recruiterId = $reassignedRecruiterId;
+            DB::afterCommit(function () use ($result, $recruiterId): void {
+                $recruiter = User::query()->find($recruiterId);
+                if ($recruiter !== null) {
+                    SendRequirementLifecycleEmails::pendingReassigned($result, $recruiter);
+                }
+            });
+        }
+
+        return $result;
     }
 }

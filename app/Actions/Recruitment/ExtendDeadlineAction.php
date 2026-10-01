@@ -22,7 +22,7 @@ final class ExtendDeadlineAction
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (! $locked->status->isEditable()) {
+            if (! $locked->status->allowsAuditedAdjustments()) {
                 throw ValidationException::withMessages([
                     'status' => "Deadline cannot be extended for {$locked->status->label()} requirement.",
                 ]);

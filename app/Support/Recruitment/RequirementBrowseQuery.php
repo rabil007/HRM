@@ -58,8 +58,8 @@ final class RequirementBrowseQuery
         // Tab scoping
         match ($currentTab) {
             'on_hold' => $query->where('status', RequirementStatus::OnHold),
-            'history' => $query->whereIn('status', [RequirementStatus::Completed, RequirementStatus::Cancelled]),
-            default => $query->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open]),
+            'history' => $query->whereIn('status', RequirementStatus::historyListStatuses()),
+            default => $query->whereIn('status', RequirementStatus::activeListStatuses()),
         };
 
         // Search
@@ -117,7 +117,7 @@ final class RequirementBrowseQuery
         $tabCounts = [
             'active' => RecruitmentRequirement::query()
                 ->where('company_id', $companyId)
-                ->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open])
+                ->whereIn('status', RequirementStatus::activeListStatuses())
                 ->count(),
             'on_hold' => RecruitmentRequirement::query()
                 ->where('company_id', $companyId)
@@ -125,7 +125,7 @@ final class RequirementBrowseQuery
                 ->count(),
             'history' => RecruitmentRequirement::query()
                 ->where('company_id', $companyId)
-                ->whereIn('status', [RequirementStatus::Completed, RequirementStatus::Cancelled])
+                ->whereIn('status', RequirementStatus::historyListStatuses())
                 ->count(),
         ];
 
@@ -133,13 +133,13 @@ final class RequirementBrowseQuery
         $openHeadcount = (int) RecruitmentRequirementLine::query()
             ->where('company_id', $companyId)
             ->whereHas('requirement', function (Builder $r): void {
-                $r->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open]);
+                $r->whereIn('status', RequirementStatus::activeListStatuses());
             })
             ->sum('required_headcount');
 
         $activeQuery = RecruitmentRequirement::query()
             ->where('company_id', $companyId)
-            ->whereIn('status', [RequirementStatus::Draft, RequirementStatus::Open]);
+            ->whereIn('status', RequirementStatus::activeListStatuses());
 
         $overdueCount = (clone $activeQuery)
             ->where('required_by_date', '<', $today->toDateString())

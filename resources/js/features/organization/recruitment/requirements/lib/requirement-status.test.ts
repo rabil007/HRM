@@ -21,6 +21,19 @@ describe('requirement status helpers', () => {
         }
     });
 
+    it('includes approval workflow statuses', () => {
+        assert.equal(
+            resolveRequirementStatusLabel('pending_approval'),
+            'Pending Approval',
+        );
+        assert.equal(resolveRequirementStatusLabel('returned'), 'Returned');
+        assert.match(
+            resolveRequirementStatusStyle('pending_approval'),
+            /violet/,
+        );
+        assert.match(resolveRequirementStatusStyle('returned'), /orange/);
+    });
+
     it('prefers server-provided labels and does not invent urgency', () => {
         assert.equal(resolveRequirementStatusLabel('open', 'Live'), 'Live');
         assert.equal(isUrgentPriority('urgent'), true);

@@ -5,6 +5,7 @@ namespace App\Actions\Recruitment;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Support\Recruitment\RecordRequirementStatusTransition;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +41,8 @@ final class ReopenRequirementAction
                 }
             }
 
+            $fromStatus = $locked->status;
+
             $updateData = [
                 'status' => RequirementStatus::Open,
                 'completed_at' => null,
@@ -52,11 +55,20 @@ final class ReopenRequirementAction
                 $updateData['required_by_date'] = $newRequiredByDate;
             }
 
+            // Preserve historical approval metadata; clock resumes from approved_at/opened_at.
             $locked->update($updateData);
 
             $locked->lines()->whereIn('status', [RequirementLineStatus::Filled, RequirementLineStatus::Cancelled])->update([
                 'status' => RequirementLineStatus::Open,
             ]);
+
+            RecordRequirementStatusTransition::handle(
+                $locked,
+                $fromStatus,
+                RequirementStatus::Open,
+                $userId,
+                $reason,
+            );
 
             activity('recruitment')
                 ->causedBy($userId)

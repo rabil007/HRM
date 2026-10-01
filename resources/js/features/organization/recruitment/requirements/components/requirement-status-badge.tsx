@@ -7,6 +7,8 @@ import {
     Flame,
     PauseCircle,
     PlayCircle,
+    RotateCcw,
+    Send,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +33,8 @@ const STATUS_ICON: Record<
     LucideIcon
 > = {
     draft: CircleDashed,
+    pending_approval: Send,
+    returned: RotateCcw,
     open: PlayCircle,
     on_hold: PauseCircle,
     completed: CheckCircle2,

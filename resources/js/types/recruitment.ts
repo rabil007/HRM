@@ -1,5 +1,7 @@
 export type RequirementStatus =
     | 'draft'
+    | 'pending_approval'
+    | 'returned'
     | 'open'
     | 'on_hold'
     | 'completed'
@@ -7,6 +9,21 @@ export type RequirementStatus =
 export type RequirementLineStatus = 'open' | 'on_hold' | 'filled' | 'cancelled';
 export type RequirementPriority = 'normal' | 'urgent';
 export type RequirementDeadlineHealth = 'on_track' | 'due_soon' | 'overdue';
+
+export type RecruitmentClockState =
+    | 'not_started'
+    | 'running'
+    | 'paused'
+    | 'completed'
+    | 'cancelled';
+
+export type RecruitmentStartSource = 'approved_at' | 'opened_at';
+
+export type RequirementNotificationRecipient = {
+    id: number;
+    name: string;
+    email: string;
+};
 
 export type PositionSummaryItem = {
     id: number;
@@ -24,6 +41,7 @@ export type RequirementIndexRow = {
     project_id: number | null;
     project_title: string | null;
     client_reference_number: string | null;
+    has_legacy_client_reference?: boolean;
     location: string | null;
     priority: RequirementPriority;
     priority_label: string;
@@ -47,9 +65,21 @@ export type RequirementIndexRow = {
     positions_count: number;
     repeated_from_id: number | null;
     repeated_from_number: string | null;
-    next_action: 'open' | 'fill' | 'extend' | 'resume' | 'repeat';
+    next_action:
+        | 'submit'
+        | 'approve'
+        | 'resubmit'
+        | 'open'
+        | 'fill'
+        | 'extend'
+        | 'resume'
+        | 'repeat';
     can_edit: boolean;
-    can_open: boolean;
+    can_submit: boolean;
+    can_approve: boolean;
+    can_return: boolean;
+    can_resubmit: boolean;
+    can_open?: boolean;
     can_hold: boolean;
     can_resume: boolean;
     can_extend: boolean;
@@ -87,12 +117,30 @@ export type RequirementAttachment = {
 export type RequirementDetail = RequirementIndexRow & {
     notes: string | null;
     cancellation_reason: string | null;
+    return_reason: string | null;
     opened_at_formatted: string | null;
+    submitted_at_formatted: string | null;
+    returned_at_formatted: string | null;
     completed_at_formatted: string | null;
     cancelled_at_formatted: string | null;
     created_at_formatted: string | null;
     creator_name: string | null;
     updater_name: string | null;
+    submitter_name: string | null;
+    returner_name: string | null;
+    notification_recipients: RequirementNotificationRecipient[];
+    recruitment_started_at: string | null;
+    recruitment_started_at_formatted: string | null;
+    recruitment_start_source: RecruitmentStartSource | null;
+    active_recruitment_seconds: number | null;
+    active_recruitment_days: number | null;
+    on_hold_seconds: number;
+    recruitment_duration_label: string | null;
+    recruitment_clock_state: RecruitmentClockState;
+    approved_at: string | null;
+    approved_at_formatted: string | null;
+    approved_by_name: string | null;
+    has_legacy_client_reference: boolean;
     lines: RequirementLine[];
     attachments: RequirementAttachment[];
     progress: {
@@ -107,6 +155,8 @@ export type RequirementPagePermissions = {
     view: boolean;
     create: boolean;
     update: boolean;
+    submit: boolean;
+    approve: boolean;
     close: boolean;
     cancel: boolean;
     reopen: boolean;
@@ -185,6 +235,7 @@ export type RequirementIndexProps = {
         projects: ProjectOption[];
         positions: PositionOption[];
         recruiters: UserOption[];
+        notification_users?: UserOption[];
     };
     can: RequirementPagePermissions;
 };
@@ -196,6 +247,7 @@ export type RequirementShowProps = {
         projects: ProjectOption[];
         positions: PositionOption[];
         recruiters: UserOption[];
+        notification_users?: UserOption[];
     };
     can: RequirementPagePermissions;
     recent_activity?: Array<{

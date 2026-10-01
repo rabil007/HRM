@@ -25,7 +25,7 @@ final class ChangeHeadcountAction
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (! $locked->status->isEditable()) {
+            if (! $locked->status->allowsAuditedAdjustments()) {
                 throw ValidationException::withMessages([
                     'status' => "Headcount cannot be updated for {$locked->status->label()} requirement.",
                 ]);

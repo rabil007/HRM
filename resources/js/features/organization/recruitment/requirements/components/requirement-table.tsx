@@ -29,7 +29,10 @@ export function RequirementTable({
     onAddRequirement,
     onClearFilters,
     onEdit,
-    onOpen,
+    onSubmit,
+    onApprove,
+    onReturn,
+    onResubmit,
     onHold,
     onResume,
     onExtend,
@@ -54,7 +57,10 @@ export function RequirementTable({
 
     const handlers: RequirementActionHandlers = {
         onEdit,
-        onOpen,
+        onSubmit,
+        onApprove,
+        onReturn,
+        onResubmit,
         onHold,
         onResume,
         onExtend,

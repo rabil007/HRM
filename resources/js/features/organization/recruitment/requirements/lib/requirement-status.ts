@@ -6,6 +6,8 @@ import type {
 
 export const REQUIREMENT_STATUS_LABELS: Record<RequirementStatus, string> = {
     draft: 'Draft',
+    pending_approval: 'Pending Approval',
+    returned: 'Returned',
     open: 'Open',
     on_hold: 'On Hold',
     completed: 'Completed',
@@ -14,6 +16,10 @@ export const REQUIREMENT_STATUS_LABELS: Record<RequirementStatus, string> = {
 
 export const REQUIREMENT_STATUS_STYLES: Record<RequirementStatus, string> = {
     draft: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
+    pending_approval:
+        'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400',
+    returned:
+        'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-400',
     open: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
     on_hold:
         'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
@@ -24,9 +30,17 @@ export const REQUIREMENT_STATUS_STYLES: Record<RequirementStatus, string> = {
 
 export const REQUIREMENT_STATUS_ICONS: Record<
     RequirementStatus,
-    'draft' | 'open' | 'on_hold' | 'completed' | 'cancelled'
+    | 'draft'
+    | 'pending_approval'
+    | 'returned'
+    | 'open'
+    | 'on_hold'
+    | 'completed'
+    | 'cancelled'
 > = {
     draft: 'draft',
+    pending_approval: 'pending_approval',
+    returned: 'returned',
     open: 'open',
     on_hold: 'on_hold',
     completed: 'completed',

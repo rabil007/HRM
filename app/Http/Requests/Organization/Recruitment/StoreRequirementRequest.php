@@ -6,8 +6,10 @@ use App\Enums\Recruitment\RequirementPriority;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
+use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 class StoreRequirementRequest extends FormRequest
@@ -21,6 +23,11 @@ class StoreRequirementRequest extends FormRequest
     {
         if ($this->has('force_create') && ! $this->has('ignore_duplicate_warning')) {
             $this->merge(['ignore_duplicate_warning' => (bool) $this->input('force_create')]);
+        }
+
+        if ($this->has('as_open') && ! $this->has('submit_for_approval')) {
+            // Legacy clients may still send as_open; map to submit-for-approval.
+            $this->merge(['submit_for_approval' => (bool) $this->input('as_open')]);
         }
     }
 
@@ -39,7 +46,6 @@ class StoreRequirementRequest extends FormRequest
                 'integer',
                 Rule::exists('projects', 'id')->where('is_active', true)->whereNull('deleted_at'),
             ],
-            'client_reference_number' => ['nullable', 'string', 'max:100'],
             'request_received_date' => ['required', 'date'],
             'required_by_date' => ['required', 'date', 'after_or_equal:request_received_date'],
             'location' => ['nullable', 'string', 'max:200'],
@@ -53,8 +59,10 @@ class StoreRequirementRequest extends FormRequest
                     }
                 },
             ],
+            'notification_recipient_ids' => ['nullable', 'array'],
+            'notification_recipient_ids.*' => ['integer'],
             'notes' => ['nullable', 'string'],
-            'as_open' => ['nullable', 'boolean'],
+            'submit_for_approval' => ['nullable', 'boolean'],
             'ignore_duplicate_warning' => ['nullable', 'boolean'],
             'attachment' => [
                 'nullable',
@@ -86,6 +94,8 @@ class StoreRequirementRequest extends FormRequest
             if (isset($validated['positions']) && ! isset($validated['lines'])) {
                 $validated['lines'] = $validated['positions'];
             }
+
+            unset($validated['client_reference_number'], $validated['as_open']);
         }
 
         return $validated;
@@ -98,6 +108,7 @@ class StoreRequirementRequest extends FormRequest
                 return;
             }
 
+            $companyId = (int) $this->attributes->get('current_company_id');
             $clientId = $this->input('client_id');
             $projectId = $this->input('project_id');
 
@@ -106,6 +117,39 @@ class StoreRequirementRequest extends FormRequest
                 $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 $projectId !== null && $projectId !== '' ? (int) $projectId : null,
             );
+
+            $assignedTo = $this->input('assigned_to');
+            $assignedToId = $assignedTo !== null && $assignedTo !== '' ? (int) $assignedTo : null;
+
+            try {
+                SyncRequirementNotificationRecipients::normalizeAndValidate(
+                    $companyId,
+                    is_array($this->input('notification_recipient_ids'))
+                        ? $this->input('notification_recipient_ids')
+                        : [],
+                    $assignedToId,
+                );
+            } catch (ValidationException $exception) {
+                foreach ($exception->errors() as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($field, $message);
+                    }
+                }
+            }
+
+            if ((bool) $this->boolean('submit_for_approval')) {
+                if ($assignedToId === null) {
+                    $validator->errors()->add('assigned_to', 'An assigned recruiter is required before submitting for approval.');
+                }
+
+                if (! ($this->user()?->can('recruitment.requirements.submit') ?? false)) {
+                    $validator->errors()->add('submit_for_approval', 'You do not have permission to submit requirements for approval.');
+                }
+
+                if ($assignedToId !== null && (int) $this->user()?->id === $assignedToId) {
+                    $validator->errors()->add('assigned_to', 'The requester cannot also be the assigned recruiter. Self-approval is not allowed.');
+                }
+            }
         });
     }
 

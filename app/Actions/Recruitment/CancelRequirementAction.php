@@ -5,6 +5,7 @@ namespace App\Actions\Recruitment;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Support\Recruitment\RecordRequirementStatusTransition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +26,8 @@ final class CancelRequirementAction
                 ]);
             }
 
+            $fromStatus = $locked->status;
+
             $locked->update([
                 'status' => RequirementStatus::Cancelled,
                 'cancelled_at' => now(),
@@ -35,6 +38,14 @@ final class CancelRequirementAction
             $locked->lines()->update([
                 'status' => RequirementLineStatus::Cancelled,
             ]);
+
+            RecordRequirementStatusTransition::handle(
+                $locked,
+                $fromStatus,
+                RequirementStatus::Cancelled,
+                $userId,
+                $reason,
+            );
 
             activity('recruitment')
                 ->causedBy($userId)

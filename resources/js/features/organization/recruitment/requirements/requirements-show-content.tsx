@@ -1,10 +1,12 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import RequirementApproveController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementApproveController';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import RequirementFillController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementFillController';
 import RequirementHoldController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementHoldController';
-import RequirementOpenController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementOpenController';
+import RequirementResubmitController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResubmitController';
 import RequirementResumeController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResumeController';
+import RequirementSubmitController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementSubmitController';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
@@ -30,6 +32,7 @@ import { ChangeHeadcountDialog } from './components/workflow/change-headcount-di
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
+import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
 import type { RequirementWhatsNextAction } from './lib/requirement-whats-next';
 
 export function RequirementsShowContent({
@@ -55,6 +58,7 @@ export function RequirementsShowContent({
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [isReopenOpen, setIsReopenOpen] = useState(false);
     const [isRepeatOpen, setIsRepeatOpen] = useState(false);
+    const [isReturnOpen, setIsReturnOpen] = useState(false);
     const [targetLineForHeadcount, setTargetLineForHeadcount] =
         useState<RequirementLine | null>(null);
 
@@ -93,14 +97,6 @@ export function RequirementsShowContent({
         );
     };
 
-    const handleOpen = () => {
-        runWorkflow(
-            RequirementOpenController.url(requirement.id),
-            'Requirement opened.',
-            'Failed to open requirement.',
-        );
-    };
-
     const handleHold = () => {
         runWorkflow(
             RequirementHoldController.url(requirement.id),
@@ -125,12 +121,42 @@ export function RequirementsShowContent({
         );
     };
 
+    const handleSubmit = () => {
+        runWorkflow(
+            RequirementSubmitController.url(requirement.id),
+            'Requirement submitted for approval.',
+            'Failed to submit requirement for approval.',
+        );
+    };
+
+    const handleResubmit = () => {
+        runWorkflow(
+            RequirementResubmitController.url(requirement.id),
+            'Requirement resubmitted for approval.',
+            'Failed to resubmit requirement.',
+        );
+    };
+
+    const handleApprove = () => {
+        runWorkflow(
+            RequirementApproveController.url(requirement.id),
+            'Requirement approved.',
+            'Failed to approve requirement.',
+        );
+    };
+
     const handleWhatsNext = (
         action: Exclude<RequirementWhatsNextAction, null>,
     ) => {
         switch (action) {
-            case 'open':
-                handleOpen();
+            case 'submit':
+                handleSubmit();
+                break;
+            case 'approve':
+                handleApprove();
+                break;
+            case 'resubmit':
+                handleResubmit();
                 break;
             case 'resume':
                 handleResume();
@@ -196,8 +222,12 @@ export function RequirementsShowContent({
 
                     <RequirementOverviewCard
                         requirement={requirement}
+                        processing={isWorkflowProcessing}
                         onEdit={() => setIsEditOpen(true)}
-                        onOpen={handleOpen}
+                        onSubmit={handleSubmit}
+                        onApprove={handleApprove}
+                        onReturn={() => setIsReturnOpen(true)}
+                        onResubmit={handleResubmit}
                         onHold={handleHold}
                         onResume={handleResume}
                         onExtend={() => setIsExtendOpen(true)}
@@ -290,6 +320,12 @@ export function RequirementsShowContent({
                 onOpenChange={setIsRepeatOpen}
                 requirement={requirement}
                 recruiters={options.recruiters}
+            />
+
+            <ReturnRequirementDialog
+                open={isReturnOpen}
+                onOpenChange={setIsReturnOpen}
+                requirement={requirement}
             />
         </Main>
     );

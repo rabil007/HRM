@@ -35,9 +35,13 @@ function makeRow(
         positions_count: 1,
         repeated_from_id: null,
         repeated_from_number: null,
-        next_action: 'open',
+        next_action: 'submit',
         can_edit: true,
-        can_open: true,
+        can_submit: true,
+        can_approve: false,
+        can_return: false,
+        can_resubmit: false,
+        can_open: false,
         can_hold: false,
         can_resume: false,
         can_extend: true,
@@ -54,8 +58,8 @@ describe('requirement whats next', () => {
     it('uses authorized next_action when available', () => {
         const next = resolveRequirementWhatsNext(makeRow());
 
-        assert.equal(next.action, 'open');
-        assert.equal(next.ctaLabel, 'Open requirement');
+        assert.equal(next.action, 'submit');
+        assert.equal(next.ctaLabel, 'Submit for approval');
     });
 
     it('falls back when next_action is not authorized', () => {
@@ -64,7 +68,7 @@ describe('requirement whats next', () => {
                 status: 'open',
                 status_label: 'Open',
                 next_action: 'fill',
-                can_open: false,
+                can_submit: false,
                 can_fill: false,
                 can_extend: true,
                 deadline_health: 'overdue',
@@ -79,9 +83,9 @@ describe('requirement whats next', () => {
     it('hides CTA when no capability is available', () => {
         const next = resolveRequirementWhatsNext(
             makeRow({
-                next_action: 'open',
+                next_action: 'submit',
                 can_edit: false,
-                can_open: false,
+                can_submit: false,
                 can_extend: false,
                 can_cancel: false,
             }),
@@ -89,5 +93,19 @@ describe('requirement whats next', () => {
 
         assert.equal(next.action, null);
         assert.equal(next.ctaLabel, null);
+    });
+
+    it('prefers approve when pending approval', () => {
+        const next = resolveRequirementWhatsNext(
+            makeRow({
+                status: 'pending_approval',
+                status_label: 'Pending Approval',
+                next_action: 'approve',
+                can_submit: false,
+                can_approve: true,
+            }),
+        );
+
+        assert.equal(next.action, 'approve');
     });
 });

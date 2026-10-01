@@ -8,6 +8,8 @@ import {
     PauseCircle,
     PlayCircle,
     RotateCcw,
+    Send,
+    Undo2,
     Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,8 +31,12 @@ import {
 
 type Props = {
     requirement: RequirementDetail;
+    processing?: boolean;
     onEdit: () => void;
-    onOpen: () => void;
+    onSubmit: () => void;
+    onApprove: () => void;
+    onReturn: () => void;
+    onResubmit: () => void;
     onHold: () => void;
     onResume: () => void;
     onExtend: () => void;
@@ -43,8 +49,12 @@ type Props = {
 
 export function RequirementOverviewCard({
     requirement,
+    processing = false,
     onEdit,
-    onOpen,
+    onSubmit,
+    onApprove,
+    onReturn,
+    onResubmit,
     onHold,
     onResume,
     onExtend,
@@ -55,15 +65,44 @@ export function RequirementOverviewCard({
     onRepeat,
 }: Props) {
     const primaryAction = (() => {
-        if (requirement.can_open) {
+        if (requirement.can_approve) {
             return (
                 <Button
                     size="sm"
-                    onClick={onOpen}
+                    disabled={processing}
+                    onClick={onApprove}
                     className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
                 >
-                    <PlayCircle className="h-4 w-4" aria-hidden="true" />
-                    Open requirement
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    Approve requirement
+                </Button>
+            );
+        }
+
+        if (requirement.can_submit) {
+            return (
+                <Button
+                    size="sm"
+                    disabled={processing}
+                    onClick={onSubmit}
+                    className="w-full gap-1.5 sm:w-auto"
+                >
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                    Submit for approval
+                </Button>
+            );
+        }
+
+        if (requirement.can_resubmit) {
+            return (
+                <Button
+                    size="sm"
+                    disabled={processing}
+                    onClick={onResubmit}
+                    className="w-full gap-1.5 sm:w-auto"
+                >
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                    Resubmit for approval
                 </Button>
             );
         }
@@ -72,6 +111,7 @@ export function RequirementOverviewCard({
             return (
                 <Button
                     size="sm"
+                    disabled={processing}
                     onClick={onResume}
                     className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
                 >
@@ -85,6 +125,7 @@ export function RequirementOverviewCard({
             return (
                 <Button
                     size="sm"
+                    disabled={processing}
                     onClick={onFill}
                     className="w-full gap-1.5 bg-sky-600 text-white hover:bg-sky-700 sm:w-auto"
                 >
@@ -99,6 +140,7 @@ export function RequirementOverviewCard({
 
     const hasSecondaryActions =
         requirement.can_edit ||
+        requirement.can_return ||
         requirement.can_extend ||
         requirement.can_change_headcount ||
         requirement.can_hold ||
@@ -156,9 +198,24 @@ export function RequirementOverviewCard({
                     </div>
                 </div>
 
-                {(primaryAction || hasSecondaryActions) && (
-                    <div className="flex items-center gap-2 pt-1">
+                {(primaryAction ||
+                    requirement.can_return ||
+                    hasSecondaryActions) && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
                         {primaryAction}
+
+                        {requirement.can_return ? (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={processing}
+                                onClick={onReturn}
+                                className="w-full gap-1.5 border-orange-500/40 text-orange-700 hover:bg-orange-500/10 sm:w-auto dark:text-orange-400"
+                            >
+                                <Undo2 className="h-4 w-4" aria-hidden="true" />
+                                Return
+                            </Button>
+                        ) : null}
 
                         {hasSecondaryActions && (
                             <DropdownMenu>
@@ -166,9 +223,11 @@ export function RequirementOverviewCard({
                                     <Button
                                         variant="outline"
                                         size="sm"
+                                        disabled={processing}
                                         className={cn(
                                             'gap-1.5',
                                             !primaryAction &&
+                                                !requirement.can_return &&
                                                 'w-full sm:w-auto',
                                         )}
                                         aria-label="More actions"

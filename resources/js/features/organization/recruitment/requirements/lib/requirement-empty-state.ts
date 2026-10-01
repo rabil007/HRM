@@ -51,7 +51,7 @@ export function resolveRequirementEmptyState({
     return {
         title: 'Start your next hire here',
         description:
-            'Create a staffing request with the roles and headcount you need, then assign a recruiter to keep things moving.',
+            'Create a staffing request with the roles and headcount you need, assign a recruiter, then submit for approval when ready.',
         showCreateAction: canCreate,
         showClearAction: false,
     };

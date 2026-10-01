@@ -66,9 +66,9 @@ export type FormPositionLineInput = {
 export type RequirementFormState = {
     client_id: number | string;
     project_id: number | string | '';
-    client_reference_number: string;
     location: string;
     assigned_to: number | string | '';
+    notification_recipient_ids: number[];
     request_received_date: string;
     required_by_date: string;
     priority: RequirementPriority;
@@ -76,4 +76,5 @@ export type RequirementFormState = {
     positions: FormPositionLineInput[];
     attachment?: File | null;
     force_create?: boolean;
+    submit_for_approval?: boolean;
 };

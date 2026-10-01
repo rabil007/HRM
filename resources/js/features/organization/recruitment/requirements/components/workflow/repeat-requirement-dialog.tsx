@@ -45,7 +45,6 @@ export function RepeatRequirementDialog({
         useForm({
             request_received_date: today,
             required_by_date: '',
-            client_reference_number: '',
             assigned_to: '',
             priority: 'normal',
             reason: '',
@@ -57,8 +56,6 @@ export function RepeatRequirementDialog({
             setData({
                 request_received_date: today,
                 required_by_date: '',
-                client_reference_number:
-                    requirement.client_reference_number || '',
                 assigned_to: requirement.assigned_to
                     ? String(requirement.assigned_to)
                     : '',
@@ -230,53 +227,26 @@ export function RepeatRequirementDialog({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label
-                                    htmlFor="repeat_client_reference_number"
-                                    className="text-xs font-semibold"
-                                >
-                                    Client Reference #
-                                </Label>
-                                <Input
-                                    id="repeat_client_reference_number"
-                                    placeholder="e.g. PO-8921"
-                                    value={data.client_reference_number}
-                                    onChange={(e) =>
-                                        setData(
-                                            'client_reference_number',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                {errors.client_reference_number && (
-                                    <p className="text-xs text-rose-500">
-                                        {errors.client_reference_number}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">
-                                    Priority
-                                </Label>
-                                <AppSelect
-                                    value={data.priority}
-                                    onValueChange={(val) =>
-                                        setData(
-                                            'priority',
-                                            val as 'normal' | 'urgent',
-                                        )
-                                    }
-                                >
-                                    <AppSelectItem value="normal">
-                                        Normal
-                                    </AppSelectItem>
-                                    <AppSelectItem value="urgent">
-                                        Urgent
-                                    </AppSelectItem>
-                                </AppSelect>
-                            </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">
+                                Priority
+                            </Label>
+                            <AppSelect
+                                value={data.priority}
+                                onValueChange={(val) =>
+                                    setData(
+                                        'priority',
+                                        val as 'normal' | 'urgent',
+                                    )
+                                }
+                            >
+                                <AppSelectItem value="normal">
+                                    Normal
+                                </AppSelectItem>
+                                <AppSelectItem value="urgent">
+                                    Urgent
+                                </AppSelectItem>
+                            </AppSelect>
                         </div>
 
                         <div className="space-y-1.5">

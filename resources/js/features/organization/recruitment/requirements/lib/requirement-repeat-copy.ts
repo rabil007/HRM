@@ -28,7 +28,6 @@ export function resolveRequirementRepeatFieldGroups(): {
             fields: [
                 'Request received date',
                 'Required-by date',
-                'Client reference number',
                 'Priority',
                 'Assigned recruiter',
             ],

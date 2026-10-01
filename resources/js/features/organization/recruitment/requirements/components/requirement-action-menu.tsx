@@ -10,6 +10,8 @@ import {
     PauseCircle,
     PlayCircle,
     RotateCcw,
+    Send,
+    Undo2,
     Users,
 } from 'lucide-react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
@@ -26,7 +28,10 @@ import { visibleRequirementActions } from '../lib/requirement-actions';
 
 export type RequirementActionHandlers = {
     onEdit: (row: RequirementIndexRow) => void;
-    onOpen: (row: RequirementIndexRow) => void;
+    onSubmit: (row: RequirementIndexRow) => void;
+    onApprove: (row: RequirementIndexRow) => void;
+    onReturn: (row: RequirementIndexRow) => void;
+    onResubmit: (row: RequirementIndexRow) => void;
     onHold: (row: RequirementIndexRow) => void;
     onResume: (row: RequirementIndexRow) => void;
     onExtend: (row: RequirementIndexRow) => void;
@@ -45,6 +50,10 @@ type Props = RequirementActionHandlers & {
 export function RequirementActionMenu({
     row,
     onEdit,
+    onSubmit,
+    onApprove,
+    onReturn,
+    onResubmit,
     onHold,
     onResume,
     onExtend,
@@ -94,6 +103,58 @@ export function RequirementActionMenu({
                             aria-hidden="true"
                         />
                         <span>Edit requirement</span>
+                    </DropdownMenuItem>
+                ) : null}
+
+                {actions.canSubmit ? (
+                    <DropdownMenuItem
+                        onClick={() => onSubmit(row)}
+                        className="cursor-pointer gap-2"
+                    >
+                        <Send
+                            className="h-4 w-4 text-primary"
+                            aria-hidden="true"
+                        />
+                        <span>Submit for approval</span>
+                    </DropdownMenuItem>
+                ) : null}
+
+                {actions.canResubmit ? (
+                    <DropdownMenuItem
+                        onClick={() => onResubmit(row)}
+                        className="cursor-pointer gap-2"
+                    >
+                        <Send
+                            className="h-4 w-4 text-primary"
+                            aria-hidden="true"
+                        />
+                        <span>Resubmit for approval</span>
+                    </DropdownMenuItem>
+                ) : null}
+
+                {actions.canApprove ? (
+                    <DropdownMenuItem
+                        onClick={() => onApprove(row)}
+                        className="cursor-pointer gap-2"
+                    >
+                        <CheckCircle2
+                            className="h-4 w-4 text-emerald-700 dark:text-emerald-400"
+                            aria-hidden="true"
+                        />
+                        <span>Approve requirement</span>
+                    </DropdownMenuItem>
+                ) : null}
+
+                {actions.canReturn ? (
+                    <DropdownMenuItem
+                        onClick={() => onReturn(row)}
+                        className="cursor-pointer gap-2"
+                    >
+                        <Undo2
+                            className="h-4 w-4 text-orange-600 dark:text-orange-400"
+                            aria-hidden="true"
+                        />
+                        <span>Return requirement</span>
                     </DropdownMenuItem>
                 ) : null}
 

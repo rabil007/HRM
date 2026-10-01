@@ -5,6 +5,7 @@ namespace App\Actions\Recruitment;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Support\Recruitment\RecordRequirementStatusTransition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +26,8 @@ final class HoldRequirementAction
                 ]);
             }
 
+            $fromStatus = $locked->status;
+
             $locked->update([
                 'status' => RequirementStatus::OnHold,
                 'updated_by' => $userId,
@@ -33,6 +36,13 @@ final class HoldRequirementAction
             $locked->lines()->where('status', RequirementLineStatus::Open)->update([
                 'status' => RequirementLineStatus::OnHold,
             ]);
+
+            RecordRequirementStatusTransition::handle(
+                $locked,
+                $fromStatus,
+                RequirementStatus::OnHold,
+                $userId,
+            );
 
             activity('recruitment')
                 ->causedBy($userId)

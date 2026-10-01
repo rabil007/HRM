@@ -140,6 +140,10 @@ class RequirementController extends Controller
             'attachments.uploader:id,name',
             'creator:id,name',
             'updater:id,name',
+            'submitter:id,name',
+            'approver:id,name',
+            'returner:id,name',
+            'notificationRecipients.user:id,name,email',
         ]);
 
         $canViewAudit = (bool) $request->user()?->can('audit.view');
