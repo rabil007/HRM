@@ -11,10 +11,23 @@ class RedirectLegacyBulkDocumentsController extends Controller
 {
     public function __invoke(Request $request): RedirectResponse
     {
-        $view = $request->query('view');
+        $legacyView = $request->route('legacy_view');
+        $view = $legacyView === 'history' ? 'history' : $request->query('view');
 
-        if ($view === 'history') {
-            return redirect()->route('organization.documents.activity');
+        if ($view === 'history' || $view === 'activity') {
+            $query = array_filter([
+                'view' => 'activity',
+                'document_type_key' => $request->query('document_type_key'),
+                'search' => $request->query('search'),
+                'department_id' => $request->query('department_id'),
+                'position_id' => $request->query('position_id'),
+                'company_visa_type_id' => $request->query('company_visa_type_id'),
+                'email_filter' => $request->query('email_filter'),
+                'per_page' => $request->query('per_page'),
+                'page' => $request->query('page'),
+            ], static fn ($value): bool => $value !== null && $value !== '');
+
+            return redirect()->route('organization.documents.generate', $query);
         }
 
         if ($view === 'signatures') {
