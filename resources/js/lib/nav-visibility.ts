@@ -282,8 +282,6 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'documents.requests.view') ||
         has(permissions, 'documents.recipient-requests.view') ||
         has(permissions, 'documents.recipient-requests.respond'),
-    '/organization/documents/activity': (permissions) =>
-        has(permissions, 'bulk_documents.view'),
     '/organization/documents/templates': (permissions) =>
         has(permissions, 'documents.templates.view') ||
         has(permissions, 'bulk_documents.view'),
