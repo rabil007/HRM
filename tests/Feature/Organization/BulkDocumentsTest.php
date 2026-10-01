@@ -10,6 +10,10 @@ use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\Department;
+use App\Models\DocumentGenerationRun;
+use App\Models\DocumentGenerationRunItem;
+use App\Models\DocumentGenerationTemplate;
+use App\Models\DocumentGenerationTemplateVersion;
 use App\Models\DocumentType;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
@@ -568,6 +572,63 @@ test('bulk documents history view returns paginated activity', function () {
             ->where('activity.0.kind', 'generation')
             ->where('activity.0.generated_count', 2)
             ->has('pagination'));
+});
+
+test('company template activity uses custom generation runs without built-in registry lookup', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $template = DocumentGenerationTemplate::factory()
+        ->forCompany($company)
+        ->active()
+        ->content()
+        ->create(['name' => 'Employment Letter']);
+
+    $version = DocumentGenerationTemplateVersion::factory()
+        ->forTemplate($template)
+        ->published()
+        ->create();
+
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'filters' => ['status' => 'active'],
+        'status' => 'completed',
+        'total_targeted' => 1,
+        'generated_count' => 1,
+        'skipped_count' => 0,
+        'failed_count' => 0,
+        'correlation_id' => (string) \Illuminate\Support\Str::uuid(),
+        'triggered_by' => $user->id,
+    ]);
+
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $employee->id,
+        'status' => 'completed',
+    ]);
+
+    $this->get(route('organization.documents.generate', [
+        'view' => 'activity',
+        'document_type_key' => "custom_{$template->id}",
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/documents/bulk/index')
+            ->where('view', 'history')
+            ->where('is_custom_template', true)
+            ->where('custom_template.id', $template->id)
+            ->has('activity', 1)
+            ->where('activity.0.kind', 'generation')
+            ->where('activity.0.document_type_label', 'Employment Letter')
+            ->where('activity.0.generated_count', 1));
 });
 
 test('legacy bulk signatures urls never render a signature roster', function () {
