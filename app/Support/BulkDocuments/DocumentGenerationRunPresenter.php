@@ -5,6 +5,8 @@ namespace App\Support\BulkDocuments;
 use App\Models\BulkDocumentGenerationRun;
 use App\Models\DocumentGenerationRun;
 use App\Models\DocumentGenerationRunItem;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use InvalidArgumentException;
 
 final class DocumentGenerationRunPresenter
@@ -53,6 +55,73 @@ final class DocumentGenerationRunPresenter
             'failure_summary' => $itemCounts['failed_count'] > 0
                 ? DocumentGenerationItemErrorPresenter::failureSummary($run)
                 : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function fromCompanyTemplateRunForUser(
+        DocumentGenerationRun $run,
+        ?User $user,
+        int $companyId,
+    ): ?array {
+        if ($user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return $this->fromCompanyTemplateRun($run);
+        }
+
+        $run->loadMissing(['triggeredBy:id,name', 'template:id,name', 'templateVersion:id,version']);
+
+        $items = DocumentGenerationRunItem::query()
+            ->where('company_id', $companyId)
+            ->where('document_generation_run_id', $run->id)
+            ->whereHas('employee', function ($query) use ($user, $companyId): void {
+                EmployeeVisibilityScope::apply($query, $user, $companyId);
+            })
+            ->get(['id', 'status']);
+
+        if ($items->isEmpty()) {
+            return null;
+        }
+
+        $generatedCount = $items->where('status', 'completed')->count();
+        $skippedCount = $items->where('status', 'skipped')->count();
+        $failedCount = $items->where('status', 'failed')->count();
+        $pendingCount = $items->where('status', 'pending')->count();
+        $processingCount = $items->where('status', 'processing')->count();
+        $processedCount = $generatedCount + $skippedCount + $failedCount;
+        $totalTargeted = $items->count();
+
+        $status = match (true) {
+            $run->status === 'failed' && $pendingCount > 0 && $processedCount === 0 => 'failed',
+            $processingCount > 0 => 'running',
+            $pendingCount > 0 && $processedCount > 0 => 'running',
+            $pendingCount > 0 => 'queued',
+            $failedCount > 0 && ($generatedCount + $skippedCount) === 0 => 'failed',
+            default => 'completed',
+        };
+
+        return [
+            'id' => $run->id,
+            'source' => 'company_template',
+            'status' => $status,
+            'total_targeted' => $totalTargeted,
+            'generated_count' => $generatedCount,
+            'replaced_count' => 0,
+            'skipped_count' => $skippedCount,
+            'failed_count' => $failedCount,
+            'pending_count' => $pendingCount,
+            'processing_count' => $processingCount,
+            'processed_count' => $processedCount,
+            'progress_percent' => $this->progressPercent($processedCount, $totalTargeted),
+            'template_id' => $run->document_generation_template_id,
+            'template_version_id' => $run->document_generation_template_version_id,
+            'template_name' => $run->template?->name,
+            'template_version' => $run->templateVersion?->version,
+            'triggered_by' => $this->triggeredByPayload($run->triggeredBy?->id, $run->triggeredBy?->name),
+            'started_at' => $run->started_at?->toIso8601String(),
+            'finished_at' => $run->finished_at?->toIso8601String(),
+            'failure_summary' => null,
         ];
     }
 

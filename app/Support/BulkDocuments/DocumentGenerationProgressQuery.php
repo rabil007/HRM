@@ -6,6 +6,8 @@ use App\Models\BulkDocumentGenerationRun;
 use App\Models\DocumentGenerationRun;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 final class DocumentGenerationProgressQuery
 {
@@ -21,6 +23,7 @@ final class DocumentGenerationProgressQuery
         int $userId,
         DocumentGenerationTemplate $template,
         ?DocumentGenerationTemplateVersion $publishedVersion = null,
+        ?User $user = null,
     ): ?array {
         if ($userId < 1) {
             return null;
@@ -35,7 +38,7 @@ final class DocumentGenerationProgressQuery
             ->first();
 
         if ($activeRun !== null) {
-            return $this->presenter->fromCompanyTemplateRun($activeRun);
+            return $this->presenter->fromCompanyTemplateRunForUser($activeRun, $user, $companyId);
         }
 
         $latestRun = DocumentGenerationRun::query()
@@ -53,14 +56,18 @@ final class DocumentGenerationProgressQuery
             return null;
         }
 
-        return $this->presenter->fromCompanyTemplateRun($latestRun);
+        return $this->presenter->fromCompanyTemplateRunForUser($latestRun, $user, $companyId);
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    public function forBuiltIn(int $companyId, string $documentTypeKey): ?array
+    public function forBuiltIn(int $companyId, string $documentTypeKey, ?User $user = null): ?array
     {
+        if ($user !== null && ! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return null;
+        }
+
         $run = BulkDocumentGenerationRun::query()
             ->where('company_id', $companyId)
             ->where('document_type_key', $documentTypeKey)

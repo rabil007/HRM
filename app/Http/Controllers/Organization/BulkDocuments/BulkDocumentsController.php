@@ -545,13 +545,19 @@ class BulkDocumentsController extends Controller
         $query = app(DocumentGenerationProgressQuery::class);
 
         if ($customTemplate !== null) {
-            return $query->forCurrentUserCustomTemplate($companyId, $userId, $customTemplate, $customVersion);
+            return $query->forCurrentUserCustomTemplate(
+                $companyId,
+                $userId,
+                $customTemplate,
+                $customVersion,
+                $request->user(),
+            );
         }
 
         if ($documentTypeKey === '') {
             return null;
         }
 
-        return $query->forBuiltIn($companyId, $documentTypeKey);
+        return $query->forBuiltIn($companyId, $documentTypeKey, $request->user());
     }
 }
