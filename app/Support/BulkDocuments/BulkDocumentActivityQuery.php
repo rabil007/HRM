@@ -141,6 +141,9 @@ final class BulkDocumentActivityQuery
         $allowedDepartmentIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
         $restricted = $allowedDepartmentIds !== null;
 
+        // Built-in runs do not persist their employee snapshot, so restricted
+        // viewers cannot safely prove which aggregate counts belong to visible employees.
+        // Fail closed rather than expose company-wide generation totals.
         $runs = $restricted
             ? collect()
             : BulkDocumentGenerationRun::query()
