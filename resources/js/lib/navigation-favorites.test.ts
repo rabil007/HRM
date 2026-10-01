@@ -78,7 +78,17 @@ describe('pathname matching', () => {
             destinationKeyFromPageUrl(
                 '/organization/documents/bulk?view=history',
             ),
-            'documents.activity',
+            'documents.bulk',
+        );
+        assert.equal(
+            destinationKeyFromPageUrl(
+                '/organization/documents/generate?view=activity',
+            ),
+            'documents.bulk',
+        );
+        assert.equal(
+            destinationKeyFromPathname('/organization/documents/activity'),
+            'documents.bulk',
         );
     });
 });
@@ -98,7 +108,6 @@ describe('unified Documents destinations', () => {
                 'Generate & Track',
                 'My Tasks',
                 'Document Types',
-                'Activity',
             ],
         );
         assert.equal(

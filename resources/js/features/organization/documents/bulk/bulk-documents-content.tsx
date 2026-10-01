@@ -59,7 +59,6 @@ import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import documentRoutes, {
-    activity as documentsActivity,
     generate as documentsGenerate,
     templates as documentsTemplates,
 } from '@/routes/organization/documents';
@@ -78,11 +77,7 @@ import type {
     ProcessLifecycleFilter,
 } from './types';
 
-function documentsSectionUrl(view: BulkDocumentsView): string {
-    if (view === 'history') {
-        return documentsActivity.url();
-    }
-
+function documentsSectionUrl(): string {
     return documentsGenerate.url();
 }
 
@@ -240,7 +235,6 @@ export function BulkDocumentsContent({
     is_custom_template,
     custom_template,
     view,
-    module_view_locked = false,
     can_view_templates = false,
     filters: initialFilters,
     search: initialSearch,
@@ -566,18 +560,21 @@ export function BulkDocumentsContent({
             page: number | null = null,
         ) => {
             router.get(
-                documentsSectionUrl(nextView),
-                buildQuery(
-                    nextType,
-                    nextFilters,
-                    nextSearch,
-                    nextProcessFilter,
-                    nextEmailFilter,
-                    {
-                        page,
-                        perPage: pagination.per_page,
-                    },
-                ),
+                documentsSectionUrl(),
+                {
+                    ...buildQuery(
+                        nextType,
+                        nextFilters,
+                        nextSearch,
+                        nextProcessFilter,
+                        nextEmailFilter,
+                        {
+                            page,
+                            perPage: pagination.per_page,
+                        },
+                    ),
+                    ...(nextView === 'history' ? { view: 'activity' } : {}),
+                },
                 { preserveState: true, preserveScroll: true, replace: true },
             );
         },
@@ -642,15 +639,18 @@ export function BulkDocumentsContent({
     const setPerPage = useCallback(
         (perPage: number) => {
             router.get(
-                documentsSectionUrl(view),
-                buildQuery(
-                    document_type_key,
-                    filters,
-                    searchInput,
-                    processFilter,
-                    email_filter,
-                    { perPage },
-                ),
+                documentsSectionUrl(),
+                {
+                    ...buildQuery(
+                        document_type_key,
+                        filters,
+                        searchInput,
+                        processFilter,
+                        email_filter,
+                        { perPage },
+                    ),
+                    ...(view === 'history' ? { view: 'activity' } : {}),
+                },
                 { preserveState: true, preserveScroll: true, replace: true },
             );
         },
@@ -855,7 +855,7 @@ export function BulkDocumentsContent({
         <Main>
             <PageHeader
                 className="mb-6"
-                title={isHistoryView ? 'Activity' : 'Generate & Track'}
+                title="Generate & Track"
                 description={
                     isHistoryView
                         ? 'Review document generation and email history.'
@@ -875,6 +875,10 @@ export function BulkDocumentsContent({
                     ) : null
                 }
             />
+
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <BulkDocumentsViewSwitcher value={view} onChange={setView} />
+            </div>
 
             {isRosterView ? (
                 document_type_key !== '' ? (
@@ -1104,12 +1108,6 @@ export function BulkDocumentsContent({
                                         in this view
                                     </p>
                                 </div>
-                                {!module_view_locked ? (
-                                    <BulkDocumentsViewSwitcher
-                                        value={view}
-                                        onChange={setView}
-                                    />
-                                ) : null}
                             </>
                         }
                     >
@@ -1186,12 +1184,6 @@ export function BulkDocumentsContent({
                                 <span className="text-sm font-medium text-foreground">
                                     Recent Operations
                                 </span>
-                                {!module_view_locked ? (
-                                    <BulkDocumentsViewSwitcher
-                                        value={view}
-                                        onChange={setView}
-                                    />
-                                ) : null}
                             </>
                         }
                     />

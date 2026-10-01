@@ -35,7 +35,6 @@ final class NavigationDestinationCatalog
             ['key' => 'documents.bulk', 'label' => 'Generate & Track', 'href' => '/organization/documents/generate', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
             ['key' => 'documents.requests', 'label' => 'My Tasks', 'href' => '/organization/documents/requests', 'group' => 'Documents', 'permissions' => ['documents.requests.view', 'documents.recipient-requests.view', 'documents.recipient-requests.respond'], 'platform' => null],
             ['key' => 'documents.configuration', 'label' => 'Document Types', 'href' => '/organization/documents/configuration', 'group' => 'Documents', 'permissions' => ['settings.master-data.document-types.view'], 'platform' => null],
-            ['key' => 'documents.activity', 'label' => 'Activity', 'href' => '/organization/documents/activity', 'group' => 'Documents', 'permissions' => ['bulk_documents.view'], 'platform' => null],
             ['key' => 'contracts', 'label' => 'Contracts', 'href' => '/organization/contracts', 'group' => 'Employees', 'permissions' => ['contracts.view'], 'platform' => null],
             ['key' => 'bank-accounts', 'label' => 'Bank Accounts', 'href' => '/organization/bank-accounts', 'group' => 'Employees', 'permissions' => ['bank_accounts.view'], 'platform' => null],
             ['key' => 'training', 'label' => 'Training', 'href' => '/organization/training', 'group' => 'Employees', 'permissions' => ['training.view'], 'platform' => null],

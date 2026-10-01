@@ -183,6 +183,8 @@ class HandleInertiaRequests extends Middleware
                 ->orderBy('id')
                 ->limit(NavigationFavorite::MAX_PER_USER)
                 ->pluck('destination_key')
+                ->map(static fn (string $key): string => $key === 'documents.activity' ? 'documents.bulk' : $key)
+                ->unique()
                 ->values()
                 ->all();
         }

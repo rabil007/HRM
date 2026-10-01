@@ -75,11 +75,14 @@ test('bulk documents view users can open generate templates and activity but not
         'tab' => 'signatures',
     ]))->assertForbidden();
 
-    $this->get(route('organization.documents.activity'))
+    $this->get(route('organization.documents.generate', ['view' => 'activity']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/bulk/index')
             ->where('view', 'history'));
+
+    $this->get(route('organization.documents.activity'))
+        ->assertRedirect(route('organization.documents.generate', ['view' => 'activity']));
 
     $this->get(route('organization.documents.templates'))
         ->assertOk()
@@ -107,7 +110,7 @@ test('legacy bulk urls redirect to current documents destinations', function () 
         ->assertRedirect(route('organization.documents.generate'));
 
     $this->get(route('organization.documents.bulk', ['view' => 'history']))
-        ->assertRedirect(route('organization.documents.activity'));
+        ->assertRedirect(route('organization.documents.generate', ['view' => 'activity']));
 });
 
 test('legacy bulk signatures url redirects to requests when current signing access exists', function () {
@@ -124,7 +127,7 @@ test('legacy bulk signatures url redirects to requests when current signing acce
         ->assertRedirect(route('organization.documents.requests', ['tab' => 'recipient']));
 });
 
-test('explicit generate route ignores a conflicting legacy view query', function () {
+test('generate workspace falls back safely for unsupported view values', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
