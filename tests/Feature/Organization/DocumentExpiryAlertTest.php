@@ -9,11 +9,14 @@ use App\Models\Employee;
 use App\Models\EmployeeDocumentExpiryAlert;
 use App\Models\User;
 use App\Services\DocumentExpiryAlertService;
+use App\Support\EmployeeDocuments\DocumentExpiryNotification\DocumentExpiryRecipientDeliveryKey;
 use App\Support\EmployeeDocuments\DocumentExpiryNotification\MigrateLegacyDocumentExpiryAlertRecipients;
 use Carbon\Carbon;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     config(['documents.expiry_alert_days' => 30]);
@@ -117,7 +120,7 @@ test('consolidated expiry alert email is sent once with all pending documents so
             && $mail->rows[1]['employee_name'] === 'Zara Khan';
     });
 
-    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2);
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(4);
 });
 
 test('expiry alert email html includes view button to employee document folder', function () {
@@ -173,7 +176,7 @@ test('second run does not resend alert for the same document and expiry date', f
     $service->sendForCompany($company->id);
 
     Mail::assertSentCount(1);
-    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(1);
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2);
 });
 
 test('expiry date change allows a new alert when the new date enters the window', function () {
@@ -202,8 +205,8 @@ test('expiry date change allows a new alert when the new date enters the window'
 
     Mail::assertSentCount(2);
 
-    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2)
-        ->and(EmployeeDocumentExpiryAlert::query()->orderBy('expiry_date_at_alert_time')->pluck('expiry_date_at_alert_time')->map->toDateString()->all())
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(4)
+        ->and(EmployeeDocumentExpiryAlert::query()->orderBy('expiry_date_at_alert_time')->pluck('expiry_date_at_alert_time')->map->toDateString()->unique()->values()->all())
         ->toBe(['2026-06-25', '2026-08-01']);
 });
 
@@ -735,4 +738,309 @@ test('legacy null-rule expiry alerts suppress duplicates after migration into ro
     app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
 
     Mail::assertSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('legacy-to@example.com'));
+});
+
+test('employee document expiry job is unique per company', function () {
+    Queue::fake();
+    $fixtures = makeDocumentFixtures();
+    $other = makeDocumentFixtures();
+
+    expect(new SendDocumentExpiryAlertJob($fixtures['company']->id))->toBeInstanceOf(ShouldBeUnique::class)
+        ->and((new SendDocumentExpiryAlertJob($fixtures['company']->id))->uniqueId())
+        ->toBe('employee-document-expiry-alert-'.$fixtures['company']->id);
+
+    SendDocumentExpiryAlertJob::dispatch($fixtures['company']->id);
+    SendDocumentExpiryAlertJob::dispatch($fixtures['company']->id);
+    SendDocumentExpiryAlertJob::dispatch($other['company']->id);
+
+    Queue::assertPushed(SendDocumentExpiryAlertJob::class, 2);
+    Queue::assertPushed(SendDocumentExpiryAlertJob::class, fn ($job) => $job->companyId === $fixtures['company']->id);
+    Queue::assertPushed(SendDocumentExpiryAlertJob::class, fn ($job) => $job->companyId === $other['company']->id);
+});
+
+test('adding a CC recipient does not resend already delivered documents to existing TO', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $rima = User::factory()->create(['email' => 'rima@example.com', 'status' => 'active']);
+    grantCompanyPermissions($rima, $company, ['documents.view'], 'expiry-rima-role');
+
+    $rabil = User::factory()->create(['email' => 'rabil@example.com', 'status' => 'active']);
+    grantCompanyPermissions($rabil, $company, ['documents.view'], 'expiry-rabil-role');
+
+    $rule = createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$rima->id],
+        'to_emails' => [],
+        'cc_user_ids' => [],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, 1);
+    Mail::assertSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('rima@example.com'));
+
+    $rule->ccRecipients()->create([
+        'company_id' => $company->id,
+        'recipient_kind' => 'user',
+        'user_id' => $rabil->id,
+        'email' => null,
+        'delivery_type' => 'cc',
+    ]);
+
+    Mail::fake();
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, 1);
+    Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) {
+        return $mail->hasTo('rabil@example.com') && ! $mail->hasTo('rima@example.com');
+    });
+
+    expect(EmployeeDocumentExpiryAlert::query()
+        ->where('delivery_key', DocumentExpiryRecipientDeliveryKey::forUser($rima->id))
+        ->count())->toBe(1)
+        ->and(EmployeeDocumentExpiryAlert::query()
+            ->where('delivery_key', DocumentExpiryRecipientDeliveryKey::forUser($rabil->id))
+            ->count())->toBe(1);
+});
+
+test('removing and re-adding the same internal recipient does not resend the same expiry event', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $rima = User::factory()->create(['email' => 'rima@example.com', 'status' => 'active']);
+    grantCompanyPermissions($rima, $company, ['documents.view'], 'expiry-rima-role');
+
+    $rule = createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$rima->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+    Mail::assertSentCount(1);
+
+    $rule->toRecipients()->where('user_id', $rima->id)->delete();
+
+    Mail::fake();
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+    Mail::assertNothingSent();
+
+    expect(EmployeeDocumentExpiryAlert::query()
+        ->where('delivery_key', DocumentExpiryRecipientDeliveryKey::forUser($rima->id))
+        ->count())->toBe(1);
+
+    $rule->toRecipients()->create([
+        'company_id' => $company->id,
+        'recipient_kind' => 'user',
+        'user_id' => $rima->id,
+        'email' => null,
+        'delivery_type' => 'to',
+    ]);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+    Mail::assertNothingSent();
+});
+
+test('changing an internal user email does not resend already delivered expiry events', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $rima = User::factory()->create(['email' => 'old@example.com', 'status' => 'active']);
+    grantCompanyPermissions($rima, $company, ['documents.view'], 'expiry-rima-role');
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$rima->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+    Mail::assertSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('old@example.com'));
+
+    $rima->update(['email' => 'new@example.com']);
+
+    Mail::fake();
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+    Mail::assertNothingSent();
+
+    $doc->update(['expiry_date' => '2026-06-25']);
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, fn (DocumentExpiryAlertMail $mail) => $mail->hasTo('new@example.com'));
+});
+
+test('different manual email is treated as a new recipient identity', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $rule = createDocumentExpiryNotificationRule($company->id, [
+        'to_emails' => ['first@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+    Mail::assertSentCount(1);
+
+    $rule->toRecipients()->create([
+        'company_id' => $company->id,
+        'recipient_kind' => 'email',
+        'user_id' => null,
+        'email' => 'second@example.com',
+        'delivery_type' => 'to',
+    ]);
+
+    Mail::fake();
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, 1);
+    Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) {
+        return $mail->hasTo('second@example.com') && ! $mail->hasTo('first@example.com');
+    });
+});
+
+test('stale configured internal recipient receives no expiry email', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $rima = User::factory()->create(['email' => 'rima@example.com', 'status' => 'active']);
+    grantCompanyPermissions($rima, $company, ['documents.view'], 'expiry-rima-role');
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'to_user_ids' => [$rima->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $rima->syncRoles([]);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertNothingSent();
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(0);
+});
+
+test('inactive configured document type produces no expiry email while remaining on the rule', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'all_document_types' => false,
+        'document_type_ids' => [$passportType->id],
+        'to_emails' => ['hr@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    $passportType->update(['is_active' => false]);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertNothingSent();
+});
+
+test('independent routing rules keep separate recipient delivery evidence', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $rima = User::factory()->create(['email' => 'rima@example.com', 'status' => 'active']);
+    grantCompanyPermissions($rima, $company, ['documents.view'], 'expiry-rima-role');
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Rule A',
+        'to_user_ids' => [$rima->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
+
+    createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Rule B',
+        'to_user_ids' => [$rima->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSentCount(2);
+    expect(EmployeeDocumentExpiryAlert::query()
+        ->where('delivery_key', DocumentExpiryRecipientDeliveryKey::forUser($rima->id))
+        ->count())->toBe(2);
 });

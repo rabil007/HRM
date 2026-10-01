@@ -4,6 +4,7 @@ export type NotificationRoutingRecipient = {
     name: string | null;
     email: string | null;
     label: string;
+    eligible: boolean;
 };
 
 export type NotificationRoutingRule = {
@@ -11,7 +12,7 @@ export type NotificationRoutingRule = {
     name: string;
     enabled: boolean;
     all_document_types: boolean;
-    document_types: Array<{ id: number; title: string }>;
+    document_types: Array<{ id: number; title: string; is_active: boolean }>;
     document_types_summary: string;
     to: NotificationRoutingRecipient[];
     cc: NotificationRoutingRecipient[];
@@ -23,12 +24,14 @@ export type NotificationRoutingRule = {
 export type NotificationRoutingDocumentTypeOption = {
     id: number;
     title: string;
+    is_active: boolean;
 };
 
 export type NotificationRoutingCompanyUser = {
     id: number;
     name: string;
     email: string;
+    eligible: boolean;
 };
 
 export type NotificationRoutingFormData = {

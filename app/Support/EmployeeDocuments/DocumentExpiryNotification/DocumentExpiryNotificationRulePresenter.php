@@ -6,7 +6,9 @@ use App\Enums\DocumentExpiryNotificationRecipientKind;
 use App\Models\DocumentExpiryNotificationRule;
 use App\Models\DocumentExpiryNotificationRuleRecipient;
 use App\Models\DocumentType;
+use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class DocumentExpiryNotificationRulePresenter
 {
@@ -16,10 +18,10 @@ class DocumentExpiryNotificationRulePresenter
      *     name: string,
      *     enabled: bool,
      *     all_document_types: bool,
-     *     document_types: list<array{id: int, title: string}>,
+     *     document_types: list<array{id: int, title: string, is_active: bool}>,
      *     document_types_summary: string,
-     *     to: list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string}>,
-     *     cc: list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string}>,
+     *     to: list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>,
+     *     cc: list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>,
      *     to_summary: string,
      *     cc_summary: string,
      *     status_label: string
@@ -28,10 +30,24 @@ class DocumentExpiryNotificationRulePresenter
     public function present(DocumentExpiryNotificationRule $rule): array
     {
         $rule->loadMissing([
-            'documentTypes:id,title',
+            'documentTypes:id,title,is_active',
             'toRecipients.user:id,name,email',
             'ccRecipients.user:id,name,email',
         ]);
+
+        $eligibleUserIds = array_fill_keys(
+            app(ResolveDocumentExpiryNotificationRecipients::class)
+                ->eligibleUserIdsForCompany(
+                    (int) $rule->company_id,
+                    $this->configuredUserIds($rule),
+                ),
+            true,
+        );
+
+        $companyMemberUserIds = $this->companyMemberUserIds(
+            (int) $rule->company_id,
+            $this->configuredUserIds($rule),
+        );
 
         $documentTypes = $rule->all_document_types
             ? []
@@ -41,11 +57,12 @@ class DocumentExpiryNotificationRulePresenter
                 ->map(fn (DocumentType $type): array => [
                     'id' => (int) $type->id,
                     'title' => (string) $type->title,
+                    'is_active' => (bool) $type->is_active,
                 ])
                 ->all();
 
-        $to = $this->presentRecipients($rule->toRecipients);
-        $cc = $this->presentRecipients($rule->ccRecipients);
+        $to = $this->presentRecipients($rule->toRecipients, $eligibleUserIds, $companyMemberUserIds);
+        $cc = $this->presentRecipients($rule->ccRecipients, $eligibleUserIds, $companyMemberUserIds);
 
         return [
             'id' => (int) $rule->id,
@@ -95,29 +112,85 @@ class DocumentExpiryNotificationRulePresenter
     }
 
     /**
-     * @param  Collection<int, DocumentExpiryNotificationRuleRecipient>  $recipients
-     * @return list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string}>
+     * @return list<int>
      */
-    private function presentRecipients(Collection $recipients): array
+    private function configuredUserIds(DocumentExpiryNotificationRule $rule): array
     {
+        return $rule->toRecipients
+            ->merge($rule->ccRecipients)
+            ->filter(fn (DocumentExpiryNotificationRuleRecipient $recipient): bool => $recipient->user_id !== null)
+            ->pluck('user_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<int>  $userIds
+     * @return array<int, true>
+     */
+    private function companyMemberUserIds(int $companyId, array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        return DB::table('company_user')
+            ->where('company_id', $companyId)
+            ->whereIn('user_id', $userIds)
+            ->pluck('user_id')
+            ->mapWithKeys(fn ($id): array => [(int) $id => true])
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, DocumentExpiryNotificationRuleRecipient>  $recipients
+     * @param  array<int, true>  $eligibleUserIds
+     * @param  array<int, true>  $companyMemberUserIds
+     * @return list<array{kind: string, user_id: int|null, name: string|null, email: string|null, label: string, eligible: bool}>
+     */
+    private function presentRecipients(
+        Collection $recipients,
+        array $eligibleUserIds,
+        array $companyMemberUserIds,
+    ): array {
         return $recipients
-            ->map(function (DocumentExpiryNotificationRuleRecipient $recipient): array {
+            ->map(function (DocumentExpiryNotificationRuleRecipient $recipient) use ($eligibleUserIds, $companyMemberUserIds): array {
                 $kind = $recipient->recipient_kind instanceof DocumentExpiryNotificationRecipientKind
                     ? $recipient->recipient_kind->value
                     : (string) $recipient->recipient_kind;
 
                 if ($kind === DocumentExpiryNotificationRecipientKind::User->value) {
-                    $name = $recipient->user?->name;
-                    $email = $recipient->user?->email;
+                    $userId = $recipient->user_id !== null ? (int) $recipient->user_id : null;
+                    $belongsToCompany = $userId !== null && isset($companyMemberUserIds[$userId]);
+                    $eligible = $userId !== null && isset($eligibleUserIds[$userId]);
+
+                    // Never expose another company's user profile from a stale foreign ID.
+                    if (! $belongsToCompany) {
+                        return [
+                            'kind' => $kind,
+                            'user_id' => $userId,
+                            'name' => null,
+                            'email' => null,
+                            'label' => 'Unknown user',
+                            'eligible' => false,
+                        ];
+                    }
+
+                    $user = $recipient->user;
+                    $name = $user instanceof User ? $user->name : null;
+                    $email = $user instanceof User ? $user->email : null;
 
                     return [
                         'kind' => $kind,
-                        'user_id' => $recipient->user_id !== null ? (int) $recipient->user_id : null,
+                        'user_id' => $userId,
                         'name' => $name,
                         'email' => $email,
                         'label' => $name !== null && $name !== ''
                             ? $name
                             : ($email ?? 'Unknown user'),
+                        'eligible' => $eligible,
                     ];
                 }
 
@@ -129,6 +202,7 @@ class DocumentExpiryNotificationRulePresenter
                     'name' => null,
                     'email' => $email,
                     'label' => $email !== '' ? $email : 'External email',
+                    'eligible' => true,
                 ];
             })
             ->values()

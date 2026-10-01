@@ -29,7 +29,12 @@ function ChipList({
     items,
     onRemove,
 }: {
-    items: Array<{ key: string; label: string; hint?: string }>;
+    items: Array<{
+        key: string;
+        label: string;
+        hint?: string;
+        warning?: string;
+    }>;
     onRemove: (key: string) => void;
 }): ReactElement {
     if (items.length === 0) {
@@ -41,14 +46,26 @@ function ChipList({
             {items.map((item) => (
                 <div
                     key={item.key}
-                    className="flex max-w-full items-center gap-1.5 rounded-xl border border-border/70 bg-muted/40 px-3 py-1.5 text-sm font-medium"
+                    className={cn(
+                        'flex max-w-full items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium',
+                        item.warning
+                            ? 'border-amber-500/40 bg-amber-500/10'
+                            : 'border-border/70 bg-muted/40',
+                    )}
                 >
-                    <span className="truncate">{item.label}</span>
-                    {item.hint ? (
-                        <span className="truncate text-xs font-normal text-muted-foreground">
-                            {item.hint}
-                        </span>
-                    ) : null}
+                    <div className="min-w-0">
+                        <span className="block truncate">{item.label}</span>
+                        {item.hint ? (
+                            <span className="block truncate text-xs font-normal text-muted-foreground">
+                                {item.hint}
+                            </span>
+                        ) : null}
+                        {item.warning ? (
+                            <span className="mt-0.5 block truncate text-xs font-medium text-amber-800 dark:text-amber-200">
+                                {item.warning}
+                            </span>
+                        ) : null}
+                    </div>
                     <button
                         type="button"
                         onClick={() => onRemove(item.key)}
@@ -208,27 +225,81 @@ export function NotificationRoutingFormSheet({
     canUpdate: boolean;
     onSubmit: () => void;
 }): ReactElement {
-    const selectedDocumentTypes = documentTypes.filter((type) =>
-        form.data.document_type_ids.includes(type.id),
-    );
+    const documentTypeLookup = useMemo(() => {
+        const map = new Map<number, NotificationRoutingDocumentTypeOption>();
+
+        for (const type of documentTypes) {
+            map.set(type.id, type);
+        }
+
+        if (rule) {
+            for (const type of rule.document_types) {
+                if (!map.has(type.id)) {
+                    map.set(type.id, type);
+                }
+            }
+        }
+
+        return map;
+    }, [documentTypes, rule]);
+
+    const companyUserLookup = useMemo(() => {
+        const map = new Map<number, NotificationRoutingCompanyUser>();
+
+        for (const user of companyUsers) {
+            map.set(user.id, user);
+        }
+
+        if (rule) {
+            for (const recipient of [...rule.to, ...rule.cc]) {
+                if (
+                    recipient.kind === 'user' &&
+                    recipient.user_id &&
+                    !map.has(recipient.user_id)
+                ) {
+                    map.set(recipient.user_id, {
+                        id: recipient.user_id,
+                        name: recipient.name ?? recipient.label,
+                        email: recipient.email ?? '',
+                        eligible: recipient.eligible,
+                    });
+                }
+            }
+        }
+
+        return map;
+    }, [companyUsers, rule]);
+
+    const selectedDocumentTypes = form.data.document_type_ids
+        .map((id) => documentTypeLookup.get(id))
+        .filter((type): type is NotificationRoutingDocumentTypeOption =>
+            Boolean(type),
+        );
     const availableDocumentTypes = documentTypes.filter(
-        (type) => !form.data.document_type_ids.includes(type.id),
+        (type) =>
+            type.is_active && !form.data.document_type_ids.includes(type.id),
     );
 
-    const selectedToUsers = companyUsers.filter((user) =>
-        form.data.to_user_ids.includes(user.id),
-    );
-    const selectedCcUsers = companyUsers.filter((user) =>
-        form.data.cc_user_ids.includes(user.id),
-    );
+    const selectedToUsers = form.data.to_user_ids
+        .map((id) => companyUserLookup.get(id))
+        .filter((user): user is NotificationRoutingCompanyUser =>
+            Boolean(user),
+        );
+    const selectedCcUsers = form.data.cc_user_ids
+        .map((id) => companyUserLookup.get(id))
+        .filter((user): user is NotificationRoutingCompanyUser =>
+            Boolean(user),
+        );
 
     const availableToUsers = companyUsers.filter(
         (user) =>
+            user.eligible &&
             !form.data.to_user_ids.includes(user.id) &&
             !form.data.cc_user_ids.includes(user.id),
     );
     const availableCcUsers = companyUsers.filter(
         (user) =>
+            user.eligible &&
             !form.data.cc_user_ids.includes(user.id) &&
             !form.data.to_user_ids.includes(user.id),
     );
@@ -314,6 +385,9 @@ export function NotificationRoutingFormSheet({
                                         (type) => ({
                                             key: String(type.id),
                                             label: type.title,
+                                            warning: type.is_active
+                                                ? undefined
+                                                : 'Inactive',
                                         }),
                                     )}
                                     onRemove={(key) =>
@@ -371,7 +445,10 @@ export function NotificationRoutingFormSheet({
                                 items={selectedToUsers.map((user) => ({
                                     key: String(user.id),
                                     label: user.name,
-                                    hint: user.email,
+                                    hint: user.email || undefined,
+                                    warning: user.eligible
+                                        ? undefined
+                                        : 'No longer eligible',
                                 }))}
                                 onRemove={(key) =>
                                     form.setData(
@@ -450,7 +527,10 @@ export function NotificationRoutingFormSheet({
                                 items={selectedCcUsers.map((user) => ({
                                     key: String(user.id),
                                     label: user.name,
-                                    hint: user.email,
+                                    hint: user.email || undefined,
+                                    warning: user.eligible
+                                        ? undefined
+                                        : 'No longer eligible',
                                 }))}
                                 onRemove={(key) =>
                                     form.setData(

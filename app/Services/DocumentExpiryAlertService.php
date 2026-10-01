@@ -13,6 +13,7 @@ use App\Models\EmployeeDocument;
 use App\Models\EmployeeDocumentExpiryAlert;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentExpiry;
+use App\Support\EmployeeDocuments\DocumentExpiryNotification\DocumentExpiryRecipientDeliveryKey;
 use App\Support\EmployeeDocuments\DocumentExpiryNotification\ResolveDocumentExpiryNotificationRecipients;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -220,7 +221,12 @@ class DocumentExpiryAlertService
 
             try {
                 $this->sendEmailSummary($company, $batch['to'], $batch['cc'], $batch['documents']);
-                $this->recordAlerts($batch['documents'], $company->id, $rule->id, $batch['delivery_key']);
+                $this->recordAlerts(
+                    $batch['documents'],
+                    $company->id,
+                    $rule->id,
+                    $batch['recipient_delivery_keys'],
+                );
                 $this->logSuccess(
                     company: $company,
                     rule: $rule,
@@ -239,9 +245,8 @@ class DocumentExpiryAlertService
     }
 
     /**
-     * Group recipients by identical visible-document sets so restricted CC users
-     * receive their own filtered summary instead of being dropped from an
-     * unrestricted email.
+     * Dedupe per recipient identity, then group recipients that share an
+     * identical pending document set so privacy-safe batching stays efficient.
      *
      * @param  Collection<int, EmployeeDocument>  $documents
      * @param  array{
@@ -252,7 +257,12 @@ class DocumentExpiryAlertService
      *     to_manual_emails: list<string>,
      *     cc_manual_emails: list<string>
      * }  $recipients
-     * @return list<array{to: list<string>, cc: list<string>, documents: Collection<int, EmployeeDocument>, delivery_key: string}>
+     * @return list<array{
+     *     to: list<string>,
+     *     cc: list<string>,
+     *     documents: Collection<int, EmployeeDocument>,
+     *     recipient_delivery_keys: list<string>
+     * }>
      */
     private function buildDeliveryBatches(
         int $companyId,
@@ -269,45 +279,79 @@ class DocumentExpiryAlertService
 
         foreach ($recipients['to_users'] as $user) {
             $visible = $this->visibleDocumentsForUser($user, $companyId, $documents);
+            $pending = $this->pendingDocumentsForRecipient(
+                $visible,
+                $existingAlertKeys,
+                DocumentExpiryRecipientDeliveryKey::forUser((int) $user->id),
+            );
 
-            if ($visible->isEmpty()) {
+            if ($pending->isEmpty()) {
                 continue;
             }
 
             $participants[] = [
                 'role' => 'to',
                 'email' => (string) $user->email,
-                'document_ids' => $this->documentIdSignature($visible),
+                'delivery_key' => DocumentExpiryRecipientDeliveryKey::forUser((int) $user->id),
+                'document_ids' => $this->documentIdSignature($pending),
             ];
         }
 
         foreach ($recipients['to_manual_emails'] as $email) {
+            $pending = $this->pendingDocumentsForRecipient(
+                $documents,
+                $existingAlertKeys,
+                DocumentExpiryRecipientDeliveryKey::forEmail($email),
+            );
+
+            if ($pending->isEmpty()) {
+                continue;
+            }
+
             $participants[] = [
                 'role' => 'to',
                 'email' => $email,
-                'document_ids' => $this->documentIdSignature($documents),
+                'delivery_key' => DocumentExpiryRecipientDeliveryKey::forEmail($email),
+                'document_ids' => $this->documentIdSignature($pending),
             ];
         }
 
         foreach ($recipients['cc_users'] as $user) {
             $visible = $this->visibleDocumentsForUser($user, $companyId, $documents);
+            $pending = $this->pendingDocumentsForRecipient(
+                $visible,
+                $existingAlertKeys,
+                DocumentExpiryRecipientDeliveryKey::forUser((int) $user->id),
+            );
 
-            if ($visible->isEmpty()) {
+            if ($pending->isEmpty()) {
                 continue;
             }
 
             $participants[] = [
                 'role' => 'cc',
                 'email' => (string) $user->email,
-                'document_ids' => $this->documentIdSignature($visible),
+                'delivery_key' => DocumentExpiryRecipientDeliveryKey::forUser((int) $user->id),
+                'document_ids' => $this->documentIdSignature($pending),
             ];
         }
 
         foreach ($recipients['cc_manual_emails'] as $email) {
+            $pending = $this->pendingDocumentsForRecipient(
+                $documents,
+                $existingAlertKeys,
+                DocumentExpiryRecipientDeliveryKey::forEmail($email),
+            );
+
+            if ($pending->isEmpty()) {
+                continue;
+            }
+
             $participants[] = [
                 'role' => 'cc',
                 'email' => $email,
-                'document_ids' => $this->documentIdSignature($documents),
+                'delivery_key' => DocumentExpiryRecipientDeliveryKey::forEmail($email),
+                'document_ids' => $this->documentIdSignature($pending),
             ];
         }
 
@@ -330,16 +374,40 @@ class DocumentExpiryAlertService
                 ->filter(fn (EmployeeDocument $document): bool => in_array((int) $document->id, $group['document_ids'], true))
                 ->values();
 
+            if ($groupDocuments->isEmpty()) {
+                continue;
+            }
+
             $to = [];
             $cc = [];
+            $recipientDeliveryKeys = [];
+            $emailRoles = [];
 
             foreach ($group['participants'] as $participant) {
+                $normalizedEmail = strtolower(trim((string) $participant['email']));
+                $recipientDeliveryKeys[] = $participant['delivery_key'];
+
+                if ($normalizedEmail === '') {
+                    continue;
+                }
+
+                // TO wins over CC when the same address appears in both roles.
+                if (($emailRoles[$normalizedEmail] ?? null) === 'to') {
+                    continue;
+                }
+
                 if ($participant['role'] === 'to') {
-                    $to[] = $participant['email'];
-                } else {
-                    $cc[] = $participant['email'];
+                    $emailRoles[$normalizedEmail] = 'to';
+                    $to[$normalizedEmail] = $participant['email'];
+                    unset($cc[$normalizedEmail]);
+                } elseif (($emailRoles[$normalizedEmail] ?? null) !== 'to') {
+                    $emailRoles[$normalizedEmail] = 'cc';
+                    $cc[$normalizedEmail] = $participant['email'];
                 }
             }
+
+            $to = array_values($to);
+            $cc = array_values($cc);
 
             // Restricted CC-only cohorts still need their filtered summary.
             if ($to === [] && $cc !== []) {
@@ -351,40 +419,45 @@ class DocumentExpiryAlertService
                 continue;
             }
 
-            $to = array_values(array_unique($to));
             $cc = $this->normalizeCcRecipients($to, $cc);
-            $deliveryKey = $this->deliveryKey($to, $cc);
-
-            $pendingDocuments = $groupDocuments
-                ->filter(function (EmployeeDocument $document) use ($existingAlertKeys, $deliveryKey): bool {
-                    $expiryDate = $document->expiry_date?->toDateString();
-
-                    if ($expiryDate === null || $expiryDate === '') {
-                        return false;
-                    }
-
-                    return ! $this->alreadyDelivered(
-                        $existingAlertKeys,
-                        (int) $document->id,
-                        $expiryDate,
-                        $deliveryKey,
-                    );
-                })
-                ->values();
-
-            if ($pendingDocuments->isEmpty()) {
-                continue;
-            }
 
             $batches[] = [
                 'to' => $to,
                 'cc' => $cc,
-                'documents' => $pendingDocuments,
-                'delivery_key' => $deliveryKey,
+                'documents' => $groupDocuments,
+                'recipient_delivery_keys' => array_values(array_unique($recipientDeliveryKeys)),
             ];
         }
 
         return $batches;
+    }
+
+    /**
+     * @param  Collection<int, EmployeeDocument>  $documents
+     * @param  Collection<string, bool>  $existingAlertKeys
+     * @return Collection<int, EmployeeDocument>
+     */
+    private function pendingDocumentsForRecipient(
+        Collection $documents,
+        Collection $existingAlertKeys,
+        string $recipientDeliveryKey,
+    ): Collection {
+        return $documents
+            ->filter(function (EmployeeDocument $document) use ($existingAlertKeys, $recipientDeliveryKey): bool {
+                $expiryDate = $document->expiry_date?->toDateString();
+
+                if ($expiryDate === null || $expiryDate === '') {
+                    return false;
+                }
+
+                return ! $this->alreadyDelivered(
+                    $existingAlertKeys,
+                    (int) $document->id,
+                    $expiryDate,
+                    $recipientDeliveryKey,
+                );
+            })
+            ->values();
     }
 
     /**
@@ -415,23 +488,6 @@ class DocumentExpiryAlertService
             ->sort()
             ->values()
             ->all();
-    }
-
-    /**
-     * @param  list<string>  $to
-     * @param  list<string>  $cc
-     */
-    private function deliveryKey(array $to, array $cc): string
-    {
-        $normalize = static fn (array $emails): string => collect($emails)
-            ->map(fn (string $email): string => strtolower(trim($email)))
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values()
-            ->implode(',');
-
-        return hash('sha256', 'to:'.$normalize($to).'|cc:'.$normalize($cc));
     }
 
     /**
@@ -524,7 +580,7 @@ class DocumentExpiryAlertService
     }
 
     /**
-     * Matching in-window documents for a rule (ledger filtering happens per delivery cohort).
+     * Matching in-window documents for a rule (ledger filtering happens per recipient).
      *
      * @return Builder<EmployeeDocument>
      */
@@ -702,12 +758,26 @@ class DocumentExpiryAlertService
 
     /**
      * @param  Collection<int, EmployeeDocument>  $documents
+     * @param  list<string>  $recipientDeliveryKeys
      */
-    private function recordAlerts(Collection $documents, int $companyId, int $ruleId, string $deliveryKey): void
-    {
+    private function recordAlerts(
+        Collection $documents,
+        int $companyId,
+        int $ruleId,
+        array $recipientDeliveryKeys,
+    ): void {
+        $recipientDeliveryKeys = array_values(array_unique(array_filter(
+            $recipientDeliveryKeys,
+            fn ($key): bool => is_string($key) && $key !== '',
+        )));
+
+        if ($recipientDeliveryKeys === []) {
+            return;
+        }
+
         $alertedAt = now();
 
-        DB::transaction(function () use ($documents, $companyId, $ruleId, $deliveryKey, $alertedAt): void {
+        DB::transaction(function () use ($documents, $companyId, $ruleId, $recipientDeliveryKeys, $alertedAt): void {
             foreach ($documents as $document) {
                 $expiryDate = $document->expiry_date?->toDateString();
 
@@ -715,18 +785,20 @@ class DocumentExpiryAlertService
                     continue;
                 }
 
-                EmployeeDocumentExpiryAlert::query()->firstOrCreate(
-                    [
-                        'notification_rule_id' => $ruleId,
-                        'employee_document_id' => $document->id,
-                        'expiry_date_at_alert_time' => $expiryDate,
-                        'delivery_key' => $deliveryKey,
-                    ],
-                    [
-                        'company_id' => $companyId,
-                        'alerted_at' => $alertedAt,
-                    ],
-                );
+                foreach ($recipientDeliveryKeys as $deliveryKey) {
+                    EmployeeDocumentExpiryAlert::query()->firstOrCreate(
+                        [
+                            'notification_rule_id' => $ruleId,
+                            'employee_document_id' => $document->id,
+                            'expiry_date_at_alert_time' => $expiryDate,
+                            'delivery_key' => $deliveryKey,
+                        ],
+                        [
+                            'company_id' => $companyId,
+                            'alerted_at' => $alertedAt,
+                        ],
+                    );
+                }
             }
         });
     }

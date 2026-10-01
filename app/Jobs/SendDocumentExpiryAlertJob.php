@@ -5,15 +5,18 @@ namespace App\Jobs;
 use App\Models\Company;
 use App\Models\JobRun;
 use App\Services\DocumentExpiryAlertService;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-class SendDocumentExpiryAlertJob implements ShouldQueue
+class SendDocumentExpiryAlertJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
     public int $tries = 3;
+
+    public int $uniqueFor = 3600;
 
     /**
      * @return list<int>
@@ -24,6 +27,11 @@ class SendDocumentExpiryAlertJob implements ShouldQueue
     }
 
     public function __construct(public int $companyId) {}
+
+    public function uniqueId(): string
+    {
+        return 'employee-document-expiry-alert-'.$this->companyId;
+    }
 
     public function handle(DocumentExpiryAlertService $alertService): void
     {

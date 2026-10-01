@@ -31,7 +31,7 @@ class DocumentExpiryNotificationRuleController extends Controller
         $rulesQuery = DocumentExpiryNotificationRule::query()
             ->where('company_id', $companyId)
             ->with([
-                'documentTypes:id,title',
+                'documentTypes:id,title,is_active',
                 'toRecipients.user:id,name,email',
                 'ccRecipients.user:id,name,email',
             ])
@@ -64,10 +64,11 @@ class DocumentExpiryNotificationRuleController extends Controller
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
-            ->get(['id', 'title'])
+            ->get(['id', 'title', 'is_active'])
             ->map(fn (DocumentType $type): array => [
                 'id' => (int) $type->id,
                 'title' => (string) $type->title,
+                'is_active' => true,
             ])
             ->values()
             ->all();
@@ -77,6 +78,7 @@ class DocumentExpiryNotificationRuleController extends Controller
                 'id' => (int) $user->id,
                 'name' => (string) $user->name,
                 'email' => (string) $user->email,
+                'eligible' => true,
             ])
             ->values()
             ->all();

@@ -6,6 +6,7 @@ use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentExpiryNotification\MigrateLegacyDocumentExpiryAlertRecipients;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\PermissionRegistrar;
 
 test('authorized user can view notification routing page', function () {
     $user = User::factory()->create();
@@ -271,4 +272,185 @@ test('cannot select company members without documents.view as recipients', funct
             'cc_emails' => [],
         ])
         ->assertSessionHasErrors('to_user_ids');
+});
+
+test('stale configured recipient remains visible and removable on the routing editor', function () {
+    $admin = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    grantCompanyPermissions($admin, $company, [
+        'documents.notification-routing.view',
+        'documents.notification-routing.update',
+    ]);
+
+    $rima = User::factory()->create([
+        'name' => 'Rima',
+        'email' => 'rima@example.com',
+        'status' => 'active',
+    ]);
+    attachActiveCompanyMember($rima, $company->id);
+    grantCompanyPermissions($rima, $company, ['documents.view'], 'routing-rima-role');
+
+    $rule = createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Stale recipient rule',
+        'to_user_ids' => [$rima->id],
+        'to_emails' => [],
+        'cc_emails' => [],
+    ]);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $rima->syncRoles([]);
+
+    $this->actingAs($admin)
+        ->get(route('organization.documents.configuration.notification-routing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/configuration/notification-routing')
+            ->where('rules.0.to.0.user_id', $rima->id)
+            ->where('rules.0.to.0.eligible', false)
+            ->where('rules.0.to.0.label', 'Rima')
+            ->where('company_users', fn ($users) => collect($users)->pluck('id')->doesntContain($rima->id))
+        );
+
+    $this->actingAs($admin)
+        ->put(route('organization.documents.configuration.notification-routing.update', $rule), [
+            'name' => 'Stale recipient rule',
+            'enabled' => true,
+            'all_document_types' => true,
+            'document_type_ids' => [],
+            'to_user_ids' => [$rima->id],
+            'to_emails' => [],
+            'cc_user_ids' => [],
+            'cc_emails' => [],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->put(route('organization.documents.configuration.notification-routing.update', $rule), [
+            'name' => 'Stale recipient rule',
+            'enabled' => true,
+            'all_document_types' => true,
+            'document_type_ids' => [],
+            'to_user_ids' => [],
+            'to_emails' => ['fallback@example.com'],
+            'cc_user_ids' => [],
+            'cc_emails' => [],
+        ])
+        ->assertRedirect();
+
+    expect($rule->fresh()->toRecipients()->where('user_id', $rima->id)->exists())->toBeFalse();
+});
+
+test('inactive configured document type remains visible and removable on the routing editor', function () {
+    $admin = User::factory()->create();
+    ['company' => $company, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($admin, $company, [
+        'documents.notification-routing.view',
+        'documents.notification-routing.update',
+    ]);
+
+    $medical = DocumentType::query()->create([
+        'title' => 'Medical Certificate',
+        'is_active' => true,
+    ]);
+
+    $rule = createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Identity + Medical',
+        'all_document_types' => false,
+        'document_type_ids' => [$passportType->id, $medical->id],
+        'to_emails' => ['hr@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    $medical->update(['is_active' => false]);
+
+    $this->actingAs($admin)
+        ->get(route('organization.documents.configuration.notification-routing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/configuration/notification-routing')
+            ->where('rules.0.document_types', function ($types) use ($medical) {
+                $medicalRow = collect($types)->firstWhere('id', $medical->id);
+
+                return $medicalRow !== null
+                    && $medicalRow['title'] === 'Medical Certificate'
+                    && $medicalRow['is_active'] === false;
+            })
+            ->where('document_types', fn ($types) => collect($types)->pluck('id')->doesntContain($medical->id))
+        );
+
+    $this->actingAs($admin)
+        ->put(route('organization.documents.configuration.notification-routing.update', $rule), [
+            'name' => 'Identity + Medical',
+            'enabled' => true,
+            'all_document_types' => false,
+            'document_type_ids' => [$passportType->id, $medical->id],
+            'to_user_ids' => [],
+            'to_emails' => ['hr@example.com'],
+            'cc_user_ids' => [],
+            'cc_emails' => [],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->put(route('organization.documents.configuration.notification-routing.update', $rule), [
+            'name' => 'Identity only',
+            'enabled' => true,
+            'all_document_types' => false,
+            'document_type_ids' => [$passportType->id],
+            'to_user_ids' => [],
+            'to_emails' => ['hr@example.com'],
+            'cc_user_ids' => [],
+            'cc_emails' => [],
+        ])
+        ->assertRedirect();
+
+    expect($rule->fresh()->documentTypes()->pluck('document_types.id')->all())->toBe([$passportType->id]);
+});
+
+test('foreign company user id is not exposed as a stale recipient profile', function () {
+    $admin = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+    $other = makeDocumentFixtures();
+
+    grantCompanyPermissions($admin, $company, [
+        'documents.notification-routing.view',
+        'documents.notification-routing.update',
+    ]);
+
+    $foreignUser = User::factory()->create([
+        'name' => 'Secret Foreign',
+        'email' => 'secret-foreign@example.com',
+        'status' => 'active',
+    ]);
+    attachActiveCompanyMember($foreignUser, $other['company']->id);
+    grantCompanyPermissions($foreignUser, $other['company'], ['documents.view'], 'foreign-role');
+
+    $rule = createDocumentExpiryNotificationRule($company->id, [
+        'name' => 'Foreign id rule',
+        'to_emails' => ['hr@example.com'],
+        'cc_emails' => [],
+    ]);
+
+    $rule->toRecipients()->create([
+        'company_id' => $company->id,
+        'recipient_kind' => 'user',
+        'user_id' => $foreignUser->id,
+        'email' => null,
+        'delivery_type' => 'to',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('organization.documents.configuration.notification-routing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('rules.0.to', function ($recipients) use ($foreignUser) {
+                $stale = collect($recipients)->firstWhere('user_id', $foreignUser->id);
+
+                return $stale !== null
+                    && $stale['eligible'] === false
+                    && $stale['label'] === 'Unknown user'
+                    && $stale['email'] === null
+                    && $stale['name'] === null;
+            })
+        );
 });

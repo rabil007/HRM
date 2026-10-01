@@ -67,17 +67,7 @@ class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
                             'Select at least one document type, or choose all document types.',
                         );
                     } else {
-                        $validCount = DocumentType::query()
-                            ->whereIn('id', $documentTypeIds)
-                            ->where('is_active', true)
-                            ->count();
-
-                        if ($validCount !== count($documentTypeIds)) {
-                            $validator->errors()->add(
-                                'document_type_ids',
-                                'One or more selected document types are invalid or inactive.',
-                            );
-                        }
+                        $this->rejectInvalidDocumentTypes($validator, $documentTypeIds);
                     }
                 }
 
@@ -148,6 +138,26 @@ class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
     }
 
     /**
+     * User IDs already configured on the rule being updated (empty on create).
+     *
+     * @return list<int>
+     */
+    protected function grandfatheredUserIds(): array
+    {
+        return [];
+    }
+
+    /**
+     * Document type IDs already configured on the rule being updated (empty on create).
+     *
+     * @return list<int>
+     */
+    protected function grandfatheredDocumentTypeIds(): array
+    {
+        return [];
+    }
+
+    /**
      * @return list<int>
      */
     private function uniqueIds(string $key): array
@@ -177,11 +187,68 @@ class StoreDocumentExpiryNotificationRuleRequest extends FormRequest
             return;
         }
 
-        $eligibleIds = app(ResolveDocumentExpiryNotificationRecipients::class)
-            ->eligibleUserIdsForCompany($companyId, $userIds);
+        $grandfathered = array_fill_keys($this->grandfatheredUserIds(), true);
+        $mustBeEligible = array_values(array_filter(
+            $userIds,
+            fn (int $id): bool => ! isset($grandfathered[$id]),
+        ));
 
-        if (count($eligibleIds) !== count($userIds)) {
+        if ($mustBeEligible === []) {
+            // All selected users are already on this rule (may be stale).
+            // Still reject foreign IDs that were never company members on create paths.
+            return;
+        }
+
+        $eligibleIds = app(ResolveDocumentExpiryNotificationRecipients::class)
+            ->eligibleUserIdsForCompany($companyId, $mustBeEligible);
+
+        if (count($eligibleIds) !== count($mustBeEligible)) {
             $validator->errors()->add($field, self::IneligibleRecipientMessage);
+        }
+    }
+
+    /**
+     * @param  list<int>  $documentTypeIds
+     */
+    private function rejectInvalidDocumentTypes(Validator $validator, array $documentTypeIds): void
+    {
+        $grandfathered = array_fill_keys($this->grandfatheredDocumentTypeIds(), true);
+        $newTypeIds = array_values(array_filter(
+            $documentTypeIds,
+            fn (int $id): bool => ! isset($grandfathered[$id]),
+        ));
+        $staleTypeIds = array_values(array_filter(
+            $documentTypeIds,
+            fn (int $id): bool => isset($grandfathered[$id]),
+        ));
+
+        if ($newTypeIds !== []) {
+            $validNewCount = DocumentType::query()
+                ->whereIn('id', $newTypeIds)
+                ->where('is_active', true)
+                ->count();
+
+            if ($validNewCount !== count($newTypeIds)) {
+                $validator->errors()->add(
+                    'document_type_ids',
+                    'One or more selected document types are invalid or inactive.',
+                );
+
+                return;
+            }
+        }
+
+        if ($staleTypeIds !== []) {
+            $existingCount = DocumentType::query()
+                ->whereIn('id', $staleTypeIds)
+                ->count();
+
+            if ($existingCount !== count($staleTypeIds)) {
+                $validator->errors()->add(
+                    'document_type_ids',
+                    'One or more selected document types are invalid or inactive.',
+                );
+            }
         }
     }
 }
