@@ -96,7 +96,7 @@ class BulkDocumentsController extends Controller
         $moduleViewLocked = false;
         $formOptions = EmployeeFormOptions::for($companyId);
 
-        if ($isCustom && $customTemplate !== null && $customVersion !== null) {
+        if ($view !== 'history' && $isCustom && $customTemplate !== null && $customVersion !== null) {
             $latestRun = $this->latestRunPayload($request, $companyId, $documentTypeKey, $customTemplate, $customVersion);
             $paginator = CustomDocumentRosterQuery::paginate(
                 $companyId,
