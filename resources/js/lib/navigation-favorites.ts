@@ -113,12 +113,6 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Documents',
     },
     {
-        key: 'documents.activity',
-        label: 'Activity',
-        href: '/organization/documents/activity',
-        group: 'Documents',
-    },
-    {
         key: 'contracts',
         label: 'Contracts',
         href: '/organization/contracts',
@@ -325,10 +319,10 @@ export function destinationKeyFromPageUrl(url: string): string | null {
     ) {
         const view = new URLSearchParams(search).get('view');
 
-        if (view === 'history') {
-            return 'documents.activity';
-        }
+        return 'documents.bulk';
+    }
 
+    if (normalized === '/organization/documents/activity') {
         return 'documents.bulk';
     }
 
