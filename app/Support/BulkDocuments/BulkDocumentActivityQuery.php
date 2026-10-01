@@ -33,34 +33,51 @@ final class BulkDocumentActivityQuery
 
         $allowedDepartmentIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
         $hasEmployeeFilters = self::hasEmployeeFilters($filters);
+        $scopeItems = $allowedDepartmentIds !== null || $hasEmployeeFilters;
 
-        if ($allowedDepartmentIds !== null || $hasEmployeeFilters) {
-            $query->whereHas('items.employee', function ($employeeQuery) use ($companyId, $filters, $user): void {
-                EmployeeDirectoryQuery::applyAttributeFilters(
-                    $employeeQuery,
-                    $companyId,
-                    $filters,
-                    user: $user,
-                );
-            });
+        if ($scopeItems) {
+            $applyVisibleItems = function ($itemsQuery) use ($companyId, $filters, $user): void {
+                $itemsQuery->whereHas('employee', function ($employeeQuery) use ($companyId, $filters, $user): void {
+                    EmployeeDirectoryQuery::applyAttributeFilters(
+                        $employeeQuery,
+                        $companyId,
+                        $filters,
+                        user: $user,
+                    );
+                });
+            };
+
+            $query
+                ->whereHas('items', $applyVisibleItems)
+                ->with(['items' => $applyVisibleItems]);
         }
 
         $items = $query
             ->latest('id')
             ->get()
-            ->map(fn (DocumentGenerationRun $run): array => [
-                'kind' => 'generation',
-                'id' => $run->id,
-                'document_type_key' => "custom_{$template->id}",
-                'document_type_label' => $template->name,
-                'status' => $run->status,
-                'generated_count' => (int) $run->generated_count,
-                'replaced_count' => 0,
-                'skipped_count' => (int) $run->skipped_count,
-                'failed_count' => (int) $run->failed_count,
-                'created_at' => $run->created_at?->toIso8601String(),
-                'triggered_by' => $run->triggeredBy?->name,
-            ])
+            ->map(function (DocumentGenerationRun $run) use ($template, $scopeItems): array {
+                $visibleItems = $scopeItems ? $run->items : null;
+
+                return [
+                    'kind' => 'generation',
+                    'id' => $run->id,
+                    'document_type_key' => "custom_{$template->id}",
+                    'document_type_label' => $template->name,
+                    'status' => $run->status,
+                    'generated_count' => $scopeItems
+                        ? $visibleItems->where('status', 'completed')->count()
+                        : (int) $run->generated_count,
+                    'replaced_count' => 0,
+                    'skipped_count' => $scopeItems
+                        ? $visibleItems->where('status', 'skipped')->count()
+                        : (int) $run->skipped_count,
+                    'failed_count' => $scopeItems
+                        ? $visibleItems->where('status', 'failed')->count()
+                        : (int) $run->failed_count,
+                    'created_at' => $run->created_at?->toIso8601String(),
+                    'triggered_by' => $run->triggeredBy?->name,
+                ];
+            })
             ->values();
 
         $total = $items->count();
@@ -121,63 +138,82 @@ final class BulkDocumentActivityQuery
     ): Collection {
         $hasEmployeeFilters = self::hasEmployeeFilters($filters);
 
-        $runs = BulkDocumentGenerationRun::query()
-            ->where('company_id', $companyId)
-            ->where('document_type_key', $documentTypeKey)
-            ->with('triggeredBy:id,name')
-            ->get()
-            ->when(
-                $hasEmployeeFilters,
-                fn (Collection $collection): Collection => $collection->filter(
-                    fn (BulkDocumentGenerationRun $run): bool => self::runMatchesEmployeeFilters(
-                        is_array($run->filters) ? $run->filters : [],
-                        $filters,
+        $allowedDepartmentIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+        $restricted = $allowedDepartmentIds !== null;
+
+        $runs = $restricted
+            ? collect()
+            : BulkDocumentGenerationRun::query()
+                ->where('company_id', $companyId)
+                ->where('document_type_key', $documentTypeKey)
+                ->with('triggeredBy:id,name')
+                ->get()
+                ->when(
+                    $hasEmployeeFilters,
+                    fn (Collection $collection): Collection => $collection->filter(
+                        fn (BulkDocumentGenerationRun $run): bool => self::runMatchesEmployeeFilters(
+                            is_array($run->filters) ? $run->filters : [],
+                            $filters,
+                        ),
                     ),
-                ),
-            )
-            ->map(fn (BulkDocumentGenerationRun $run): array => [
-                'kind' => 'generation',
-                'id' => $run->id,
-                'document_type_key' => $run->document_type_key,
-                'document_type_label' => self::labelForKey($run->document_type_key),
-                'status' => $run->status,
-                'generated_count' => $run->generated_count,
-                'replaced_count' => $run->replaced_count,
-                'skipped_count' => $run->skipped_count,
-                'failed_count' => $run->failed_count,
-                'created_at' => $run->created_at?->toIso8601String(),
-                'triggered_by' => $run->triggeredBy?->name,
-            ]);
+                )
+                ->map(fn (BulkDocumentGenerationRun $run): array => [
+                    'kind' => 'generation',
+                    'id' => $run->id,
+                    'document_type_key' => $run->document_type_key,
+                    'document_type_label' => self::labelForKey($run->document_type_key),
+                    'status' => $run->status,
+                    'generated_count' => $run->generated_count,
+                    'replaced_count' => $run->replaced_count,
+                    'skipped_count' => $run->skipped_count,
+                    'failed_count' => $run->failed_count,
+                    'created_at' => $run->created_at?->toIso8601String(),
+                    'triggered_by' => $run->triggeredBy?->name,
+                ]);
 
         $batchesQuery = BulkDocumentEmailBatch::query()
             ->where('company_id', $companyId)
             ->where('document_type_key', $documentTypeKey)
             ->with(['triggeredBy:id,name', 'emailTemplate:id,label']);
 
-        $allowedDepartmentIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+        $scopeSends = $restricted || $hasEmployeeFilters;
 
-        if ($allowedDepartmentIds !== null || $hasEmployeeFilters) {
-            $batchesQuery->whereHas('sends', function ($sendQuery) use ($companyId, $filters, $user): void {
+        if ($scopeSends) {
+            $applyVisibleSends = function ($sendQuery) use ($companyId, $filters, $user): void {
                 $sendQuery->whereHas('employee', function ($employeeQuery) use ($companyId, $filters, $user): void {
                     EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters, user: $user);
                 });
-            });
+            };
+
+            $batchesQuery
+                ->whereHas('sends', $applyVisibleSends)
+                ->with(['sends' => $applyVisibleSends]);
         }
 
         $batches = $batchesQuery
             ->get()
-            ->map(fn (BulkDocumentEmailBatch $batch): array => [
-                'kind' => 'email',
-                'id' => $batch->id,
-                'document_type_key' => $batch->document_type_key,
-                'document_type_label' => self::labelForKey($batch->document_type_key),
-                'template_label' => $batch->emailTemplate?->label,
-                'sent_count' => $batch->sent_count,
-                'failed_count' => $batch->failed_count,
-                'skipped_no_email_count' => $batch->skipped_no_email_count,
-                'created_at' => $batch->created_at?->toIso8601String(),
-                'triggered_by' => $batch->triggeredBy?->name,
-            ]);
+            ->map(function (BulkDocumentEmailBatch $batch) use ($scopeSends): array {
+                $visibleSends = $scopeSends ? $batch->sends : null;
+
+                return [
+                    'kind' => 'email',
+                    'id' => $batch->id,
+                    'document_type_key' => $batch->document_type_key,
+                    'document_type_label' => self::labelForKey($batch->document_type_key),
+                    'template_label' => $batch->emailTemplate?->label,
+                    'sent_count' => $scopeSends
+                        ? $visibleSends->where('status', 'sent')->count()
+                        : (int) $batch->sent_count,
+                    'failed_count' => $scopeSends
+                        ? $visibleSends->where('status', 'failed')->count()
+                        : (int) $batch->failed_count,
+                    'skipped_no_email_count' => $scopeSends
+                        ? $visibleSends->where('status', 'skipped')->count()
+                        : (int) $batch->skipped_no_email_count,
+                    'created_at' => $batch->created_at?->toIso8601String(),
+                    'triggered_by' => $batch->triggeredBy?->name,
+                ];
+            });
 
         return $runs
             ->concat($batches)
