@@ -235,8 +235,7 @@ export function BulkDocumentsContent({
     is_custom_template,
     custom_template,
     view,
-    module_view_locked = false,
-    can_view_templates = false,
+     can_view_templates = false,
     filters: initialFilters,
     search: initialSearch,
     counts,
@@ -1182,13 +1181,7 @@ export function BulkDocumentsContent({
                                 <span className="text-sm font-medium text-foreground">
                                     Recent Operations
                                 </span>
-                                {!module_view_locked ? (
-                                    <BulkDocumentsViewSwitcher
-                                        value={view}
-                                        onChange={setView}
-                                    />
-                                ) : null}
-                            </>
+                             </>
                         }
                     />
 
