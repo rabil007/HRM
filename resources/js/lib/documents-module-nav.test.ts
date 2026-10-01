@@ -40,7 +40,7 @@ describe('documents module URL mapping', () => {
         );
     });
 
-    it('maps generate requests and activity including legacy bulk urls', () => {
+    it('maps activity urls into the Generate & Track section', () => {
         assert.equal(
             documentsModuleSectionFromUrl('/organization/documents/generate'),
             'generate',
@@ -61,13 +61,19 @@ describe('documents module URL mapping', () => {
         );
         assert.equal(
             documentsModuleSectionFromUrl(
+                '/organization/documents/generate?view=activity',
+            ),
+            'generate',
+        );
+        assert.equal(
+            documentsModuleSectionFromUrl(
                 '/organization/documents/bulk?view=history',
             ),
-            'activity',
+            'generate',
         );
         assert.equal(
             documentsModuleSectionFromUrl('/organization/documents/activity'),
-            'activity',
+            'generate',
         );
         assert.equal(
             documentsModuleSectionFromUrl('/organization/documents/templates'),
@@ -213,10 +219,10 @@ describe('documents module visibility', () => {
         );
     });
 
-    it('shows generate templates and activity with bulk_documents.view', () => {
+    it('shows templates and Generate & Track with bulk_documents.view', () => {
         assert.deepEqual(
             visibleDocumentsModuleSections(['bulk_documents.view']),
-            ['templates', 'generate', 'activity'],
+            ['templates', 'generate'],
         );
     });
 
@@ -240,7 +246,7 @@ describe('documents module visibility', () => {
         );
         assert.deepEqual(
             visibleDocumentsModuleSections(['bulk_documents.view']),
-            ['templates', 'generate', 'activity'],
+            ['templates', 'generate'],
         );
         assert.deepEqual(visibleDocumentsModuleSections([]), []);
     });
