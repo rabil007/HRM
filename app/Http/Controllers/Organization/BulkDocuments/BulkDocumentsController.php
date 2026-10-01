@@ -8,6 +8,7 @@ use App\Models\BulkDocumentEmailBatch;
 use App\Models\Company;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Models\User;
 use App\Support\BulkDocuments\BulkDocumentActivityQuery;
 use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
@@ -351,7 +352,11 @@ class BulkDocumentsController extends Controller
             'latest_run' => $latestRunPayload === false
                 ? $this->latestRunPayload($request, $companyId, $documentTypeKey, $customTemplate, $customVersion)
                 : $latestRunPayload,
-            'latest_email_batch' => $isCustom || $documentTypeKey === '' ? null : $this->latestEmailBatchPayload($companyId, $documentTypeKey),
+            'latest_email_batch' => $isCustom || $documentTypeKey === '' ? null : $this->latestEmailBatchPayload(
+                $companyId,
+                $documentTypeKey,
+                $request->user(),
+            ),
             'can' => BulkDocumentPagePermissions::for($request->user()),
             'can_view_templates' => DocumentsModuleAccess::canViewTemplates($request->user()),
         ];
@@ -484,26 +489,42 @@ class BulkDocumentsController extends Controller
     /**
      * @return array<string, mixed>|null
      */
-    private function latestEmailBatchPayload(int $companyId, string $documentTypeKey): ?array
+    private function latestEmailBatchPayload(int $companyId, string $documentTypeKey, ?User $user): ?array
     {
-        $batch = BulkDocumentEmailBatch::query()
+        $restricted = ! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId);
+
+        $query = BulkDocumentEmailBatch::query()
             ->where('company_id', $companyId)
             ->where('document_type_key', $documentTypeKey)
+            ->with('triggeredBy:id,name');
+
+        if ($restricted) {
+            $applyVisibleSends = function ($sendQuery) use ($companyId, $user): void {
+                EmployeeVisibilityScope::whereHas($sendQuery, $user, $companyId);
+            };
+
+            $query
+                ->whereHas('sends', $applyVisibleSends)
+                ->with(['sends' => $applyVisibleSends]);
+        }
+
+        $batch = $query
             ->latest('id')
-            ->with('triggeredBy:id,name')
             ->first();
 
         if ($batch === null) {
             return null;
         }
 
+        $visibleSends = $restricted ? $batch->sends : null;
+
         return [
             'id' => $batch->id,
             'status' => $batch->status,
-            'total_selected' => $batch->total_selected,
-            'sent_count' => $batch->sent_count,
-            'failed_count' => $batch->failed_count,
-            'skipped_no_email_count' => $batch->skipped_no_email_count,
+            'total_selected' => $restricted ? $visibleSends->count() : (int) $batch->total_selected,
+            'sent_count' => $restricted ? $visibleSends->where('status', 'sent')->count() : (int) $batch->sent_count,
+            'failed_count' => $restricted ? $visibleSends->where('status', 'failed')->count() : (int) $batch->failed_count,
+            'skipped_no_email_count' => $restricted ? $visibleSends->where('status', 'skipped')->count() : (int) $batch->skipped_no_email_count,
             'started_at' => $batch->started_at?->toIso8601String(),
             'finished_at' => $batch->finished_at?->toIso8601String(),
             'triggered_by' => $batch->triggeredBy?->name,

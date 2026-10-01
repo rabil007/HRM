@@ -4,6 +4,8 @@ namespace App\Support\BulkDocuments;
 
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentEmailSend;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 final class BulkDocumentEmailBatchSendsQuery
 {
@@ -13,14 +15,28 @@ final class BulkDocumentEmailBatchSendsQuery
      *     sends: list<array<string, mixed>>
      * }
      */
-    public static function forBatch(BulkDocumentEmailBatch $batch): array
+    public static function forBatch(BulkDocumentEmailBatch $batch, ?User $user, int $companyId): ?array
     {
         $batch->loadMissing(['triggeredBy:id,name', 'emailTemplate:id,label']);
 
-        $sends = $batch->sends()
-            ->with('employee:id,name,employee_no')
+        $restricted = ! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId);
+
+        $query = $batch->sends()
+            ->with('employee:id,name,employee_no');
+
+        if ($restricted) {
+            EmployeeVisibilityScope::whereHas($query, $user, $companyId);
+        }
+
+        $visibleSends = $query
             ->orderBy('id')
-            ->get()
+            ->get();
+
+        if ($restricted && $visibleSends->isEmpty()) {
+            return null;
+        }
+
+        $sends = $visibleSends
             ->map(fn (BulkDocumentEmailSend $send): array => [
                 'id' => $send->id,
                 'employee' => [
@@ -36,6 +52,19 @@ final class BulkDocumentEmailBatchSendsQuery
             ->values()
             ->all();
 
+        $sentCount = $restricted
+            ? $visibleSends->where('status', 'sent')->count()
+            : (int) $batch->sent_count;
+        $failedCount = $restricted
+            ? $visibleSends->where('status', 'failed')->count()
+            : (int) $batch->failed_count;
+        $skippedCount = $restricted
+            ? $visibleSends->where('status', 'skipped')->count()
+            : (int) $batch->skipped_no_email_count;
+        $totalSelected = $restricted
+            ? $visibleSends->count()
+            : (int) $batch->total_selected;
+
         return [
             'batch' => [
                 'id' => $batch->id,
@@ -44,10 +73,10 @@ final class BulkDocumentEmailBatchSendsQuery
                 'subject' => $batch->subject,
                 'template_label' => $batch->emailTemplate?->label,
                 'status' => $batch->status ?? 'completed',
-                'total_selected' => $batch->total_selected,
-                'sent_count' => $batch->sent_count,
-                'failed_count' => $batch->failed_count,
-                'skipped_no_email_count' => $batch->skipped_no_email_count,
+                'total_selected' => $totalSelected,
+                'sent_count' => $sentCount,
+                'failed_count' => $failedCount,
+                'skipped_no_email_count' => $skippedCount,
                 'created_at' => $batch->created_at?->toIso8601String(),
                 'triggered_by' => $batch->triggeredBy?->name,
             ],
