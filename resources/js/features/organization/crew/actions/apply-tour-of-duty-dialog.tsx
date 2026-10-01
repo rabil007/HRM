@@ -42,7 +42,8 @@ export function ApplyTourOfDutyDialog({
                 <AlertDialogHeader>
                     <AlertDialogTitle>Apply Tour of Duty?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Apply the current Position Tour of Duty to this assignment.
+                        Apply the current Position Tour of Duty to this
+                        assignment.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
 

@@ -345,8 +345,8 @@ export function SeaServicesImportDialog({
                                     Start Date, End Date, Client).
                                 </li>
                                 <li>
-                                    Vessel type, vessel, position, and client must
-                                    match active names in Settings → Master
+                                    Vessel type, vessel, position, and client
+                                    must match active names in Settings → Master
                                     Data.
                                 </li>
                                 <li>
@@ -355,9 +355,9 @@ export function SeaServicesImportDialog({
                                     date.
                                 </li>
                                 <li>
-                                    Leave vessel / position / dates blank to skip a
-                                    pre-filled employee row. Only rows with sea
-                                    service data are imported.
+                                    Leave vessel / position / dates blank to
+                                    skip a pre-filled employee row. Only rows
+                                    with sea service data are imported.
                                 </li>
                                 {isEmployeeScoped ? (
                                     <li>
