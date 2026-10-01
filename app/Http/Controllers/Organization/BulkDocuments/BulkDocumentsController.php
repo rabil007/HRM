@@ -8,6 +8,7 @@ use App\Models\BulkDocumentEmailBatch;
 use App\Models\Company;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Models\User;
 use App\Support\BulkDocuments\BulkDocumentActivityQuery;
 use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
@@ -488,7 +489,7 @@ class BulkDocumentsController extends Controller
     /**
      * @return array<string, mixed>|null
      */
-    private function latestEmailBatchPayload(int $companyId, string $documentTypeKey, ?\App\Models\User $user): ?array
+    private function latestEmailBatchPayload(int $companyId, string $documentTypeKey, ?User $user): ?array
     {
         $restricted = ! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId);
 
