@@ -260,6 +260,144 @@ test('custom generate page exposes failure_summary for the current users run', f
             ->where('latest_run.failure_summary.show_edit_template', true));
 });
 
+test('restricted custom latest run only includes visible employee progress and hides failure summary', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'marineEmployee' => $marine, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Scoped Progress Letter',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()
+        ->forTemplate($template)
+        ->published()
+        ->create(['version' => 1]);
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'completed',
+        'total_targeted' => 2,
+        'generated_count' => 1,
+        'failed_count' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+        'finished_at' => now(),
+    ]);
+
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $marine->id,
+        'status' => 'completed',
+    ]);
+
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $office->id,
+        'status' => 'failed',
+        'error_code' => 'TEMPLATE_LAYOUT_OVERFLOW',
+        'error_message' => 'Hidden employee overflow',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.generate', [
+            'document_type_key' => "custom_{$template->id}",
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('latest_run.id', $run->id)
+            ->where('latest_run.total_targeted', 1)
+            ->where('latest_run.generated_count', 1)
+            ->where('latest_run.failed_count', 0)
+            ->where('latest_run.processed_count', 1)
+            ->where('latest_run.progress_percent', 100)
+            ->where('latest_run.status', 'completed')
+            ->where('latest_run.failure_summary', null));
+});
+
+test('restricted built-in generate page hides latest run aggregates', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    BulkDocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_certificate',
+        'filters' => ['status' => 'active'],
+        'status' => 'running',
+        'total_targeted' => 10,
+        'generated_count' => 4,
+        'replaced_count' => 0,
+        'skipped_count' => 2,
+        'failed_count' => 1,
+        'triggered_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.generate', [
+            'document_type_key' => 'salary_certificate',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('latest_run', null));
+});
+
+test('restricted custom latest run is hidden when it has no visible run items', function () {
+    ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeEmployee' => $office] = makeEmployeeVisibilityFixtures();
+
+    grantCompanyPermissions($user, $company, ['bulk_documents.view']);
+    restrictUserToDepartments($user, $company, [$marineDept->id]);
+
+    $template = DocumentGenerationTemplate::factory()->forCompany($company)->create([
+        'status' => DocumentGenerationTemplateStatus::Active,
+        'name' => 'Hidden Progress Letter',
+    ]);
+    $version = DocumentGenerationTemplateVersion::factory()
+        ->forTemplate($template)
+        ->published()
+        ->create(['version' => 1]);
+    $template->update(['published_version_id' => $version->id]);
+
+    $run = DocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_generation_template_id' => $template->id,
+        'document_generation_template_version_id' => $version->id,
+        'status' => 'failed',
+        'total_targeted' => 1,
+        'failed_count' => 1,
+        'correlation_id' => (string) Str::uuid(),
+        'triggered_by' => $user->id,
+        'finished_at' => now(),
+    ]);
+
+    DocumentGenerationRunItem::query()->create([
+        'company_id' => $company->id,
+        'document_generation_run_id' => $run->id,
+        'employee_id' => $office->id,
+        'status' => 'failed',
+        'error_code' => 'GENERATION_FAILED',
+        'error_message' => 'Hidden failure',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.documents.generate', [
+            'document_type_key' => "custom_{$template->id}",
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('latest_run', null));
+});
+
 test('built-in generate page still includes latest_run', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
