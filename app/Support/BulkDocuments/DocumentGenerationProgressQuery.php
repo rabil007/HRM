@@ -6,6 +6,8 @@ use App\Models\BulkDocumentGenerationRun;
 use App\Models\DocumentGenerationRun;
 use App\Models\DocumentGenerationTemplate;
 use App\Models\DocumentGenerationTemplateVersion;
+use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 
 final class DocumentGenerationProgressQuery
 {
@@ -21,31 +23,40 @@ final class DocumentGenerationProgressQuery
         int $userId,
         DocumentGenerationTemplate $template,
         ?DocumentGenerationTemplateVersion $publishedVersion = null,
+        ?User $user = null,
     ): ?array {
         if ($userId < 1) {
             return null;
         }
 
-        $activeRun = DocumentGenerationRun::query()
+        $activeQuery = DocumentGenerationRun::query()
             ->forCompany($companyId)
             ->where('document_generation_template_id', $template->id)
             ->where('triggered_by', $userId)
-            ->whereIn('status', ['queued', 'running'])
+            ->whereIn('status', ['queued', 'running']);
+
+        $this->applyVisibleItemsConstraint($activeQuery, $user, $companyId);
+
+        $activeRun = $activeQuery
             ->latest('id')
             ->first();
 
         if ($activeRun !== null) {
-            return $this->presenter->fromCompanyTemplateRun($activeRun);
+            return $this->presenter->fromCompanyTemplateRunForUser($activeRun, $user, $companyId);
         }
 
-        $latestRun = DocumentGenerationRun::query()
+        $latestQuery = DocumentGenerationRun::query()
             ->forCompany($companyId)
             ->where('document_generation_template_id', $template->id)
             ->where('triggered_by', $userId)
             ->when(
                 $publishedVersion !== null,
                 fn ($query) => $query->where('document_generation_template_version_id', $publishedVersion->id),
-            )
+            );
+
+        $this->applyVisibleItemsConstraint($latestQuery, $user, $companyId);
+
+        $latestRun = $latestQuery
             ->latest('id')
             ->first();
 
@@ -53,14 +64,18 @@ final class DocumentGenerationProgressQuery
             return null;
         }
 
-        return $this->presenter->fromCompanyTemplateRun($latestRun);
+        return $this->presenter->fromCompanyTemplateRunForUser($latestRun, $user, $companyId);
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    public function forBuiltIn(int $companyId, string $documentTypeKey): ?array
+    public function forBuiltIn(int $companyId, string $documentTypeKey, ?User $user = null): ?array
     {
+        if ($user !== null && ! EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return null;
+        }
+
         $run = BulkDocumentGenerationRun::query()
             ->where('company_id', $companyId)
             ->where('document_type_key', $documentTypeKey)
@@ -72,5 +87,16 @@ final class DocumentGenerationProgressQuery
         }
 
         return $this->presenter->fromBuiltInRun($run);
+    }
+
+    private function applyVisibleItemsConstraint($query, ?User $user, int $companyId): void
+    {
+        if ($user === null || EmployeeVisibilityScope::hasUnrestrictedAccess($user, $companyId)) {
+            return;
+        }
+
+        $query->whereHas('items.employee', function ($employeeQuery) use ($user, $companyId): void {
+            EmployeeVisibilityScope::apply($employeeQuery, $user, $companyId);
+        });
     }
 }
