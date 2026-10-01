@@ -152,32 +152,48 @@ jobs:
 
       - name: Upload build to server
         if: steps.plan.outputs.deploy_required == 'true' && steps.plan.outputs.frontend_build_required == 'true'
+        env:
+          # HRM default. Set repository variable DEPLOY_APP_DIR=cms on OMS-CMS.
+          DEPLOY_APP_DIR: ${{ vars.DEPLOY_APP_DIR || 'hrm' }}
         run: |
           rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes" public/build/ \
-            u769441461@82.198.227.207:~/domains/overseas-ms.com/public_html/hrm/public/build/
+            "u769441461@82.198.227.207:~/domains/overseas-ms.com/public_html/${DEPLOY_APP_DIR}/public/build/"
 
       - name: Deploy Backend
         if: steps.plan.outputs.deploy_required == 'true'
         env:
           VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+          # HRM default. Set repository variable DEPLOY_APP_DIR=cms on OMS-CMS.
+          DEPLOY_APP_DIR: ${{ vars.DEPLOY_APP_DIR || 'hrm' }}
         run: |
           if [[ ! "$VALIDATED_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
             echo "ERROR: Invalid validated SHA format: $VALIDATED_SHA"
             exit 1
           fi
 
-          echo "Deploying revision ${VALIDATED_SHA:0:7} ($VALIDATED_SHA)..."
+          if [[ ! "$DEPLOY_APP_DIR" =~ ^[a-z0-9_-]+$ ]]; then
+            echo "ERROR: Invalid DEPLOY_APP_DIR: $DEPLOY_APP_DIR"
+            exit 1
+          fi
 
-          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 "bash -s -- \"$VALIDATED_SHA\"" << 'EOF'
+          echo "Deploying revision ${VALIDATED_SHA:0:7} ($VALIDATED_SHA) to ${DEPLOY_APP_DIR}..."
+
+          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 "bash -s -- \"$VALIDATED_SHA\" \"$DEPLOY_APP_DIR\"" << 'EOF'
             set -e
             TARGET_SHA="$1"
+            APP_DIR="$2"
 
             if [[ ! "$TARGET_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
               echo "ERROR: Invalid target SHA: $TARGET_SHA"
               exit 1
             fi
 
-            cd ~/domains/overseas-ms.com/public_html/hrm || exit 1
+            if [[ ! "$APP_DIR" =~ ^[a-z0-9_-]+$ ]]; then
+              echo "ERROR: Invalid APP_DIR: $APP_DIR"
+              exit 1
+            fi
+
+            cd ~/domains/overseas-ms.com/public_html/"$APP_DIR" || exit 1
 
             echo "Fetching and resetting to validated revision ${TARGET_SHA:0:7}..."
             git fetch origin
