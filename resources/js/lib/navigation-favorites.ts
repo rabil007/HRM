@@ -310,15 +310,13 @@ export function destinationKeyFromPathname(pathname: string): string | null {
 }
 
 export function destinationKeyFromPageUrl(url: string): string | null {
-    const [rawPath = url, search = ''] = url.split('?');
+    const [rawPath = url] = url.split('?');
     const normalized = pathnameFromPageUrl(rawPath);
 
     if (
         normalized === '/organization/documents/bulk' ||
         normalized.startsWith('/organization/documents/bulk/')
     ) {
-        const view = new URLSearchParams(search).get('view');
-
         return 'documents.bulk';
     }
 
