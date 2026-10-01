@@ -3,11 +3,9 @@ import { BulkDocumentsContent } from '@/features/organization/documents/bulk/bul
 import type { BulkDocumentsPageProps } from '@/features/organization/documents/bulk/types';
 
 export default function BulkDocumentsIndex(props: BulkDocumentsPageProps) {
-    const title = props.view === 'history' ? 'Activity' : 'Generate & Track';
-
     return (
         <>
-            <Head title={title} />
+            <Head title="Generate & Track" />
             <BulkDocumentsContent {...props} />
         </>
     );
