@@ -4,15 +4,83 @@ namespace App\Support\BulkDocuments;
 
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
+use App\Models\DocumentGenerationRun;
+use App\Models\DocumentGenerationTemplate;
 use App\Models\User;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
 
 final class BulkDocumentActivityQuery
 {
+    public static function paginateCustom(
+        int $companyId,
+        DocumentGenerationTemplate $template,
+        EmployeeDirectoryFilters $filters,
+        int $perPage,
+        int $page,
+        ?User $user = null,
+    ): LengthAwarePaginator {
+        $page = max(1, $page);
+
+        $query = DocumentGenerationRun::query()
+            ->forCompany($companyId)
+            ->where('document_generation_template_id', $template->id)
+            ->with('triggeredBy:id,name');
+
+        $allowedDepartmentIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+        $hasEmployeeFilters = self::hasEmployeeFilters($filters);
+
+        if ($allowedDepartmentIds !== null || $hasEmployeeFilters) {
+            $query->whereHas('items.employee', function ($employeeQuery) use ($companyId, $filters, $user): void {
+                EmployeeDirectoryQuery::applyAttributeFilters(
+                    $employeeQuery,
+                    $companyId,
+                    $filters,
+                    user: $user,
+                );
+            });
+        }
+
+        $items = $query
+            ->latest('id')
+            ->get()
+            ->map(fn (DocumentGenerationRun $run): array => [
+                'kind' => 'generation',
+                'id' => $run->id,
+                'document_type_key' => "custom_{$template->id}",
+                'document_type_label' => $template->name,
+                'status' => $run->status,
+                'generated_count' => (int) $run->generated_count,
+                'replaced_count' => 0,
+                'skipped_count' => (int) $run->skipped_count,
+                'failed_count' => (int) $run->failed_count,
+                'created_at' => $run->created_at?->toIso8601String(),
+                'triggered_by' => $run->triggeredBy?->name,
+            ])
+            ->values();
+
+        $total = $items->count();
+        $slice = $items
+            ->slice(($page - 1) * $perPage, $perPage)
+            ->values()
+            ->all();
+
+        return new Paginator(
+            $slice,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ],
+        );
+    }
+
     public static function paginate(
         int $companyId,
         string $documentTypeKey,
@@ -86,7 +154,9 @@ final class BulkDocumentActivityQuery
             ->where('document_type_key', $documentTypeKey)
             ->with(['triggeredBy:id,name', 'emailTemplate:id,label']);
 
-        if ($hasEmployeeFilters) {
+        $allowedDepartmentIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+        if ($allowedDepartmentIds !== null || $hasEmployeeFilters) {
             $batchesQuery->whereHas('sends', function ($sendQuery) use ($companyId, $filters, $user): void {
                 $sendQuery->whereHas('employee', function ($employeeQuery) use ($companyId, $filters, $user): void {
                     EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters, user: $user);
