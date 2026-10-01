@@ -1181,7 +1181,7 @@ export function BulkDocumentsContent({
                                 <span className="text-sm font-medium text-foreground">
                                     Recent Operations
                                 </span>
-                             </>
+                            </>
                         }
                     />
 
