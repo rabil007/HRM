@@ -553,11 +553,12 @@ test('failed company document expiry alert is logged to activity', function () {
 // Regression: existing Employee Document alerts unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('existing employee document expiry alerts still use email template TO/CC presets', function () {
+test('existing employee document expiry alerts still use notification routing recipients', function () {
     Mail::fake();
     Carbon::setTestNow('2026-06-01');
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    createDocumentExpiryNotificationRule($company->id);
 
     $doc = createEmployeePdfDocument(
         $company->id,
@@ -570,7 +571,7 @@ test('existing employee document expiry alerts still use email template TO/CC pr
 
     app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
 
-    // Must send to hr@example.com (the template TO preset from configureDocumentExpiryAlertTemplate()).
+    // Employee expiry delivery is driven by Notification Routing, not Email Template TO/CC presets.
     Mail::assertSent(DocumentExpiryAlertMail::class, fn ($mail) => $mail->hasTo('hr@example.com'));
 
     // Must NOT send CompanyDocumentExpiryAlertMail.
@@ -789,6 +790,7 @@ test('company document configuration does not change employee document expiry re
     Mail::fake();
     Carbon::setTestNow('2026-06-01');
     $fixtures = makeDocumentFixtures();
+    createDocumentExpiryNotificationRule($fixtures['company']->id);
     $companyUser = User::factory()->create(['company_id' => $fixtures['company']->id, 'email' => 'pro@example.com']);
     attachActiveCompanyMembership($fixtures['company']->id, $companyUser);
 

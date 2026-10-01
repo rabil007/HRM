@@ -108,6 +108,7 @@ describe('unified Documents destinations', () => {
                 'Generate & Track',
                 'My Tasks',
                 'Document Types',
+                'Notification Routing',
             ],
         );
         assert.equal(
