@@ -42,9 +42,13 @@ Use Boost tools when they materially reduce uncertainty:
 
 Prefer current application code and focused tests over broad exploratory commands.
 
+## Cloud Agents
+
+Laravel Herd is not installed in Cloud Agent VMs. Use the environment server at `http://127.0.0.1:8000` (MySQL 8 database `oms_hrm`). Seeded login: `admin@example.com` / `password`. Vite dev HMR is pinned to the Herd host `oms-hrm.test`, so use the built assets from `npm run build` instead of `npm run dev`. Pest keeps sqlite `:memory:`. The default install skips the Puppeteer browser; PDF/Browsershot checks need `npm run browsershot:install`.
+
 ## Herd and database safety
 
-The app is served by Laravel Herd; do not start another development server unless explicitly required.
+On a Herd machine the app is served by Laravel Herd; do not start another development server unless explicitly required.
 
 Never run `migrate:fresh`, `migrate:refresh`, `db:wipe`, or destructive database resets against the Herd application database unless explicitly requested. Pest uses its isolated test database configuration.
 
