@@ -169,6 +169,8 @@ Also run one or more queue workers, for example:
 php artisan queue:work --tries=1 --timeout=600
 ```
 
+Document AI bulk extraction dispatches one job per file. On production hosts that support multiple long-running processes, run **3 independent instances** of the same worker command for practical bulk concurrency.
+
 ---
 
 ## Testing

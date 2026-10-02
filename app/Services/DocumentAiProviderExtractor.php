@@ -11,9 +11,12 @@ use App\Support\Ai\StructuredAgentOutput;
 use App\Support\EmployeeDocuments\DocumentAiExtractionResult;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 use Laravel\Ai\Promptable;
@@ -21,7 +24,7 @@ use Laravel\Ai\Responses\StructuredAgentResponse;
 use Stringable;
 use Throwable;
 
-final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, HasStructuredOutput
+final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, HasProviderOptions, HasStructuredOutput
 {
     use Promptable;
 
@@ -29,8 +32,15 @@ final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, H
 
     public function extract(UploadedFile $file): DocumentAiExtractionResult
     {
+        $startedAt = hrtime(true);
+        $provider = null;
+        $model = null;
+        $outcome = 'failed';
+
         try {
             $runtime = $this->aiSettings->applySelectedProviderToRuntime();
+            $provider = $runtime->provider;
+            $model = $this->modelFor($provider, $runtime->model);
             $attachment = str_starts_with((string) $file->getMimeType(), 'image/')
                 ? Image::fromPath($file->getRealPath(), $file->getMimeType())
                 : Document::fromPath($file->getRealPath());
@@ -42,14 +52,17 @@ final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, H
             $response = $this->prompt(
                 "Original filename: {$originalFilename}\n\nAnalyze the attached document and extract its metadata.\nUse the original filename only as a secondary classification hint.",
                 [$attachment],
-                $runtime->provider,
-                $runtime->model,
+                $provider,
+                $model,
             );
             if (! $response instanceof StructuredAgentResponse) {
                 throw new DocumentAiProviderException(DocumentAiErrorCode::InvalidOutput);
             }
 
-            return DocumentAiExtractionResult::fromDecoded(StructuredAgentOutput::fromResponse($response));
+            $result = DocumentAiExtractionResult::fromDecoded(StructuredAgentOutput::fromResponse($response));
+            $outcome = 'completed';
+
+            return $result;
         } catch (DocumentAiProviderException $e) {
             throw $e;
         } catch (InvalidArgumentException $e) {
@@ -58,7 +71,55 @@ final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, H
             throw new DocumentAiProviderException(DocumentAiErrorCode::ProviderUnavailable, $e);
         } catch (Throwable $e) {
             throw DocumentAiProviderException::fromThrowable($e);
+        } finally {
+            Log::info('Document AI extraction timing', [
+                'provider' => $provider,
+                'model' => $model,
+                'reasoning_effort' => $this->reasoningEffort(),
+                'duration_ms' => round((hrtime(true) - $startedAt) / 1_000_000, 2),
+                'outcome' => $outcome,
+            ]);
         }
+    }
+
+    /** @return array<string, mixed> */
+    public function providerOptions(Lab|string $provider): array
+    {
+        $providerName = $provider instanceof Lab ? $provider->value : $provider;
+
+        if (! in_array($providerName, [
+            AiSettingsService::PROVIDER_OPENAI,
+            AiSettingsService::PROVIDER_OPENROUTER,
+        ], true)) {
+            return [];
+        }
+
+        return [
+            'reasoning' => [
+                'effort' => $this->reasoningEffort(),
+            ],
+        ];
+    }
+
+    private function modelFor(string $provider, ?string $fallback): ?string
+    {
+        $models = config('document-ai.models', []);
+        $configured = is_array($models) ? ($models[$provider] ?? null) : null;
+
+        if (is_string($configured) && trim($configured) !== '') {
+            return trim($configured);
+        }
+
+        return $fallback;
+    }
+
+    private function reasoningEffort(): string
+    {
+        $effort = strtolower(trim((string) config('document-ai.reasoning_effort', 'low')));
+
+        return in_array($effort, ['none', 'low', 'medium', 'high'], true)
+            ? $effort
+            : 'low';
     }
 
     public function instructions(): Stringable|string
