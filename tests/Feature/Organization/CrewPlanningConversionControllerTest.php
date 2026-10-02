@@ -200,9 +200,14 @@ test('existing edit and delete behavior for unlinked planning rows still works',
 
     expect($planning->fresh()->planned_join_date->toDateString())->toBe('2027-05-01');
 
+    $foreignEmployee = Employee::factory()->create(['status' => 'active']);
+
     $this->actingAs($user)
         ->put(route('organization.crew-planning.assignments.update', $planning), [
-            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'employee_id' => $foreignEmployee->id,
+            'planned_join_date' => '2027-05-01',
         ])
         ->assertSessionHasErrors('employee_id');
 

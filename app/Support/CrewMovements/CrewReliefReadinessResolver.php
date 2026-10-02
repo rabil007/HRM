@@ -125,6 +125,7 @@ final class CrewReliefReadinessResolver
         int $companyId,
         int $sourceAssignmentId,
         ?int $exceptPlanningId = null,
+        ?int $exceptAssignmentId = null,
     ): bool {
         $hasAssignment = CrewAssignment::query()
             ->where('company_id', $companyId)
@@ -133,7 +134,7 @@ final class CrewReliefReadinessResolver
                 CrewAssignmentStatus::Planned,
                 CrewAssignmentStatus::Active,
             ])
-            ->when($exceptPlanningId !== null, fn ($q) => $q->whereKeyNot($exceptPlanningId))
+            ->when($exceptAssignmentId !== null, fn ($q) => $q->whereKeyNot($exceptAssignmentId))
             ->with('currentPhase')
             ->orderByDesc('id')
             ->get();

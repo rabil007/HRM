@@ -4,8 +4,14 @@ namespace App\Support\CrewPlanning;
 
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
+use App\Models\Employee;
 use App\Models\User;
+use App\Support\CrewMovements\CrewAssignmentConflictContext;
+use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\CrewMovements\CrewReliefReadinessResolver;
+use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -28,12 +34,11 @@ final class SaveCrewPlanningAssignment
     public function create(int $companyId, array $attributes, ?User $actor = null): CrewPlanningAssignment
     {
         return DB::transaction(function () use ($companyId, $attributes, $actor): CrewPlanningAssignment {
-            $attributes = self::normalizePositionAndRank($companyId, $attributes);
-            $this->assertReliefConstraints($companyId, $attributes, null, $actor);
+            $attributes = self::normalizeAttributes($companyId, $attributes);
+            $this->assertValidAttributes($companyId, $attributes, null, $actor);
 
             return CrewPlanningAssignment::query()->create([
                 ...$attributes,
-                'employee_id' => null,
                 'company_id' => $companyId,
             ]);
         });
@@ -99,7 +104,7 @@ final class SaveCrewPlanningAssignment
                         ]);
                     }
 
-                    $attributes = self::normalizePositionAndRank($companyId, $attributes);
+                    $attributes = self::normalizeAttributes($companyId, $attributes);
 
                     $merged = [
                         'relieves_crew_assignment_id' => array_key_exists('relieves_crew_assignment_id', $attributes)
@@ -109,10 +114,22 @@ final class SaveCrewPlanningAssignment
                             ? $attributes['vessel_id']
                             : $locked->vessel_id,
                         'position_id' => $attributes['position_id'] ?? $locked->position_id,
-                        'employee_id' => null,
+                        'employee_id' => array_key_exists('employee_id', $attributes)
+                            ? $attributes['employee_id']
+                            : $locked->employee_id,
+                        'planned_arrival_date' => array_key_exists('planned_arrival_date', $attributes)
+                            ? $attributes['planned_arrival_date']
+                            : $locked->planned_arrival_date?->toDateString(),
+                        'planned_join_date' => $attributes['planned_join_date'] ?? $locked->planned_join_date?->toDateString(),
+                        'planned_leave_date' => array_key_exists('planned_leave_date', $attributes)
+                            ? $attributes['planned_leave_date']
+                            : $locked->planned_leave_date?->toDateString(),
+                        'notes' => array_key_exists('notes', $attributes)
+                            ? $attributes['notes']
+                            : $locked->notes,
                     ];
 
-                    $this->assertReliefConstraints($companyId, $merged, (int) $locked->id, $actor);
+                    $this->assertValidAttributes($companyId, $merged, (int) $locked->id, $actor);
 
                     $locked->update($attributes);
 
@@ -134,6 +151,87 @@ final class SaveCrewPlanningAssignment
         throw ValidationException::withMessages([
             'error' => 'The planning assignment was modified concurrently. Please refresh and try again.',
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function assertValidAttributes(
+        int $companyId,
+        array $attributes,
+        ?int $exceptPlanningId = null,
+        ?User $actor = null,
+    ): void {
+        $arrival = $attributes['planned_arrival_date'] ?? null;
+        $join = $attributes['planned_join_date'] ?? null;
+        $leave = $attributes['planned_leave_date'] ?? null;
+
+        if ($arrival !== null && $arrival !== '' && $join !== null && $join !== '') {
+            if ($arrival > $join) {
+                throw ValidationException::withMessages([
+                    'planned_arrival_date' => 'Arrival Date cannot be after Expected Vessel Join.',
+                ]);
+            }
+        }
+
+        if ($join !== null && $join !== '' && $leave !== null && $leave !== '') {
+            if ($leave < $join) {
+                throw ValidationException::withMessages([
+                    'planned_leave_date' => 'Expected Sign-off cannot be before Expected Vessel Join.',
+                ]);
+            }
+        }
+
+        $this->assertReliefConstraints($companyId, $attributes, $exceptPlanningId, $actor);
+
+        $employeeId = $attributes['employee_id'] ?? null;
+        if ($employeeId !== null && $employeeId !== '') {
+            $employeeId = (int) $employeeId;
+
+            $employee = Employee::query()
+                ->where('company_id', $companyId)
+                ->whereKey($employeeId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($employee === null) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The selected employee does not belong to this company.',
+                ]);
+            }
+
+            if ($employee->status !== 'active') {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'Only active employees can receive a crew assignment.',
+                ]);
+            }
+
+            if ($actor !== null && ! EmployeeVisibilityScope::canAccess($actor, $employee, $companyId)) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'The selected employee does not belong to this company.',
+                ]);
+            }
+
+            if ($join !== null && $join !== '' && $leave !== null && $leave !== '') {
+                $timezone = CompanyTimezone::forCompanyId($companyId);
+                $conflictContext = new CrewAssignmentConflictContext(
+                    companyId: $companyId,
+                    employeeId: $employeeId,
+                    action: 'plan',
+                    plannedJoinAt: CarbonImmutable::parse($join, $timezone)->startOfDay(),
+                    plannedSignoffAt: CarbonImmutable::parse($leave, $timezone)->endOfDay(),
+                    plannedArrivalAt: $arrival !== null && $arrival !== '' ? CarbonImmutable::parse($arrival, $timezone)->startOfDay() : null,
+                    vesselId: ! empty($attributes['vessel_id']) ? (int) $attributes['vessel_id'] : null,
+                    positionId: ! empty($attributes['position_id']) ? (int) $attributes['position_id'] : null,
+                    relievesCrewAssignmentId: ! empty($attributes['relieves_crew_assignment_id']) ? (int) $attributes['relieves_crew_assignment_id'] : null,
+                    currentAssignmentId: null,
+                    currentPlanningAssignmentId: $exceptPlanningId,
+                    actor: $actor,
+                );
+
+                (new CrewAssignmentConflictEvaluator)->assertNoBlockingConflicts($conflictContext, withLock: true);
+            }
+        }
     }
 
     /**
@@ -168,7 +266,7 @@ final class SaveCrewPlanningAssignment
             'relieves_crew_assignment_id' => $relievesId,
             'vessel_id' => $attributes['vessel_id'] ?? null,
             'position_id' => $attributes['position_id'] ?? null,
-            'employee_id' => null,
+            'employee_id' => $attributes['employee_id'] ?? null,
         ], $existing, $actor);
 
         if ($validator->errors()->isNotEmpty()) {
@@ -180,8 +278,32 @@ final class SaveCrewPlanningAssignment
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
-    private static function normalizePositionAndRank(int $companyId, array $attributes): array
+    private static function normalizeAttributes(int $companyId, array $attributes): array
     {
+        if (array_key_exists('employee_id', $attributes)) {
+            $attributes['employee_id'] = $attributes['employee_id'] !== null && $attributes['employee_id'] !== ''
+                ? (int) $attributes['employee_id']
+                : null;
+        }
+
+        if (array_key_exists('relieves_crew_assignment_id', $attributes)) {
+            $attributes['relieves_crew_assignment_id'] = $attributes['relieves_crew_assignment_id'] !== null && $attributes['relieves_crew_assignment_id'] !== ''
+                ? (int) $attributes['relieves_crew_assignment_id']
+                : null;
+        }
+
+        if (array_key_exists('planned_arrival_date', $attributes)) {
+            $attributes['planned_arrival_date'] = $attributes['planned_arrival_date'] !== null && $attributes['planned_arrival_date'] !== ''
+                ? $attributes['planned_arrival_date']
+                : null;
+        }
+
+        if (array_key_exists('notes', $attributes)) {
+            $attributes['notes'] = $attributes['notes'] !== null && $attributes['notes'] !== ''
+                ? (string) $attributes['notes']
+                : null;
+        }
+
         return $attributes;
     }
 }

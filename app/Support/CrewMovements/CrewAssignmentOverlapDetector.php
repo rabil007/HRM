@@ -58,6 +58,29 @@ final class CrewAssignmentOverlapDetector
     }
 
     /**
+     * Determine if a candidate date window overlaps a planned crew planning assignment.
+     */
+    public function overlapsPlannedPlanningAssignment(
+        string $candidateStart,
+        ?string $candidateEnd,
+        CrewPlanningAssignment $plan,
+    ): bool {
+        $pStart = ($plan->planned_arrival_date ?? $plan->planned_join_date)?->toDateString();
+
+        if ($pStart === null) {
+            return false;
+        }
+
+        $effectivePEnd = $plan->planned_leave_date?->toDateString() ?? $pStart;
+
+        if ($candidateEnd === null) {
+            return $candidateStart <= $effectivePEnd;
+        }
+
+        return max($candidateStart, $pStart) <= min($candidateEnd, $effectivePEnd);
+    }
+
+    /**
      * Resolve date window [start, end] for a relief plan (CrewAssignment or CrewPlanningAssignment).
      *
      * @return array{start: string|null, end: string|null}
@@ -71,7 +94,7 @@ final class CrewAssignmentOverlapDetector
             return ['start' => $start, 'end' => $end];
         }
 
-        $start = $plan->planned_join_date?->toDateString();
+        $start = ($plan->planned_arrival_date ?? $plan->planned_join_date)?->toDateString();
         $end = ($plan->planned_leave_date ?? $plan->planned_signoff_date)?->toDateString();
 
         return ['start' => $start, 'end' => $end];

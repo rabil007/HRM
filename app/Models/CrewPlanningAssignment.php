@@ -29,6 +29,7 @@ class CrewPlanningAssignment extends Model
                 'employee_id',
                 'crew_assignment_id',
                 'relieves_crew_assignment_id',
+                'planned_arrival_date',
                 'planned_join_date',
                 'planned_leave_date',
                 'notes',
@@ -45,6 +46,7 @@ class CrewPlanningAssignment extends Model
             'employee_id' => 'integer',
             'crew_assignment_id' => 'integer',
             'relieves_crew_assignment_id' => 'integer',
+            'planned_arrival_date' => 'date',
             'planned_join_date' => 'date',
             'planned_leave_date' => 'date',
         ];

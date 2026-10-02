@@ -120,12 +120,18 @@ function AssignmentBarPopoverContent({
                 {bar.vessel_name ? (
                     <InfoRow label="Vessel" value={bar.vessel_name} />
                 ) : null}
+                {bar.planned_arrival_date ? (
+                    <InfoRow
+                        label="Expected arrival"
+                        value={formatDate(bar.planned_arrival_date)}
+                    />
+                ) : null}
                 <InfoRow
-                    label="Planned join"
+                    label="Expected join"
                     value={formatDate(bar.planned_join_date)}
                 />
                 <InfoRow
-                    label="Planned leave"
+                    label="Expected sign-off"
                     value={
                         bar.is_open_ended || bar.planned_leave_date === null
                             ? 'No sign-off planned'

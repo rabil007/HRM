@@ -27,6 +27,7 @@ final class CrewAssignmentConflictContext
         public readonly ?int $clientId = null,
         public readonly ?int $relievesCrewAssignmentId = null,
         public readonly ?int $currentAssignmentId = null,
+        public readonly ?int $currentPlanningAssignmentId = null,
         public readonly ?User $actor = null,
     ) {}
 }

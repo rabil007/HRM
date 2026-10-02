@@ -1100,9 +1100,9 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
         ->assertSessionHasErrors('planning_assignment_id');
 });
 
-test('vacant planning create rejects employee_id and succeeds without it', function () {
+test('crew planning store supports both named and vacant plans with optional planned arrival date', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Vacant Planning Create Vessel', $company);
+    $vessel = makeCrewMovementVessel('Named Planning Create Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
@@ -1110,44 +1110,165 @@ test('vacant planning create rejects employee_id and succeeds without it', funct
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $beforeCount = CrewPlanningAssignment::query()->where('company_id', $company->id)->count();
-
+    // 1. Date ordering validation: arrival after join fails
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
             'vessel_id' => $vessel->id,
             'position_id' => $rank->id,
             'employee_id' => $employee->id,
+            'planned_arrival_date' => '2026-10-15',
             'planned_join_date' => '2026-10-10',
             'planned_leave_date' => '2026-11-30',
         ])
-        ->assertSessionHasErrors('employee_id');
+        ->assertSessionHasErrors('planned_arrival_date');
 
-    $sessionErrors = session('errors');
-    $message = (string) ($sessionErrors?->first('employee_id') ?? '');
-
-    expect($message)->toContain('Crew Assignment → Save as Planned')
-        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount)
-        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->whereNotNull('employee_id')->count())->toBe(0);
-
+    // 2. Date ordering validation: join after leave fails
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
             'vessel_id' => $vessel->id,
             'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2026-12-01',
+            'planned_leave_date' => '2026-11-30',
+        ])
+        ->assertSessionHasErrors('planned_leave_date');
+
+    // 3. Named plan succeeds with valid arrival <= join <= leave
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_arrival_date' => '2026-10-08',
             'planned_join_date' => '2026-10-10',
             'planned_leave_date' => '2026-11-30',
+            'notes' => 'Named plan test',
         ])
         ->assertRedirect()
         ->assertSessionDoesntHaveErrors();
 
-    $created = CrewPlanningAssignment::query()
+    $namedPlan = CrewPlanningAssignment::query()
         ->where('company_id', $company->id)
         ->where('vessel_id', $vessel->id)
-        ->whereDate('planned_join_date', '2026-10-10')
-        ->latest('id')
+        ->where('employee_id', $employee->id)
         ->first();
 
-    expect($created)->not->toBeNull()
-        ->and($created->employee_id)->toBeNull();
+    expect($namedPlan)->not->toBeNull()
+        ->and((int) $namedPlan->employee_id)->toBe($employee->id)
+        ->and($namedPlan->planned_arrival_date?->format('Y-m-d'))->toBe('2026-10-08')
+        ->and($namedPlan->planned_join_date->format('Y-m-d'))->toBe('2026-10-10')
+        ->and($namedPlan->planned_leave_date?->format('Y-m-d'))->toBe('2026-11-30')
+        ->and($namedPlan->notes)->toBe('Named plan test');
+
+    // 4. Overlap conflict: same employee cannot have overlapping planning assignment
+    $otherVessel = makeCrewMovementVessel('Other Conflict Vessel', $company);
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $otherVessel->id,
+            'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2026-10-20',
+            'planned_leave_date' => '2026-11-15',
+        ])
+        ->assertSessionHasErrors('employee_id');
+
+    // 5. Vacant plan succeeds without employee_id
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'planned_join_date' => '2026-12-01',
+            'planned_leave_date' => '2027-01-15',
+        ])
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    $vacantPlan = CrewPlanningAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('vessel_id', $vessel->id)
+        ->whereNull('employee_id')
+        ->whereDate('planned_join_date', '2026-12-01')
+        ->first();
+
+    expect($vacantPlan)->not->toBeNull()
+        ->and($vacantPlan->employee_id)->toBeNull();
+});
+
+test('crew planning update supports modifying named employee, dates, arrival date, and clearing to vacant', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Planning Update Vessel', $company);
+    $secondEmployee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'position_id' => $rank->id,
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+        'crew_operations.planning.update',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $plan = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_arrival_date' => '2026-10-01',
+        'planned_join_date' => '2026-10-05',
+        'planned_leave_date' => '2026-11-05',
+    ]);
+
+    // Updating self with adjusted dates does not cause false self-conflict
+    $this->actingAs($user)
+        ->put(route('organization.crew-planning.assignments.update', $plan), [
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_arrival_date' => '2026-10-03',
+            'planned_join_date' => '2026-10-06',
+            'planned_leave_date' => '2026-11-10',
+            'notes' => 'Updated self notes',
+        ])
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    $plan->refresh();
+    expect($plan->planned_arrival_date?->format('Y-m-d'))->toBe('2026-10-03')
+        ->and($plan->planned_join_date->format('Y-m-d'))->toBe('2026-10-06')
+        ->and($plan->notes)->toBe('Updated self notes');
+
+    // Updating to clear employee_id (transition to vacant plan)
+    $this->actingAs($user)
+        ->put(route('organization.crew-planning.assignments.update', $plan), [
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'employee_id' => null,
+            'planned_join_date' => '2026-10-06',
+            'planned_leave_date' => '2026-11-10',
+        ])
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    $plan->refresh();
+    expect($plan->employee_id)->toBeNull();
+
+    // Updating to assign second employee
+    $this->actingAs($user)
+        ->put(route('organization.crew-planning.assignments.update', $plan), [
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'employee_id' => $secondEmployee->id,
+            'planned_join_date' => '2026-10-06',
+            'planned_leave_date' => '2026-11-10',
+        ])
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    $plan->refresh();
+    expect((int) $plan->employee_id)->toBe($secondEmployee->id);
 });
 
 test('planned update cannot clear expected join or sign-off via blank submission', function () {

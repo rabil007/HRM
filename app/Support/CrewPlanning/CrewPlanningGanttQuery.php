@@ -168,6 +168,7 @@ final class CrewPlanningGanttQuery
                     'employee_name' => $item['employee_name'],
                     'start' => $joinDate,
                     'end' => $displayEnd,
+                    'planned_arrival_date' => $item['planned_arrival_date'],
                     'planned_join_date' => $joinDate,
                     'planned_leave_date' => $leaveDate,
                     'is_open_ended' => $leaveDate === null,
@@ -340,6 +341,7 @@ final class CrewPlanningGanttQuery
      *     position_name: string,
      *     employee_id: int|null,
      *     employee_name: string,
+     *     planned_arrival_date: string|null,
      *     join_date: string|null,
      *     leave_date: string|null,
      *     notes: string|null,
@@ -465,6 +467,7 @@ final class CrewPlanningGanttQuery
                     ?? $assignment->started_at)?->copy()->timezone($timezone)->toDateString();
                 $leaveDate = ($onVesselPhase?->actual_end_at
                     ?? $assignment->planned_signoff_at)?->copy()->timezone($timezone)->toDateString();
+                $arrivalDate = $assignment->planned_arrival_at?->copy()->timezone($timezone)->toDateString();
 
                 $planningKind = self::planningKind($assignment);
 
@@ -484,6 +487,7 @@ final class CrewPlanningGanttQuery
                     'position_name' => (string) $position->title,
                     'employee_id' => $assignment->employee_id,
                     'employee_name' => $assignment->employee?->name ?? 'Vacant',
+                    'planned_arrival_date' => $arrivalDate,
                     'join_date' => $joinDate,
                     'leave_date' => $leaveDate,
                     'notes' => $assignment->remarks,
@@ -582,6 +586,7 @@ final class CrewPlanningGanttQuery
 
                 $joinDate = $plan->planned_join_date?->toDateString();
                 $leaveDate = $plan->planned_leave_date?->toDateString();
+                $arrivalDate = $plan->planned_arrival_date?->toDateString();
 
                 $kind = $plan->employee_id === null
                     ? 'vacant_slot'
@@ -603,6 +608,7 @@ final class CrewPlanningGanttQuery
                     'position_name' => (string) $position->title,
                     'employee_id' => $plan->employee_id,
                     'employee_name' => $plan->employee?->name ?? 'Vacant',
+                    'planned_arrival_date' => $arrivalDate,
                     'join_date' => $joinDate,
                     'leave_date' => $leaveDate,
                     'notes' => $plan->notes,
