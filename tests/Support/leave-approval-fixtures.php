@@ -336,6 +336,9 @@ function makeAnyRequiredModeContext(LeaveApprovalMode $mode = LeaveApprovalMode:
 
     $employee = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
+        // Pin the name so HTML assertions about notify-only "Adam" are not flaky
+        // when Faker happens to name the requester Adam as well.
+        'name' => 'Leave Requester',
         'work_email' => "requester-ar-{$suffix}@example.com",
     ]);
     $leaveType = LeaveType::factory()->for($company)->create([

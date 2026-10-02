@@ -106,12 +106,14 @@ test('any required email lists all pending required approvers and omits notify o
 
         expect($mail->approvalLabel)->toBe(PresentLeaveRequestEmailApprovalContext::LABEL_APPROVERS)
             ->and($mail->approvalNames)->toBe(['Rima', 'Maher'])
+            ->and($mail->approvalNames)->not->toContain('Adam')
             ->and($mail->approvalHelpText)->toBe(PresentLeaveRequestEmailApprovalContext::HELP_ANY_REQUIRED)
             ->and($html)->toContain('Approvers')
             ->and($html)->toContain('Rima')
             ->and($html)->toContain('Maher')
             ->and($html)->toContain('Any one of these approvers can act on this request.')
-            ->and($html)->not->toContain('Adam')
+            ->and($html)->toContain('Leave Requester')
+            ->and($html)->not->toContain('>Adam</')
             ->and($html)->not->toContain('>Manager</');
 
         return true;
