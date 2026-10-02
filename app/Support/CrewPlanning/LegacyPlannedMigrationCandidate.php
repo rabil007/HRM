@@ -21,6 +21,8 @@ final class LegacyPlannedMigrationCandidate
 
     public const DISPOSITION_REUSE_LINKED_VACANT = 'reuse_linked_vacant_planning';
 
+    public const DISPOSITION_REUSE_LINKED_NAMED = 'reuse_linked_named_planning';
+
     public const DISPOSITION_REUSE_EQUIVALENT = 'reuse_equivalent_named_planning';
 
     public const DISPOSITION_NONE = 'none';

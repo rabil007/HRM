@@ -158,8 +158,10 @@ There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 - [ ] Apply creates/reuses named `CrewPlanningAssignment` with `crew_assignment_id = null`
 - [ ] Arrival / Join / Sign-Off map to company-local planning dates; remarks → notes; relief preserved
 - [ ] Linked vacant Planning is reused (no duplicate); exact equivalent unlinked named Planning is reused
-- [ ] Blockers abort apply (missing masters/dates, cross-company links, ambiguous matches, unexpected actuals/Sea Service/payroll)
-- [ ] Legacy Planned retires to Cancelled without mobilisation / P4 / Sea Service / payroll / source disembarkation
+- [ ] Exact compatible linked named Planning is reused and `crew_assignment_id` cleared (no duplicate)
+- [ ] Linked named Planning mismatches (vessel/position/dates/relief) abort apply with no writes
+- [ ] Blockers abort apply (missing masters/dates, non-Planned P0 status, non-P0/multiple phases, cross-company links, ambiguous matches, unexpected actuals/Sea Service/payroll)
+- [ ] Legacy Planned retires to Cancelled assignment + Cancelled P0 **without** inventing `actual_start_at` / `actual_end_at`; no mobilisation / P4 / Sea Service / payroll / source disembarkation
 - [ ] Activity `legacy_planned_migrated_to_crew_planning` records provenance
 - [ ] Post-apply: `Remaining CrewAssignment(status=planned): 0` for the selected scope; conflict checks see Planning once
 - [ ] Second `--apply` is idempotent (no duplicate Planning rows)
