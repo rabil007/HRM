@@ -869,10 +869,12 @@ php artisan crew-planning:migrate-legacy-planned --all-companies
 |---------|-----------|
 | Scope | Requires `--company=ID` or explicit `--all-companies`. Never processes every company implicitly. |
 | Mapping | `planned_arrival_at` → `planned_arrival_date`, `planned_join_at` → `planned_join_date`, `planned_signoff_at` → `planned_leave_date`, `remarks` → `notes`, relief preserved. Company-local calendar dates via `CompanyTimezone`. Do **not** copy `client_id`. |
+| Expected legacy shape | Migratable Planned rows must have exactly one **Planned** P0 phase with `actual_start_at` / `actual_end_at` null and `started_at` null. Any other phase status/code, multiple phases, or actual timestamps → **BLOCKED** (`unexpected_phase_status` / related codes). |
 | Linked vacant Planning | Reuse the row, convert to named plan, set `crew_assignment_id = null`. |
+| Linked named Planning | If the linked row is an exact compatible representation (same company/employee/vessel/position/dates/relief), reuse it and clear `crew_assignment_id`. Any mismatch → **BLOCKED** (`linked_named_planning_mismatch`). |
 | Equivalent named Planning | If exactly one unlinked compatible match exists, reuse it (no duplicate). |
 | Unsafe / ambiguous | Mark **BLOCKED**; do not guess. Apply aborts when any blocker exists in scope. |
-| Retirement | Legacy Planned exits `Planned` via Cancelled terminal semantics (phase cancelled, assignment cancelled) without mobilisation, P0 start actuals, P4, Sea Service, payroll, or disembarking the relief source. Remarks are not overwritten with migration metadata. |
+| Retirement | Legacy Planned exits `Planned` via Cancelled assignment + Cancelled P0 phase for audit. Retirement does **not** create `actual_start_at` / `actual_end_at` (the phase never started). `closed_at` on the assignment is lifecycle retirement only. No mobilisation, P4, Sea Service, payroll, or relief-source side effects. Remarks are not overwritten with migration metadata. |
 | Activity | `legacy_planned_migrated_to_crew_planning` on the legacy assignment and Planning row (`legacy_crew_assignment_id`, `legacy_assignment_no`, `crew_planning_assignment_id`, `company_id`, migration timestamp/version). |
 | Availability | After apply, only the Planning row reserves the future window (no double reservation with leftover Planned). |
 | Verification | Successful company apply reports `Remaining CrewAssignment(status=planned): 0` for the selected scope. Never claim complete while Planned rows remain. |

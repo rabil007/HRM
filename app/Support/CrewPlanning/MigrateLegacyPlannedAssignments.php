@@ -211,10 +211,41 @@ final class MigrateLegacyPlannedAssignments
         }
 
         if ($linked !== null && $linked->employee_id === null) {
+            if ($this->findEquivalentUnlinkedPlanning($assignment, $mapped) !== []) {
+                return new LegacyPlannedMigrationCandidate(
+                    ...$base,
+                    migrationStatus: LegacyPlannedMigrationCandidate::STATUS_BLOCKED,
+                    disposition: LegacyPlannedMigrationCandidate::DISPOSITION_NONE,
+                    planningAssignmentId: (int) $linked->id,
+                    blockers: ['ambiguous_equivalent_planning_matches'],
+                );
+            }
+
             return new LegacyPlannedMigrationCandidate(
                 ...$base,
                 migrationStatus: LegacyPlannedMigrationCandidate::STATUS_CONVERTIBLE,
                 disposition: LegacyPlannedMigrationCandidate::DISPOSITION_REUSE_LINKED_VACANT,
+                planningAssignmentId: (int) $linked->id,
+                blockers: [],
+            );
+        }
+
+        if ($linked !== null && $linked->employee_id !== null) {
+            // Compatible linked named rows are preflight-validated; reuse and unlink.
+            if ($this->findEquivalentUnlinkedPlanning($assignment, $mapped) !== []) {
+                return new LegacyPlannedMigrationCandidate(
+                    ...$base,
+                    migrationStatus: LegacyPlannedMigrationCandidate::STATUS_BLOCKED,
+                    disposition: LegacyPlannedMigrationCandidate::DISPOSITION_NONE,
+                    planningAssignmentId: (int) $linked->id,
+                    blockers: ['ambiguous_equivalent_planning_matches'],
+                );
+            }
+
+            return new LegacyPlannedMigrationCandidate(
+                ...$base,
+                migrationStatus: LegacyPlannedMigrationCandidate::STATUS_CONVERTIBLE,
+                disposition: LegacyPlannedMigrationCandidate::DISPOSITION_REUSE_LINKED_NAMED,
                 planningAssignmentId: (int) $linked->id,
                 blockers: [],
             );
@@ -347,23 +378,25 @@ final class MigrateLegacyPlannedAssignments
         }
 
         $phases = $assignment->phases;
-        foreach ($phases as $phase) {
-            if ($phase->actual_start_at !== null || $phase->actual_end_at !== null) {
-                $blockers[] = 'unexpected_phase_actuals';
-                break;
-            }
-            if ($phase->status === CrewPhaseStatus::Active || $phase->status === CrewPhaseStatus::Completed) {
-                $blockers[] = 'unexpected_operational_phase_status';
-                break;
-            }
+
+        if ($phases->count() === 0) {
+            $blockers[] = 'missing_p0_phase';
+        } elseif ($phases->count() > 1) {
+            $blockers[] = 'unexpected_multiple_phases';
+        } else {
+            $phase = $phases->first();
+
             if ($phase->phase_code !== CrewPhaseCode::PreMobilisation) {
                 $blockers[] = 'unexpected_non_p0_phase';
-                break;
             }
-        }
 
-        if ($phases->count() > 1) {
-            $blockers[] = 'unexpected_multiple_phases';
+            if ($phase->status !== CrewPhaseStatus::Planned) {
+                $blockers[] = 'unexpected_phase_status';
+            }
+
+            if ($phase->actual_start_at !== null || $phase->actual_end_at !== null) {
+                $blockers[] = 'unexpected_phase_actuals';
+            }
         }
 
         $phaseIds = $phases->pluck('id')->all();
@@ -392,16 +425,48 @@ final class MigrateLegacyPlannedAssignments
                 $blockers[] = 'linked_planning_cross_company';
             }
 
-            if ($linked->employee_id !== null && (int) $linked->employee_id !== (int) $assignment->employee_id) {
-                $blockers[] = 'linked_planning_employee_conflict';
-            }
-
             if ($linked->crew_assignment_id !== null && (int) $linked->crew_assignment_id !== (int) $assignment->id) {
                 $blockers[] = 'linked_planning_points_elsewhere';
+            }
+
+            if ($linked->employee_id !== null) {
+                if ((int) $linked->employee_id !== (int) $assignment->employee_id) {
+                    $blockers[] = 'linked_planning_employee_conflict';
+                } elseif (! $this->linkedNamedPlanningIsCompatible($linked, $assignment, $mapped)) {
+                    $blockers[] = 'linked_named_planning_mismatch';
+                }
             }
         }
 
         return array_values(array_unique($blockers));
+    }
+
+    /**
+     * @param  array{planned_arrival_date: ?string, planned_join_date: ?string, planned_leave_date: ?string}  $mapped
+     */
+    private function linkedNamedPlanningIsCompatible(
+        CrewPlanningAssignment $linked,
+        CrewAssignment $assignment,
+        array $mapped,
+    ): bool {
+        $linkedArrival = $linked->planned_arrival_date?->toDateString();
+        $linkedJoin = $linked->planned_join_date?->toDateString();
+        $linkedLeave = $linked->planned_leave_date?->toDateString();
+        $linkedRelief = $linked->relieves_crew_assignment_id !== null
+            ? (int) $linked->relieves_crew_assignment_id
+            : null;
+        $assignmentRelief = $assignment->relieves_crew_assignment_id !== null
+            ? (int) $assignment->relieves_crew_assignment_id
+            : null;
+
+        return (int) $linked->company_id === (int) $assignment->company_id
+            && (int) $linked->employee_id === (int) $assignment->employee_id
+            && (int) $linked->vessel_id === (int) $assignment->vessel_id
+            && (int) $linked->position_id === (int) $assignment->position_id
+            && $linkedArrival === $mapped['planned_arrival_date']
+            && $linkedJoin === $mapped['planned_join_date']
+            && $linkedLeave === $mapped['planned_leave_date']
+            && $linkedRelief === $assignmentRelief;
     }
 
     /**
@@ -571,6 +636,27 @@ final class MigrateLegacyPlannedAssignments
                 $reused = true;
 
                 $this->retireLegacyPlanned($assignment, $actorId);
+            } elseif ($reclassified->disposition === LegacyPlannedMigrationCandidate::DISPOSITION_REUSE_LINKED_NAMED) {
+                $planning = CrewPlanningAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey((int) $reclassified->planningAssignmentId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($planning->employee_id === null) {
+                    throw new \RuntimeException('Linked planning row is no longer named.');
+                }
+
+                if (! $this->linkedNamedPlanningIsCompatible($planning, $assignment, $mapped)) {
+                    throw new \RuntimeException('Linked named planning row is no longer compatible.');
+                }
+
+                // Exact representation already: only clear the operational link.
+                $planning->update(['crew_assignment_id' => null]);
+                $planningId = (int) $planning->id;
+                $reused = true;
+
+                $this->retireLegacyPlanned($assignment, $actorId);
             } elseif ($reclassified->disposition === LegacyPlannedMigrationCandidate::DISPOSITION_REUSE_EQUIVALENT) {
                 $planningId = (int) $reclassified->planningAssignmentId;
                 CrewPlanningAssignment::query()
@@ -673,14 +759,17 @@ final class MigrateLegacyPlannedAssignments
 
         $current = $assignment->currentPhase;
         if ($current !== null && $current->status !== CrewPhaseStatus::Cancelled) {
+            // Never invent actual phase timestamps — legacy Planned P0 never started.
             $current->update([
                 'status' => CrewPhaseStatus::Cancelled,
-                'actual_end_at' => $occurredAt,
+                'actual_start_at' => null,
+                'actual_end_at' => null,
                 'completed_by' => $actorId,
             ]);
         }
 
         // Preserve original remarks; migration provenance lives in activity log only.
+        // closed_at is assignment lifecycle retirement, not a crew movement actual.
         $assignment->update([
             'status' => CrewAssignmentStatus::Cancelled,
             'closed_at' => $occurredAt,

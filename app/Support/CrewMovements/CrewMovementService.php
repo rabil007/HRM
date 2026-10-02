@@ -121,16 +121,11 @@ final class CrewMovementService
      * Create a planned Crew Assignment that reserves the employee's availability
      * for a deterministic planned date range without creating operational movements.
      *
-<<<<<<< HEAD
-     * Legacy / migration helper (Phase 3+): normal HTTP create no longer calls this.
-     * Future plans belong in CrewPlanningAssignment; Start Mobilisation creates Active.
-     * Keep this method for existing Planned records, tests, and Phase 4 migration until
-     * Phase 5 removes the Planned CrewAssignment architecture.
-=======
-     * Legacy helper retained for existing Planned records, tests, and fixtures until
-     * Phase 5 removes the Planned architecture. Phase 4 migrates leftover Planned rows
-     * via `php artisan crew-planning:migrate-legacy-planned` (dry-run by default).
->>>>>>> 3326b54a (Document Phase 4 migration command on createPlanned helper.)
+     * Legacy-only helper: normal HTTP create no longer calls this.
+     * Future planning belongs in CrewPlanningAssignment; Start Mobilisation creates Active.
+     * Keep for existing Planned records, tests, and fixtures. Phase 4 migrates remaining
+     * Planned rows via `php artisan crew-planning:migrate-legacy-planned` (dry-run by default).
+     * Phase 5 removes this helper and CrewAssignmentStatus::Planned.
      *
      * @param  array<string, mixed>  $attributes
      */
