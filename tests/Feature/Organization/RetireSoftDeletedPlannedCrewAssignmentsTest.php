@@ -3,12 +3,17 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewTimesheetPayCategory;
+use App\Enums\CrewTimesheetSource;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
+use App\Models\CrewTimesheet;
+use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
@@ -145,6 +150,129 @@ test('apply retires soft-deleted Planned to Cancelled without restoring or creat
         ->and($activity?->properties->get('new_status'))->toBe('cancelled')
         ->and($activity?->properties->get('original_deleted_at'))->toBe($fixture['deletedAt'])
         ->and($activity?->properties->get('company_id'))->toBe($company->id);
+});
+
+test('null actor preserves historical updated_by and completed_by attribution', function () {
+    $fixture = makeSoftDeletedPlannedTombstone();
+    $assignmentUpdater = User::factory()->create();
+    $phaseCompleter = User::factory()->create();
+    $maintenanceActor = User::factory()->create();
+
+    DB::table('crew_assignments')->where('id', $fixture['planned']->id)->update([
+        'updated_by' => $assignmentUpdater->id,
+    ]);
+    DB::table('crew_assignment_phases')
+        ->where('crew_assignment_id', $fixture['planned']->id)
+        ->update([
+            'completed_by' => $phaseCompleter->id,
+        ]);
+
+    $report = $this->retirer->apply([(int) $fixture['company']->id], null, null);
+
+    expect($report->retired())->toBe(1);
+
+    $retired = CrewAssignment::withTrashed()
+        ->with(['phases' => fn ($q) => $q->withTrashed()])
+        ->whereKey($fixture['planned']->id)
+        ->firstOrFail();
+
+    expect($retired->status)->toBe(CrewAssignmentStatus::Cancelled)
+        ->and($retired->updated_by)->toBe($assignmentUpdater->id)
+        ->and($retired->phases->first()?->completed_by)->toBe($phaseCompleter->id)
+        ->and($retired->deleted_at?->toDateTimeString())->toBe($fixture['deletedAt']);
+
+    $activity = Activity::query()
+        ->where('description', RetireSoftDeletedPlannedAssignments::ACTIVITY)
+        ->where('subject_id', $fixture['planned']->id)
+        ->first();
+    expect($activity?->causer_id)->toBeNull();
+
+    // With a real actor, attribution updates are allowed.
+    $second = makeSoftDeletedPlannedTombstone();
+    DB::table('crew_assignments')->where('id', $second['planned']->id)->update([
+        'updated_by' => $assignmentUpdater->id,
+    ]);
+    DB::table('crew_assignment_phases')
+        ->where('crew_assignment_id', $second['planned']->id)
+        ->update([
+            'completed_by' => $phaseCompleter->id,
+        ]);
+
+    $this->retirer->apply([(int) $second['company']->id], null, $maintenanceActor);
+
+    $secondRetired = CrewAssignment::withTrashed()
+        ->with(['phases' => fn ($q) => $q->withTrashed()])
+        ->whereKey($second['planned']->id)
+        ->firstOrFail();
+
+    expect($secondRetired->updated_by)->toBe($maintenanceActor->id)
+        ->and($secondRetired->phases->first()?->completed_by)->toBe($maintenanceActor->id);
+});
+
+test('timesheet segments including soft-deleted block retirement with zero writes', function () {
+    $fixture = makeSoftDeletedPlannedTombstone();
+    $planned = $fixture['planned'];
+    $phase = CrewAssignmentPhase::withTrashed()->where('crew_assignment_id', $planned->id)->firstOrFail();
+
+    $period = PayrollPeriod::factory()->for($fixture['company'])->create([
+        'start_date' => '2027-05-01',
+        'end_date' => '2027-05-31',
+    ]);
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $fixture['company']->id,
+        'employee_id' => $fixture['employee']->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Manual,
+    ]);
+    $segment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $fixture['company']->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'sequence' => 1,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2027-05-05',
+        'to_date' => '2027-05-10',
+        'days' => 6,
+        'source' => CrewTimesheetSource::Manual,
+        'crew_assignment_id' => $planned->id,
+        'crew_assignment_phase_id' => $phase->id,
+    ]);
+
+    $activityCountBefore = Activity::query()
+        ->where('description', RetireSoftDeletedPlannedAssignments::ACTIVITY)
+        ->count();
+
+    $report = $this->retirer->inspect([(int) $fixture['company']->id]);
+    expect($report->blocked())->toBe(1)
+        ->and($report->candidates[0]->blockers)->toContain('unexpected_timesheet_segments');
+
+    $apply = $this->retirer->apply([(int) $fixture['company']->id]);
+    expect($apply->abortedDueToBlockers)->toBeTrue();
+
+    $fresh = CrewAssignment::withTrashed()
+        ->with(['phases' => fn ($q) => $q->withTrashed()])
+        ->whereKey($planned->id)
+        ->firstOrFail();
+    expect($fresh->status)->toBe(CrewAssignmentStatus::Planned)
+        ->and($fresh->deleted_at?->toDateTimeString())->toBe($fixture['deletedAt'])
+        ->and($fresh->phases->first()?->status)->toBe(CrewPhaseStatus::Planned)
+        ->and(Activity::query()
+            ->where('description', RetireSoftDeletedPlannedAssignments::ACTIVITY)
+            ->count())->toBe($activityCountBefore);
+
+    // Soft-deleted segments still count as historical operational data.
+    $segment->delete();
+    expect(CrewTimesheetSegment::query()->whereKey($segment->id)->exists())->toBeFalse()
+        ->and(CrewTimesheetSegment::withTrashed()->whereKey($segment->id)->exists())->toBeTrue();
+
+    $afterSoftDelete = $this->retirer->inspect([(int) $fixture['company']->id]);
+    expect($afterSoftDelete->candidates[0]->blockers)->toContain('unexpected_timesheet_segments');
+
+    $applyAfterSoftDelete = $this->retirer->apply([(int) $fixture['company']->id]);
+    expect($applyAfterSoftDelete->abortedDueToBlockers)->toBeTrue();
+
+    $stillPlanned = CrewAssignment::withTrashed()->whereKey($planned->id)->firstOrFail();
+    expect($stillPlanned->status)->toBe(CrewAssignmentStatus::Planned)
+        ->and($stillPlanned->deleted_at?->toDateTimeString())->toBe($fixture['deletedAt']);
 });
 
 test('operational actuals and sea service block retirement with zero writes', function () {

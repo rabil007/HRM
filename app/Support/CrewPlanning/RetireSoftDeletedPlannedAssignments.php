@@ -8,6 +8,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewTimesheetSegment;
 use App\Models\EmployeeSeaService;
 use App\Models\PayrollWorkAllocation;
 use App\Models\User;
@@ -221,9 +222,23 @@ final class RetireSoftDeletedPlannedAssignments
             }
         }
 
-        $phaseIds = $phases->pluck('id')->all();
+        $phaseIds = $phases->pluck('id')->filter()->map(fn ($id): int => (int) $id)->values()->all();
         if ($phaseIds !== [] && EmployeeSeaService::query()->whereIn('crew_assignment_phase_id', $phaseIds)->exists()) {
             $blockers[] = 'unexpected_sea_service';
+        }
+
+        $hasTimesheetSegments = CrewTimesheetSegment::withTrashed()
+            ->where(function ($query) use ($assignment, $phaseIds): void {
+                $query->where('crew_assignment_id', $assignment->id);
+
+                if ($phaseIds !== []) {
+                    $query->orWhereIn('crew_assignment_phase_id', $phaseIds);
+                }
+            })
+            ->exists();
+
+        if ($hasTimesheetSegments) {
+            $blockers[] = 'unexpected_timesheet_segments';
         }
 
         if ($assignment->timesheetPreparationLines->isNotEmpty()) {
@@ -297,22 +312,34 @@ final class RetireSoftDeletedPlannedAssignments
             $p0 = $phases->first();
             if ($p0 !== null && $p0->status !== CrewPhaseStatus::Cancelled) {
                 // Never invent actual phase timestamps — Planned P0 never started.
-                $p0->update([
+                // When Artisan runs without an actor, preserve historical completed_by.
+                $phaseUpdates = [
                     'status' => CrewPhaseStatus::Cancelled,
                     'actual_start_at' => null,
                     'actual_end_at' => null,
-                    'completed_by' => $actorId,
-                ]);
+                ];
+
+                if ($actorId !== null) {
+                    $phaseUpdates['completed_by'] = $actorId;
+                }
+
+                $p0->update($phaseUpdates);
             }
 
             $closedAt = $assignment->closed_at ?? $assignment->deleted_at;
 
             // Preserve deleted_at exactly. Never restore. No Planning conversion.
-            $assignment->update([
+            // When Artisan runs without an actor, preserve historical updated_by.
+            $assignmentUpdates = [
                 'status' => CrewAssignmentStatus::Cancelled,
                 'closed_at' => $closedAt,
-                'updated_by' => $actorId,
-            ]);
+            ];
+
+            if ($actorId !== null) {
+                $assignmentUpdates['updated_by'] = $actorId;
+            }
+
+            $assignment->update($assignmentUpdates);
 
             $fresh = CrewAssignment::withTrashed()->whereKey($assignment->id)->firstOrFail();
 

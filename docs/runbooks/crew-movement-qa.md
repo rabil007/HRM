@@ -169,7 +169,8 @@ There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 - [ ] Second `--apply` is idempotent (no duplicate Planning rows)
 - [ ] Soft-deleted Planned tombstones are **not** migrated by `migrate-legacy-planned`; use `crew-planning:retire-soft-deleted-planned --company=…` (dry-run default)
 - [ ] Soft-deleted retirement: `planned → cancelled`, `deleted_at` unchanged, never restored, no `CrewPlanningAssignment` created
-- [ ] Soft-deleted tombstones with actuals / P4 / Sea Service / payroll are blocked with zero writes
+- [ ] Soft-deleted tombstones with actuals / P4 / Sea Service / payroll / timesheet segments (incl. soft-deleted segments) are blocked with zero writes
+- [ ] Retirement without an actor preserves historical `updated_by` / P0 `completed_by` (does not null them)
 - [ ] Phase 5 gate: raw SQL `SELECT COUNT(*) FROM crew_assignments WHERE status = 'planned'` returns `0` (includes soft-deleted)
 
 ### Direct Start and Crew Planning

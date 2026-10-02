@@ -908,8 +908,8 @@ php artisan crew-planning:retire-soft-deleted-planned --company=1 --assignment=9
 | Concern | Behaviour |
 |---------|-----------|
 | Scope | Requires `--company=ID`. Optional `--assignment=ID`. Soft-deleted Planned only (`withTrashed` + `deleted_at IS NOT NULL`). Never touches live Planned rows. |
-| Safe shape | Exactly one Planned P0 with null actuals; `started_at` null; no Sea Service / payroll / timesheet / accommodation / movement-correction history. Unexpected operational data → **BLOCKED**. |
-| Mutation | `status planned → cancelled`; P0 `Planned → Cancelled` without inventing actuals; `closed_at = deleted_at` when previously null; **`deleted_at` preserved**; never restore. |
+| Safe shape | Exactly one Planned P0 with null actuals; `started_at` null; no Sea Service / payroll / timesheet preparation lines / **timesheet segments (incl. soft-deleted)** / accommodation / movement-correction history. Unexpected operational data → **BLOCKED** (`unexpected_timesheet_segments`, etc.). |
+| Mutation | `status planned → cancelled`; P0 `Planned → Cancelled` without inventing actuals; `closed_at = deleted_at` when previously null; **`deleted_at` preserved**; never restore. When run without an actor, preserve historical `updated_by` / `completed_by` (do not null them). |
 | Planning | Never creates, reuses, or links `CrewPlanningAssignment`. |
 | Activity | `legacy_soft_deleted_planned_retired` (`old_status`, `new_status`, `original_deleted_at`, maintenance version). |
 
