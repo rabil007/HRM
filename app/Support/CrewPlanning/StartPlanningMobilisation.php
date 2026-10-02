@@ -216,7 +216,7 @@ final class StartPlanningMobilisation
 
                     $conflictContext = new CrewAssignmentConflictContext(
                         companyId: $companyId,
-                        employeeId: $employeeId,
+                        employeeId: $lockedEmployeeId,
                         action: 'start',
                         plannedJoinAt: $plannedJoinAt,
                         plannedSignoffAt: $plannedSignoffAt,
@@ -239,7 +239,7 @@ final class StartPlanningMobilisation
                     $assignment = CrewAssignment::query()->create([
                         'company_id' => $companyId,
                         'assignment_no' => $assignmentNo,
-                        'employee_id' => $employeeId,
+                        'employee_id' => $lockedEmployeeId,
                         'position_id' => $positionId,
                         'client_id' => $clientId,
                         'vessel_id' => $vesselId,
