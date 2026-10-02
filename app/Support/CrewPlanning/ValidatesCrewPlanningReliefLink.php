@@ -17,7 +17,7 @@ use Illuminate\Validation\Validator;
 
 final class ValidatesCrewPlanningReliefLink
 {
-    public static function assertOrThrow(CrewPlanningAssignment $planning): void
+    public static function assertOrThrow(CrewPlanningAssignment $planning, ?User $actor = null): void
     {
         $validator = ValidatorFacade::make([], []);
 
@@ -26,9 +26,8 @@ final class ValidatesCrewPlanningReliefLink
             'relieves_crew_assignment_id' => $planning->relieves_crew_assignment_id,
             'vessel_id' => $planning->vessel_id,
             'position_id' => CrewPositionCatalog::resolveCrewAssignmentPositionId((int) $planning->company_id, $planning->position_id !== null ? (int) $planning->position_id : null),
-
             'employee_id' => $planning->employee_id,
-        ], $planning);
+        ], $planning, $actor);
 
         if ($validator->errors()->isNotEmpty()) {
             throw CrewMovementException::make(
