@@ -34,7 +34,6 @@ describe('shouldRenderSaveDraftButton', () => {
             shouldRenderSaveDraftButton({
                 canCreate: false,
                 crewRowCount: 1,
-                fromPlanning: false,
             }),
             false,
         );
@@ -45,20 +44,18 @@ describe('shouldRenderSaveDraftButton', () => {
             shouldRenderSaveDraftButton({
                 canCreate: true,
                 crewRowCount: 1,
-                fromPlanning: false,
             }),
             true,
         );
     });
 
-    it('hides Save Draft when starting from a planning handoff', () => {
+    it('shows Save Draft for vacant Planning handoff create users', () => {
         assert.equal(
             shouldRenderSaveDraftButton({
                 canCreate: true,
                 crewRowCount: 1,
-                fromPlanning: true,
             }),
-            false,
+            true,
         );
     });
 });
@@ -69,7 +66,6 @@ describe('resolveCreateFooterActions', () => {
             canCreate: false,
             canStart: false,
             crewRowCount: 1,
-            fromPlanning: false,
             bulkMode: false,
             planningActiveAssignmentConflict: false,
         });
@@ -86,7 +82,6 @@ describe('resolveCreateFooterActions', () => {
             canCreate: true,
             canStart: false,
             crewRowCount: 1,
-            fromPlanning: false,
             bulkMode: false,
             planningActiveAssignmentConflict: false,
         });
@@ -95,18 +90,32 @@ describe('resolveCreateFooterActions', () => {
         assert.equal(actions.showStart, false);
     });
 
-    it('shows Start and Draft when the user has start permission', () => {
+    it('shows Draft and Start on vacant Planning handoff when user can start', () => {
         const actions = resolveCreateFooterActions({
             canCreate: true,
             canStart: true,
             crewRowCount: 1,
-            fromPlanning: false,
             bulkMode: false,
             planningActiveAssignmentConflict: false,
         });
 
         assert.deepEqual(actions, {
             showStart: true,
+            showDraft: true,
+        });
+    });
+
+    it('shows only Save Draft for create-only vacant Planning handoff users', () => {
+        const actions = resolveCreateFooterActions({
+            canCreate: true,
+            canStart: false,
+            crewRowCount: 1,
+            bulkMode: false,
+            planningActiveAssignmentConflict: false,
+        });
+
+        assert.deepEqual(actions, {
+            showStart: false,
             showDraft: true,
         });
     });
@@ -132,14 +141,19 @@ describe('bulkStartButtonLabel', () => {
 
 describe('resolveCreateEffectiveEmployeeId', () => {
     it('returns null before an employee is selected on manual create', () => {
-        assert.equal(resolveCreateEffectiveEmployeeId(false, null, null), null);
+        assert.equal(resolveCreateEffectiveEmployeeId(null, null), null);
     });
 
-    it('returns the selected crew row employee immediately', () => {
-        assert.equal(resolveCreateEffectiveEmployeeId(false, null, 42), 42);
+    it('returns the selected crew row employee on manual create', () => {
+        assert.equal(resolveCreateEffectiveEmployeeId(null, 42), 42);
     });
 
-    it('uses the planning employee when starting from Crew Planning', () => {
-        assert.equal(resolveCreateEffectiveEmployeeId(true, 99, null), 99);
+    it('uses the named planning employee when present', () => {
+        assert.equal(resolveCreateEffectiveEmployeeId(99, null), 99);
+        assert.equal(resolveCreateEffectiveEmployeeId(99, 42), 99);
+    });
+
+    it('uses the selected employee on vacant Planning handoff', () => {
+        assert.equal(resolveCreateEffectiveEmployeeId(null, 77), 77);
     });
 });

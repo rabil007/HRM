@@ -168,8 +168,10 @@ class CrewAssignmentController extends Controller
         $planningAssignmentId = $request->query('planning_assignment_id');
 
         if ($planningAssignmentId !== null && $planningAssignmentId !== '') {
+            // Vacant operational handoff: Draft needs planning.view + assignments.create.
+            // Start still requires movements.perform via Store / Gate::authorize('start').
             $canOpenHandoff = $request->user()?->can('crew_operations.planning.view')
-                && $permissions['start'];
+                && $permissions['create'];
 
             if (! $canOpenHandoff) {
                 abort(403);

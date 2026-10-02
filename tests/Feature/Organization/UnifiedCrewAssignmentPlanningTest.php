@@ -1526,3 +1526,141 @@ test('crafted vacant slot handoff cannot clear vessel or rank', function () {
         ->and($assignment->position_id)->toBe($rank->id)
         ->and($slot->fresh()->crew_assignment_id)->toBe($assignment->id);
 });
+
+test('vacant planning handoff opens for create-only users without movements perform', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Create Only Handoff Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $vacant->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->where('planning_context.planning_assignment_id', $vacant->id)
+            ->where('planning_context.employee_id', null)
+            ->where('can.create', true)
+            ->where('can.start', false)
+        );
+});
+
+test('vacant planning create-only user can save draft and link the slot', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Draft Link Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'draft',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-10',
+            'planned_signoff_at' => '2026-11-30',
+            'planning_assignment_id' => $vacant->id,
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Draft)
+        ->and($vacant->fresh()->crew_assignment_id)->toBe($assignment->id);
+});
+
+test('vacant planning start remains forbidden without movements perform', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Start Forbidden Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-10',
+            'planned_signoff_at' => '2026-11-30',
+            'planning_assignment_id' => $vacant->id,
+        ])
+        ->assertForbidden();
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and($vacant->fresh()->crew_assignment_id)->toBeNull();
+});
+
+test('named planning cannot open vacant-slot create handoff', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Named Handoff Block Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $named = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $named->id,
+        ]))
+        ->assertRedirect(route('organization.crew-planning.index'))
+        ->assertSessionHas('error', 'Named planning records must be started using Start Mobilisation.');
+});

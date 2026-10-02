@@ -11,28 +11,23 @@ export function shouldShowSaveDraft(crewRowCount: number): boolean {
 /**
  * Footer visibility for Save Draft on the unified Create form.
  * Backend still authorizes with crew_operations.assignments.create.
+ * Vacant Planning handoff may Save Draft; named Planning uses Start Mobilisation.
  */
 export function shouldRenderSaveDraftButton(options: {
     canCreate: boolean;
     crewRowCount: number;
-    fromPlanning: boolean;
 }): boolean {
-    return (
-        options.canCreate &&
-        shouldShowSaveDraft(options.crewRowCount) &&
-        !options.fromPlanning
-    );
+    return options.canCreate && shouldShowSaveDraft(options.crewRowCount);
 }
 
 /**
  * Normal create supports Save Draft and Start Assignment only.
- * Future plans belong in Crew Planning (Phase 3).
+ * Future plans belong in Crew Planning (Phase 3). Save as Planned is not offered.
  */
 export function resolveCreateFooterActions(options: {
     canCreate: boolean;
     canStart: boolean;
     crewRowCount: number;
-    fromPlanning: boolean;
     bulkMode: boolean;
     planningActiveAssignmentConflict: boolean;
 }): {
@@ -45,7 +40,6 @@ export function resolveCreateFooterActions(options: {
         showDraft: shouldRenderSaveDraftButton({
             canCreate: options.canCreate,
             crewRowCount: options.crewRowCount,
-            fromPlanning: options.fromPlanning,
         }),
     };
 }
@@ -64,10 +58,15 @@ export function bulkStartButtonLabel(readyCount: number): string {
     return `Start ${readyCount} Assignments`;
 }
 
+/**
+ * Readiness/conflict context employee:
+ * - named Planning → authoritative planning employee
+ * - vacant Planning → selected form employee
+ * - manual create → selected form employee
+ */
 export function resolveCreateEffectiveEmployeeId(
-    fromPlanning: boolean,
     planningEmployeeId: number | null,
     crewEmployeeId: number | null,
 ): number | null {
-    return fromPlanning ? planningEmployeeId : crewEmployeeId;
+    return planningEmployeeId !== null ? planningEmployeeId : crewEmployeeId;
 }

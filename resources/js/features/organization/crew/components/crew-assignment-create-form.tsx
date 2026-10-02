@@ -295,7 +295,6 @@ export function CrewAssignmentCreateForm({
     const bulkMode = !fromPlanning && isBulkCreateMode(rows.length);
     const singleRow = rows[0] ?? null;
     const effectiveEmployeeId = resolveCreateEffectiveEmployeeId(
-        fromPlanning,
         planning_context?.employee_id ?? null,
         singleRow?.employee_id ?? null,
     );
@@ -340,7 +339,6 @@ export function CrewAssignmentCreateForm({
         canCreate: can.create,
         canStart: can.start,
         crewRowCount: rows.length,
-        fromPlanning,
         bulkMode,
         planningActiveAssignmentConflict: Boolean(
             planningActiveAssignmentConflict,
@@ -690,7 +688,8 @@ export function CrewAssignmentCreateForm({
             return;
         }
 
-        submitSingle(fromPlanning || can.start ? 'start' : 'draft');
+        // Draft-only users (including vacant Planning handoff) must submit draft.
+        submitSingle(can.start ? 'start' : 'draft');
     };
 
     const saveDraft = (): void => {
@@ -704,7 +703,7 @@ export function CrewAssignmentCreateForm({
                 title="Start Crew Assignment"
                 description={
                     fromPlanning
-                        ? 'Review the vacant planning slot and start the operational mobilisation cycle. Assign named future crew in Crew Planning first when this is still a forecast.'
+                        ? 'Review the vacant planning slot, then Save Draft or Start Assignment. Assign named future crew in Crew Planning when this is still a forecast; named plans use Start Mobilisation.'
                         : 'Record crew operational positions and start the mobilisation cycle.'
                 }
                 backHref={backHref}
@@ -724,18 +723,17 @@ export function CrewAssignmentCreateForm({
                                     {fromPlanning ? (
                                         <>
                                             <p className="font-medium">
-                                                This vacant planning slot can
-                                                start as an operational
-                                                assignment. Assign named future
-                                                crew in Crew Planning when the
-                                                plan is still a forecast.
+                                                This vacant planning slot can be
+                                                saved as Draft or started as an
+                                                operational assignment. Assign
+                                                named future crew in Crew
+                                                Planning when the plan is still
+                                                a forecast.
                                             </p>
                                             <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
                                                 Start Mobilisation is the named
-                                                planning path. Draft and Start
-                                                Assignment remain available for
-                                                operational handoff from a
-                                                vacant slot.
+                                                planning path. Save as Planned
+                                                is not available here.
                                             </p>
                                         </>
                                     ) : (
