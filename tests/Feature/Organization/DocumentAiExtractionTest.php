@@ -7,10 +7,12 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\DocumentAiExtractionService;
 use App\Services\DocumentAiProviderExtractor;
+use App\Services\Settings\AiSettingsService;
 use App\Support\EmployeeDocuments\DocumentAiExtractionResult;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Prompts\AgentPrompt;
 
 beforeEach(function () {
@@ -136,7 +138,7 @@ test('documents ai use permission does not grant upload permission', function ()
     ])->assertForbidden();
 });
 
-test('document AI provider prompt includes original filename as secondary hint', function () {
+test('document AI uses its fast model profile and keeps filename as a secondary hint', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
     enableDocumentExtractionFor($company, $user);
@@ -160,6 +162,9 @@ test('document AI provider prompt includes original filename as secondary hint',
         ],
     ]);
 
+    expect(app(AiSettingsService::class)->effectiveModelFor(AiSettingsService::PROVIDER_OPENAI))
+        ->toBe('gpt-5.6-luna');
+
     $file = UploadedFile::fake()->create('RAVI_CDC_2026.pdf', 100, 'application/pdf');
 
     $result = app(DocumentAiProviderExtractor::class)->extract($file);
@@ -170,7 +175,9 @@ test('document AI provider prompt includes original filename as secondary hint',
     DocumentAiProviderExtractor::assertPrompted(function (AgentPrompt $prompt): bool {
         $instructions = (string) $prompt->agent->instructions();
 
-        return str_contains($prompt->prompt, 'Original filename: RAVI_CDC_2026.pdf')
+        return $prompt->model === 'gpt-6-luna'
+            && $prompt->agent->providerOptions(Lab::OpenAI) === ['reasoning' => ['effort' => 'low']]
+            && str_contains($prompt->prompt, 'Original filename: RAVI_CDC_2026.pdf')
             && str_contains($prompt->prompt, 'secondary classification hint')
             && str_contains($instructions, 'original filename is an additional hint only')
             && str_contains($instructions, 'Verify document type from the actual attached document');
