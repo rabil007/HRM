@@ -52,7 +52,7 @@ jobs:
           echo "ERROR: Cannot reach 82.198.227.207:65002"
           exit 1
 
-      - name: Confirm production commit and run dry-run only
+      - name: Confirm production commit and run all-companies dry-run only
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 'bash -s' << 'EOF'
@@ -71,47 +71,81 @@ jobs:
             REQUIRED_SHA='ee9a29554581094599743e4739884a7e82b33b75'
             CURRENT_SHA="$(git rev-parse HEAD)"
             if [ "$CURRENT_SHA" != "$REQUIRED_SHA" ]; then
-              if ! git merge-base --is-ancestor "$REQUIRED_SHA" HEAD 2>/dev/null; then
-                echo "ERROR: Production does not contain Phase 4 tip $REQUIRED_SHA"
-                echo "Refusing to run migration against outdated code."
-                exit 1
-              fi
+              echo "ERROR: Production HEAD $CURRENT_SHA does not match required tip $REQUIRED_SHA"
+              echo "Refusing to run migration against unexpected revision."
+              exit 1
             fi
-            echo "Phase 4 tip $REQUIRED_SHA is present."
+            echo "Production matches required tip $REQUIRED_SHA."
 
-            echo "===== BEFORE COUNTS (company_id=1) ====="
+            echo "===== BEFORE GLOBAL COUNTS ====="
             php artisan tinker --execute="
-              \$c = 1;
-              echo 'planned_assignments=' . App\Models\CrewAssignment::query()->where('company_id', \$c)->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
-              echo 'planning_assignments=' . App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->count() . PHP_EOL;
-              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->whereHas('assignment', fn (\$q) => \$q->where('company_id', \$c))->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'planned_assignments_total=' . App\Models\CrewAssignment::query()->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
+              echo 'crew_assignments_count=' . App\Models\CrewAssignment::query()->count() . PHP_EOL;
+              echo 'crew_assignment_phases_count=' . App\Models\CrewAssignmentPhase::query()->count() . PHP_EOL;
+              echo 'crew_planning_assignments_count=' . App\Models\CrewPlanningAssignment::query()->count() . PHP_EOL;
+              echo 'employee_sea_services_count=' . App\Models\EmployeeSeaService::query()->count() . PHP_EOL;
+              echo 'payroll_work_allocations_count=' . App\Models\PayrollWorkAllocation::query()->count() . PHP_EOL;
+              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'crew_assignment_phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'activity_log_count=' . Spatie\Activitylog\Models\Activity::query()->count() . PHP_EOL;
               echo 'activity_log_max_id=' . (string) (Spatie\Activitylog\Models\Activity::query()->max('id') ?? 'null') . PHP_EOL;
+            "
+
+            echo "===== SQL BEFORE: planned by company ====="
+            php artisan tinker --execute="
+              \$rows = Illuminate\Support\Facades\DB::select(\"SELECT company_id, COUNT(*) AS planned_count FROM crew_assignments WHERE status = 'planned' GROUP BY company_id ORDER BY company_id\");
+              if (\$rows === []) {
+                echo \"(no rows)\\n\";
+              } else {
+                foreach (\$rows as \$row) {
+                  echo 'company_id=' . \$row->company_id . ' planned_count=' . \$row->planned_count . PHP_EOL;
+                }
+              }
+              \$total = Illuminate\Support\Facades\DB::selectOne(\"SELECT COUNT(*) AS total_planned FROM crew_assignments WHERE status = 'planned'\");
+              echo 'total_planned=' . \$total->total_planned . PHP_EOL;
             "
 
             echo "===== DRY-RUN COMMAND ====="
-            echo "php artisan crew-planning:migrate-legacy-planned --company=1"
+            echo "php artisan crew-planning:migrate-legacy-planned --all-companies"
             echo "(explicitly WITHOUT --apply)"
 
             echo "===== DRY-RUN OUTPUT BEGIN ====="
-            php artisan crew-planning:migrate-legacy-planned --company=1
+            php artisan crew-planning:migrate-legacy-planned --all-companies
             echo "===== DRY-RUN OUTPUT END ====="
 
-            echo "===== AFTER COUNTS (company_id=1) ====="
+            echo "===== SQL AFTER: planned by company ====="
             php artisan tinker --execute="
-              \$c = 1;
-              echo 'planned_assignments=' . App\Models\CrewAssignment::query()->where('company_id', \$c)->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
-              echo 'planning_assignments=' . App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->count() . PHP_EOL;
-              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->whereHas('assignment', fn (\$q) => \$q->where('company_id', \$c))->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              \$rows = Illuminate\Support\Facades\DB::select(\"SELECT company_id, COUNT(*) AS planned_count FROM crew_assignments WHERE status = 'planned' GROUP BY company_id ORDER BY company_id\");
+              if (\$rows === []) {
+                echo \"(no rows)\\n\";
+              } else {
+                foreach (\$rows as \$row) {
+                  echo 'company_id=' . \$row->company_id . ' planned_count=' . \$row->planned_count . PHP_EOL;
+                }
+              }
+              \$total = Illuminate\Support\Facades\DB::selectOne(\"SELECT COUNT(*) AS total_planned FROM crew_assignments WHERE status = 'planned'\");
+              echo 'total_planned=' . \$total->total_planned . PHP_EOL;
+            "
+
+            echo "===== AFTER GLOBAL COUNTS ====="
+            php artisan tinker --execute="
+              echo 'planned_assignments_total=' . App\Models\CrewAssignment::query()->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
+              echo 'crew_assignments_count=' . App\Models\CrewAssignment::query()->count() . PHP_EOL;
+              echo 'crew_assignment_phases_count=' . App\Models\CrewAssignmentPhase::query()->count() . PHP_EOL;
+              echo 'crew_planning_assignments_count=' . App\Models\CrewPlanningAssignment::query()->count() . PHP_EOL;
+              echo 'employee_sea_services_count=' . App\Models\EmployeeSeaService::query()->count() . PHP_EOL;
+              echo 'payroll_work_allocations_count=' . App\Models\PayrollWorkAllocation::query()->count() . PHP_EOL;
+              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'crew_assignment_phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'activity_log_count=' . Spatie\Activitylog\Models\Activity::query()->count() . PHP_EOL;
               echo 'activity_log_max_id=' . (string) (Spatie\Activitylog\Models\Activity::query()->max('id') ?? 'null') . PHP_EOL;
             "
 
-            echo "===== DONE (inspection only; no --apply) ====="
+            echo "===== DONE (all-companies inspection only; no --apply) ====="
           EOF
