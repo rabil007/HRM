@@ -1,0 +1,117 @@
+name: Temporary Legacy Planned Dry-Run
+
+# One-off production inspection only. Do NOT add --apply.
+# Safe to delete after the dry-run report is captured.
+on:
+  push:
+    branches:
+      - cursor/prod-legacy-planned-dry-run-a9d9
+    paths:
+      - '.github/workflows/tmp-legacy-planned-dry-run.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: tmp-legacy-planned-dry-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          if [ -z "${SSH_PRIVATE_KEY}" ]; then
+            echo "ERROR: SSH_PRIVATE_KEY secret is not set!"
+            exit 1
+          fi
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo '[82.198.227.207]:65002 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIyse96dUeLo4oKa76H8AfK4q4/RHbHMcxt+1GZRGaI9' >> ~/.ssh/known_hosts
+
+      - name: Test SSH connectivity
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "SSH connectivity check attempt $attempt/3..."
+            if timeout 15 bash -c '</dev/tcp/82.198.227.207/65002'; then
+              echo "SSH port 82.198.227.207:65002 is reachable."
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep 10
+            fi
+          done
+          echo "ERROR: Cannot reach 82.198.227.207:65002"
+          exit 1
+
+      - name: Confirm production commit and run dry-run only
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 'bash -s' << 'EOF'
+            set -euo pipefail
+            cd ~/domains/overseas-ms.com/public_html/hrm
+
+            echo "===== PRODUCTION REVISION ====="
+            echo "git HEAD: $(git rev-parse HEAD)"
+            echo "git log: $(git log -1 --oneline)"
+            if [ -f storage/app/deploy/revision.sha ]; then
+              echo "deploy stamp: $(tr -d '[:space:]' < storage/app/deploy/revision.sha)"
+            else
+              echo "deploy stamp: MISSING"
+            fi
+
+            REQUIRED_SHA='ee9a29554581094599743e4739884a7e82b33b75'
+            CURRENT_SHA="$(git rev-parse HEAD)"
+            if [ "$CURRENT_SHA" != "$REQUIRED_SHA" ]; then
+              if ! git merge-base --is-ancestor "$REQUIRED_SHA" HEAD 2>/dev/null; then
+                echo "ERROR: Production does not contain Phase 4 tip $REQUIRED_SHA"
+                echo "Refusing to run migration against outdated code."
+                exit 1
+              fi
+            fi
+            echo "Phase 4 tip $REQUIRED_SHA is present."
+
+            echo "===== BEFORE COUNTS (company_id=1) ====="
+            php artisan tinker --execute="
+              \$c = 1;
+              echo 'planned_assignments=' . App\Models\CrewAssignment::query()->where('company_id', \$c)->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
+              echo 'planning_assignments=' . App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->count() . PHP_EOL;
+              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->whereHas('assignment', fn (\$q) => \$q->where('company_id', \$c))->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'activity_log_max_id=' . (string) (Spatie\Activitylog\Models\Activity::query()->max('id') ?? 'null') . PHP_EOL;
+            "
+
+            echo "===== DRY-RUN COMMAND ====="
+            echo "php artisan crew-planning:migrate-legacy-planned --company=1"
+            echo "(explicitly WITHOUT --apply)"
+
+            echo "===== DRY-RUN OUTPUT BEGIN ====="
+            php artisan crew-planning:migrate-legacy-planned --company=1
+            echo "===== DRY-RUN OUTPUT END ====="
+
+            echo "===== AFTER COUNTS (company_id=1) ====="
+            php artisan tinker --execute="
+              \$c = 1;
+              echo 'planned_assignments=' . App\Models\CrewAssignment::query()->where('company_id', \$c)->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
+              echo 'planning_assignments=' . App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->count() . PHP_EOL;
+              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->whereHas('assignment', fn (\$q) => \$q->where('company_id', \$c))->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->where('company_id', \$c)->max('updated_at') ?? 'null') . PHP_EOL;
+              echo 'activity_log_max_id=' . (string) (Spatie\Activitylog\Models\Activity::query()->max('id') ?? 'null') . PHP_EOL;
+            "
+
+            echo "===== DONE (inspection only; no --apply) ====="
+          EOF
