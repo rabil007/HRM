@@ -54,6 +54,12 @@ export type EmployeeDocumentsTabProps = {
         documents_download: boolean;
         documents_delete: boolean;
     };
+    documentAiSettings?: {
+        mode: 'off' | 'optional' | 'automatic';
+        provider_available: boolean;
+        available?: boolean;
+    };
+    canUseDocumentAi?: boolean;
     ensureEmployee?: () => Promise<number>;
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
@@ -92,6 +98,8 @@ export function EmployeeDocumentsTab({
     documents,
     document_types,
     can,
+    documentAiSettings,
+    canUseDocumentAi = false,
     ensureEmployee,
     templateFields = null,
 }: EmployeeDocumentsTabProps): ReactElement {
@@ -427,6 +435,8 @@ export function EmployeeDocumentsTab({
                 documentTypes={document_types}
                 ensureEmployee={ensureEmployee}
                 templateFields={templateFields}
+                documentAiSettings={documentAiSettings}
+                canUseDocumentAi={canUseDocumentAi}
             />
 
             {hasEmployeeId ? (

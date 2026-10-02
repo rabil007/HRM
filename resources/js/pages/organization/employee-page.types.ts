@@ -332,6 +332,11 @@ export type EmployeePageProps = {
     trainings?: TrainingItem[];
     courses?: CourseOption[];
     document_types?: DocumentTypeOption[];
+    document_ai_settings?: {
+        mode: 'off' | 'optional' | 'automatic';
+        provider_available: boolean;
+        available?: boolean;
+    };
     roles?: { id: number; name: string }[];
     can: {
         create_user: boolean;
@@ -341,6 +346,7 @@ export type EmployeePageProps = {
         documents_download: boolean;
         documents_upload: boolean;
         documents_delete: boolean;
+        documents_ai_use?: boolean;
         education_view?: boolean;
         education_create?: boolean;
         education_update?: boolean;

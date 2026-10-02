@@ -148,6 +148,7 @@ function EmployeeDetailsPage({
     bank_accounts,
     sea_services,
     document_types,
+    document_ai_settings,
     can,
     roles,
     branches,
@@ -1173,6 +1174,12 @@ function EmployeeDetailsPage({
                                                     can?.documents_delete ??
                                                     false,
                                             }}
+                                            documentAiSettings={
+                                                document_ai_settings
+                                            }
+                                            canUseDocumentAi={
+                                                can?.documents_ai_use ?? false
+                                            }
                                             ensureEmployee={
                                                 isCreateMode
                                                     ? ensureEmployee

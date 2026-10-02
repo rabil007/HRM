@@ -19,6 +19,7 @@ use App\Models\EmployeeWorkExperience;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
+use App\Support\EmployeeDocuments\DocumentAiSettings;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
@@ -106,6 +107,7 @@ final class EmployeeProfilePageData
                 'documents_download' => $authUser?->can('documents.download'),
                 'documents_upload' => $authUser?->can('documents.upload'),
                 'documents_delete' => $authUser?->can('documents.delete'),
+                'documents_ai_use' => $authUser?->can('documents.ai.use') ?? false,
                 'contracts_view' => $authUser?->can('contracts.view'),
                 'contracts_create' => $authUser?->can('contracts.create'),
                 'contracts_update' => $authUser?->can('contracts.update'),
@@ -196,6 +198,7 @@ final class EmployeeProfilePageData
             'document_types' => Inertia::optional(
                 fn () => self::documentTypes($companyId),
             ),
+            'document_ai_settings' => app(DocumentAiSettings::class)->propsForCompany($companyId),
             'vessel_types' => Inertia::optional(
                 fn () => self::seaServiceBundle($companyId, $employee->id)['vessel_types'],
             ),
@@ -277,6 +280,7 @@ final class EmployeeProfilePageData
             'bank_accounts' => $employeeId ? self::bankAccounts($companyId, $employeeId) : [],
             'sea_services' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['sea_services'] : [],
             'document_types' => self::documentTypes($companyId),
+            'document_ai_settings' => app(DocumentAiSettings::class)->propsForCompany($companyId),
             'vessel_types' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessel_types'] : VesselType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->map(fn (VesselType $v) => ['id' => $v->id, 'name' => $v->name])->all(),
             'vessels' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessels'] : ResolvesCompanyVessels::queryForCompany($companyId)->where('is_active', true)->with('vesselType:id,name')->orderBy('name')->get(['id', 'name', 'vessel_type_id', 'grt', 'bhp'])->map(fn (Vessel $v) => [
                 'id' => $v->id,
@@ -337,6 +341,7 @@ final class EmployeeProfilePageData
             'documents_download' => $authUser?->can('documents.download') ?? false,
             'documents_upload' => $authUser?->can('documents.upload') ?? false,
             'documents_delete' => $authUser?->can('documents.delete') ?? false,
+            'documents_ai_use' => $authUser?->can('documents.ai.use') ?? false,
             'education_view' => $authUser?->can('education.view') ?? false,
             'education_create' => $authUser?->can('education.create') ?? false,
             'education_update' => $authUser?->can('education.update') ?? false,

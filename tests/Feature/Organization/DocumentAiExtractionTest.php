@@ -58,6 +58,46 @@ test('automatic mode is exposed to the document upload frontend', function () {
     );
 });
 
+test('employee profile exposes document AI settings when permitted', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'documents.view',
+        'documents.upload',
+        'documents.ai.use',
+    ]);
+    enableDocumentExtractionFor($company, $user, DocumentAiMode::Optional);
+
+    $this->actingAs($user)
+        ->get(route('organization.employees.show', $employee))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('document_ai_settings.mode', 'optional')
+            ->where('document_ai_settings.provider_available', true)
+            ->where('can.documents_ai_use', true));
+});
+
+test('employee profile hides document AI use without documents.ai.use', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'documents.view',
+        'documents.upload',
+    ]);
+    enableDocumentExtractionFor($company, $user, DocumentAiMode::Optional);
+
+    $this->actingAs($user)
+        ->get(route('organization.employees.show', $employee))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('document_ai_settings.mode', 'optional')
+            ->where('can.documents_ai_use', false));
+});
+
 test('provider unavailable returns a safe failure', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
