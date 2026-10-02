@@ -7,6 +7,7 @@ use App\Enums\DocumentAiErrorCode;
 use App\Enums\DocumentAiMode;
 use App\Exceptions\DocumentAiProviderException;
 use App\Jobs\ExtractDocumentAiBatchItemJob;
+use App\Jobs\ProcessDocumentAiBatchInParallelJob;
 use App\Models\DocumentAiBatch;
 use App\Models\DocumentAiBatchItem;
 use App\Models\DocumentAiSetting;
@@ -81,7 +82,7 @@ function createQueuedBatch(User $user, $company, $employee, int $files = 1, ?str
     return DocumentAiBatch::query()->with('items')->findOrFail($response->json('batch.id'));
 }
 
-test('creates a tenant owned batch and dispatches one job per valid file', function () {
+test('creates a tenant owned batch and dispatches parallel coordinator plus one job per valid file', function () {
     Queue::fake();
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
@@ -107,6 +108,11 @@ test('creates a tenant owned batch and dispatches one job per valid file', funct
     expect($batch->company_id)->toBe($company->id)
         ->and($batch->user_id)->toBe($user->id);
 
+    Queue::assertPushed(ProcessDocumentAiBatchInParallelJob::class, 1);
+    Queue::assertPushed(
+        ProcessDocumentAiBatchInParallelJob::class,
+        fn (ProcessDocumentAiBatchInParallelJob $job) => $job->batchId === $batch->id,
+    );
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 2);
     expect(serialize(new ExtractDocumentAiBatchItemJob($batch->items->first()->id)))
         ->not->toContain('batch-test-key');
@@ -196,6 +202,7 @@ test('idempotent retry redispatches only queued items', function () {
     )->assertAccepted()->assertJsonPath('reused', true);
 
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 1);
+    Queue::assertNotPushed(ProcessDocumentAiBatchInParallelJob::class);
     Queue::assertPushed(
         ExtractDocumentAiBatchItemJob::class,
         fn (ExtractDocumentAiBatchItemJob $job) => $job->itemId === $items[3]->id,
@@ -234,6 +241,7 @@ test('idempotent retry redispatches each still-queued item exactly once per requ
         ],
     )->assertAccepted()->assertJsonPath('reused', true);
 
+    Queue::assertPushed(ProcessDocumentAiBatchInParallelJob::class, 1);
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 3);
     expect(DocumentAiBatch::query()->count())->toBe(1);
 });
@@ -306,6 +314,7 @@ test('mixed supported and unsupported files partially accept', function () {
         ->assertJsonPath('batch.total', 2)
         ->assertJsonPath('rejected.0.draft_id', '33333333-3333-4333-8333-333333333333');
 
+    Queue::assertPushed(ProcessDocumentAiBatchInParallelJob::class, 1);
     Queue::assertPushed(ExtractDocumentAiBatchItemJob::class, 2);
 });
 

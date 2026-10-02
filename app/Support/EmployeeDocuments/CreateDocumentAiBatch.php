@@ -5,6 +5,7 @@ namespace App\Support\EmployeeDocuments;
 use App\Enums\DocumentAiBatchItemStatus;
 use App\Enums\DocumentAiBatchStatus;
 use App\Jobs\ExtractDocumentAiBatchItemJob;
+use App\Jobs\ProcessDocumentAiBatchInParallelJob;
 use App\Models\DocumentAiBatch;
 use App\Models\Employee;
 use App\Models\User;
@@ -152,14 +153,30 @@ final class CreateDocumentAiBatch
     {
         $batch->loadMissing('items');
         $dispatched = 0;
+        $queuedItemIds = [];
 
         foreach ($batch->items as $item) {
             if ($item->status !== DocumentAiBatchItemStatus::Queued) {
                 continue;
             }
 
+            $queuedItemIds[] = (int) $item->id;
+        }
+
+        // Prefer one parallel coordinator when multiple files are queued so a
+        // single worker extracts them concurrently. Per-item jobs remain as a
+        // recovery fallback (and for single-file / manual retry paths).
+        if (count($queuedItemIds) >= 2) {
             try {
-                ExtractDocumentAiBatchItemJob::dispatch($item->id);
+                ProcessDocumentAiBatchInParallelJob::dispatch($batch->id);
+            } catch (Throwable) {
+                // Fall through to per-item dispatch below.
+            }
+        }
+
+        foreach ($queuedItemIds as $itemId) {
+            try {
+                ExtractDocumentAiBatchItemJob::dispatch($itemId);
                 $dispatched++;
             } catch (Throwable) {
                 // Leave the item queued so a later idempotent request can recover handoff.

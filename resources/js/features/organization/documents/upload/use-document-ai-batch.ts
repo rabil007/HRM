@@ -104,7 +104,8 @@ export function useDocumentAiBatch(
         try {
             const data = new FormData();
             data.append('batch_request_id', requestId);
-            // The backend dispatches one queue job per file; worker count controls bulk concurrency.
+            // The backend prefers a parallel coordinator job so one worker can
+            // extract multiple files concurrently; per-item jobs remain as fallback.
             drafts.forEach((d) => {
                 data.append('files[]', d.file);
                 data.append('draft_ids[]', d.id);
