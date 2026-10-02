@@ -11,7 +11,6 @@ use App\Support\Ai\StructuredAgentOutput;
 use App\Support\EmployeeDocuments\DocumentAiExtractionResult;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasProviderOptions;
@@ -32,11 +31,6 @@ final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, H
 
     public function extract(UploadedFile $file): DocumentAiExtractionResult
     {
-        $startedAt = hrtime(true);
-        $provider = null;
-        $model = null;
-        $outcome = 'failed';
-
         try {
             $runtime = $this->aiSettings->applySelectedProviderToRuntime();
             $provider = $runtime->provider;
@@ -59,10 +53,7 @@ final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, H
                 throw new DocumentAiProviderException(DocumentAiErrorCode::InvalidOutput);
             }
 
-            $result = DocumentAiExtractionResult::fromDecoded(StructuredAgentOutput::fromResponse($response));
-            $outcome = 'completed';
-
-            return $result;
+            return DocumentAiExtractionResult::fromDecoded(StructuredAgentOutput::fromResponse($response));
         } catch (DocumentAiProviderException $e) {
             throw $e;
         } catch (InvalidArgumentException $e) {
@@ -71,14 +62,6 @@ final class DocumentAiProviderExtractor implements Agent, DocumentAiExtractor, H
             throw new DocumentAiProviderException(DocumentAiErrorCode::ProviderUnavailable, $e);
         } catch (Throwable $e) {
             throw DocumentAiProviderException::fromThrowable($e);
-        } finally {
-            Log::info('Document AI extraction timing', [
-                'provider' => $provider,
-                'model' => $model,
-                'reasoning_effort' => $this->reasoningEffort(),
-                'duration_ms' => round((hrtime(true) - $startedAt) / 1_000_000, 2),
-                'outcome' => $outcome,
-            ]);
         }
     }
 
