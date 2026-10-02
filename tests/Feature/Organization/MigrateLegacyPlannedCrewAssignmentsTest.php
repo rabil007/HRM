@@ -200,11 +200,12 @@ test('apply preserves relief relationship without touching the source assignment
         )->count())->toBe(0);
 });
 
-test('apply reuses linked vacant planning without creating a duplicate', function () {
+test('apply reuses compatible linked vacant planning without creating a duplicate', function () {
     $fixture = makeLegacyPlannedFixture();
     $company = $fixture['company'];
     $planned = $fixture['planned'];
 
+    // Arrival left null on vacant: optional backfill is allowed when Planning has null.
     $linkedVacant = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $fixture['vessel']->id,
@@ -226,11 +227,173 @@ test('apply reuses linked vacant planning without creating a duplicate', functio
         ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe($planningCountBefore);
 
     $linkedVacant->refresh();
+    $retired = $planned->fresh(['currentPhase']);
     expect($linkedVacant->employee_id)->toBe($fixture['employee']->id)
         ->and($linkedVacant->crew_assignment_id)->toBeNull()
         ->and($linkedVacant->notes)->toBe('Legacy planned remarks')
         ->and($linkedVacant->planned_arrival_date?->toDateString())->toBe('2027-05-01')
-        ->and($planned->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled);
+        ->and($retired->status)->toBe(CrewAssignmentStatus::Cancelled)
+        ->and($retired->started_at)->toBeNull()
+        ->and($retired->currentPhase?->status)->toBe(CrewPhaseStatus::Cancelled)
+        ->and($retired->currentPhase?->actual_start_at)->toBeNull()
+        ->and($retired->currentPhase?->actual_end_at)->toBeNull();
+
+    $second = $this->migrator->apply([(int) $company->id]);
+    expect($second->scanned())->toBe(0)
+        ->and(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe($planningCountBefore);
+});
+
+test('linked vacant planning vessel mismatch is blocked with zero writes', function () {
+    $fixture = makeLegacyPlannedFixture();
+    $otherVessel = makeCrewMovementVessel('Vacant Mismatch Vessel', $fixture['company']);
+
+    $linkedVacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $fixture['company']->id,
+        'vessel_id' => $otherVessel->id,
+        'position_id' => $fixture['position']->id,
+        'employee_id' => null,
+        'crew_assignment_id' => $fixture['planned']->id,
+        'planned_join_date' => '2027-05-05',
+        'planned_leave_date' => '2027-08-05',
+    ]);
+
+    $report = $this->migrator->apply([(int) $fixture['company']->id]);
+
+    expect($report->abortedDueToBlockers)->toBeTrue()
+        ->and($report->candidates[0]->blockers)->toContain('linked_vacant_planning_mismatch')
+        ->and($report->migrated())->toBe(0)
+        ->and($fixture['planned']->fresh()->status)->toBe(CrewAssignmentStatus::Planned)
+        ->and($linkedVacant->fresh()->employee_id)->toBeNull()
+        ->and($linkedVacant->fresh()->crew_assignment_id)->toBe($fixture['planned']->id)
+        ->and($linkedVacant->fresh()->vessel_id)->toBe($otherVessel->id);
+});
+
+test('linked vacant planning position and join date mismatches are blocked', function () {
+    $fixture = makeLegacyPlannedFixture();
+    $otherPosition = Position::query()->create([
+        'company_id' => $fixture['company']->id,
+        'title' => 'Other Vacant Position',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $fixture['company']->id,
+        'vessel_id' => $fixture['vessel']->id,
+        'position_id' => $otherPosition->id,
+        'employee_id' => null,
+        'crew_assignment_id' => $fixture['planned']->id,
+        'planned_join_date' => '2027-05-05',
+        'planned_leave_date' => '2027-08-05',
+    ]);
+
+    expect($this->migrator->inspect([(int) $fixture['company']->id])->candidates[0]->blockers)
+        ->toContain('linked_vacant_planning_mismatch');
+
+    $dateMismatch = makeLegacyPlannedFixture();
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $dateMismatch['company']->id,
+        'vessel_id' => $dateMismatch['vessel']->id,
+        'position_id' => $dateMismatch['position']->id,
+        'employee_id' => null,
+        'crew_assignment_id' => $dateMismatch['planned']->id,
+        'planned_join_date' => '2027-05-20',
+        'planned_leave_date' => '2027-08-05',
+    ]);
+
+    expect($this->migrator->inspect([(int) $dateMismatch['company']->id])->candidates[0]->blockers)
+        ->toContain('linked_vacant_planning_mismatch')
+        ->and($dateMismatch['planned']->fresh()->status)->toBe(CrewAssignmentStatus::Planned);
+});
+
+test('linked vacant planning relief mismatch is blocked with zero writes', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $onboard, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Vacant Relief Vessel', $company);
+    $sourceA = makeActiveOnVesselAssignment($company, $onboard, $rank, $vessel);
+    $sourceB = makeActiveOnVesselAssignment(
+        $company,
+        Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']),
+        $rank,
+        $vessel,
+    );
+
+    $reliever = Employee::factory()->forCompany($company)->create([
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $planned = $this->movements->createPlanned(
+        (int) $company->id,
+        (int) $reliever->id,
+        [
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'planned_arrival_at' => '2027-06-01',
+            'planned_join_at' => '2027-06-10',
+            'planned_signoff_at' => '2027-09-10',
+        ],
+        $user->id,
+    );
+    $planned->update(['relieves_crew_assignment_id' => $sourceA->id]);
+
+    $linkedVacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'crew_assignment_id' => $planned->id,
+        'planned_join_date' => '2027-06-10',
+        'planned_leave_date' => '2027-09-10',
+        'relieves_crew_assignment_id' => $sourceB->id,
+    ]);
+
+    $report = $this->migrator->apply([(int) $company->id], (int) $planned->id);
+
+    expect($report->abortedDueToBlockers)->toBeTrue()
+        ->and($report->candidates[0]->blockers)->toContain('linked_vacant_planning_mismatch')
+        ->and($planned->fresh()->status)->toBe(CrewAssignmentStatus::Planned)
+        ->and($linkedVacant->fresh()->relieves_crew_assignment_id)->toBe($sourceB->id)
+        ->and($linkedVacant->fresh()->crew_assignment_id)->toBe($planned->id);
+});
+
+test('linked vacant planning arrival mismatch is blocked', function () {
+    $fixture = makeLegacyPlannedFixture();
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $fixture['company']->id,
+        'vessel_id' => $fixture['vessel']->id,
+        'position_id' => $fixture['position']->id,
+        'employee_id' => null,
+        'crew_assignment_id' => $fixture['planned']->id,
+        'planned_arrival_date' => '2027-04-01',
+        'planned_join_date' => '2027-05-05',
+        'planned_leave_date' => '2027-08-05',
+    ]);
+
+    expect($this->migrator->inspect([(int) $fixture['company']->id])->candidates[0]->blockers)
+        ->toContain('linked_vacant_planning_mismatch');
+});
+
+test('cross-company linked vacant planning remains blocked', function () {
+    $fixture = makeLegacyPlannedFixture();
+    $other = makeLegacyPlannedFixture();
+
+    $linked = CrewPlanningAssignment::query()->create([
+        'company_id' => $fixture['company']->id,
+        'vessel_id' => $fixture['vessel']->id,
+        'position_id' => $fixture['position']->id,
+        'employee_id' => null,
+        'crew_assignment_id' => $fixture['planned']->id,
+        'planned_join_date' => '2027-05-05',
+        'planned_leave_date' => '2027-08-05',
+    ]);
+
+    // Corrupt historical tenancy: planning company disagrees with the legacy assignment company.
+    CrewPlanningAssignment::query()->whereKey($linked->id)->update([
+        'company_id' => $other['company']->id,
+    ]);
+
+    expect($this->migrator->inspect([(int) $fixture['company']->id])->candidates[0]->blockers)
+        ->toContain('linked_planning_cross_company');
 });
 
 test('apply reuses exactly one equivalent unlinked named planning', function () {

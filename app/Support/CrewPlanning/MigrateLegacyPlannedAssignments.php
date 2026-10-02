@@ -429,16 +429,79 @@ final class MigrateLegacyPlannedAssignments
                 $blockers[] = 'linked_planning_points_elsewhere';
             }
 
-            if ($linked->employee_id !== null) {
-                if ((int) $linked->employee_id !== (int) $assignment->employee_id) {
-                    $blockers[] = 'linked_planning_employee_conflict';
-                } elseif (! $this->linkedNamedPlanningIsCompatible($linked, $assignment, $mapped)) {
-                    $blockers[] = 'linked_named_planning_mismatch';
+            if ($linked->employee_id === null) {
+                if (! $this->linkedVacantPlanningIsCompatible($linked, $assignment, $mapped)) {
+                    $blockers[] = 'linked_vacant_planning_mismatch';
                 }
+            } elseif ((int) $linked->employee_id !== (int) $assignment->employee_id) {
+                $blockers[] = 'linked_planning_employee_conflict';
+            } elseif (! $this->linkedNamedPlanningIsCompatible($linked, $assignment, $mapped)) {
+                $blockers[] = 'linked_named_planning_mismatch';
             }
         }
 
         return array_values(array_unique($blockers));
+    }
+
+    /**
+     * Linked vacant rows may be reused only when they represent the same future plan.
+     *
+     * Required identity fields (vessel / position / join / sign-off) must already agree
+     * with the legacy Planned assignment after company-local date mapping. Null on those
+     * required Planning fields is treated as ambiguous historical state and blocked —
+     * migration will not invent agreement by overwriting.
+     *
+     * Optional vacant-slot fields (Expected Arrival, relief) may be backfilled only when
+     * the Planning row currently has null (same spirit as vacant-slot linking, which does
+     * not require those fields). A non-null Planning optional that disagrees is blocked.
+     *
+     * @param  array{planned_arrival_date: ?string, planned_join_date: ?string, planned_leave_date: ?string}  $mapped
+     */
+    private function linkedVacantPlanningIsCompatible(
+        CrewPlanningAssignment $linked,
+        CrewAssignment $assignment,
+        array $mapped,
+    ): bool {
+        if ((int) $linked->company_id !== (int) $assignment->company_id) {
+            return false;
+        }
+
+        if ($linked->vessel_id === null || (int) $linked->vessel_id !== (int) $assignment->vessel_id) {
+            return false;
+        }
+
+        if ($linked->position_id === null || (int) $linked->position_id !== (int) $assignment->position_id) {
+            return false;
+        }
+
+        $linkedJoin = $linked->planned_join_date?->toDateString();
+        $linkedLeave = $linked->planned_leave_date?->toDateString();
+
+        if ($linkedJoin === null || $linkedJoin !== $mapped['planned_join_date']) {
+            return false;
+        }
+
+        if ($linkedLeave === null || $linkedLeave !== $mapped['planned_leave_date']) {
+            return false;
+        }
+
+        $linkedArrival = $linked->planned_arrival_date?->toDateString();
+        if ($linkedArrival !== null && $linkedArrival !== $mapped['planned_arrival_date']) {
+            return false;
+        }
+
+        $linkedRelief = $linked->relieves_crew_assignment_id !== null
+            ? (int) $linked->relieves_crew_assignment_id
+            : null;
+        $assignmentRelief = $assignment->relieves_crew_assignment_id !== null
+            ? (int) $assignment->relieves_crew_assignment_id
+            : null;
+
+        if ($linkedRelief !== null && $linkedRelief !== $assignmentRelief) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -629,6 +692,10 @@ final class MigrateLegacyPlannedAssignments
 
                 if ($planning->employee_id !== null) {
                     throw new \RuntimeException('Linked planning row is no longer vacant.');
+                }
+
+                if (! $this->linkedVacantPlanningIsCompatible($planning, $assignment, $mapped)) {
+                    throw new \RuntimeException('Linked vacant planning row is no longer compatible.');
                 }
 
                 $planning->update($planningAttributes);
