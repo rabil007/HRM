@@ -840,6 +840,47 @@ Cancelled planned/active assignments release reservation. Linked vacant slots re
 
 Relief linking uses `relieves_crew_assignment_id` on `CrewAssignment` (and optionally on vacant planning slots). Gantt `is_assigned` is true when `crew_assignment_id` is set.
 
+## Phase 4 — Migrate legacy Planned CrewAssignments
+
+Phase 4 moves existing legacy `CrewAssignment(status=planned)` rows into `CrewPlanningAssignment` so Phase 5 can later remove the Planned architecture.
+
+```text
+Legacy Planned CrewAssignment
+↓ migration (explicit Artisan command)
+CrewPlanningAssignment (named future plan, crew_assignment_id = null)
+↓
+legacy assignment retired for audit (Cancelled; no mobilisation / P4 / Sea Service / payroll)
+```
+
+**Critical rule:** this is **not** an automatic schema/data migration during deploy. Operators run an auditable Support action + Artisan command:
+
+```bash
+# Dry-run (default) — zero writes
+php artisan crew-planning:migrate-legacy-planned --company=1
+
+# Explicit apply after review
+php artisan crew-planning:migrate-legacy-planned --company=1 --apply
+
+# Optional whole-tenant scan (still dry-run unless --apply)
+php artisan crew-planning:migrate-legacy-planned --all-companies
+```
+
+| Concern | Behaviour |
+|---------|-----------|
+| Scope | Requires `--company=ID` or explicit `--all-companies`. Never processes every company implicitly. |
+| Mapping | `planned_arrival_at` → `planned_arrival_date`, `planned_join_at` → `planned_join_date`, `planned_signoff_at` → `planned_leave_date`, `remarks` → `notes`, relief preserved. Company-local calendar dates via `CompanyTimezone`. Do **not** copy `client_id`. |
+| Linked vacant Planning | Reuse the row, convert to named plan, set `crew_assignment_id = null`. |
+| Equivalent named Planning | If exactly one unlinked compatible match exists, reuse it (no duplicate). |
+| Unsafe / ambiguous | Mark **BLOCKED**; do not guess. Apply aborts when any blocker exists in scope. |
+| Retirement | Legacy Planned exits `Planned` via Cancelled terminal semantics (phase cancelled, assignment cancelled) without mobilisation, P0 start actuals, P4, Sea Service, payroll, or disembarking the relief source. Remarks are not overwritten with migration metadata. |
+| Activity | `legacy_planned_migrated_to_crew_planning` on the legacy assignment and Planning row (`legacy_crew_assignment_id`, `legacy_assignment_no`, `crew_planning_assignment_id`, `company_id`, migration timestamp/version). |
+| Availability | After apply, only the Planning row reserves the future window (no double reservation with leftover Planned). |
+| Verification | Successful company apply reports `Remaining CrewAssignment(status=planned): 0` for the selected scope. Never claim complete while Planned rows remain. |
+
+`CrewAssignmentStatus::Planned` and `CrewMovementService::createPlanned()` remain until **Phase 5** removes the legacy architecture after Phase 4 verifies zero remaining Planned records.
+
+Implementation: `MigrateLegacyPlannedAssignments` + `crew-planning:migrate-legacy-planned`.
+
 ## Phase 2A — Crew Relief Readiness
 
 Crew Planning remains the management surface for creating and editing relief plans. Current Crew, Assignment Show, and the Crew Operations dashboard display derived readiness and risk; they do not introduce a separate Relief workflow or table.

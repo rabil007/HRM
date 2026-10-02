@@ -146,10 +146,23 @@ There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 ### Status semantics
 
 - [ ] **Draft** — `CrewAssignment(status=draft)`: incomplete/non-committed; does **not** reserve employee availability; does **not** count as committed relief
-- [ ] **Planned (legacy)** — existing `CrewAssignment(status=planned)` records remain readable/editable/cancellable until Phase 4 migration; **new** Planned CrewAssignments cannot be created via normal Create (`submission_intent=plan` is blocked)
+- [ ] **Planned (legacy)** — existing `CrewAssignment(status=planned)` records remain readable/editable/cancellable until Phase 4 migration; **new** Planned CrewAssignments cannot be created via normal Create (`submission_intent=plan` is blocked). `CrewAssignmentStatus::Planned` still exists until Phase 5
 - [ ] **Crew Planning** — vacant/named `CrewPlanningAssignment` is the only future-planning workflow (Expected Arrival / Join / Sign-Off)
 - [ ] **Active** — operational mobilisation (P0–P6); Start Mobilisation / Start Assignment create Active at P0
 - [ ] **Completed / Cancelled** — historical / end states
+
+### Phase 4 — legacy Planned → Crew Planning migration
+
+- [ ] Dry-run inventories Planned rows with mapping + blockers and performs **zero** writes (`php artisan crew-planning:migrate-legacy-planned --company=…`)
+- [ ] `--company` or `--all-companies` is required (no implicit all-company run); `--apply` is explicit
+- [ ] Apply creates/reuses named `CrewPlanningAssignment` with `crew_assignment_id = null`
+- [ ] Arrival / Join / Sign-Off map to company-local planning dates; remarks → notes; relief preserved
+- [ ] Linked vacant Planning is reused (no duplicate); exact equivalent unlinked named Planning is reused
+- [ ] Blockers abort apply (missing masters/dates, cross-company links, ambiguous matches, unexpected actuals/Sea Service/payroll)
+- [ ] Legacy Planned retires to Cancelled without mobilisation / P4 / Sea Service / payroll / source disembarkation
+- [ ] Activity `legacy_planned_migrated_to_crew_planning` records provenance
+- [ ] Post-apply: `Remaining CrewAssignment(status=planned): 0` for the selected scope; conflict checks see Planning once
+- [ ] Second `--apply` is idempotent (no duplicate Planning rows)
 
 ### Direct Start and Crew Planning
 
