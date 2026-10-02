@@ -24,6 +24,10 @@ export function AssignmentBarActions({
     const [isStarting, setIsStarting] = useState(false);
 
     if (bar.crew_assignment_id !== null) {
+        if (!can.view_assignments) {
+            return null;
+        }
+
         return (
             <div className="flex flex-wrap gap-2 border-t pt-2">
                 <Button

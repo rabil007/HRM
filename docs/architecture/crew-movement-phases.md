@@ -210,7 +210,14 @@ Manual Start Assignment (without Planning) remains available at `/organization/c
 
 Crew Planning supports both **vacant scheduling slots** and **named future plans** (`employee_id` optional). Planning dates are forecasts and never become actual movement timestamps automatically.
 
-In **Phase 1**, named Planning records remain **planning-only** (`Save/Edit Plan only`). Standalone planning bars in the UI do not expose "Start Assignment", and backend guards prevent named planning records from entering the legacy create handoff or being linked during store. The existing handoff behavior was designed strictly around vacant planning slots and does not support the new named-plan workflow. Proper named Planning → Active CrewAssignment/P0 mobilisation handoff is deferred to **Phase 2**.
+```text
+Named Crew Planning
+↓ Start Mobilisation
+Active CrewAssignment
+↓ P0
+```
+
+For named planning records, operators start mobilisation directly via `StartPlanningMobilisation`, which authoritatively validates master data and creates an active CrewAssignment starting at P0 Pre-Mobilisation, linking `crew_assignment_id` to the planning record. For vacant planning slots, operators hand off to the unified Create form (`/organization/crew/create?planning_assignment_id=…`).
 
 | Step | Behaviour |
 |------|-----------|
@@ -223,7 +230,7 @@ In **Phase 1**, named Planning records remain **planning-only** (`Save/Edit Plan
 | Permissions | Plan-only users (`planning.view` + `planning.create`, without `assignments.create`) may open `?intent=plan` and Save as Planned. They cannot Draft or Start. |
 | Linked assignment | Redirect to the existing assignment; never create a duplicate. |
 
-The legacy `POST organization/crew-planning/assignments/{planning}/create-crew-assignment` route redirects to the unified Create form for vacant slots only (bookmarks). For named planning records, mobilisation is started via `POST organization/crew-planning/assignments/{assignment}/start-mobilisation` (`StartPlanningMobilisation`), which authoritatively creates an active `CrewAssignment` in P0 Pre-Mobilisation, links the planning row, and redirects to the assignment. There is **no** automatic bidirectional CrewAssignment ↔ CrewPlanningAssignment synchronization. Planning remains the forecast; CrewAssignment becomes the operational authority.
+The legacy `POST organization/crew-planning/assignments/{planning}/create-crew-assignment` route redirects to the unified Create form for vacant slots only (bookmarks). For named planning records, mobilisation is started via `POST organization/crew-planning/assignments/{assignment}/start-mobilisation` (`StartPlanningMobilisation`), which authoritatively creates an active `CrewAssignment` in P0 Pre-Mobilisation and links the planning row. If the operator has permission to view assignments, they are redirected to the created assignment; otherwise they are safely redirected back to Crew Planning with a success message. There is **no** automatic bidirectional CrewAssignment ↔ CrewPlanningAssignment synchronization. Planning remains the forecast; CrewAssignment becomes the operational authority.
 
 This phase does **not** redesign Crew Planning or spreadsheet import.
 

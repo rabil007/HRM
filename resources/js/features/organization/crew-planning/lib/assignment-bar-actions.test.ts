@@ -33,6 +33,7 @@ const basePermissions: PlanningPagePermissions = {
     delete: true,
     projection: true,
     start_assignment: true,
+    view_assignments: true,
 };
 
 async function renderActions(
@@ -102,7 +103,7 @@ describe('AssignmentBarActions component test', () => {
         assert.ok(!html.includes('Open Crew Assignment'));
     });
 
-    it('renders Open Crew Assignment and hides Start Mobilisation on linked planning bar', async () => {
+    it('renders Open Crew Assignment and hides Start Mobilisation on linked planning bar when user can view assignments', async () => {
         const linkedBar: GanttBar = {
             ...baseBar,
             crew_assignment_id: 789,
@@ -111,6 +112,23 @@ describe('AssignmentBarActions component test', () => {
         const html = await renderActions(linkedBar, basePermissions);
 
         assert.ok(html.includes('Open Crew Assignment'));
+        assert.ok(!html.includes('Start Mobilisation'));
+        assert.ok(!html.includes('Edit'));
+        assert.ok(!html.includes('Delete'));
+    });
+
+    it('does not render Open Crew Assignment on linked bar when user lacks assignments view permission', async () => {
+        const linkedBar: GanttBar = {
+            ...baseBar,
+            crew_assignment_id: 789,
+        };
+
+        const html = await renderActions(linkedBar, {
+            ...basePermissions,
+            view_assignments: false,
+        });
+
+        assert.ok(!html.includes('Open Crew Assignment'));
         assert.ok(!html.includes('Start Mobilisation'));
         assert.ok(!html.includes('Edit'));
         assert.ok(!html.includes('Delete'));

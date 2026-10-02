@@ -12,6 +12,7 @@ use App\Support\CrewPlanning\SaveCrewPlanningAssignment;
 use App\Support\CrewPlanning\StartPlanningMobilisation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class CrewPlanningAssignmentController extends Controller
@@ -100,8 +101,14 @@ class CrewPlanningAssignmentController extends Controller
             return back()->withErrors($exception->validator)->with('error', $message);
         }
 
+        if (Gate::forUser($request->user())->allows('view', $createdAssignment)) {
+            return redirect()
+                ->route('organization.crew-assignments.show', $createdAssignment)
+                ->with('success', 'Mobilisation started successfully.');
+        }
+
         return redirect()
-            ->route('organization.crew-assignments.show', $createdAssignment)
+            ->route('organization.crew-planning.index')
             ->with('success', 'Mobilisation started successfully.');
     }
 

@@ -5,12 +5,15 @@ namespace Tests\Feature\Organization;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewPlanning\StartPlanningMobilisation;
+use App\Support\MasterData\ClientAssignmentRules;
+use Illuminate\Support\Facades\DB;
 
 test('named planning record starts mobilisation to active CrewAssignment with P0 Pre-Mobilisation', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
@@ -519,4 +522,203 @@ test('relieved assignment is validated and copied to created CrewAssignment', fu
     $created = CrewAssignment::query()->where('employee_id', $reliefEmployee->id)->first();
     expect($created)->not->toBeNull()
         ->and($created->relieves_crew_assignment_id)->toBe($onboardAssignment->id);
+});
+
+test('user can start mobilisation without assignments view permission and is safely redirected to planning', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Safe Redirect Vessel', $company);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start-mobilisation', $planning));
+
+    $planning->refresh();
+    expect($planning->crew_assignment_id)->not->toBeNull();
+
+    $response->assertRedirect(route('organization.crew-planning.index'))
+        ->assertSessionHas('success', 'Mobilisation started successfully.');
+});
+
+test('stale planning record with inactive vessel cannot start mobilisation', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Inactive Vessel Test', $company);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    $vessel->update(['is_active' => false]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start-mobilisation', $planning));
+
+    $response->assertSessionHas('error', 'The selected vessel is inactive.');
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and($planning->fresh()->crew_assignment_id)->toBeNull();
+});
+
+test('stale planning record with missing vessel client cannot start mobilisation', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Missing Client Vessel', $company);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    $vessel->update(['client_id' => null]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start-mobilisation', $planning));
+
+    $response->assertSessionHas('error', ClientAssignmentRules::VESSEL_MISSING_CLIENT_MESSAGE);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and($planning->fresh()->crew_assignment_id)->toBeNull();
+});
+
+test('stale planning record with inactive vessel client cannot start mobilisation', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Inactive Client Vessel', $company);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    Client::query()->whereKey($vessel->client_id)->update(['is_active' => false]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start-mobilisation', $planning));
+
+    $response->assertSessionHas('error', ClientAssignmentRules::VESSEL_INACTIVE_CLIENT_MESSAGE);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and($planning->fresh()->crew_assignment_id)->toBeNull();
+});
+
+test('concurrent employee mutation during mobilisation retries safely and mobilises updated employee', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Concurrency Vessel', $company);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $employee1 = Employee::factory()->create([
+        'company_id' => $company->id,
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $employee2 = Employee::factory()->create([
+        'company_id' => $company->id,
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee1->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    $mutatedConcurrently = false;
+    DB::listen(function ($query) use (&$mutatedConcurrently, $planning, $employee2) {
+        if (! $mutatedConcurrently && str_contains(strtolower($query->sql), 'from "employees"') && str_contains(strtolower($query->sql), 'for update')) {
+            $mutatedConcurrently = true;
+            CrewPlanningAssignment::query()->whereKey($planning->id)->update(['employee_id' => $employee2->id]);
+        }
+    });
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start-mobilisation', $planning));
+
+    expect($mutatedConcurrently)->toBeTrue();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->employee_id)->toBe($employee2->id)
+        ->and($planning->fresh()->crew_assignment_id)->toBe($assignment->id);
+
+    $response->assertRedirect(route('organization.crew-assignments.show', $assignment));
 });

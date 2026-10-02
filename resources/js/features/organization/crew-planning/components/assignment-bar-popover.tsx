@@ -187,7 +187,8 @@ function AssignmentBarPopoverContent({
             </div>
             {can.update ||
             can.delete ||
-            bar.crew_assignment_id !== null ||
+            (bar.crew_assignment_id !== null &&
+                Boolean(can.view_assignments)) ||
             (Boolean(can.start_assignment) &&
                 bar.employee_id !== null &&
                 bar.crew_assignment_id === null) ? (
