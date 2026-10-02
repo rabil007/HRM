@@ -198,10 +198,14 @@ class CrewAssignmentController extends Controller
                 abort(404);
             }
 
+            if ($planning->employee_id !== null) {
+                return redirect()
+                    ->route('organization.crew-planning.index')
+                    ->with('error', 'Mobilisation handoff for named planning records is not supported in Phase 1.');
+            }
+
             try {
-                $planningContext = $planning->employee_id === null
-                    ? $planningHandoff->vacantPrefill($planning, $companyId)
-                    : $planningHandoff->prefill($planning, $companyId, $request->user());
+                $planningContext = $planningHandoff->vacantPrefill($planning, $companyId);
             } catch (CrewMovementException $exception) {
                 return redirect()
                     ->route('organization.crew-planning.index')
@@ -278,6 +282,12 @@ class CrewAssignmentController extends Controller
                     }
 
                     CrewPlanningAssignmentAccess::assertInCompany($slot, $companyId, $request->user());
+
+                    if ($slot->employee_id !== null) {
+                        throw ValidationException::withMessages([
+                            'planning_assignment_id' => 'Only vacant planning slots can be linked to a crew assignment in Phase 1.',
+                        ]);
+                    }
 
                     // Authoritative slot identity — crafted blanks cannot strip vessel/rank.
                     if ($slot->vessel_id !== null) {

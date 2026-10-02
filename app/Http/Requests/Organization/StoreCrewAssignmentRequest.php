@@ -133,6 +133,20 @@ class StoreCrewAssignmentRequest extends FormRequest
             }
 
             $companyId = (int) $this->attributes->get('current_company_id');
+
+            $planningAssignmentId = $this->input('planning_assignment_id');
+            if ($planningAssignmentId !== null && $planningAssignmentId !== '') {
+                $planningSlot = CrewPlanningAssignment::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey((int) $planningAssignmentId)
+                    ->first();
+
+                if ($planningSlot !== null && $planningSlot->employee_id !== null) {
+                    $validator->errors()->add('planning_assignment_id', 'Only vacant planning slots can be linked to a crew assignment in Phase 1.');
+
+                    return;
+                }
+            }
             $clientId = $this->input('client_id');
             $vesselId = $this->input('vessel_id');
 

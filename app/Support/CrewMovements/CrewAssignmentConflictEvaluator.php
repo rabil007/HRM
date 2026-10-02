@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -159,17 +160,14 @@ final class CrewAssignmentConflictEvaluator
             }
 
             // Exclusivity: only one planned relief per active assignment
-            $existingReliefQuery = CrewAssignment::query()
-                ->where('company_id', $context->companyId)
-                ->where('relieves_crew_assignment_id', $context->relievesCrewAssignmentId)
-                ->whereIn('status', [CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active])
-                ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId));
+            $hasActiveRelief = (new CrewReliefReadinessResolver)->hasActiveOperationalRelief(
+                companyId: (int) $context->companyId,
+                sourceAssignmentId: (int) $context->relievesCrewAssignmentId,
+                exceptPlanningId: $context->currentPlanningAssignmentId,
+                exceptAssignmentId: $context->currentAssignmentId,
+            );
 
-            if ($withLock) {
-                $existingReliefQuery->lockForUpdate();
-            }
-
-            if ($existingReliefQuery->exists()) {
+            if ($hasActiveRelief) {
                 return CrewAssignmentConflictResult::blocking(
                     code: 'relief_already_planned',
                     message: 'An active operational relief is already assigned to this onboard assignment.',
@@ -509,6 +507,71 @@ final class CrewAssignmentConflictEvaluator
                     'end' => $overlapEnd,
                 ],
                 allowedActions: $allowedActions,
+            );
+        }
+
+        $planningQuery = CrewPlanningAssignment::query()
+            ->where('company_id', $context->companyId)
+            ->where('employee_id', $context->employeeId)
+            ->whereNull('crew_assignment_id')
+            ->when($context->currentPlanningAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentPlanningAssignmentId))
+            ->with(['vessel:id,name', 'position:id,title', 'employee:id,name']);
+
+        if ($withLock) {
+            $planningQuery->lockForUpdate();
+        }
+
+        $existingPlanningAssignments = $planningQuery->get();
+
+        foreach ($existingPlanningAssignments as $planningAssignment) {
+            if (! $this->overlapDetector->overlapsPlannedPlanningAssignment($reqStart, $reqEnd, $planningAssignment)) {
+                continue;
+            }
+
+            $pStart = ($planningAssignment->planned_arrival_date ?? $planningAssignment->planned_join_date)?->toDateString();
+            $pEnd = $planningAssignment->planned_leave_date?->toDateString();
+            $effectivePEnd = $pEnd ?? $pStart;
+
+            if ($reqEnd === null) {
+                $overlapStart = max($reqStart, $pStart);
+                $overlapEnd = $effectivePEnd;
+                $reqEndLabel = 'open-ended';
+            } else {
+                $overlapStart = max($reqStart, $pStart);
+                $overlapEnd = min($reqEnd, $effectivePEnd);
+                $reqEndLabel = $reqEnd;
+            }
+
+            $employeeName = $planningAssignment->employee?->name ?? 'Employee';
+            $existingVessel = $planningAssignment->vessel?->name ?? 'Unassigned Vessel';
+            $newVessel = $context->vesselId ? (Vessel::find($context->vesselId)?->name ?? 'Selected Vessel') : 'New Assignment';
+
+            return CrewAssignmentConflictResult::blocking(
+                code: 'planned_planned_overlap',
+                message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$effectivePEnd}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart} to {$overlapEnd}.",
+                existingAssignment: [
+                    'id' => $planningAssignment->id,
+                    'assignment_no' => null,
+                    'vessel_id' => $planningAssignment->vessel_id,
+                    'vessel_name' => $existingVessel,
+                    'position_id' => $planningAssignment->position_id,
+                    'position_name' => $planningAssignment->position?->title,
+                    'status' => 'planned',
+                    'start_date' => $pStart,
+                    'end_date' => $effectivePEnd,
+                ],
+                newAssignment: [
+                    'vessel_id' => $context->vesselId,
+                    'vessel_name' => $newVessel,
+                    'position_id' => $context->positionId,
+                    'planned_join_at' => $forecastJoin,
+                    'planned_signoff_at' => $forecastSignoff,
+                ],
+                affectedDates: [
+                    'start' => $overlapStart,
+                    'end' => $overlapEnd,
+                ],
+                allowedActions: ['adjust_dates', 'cancel'],
             );
         }
 

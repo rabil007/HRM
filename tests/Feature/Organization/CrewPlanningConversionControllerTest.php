@@ -4,7 +4,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 
-test('authorized user is redirected to unified start form from planning', function () {
+test('authorized user is redirected to unified start form from vacant planning slot', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Planning Vessel Alpha');
     grantCompanyPermissions($user, $company, [
@@ -15,13 +15,11 @@ test('authorized user is redirected to unified start form from planning', functi
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
-
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $rank->id,
-        'employee_id' => $employee->id,
+        'employee_id' => null,
         'planned_join_date' => '2027-04-01',
         'planned_leave_date' => '2027-09-30',
         'notes' => 'Convert test notes',
@@ -37,9 +35,9 @@ test('authorized user is redirected to unified start form from planning', functi
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('legacy conversion redirect does not create duplicate planning rows', function () {
+test('named planning record on legacy create-crew-assignment route redirects to planning index', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Planning Vessel Beta');
+    $vessel = makeCrewMovementVessel('Named Planning Vessel');
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
         'crew_operations.assignments.create',
@@ -53,6 +51,90 @@ test('legacy conversion redirect does not create duplicate planning rows', funct
         'vessel_id' => $vessel->id,
         'position_id' => $rank->id,
         'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.create-crew-assignment', $planning));
+
+    $response->assertRedirect(route('organization.crew-planning.index'))
+        ->assertSessionHas('error', 'Named planning records must be started using Start Mobilisation.');
+});
+
+test('direct access to create handoff with named planning record redirects to planning index with error', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Direct Access Vessel');
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->id]))
+        ->assertRedirect(route('organization.crew-planning.index'))
+        ->assertSessionHas('error', 'Mobilisation handoff for named planning records is not supported in Phase 1.');
+});
+
+test('linking named planning record during store is rejected in Phase 1', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Store Link Vessel');
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-04-01',
+            'planning_assignment_id' => $planning->id,
+        ])
+        ->assertSessionHasErrors(['planning_assignment_id' => 'Only vacant planning slots can be linked to a crew assignment in Phase 1.']);
+});
+
+test('legacy conversion redirect does not create duplicate planning rows', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Planning Vessel Beta');
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
         'planned_join_date' => '2027-04-01',
     ]);
 
@@ -200,9 +282,14 @@ test('existing edit and delete behavior for unlinked planning rows still works',
 
     expect($planning->fresh()->planned_join_date->toDateString())->toBe('2027-05-01');
 
+    $foreignEmployee = Employee::factory()->create(['status' => 'active']);
+
     $this->actingAs($user)
         ->put(route('organization.crew-planning.assignments.update', $planning), [
-            'employee_id' => $employee->id,
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'employee_id' => $foreignEmployee->id,
+            'planned_join_date' => '2027-05-01',
         ])
         ->assertSessionHasErrors('employee_id');
 

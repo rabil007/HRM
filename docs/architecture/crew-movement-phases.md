@@ -191,36 +191,38 @@ A Planning record is **not** required before starting an operational assignment.
 **Assignment lifecycle vs payroll:** `CrewAssignment.started_at` and `closed_at` describe the assignment record lifecycle (when the operational cycle was started or closed in OMS). They are **not** Crew payroll inputs. Crew payroll is derived only from eligible actual `CrewAssignmentPhase.actual_start_at` / `actual_end_at` dates. Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
 
 ```text
-Crew Planning (optional future intention)
-    ↓ Start Assignment (review + confirm)
-Unified Start Assignment form (/organization/crew/create?planning_assignment_id=…)
-    ↓ confirm Active P0
-CrewMovementService::startAssignment()
-    ↓
-Crew Assignment (operational cycle)
-    ↓ movement lifecycle
-Crew Assignment Phases
-    ↓ P4 On Vessel (synchronized on join, finalized on disembarkation)
-Employee Sea Service
+Named Crew Planning
+↓ Start Mobilisation
+Active CrewAssignment
+↓ P0 Pre-Mobilisation
+```
+
+```text
+Vacant Planning
+↓ handoff to Crew Assignment create form
+↓ operator selects employee
 ```
 
 Manual Start Assignment (without Planning) remains available at `/organization/crew/create`.
 
 ### Planning → CrewAssignment handoff
 
-Crew Planning records **vacant/unfilled scheduling slots only**. Named employees belong on `CrewAssignment`. Planning dates are forecasts and never become actual movement timestamps automatically.
+Crew Planning supports both **vacant scheduling slots** and **named future plans** (`employee_id` optional). Planning dates are forecasts and never become actual movement timestamps automatically.
+
+For named planning records, operators use **Start Mobilisation** (`StartPlanningMobilisation`), which authoritatively validates master data and creates an active `CrewAssignment` starting at P0 Pre-Mobilisation, linking `crew_assignment_id` to the planning record. For vacant planning slots, operators hand off to the unified Create form (`/organization/crew/create?planning_assignment_id=…`) where they select the employee before Draft / Plan / Start.
 
 | Step | Behaviour |
 |------|-----------|
+| Named plan → **Start Mobilisation** | `POST organization/crew-planning/assignments/{assignment}/start-mobilisation` → `StartPlanningMobilisation::handle()`. Starts an unlinked named plan directly into an active CrewAssignment with P0 Pre-Mobilisation. Requires `crew_operations.planning.view`, `crew_operations.assignments.create`, and `crew_operations.movements.perform`. |
 | Vacant slot → Create / Plan | Opens the unified Create UI with vessel/rank/date prefill. Operator selects the named employee. **Does not** create a `CrewAssignment` until submit. |
 | Confirm **Save as Planned** | `POST /organization/crew` with `submission_intent=plan` → `CrewMovementService::createPlanned()`. Requires `crew_operations.planning.create`. |
 | Confirm **Start Assignment** | `POST /organization/crew` with `submission_intent=start` → `CrewMovementService::startAssignment()`. Requires `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. |
-| Linking | Optional vacant `CrewPlanningAssignment` may be linked via `planning_assignment_id` inside the same store transaction (`LinkVacantCrewPlanningSlot`). Slot must be company-scoped, unlinked, `employee_id` null, and vessel/rank/date-compatible. |
-| Timestamps | On Start, `started_at` and first phase `actual_start_at` use company-local trusted server submit time. Expected Vessel Join remains `planned_join_at` forecast only. |
-| Permissions | Plan-only users (`planning.view` + `planning.create`, without `assignments.create`) may open `?intent=plan` and Save as Planned. They cannot Draft or Start. |
+| Linking | Optional vacant `CrewPlanningAssignment` may be linked via `planning_assignment_id` inside the same store transaction (`LinkVacantCrewPlanningSlot`). Slot must be vacant, company-scoped, unlinked, and vessel/rank/date-compatible. Named planning slots link to CrewAssignment upon starting mobilisation. |
+| Timestamps | On Start / Start Mobilisation, `started_at` and first phase `actual_start_at` use company-local trusted server submit time. Expected Vessel Join remains `planned_join_at` forecast only. |
+| Permissions | Plan-only users (`planning.view` + `planning.create`, without `assignments.create`) may open `?intent=plan` and Save as Planned. They cannot Draft, Start, or Start Mobilisation. |
 | Linked assignment | Redirect to the existing assignment; never create a duplicate. |
 
-The legacy `POST organization/crew-planning/assignments/{planning}/create-crew-assignment` route redirects to the unified Create form for bookmarks. There is **no** `StartCrewAssignmentFromPlanning` or `CreateCrewAssignmentFromPlanning` service. There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment synchronization.
+The legacy `POST organization/crew-planning/assignments/{planning}/create-crew-assignment` route redirects to the unified Create form for vacant slots only (bookmarks). Named planning records on that route are rejected with guidance to use Start Mobilisation instead. There is **no** automatic bidirectional CrewAssignment ↔ CrewPlanningAssignment synchronization. Planning remains the forecast; CrewAssignment becomes the operational authority.
 
 This phase does **not** redesign Crew Planning or spreadsheet import.
 
@@ -807,11 +809,11 @@ Crew Operations and HR maintain strict separation of owned fields on `EmployeeTr
 
 ## Planning
 
-`CrewAssignment` is the authoritative named-employee mobilisation/planning record (`draft`, `planned`, `active`, `completed`, `cancelled`).
+`CrewAssignment` is the authoritative named-employee operational mobilisation record (`draft`, `planned`, `active`, `completed`, `cancelled`).
 
-`CrewPlanningAssignment` is a **vacant/unfilled** scheduling slot only (optional Gantt workspace). Planning is optional.
+`CrewPlanningAssignment` provides the future planning workspace supporting both vacant slots and named plans (`employee_id` optional). Planning is optional.
 
-There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment synchronization and **no** Planning → Assignment conversion service. Named crew are created directly as `CrewAssignment` (Save Draft / Save as Planned / Start). A vacant slot may be linked explicitly via `planning_assignment_id` during store when company-scoped, unlinked, empty of employee, and context-compatible.
+Named plans convert to operations via **Start Mobilisation** (`StartPlanningMobilisation` → Active `CrewAssignment` + P0 Pre-Mobilisation). Vacant slots hand off to the Crew Assignment create form, where the operator selects an employee before Draft / Plan / Start; a vacant slot may be linked via `planning_assignment_id` during store when company-scoped, unlinked, and context-compatible (`LinkVacantCrewPlanningSlot`). Named planning rows are not linked through that vacant-slot path. There is **no** automatic bidirectional CrewAssignment ↔ CrewPlanningAssignment synchronization.
 
 ### Linked-row ownership
 

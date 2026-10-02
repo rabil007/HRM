@@ -24,7 +24,6 @@ import { onboardSelectionResetKey } from '@/features/organization/crew/onboard-b
 import type { CurrentCrewVesselRow } from '@/features/organization/crew/types';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { create as createAssignment } from '@/routes/organization/crew-assignments';
 import type { PaginationMeta } from '@/types/pagination';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
 import { CrewPlanningViewSwitcher } from './components/crew-planning-view-switcher';
@@ -197,6 +196,8 @@ export function CrewPlanningContent({
     const form = useForm<AssignmentFormData>({
         vessel_id: '',
         position_id: '',
+        employee_id: '',
+        planned_arrival_date: '',
         planned_join_date: '',
         planned_leave_date: '',
         notes: '',
@@ -210,34 +211,30 @@ export function CrewPlanningContent({
             initialDate = '',
             employeeId = '',
             relievesCrewAssignmentId = '',
+            relievesEmployeeName = '',
         ): void => {
-            const query: Record<string, string> = {
-                intent: 'plan',
-            };
-
-            if (initialVesselId) {
-                query.vessel_id = initialVesselId;
-            }
-
-            if (initialPositionId) {
-                query.position_id = initialPositionId;
-            }
-
-            if (initialDate) {
-                query.planned_join_at = initialDate;
-            }
-
-            if (employeeId) {
-                query.employee_id = employeeId;
-            }
-
-            if (relievesCrewAssignmentId) {
-                query.relieves_crew_assignment_id = relievesCrewAssignmentId;
-            }
-
-            router.visit(createAssignment.url({ query }));
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                vessel_id: initialVesselId,
+                position_id: initialPositionId,
+                employee_id: employeeId,
+                planned_arrival_date: '',
+                planned_join_date: initialDate,
+                planned_leave_date: '',
+                notes: '',
+                relieves_crew_assignment_id: relievesCrewAssignmentId,
+            });
+            setDialogState({
+                open: true,
+                editing: null,
+                initialVesselId,
+                initialPositionId,
+                initialDate,
+                relievesEmployeeName,
+            });
         },
-        [],
+        [form],
     );
 
     useEffect(() => {
@@ -262,6 +259,7 @@ export function CrewPlanningContent({
             reliefPrefill.relieves_crew_assignment_id != null
                 ? String(reliefPrefill.relieves_crew_assignment_id)
                 : '',
+            reliefPrefill.relieves_employee_name ?? '',
         );
     }, [can.create, openCreate, reliefPrefill]);
 
@@ -285,6 +283,7 @@ export function CrewPlanningContent({
                 relieved?.plannedLeaveDate ?? estimatedDate,
                 employeeId,
                 relieved ? String(relieved.crewAssignmentId) : '',
+                relieved?.employeeName ?? '',
             );
         },
         [bars, openCreate],
@@ -296,6 +295,8 @@ export function CrewPlanningContent({
         form.setData({
             vessel_id: bar.row_key.split('|')[0].replace('vessel:', ''),
             position_id: bar.row_key.split('|')[1].replace('position:', ''),
+            employee_id: bar.employee_id != null ? String(bar.employee_id) : '',
+            planned_arrival_date: bar.planned_arrival_date ?? '',
             planned_join_date: bar.planned_join_date,
             planned_leave_date: bar.planned_leave_date ?? '',
             notes: bar.notes ?? '',
@@ -365,6 +366,9 @@ export function CrewPlanningContent({
         form.transform((data) => ({
             vessel_id: Number(data.vessel_id),
             position_id: Number(data.position_id),
+            employee_id:
+                data.employee_id !== '' ? Number(data.employee_id) : null,
+            planned_arrival_date: data.planned_arrival_date || null,
             planned_join_date: data.planned_join_date,
             planned_leave_date: data.planned_leave_date,
             notes: data.notes || null,
@@ -763,6 +767,7 @@ export function CrewPlanningContent({
                         relievesEmployeeName={dialogState.relievesEmployeeName}
                         vessels={vessels}
                         positions={positions}
+                        employees={employees}
                     />
                 </Main>
 

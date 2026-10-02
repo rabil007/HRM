@@ -27,6 +27,7 @@ export type GanttBar = {
     employee_name: string;
     start: string;
     end: string;
+    planned_arrival_date?: string | null;
     planned_join_date: string;
     planned_leave_date: string | null;
     is_open_ended: boolean;
@@ -290,6 +291,8 @@ export type NotificationUserOption = {
 export type AssignmentFormData = {
     vessel_id: string;
     position_id: string;
+    employee_id: string;
+    planned_arrival_date: string;
     planned_join_date: string;
     planned_leave_date: string;
     notes: string;

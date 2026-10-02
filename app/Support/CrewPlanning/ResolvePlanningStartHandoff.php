@@ -175,6 +175,13 @@ final class ResolvePlanningStartHandoff
             );
         }
 
+        if ($planning->employee_id !== null) {
+            throw CrewMovementException::make(
+                'Mobilisation handoff for named planning records is not supported in Phase 1.',
+                'planning_named_handoff_unsupported',
+            );
+        }
+
         $this->assertStartable($planning);
         $this->assertJoinBeforeLeave($planning);
         $this->assertEmployeeIsActive($planning, $companyId, $actor);

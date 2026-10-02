@@ -1,6 +1,7 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { Info } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,12 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { assignmentDurationDays } from '../lib/planning-gantt-math';
-import type { AssignmentFormData, GanttBar, PlanningOption } from '../types';
+import type {
+    AssignmentFormData,
+    GanttBar,
+    PlanningOption,
+    PlanningPoolEmployee,
+} from '../types';
 
 const fieldInputClass =
     'rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all';
@@ -28,6 +34,7 @@ export function AssignCrewSheet({
     relievesEmployeeName,
     vessels,
     positions,
+    employees = [],
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -37,8 +44,30 @@ export function AssignCrewSheet({
     relievesEmployeeName: string;
     vessels: PlanningOption[];
     positions: PlanningOption[];
+    employees?: PlanningPoolEmployee[];
 }): ReactElement {
     const isEdit = editing !== null;
+
+    const availableEmployees = useMemo(() => {
+        if (!form.data.position_id) {
+            return employees;
+        }
+
+        const posId = Number(form.data.position_id);
+        const matching = employees.filter((e) => e.position_id === posId);
+
+        if (form.data.employee_id) {
+            const currentEmp = employees.find(
+                (e) => String(e.id) === form.data.employee_id,
+            );
+
+            if (currentEmp && !matching.some((e) => e.id === currentEmp.id)) {
+                return [currentEmp, ...matching];
+            }
+        }
+
+        return matching.length > 0 ? matching : employees;
+    }, [employees, form.data.position_id, form.data.employee_id]);
 
     const plannedDurationDays =
         form.data.planned_join_date !== '' &&
@@ -91,14 +120,13 @@ export function AssignCrewSheet({
                             />
                             <div className="space-y-1">
                                 <p>
-                                    This creates a vacant planning slot only. It
-                                    does not name an employee, start
-                                    mobilisation, or place anyone onboard.
+                                    Crew Planning captures future scheduling
+                                    forecasts. Leave the crew member field empty
+                                    for a vacant planning slot.
                                 </p>
                                 <p>
-                                    Named crew mobilisation is controlled from
-                                    Crew Assignments. Planned dates remain
-                                    forecasts until an assignment is started.
+                                    Planned dates remain forecasts until an
+                                    operational crew assignment is started.
                                 </p>
                             </div>
                         </div>
@@ -189,16 +217,82 @@ export function AssignCrewSheet({
                                 </div>
                             ) : null}
                         </div>
+
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="employee_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Crew member{' '}
+                                <span className="font-normal tracking-normal normal-case">
+                                    (optional — vacant if blank)
+                                </span>
+                            </Label>
+                            <AppSelect
+                                value={form.data.employee_id}
+                                onValueChange={(value) =>
+                                    form.setData('employee_id', value)
+                                }
+                                placeholder="Vacant / Unfilled"
+                                variant="card"
+                            >
+                                <AppSelectItem value="">
+                                    Vacant / Unfilled
+                                </AppSelectItem>
+                                {availableEmployees.map((e) => (
+                                    <AppSelectItem
+                                        key={e.id}
+                                        value={String(e.id)}
+                                    >
+                                        {e.name} ({e.position_name})
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            {form.errors.employee_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.employee_id}
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
 
                     <div className="space-y-5 border-t border-border/60 pt-4">
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="planned_arrival_date"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Expected arrival{' '}
+                                <span className="font-normal tracking-normal normal-case">
+                                    (optional)
+                                </span>
+                            </Label>
+                            <Input
+                                id="planned_arrival_date"
+                                type="date"
+                                value={form.data.planned_arrival_date}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'planned_arrival_date',
+                                        e.target.value,
+                                    )
+                                }
+                                className={fieldInputClass}
+                            />
+                            {form.errors.planned_arrival_date ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.planned_arrival_date}
+                                </div>
+                            ) : null}
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="planned_join_date"
                                     className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
-                                    Planned join *
+                                    Expected Vessel Join *
                                 </Label>
                                 <Input
                                     id="planned_join_date"
@@ -224,7 +318,7 @@ export function AssignCrewSheet({
                                     htmlFor="planned_leave_date"
                                     className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
-                                    Planned leave *
+                                    Expected Sign-Off *
                                 </Label>
                                 <Input
                                     id="planned_leave_date"
@@ -249,7 +343,7 @@ export function AssignCrewSheet({
                         {plannedDurationDays !== null &&
                         plannedDurationDays > 0 ? (
                             <p className="text-sm text-muted-foreground">
-                                Planned duration:{' '}
+                                Planned onboard duration:{' '}
                                 <span className="font-medium text-foreground">
                                     {plannedDurationDays}{' '}
                                     {plannedDurationDays === 1 ? 'day' : 'days'}
