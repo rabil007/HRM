@@ -52,7 +52,7 @@ jobs:
           echo "ERROR: Cannot reach 82.198.227.207:65002"
           exit 1
 
-      - name: Confirm production commit and run all-companies dry-run only
+      - name: Inspect planned rows including soft-deletes
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 'bash -s' << 'EOF'
@@ -61,91 +61,64 @@ jobs:
 
             echo "===== PRODUCTION REVISION ====="
             echo "git HEAD: $(git rev-parse HEAD)"
-            echo "git log: $(git log -1 --oneline)"
-            if [ -f storage/app/deploy/revision.sha ]; then
-              echo "deploy stamp: $(tr -d '[:space:]' < storage/app/deploy/revision.sha)"
-            else
-              echo "deploy stamp: MISSING"
-            fi
+            echo "deploy stamp: $(tr -d '[:space:]' < storage/app/deploy/revision.sha 2>/dev/null || echo MISSING)"
 
-            REQUIRED_SHA='ee9a29554581094599743e4739884a7e82b33b75'
-            CURRENT_SHA="$(git rev-parse HEAD)"
-            if [ "$CURRENT_SHA" != "$REQUIRED_SHA" ]; then
-              echo "ERROR: Production HEAD $CURRENT_SHA does not match required tip $REQUIRED_SHA"
-              echo "Refusing to run migration against unexpected revision."
-              exit 1
-            fi
-            echo "Production matches required tip $REQUIRED_SHA."
-
-            echo "===== BEFORE GLOBAL COUNTS ====="
+            echo "===== LIVE ELOQUENT PLANNED (default scope) ====="
             php artisan tinker --execute="
-              echo 'planned_assignments_total=' . App\Models\CrewAssignment::query()->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
-              echo 'crew_assignments_count=' . App\Models\CrewAssignment::query()->count() . PHP_EOL;
-              echo 'crew_assignment_phases_count=' . App\Models\CrewAssignmentPhase::query()->count() . PHP_EOL;
-              echo 'crew_planning_assignments_count=' . App\Models\CrewPlanningAssignment::query()->count() . PHP_EOL;
-              echo 'employee_sea_services_count=' . App\Models\EmployeeSeaService::query()->count() . PHP_EOL;
-              echo 'payroll_work_allocations_count=' . App\Models\PayrollWorkAllocation::query()->count() . PHP_EOL;
-              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'crew_assignment_phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'activity_log_count=' . Spatie\Activitylog\Models\Activity::query()->count() . PHP_EOL;
-              echo 'activity_log_max_id=' . (string) (Spatie\Activitylog\Models\Activity::query()->max('id') ?? 'null') . PHP_EOL;
+              echo 'live_planned=' . App\Models\CrewAssignment::query()->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
             "
 
-            echo "===== SQL BEFORE: planned by company ====="
+            echo "===== WITH TRASHED ELOQUENT PLANNED ====="
             php artisan tinker --execute="
-              \$rows = Illuminate\Support\Facades\DB::select(\"SELECT company_id, COUNT(*) AS planned_count FROM crew_assignments WHERE status = 'planned' GROUP BY company_id ORDER BY company_id\");
-              if (\$rows === []) {
-                echo \"(no rows)\\n\";
-              } else {
-                foreach (\$rows as \$row) {
-                  echo 'company_id=' . \$row->company_id . ' planned_count=' . \$row->planned_count . PHP_EOL;
-                }
+              echo 'with_trashed_planned=' . App\Models\CrewAssignment::withTrashed()->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
+              echo 'only_trashed_planned=' . App\Models\CrewAssignment::onlyTrashed()->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
+            "
+
+            echo "===== SQL RAW PLANNED ROWS (no deleted_at filter) ====="
+            php artisan tinker --execute="
+              \$rows = Illuminate\Support\Facades\DB::select(\"
+                SELECT id, company_id, assignment_no, employee_id, vessel_id, position_id, status, deleted_at, created_at, updated_at
+                FROM crew_assignments
+                WHERE status = 'planned'
+                ORDER BY company_id, id
+              \");
+              echo 'raw_planned_rows=' . count(\$rows) . PHP_EOL;
+              foreach (\$rows as \$row) {
+                echo json_encode(\$row, JSON_UNESCAPED_SLASHES) . PHP_EOL;
               }
               \$total = Illuminate\Support\Facades\DB::selectOne(\"SELECT COUNT(*) AS total_planned FROM crew_assignments WHERE status = 'planned'\");
               echo 'total_planned=' . \$total->total_planned . PHP_EOL;
+              \$live = Illuminate\Support\Facades\DB::selectOne(\"SELECT COUNT(*) AS live_planned FROM crew_assignments WHERE status = 'planned' AND deleted_at IS NULL\");
+              echo 'live_planned_sql=' . \$live->live_planned . PHP_EOL;
             "
 
-            echo "===== DRY-RUN COMMAND ====="
-            echo "php artisan crew-planning:migrate-legacy-planned --all-companies"
-            echo "(explicitly WITHOUT --apply)"
+            echo "===== CANDIDATE DETAILS (withTrashed planned) ====="
+            php artisan tinker --execute="
+              \$assignments = App\Models\CrewAssignment::withTrashed()
+                ->with(['employee:id,name', 'vessel:id,name', 'position:id,title'])
+                ->where('status', App\Enums\CrewAssignmentStatus::Planned)
+                ->orderBy('company_id')
+                ->orderBy('id')
+                ->get();
+              foreach (\$assignments as \$a) {
+                echo json_encode([
+                  'company_id' => \$a->company_id,
+                  'assignment_id' => \$a->id,
+                  'assignment_no' => \$a->assignment_no,
+                  'employee' => \$a->employee?->name,
+                  'vessel' => \$a->vessel?->name,
+                  'position' => \$a->position?->title,
+                  'status' => \$a->status?->value,
+                  'deleted_at' => optional(\$a->deleted_at)?->toDateTimeString(),
+                  'migration_status' => \$a->trashed() ? 'soft_deleted_out_of_scope' : 'live',
+                  'disposition' => \$a->trashed() ? 'not_scanned_by_phase4_migrator' : 'would_be_scanned',
+                  'blockers' => \$a->trashed() ? ['soft_deleted'] : [],
+                ], JSON_UNESCAPED_SLASHES) . PHP_EOL;
+              }
+            "
 
-            echo "===== DRY-RUN OUTPUT BEGIN ====="
+            echo "===== DRY-RUN ALL COMPANIES (no --apply) ====="
             php artisan crew-planning:migrate-legacy-planned --all-companies
-            echo "===== DRY-RUN OUTPUT END ====="
 
-            echo "===== SQL AFTER: planned by company ====="
-            php artisan tinker --execute="
-              \$rows = Illuminate\Support\Facades\DB::select(\"SELECT company_id, COUNT(*) AS planned_count FROM crew_assignments WHERE status = 'planned' GROUP BY company_id ORDER BY company_id\");
-              if (\$rows === []) {
-                echo \"(no rows)\\n\";
-              } else {
-                foreach (\$rows as \$row) {
-                  echo 'company_id=' . \$row->company_id . ' planned_count=' . \$row->planned_count . PHP_EOL;
-                }
-              }
-              \$total = Illuminate\Support\Facades\DB::selectOne(\"SELECT COUNT(*) AS total_planned FROM crew_assignments WHERE status = 'planned'\");
-              echo 'total_planned=' . \$total->total_planned . PHP_EOL;
-            "
-
-            echo "===== AFTER GLOBAL COUNTS ====="
-            php artisan tinker --execute="
-              echo 'planned_assignments_total=' . App\Models\CrewAssignment::query()->where('status', App\Enums\CrewAssignmentStatus::Planned)->count() . PHP_EOL;
-              echo 'crew_assignments_count=' . App\Models\CrewAssignment::query()->count() . PHP_EOL;
-              echo 'crew_assignment_phases_count=' . App\Models\CrewAssignmentPhase::query()->count() . PHP_EOL;
-              echo 'crew_planning_assignments_count=' . App\Models\CrewPlanningAssignment::query()->count() . PHP_EOL;
-              echo 'employee_sea_services_count=' . App\Models\EmployeeSeaService::query()->count() . PHP_EOL;
-              echo 'payroll_work_allocations_count=' . App\Models\PayrollWorkAllocation::query()->count() . PHP_EOL;
-              echo 'crew_assignments_max_updated=' . (string) (App\Models\CrewAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'crew_assignment_phases_max_updated=' . (string) (App\Models\CrewAssignmentPhase::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'crew_planning_max_updated=' . (string) (App\Models\CrewPlanningAssignment::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'sea_services_max_updated=' . (string) (App\Models\EmployeeSeaService::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'payroll_alloc_max_updated=' . (string) (App\Models\PayrollWorkAllocation::query()->max('updated_at') ?? 'null') . PHP_EOL;
-              echo 'activity_log_count=' . Spatie\Activitylog\Models\Activity::query()->count() . PHP_EOL;
-              echo 'activity_log_max_id=' . (string) (Spatie\Activitylog\Models\Activity::query()->max('id') ?? 'null') . PHP_EOL;
-            "
-
-            echo "===== DONE (all-companies inspection only; no --apply) ====="
+            echo "===== DONE ====="
           EOF
