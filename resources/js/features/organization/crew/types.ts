@@ -347,7 +347,7 @@ export interface CrewAssignmentCreateFormData {
     planned_signoff_at?: string;
     planned_arrival_at?: string | null;
     relieves_crew_assignment_id?: number | null;
-    submission_intent: 'start' | 'draft' | 'plan';
+    submission_intent: 'start' | 'draft';
     remarks: string;
 }
 

@@ -25,11 +25,11 @@ export function shouldRenderSaveDraftButton(options: {
 }
 
 /**
- * Plan-only users see Save as Planned (and Cancel) — not Draft or Start.
+ * Normal create supports Save Draft and Start Assignment only.
+ * Future plans belong in Crew Planning (Phase 3).
  */
 export function resolveCreateFooterActions(options: {
     canCreate: boolean;
-    canPlan: boolean;
     canStart: boolean;
     crewRowCount: number;
     fromPlanning: boolean;
@@ -37,13 +37,11 @@ export function resolveCreateFooterActions(options: {
     planningActiveAssignmentConflict: boolean;
 }): {
     showStart: boolean;
-    showPlan: boolean;
     showDraft: boolean;
 } {
     return {
         showStart:
             options.canStart && !options.planningActiveAssignmentConflict,
-        showPlan: options.canPlan && !options.bulkMode && !options.fromPlanning,
         showDraft: shouldRenderSaveDraftButton({
             canCreate: options.canCreate,
             crewRowCount: options.crewRowCount,

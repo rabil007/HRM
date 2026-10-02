@@ -85,7 +85,7 @@ test('direct access to create handoff with named planning record redirects to pl
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.create', ['planning_assignment_id' => $planning->id]))
         ->assertRedirect(route('organization.crew-planning.index'))
-        ->assertSessionHas('error', 'Mobilisation handoff for named planning records is not supported in Phase 1.');
+        ->assertSessionHas('error', 'Named planning records must be started using Start Mobilisation.');
 });
 
 test('linking named planning record during store is rejected in Phase 1', function () {
@@ -117,7 +117,7 @@ test('linking named planning record during store is rejected in Phase 1', functi
             'planned_join_at' => '2027-04-01',
             'planning_assignment_id' => $planning->id,
         ])
-        ->assertSessionHasErrors(['planning_assignment_id' => 'Only vacant planning slots can be linked to a crew assignment in Phase 1.']);
+        ->assertSessionHasErrors(['planning_assignment_id' => 'Only vacant planning slots can be linked to a crew assignment. Assign the named employee in Crew Planning, then use Start Mobilisation.']);
 });
 
 test('legacy conversion redirect does not create duplicate planning rows', function () {

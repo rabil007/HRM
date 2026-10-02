@@ -29,7 +29,7 @@ describe('shouldShowSaveDraft', () => {
 });
 
 describe('shouldRenderSaveDraftButton', () => {
-    it('hides Save Draft for plan-only users', () => {
+    it('hides Save Draft for users without assignment create', () => {
         assert.equal(
             shouldRenderSaveDraftButton({
                 canCreate: false,
@@ -64,10 +64,9 @@ describe('shouldRenderSaveDraftButton', () => {
 });
 
 describe('resolveCreateFooterActions', () => {
-    it('shows only Save as Planned for planning-only users', () => {
+    it('does not expose Save as Planned for planning-only users', () => {
         const actions = resolveCreateFooterActions({
             canCreate: false,
-            canPlan: true,
             canStart: false,
             crewRowCount: 1,
             fromPlanning: false,
@@ -77,15 +76,14 @@ describe('resolveCreateFooterActions', () => {
 
         assert.deepEqual(actions, {
             showStart: false,
-            showPlan: true,
             showDraft: false,
         });
+        assert.equal('showPlan' in actions, false);
     });
 
     it('shows Save Draft for assignment-create users', () => {
         const actions = resolveCreateFooterActions({
             canCreate: true,
-            canPlan: false,
             canStart: false,
             crewRowCount: 1,
             fromPlanning: false,
@@ -94,14 +92,12 @@ describe('resolveCreateFooterActions', () => {
         });
 
         assert.equal(actions.showDraft, true);
-        assert.equal(actions.showPlan, false);
         assert.equal(actions.showStart, false);
     });
 
-    it('shows Start when the user has start permission', () => {
+    it('shows Start and Draft when the user has start permission', () => {
         const actions = resolveCreateFooterActions({
             canCreate: true,
-            canPlan: true,
             canStart: true,
             crewRowCount: 1,
             fromPlanning: false,
@@ -111,7 +107,6 @@ describe('resolveCreateFooterActions', () => {
 
         assert.deepEqual(actions, {
             showStart: true,
-            showPlan: true,
             showDraft: true,
         });
     });

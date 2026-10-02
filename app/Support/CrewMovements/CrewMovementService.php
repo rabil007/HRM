@@ -121,6 +121,11 @@ final class CrewMovementService
      * Create a planned Crew Assignment that reserves the employee's availability
      * for a deterministic planned date range without creating operational movements.
      *
+     * Legacy / migration helper (Phase 3+): normal HTTP create no longer calls this.
+     * Future plans belong in CrewPlanningAssignment; Start Mobilisation creates Active.
+     * Keep this method for existing Planned records, tests, and Phase 4 migration until
+     * Phase 5 removes the Planned CrewAssignment architecture.
+     *
      * @param  array<string, mixed>  $attributes
      */
     public function createPlanned(
