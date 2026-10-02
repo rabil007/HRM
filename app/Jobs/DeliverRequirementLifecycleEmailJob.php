@@ -2,15 +2,19 @@
 
 namespace App\Jobs;
 
+use App\Enums\Recruitment\RequirementStatus;
 use App\Mail\RequirementApprovedMail;
 use App\Mail\RequirementReturnedMail;
 use App\Mail\RequirementSubmittedForApprovalMail;
 use App\Models\Company;
 use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementStatusTransition;
 use App\Models\User;
+use App\Support\Recruitment\RequirementLifecycleEmailPayload;
 use App\Support\Recruitment\RequirementNotificationRecipients;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -26,74 +30,213 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
      */
     public array $backoff = [30, 60, 120];
 
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     public function __construct(
-        public int $requirementId,
-        public int $companyId,
-        public string $event,
+        public array $payload,
     ) {}
 
     public function handle(): void
     {
-        try {
-            $requirement = RecruitmentRequirement::query()
-                ->whereKey($this->requirementId)
-                ->where('company_id', $this->companyId)
-                ->with([
-                    'client:id,name',
-                    'project:id,title',
-                    'assignedRecruiter:id,name,email,status,deleted_at',
-                    'creator:id,name,email,status,deleted_at',
-                    'submitter:id,name,email,status,deleted_at',
-                    'approver:id,name,email,status,deleted_at',
-                    'returner:id,name,email,status,deleted_at',
-                    'lines.position:id,title',
-                    'company:id,name',
-                    'notificationRecipients.user:id,name,email,status,deleted_at',
-                ])
-                ->first();
+        $event = (string) ($this->payload['event'] ?? '');
+        $requirementId = (int) ($this->payload['requirement_id'] ?? 0);
+        $companyId = (int) ($this->payload['company_id'] ?? 0);
 
-            if ($requirement === null) {
-                Log::warning('Requirement lifecycle email skipped: requirement not found.', [
-                    'requirement_id' => $this->requirementId,
-                    'company_id' => $this->companyId,
-                    'event' => $this->event,
-                ]);
+        $requirement = RecruitmentRequirement::query()
+            ->whereKey($requirementId)
+            ->where('company_id', $companyId)
+            ->with([
+                'client:id,name',
+                'project:id,title',
+                'lines.position:id,title',
+                'company:id,name',
+            ])
+            ->first();
 
-                return;
-            }
+        if ($requirement === null) {
+            $this->skip('requirement_not_found');
 
-            match ($this->event) {
-                'submitted', 'reassigned' => $this->sendSubmitted($requirement),
-                'approved' => $this->sendApproved($requirement),
-                'returned' => $this->sendReturned($requirement),
-                default => Log::warning('Requirement lifecycle email skipped: unknown event.', [
-                    'requirement_id' => $this->requirementId,
-                    'company_id' => $this->companyId,
-                    'event' => $this->event,
-                ]),
-            };
-        } catch (Throwable $exception) {
-            report($exception);
+            return;
         }
+
+        $validity = $this->validateEventStillCurrent($requirement);
+        if ($validity !== null) {
+            $this->skip($validity);
+
+            return;
+        }
+
+        match ($event) {
+            RequirementLifecycleEmailPayload::EVENT_SUBMITTED,
+            RequirementLifecycleEmailPayload::EVENT_REASSIGNED => $this->sendSubmitted($requirement),
+            RequirementLifecycleEmailPayload::EVENT_APPROVED => $this->sendApproved($requirement),
+            RequirementLifecycleEmailPayload::EVENT_RETURNED => $this->sendReturned($requirement),
+            default => $this->skip('unknown_event'),
+        };
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::error('Requirement lifecycle email job failed after retries.', [
+            'requirement_id' => (int) ($this->payload['requirement_id'] ?? 0),
+            'company_id' => (int) ($this->payload['company_id'] ?? 0),
+            'event' => (string) ($this->payload['event'] ?? ''),
+            'status_transition_id' => $this->payload['status_transition_id'] ?? null,
+            'exception_class' => $exception::class,
+            'exception_message' => $this->sanitizeExceptionMessage($exception->getMessage()),
+        ]);
+    }
+
+    private function validateEventStillCurrent(RecruitmentRequirement $requirement): ?string
+    {
+        $event = (string) ($this->payload['event'] ?? '');
+        $transitionId = isset($this->payload['status_transition_id'])
+            ? (int) $this->payload['status_transition_id']
+            : null;
+
+        if ($transitionId === null || $transitionId <= 0) {
+            return 'missing_status_transition';
+        }
+
+        $transition = RecruitmentRequirementStatusTransition::query()
+            ->whereKey($transitionId)
+            ->where('company_id', (int) $requirement->company_id)
+            ->where('recruitment_requirement_id', (int) $requirement->id)
+            ->first();
+
+        if ($transition === null) {
+            return 'status_transition_not_found';
+        }
+
+        return match ($event) {
+            RequirementLifecycleEmailPayload::EVENT_SUBMITTED => $this->validateSubmittedStillCurrent($requirement, $transition),
+            RequirementLifecycleEmailPayload::EVENT_REASSIGNED => $this->validateReassignedStillCurrent($requirement, $transition),
+            RequirementLifecycleEmailPayload::EVENT_APPROVED => $this->validateApprovedTransition($transition),
+            RequirementLifecycleEmailPayload::EVENT_RETURNED => $this->validateReturnedTransition($transition),
+            default => 'unknown_event',
+        };
+    }
+
+    private function validateSubmittedStillCurrent(
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementStatusTransition $transition,
+    ): ?string {
+        if ((string) $transition->to_status !== RequirementStatus::PendingApproval->value) {
+            return 'transition_not_submission';
+        }
+
+        $expectedStatus = (string) ($this->payload['expected_status'] ?? RequirementStatus::PendingApproval->value);
+        if ($requirement->status->value !== $expectedStatus) {
+            return 'submission_superseded_by_status';
+        }
+
+        $expectedRecruiterId = isset($this->payload['expected_recruiter_id'])
+            ? (int) $this->payload['expected_recruiter_id']
+            : null;
+
+        if ($expectedRecruiterId === null || (int) $requirement->assigned_to !== $expectedRecruiterId) {
+            return 'submission_reassigned_before_delivery';
+        }
+
+        // A newer pending-approval transition (e.g. resubmit) supersedes this submission event.
+        $newerSubmissionExists = RecruitmentRequirementStatusTransition::query()
+            ->where('company_id', (int) $requirement->company_id)
+            ->where('recruitment_requirement_id', (int) $requirement->id)
+            ->where('to_status', RequirementStatus::PendingApproval->value)
+            ->where('id', '>', (int) $transition->id)
+            ->exists();
+
+        if ($newerSubmissionExists) {
+            return 'submission_superseded_by_newer_transition';
+        }
+
+        return null;
+    }
+
+    private function validateReassignedStillCurrent(
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementStatusTransition $transition,
+    ): ?string {
+        $expectedRecruiterId = isset($this->payload['expected_recruiter_id'])
+            ? (int) $this->payload['expected_recruiter_id']
+            : null;
+        $assignmentVersion = isset($this->payload['assignment_version'])
+            ? (string) $this->payload['assignment_version']
+            : null;
+
+        if ($requirement->status !== RequirementStatus::PendingApproval) {
+            return 'reassignment_no_longer_pending';
+        }
+
+        if ($expectedRecruiterId === null || (int) $requirement->assigned_to !== $expectedRecruiterId) {
+            return 'reassignment_superseded_by_newer_assignee';
+        }
+
+        if ($assignmentVersion === null || $assignmentVersion !== (string) $transition->id) {
+            return 'reassignment_version_mismatch';
+        }
+
+        // A newer same-status reassignment transition means this event is obsolete.
+        $newerReassignmentExists = RecruitmentRequirementStatusTransition::query()
+            ->where('company_id', (int) $requirement->company_id)
+            ->where('recruitment_requirement_id', (int) $requirement->id)
+            ->where('from_status', RequirementStatus::PendingApproval->value)
+            ->where('to_status', RequirementStatus::PendingApproval->value)
+            ->where('id', '>', (int) $transition->id)
+            ->exists();
+
+        if ($newerReassignmentExists) {
+            return 'reassignment_superseded_by_newer_transition';
+        }
+
+        return null;
+    }
+
+    private function validateApprovedTransition(RecruitmentRequirementStatusTransition $transition): ?string
+    {
+        if ((string) $transition->to_status !== RequirementStatus::Open->value) {
+            return 'transition_not_approval';
+        }
+
+        return null;
+    }
+
+    private function validateReturnedTransition(RecruitmentRequirementStatusTransition $transition): ?string
+    {
+        if ((string) $transition->to_status !== RequirementStatus::Returned->value) {
+            return 'transition_not_return';
+        }
+
+        return null;
     }
 
     private function sendSubmitted(RecruitmentRequirement $requirement): void
     {
-        $primary = $requirement->assignedRecruiter;
+        $primaryUserId = isset($this->payload['primary_recipient_user_id'])
+            ? (int) $this->payload['primary_recipient_user_id']
+            : null;
+
+        $primary = $primaryUserId !== null
+            ? User::query()->find($primaryUserId)
+            : null;
+
         $resolved = RequirementNotificationRecipients::resolveUserIds(
             $requirement,
             $primary,
-            $this->ccCandidatesForSubmission($requirement),
+            $this->usersForIds($this->submissionCcUserIds()),
             primaryMustBeEligibleApprover: true,
         );
 
         if ($resolved['to_user_id'] === null) {
-            Log::warning('Requirement submission email skipped: primary recruiter ineligible.', [
-                'requirement_id' => $requirement->id,
-                'company_id' => $requirement->company_id,
-                'assigned_to' => $requirement->assigned_to,
-                'event' => $this->event,
-            ]);
+            $this->skip('primary_recruiter_ineligible');
+
+            return;
+        }
+
+        // Guard against resolving to a different current recruiter than the snapshotted event.
+        if ($primaryUserId !== null && (int) $resolved['to_user_id'] !== $primaryUserId) {
+            $this->skip('resolved_primary_mismatch');
 
             return;
         }
@@ -101,16 +244,20 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         $toUser = User::query()->find($resolved['to_user_id']);
         $toEmail = RequirementNotificationRecipients::usableEmail($toUser);
         if ($toEmail === null) {
+            $this->skip('primary_missing_usable_email');
+
             return;
         }
 
         $ccEmails = $this->emailsForUserIds($resolved['cc_user_ids'], $toEmail);
-        $submitterName = (string) ($requirement->submitter?->name
-            ?? $requirement->creator?->name
-            ?? 'Requester');
+        $submitterName = $this->displayNameForUserId(
+            isset($this->payload['submitter_user_id']) ? (int) $this->payload['submitter_user_id'] : null,
+            'Requester',
+        );
 
+        $event = (string) ($this->payload['event'] ?? '');
         $mailable = new RequirementSubmittedForApprovalMail(
-            subjectLine: $this->event === 'reassigned'
+            subjectLine: $event === RequirementLifecycleEmailPayload::EVENT_REASSIGNED
                 ? "Requirement {$requirement->requirement_number} assigned for approval"
                 : "Requirement {$requirement->requirement_number} awaiting approval",
             organizationName: $this->organizationName($requirement),
@@ -125,20 +272,23 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
 
     private function sendApproved(RecruitmentRequirement $requirement): void
     {
-        $primary = $requirement->creator;
+        $primaryUserId = isset($this->payload['primary_recipient_user_id'])
+            ? (int) $this->payload['primary_recipient_user_id']
+            : null;
+
+        $primary = $primaryUserId !== null
+            ? User::query()->find($primaryUserId)
+            : null;
+
         $resolved = RequirementNotificationRecipients::resolveUserIds(
             $requirement,
             $primary,
-            $this->ccCandidatesForDecision($requirement),
+            $this->usersForIds($this->decisionCcUserIds()),
             primaryMustBeEligibleApprover: false,
         );
 
         if ($resolved['to_user_id'] === null) {
-            Log::warning('Requirement approval email skipped: requester ineligible.', [
-                'requirement_id' => $requirement->id,
-                'company_id' => $requirement->company_id,
-                'created_by' => $requirement->created_by,
-            ]);
+            $this->skip('requester_ineligible');
 
             return;
         }
@@ -146,17 +296,24 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         $toUser = User::query()->find($resolved['to_user_id']);
         $toEmail = RequirementNotificationRecipients::usableEmail($toUser);
         if ($toEmail === null) {
+            $this->skip('requester_missing_usable_email');
+
             return;
         }
 
         $ccEmails = $this->emailsForUserIds($resolved['cc_user_ids'], $toEmail);
+        $approverName = $this->displayNameForUserId(
+            isset($this->payload['actor_user_id']) ? (int) $this->payload['actor_user_id'] : null,
+            'Recruiter',
+        );
+        $approvedAtFormatted = $this->formatEventOccurredAt();
 
         $mailable = new RequirementApprovedMail(
             subjectLine: "Requirement {$requirement->requirement_number} approved",
             organizationName: $this->organizationName($requirement),
             requirementNumber: (string) $requirement->requirement_number,
-            approverName: (string) ($requirement->approver?->name ?? 'Recruiter'),
-            approvedAtFormatted: $requirement->approved_at?->format('d-m-Y H:i') ?? now()->format('d-m-Y H:i'),
+            approverName: $approverName,
+            approvedAtFormatted: $approvedAtFormatted,
             details: $this->commonDetails($requirement),
             requirementUrl: $this->requirementUrl($requirement),
         );
@@ -166,20 +323,23 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
 
     private function sendReturned(RecruitmentRequirement $requirement): void
     {
-        $primary = $requirement->creator;
+        $primaryUserId = isset($this->payload['primary_recipient_user_id'])
+            ? (int) $this->payload['primary_recipient_user_id']
+            : null;
+
+        $primary = $primaryUserId !== null
+            ? User::query()->find($primaryUserId)
+            : null;
+
         $resolved = RequirementNotificationRecipients::resolveUserIds(
             $requirement,
             $primary,
-            $this->ccCandidatesForDecision($requirement),
+            $this->usersForIds($this->decisionCcUserIds()),
             primaryMustBeEligibleApprover: false,
         );
 
         if ($resolved['to_user_id'] === null) {
-            Log::warning('Requirement return email skipped: requester ineligible.', [
-                'requirement_id' => $requirement->id,
-                'company_id' => $requirement->company_id,
-                'created_by' => $requirement->created_by,
-            ]);
+            $this->skip('requester_ineligible');
 
             return;
         }
@@ -187,17 +347,24 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         $toUser = User::query()->find($resolved['to_user_id']);
         $toEmail = RequirementNotificationRecipients::usableEmail($toUser);
         if ($toEmail === null) {
+            $this->skip('requester_missing_usable_email');
+
             return;
         }
 
         $ccEmails = $this->emailsForUserIds($resolved['cc_user_ids'], $toEmail);
+        $recruiterName = $this->displayNameForUserId(
+            isset($this->payload['actor_user_id']) ? (int) $this->payload['actor_user_id'] : null,
+            'Recruiter',
+        );
+        $returnReason = (string) ($this->payload['return_reason'] ?? '');
 
         $mailable = new RequirementReturnedMail(
             subjectLine: "Requirement {$requirement->requirement_number} returned for changes",
             organizationName: $this->organizationName($requirement),
             requirementNumber: (string) $requirement->requirement_number,
-            recruiterName: (string) ($requirement->returner?->name ?? $requirement->assignedRecruiter?->name ?? 'Recruiter'),
-            returnReason: (string) ($requirement->return_reason ?? ''),
+            recruiterName: $recruiterName,
+            returnReason: $returnReason,
             details: $this->commonDetails($requirement),
             requirementUrl: $this->requirementUrl($requirement),
         );
@@ -206,55 +373,89 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
     }
 
     /**
-     * @return list<User>
+     * @return list<int>
      */
-    private function ccCandidatesForSubmission(RecruitmentRequirement $requirement): array
+    private function submissionCcUserIds(): array
     {
-        $users = [];
+        $ids = [];
 
-        if ($requirement->creator !== null) {
-            $users[] = $requirement->creator;
+        $requesterId = isset($this->payload['requester_user_id']) ? (int) $this->payload['requester_user_id'] : null;
+        $submitterId = isset($this->payload['submitter_user_id']) ? (int) $this->payload['submitter_user_id'] : null;
+        $primaryId = isset($this->payload['primary_recipient_user_id']) ? (int) $this->payload['primary_recipient_user_id'] : null;
+
+        if ($requesterId !== null && $requesterId !== $primaryId) {
+            $ids[] = $requesterId;
         }
 
-        if (
-            $requirement->submitter !== null
-            && (int) $requirement->submitter->id !== (int) ($requirement->creator?->id ?? 0)
-        ) {
-            $users[] = $requirement->submitter;
-        } elseif ($requirement->submitter !== null) {
-            // Same person — already included via creator; keep single entry.
+        if ($submitterId !== null && $submitterId !== $primaryId && $submitterId !== $requesterId) {
+            $ids[] = $submitterId;
         }
 
-        foreach ($requirement->notificationRecipients as $recipient) {
-            if ($recipient->user !== null) {
-                $users[] = $recipient->user;
+        foreach ($this->additionalCcUserIds() as $ccId) {
+            if ($ccId !== $primaryId) {
+                $ids[] = $ccId;
             }
         }
 
-        return $users;
+        return array_values(array_unique($ids));
     }
 
     /**
-     * @return list<User>
+     * @return list<int>
      */
-    private function ccCandidatesForDecision(RecruitmentRequirement $requirement): array
+    private function decisionCcUserIds(): array
     {
-        $users = [];
+        $ids = [];
 
-        if (
-            $requirement->submitter !== null
-            && (int) $requirement->submitter->id !== (int) ($requirement->creator?->id ?? 0)
-        ) {
-            $users[] = $requirement->submitter;
+        $requesterId = isset($this->payload['requester_user_id']) ? (int) $this->payload['requester_user_id'] : null;
+        $submitterId = isset($this->payload['submitter_user_id']) ? (int) $this->payload['submitter_user_id'] : null;
+        $primaryId = isset($this->payload['primary_recipient_user_id']) ? (int) $this->payload['primary_recipient_user_id'] : null;
+
+        if ($submitterId !== null && $submitterId !== $primaryId && $submitterId !== $requesterId) {
+            $ids[] = $submitterId;
         }
 
-        foreach ($requirement->notificationRecipients as $recipient) {
-            if ($recipient->user !== null) {
-                $users[] = $recipient->user;
+        foreach ($this->additionalCcUserIds() as $ccId) {
+            if ($ccId !== $primaryId) {
+                $ids[] = $ccId;
             }
         }
 
-        return $users;
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function additionalCcUserIds(): array
+    {
+        $raw = $this->payload['additional_cc_user_ids'] ?? [];
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return collect($raw)
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<int>  $userIds
+     * @return list<User>
+     */
+    private function usersForIds(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        return User::query()
+            ->whereIn('id', $userIds)
+            ->get(['id', 'name', 'email', 'status', 'deleted_at', 'company_id'])
+            ->all();
     }
 
     /**
@@ -300,13 +501,15 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         }
 
         // Send synchronously inside the lifecycle job so addresses are not serialized ahead of time.
+        // Unexpected transport/render failures must escape handle() for Laravel retries.
         $pending->send($mailable);
 
         Log::info('Sent recruitment requirement lifecycle email.', [
-            'event' => $this->event,
+            'event' => (string) ($this->payload['event'] ?? ''),
             'requirement_id' => $requirement->id,
             'company_id' => $requirement->company_id,
             'requirement_number' => $requirement->requirement_number,
+            'status_transition_id' => $this->payload['status_transition_id'] ?? null,
             'cc_count' => count($cc),
         ]);
     }
@@ -350,7 +553,10 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         ];
         $details[] = [
             'label' => 'Requester',
-            'value' => (string) ($requirement->creator?->name ?? '—'),
+            'value' => $this->displayNameForUserId(
+                isset($this->payload['requester_user_id']) ? (int) $this->payload['requester_user_id'] : null,
+                '—',
+            ),
         ];
 
         if ($submitterName !== null) {
@@ -361,6 +567,31 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         }
 
         return $details;
+    }
+
+    private function displayNameForUserId(?int $userId, string $fallback): string
+    {
+        if ($userId === null) {
+            return $fallback;
+        }
+
+        $name = User::query()->whereKey($userId)->value('name');
+
+        return filled($name) ? (string) $name : $fallback;
+    }
+
+    private function formatEventOccurredAt(): string
+    {
+        $raw = $this->payload['event_occurred_at'] ?? null;
+        if (! is_string($raw) || $raw === '') {
+            return now()->format('d-m-Y H:i');
+        }
+
+        try {
+            return Carbon::parse($raw)->format('d-m-Y H:i');
+        } catch (Throwable) {
+            return now()->format('d-m-Y H:i');
+        }
     }
 
     private function organizationName(RecruitmentRequirement $requirement): string
@@ -375,5 +606,23 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
     private function requirementUrl(RecruitmentRequirement $requirement): string
     {
         return route('organization.recruitment.requirements.show', $requirement);
+    }
+
+    private function skip(string $reason): void
+    {
+        Log::warning('Requirement lifecycle email skipped.', [
+            'requirement_id' => (int) ($this->payload['requirement_id'] ?? 0),
+            'company_id' => (int) ($this->payload['company_id'] ?? 0),
+            'event' => (string) ($this->payload['event'] ?? ''),
+            'status_transition_id' => $this->payload['status_transition_id'] ?? null,
+            'reason' => $reason,
+        ]);
+    }
+
+    private function sanitizeExceptionMessage(string $message): string
+    {
+        $sanitized = preg_replace('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', '[redacted-email]', $message) ?? $message;
+
+        return mb_substr($sanitized, 0, 500);
     }
 }

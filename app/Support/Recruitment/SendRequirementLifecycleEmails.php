@@ -4,41 +4,50 @@ namespace App\Support\Recruitment;
 
 use App\Jobs\DeliverRequirementLifecycleEmailJob;
 use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementStatusTransition;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Dispatches lifecycle notification jobs after the requirement transaction commits.
- * Jobs reload and revalidate recipients; email addresses are never serialized ahead of time.
+ * Jobs receive an immutable event snapshot; email addresses are never serialized.
  */
 final class SendRequirementLifecycleEmails
 {
-    public static function submittedForApproval(RecruitmentRequirement $requirement): void
-    {
-        self::dispatch($requirement, 'submitted');
+    public static function submittedForApproval(
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementStatusTransition $transition,
+    ): void {
+        self::dispatch(RequirementLifecycleEmailPayload::forSubmitted($requirement, $transition));
     }
 
-    public static function approved(RecruitmentRequirement $requirement): void
-    {
-        self::dispatch($requirement, 'approved');
+    public static function approved(
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementStatusTransition $transition,
+    ): void {
+        self::dispatch(RequirementLifecycleEmailPayload::forApproved($requirement, $transition));
     }
 
-    public static function returned(RecruitmentRequirement $requirement): void
-    {
-        self::dispatch($requirement, 'returned');
+    public static function returned(
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementStatusTransition $transition,
+    ): void {
+        self::dispatch(RequirementLifecycleEmailPayload::forReturned($requirement, $transition));
     }
 
-    public static function pendingReassigned(RecruitmentRequirement $requirement): void
-    {
-        self::dispatch($requirement, 'reassigned');
+    public static function pendingReassigned(
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementStatusTransition $transition,
+    ): void {
+        self::dispatch(RequirementLifecycleEmailPayload::forReassigned($requirement, $transition));
     }
 
-    private static function dispatch(RecruitmentRequirement $requirement, string $event): void
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private static function dispatch(array $payload): void
     {
-        $requirementId = (int) $requirement->id;
-        $companyId = (int) $requirement->company_id;
-
-        $dispatch = static function () use ($requirementId, $companyId, $event): void {
-            DeliverRequirementLifecycleEmailJob::dispatch($requirementId, $companyId, $event);
+        $dispatch = static function () use ($payload): void {
+            DeliverRequirementLifecycleEmailJob::dispatch($payload);
         };
 
         if (DB::transactionLevel() > 0) {

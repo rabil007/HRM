@@ -2,8 +2,11 @@
 
 namespace App\Actions\Recruitment;
 
+use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
+use App\Models\RecruitmentRequirementStatusTransition;
+use App\Support\Recruitment\RecordRequirementStatusTransition;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
 use App\Support\Recruitment\SendRequirementLifecycleEmails;
@@ -27,9 +30,11 @@ final class UpdateRequirementAction
     ): RecruitmentRequirement {
         $storedFilePath = null;
         $shouldNotifyReassignment = false;
+        /** @var RecruitmentRequirementStatusTransition|null $reassignmentTransition */
+        $reassignmentTransition = null;
 
         try {
-            $result = DB::transaction(function () use ($requirement, $userId, $data, $attachment, &$storedFilePath, &$shouldNotifyReassignment): RecruitmentRequirement {
+            $result = DB::transaction(function () use ($requirement, $userId, $data, $attachment, &$storedFilePath, &$shouldNotifyReassignment, &$reassignmentTransition): RecruitmentRequirement {
                 /** @var RecruitmentRequirement $locked */
                 $locked = RecruitmentRequirement::query()
                     ->where('id', $requirement->id)
@@ -89,6 +94,13 @@ final class UpdateRequirementAction
                     ]);
 
                     if ($newAssignedTo !== $previousAssignedTo) {
+                        $reassignmentTransition = RecordRequirementStatusTransition::handle(
+                            $locked,
+                            RequirementStatus::PendingApproval,
+                            RequirementStatus::PendingApproval,
+                            $userId,
+                            'Recruiter reassigned',
+                        );
                         $shouldNotifyReassignment = true;
                     }
                 } else {
@@ -165,10 +177,8 @@ final class UpdateRequirementAction
             throw $exception;
         }
 
-        if ($shouldNotifyReassignment) {
-            DB::afterCommit(function () use ($result): void {
-                SendRequirementLifecycleEmails::pendingReassigned($result);
-            });
+        if ($shouldNotifyReassignment && $reassignmentTransition instanceof RecruitmentRequirementStatusTransition) {
+            SendRequirementLifecycleEmails::pendingReassigned($result, $reassignmentTransition);
         }
 
         return $result;

@@ -21,7 +21,7 @@ final class SubmitRequirementForApprovalAction
             ]);
         }
 
-        $result = DB::transaction(function () use ($requirement, $actor): RecruitmentRequirement {
+        $result = DB::transaction(function () use ($requirement, $actor): array {
             /** @var RecruitmentRequirement $locked */
             $locked = RecruitmentRequirement::query()
                 ->where('id', $requirement->id)
@@ -65,7 +65,7 @@ final class SubmitRequirementForApprovalAction
                 'updated_by' => $actor->id,
             ]);
 
-            RecordRequirementStatusTransition::handle(
+            $transition = RecordRequirementStatusTransition::handle(
                 $locked,
                 $fromStatus,
                 RequirementStatus::PendingApproval,
@@ -83,7 +83,7 @@ final class SubmitRequirementForApprovalAction
                 ])
                 ->log("Requirement {$locked->requirement_number} submitted for approval.");
 
-            return $locked->fresh([
+            $fresh = $locked->fresh([
                 'assignedRecruiter',
                 'creator',
                 'submitter',
@@ -93,12 +93,15 @@ final class SubmitRequirementForApprovalAction
                 'notificationRecipients.user',
                 'company',
             ]) ?? $locked;
+
+            return [$fresh, $transition];
         });
 
-        DB::afterCommit(function () use ($result): void {
-            SendRequirementLifecycleEmails::submittedForApproval($result);
-        });
+        /** @var RecruitmentRequirement $requirement */
+        [$requirement, $transition] = $result;
 
-        return $result;
+        SendRequirementLifecycleEmails::submittedForApproval($requirement, $transition);
+
+        return $requirement;
     }
 }

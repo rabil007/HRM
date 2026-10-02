@@ -32,3 +32,33 @@ export function resolveRecruitmentClockSummary(input: {
 
     return stateLabel;
 }
+
+export function resolveActiveRecruitmentDurationDisplay(input: {
+    durationLabel: string | null | undefined;
+    isEstimated?: boolean | null;
+    estimateNote?: string | null;
+}): {
+    label: string | null;
+    showEstimated: boolean;
+    estimateNote: string | null;
+} {
+    const label =
+        typeof input.durationLabel === 'string' &&
+        input.durationLabel.trim() !== ''
+            ? input.durationLabel
+            : null;
+
+    const showEstimated = label !== null && input.isEstimated === true;
+    const estimateNote =
+        showEstimated &&
+        typeof input.estimateNote === 'string' &&
+        input.estimateNote.trim() !== ''
+            ? input.estimateNote.trim()
+            : null;
+
+    return {
+        label,
+        showEstimated,
+        estimateNote,
+    };
+}

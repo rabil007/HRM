@@ -20,7 +20,7 @@ final class ApproveRequirementAction
             ]);
         }
 
-        $result = DB::transaction(function () use ($requirement, $actor): RecruitmentRequirement {
+        $result = DB::transaction(function () use ($requirement, $actor): array {
             /** @var RecruitmentRequirement $locked */
             $locked = RecruitmentRequirement::query()
                 ->where('id', $requirement->id)
@@ -65,7 +65,7 @@ final class ApproveRequirementAction
                 'updated_by' => $actor->id,
             ]);
 
-            RecordRequirementStatusTransition::handle(
+            $transition = RecordRequirementStatusTransition::handle(
                 $locked,
                 $fromStatus,
                 RequirementStatus::Open,
@@ -82,7 +82,7 @@ final class ApproveRequirementAction
                 ])
                 ->log("Requirement {$locked->requirement_number} approved and opened.");
 
-            return $locked->fresh([
+            $fresh = $locked->fresh([
                 'creator',
                 'approver',
                 'client',
@@ -91,12 +91,15 @@ final class ApproveRequirementAction
                 'notificationRecipients.user',
                 'company',
             ]) ?? $locked;
+
+            return [$fresh, $transition];
         });
 
-        DB::afterCommit(function () use ($result): void {
-            SendRequirementLifecycleEmails::approved($result);
-        });
+        /** @var RecruitmentRequirement $requirement */
+        [$requirement, $transition] = $result;
 
-        return $result;
+        SendRequirementLifecycleEmails::approved($requirement, $transition);
+
+        return $requirement;
     }
 }

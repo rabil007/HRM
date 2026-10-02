@@ -27,7 +27,7 @@ final class ReturnRequirementAction
             ]);
         }
 
-        $result = DB::transaction(function () use ($requirement, $actor, $reason): RecruitmentRequirement {
+        $result = DB::transaction(function () use ($requirement, $actor, $reason): array {
             /** @var RecruitmentRequirement $locked */
             $locked = RecruitmentRequirement::query()
                 ->where('id', $requirement->id)
@@ -57,7 +57,7 @@ final class ReturnRequirementAction
                 'updated_by' => $actor->id,
             ]);
 
-            RecordRequirementStatusTransition::handle(
+            $transition = RecordRequirementStatusTransition::handle(
                 $locked,
                 $fromStatus,
                 RequirementStatus::Returned,
@@ -75,7 +75,7 @@ final class ReturnRequirementAction
                 ])
                 ->log("Requirement {$locked->requirement_number} returned for changes.");
 
-            return $locked->fresh([
+            $fresh = $locked->fresh([
                 'creator',
                 'returner',
                 'assignedRecruiter',
@@ -85,12 +85,15 @@ final class ReturnRequirementAction
                 'notificationRecipients.user',
                 'company',
             ]) ?? $locked;
+
+            return [$fresh, $transition];
         });
 
-        DB::afterCommit(function () use ($result): void {
-            SendRequirementLifecycleEmails::returned($result);
-        });
+        /** @var RecruitmentRequirement $requirement */
+        [$requirement, $transition] = $result;
 
-        return $result;
+        SendRequirementLifecycleEmails::returned($requirement, $transition);
+
+        return $requirement;
     }
 }

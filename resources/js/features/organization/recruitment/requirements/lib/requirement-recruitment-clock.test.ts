@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveRecruitmentClockSummary } from './requirement-recruitment-clock.ts';
+import {
+    resolveActiveRecruitmentDurationDisplay,
+    resolveRecruitmentClockSummary,
+} from './requirement-recruitment-clock.ts';
 
 describe('requirement recruitment clock', () => {
     it('summarizes not started state', () => {
@@ -33,6 +36,55 @@ describe('requirement recruitment clock', () => {
                 startedAtFormatted: null,
             }),
             /Paused/,
+        );
+    });
+});
+
+describe('active recruitment duration display', () => {
+    it('does not mark exact durations as estimated', () => {
+        assert.deepEqual(
+            resolveActiveRecruitmentDurationDisplay({
+                durationLabel: '3 days',
+                isEstimated: false,
+                estimateNote: null,
+            }),
+            {
+                label: '3 days',
+                showEstimated: false,
+                estimateNote: null,
+            },
+        );
+    });
+
+    it('shows estimated indicator and note for estimated durations', () => {
+        assert.deepEqual(
+            resolveActiveRecruitmentDurationDisplay({
+                durationLabel: '2 days',
+                isEstimated: true,
+                estimateNote:
+                    'On-hold duration is estimated from the last update timestamp because no hold transition history exists.',
+            }),
+            {
+                label: '2 days',
+                showEstimated: true,
+                estimateNote:
+                    'On-hold duration is estimated from the last update timestamp because no hold transition history exists.',
+            },
+        );
+    });
+
+    it('does not show estimated UI when there is no duration label', () => {
+        assert.deepEqual(
+            resolveActiveRecruitmentDurationDisplay({
+                durationLabel: null,
+                isEstimated: true,
+                estimateNote: 'Should stay hidden',
+            }),
+            {
+                label: null,
+                showEstimated: false,
+                estimateNote: null,
+            },
         );
     });
 });

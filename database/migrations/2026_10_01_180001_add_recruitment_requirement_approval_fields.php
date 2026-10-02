@@ -27,66 +27,82 @@ return new class extends Migration
 
     public function down(): void
     {
-        $driver = Schema::getConnection()->getDriverName();
+        $table = 'recruitment_requirements';
 
-        Schema::table('recruitment_requirements', function (Blueprint $table) use ($driver) {
-            $this->dropForeignForColumn($table, $driver, 'fk_req_submitted_by', 'submitted_by');
-            $this->dropForeignForColumn($table, $driver, 'fk_req_approved_by', 'approved_by');
-            $this->dropForeignForColumn($table, $driver, 'fk_req_returned_by', 'returned_by');
+        $this->dropForeignKey($table, 'fk_req_submitted_by', 'submitted_by');
+        $this->dropForeignKey($table, 'fk_req_approved_by', 'approved_by');
+        $this->dropForeignKey($table, 'fk_req_returned_by', 'returned_by');
 
-            $this->dropIndexIfPresent($table, $driver, 'idx_recruitment_req_company_submitted_at', ['company_id', 'submitted_at']);
-            $this->dropIndexIfPresent($table, $driver, 'idx_recruitment_req_company_approved_at', ['company_id', 'approved_at']);
+        $this->dropNamedIndex($table, 'idx_recruitment_req_company_submitted_at');
+        $this->dropNamedIndex($table, 'idx_recruitment_req_company_approved_at');
 
-            $table->dropColumn([
-                'submitted_at',
-                'submitted_by',
-                'approved_at',
-                'approved_by',
-                'returned_at',
-                'returned_by',
-                'return_reason',
-            ]);
+        $columns = [
+            'submitted_at',
+            'submitted_by',
+            'approved_at',
+            'approved_by',
+            'returned_at',
+            'returned_by',
+            'return_reason',
+        ];
+
+        $existing = array_values(array_filter(
+            $columns,
+            fn (string $column): bool => Schema::hasColumn($table, $column),
+        ));
+
+        if ($existing === []) {
+            return;
+        }
+
+        Schema::table($table, function (Blueprint $blueprint) use ($existing): void {
+            $blueprint->dropColumn($existing);
         });
     }
 
-    private function dropForeignForColumn(Blueprint $table, string $driver, string $customName, string $columnName): void
+    private function dropForeignKey(string $table, string $constraintName, string $column): void
     {
+        $driver = Schema::getConnection()->getDriverName();
+        $foreignKeys = collect(Schema::getForeignKeys($table));
+
         if ($driver === 'sqlite') {
-            try {
-                $table->dropForeign([$columnName]);
-            } catch (Throwable) {
-                // SQLite may recreate tables without named FKs.
+            // SQLite often omits custom constraint names; drop by column only when a FK exists on it.
+            $hasFkOnColumn = $foreignKeys->contains(
+                fn (array $foreignKey): bool => in_array($column, $foreignKey['columns'] ?? [], true),
+            );
+
+            if (! $hasFkOnColumn || ! Schema::hasColumn($table, $column)) {
+                return;
             }
+
+            Schema::table($table, function (Blueprint $blueprint) use ($column): void {
+                $blueprint->dropForeign([$column]);
+            });
 
             return;
         }
 
-        try {
-            $table->dropForeign($customName);
-        } catch (Throwable) {
-            try {
-                $table->dropForeign([$columnName]);
-            } catch (Throwable) {
-                // Foreign key already absent.
-            }
+        $existsByName = $foreignKeys->contains(
+            fn (array $foreignKey): bool => ($foreignKey['name'] ?? null) === $constraintName,
+        );
+
+        if (! $existsByName) {
+            return;
         }
+
+        Schema::table($table, function (Blueprint $blueprint) use ($constraintName): void {
+            $blueprint->dropForeign($constraintName);
+        });
     }
 
-    /**
-     * @param  list<string>  $columns
-     */
-    private function dropIndexIfPresent(Blueprint $table, string $driver, string $indexName, array $columns): void
+    private function dropNamedIndex(string $table, string $indexName): void
     {
-        try {
-            $table->dropIndex($indexName);
-        } catch (Throwable) {
-            if ($driver === 'sqlite') {
-                try {
-                    $table->dropIndex($columns);
-                } catch (Throwable) {
-                    // Index already absent or SQLite rebuilt the table.
-                }
-            }
+        if (! Schema::hasIndex($table, $indexName)) {
+            return;
         }
+
+        Schema::table($table, function (Blueprint $blueprint) use ($indexName): void {
+            $blueprint->dropIndex($indexName);
+        });
     }
 };

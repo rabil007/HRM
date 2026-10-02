@@ -18,8 +18,13 @@ use App\Models\RecruitmentRequirementNotificationRecipient;
 use App\Models\RecruitmentRequirementStatusTransition;
 use App\Models\User;
 use App\Support\Recruitment\CalculateActiveRecruitmentDuration;
+use App\Support\Recruitment\CompanyUserOptionsQuery;
+use App\Support\Recruitment\RecruiterOptionsQuery;
+use App\Support\Recruitment\RequirementLifecycleEmailPayload;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -456,6 +461,8 @@ test('pending requirements cannot change core fields via generic update', functi
 });
 
 test('lifecycle email job skips safely when recruiter becomes ineligible before delivery', function () {
+    Queue::fake();
+
     $req = createDraftRequirement($this);
 
     $this->actingAs($this->requester)
@@ -463,18 +470,28 @@ test('lifecycle email job skips safely when recruiter becomes ineligible before 
         ->post("/organization/recruitment/requirements/{$req->id}/submit")
         ->assertRedirect();
 
-    // Strip approve permission after transition but before a deferred re-send.
+    /** @var DeliverRequirementLifecycleEmailJob|null $job */
+    $job = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$job): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_SUBMITTED) {
+            $job = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    expect($job)->not->toBeNull();
+
+    // Strip approve permission after transition but before deferred delivery.
     app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
     $this->recruiter->revokePermissionTo('recruitment.requirements.approve');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     Mail::fake();
 
-    (new DeliverRequirementLifecycleEmailJob(
-        (int) $req->id,
-        (int) $this->companyA->id,
-        'submitted',
-    ))->handle();
+    $job->handle();
 
     Mail::assertNothingSent();
     expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
@@ -764,6 +781,8 @@ test('submitter is cc when different from requester and deduped when same', func
 });
 
 test('queued job skips recipients who lost company access before execution', function () {
+    Queue::fake();
+
     $req = createDraftRequirement($this);
 
     RecruitmentRequirementNotificationRecipient::query()->create([
@@ -777,6 +796,20 @@ test('queued job skips recipients who lost company access before execution', fun
         ->post("/organization/recruitment/requirements/{$req->id}/submit")
         ->assertRedirect();
 
+    /** @var DeliverRequirementLifecycleEmailJob|null $job */
+    $job = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$job): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_SUBMITTED) {
+            $job = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    expect($job)->not->toBeNull();
+
     DB::table('company_user')
         ->where('company_id', $this->companyA->id)
         ->where('user_id', $this->ccUser->id)
@@ -785,15 +818,360 @@ test('queued job skips recipients who lost company access before execution', fun
 
     Mail::fake();
 
-    (new DeliverRequirementLifecycleEmailJob(
-        (int) $req->id,
-        (int) $this->companyA->id,
-        'submitted',
-    ))->handle();
+    $job->handle();
 
     Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
         return $mail->hasTo('recruiter@example.com')
             && $mail->hasCc('requester@example.com')
             && ! $mail->hasCc('cc.user@example.com');
     });
+});
+
+test('submission job does not email the new recruiter after reassignment before delivery', function () {
+    Queue::fake();
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    /** @var DeliverRequirementLifecycleEmailJob|null $submissionJob */
+    $submissionJob = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$submissionJob): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_SUBMITTED) {
+            $submissionJob = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    $recruiterB = createApprovalTestUser($this->companyA, allRecruitmentApprovalPermissions(), [
+        'email' => 'recruiter.b@example.com',
+        'name' => 'Recruiter B',
+    ]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->put("/organization/recruitment/requirements/{$req->id}", [
+            'assigned_to' => $recruiterB->id,
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->assigned_to)->toBe($recruiterB->id);
+
+    Mail::fake();
+    $submissionJob->handle();
+    Mail::assertNothingSent();
+});
+
+test('rapid reassignment jobs only deliver to the intended recruiter for each event', function () {
+    Queue::fake();
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $recruiterB = createApprovalTestUser($this->companyA, allRecruitmentApprovalPermissions(), [
+        'email' => 'recruiter.b@example.com',
+        'name' => 'Recruiter B',
+    ]);
+    $recruiterC = createApprovalTestUser($this->companyA, allRecruitmentApprovalPermissions(), [
+        'email' => 'recruiter.c@example.com',
+        'name' => 'Recruiter C',
+    ]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->put("/organization/recruitment/requirements/{$req->id}", [
+            'assigned_to' => $recruiterB->id,
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->put("/organization/recruitment/requirements/{$req->id}", [
+            'assigned_to' => $recruiterC->id,
+        ])
+        ->assertRedirect();
+
+    $jobs = [];
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$jobs): bool {
+        $jobs[] = $pushed;
+
+        return true;
+    });
+
+    expect($jobs)->toHaveCount(3);
+
+    Mail::fake();
+
+    $jobs[0]->handle(); // original submit to A
+    $jobs[1]->handle(); // reassignment to B
+    Mail::assertNothingSent();
+
+    $jobs[2]->handle(); // reassignment to C
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, 1);
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
+        return $mail->hasTo('recruiter.c@example.com')
+            && ! $mail->hasTo('recruiter@example.com')
+            && ! $mail->hasTo('recruiter.b@example.com');
+    });
+});
+
+test('submission job is skipped after the requirement is approved', function () {
+    Queue::fake();
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    /** @var DeliverRequirementLifecycleEmailJob|null $submissionJob */
+    $submissionJob = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$submissionJob): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_SUBMITTED) {
+            $submissionJob = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/approve")
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open);
+
+    Mail::fake();
+    $submissionJob->handle();
+    Mail::assertNothingSent();
+});
+
+test('return job after resubmission still uses the original reason and actor', function () {
+    Queue::fake();
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/return", [
+            'return_reason' => 'Original return reason that must survive resubmission.',
+        ])
+        ->assertRedirect();
+
+    /** @var DeliverRequirementLifecycleEmailJob|null $returnJob */
+    $returnJob = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$returnJob): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_RETURNED) {
+            $returnJob = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    expect($returnJob)->not->toBeNull()
+        ->and($returnJob->payload['return_reason'])->toBe('Original return reason that must survive resubmission.')
+        ->and($returnJob->payload['actor_user_id'])->toBe($this->recruiter->id);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/resubmit")
+        ->assertRedirect();
+
+    $fresh = $req->fresh();
+    expect($fresh->status)->toBe(RequirementStatus::PendingApproval)
+        ->and($fresh->return_reason)->toBeNull();
+
+    Mail::fake();
+    $returnJob->handle();
+
+    Mail::assertSent(RequirementReturnedMail::class, function (RequirementReturnedMail $mail) {
+        return $mail->hasTo('requester@example.com')
+            && $mail->returnReason === 'Original return reason that must survive resubmission.'
+            && $mail->recruiterName === 'Recruiter User';
+    });
+});
+
+test('inactive pivot membership is rejected even when users.company_id matches', function () {
+    $inactivePivotUser = User::factory()->create([
+        'company_id' => $this->companyA->id,
+        'status' => 'active',
+        'email' => 'inactive.pivot@example.com',
+    ]);
+
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->companyA->id, 'user_id' => $inactivePivotUser->id],
+        ['status' => 'inactive', 'created_at' => now(), 'updated_at' => now()],
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+    $permission = Permission::query()->firstOrCreate([
+        'name' => 'recruitment.requirements.approve',
+        'guard_name' => 'web',
+    ]);
+    $inactivePivotUser->givePermissionTo($permission);
+
+    expect(CompanyUserOptionsQuery::isActiveCompanyMember($inactivePivotUser->id, $this->companyA->id))->toBeFalse()
+        ->and(RecruiterOptionsQuery::isEligibleApprover($inactivePivotUser->id, $this->companyA->id))->toBeFalse();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'request_received_date' => now()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(7)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $inactivePivotUser->id,
+            'positions' => [
+                ['position_id' => $this->position->id, 'required_headcount' => 1],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+});
+
+test('active pivot membership and legacy no-pivot home company remain eligible', function () {
+    expect(CompanyUserOptionsQuery::isActiveCompanyMember($this->recruiter->id, $this->companyA->id))->toBeTrue();
+
+    $legacyUser = User::factory()->create([
+        'company_id' => $this->companyA->id,
+        'status' => 'active',
+        'email' => 'legacy.home@example.com',
+    ]);
+    DB::table('company_user')
+        ->where('company_id', $this->companyA->id)
+        ->where('user_id', $legacyUser->id)
+        ->delete();
+
+    expect(CompanyUserOptionsQuery::isActiveCompanyMember($legacyUser->id, $this->companyA->id))->toBeTrue();
+
+    $this->companyA->update(['status' => 'inactive']);
+    expect(CompanyUserOptionsQuery::isActiveCompanyMember($this->recruiter->id, $this->companyA->id))->toBeFalse();
+    $this->companyA->update(['status' => 'active']);
+
+    expect(CompanyUserOptionsQuery::isActiveCompanyMember($this->requester->id, $this->companyB->id))->toBeFalse();
+});
+
+test('lifecycle email skips primary recipient with inactive pivot membership', function () {
+    Queue::fake();
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    /** @var DeliverRequirementLifecycleEmailJob|null $job */
+    $job = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$job): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_SUBMITTED) {
+            $job = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    DB::table('company_user')
+        ->where('company_id', $this->companyA->id)
+        ->where('user_id', $this->recruiter->id)
+        ->update(['status' => 'inactive']);
+
+    Mail::fake();
+    $job->handle();
+    Mail::assertNothingSent();
+});
+
+test('temporary mail exceptions escape handle and leave the requirement transition committed', function () {
+    Queue::fake();
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    /** @var DeliverRequirementLifecycleEmailJob|null $job */
+    $job = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$job): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_SUBMITTED) {
+            $job = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    expect($job)->not->toBeNull()
+        ->and($job->tries)->toBe(3)
+        ->and($job->backoff)->toBe([30, 60, 120]);
+
+    Mail::shouldReceive('to')->once()->andThrow(new RuntimeException('SMTP temporary failure secret-pass@example.com'));
+
+    expect(fn () => $job->handle())->toThrow(RuntimeException::class);
+    expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
+
+    Log::spy();
+    $job->failed(new RuntimeException('SMTP temporary failure secret-pass@example.com'));
+    Log::shouldHaveReceived('error')->withArgs(function (string $message, array $context): bool {
+        $encoded = json_encode($context);
+
+        return str_contains($message, 'Requirement lifecycle email job failed after retries')
+            && ! str_contains((string) $encoded, 'secret-pass@example.com')
+            && str_contains((string) $encoded, '[redacted-email]');
+    });
+});
+
+test('expected ineligible recipient skips do not throw from lifecycle email jobs', function () {
+    Queue::fake();
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    /** @var DeliverRequirementLifecycleEmailJob|null $job */
+    $job = null;
+    Queue::assertPushed(DeliverRequirementLifecycleEmailJob::class, function (DeliverRequirementLifecycleEmailJob $pushed) use (&$job): bool {
+        if (($pushed->payload['event'] ?? null) === RequirementLifecycleEmailPayload::EVENT_SUBMITTED) {
+            $job = $pushed;
+
+            return true;
+        }
+
+        return false;
+    });
+
+    $this->recruiter->update(['status' => 'inactive']);
+
+    Mail::fake();
+
+    expect(fn () => $job->handle())->not->toThrow(Throwable::class);
+    Mail::assertNothingSent();
+    expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
 });

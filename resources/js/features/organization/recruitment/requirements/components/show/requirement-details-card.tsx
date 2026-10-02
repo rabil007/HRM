@@ -12,9 +12,19 @@ import {
     Users,
 } from 'lucide-react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { RequirementDetail } from '@/types/recruitment';
-import { resolveRecruitmentClockSummary } from '../../lib/requirement-recruitment-clock';
+import {
+    resolveActiveRecruitmentDurationDisplay,
+    resolveRecruitmentClockSummary,
+} from '../../lib/requirement-recruitment-clock';
 
 type Props = {
     requirement: RequirementDetail;
@@ -44,6 +54,11 @@ export function RequirementDetailsCard({ requirement }: Props) {
         clockState: requirement.recruitment_clock_state,
         durationLabel: requirement.recruitment_duration_label,
         startedAtFormatted: requirement.recruitment_started_at_formatted,
+    });
+    const durationDisplay = resolveActiveRecruitmentDurationDisplay({
+        durationLabel: requirement.recruitment_duration_label,
+        isEstimated: requirement.duration_is_estimated,
+        estimateNote: requirement.duration_estimate_note,
     });
 
     return (
@@ -237,9 +252,40 @@ export function RequirementDetailsCard({ requirement }: Props) {
                     <DetailRow
                         label="Active recruitment"
                         value={
-                            requirement.recruitment_duration_label
-                                ? requirement.recruitment_duration_label
-                                : '—'
+                            durationDisplay.label ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span>{durationDisplay.label}</span>
+                                    {durationDisplay.showEstimated ? (
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="cursor-help text-[10px] font-medium tracking-wide text-muted-foreground"
+                                                    >
+                                                        Estimated
+                                                    </Badge>
+                                                </TooltipTrigger>
+                                                {durationDisplay.estimateNote ? (
+                                                    <TooltipContent className="max-w-xs text-xs">
+                                                        {
+                                                            durationDisplay.estimateNote
+                                                        }
+                                                    </TooltipContent>
+                                                ) : null}
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    ) : null}
+                                    {durationDisplay.showEstimated &&
+                                    durationDisplay.estimateNote ? (
+                                        <span className="basis-full text-xs font-normal text-muted-foreground sm:hidden">
+                                            {durationDisplay.estimateNote}
+                                        </span>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                '—'
+                            )
                         }
                     />
                 </div>
