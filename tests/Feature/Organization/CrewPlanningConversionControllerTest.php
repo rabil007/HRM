@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
@@ -180,27 +181,80 @@ test('vacant planning row can open unified create handoff with vessel prefill', 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('user without movement permission receives 403 on legacy conversion redirect route', function () {
-    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Forbidden Vessel');
+test('create-only user can use legacy vacant redirect and save draft but not start', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Create Only Redirect Vessel');
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
         'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
     ]);
     $user->update(['current_company_id' => $company->id]);
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $planning = CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'position_id' => $rank->id,
-        'employee_id' => $employee->id,
+        'employee_id' => null,
         'planned_join_date' => '2027-04-01',
+        'planned_leave_date' => '2027-09-30',
     ]);
 
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.create-crew-assignment', $planning))
+        ->assertRedirect(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $planning->id,
+        ]));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'draft',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2027-04-01',
+            'planned_signoff_at' => '2027-09-30',
+            'planning_assignment_id' => $planning->id,
+        ])
+        ->assertRedirect();
+
+    $draft = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
+
+    expect($draft)->not->toBeNull()
+        ->and($draft->status)->toBe(CrewAssignmentStatus::Draft)
+        ->and($planning->fresh()->crew_assignment_id)->toBe($draft->id);
+
+    $secondVacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2028-01-01',
+        'planned_leave_date' => '2028-03-01',
+    ]);
+    $secondEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $secondEmployee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2028-01-01',
+            'planned_signoff_at' => '2028-03-01',
+            'planning_assignment_id' => $secondVacant->id,
+        ])
         ->assertForbidden();
+
+    expect($secondVacant->fresh()->crew_assignment_id)->toBeNull()
+        ->and(CrewAssignment::query()
+            ->where('company_id', $company->id)
+            ->where('employee_id', $secondEmployee->id)
+            ->count())->toBe(0);
 });
 
 test('user without planning view permission receives 403 on legacy conversion redirect route', function () {

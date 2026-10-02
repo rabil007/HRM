@@ -54,9 +54,9 @@ class CrewPlanningAssignmentController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewPlanningAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
+        // Redirect-only vacant handoff: Draft needs create; Start is authorized on Store.
         if (! $request->user()?->can('crew_operations.planning.view')
-            || ! $request->user()->can('crew_operations.assignments.create')
-            || ! $request->user()->can('crew_operations.movements.perform')) {
+            || ! $request->user()->can('crew_operations.assignments.create')) {
             abort(403);
         }
 
